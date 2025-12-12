@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+
+{% block title %}Códigos de Descuento - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6 mb-3">
+                <i class="fas fa-ticket-alt"></i> Gestión de Códigos de Descuento
+            </h1>
+            <p class="text-muted">Crea y gestiona códigos promocionales que los usuarios pueden aplicar en el checkout</p>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    <div id="alert-container"></div>
+
+    <!-- Botón para crear nuevo código -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCodeModal">
+                <i class="fas fa-plus"></i> Crear Nuevo Código
+            </button>
+            <a href="{{ url_for('admin_master_discount') }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-crown"></i> Configurar Descuento Maestro
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('admin_discount_codes') }}" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="search" class="form-label">Buscar</label>
+                            <input type="text" class="form-control" id="search" name="search" 
+                                   value="{{ search }}" placeholder="Código o nombre...">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Estado</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Activos</option>
+                                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactivos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Filtrar
+                            </button>
+                            <a href="{{ url_for('admin_discount_codes') }}" class="btn btn-outline-secondary ms-2">
+                                <i class="fas fa-times"></i> Limpiar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de códigos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Códigos de Descuento ({{ pagination.total }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if codes %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Tipo</th>
+                                    <th>Valor</th>
+                                    <th>Aplica a</th>
+                                    <th>Usos</th>
+                                    <th>Vigencia</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for code in codes %}
+                                <tr>
+                                    <td><strong>{{ code.code }}</strong></td>
+                                    <td>{{ code.name }}</td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ 'Porcentaje' if code.discount_type == 'percentage' else 'Fijo' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if code.discount_type == 'percentage' %}
+                                            {{ code.value }}%
+                                        {% else %}
+                                            ${{ "%.2f"|format(code.value) }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ code.applies_to.replace('_', ' ').title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ code.current_uses }}
+                                        {% if code.max_uses_total %}
+                                            / {{ code.max_uses_total }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if code.start_date and code.end_date %}
+                                            {{ code.start_date.strftime('%d/%m/%Y') }} - {{ code.end_date.strftime('%d/%m/%Y') }}
+                                        {% elif code.end_date %}
+                                            Hasta {{ code.end_date.strftime('%d/%m/%Y') }}
+                                        {% else %}
+                                            Sin límite
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if code.is_active %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    onclick="editCode({{ code.id }})" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    onclick="deleteCode({{ code.id }})" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    {% if pagination.pages > 1 %}
+                    <nav aria-label="Paginación">
+                        <ul class="pagination justify-content-center">
+                            {% if pagination.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin_discount_codes', page=pagination.prev_num, search=search, status=status_filter) }}">Anterior</a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                {% if page_num %}
+                                    {% if page_num == pagination.page %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('admin_discount_codes', page=page_num, search=search, status=status_filter) }}">{{ page_num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if pagination.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin_discount_codes', page=pagination.next_num, search=search, status=status_filter) }}">Siguiente</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No se encontraron códigos de descuento</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Crear/Editar Código -->
+<div class="modal fade" id="createCodeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Crear Nuevo Código de Descuento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="codeForm">
+                <div class="modal-body">
+                    <input type="hidden" id="code_id" name="code_id">
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nombre del Descuento <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tipo de Generación <span class="text-danger">*</span></label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="generate_auto" id="generate_manual" value="false" checked onchange="toggleCodeInput()">
+                                <label class="form-check-label" for="generate_manual">
+                                    Manual (escribir código)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="generate_auto" id="generate_auto" value="true" onchange="toggleCodeInput()">
+                                <label class="form-check-label" for="generate_auto">
+                                    Automático (sistema genera)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="prefix-section" style="display: none;">
+                            <label for="prefix" class="form-label">Prefijo</label>
+                            <input type="text" class="form-control" id="prefix" name="prefix" value="DSC" maxlength="10">
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="code-input-section">
+                        <label for="code" class="form-label">Código <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="code" name="code" 
+                                   placeholder="Ej: VERANO2025" style="text-transform: uppercase;">
+                            <button type="button" class="btn btn-outline-secondary" onclick="generateCode()">
+                                <i class="fas fa-magic"></i> Generar
+                            </button>
+                        </div>
+                        <small class="text-muted">El código se convertirá automáticamente a mayúsculas</small>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="discount_type" class="form-label">Tipo de Descuento <span class="text-danger">*</span></label>
+                            <select class="form-select" id="discount_type" name="discount_type" required onchange="updateValueLabel()">
+                                <option value="percentage">Porcentaje (%)</option>
+                                <option value="fixed">Fijo ($)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="value" class="form-label" id="value_label">Valor (%) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="value" name="value" 
+                                   step="0.01" min="0" max="100" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="applies_to" class="form-label">Aplicable a <span class="text-danger">*</span></label>
+                        <select class="form-select" id="applies_to" name="applies_to" required>
+                            <option value="all">Todo el sistema</option>
+                            <option value="events">Solo eventos</option>
+                            <option value="memberships">Solo membresías</option>
+                            <option value="appointments">Solo citas</option>
+                        </select>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="start_date" class="form-label">Fecha de Inicio</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="end_date" class="form-label">Fecha de Fin</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="max_uses_total" class="form-label">Usos Totales Máximos</label>
+                            <input type="number" class="form-control" id="max_uses_total" name="max_uses_total" 
+                                   min="0" placeholder="Sin límite">
+                            <small class="text-muted">Dejar vacío para sin límite</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="max_uses_per_user" class="form-label">Usos por Usuario</label>
+                            <input type="number" class="form-control" id="max_uses_per_user" name="max_uses_per_user" 
+                                   value="1" min="1">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Código</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleCodeInput() {
+    const generateAuto = document.getElementById('generate_auto').checked;
+    const codeInputSection = document.getElementById('code-input-section');
+    const prefixSection = document.getElementById('prefix-section');
+    const codeInput = document.getElementById('code');
+    
+    if (generateAuto) {
+        codeInputSection.style.display = 'none';
+        prefixSection.style.display = 'block';
+        codeInput.removeAttribute('required');
+    } else {
+        codeInputSection.style.display = 'block';
+        prefixSection.style.display = 'none';
+        codeInput.setAttribute('required', 'required');
+    }
+}
+
+function updateValueLabel() {
+    const discountType = document.getElementById('discount_type').value;
+    const valueLabel = document.getElementById('value_label');
+    const valueInput = document.getElementById('value');
+    
+    if (discountType === 'percentage') {
+        valueLabel.textContent = 'Valor (%) *';
+        valueInput.setAttribute('max', '100');
+    } else {
+        valueLabel.textContent = 'Valor ($) *';
+        valueInput.removeAttribute('max');
+    }
+}
+
+function generateCode() {
+    const prefix = document.getElementById('prefix').value || 'DSC';
+    fetch('/api/admin/discount-codes/generate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prefix: prefix })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('code').value = data.code;
+            showAlert('Código generado exitosamente', 'success');
+        } else {
+            showAlert('Error al generar código: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error al generar código', 'danger');
+    });
+}
+
+function editCode(codeId) {
+    // Cargar datos del código y abrir modal
+    fetch(`/admin/discount-codes/${codeId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const code = data.code;
+            document.getElementById('modalTitle').textContent = 'Editar Código de Descuento';
+            document.getElementById('code_id').value = code.id;
+            document.getElementById('name').value = code.name;
+            document.getElementById('description').value = code.description || '';
+            document.getElementById('code').value = code.code;
+            document.getElementById('discount_type').value = code.discount_type;
+            document.getElementById('value').value = code.value;
+            document.getElementById('applies_to').value = code.applies_to;
+            document.getElementById('max_uses_total').value = code.max_uses_total || '';
+            document.getElementById('max_uses_per_user').value = code.max_uses_per_user || 1;
+            
+            if (code.start_date) {
+                document.getElementById('start_date').value = code.start_date.split('T')[0];
+            }
+            if (code.end_date) {
+                document.getElementById('end_date').value = code.end_date.split('T')[0];
+            }
+            
+            document.getElementById('generate_manual').checked = true;
+            toggleCodeInput();
+            updateValueLabel();
+            
+            const modal = new bootstrap.Modal(document.getElementById('createCodeModal'));
+            modal.show();
+        }
+    })
+    .catch(error => {
+        showAlert('Error al cargar el código', 'danger');
+    });
+}
+
+function deleteCode(codeId) {
+    if (!confirm('¿Estás seguro de eliminar este código de descuento?')) {
+        return;
+    }
+    
+    fetch(`/admin/discount-codes/${codeId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Código eliminado exitosamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error al eliminar código', 'danger');
+    });
+}
+
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alert-container');
+    alertContainer.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    setTimeout(() => {
+        const alert = alertContainer.querySelector('.alert');
+        if (alert) {
+            bootstrap.Alert.getOrCreateInstance(alert).close();
+        }
+    }, 5000);
+}
+
+// Manejar envío del formulario
+document.getElementById('codeForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {};
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+    
+    const codeId = document.getElementById('code_id').value;
+    const url = codeId 
+        ? `/admin/discount-codes/${codeId}/update`
+        : '/admin/discount-codes/create';
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error al guardar código', 'danger');
+    });
+});
+
+// Limpiar modal al cerrar
+document.getElementById('createCodeModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('codeForm').reset();
+    document.getElementById('code_id').value = '';
+    document.getElementById('modalTitle').textContent = 'Crear Nuevo Código de Descuento';
+    document.getElementById('generate_manual').checked = true;
+    toggleCodeInput();
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Carrito de Compras - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="display-6 mb-4">
+                <i class="fas fa-shopping-cart"></i> Carrito de Compras
+            </h1>
+        </div>
+    </div>
+
+    {% if cart.items|length > 0 %}
+    <div class="row">
+        <!-- Lista de productos -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-box"></i> Productos en tu carrito ({{ cart.get_items_count() }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Precio Unitario</th>
+                                    <th>Cantidad</th>
+                                    <th>Subtotal</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cart.items %}
+                                <tr id="cart-item-{{ item.id }}">
+                                    <td>
+                                        <div>
+                                            <strong>{{ item.product_name }}</strong>
+                                            {% if item.product_description %}
+                                            <br><small class="text-muted">{{ item.product_description[:100] }}{% if item.product_description|length > 100 %}...{% endif %}</small>
+                                            {% endif %}
+                                            {% if item.product_type == 'membership' %}
+                                            <br><span class="badge bg-info">Membresía</span>
+                                            {% elif item.product_type == 'event' %}
+                                            <br><span class="badge bg-success">Evento</span>
+                                            {% elif item.product_type == 'service' %}
+                                            <br><span class="badge bg-primary">Servicio</span>
+                                            {% endif %}
+                                            {% if item.item_metadata %}
+                                            {% set metadata = item.item_metadata|from_json if item.item_metadata else {} %}
+                                            {% if metadata.discount_applied %}
+                                            <br><small class="text-success">
+                                                <i class="fas fa-tag"></i> Descuento aplicado: {{ metadata.discount_percent }}%
+                                            </small>
+                                            {% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if item.item_metadata %}
+                                        {% set metadata = item.item_metadata|from_json %}
+                                        {% if metadata.base_price and metadata.base_price != (item.unit_price / 100) %}
+                                        <div>
+                                            <small class="text-muted text-decoration-line-through">${{ "%.2f"|format(metadata.base_price) }}</small>
+                                            <br>
+                                            <strong class="text-success">${{ "%.2f"|format(item.unit_price / 100) }}</strong>
+                                        </div>
+                                        {% else %}
+                                        ${{ "%.2f"|format(item.unit_price / 100) }}
+                                        {% endif %}
+                                        {% else %}
+                                        ${{ "%.2f"|format(item.unit_price / 100) }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="input-group" style="width: 120px;">
+                                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="updateQuantity({{ item.id }}, -1)">-</button>
+                                            <input type="number" class="form-control form-control-sm text-center" 
+                                                   id="quantity-{{ item.id }}" 
+                                                   value="{{ item.quantity }}" 
+                                                   min="1" 
+                                                   onchange="updateQuantity({{ item.id }}, 0, this.value)">
+                                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="updateQuantity({{ item.id }}, 1)">+</button>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <strong id="subtotal-{{ item.id }}">${{ "%.2f"|format(item.get_subtotal() / 100) }}</strong>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" onclick="removeItem({{ item.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <a href="{{ url_for('membership') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left"></i> Seguir comprando
+                </a>
+            </div>
+        </div>
+
+        <!-- Resumen del pedido -->
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 100px;">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-receipt"></i> Resumen del Pedido
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <span id="cart-subtotal">${{ "%.2f"|format(cart.get_total() / 100) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Impuestos:</span>
+                        <span>$0.00</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Total:</strong>
+                        <strong class="text-success" id="cart-total">${{ "%.2f"|format(cart.get_total() / 100) }}</strong>
+                    </div>
+                    
+                    <a href="{{ url_for('checkout') }}" class="btn btn-primary btn-lg w-100 mb-2">
+                        <i class="fas fa-credit-card"></i> Proceder al Pago
+                    </a>
+                    
+                    <div class="alert alert-info mt-3 mb-0">
+                        <small>
+                            <i class="fas fa-info-circle"></i> 
+                            Al proceder al pago, serás redirigido a nuestro sistema de pago seguro.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Carrito vacío -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card text-center py-5">
+                <div class="card-body">
+                    <i class="fas fa-shopping-cart fa-4x text-muted mb-4"></i>
+                    <h4>Tu carrito está vacío</h4>
+                    <p class="text-muted">Agrega productos a tu carrito para continuar.</p>
+                    <a href="{{ url_for('membership') }}" class="btn btn-primary">
+                        <i class="fas fa-crown"></i> Ver Planes de Membresía
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function updateQuantity(itemId, change, newValue = null) {
+    let quantity = newValue ? parseInt(newValue) : parseInt(document.getElementById('quantity-' + itemId).value) + change;
+    
+    if (quantity < 1) {
+        quantity = 1;
+    }
+    
+    fetch(`/cart/update/${itemId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ quantity: quantity })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar cantidad en la UI
+            document.getElementById('quantity-' + itemId).value = quantity;
+            
+            // Actualizar subtotal
+            document.getElementById('subtotal-' + itemId).textContent = '$' + (data.item_subtotal / 100).toFixed(2);
+            
+            // Actualizar totales
+            document.getElementById('cart-subtotal').textContent = '$' + (data.cart_total / 100).toFixed(2);
+            document.getElementById('cart-total').textContent = '$' + (data.cart_total / 100).toFixed(2);
+            
+            // Actualizar contador del navbar si existe
+            updateCartCount(data.cart_items_count);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ocurrió un error al actualizar la cantidad');
+    });
+}
+
+function removeItem(itemId) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este producto del carrito?')) {
+        return;
+    }
+    
+    fetch(`/cart/remove/${itemId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Eliminar fila de la tabla
+            document.getElementById('cart-item-' + itemId).remove();
+            
+            // Actualizar totales
+            document.getElementById('cart-subtotal').textContent = '$' + (data.cart_total / 100).toFixed(2);
+            document.getElementById('cart-total').textContent = '$' + (data.cart_total / 100).toFixed(2);
+            
+            // Actualizar contador del navbar
+            updateCartCount(data.cart_items_count);
+            
+            // Si el carrito está vacío, recargar la página
+            if (data.cart_items_count === 0) {
+                location.reload();
+            }
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ocurrió un error al eliminar el producto');
+    });
+}
+
+function updateCartCount(count) {
+    const cartBadge = document.getElementById('cart-count-badge');
+    if (cartBadge) {
+        if (count > 0) {
+            cartBadge.textContent = count;
+            cartBadge.style.display = 'block';
+        } else {
+            cartBadge.style.display = 'none';
+        }
+    }
+}
+
+// Cargar contador del carrito al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/cart/count')
+        .then(response => response.json())
+        .then(data => {
+            updateCartCount(data.count);
+        });
+});
+</script>
+{% endblock %}
+

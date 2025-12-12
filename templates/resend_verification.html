@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Verificar Email - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h3><i class="fas fa-envelope-circle-check"></i> Verificación de Email Requerida</h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if current_user.email_verified %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> Tu email ya está verificado.
+                    </div>
+                    <div class="text-center">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Ir al Dashboard</a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        <strong>Tu email no está verificado.</strong>
+                        <p class="mb-0 mt-2">Para acceder a todas las funciones (pagos, eventos, etc.), necesitas verificar tu dirección de correo electrónico.</p>
+                    </div>
+                    
+                    <div class="info-box bg-light p-3 mb-4 rounded">
+                        <h5><i class="fas fa-info-circle"></i> ¿Por qué verificar mi email?</h5>
+                        <ul class="mb-0">
+                            <li>Asegura que tu email es válido y accesible</li>
+                            <li>Protege tu cuenta de accesos no autorizados</li>
+                            <li>Te permite recibir notificaciones importantes</li>
+                            <li>Es necesario para realizar pagos y registrarte en eventos</li>
+                        </ul>
+                    </div>
+                    
+                    <form method="POST">
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-paper-plane"></i> Reenviar Email de Verificación
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-envelope"></i> 
+                            El email se enviará a: <strong>{{ current_user.email }}</strong>
+                        </p>
+                        <p class="text-muted small mt-2">
+                            Si no recibes el email, revisa tu carpeta de spam o solicita uno nuevo.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -78,6 +78,132 @@
         </div>
     </div>
 
+    <!-- Guía Visual Interactiva -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h5 class="mb-0 text-white">
+                        <i class="fas fa-video me-2"></i> Guía Visual Interactiva
+                        <span class="badge bg-light text-dark ms-2">Nuevo</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Guías paso a paso con diagramas visuales, videos y audio explicativo</p>
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100 visual-guide-card" data-procedure="register">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-user-plus fa-3x text-primary"></i>
+                                    </div>
+                                    <h6>Registro de Usuario</h6>
+                                    <p class="small text-muted mb-2">Guía visual completa</p>
+                                    <span class="badge bg-success"><i class="fas fa-video"></i> Video</span>
+                                    <span class="badge bg-info"><i class="fas fa-volume-up"></i> Audio</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100 visual-guide-card" data-procedure="membership">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-crown fa-3x text-warning"></i>
+                                    </div>
+                                    <h6>Compra de Membresía</h6>
+                                    <p class="small text-muted mb-2">Guía visual completa</p>
+                                    <span class="badge bg-success"><i class="fas fa-video"></i> Video</span>
+                                    <span class="badge bg-info"><i class="fas fa-volume-up"></i> Audio</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100 visual-guide-card" data-procedure="payment">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-credit-card fa-3x text-success"></i>
+                                    </div>
+                                    <h6>Proceso de Pago</h6>
+                                    <p class="small text-muted mb-2">Guía visual completa</p>
+                                    <span class="badge bg-success"><i class="fas fa-video"></i> Video</span>
+                                    <span class="badge bg-info"><i class="fas fa-volume-up"></i> Audio</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100 visual-guide-card" data-procedure="events">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-calendar-check fa-3x text-info"></i>
+                                    </div>
+                                    <h6>Registro a Eventos</h6>
+                                    <p class="small text-muted mb-2">Guía visual completa</p>
+                                    <span class="badge bg-success"><i class="fas fa-video"></i> Video</span>
+                                    <span class="badge bg-info"><i class="fas fa-volume-up"></i> Audio</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100 visual-guide-card" data-procedure="appointments">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-calendar-alt fa-3x text-danger"></i>
+                                    </div>
+                                    <h6>Reserva de Citas</h6>
+                                    <p class="small text-muted mb-2">Guía visual completa</p>
+                                    <span class="badge bg-success"><i class="fas fa-video"></i> Video</span>
+                                    <span class="badge bg-info"><i class="fas fa-volume-up"></i> Audio</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100 visual-guide-card" data-procedure="admin-payments">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-cog fa-3x text-secondary"></i>
+                                    </div>
+                                    <h6>Config. Métodos de Pago</h6>
+                                    <p class="small text-muted mb-2">Guía para administradores</p>
+                                    <span class="badge bg-success"><i class="fas fa-video"></i> Video</span>
+                                    <span class="badge bg-info"><i class="fas fa-volume-up"></i> Audio</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100" style="cursor: pointer;" onclick="document.getElementById('admin15').scrollIntoView({behavior: 'smooth'}); setTimeout(() => { const bsCollapse = new bootstrap.Collapse(document.getElementById('admin15'), {toggle: true}); }, 500);">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-video fa-3x text-primary"></i>
+                                    </div>
+                                    <h6>Config. Videos y Audios</h6>
+                                    <p class="small text-muted mb-2">Guía para administradores</p>
+                                    <span class="badge bg-primary"><i class="fas fa-cog"></i> Configuración</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Guías Visuales -->
+    <div class="modal fade" id="visualGuideModal" tabindex="-1" aria-labelledby="visualGuideModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="visualGuideModalLabel">
+                        <i class="fas fa-video me-2"></i> Guía Visual Interactiva
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="visualGuideContent">
+                    <!-- El contenido se carga dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Preguntas Frecuentes -->
     <div class="row">
         <div class="col-lg-8 mx-auto">
@@ -153,6 +279,1298 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                                    ¿Qué métodos de pago están disponibles?
+                                </button>
+                            </h2>
+                            <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Aceptamos múltiples métodos de pago:
+                                    <ul>
+                                        <li><strong>Stripe:</strong> Tarjetas de crédito/débito (Visa, Mastercard, Amex)</li>
+                                        <li><strong>PayPal:</strong> Pagos mediante cuenta PayPal o tarjeta</li>
+                                        <li><strong>Banco General:</strong> Transferencias bancarias (Panamá)</li>
+                                        <li><strong>Yappy:</strong> Pagos móviles (Panamá)</li>
+                                        <li><strong>Interbank:</strong> Transferencias bancarias (Perú)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
+                                    ¿Cómo realizo un pago?
+                                </button>
+                            </h2>
+                            <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    <strong>Procedimiento para realizar un pago:</strong>
+                                    <ol>
+                                        <li>Agrega productos o membresías a tu carrito desde la sección "Membresía"</li>
+                                        <li>Ve a "Carrito" para revisar tu pedido</li>
+                                        <li>Haz clic en "Proceder al Pago" o "Checkout"</li>
+                                        <li>Selecciona tu método de pago preferido</li>
+                                        <li>Completa la información requerida según el método:
+                                            <ul>
+                                                <li><strong>Stripe:</strong> Ingresa los datos de tu tarjeta</li>
+                                                <li><strong>PayPal:</strong> Serás redirigido a PayPal para completar el pago</li>
+                                                <li><strong>Transferencias:</strong> Se mostrarán los datos bancarios y podrás subir el comprobante</li>
+                                            </ul>
+                                        </li>
+                                        <li>Confirma el pago</li>
+                                        <li>Recibirás una confirmación por email</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq8">
+                                    ¿Es seguro realizar pagos en este sitio?
+                                </button>
+                            </h2>
+                            <div id="faq8" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Sí, todos los pagos están protegidos con encriptación SSL. Los pagos con tarjeta se procesan 
+                                    directamente a través de Stripe o PayPal, por lo que nunca almacenamos los datos de tu tarjeta. 
+                                    Para transferencias bancarias, los datos se muestran de forma segura y puedes subir el comprobante 
+                                    de pago para su verificación.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq9">
+                                    ¿Cómo verifico mi email?
+                                </button>
+                            </h2>
+                            <div id="faq9" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    <strong>Procedimiento de verificación:</strong>
+                                    <ol>
+                                        <li>Después de registrarte, recibirás un email de verificación</li>
+                                        <li>Haz clic en el enlace de verificación del email</li>
+                                        <li>Serás redirigido al sistema y tu cuenta quedará verificada</li>
+                                        <li>Si no recibiste el email, ve a "Reenviar Verificación" en el menú</li>
+                                    </ol>
+                                    <div class="alert alert-warning mt-2">
+                                        <i class="fas fa-exclamation-triangle"></i> <strong>Importante:</strong> Necesitas verificar tu email 
+                                        para realizar pagos y acceder a ciertas funcionalidades.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq10">
+                                    ¿Cómo cambio mi contraseña?
+                                </button>
+                            </h2>
+                            <div id="faq10" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Ve a tu perfil desde el menú</li>
+                                        <li>Haz clic en "Configuración" o "Settings"</li>
+                                        <li>Busca la sección "Cambiar Contraseña"</li>
+                                        <li>Ingresa tu contraseña actual y la nueva</li>
+                                        <li>Confirma el cambio</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Procedimientos Detallados para Usuarios -->
+    <div class="row mt-4">
+        <div class="col-lg-10 mx-auto">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-book"></i> Guía de Procedimientos - Usuarios</h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="userProcedures">
+                        <!-- Registro de Usuario -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc1">
+                                    <i class="fas fa-user-plus me-2"></i> 1. Registro de Usuario
+                                </button>
+                            </h2>
+                            <div id="proc1" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Paso a Paso:</h6>
+                                    <ol>
+                                        <li>Ve a la página de registro desde el menú o <code>/register</code></li>
+                                        <li>Completa el formulario con:
+                                            <ul>
+                                                <li><strong>Email:</strong> Debe ser válido y no estar registrado</li>
+                                                <li><strong>Contraseña:</strong> Mínimo 8 caracteres</li>
+                                                <li><strong>Nombre y Apellido:</strong> Información personal</li>
+                                                <li><strong>Teléfono:</strong> Número de contacto</li>
+                                                <li><strong>País:</strong> Selecciona tu país</li>
+                                                <li><strong>Cédula/Pasaporte:</strong> Documento de identificación</li>
+                                            </ul>
+                                        </li>
+                                        <li>Haz clic en "Registrarse"</li>
+                                        <li>Revisa tu email para el enlace de verificación</li>
+                                        <li>Haz clic en el enlace para verificar tu cuenta</li>
+                                        <li>Inicia sesión con tus credenciales</li>
+                                    </ol>
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-info-circle"></i> <strong>Nota:</strong> El sistema valida que el email no sea de 
+                                        un dominio temporal. Si no recibes el email de verificación, revisa tu carpeta de spam.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Compra de Membresía -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc2">
+                                    <i class="fas fa-crown me-2"></i> 2. Compra de Membresía
+                                </button>
+                            </h2>
+                            <div id="proc2" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Tipos de Membresía Disponibles:</h6>
+                                    <ul>
+                                        <li><strong>Básico:</strong> Gratis - Recursos básicos y boletines</li>
+                                        <li><strong>Pro:</strong> $60/año - Acceso a revistas y certificaciones</li>
+                                        <li><strong>Premium:</strong> $120/año - Asesoría y soporte prioritario</li>
+                                        <li><strong>DeLuxe:</strong> $200/año - O365 completo y consultoría estratégica</li>
+                                    </ul>
+                                    
+                                    <h6 class="mt-3">Procedimiento de Compra:</h6>
+                                    <ol>
+                                        <li>Ve a la sección "Membresía" desde el menú</li>
+                                        <li>Revisa los planes disponibles y sus beneficios</li>
+                                        <li>Selecciona el plan que deseas</li>
+                                        <li>Haz clic en "Agregar al Carrito"</li>
+                                        <li>Ve a "Carrito" para revisar tu pedido</li>
+                                        <li>Haz clic en "Proceder al Pago"</li>
+                                        <li>Selecciona tu método de pago</li>
+                                        <li>Completa el proceso de pago</li>
+                                        <li>Recibirás confirmación por email</li>
+                                        <li>Tu membresía se activará automáticamente</li>
+                                    </ol>
+                                    
+                                    <div class="alert alert-warning mt-3">
+                                        <i class="fas fa-exclamation-triangle"></i> <strong>Requisito:</strong> Debes tener tu email verificado 
+                                        para realizar compras.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gestión del Carrito -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc3">
+                                    <i class="fas fa-shopping-cart me-2"></i> 3. Gestión del Carrito de Compras
+                                </button>
+                            </h2>
+                            <div id="proc3" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Agregar Productos:</h6>
+                                    <ol>
+                                        <li>Navega a la sección del producto (Membresía, Eventos, Servicios)</li>
+                                        <li>Haz clic en "Agregar al Carrito"</li>
+                                        <li>El producto se agregará y verás un contador en el icono del carrito</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Ver y Modificar el Carrito:</h6>
+                                    <ol>
+                                        <li>Haz clic en el icono del carrito en el menú</li>
+                                        <li>Verás todos los productos agregados</li>
+                                        <li>Puedes modificar cantidades o eliminar productos</li>
+                                        <li>Revisa el total antes de proceder al pago</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Proceder al Pago:</h6>
+                                    <ol>
+                                        <li>Desde el carrito, haz clic en "Proceder al Pago"</li>
+                                        <li>Serás redirigido al checkout</li>
+                                        <li>Completa el proceso de pago</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Registro a Eventos -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc4">
+                                    <i class="fas fa-calendar-check me-2"></i> 4. Registro a Eventos
+                                </button>
+                            </h2>
+                            <div id="proc4" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Procedimiento:</h6>
+                                    <ol>
+                                        <li>Ve a la sección "Eventos" desde el menú</li>
+                                        <li>Explora los eventos disponibles</li>
+                                        <li>Haz clic en un evento para ver detalles</li>
+                                        <li>Revisa el precio (puede tener descuento según tu membresía):
+                                            <ul>
+                                                <li>Básico: Sin descuento</li>
+                                                <li>Pro: 10% de descuento</li>
+                                                <li>Premium: 20% de descuento</li>
+                                                <li>DeLuxe: 30% de descuento</li>
+                                            </ul>
+                                        </li>
+                                        <li>Haz clic en "Registrarse" o "Agregar al Carrito"</li>
+                                        <li>Si requiere pago, completa el proceso</li>
+                                        <li>Recibirás confirmación por email</li>
+                                        <li>Los organizadores serán notificados de tu registro</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Cancelar Registro:</h6>
+                                    <ol>
+                                        <li>Ve a "Mis Eventos" o "Dashboard"</li>
+                                        <li>Encuentra el evento registrado</li>
+                                        <li>Haz clic en "Cancelar Registro"</li>
+                                        <li>Confirma la cancelación</li>
+                                        <li>Recibirás confirmación por email</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reserva de Citas -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc5">
+                                    <i class="fas fa-calendar-alt me-2"></i> 5. Reserva de Citas con Asesores
+                                </button>
+                            </h2>
+                            <div id="proc5" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Procedimiento:</h6>
+                                    <ol>
+                                        <li>Ve a la sección "Servicios" o "Citas" desde el menú</li>
+                                        <li>Selecciona el tipo de servicio que necesitas</li>
+                                        <li>Elige un asesor disponible</li>
+                                        <li>Revisa los horarios disponibles (slots)</li>
+                                        <li>Selecciona un horario que te convenga</li>
+                                        <li>Revisa el precio (puede estar incluido en tu membresía o tener descuento)</li>
+                                        <li>Si requiere pago, completa el proceso</li>
+                                        <li>Confirma la reserva</li>
+                                        <li>La cita quedará en estado "Pendiente" hasta que el asesor la confirme</li>
+                                        <li>Recibirás notificaciones cuando la cita sea confirmada</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Tipos de Citas:</h6>
+                                    <ul>
+                                        <li><strong>Individual:</strong> Solo tú y el asesor</li>
+                                        <li><strong>Grupal:</strong> Puedes invitar a otros participantes</li>
+                                    </ul>
+                                    
+                                    <h6 class="mt-3">Recordatorios:</h6>
+                                    <p>Recibirás un recordatorio por email 24 horas antes de tu cita.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gestión de Perfil -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc6">
+                                    <i class="fas fa-user-edit me-2"></i> 6. Gestión de Perfil y Configuración
+                                </button>
+                            </h2>
+                            <div id="proc6" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Ver y Editar Perfil:</h6>
+                                    <ol>
+                                        <li>Haz clic en tu nombre en el menú superior</li>
+                                        <li>Selecciona "Perfil"</li>
+                                        <li>Verás tu información actual</li>
+                                        <li>Haz clic en "Editar" para modificar:
+                                            <ul>
+                                                <li>Nombre y apellido</li>
+                                                <li>Teléfono</li>
+                                                <li>País</li>
+                                                <li>Cédula/Pasaporte</li>
+                                            </ul>
+                                        </li>
+                                        <li>Guarda los cambios</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configuración de Cuenta:</h6>
+                                    <ol>
+                                        <li>Ve a "Configuración" o "Settings"</li>
+                                        <li>Puedes cambiar:
+                                            <ul>
+                                                <li>Contraseña</li>
+                                                <li>Preferencias de notificaciones</li>
+                                                <li>Configuración de email</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Acceso a Office 365 -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc7">
+                                    <i class="fab fa-microsoft me-2"></i> 7. Solicitar Acceso a Office 365
+                                </button>
+                            </h2>
+                            <div id="proc7" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Requisitos:</h6>
+                                    <ul>
+                                        <li>Tener una membresía activa (Pro, Premium o DeLuxe)</li>
+                                        <li>Email verificado</li>
+                                    </ul>
+                                    
+                                    <h6 class="mt-3">Procedimiento:</h6>
+                                    <ol>
+                                        <li>Ve a la sección "Office 365" desde el menú</li>
+                                        <li>Revisa los beneficios incluidos en tu membresía</li>
+                                        <li>Completa el formulario de solicitud:
+                                            <ul>
+                                                <li>Nombre completo</li>
+                                                <li>Email (debe coincidir con tu cuenta)</li>
+                                                <li>Razón de la solicitud</li>
+                                            </ul>
+                                        </li>
+                                        <li>Envía la solicitud</li>
+                                        <li>Recibirás una respuesta en 2-3 días hábiles</li>
+                                        <li>Una vez aprobado, recibirás las credenciales por email</li>
+                                    </ol>
+                                    
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-info-circle"></i> <strong>Nota:</strong> El acceso a Office 365 está incluido 
+                                        en las membresías Premium y DeLuxe. Los miembros Pro pueden solicitarlo con costo adicional.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ver Beneficios -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc8">
+                                    <i class="fas fa-star me-2"></i> 8. Ver y Acceder a Beneficios
+                                </button>
+                            </h2>
+                            <div id="proc8" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Ver Beneficios de tu Membresía:</h6>
+                                    <ol>
+                                        <li>Ve a la sección "Beneficios" desde el menú</li>
+                                        <li>Verás todos los beneficios disponibles según tu tipo de membresía</li>
+                                        <li>Los beneficios se organizan por categorías:
+                                            <ul>
+                                                <li>Recursos y Contenido</li>
+                                                <li>Eventos y Certificaciones</li>
+                                                <li>Soporte y Asesoría</li>
+                                                <li>Herramientas y Software</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Acceder a Beneficios Específicos:</h6>
+                                    <ul>
+                                        <li><strong>Boletines:</strong> Se envían automáticamente a tu email</li>
+                                        <li><strong>Revistas y Bases de Datos:</strong> Acceso desde el dashboard</li>
+                                        <li><strong>Eventos:</strong> Regístrate desde la sección de eventos</li>
+                                        <li><strong>Certificaciones:</strong> Disponibles después de completar eventos</li>
+                                        <li><strong>Office 365:</strong> Solicita acceso desde la sección correspondiente</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notificaciones -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc9">
+                                    <i class="fas fa-bell me-2"></i> 9. Gestión de Notificaciones
+                                </button>
+                            </h2>
+                            <div id="proc9" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Ver Notificaciones:</h6>
+                                    <ol>
+                                        <li>Haz clic en el icono de campana en el menú superior</li>
+                                        <li>Verás todas tus notificaciones no leídas</li>
+                                        <li>Haz clic en una notificación para ver detalles</li>
+                                        <li>Las notificaciones se marcan como leídas automáticamente</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Tipos de Notificaciones:</h6>
+                                    <ul>
+                                        <li><strong>Sistema:</strong> Bienvenida, verificación de email</li>
+                                        <li><strong>Membresía:</strong> Confirmación de pago, renovación, expiración</li>
+                                        <li><strong>Eventos:</strong> Confirmación de registro, cancelación, recordatorios</li>
+                                        <li><strong>Citas:</strong> Confirmación, recordatorios</li>
+                                    </ul>
+                                    
+                                    <h6 class="mt-3">Configurar Preferencias:</h6>
+                                    <ol>
+                                        <li>Ve a "Configuración"</li>
+                                        <li>Selecciona "Notificaciones"</li>
+                                        <li>Activa o desactiva los tipos de notificaciones que deseas recibir</li>
+                                        <li>Guarda los cambios</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ver Historial de Pagos -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#proc10">
+                                    <i class="fas fa-receipt me-2"></i> 10. Ver Historial de Pagos y Suscripciones
+                                </button>
+                            </h2>
+                            <div id="proc10" class="accordion-collapse collapse" data-bs-parent="#userProcedures">
+                                <div class="accordion-body">
+                                    <h6>Ver Historial:</h6>
+                                    <ol>
+                                        <li>Ve a tu "Dashboard"</li>
+                                        <li>En la sección "Membresía", verás:
+                                            <ul>
+                                                <li>Estado actual de tu membresía</li>
+                                                <li>Fecha de expiración</li>
+                                                <li>Historial de pagos</li>
+                                            </ul>
+                                        </li>
+                                        <li>Haz clic en "Ver Detalles" para más información</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Información Disponible:</h6>
+                                    <ul>
+                                        <li>Fecha y monto de cada pago</li>
+                                        <li>Método de pago utilizado</li>
+                                        <li>Estado del pago (completado, pendiente, fallido)</li>
+                                        <li>Comprobantes y recibos</li>
+                                    </ul>
+                                    
+                                    <h6 class="mt-3">Renovar Membresía:</h6>
+                                    <ol>
+                                        <li>Cuando tu membresía esté por expirar, recibirás notificaciones</li>
+                                        <li>Ve a la sección "Membresía"</li>
+                                        <li>Haz clic en "Renovar"</li>
+                                        <li>Completa el proceso de pago</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Procedimientos para Administradores -->
+    <div class="row mt-4">
+        <div class="col-lg-10 mx-auto">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-user-shield"></i> Procedimientos para Administradores</h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="adminProcedures">
+                        <!-- Configuración de Métodos de Pago -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin1">
+                                    <i class="fas fa-credit-card me-2"></i> Cómo Configurar Métodos de Pago
+                                </button>
+                            </h2>
+                            <div id="admin1" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Acceso al Panel de Configuración</h6>
+                                    <ol>
+                                        <li>Inicia sesión como administrador</li>
+                                        <li>Navega a: <code>/admin/payments</code></li>
+                                        <li>Verás el panel con todos los métodos disponibles</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Elegir Fuente de Configuración</h6>
+                                    <p><strong>Opción 1: Variables de Entorno (Recomendado para Producción)</strong></p>
+                                    <ol>
+                                        <li>Activa el switch "Usar variables de entorno"</li>
+                                        <li>Configura las variables en el archivo <code>.env</code>:
+                                            <pre class="bg-light p-2 rounded"><code>STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+PAYPAL_CLIENT_ID=...
+PAYPAL_CLIENT_SECRET=...
+PAYPAL_MODE=live</code></pre>
+                                        </li>
+                                        <li>Reinicia la aplicación para aplicar cambios</li>
+                                    </ol>
+                                    
+                                    <p class="mt-3"><strong>Opción 2: Base de Datos (Recomendado para Desarrollo)</strong></p>
+                                    <ol>
+                                        <li>Desactiva el switch "Usar variables de entorno"</li>
+                                        <li>Ingresa las credenciales directamente en los campos del formulario</li>
+                                        <li>Haz clic en "Guardar Configuración"</li>
+                                        <li>Los cambios se aplican inmediatamente</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configurar Stripe -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin2">
+                                    <i class="fab fa-stripe me-2"></i> Configurar Stripe
+                                </button>
+                            </h2>
+                            <div id="admin2" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Obtener Credenciales</h6>
+                                    <ol>
+                                        <li>Accede a <a href="https://dashboard.stripe.com/" target="_blank">Stripe Dashboard</a></li>
+                                        <li>Ve a <strong>Developers > API keys</strong></li>
+                                        <li>Copia las claves:
+                                            <ul>
+                                                <li><strong>Secret Key:</strong> Comienza con <code>sk_test_</code> (pruebas) o <code>sk_live_</code> (producción)</li>
+                                                <li><strong>Publishable Key:</strong> Comienza con <code>pk_test_</code> (pruebas) o <code>pk_live_</code> (producción)</li>
+                                            </ul>
+                                        </li>
+                                        <li>Para webhooks, ve a <strong>Developers > Webhooks</strong> y crea un endpoint</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar en el Panel</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/payments</code></li>
+                                        <li>En la sección "Stripe", ingresa:
+                                            <ul>
+                                                <li>Secret Key</li>
+                                                <li>Publishable Key</li>
+                                                <li>Webhook Secret (opcional)</li>
+                                            </ul>
+                                        </li>
+                                        <li>Guarda la configuración</li>
+                                    </ol>
+                                    
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-info-circle"></i> <strong>Nota:</strong> En modo de prueba, los pagos se simulan automáticamente. 
+                                        Para producción, usa credenciales que comiencen con <code>sk_live_</code> y <code>pk_live_</code>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configurar PayPal -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin3">
+                                    <i class="fab fa-paypal me-2"></i> Configurar PayPal
+                                </button>
+                            </h2>
+                            <div id="admin3" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Obtener Credenciales</h6>
+                                    <ol>
+                                        <li>Accede a <a href="https://developer.paypal.com/" target="_blank">PayPal Developer</a></li>
+                                        <li>Crea una aplicación en <strong>My Apps & Credentials</strong></li>
+                                        <li>Copia el <strong>Client ID</strong> y <strong>Client Secret</strong></li>
+                                        <li>Configura las URLs de retorno en la aplicación</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar en el Panel</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/payments</code></li>
+                                        <li>En la sección "PayPal", ingresa:
+                                            <ul>
+                                                <li>Client ID</li>
+                                                <li>Client Secret</li>
+                                                <li>Modo: <code>sandbox</code> (pruebas) o <code>live</code> (producción)</li>
+                                                <li>Return URL: <code>https://miembros.relatic.org/payment/paypal/return</code></li>
+                                                <li>Cancel URL: <code>https://miembros.relatic.org/payment/paypal/cancel</code></li>
+                                            </ul>
+                                        </li>
+                                        <li>Guarda la configuración</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configurar Banco General -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin4">
+                                    <i class="fas fa-university me-2"></i> Configurar Banco General (CyberSource)
+                                </button>
+                            </h2>
+                            <div id="admin4" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Obtener Credenciales</h6>
+                                    <ol>
+                                        <li>Contacta con Banco General para obtener acceso a CyberSource</li>
+                                        <li>Obtén las credenciales desde el portal de CyberSource:
+                                            <ul>
+                                                <li>Merchant ID</li>
+                                                <li>API Key</li>
+                                                <li>Shared Secret</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar en el Panel</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/payments</code></li>
+                                        <li>En la sección "Banco General", ingresa todas las credenciales</li>
+                                        <li>Verifica que la API URL sea: <code>https://api.cybersource.com</code></li>
+                                        <li>Guarda la configuración</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configurar Yappy -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin5">
+                                    <i class="fas fa-mobile-alt me-2"></i> Configurar Yappy
+                                </button>
+                            </h2>
+                            <div id="admin5" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Obtener Credenciales</h6>
+                                    <ol>
+                                        <li>Regístrate en <a href="https://yappy.im/business" target="_blank">Yappy Business</a></li>
+                                        <li>Obtén las credenciales desde el panel de Yappy:
+                                            <ul>
+                                                <li>API Key</li>
+                                                <li>Merchant ID</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar en el Panel</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/payments</code></li>
+                                        <li>En la sección "Yappy", ingresa las credenciales</li>
+                                        <li>Verifica que la API URL sea: <code>https://api.yappy.im</code></li>
+                                        <li>Guarda la configuración</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Verificar Configuración -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin6">
+                                    <i class="fas fa-check-circle me-2"></i> Verificar que la Configuración Funciona
+                                </button>
+                            </h2>
+                            <div id="admin6" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Procedimiento de Verificación</h6>
+                                    <ol>
+                                        <li>Agrega productos al carrito desde una cuenta de prueba</li>
+                                        <li>Ve a <code>/checkout</code></li>
+                                        <li>Verifica que todos los métodos configurados aparezcan disponibles</li>
+                                        <li>Selecciona cada método y verifica:
+                                            <ul>
+                                                <li><strong>Stripe:</strong> Debe mostrar el formulario de tarjeta</li>
+                                                <li><strong>PayPal:</strong> Debe mostrar el botón de PayPal</li>
+                                                <li><strong>Transferencias:</strong> Debe mostrar los datos bancarios</li>
+                                            </ul>
+                                        </li>
+                                        <li>Realiza una transacción de prueba</li>
+                                        <li>Verifica en el panel de administración que el pago se registró correctamente</li>
+                                    </ol>
+                                    
+                                    <div class="alert alert-warning mt-3">
+                                        <i class="fas fa-exclamation-triangle"></i> <strong>Importante:</strong> En modo de prueba, 
+                                        los pagos se simulan automáticamente. Para producción, asegúrate de usar credenciales reales.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gestión de Usuarios -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin8">
+                                    <i class="fas fa-users me-2"></i> Gestión de Usuarios
+                                </button>
+                            </h2>
+                            <div id="admin8" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Acceso al Panel de Usuarios:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/users</code></li>
+                                        <li>Verás una lista de todos los usuarios registrados</li>
+                                        <li>Puedes filtrar y buscar usuarios</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Crear Usuario:</h6>
+                                    <ol>
+                                        <li>Haz clic en "Crear Usuario"</li>
+                                        <li>Completa el formulario con:
+                                            <ul>
+                                                <li>Email (debe ser único)</li>
+                                                <li>Contraseña</li>
+                                                <li>Nombre y apellido</li>
+                                                <li>Teléfono</li>
+                                                <li>País</li>
+                                                <li>Cédula/Pasaporte</li>
+                                            </ul>
+                                        </li>
+                                        <li>Selecciona el rol (Usuario, Administrador, Asesor)</li>
+                                        <li>Guarda el usuario</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Editar Usuario:</h6>
+                                    <ol>
+                                        <li>Haz clic en "Editar" junto al usuario</li>
+                                        <li>Modifica los campos necesarios</li>
+                                        <li>Puedes cambiar el rol, activar/desactivar cuenta</li>
+                                        <li>Guarda los cambios</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Verificar Email Manualmente:</h6>
+                                    <ol>
+                                        <li>En la lista de usuarios, encuentra el usuario</li>
+                                        <li>Haz clic en "Editar"</li>
+                                        <li>Marca la casilla "Email Verificado"</li>
+                                        <li>Guarda los cambios</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gestión de Eventos -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin9">
+                                    <i class="fas fa-calendar me-2"></i> Gestión de Eventos
+                                </button>
+                            </h2>
+                            <div id="admin9" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Crear un Evento:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/events</code></li>
+                                        <li>Haz clic en "Crear Evento"</li>
+                                        <li>Completa el flujo de 5 pasos:
+                                            <ul>
+                                                <li><strong>Paso 1 - Evento:</strong> Información básica (nombre, fecha, precio)</li>
+                                                <li><strong>Paso 2 - Descripción:</strong> Detalles y descripción</li>
+                                                <li><strong>Paso 3 - Publicidad:</strong> Imágenes y materiales promocionales</li>
+                                                <li><strong>Paso 4 - Certificado:</strong> Configuración de certificados</li>
+                                                <li><strong>Paso 5 - Kahoot:</strong> Configuración de quiz (opcional)</li>
+                                            </ul>
+                                        </li>
+                                        <li>Guarda cada paso antes de continuar</li>
+                                        <li>Publica el evento cuando esté listo</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Gestionar Registros:</h6>
+                                    <ol>
+                                        <li>Ve al evento específico</li>
+                                        <li>Haz clic en "Registros"</li>
+                                        <li>Verás todos los participantes registrados</li>
+                                        <li>Puedes:
+                                            <ul>
+                                                <li>Confirmar registros</li>
+                                                <li>Cancelar registros</li>
+                                                <li>Ver detalles de cada participante</li>
+                                                <li>Exportar lista de participantes</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar Descuentos:</h6>
+                                    <ol>
+                                        <li>En la edición del evento, ve a "Descuentos"</li>
+                                        <li>Selecciona o crea un descuento</li>
+                                        <li>Configura el porcentaje de descuento</li>
+                                        <li>Define las condiciones (membresía, fechas límite)</li>
+                                        <li>Guarda la configuración</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gestión de Citas -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin10">
+                                    <i class="fas fa-calendar-check me-2"></i> Gestión de Citas y Asesores
+                                </button>
+                            </h2>
+                            <div id="admin10" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Crear Tipo de Servicio:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/appointments/types</code></li>
+                                        <li>Haz clic en "Crear Tipo de Servicio"</li>
+                                        <li>Completa:
+                                            <ul>
+                                                <li>Nombre del servicio</li>
+                                                <li>Descripción</li>
+                                                <li>Duración (en minutos)</li>
+                                                <li>Precio base</li>
+                                                <li>Si permite citas grupales</li>
+                                            </ul>
+                                        </li>
+                                        <li>Guarda el tipo de servicio</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Gestionar Asesores:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/appointments/advisors</code></li>
+                                        <li>Haz clic en "Crear Asesor"</li>
+                                        <li>Completa el perfil del asesor:
+                                            <ul>
+                                                <li>Usuario asociado</li>
+                                                <li>Especialidades</li>
+                                                <li>Biografía</li>
+                                                <li>Horarios de disponibilidad</li>
+                                            </ul>
+                                        </li>
+                                        <li>Configura la disponibilidad semanal</li>
+                                        <li>Guarda el asesor</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Ver y Gestionar Citas:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/appointments</code></li>
+                                        <li>Verás todas las citas programadas</li>
+                                        <li>Puedes:
+                                            <ul>
+                                                <li>Confirmar citas pendientes</li>
+                                                <li>Cancelar citas</li>
+                                                <li>Ver detalles de cada cita</li>
+                                                <li>Exportar calendario</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar Precios por Membresía:</h6>
+                                    <ol>
+                                        <li>En el tipo de servicio, ve a "Precios"</li>
+                                        <li>Configura el precio para cada tipo de membresía:
+                                            <ul>
+                                                <li>Puede estar incluido (gratis)</li>
+                                                <li>Puede tener descuento</li>
+                                                <li>Puede ser precio completo</li>
+                                            </ul>
+                                        </li>
+                                        <li>Guarda la configuración</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuración de Emails -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin11">
+                                    <i class="fas fa-envelope me-2"></i> Configuración de Emails y SMTP
+                                </button>
+                            </h2>
+                            <div id="admin11" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Configurar Servidor SMTP:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/email</code></li>
+                                        <li>En la sección "Configuración SMTP", ingresa:
+                                            <ul>
+                                                <li>Servidor SMTP (ej: smtp.gmail.com)</li>
+                                                <li>Puerto (587 para TLS, 465 para SSL)</li>
+                                                <li>Usuario y contraseña</li>
+                                                <li>Remitente por defecto</li>
+                                            </ul>
+                                        </li>
+                                        <li>Elige si usar variables de entorno o base de datos</li>
+                                        <li>Prueba la configuración con el botón "Probar Envío"</li>
+                                        <li>Guarda la configuración</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Editar Templates de Email:</h6>
+                                    <ol>
+                                        <li>En <code>/admin/email</code>, ve a "Templates"</li>
+                                        <li>Selecciona el template que deseas editar</li>
+                                        <li>Haz clic en "Editar"</li>
+                                        <li>Modifica el contenido HTML</li>
+                                        <li>Puedes usar variables como <code>{{user_name}}</code>, <code>{{event_name}}</code></li>
+                                        <li>Guarda el template</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Ver Logs de Emails:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/messaging</code></li>
+                                        <li>Verás estadísticas y logs de todos los emails enviados</li>
+                                        <li>Puedes filtrar por:
+                                            <ul>
+                                                <li>Fecha</li>
+                                                <li>Tipo de email</li>
+                                                <li>Estado (enviado, fallido, pendiente)</li>
+                                            </ul>
+                                        </li>
+                                        <li>Haz clic en un email para ver detalles completos</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuración de Notificaciones -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin12">
+                                    <i class="fas fa-bell me-2"></i> Configuración de Notificaciones
+                                </button>
+                            </h2>
+                            <div id="admin12" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Activar/Desactivar Notificaciones:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/notifications</code></li>
+                                        <li>Verás todas las notificaciones disponibles organizadas por categoría:
+                                            <ul>
+                                                <li><strong>Sistema:</strong> Bienvenida, verificación</li>
+                                                <li><strong>Membresías:</strong> Pagos, renovaciones, expiraciones</li>
+                                                <li><strong>Eventos:</strong> Registros, confirmaciones, cancelaciones</li>
+                                                <li><strong>Citas:</strong> Confirmaciones, recordatorios</li>
+                                            </ul>
+                                        </li>
+                                        <li>Activa o desactiva cada notificación según necesites</li>
+                                        <li>Los cambios se aplican inmediatamente</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Tipos de Notificaciones:</h6>
+                                    <ul>
+                                        <li><strong>Bienvenida:</strong> Se envía al nuevo usuario</li>
+                                        <li><strong>Membresía:</strong> Confirmación de pago, recordatorios de expiración</li>
+                                        <li><strong>Eventos:</strong> Confirmación de registro, cambios en eventos</li>
+                                        <li><strong>Citas:</strong> Confirmación y recordatorio 24h antes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gestión de Membresías -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin13">
+                                    <i class="fas fa-crown me-2"></i> Gestión de Membresías y Suscripciones
+                                </button>
+                            </h2>
+                            <div id="admin13" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Ver Suscripciones Activas:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/memberships</code></li>
+                                        <li>Verás todas las suscripciones activas</li>
+                                        <li>Puedes filtrar por tipo de membresía o estado</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Gestionar Suscripción Manualmente:</h6>
+                                    <ol>
+                                        <li>Encuentra la suscripción del usuario</li>
+                                        <li>Puedes:
+                                            <ul>
+                                                <li>Extender la fecha de expiración</li>
+                                                <li>Cambiar el tipo de membresía</li>
+                                                <li>Activar o desactivar la suscripción</li>
+                                                <li>Ver historial de pagos</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Ver Historial de Pagos:</h6>
+                                    <ol>
+                                        <li>En la sección de membresías, haz clic en "Pagos"</li>
+                                        <li>Verás todos los pagos registrados</li>
+                                        <li>Puedes filtrar por:
+                                            <ul>
+                                                <li>Usuario</li>
+                                                <li>Método de pago</li>
+                                                <li>Estado (completado, pendiente, fallido)</li>
+                                                <li>Fecha</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Aprobar Pagos Manuales:</h6>
+                                    <ol>
+                                        <li>Ve a la sección de pagos pendientes</li>
+                                        <li>Revisa los comprobantes subidos por los usuarios</li>
+                                        <li>Verifica que el pago sea correcto</li>
+                                        <li>Haz clic en "Aprobar" para activar la membresía</li>
+                                        <li>O "Rechazar" si hay algún problema</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reportes y Estadísticas -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin14">
+                                    <i class="fas fa-chart-bar me-2"></i> Reportes y Estadísticas
+                                </button>
+                            </h2>
+                            <div id="admin14" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Estadísticas de Emails:</h6>
+                                    <ol>
+                                        <li>Ve a <code>/admin/messaging</code></li>
+                                        <li>Verás un dashboard con:
+                                            <ul>
+                                                <li>Total de emails enviados</li>
+                                                <li>Emails exitosos vs fallidos</li>
+                                                <li>Gráficos por tipo de email</li>
+                                                <li>Emails por día/semana/mes</li>
+                                            </ul>
+                                        </li>
+                                        <li>Puedes exportar los datos</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Reportes de Membresías:</h6>
+                                    <ol>
+                                        <li>En <code>/admin/memberships</code>, ve a "Reportes"</li>
+                                        <li>Genera reportes de:
+                                            <ul>
+                                                <li>Suscripciones activas por tipo</li>
+                                                <li>Renovaciones por período</li>
+                                                <li>Ingresos por membresía</li>
+                                                <li>Membresías por expirar</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Reportes de Eventos:</h6>
+                                    <ol>
+                                        <li>En <code>/admin/events</code>, ve a "Reportes"</li>
+                                        <li>Genera reportes de:
+                                            <ul>
+                                                <li>Registros por evento</li>
+                                                <li>Asistencia confirmada</li>
+                                                <li>Ingresos por evento</li>
+                                                <li>Participantes por categoría</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuración de Multimedia -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin15">
+                                    <i class="fas fa-video me-2"></i> Configurar Videos y Audios para Guías Visuales
+                                </button>
+                            </h2>
+                            <div id="admin15" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Acceso al Panel de Configuración</h6>
+                                    <ol>
+                                        <li>Inicia sesión como administrador</li>
+                                        <li>Ve a <code>/admin/media</code> o desde el menú: <strong>Administración → Videos y Audios</strong></li>
+                                        <li>Verás una lista de todos los procedimientos disponibles</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar un Procedimiento</h6>
+                                    <ol>
+                                        <li>Haz clic en "Configurar" en el procedimiento que deseas editar</li>
+                                        <li>Verás una tabla con los pasos existentes (si hay alguno)</li>
+                                        <li>Para cada paso puedes:
+                                            <ul>
+                                                <li><strong>Editar:</strong> Modificar las URLs de video y audio</li>
+                                                <li><strong>Eliminar:</strong> Eliminar un paso</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Agregar un Nuevo Paso</h6>
+                                    <ol>
+                                        <li>Haz clic en "Agregar Nuevo Paso"</li>
+                                        <li>Completa el formulario:
+                                            <ul>
+                                                <li><strong>Número de Paso:</strong> El orden del paso (1, 2, 3, etc.)</li>
+                                                <li><strong>Título del Paso:</strong> Nombre descriptivo</li>
+                                                <li><strong>URL del Video:</strong> Puede ser:
+                                                    <ul>
+                                                        <li>YouTube (embed): <code>https://www.youtube.com/embed/VIDEO_ID</code></li>
+                                                        <li>Vimeo: <code>https://player.vimeo.com/video/VIDEO_ID</code></li>
+                                                        <li>Archivo local: <code>/static/videos/nombre-video.mp4</code></li>
+                                                    </ul>
+                                                </li>
+                                                <li><strong>URL del Audio:</strong> Puede ser:
+                                                    <ul>
+                                                        <li>Archivo local: <code>/static/audio/nombre-audio.mp3</code></li>
+                                                        <li>URL externa: <code>https://ejemplo.com/audio.mp3</code></li>
+                                                    </ul>
+                                                </li>
+                                                <li><strong>Descripción:</strong> (Opcional) Notas adicionales</li>
+                                            </ul>
+                                        </li>
+                                        <li>Haz clic en "Guardar Paso"</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Formatos Soportados</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Videos:</h6>
+                                            <ul>
+                                                <li><strong>YouTube:</strong> Usa formato embed
+                                                    <br><code>https://www.youtube.com/embed/VIDEO_ID</code>
+                                                </li>
+                                                <li><strong>Vimeo:</strong> Usa formato player
+                                                    <br><code>https://player.vimeo.com/video/VIDEO_ID</code>
+                                                </li>
+                                                <li><strong>Archivos locales:</strong> MP4, WebM
+                                                    <br><code>/static/videos/video.mp4</code>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Audios:</h6>
+                                            <ul>
+                                                <li><strong>MP3:</strong> Formato recomendado
+                                                    <br><code>/static/audio/audio.mp3</code>
+                                                </li>
+                                                <li><strong>OGG:</strong> Alternativo
+                                                    <br><code>/static/audio/audio.ogg</code>
+                                                </li>
+                                                <li><strong>WAV:</strong> Sin compresión
+                                                    <br><code>/static/audio/audio.wav</code>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <h6 class="mt-3">Estructura de Carpetas Recomendada</h6>
+                                    <pre class="bg-light p-3 rounded"><code>static/
+├── videos/
+│   ├── registro-paso1.mp4
+│   ├── registro-paso2.mp4
+│   ├── membresia-paso1.mp4
+│   └── ...
+└── audio/
+    ├── registro-paso1.mp3
+    ├── registro-paso2.mp3
+    ├── membresia-paso1.mp3
+    └── ...</code></pre>
+                                    
+                                    <h6 class="mt-3">Procedimientos Disponibles</h6>
+                                    <ul>
+                                        <li><strong>register:</strong> Registro de Usuario</li>
+                                        <li><strong>membership:</strong> Compra de Membresía</li>
+                                        <li><strong>payment:</strong> Proceso de Pago</li>
+                                        <li><strong>events:</strong> Registro a Eventos</li>
+                                        <li><strong>appointments:</strong> Reserva de Citas</li>
+                                        <li><strong>admin-payments:</strong> Configuración de Métodos de Pago</li>
+                                    </ul>
+                                    
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-info-circle"></i> <strong>Nota:</strong> Los cambios se aplican inmediatamente. 
+                                        No necesitas reiniciar la aplicación. Los usuarios verán los videos y audios actualizados 
+                                        la próxima vez que abran la guía visual.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Troubleshooting -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin7">
+                                    <i class="fas fa-tools me-2"></i> Solución de Problemas Comunes
+                                </button>
+                            </h2>
+                            <div id="admin7" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Problema: "No hay métodos de pago disponibles"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que el módulo <code>payment_processors.py</code> esté importado correctamente</li>
+                                        <li>Revisa los logs del servidor para errores</li>
+                                        <li>Asegúrate de que la tabla <code>payment_config</code> exista en la base de datos</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Problema: "Error al crear el pago"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que las credenciales sean correctas</li>
+                                        <li>Asegúrate de que el método esté configurado correctamente</li>
+                                        <li>Revisa los logs del procesador de pago</li>
+                                        <li>Verifica que las URLs de retorno (PayPal) sean correctas</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Problema: "Modo demo siempre activo"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que las credenciales sean de producción (no <code>sk_test_...</code>)</li>
+                                        <li>Asegúrate de que PayPal esté en modo <code>live</code></li>
+                                        <li>Revisa que las variables de entorno estén configuradas si usas esa opción</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Problema: "Las credenciales no se guardan"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que tengas permisos de administrador</li>
+                                        <li>Revisa que la tabla <code>payment_config</code> exista en la base de datos</li>
+                                        <li>Ejecuta la migración: <code>python migrate_payment_config.py</code></li>
+                                        <li>Verifica los logs del servidor para errores</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Problema: "Los videos no se reproducen"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que la URL del video sea correcta</li>
+                                        <li>Para YouTube, asegúrate de usar formato embed: <code>https://www.youtube.com/embed/VIDEO_ID</code></li>
+                                        <li>Para archivos locales, verifica que el archivo exista en <code>static/videos/</code></li>
+                                        <li>Revisa que el archivo tenga permisos de lectura</li>
+                                        <li>Verifica la consola del navegador para errores</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Problema: "Los audios no se reproducen"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que la URL del audio sea correcta</li>
+                                        <li>Para archivos locales, verifica que el archivo exista en <code>static/audio/</code></li>
+                                        <li>Asegúrate de que el formato sea MP3, OGG o WAV</li>
+                                        <li>Verifica que el archivo tenga permisos de lectura</li>
+                                        <li>Revisa la consola del navegador para errores CORS si es URL externa</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Problema: "No puedo agregar un paso"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que tengas permisos de administrador</li>
+                                        <li>Revisa que la tabla <code>media_config</code> exista en la base de datos</li>
+                                        <li>Ejecuta la migración: <code>python migrate_media_config.py</code></li>
+                                        <li>Verifica que no exista ya un paso con el mismo número</li>
+                                        <li>Revisa los logs del servidor para errores</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Problema: "Las configuraciones no aparecen en las guías visuales"</h6>
+                                    <p><strong>Solución:</strong></p>
+                                    <ol>
+                                        <li>Verifica que las configuraciones estén marcadas como activas (<code>is_active = True</code>)</li>
+                                        <li>Revisa que el <code>procedure_key</code> coincida exactamente con el de la guía</li>
+                                        <li>Verifica que el <code>step_number</code> coincida con el paso en la guía</li>
+                                        <li>Limpia la caché del navegador (Ctrl+F5)</li>
+                                        <li>Revisa la consola del navegador para errores de carga de la API</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -183,11 +1601,485 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+/* Estilos para guías visuales */
+.visual-guide-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.visual-guide-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.step-visual {
+    display: flex;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid var(--primary);
+}
+.step-number {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.5rem;
+    margin-right: 1.5rem;
+    flex-shrink: 0;
+}
+.step-content {
+    flex: 1;
+}
+.step-arrow {
+    text-align: center;
+    color: var(--primary);
+    font-size: 2rem;
+    margin: 0.5rem 0;
+}
+.visual-diagram {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 2rem;
+    margin: 1rem 0;
+    text-align: center;
+}
+.icon-large {
+    font-size: 4rem;
+    margin: 1rem;
+    color: var(--primary);
+}
+.video-placeholder, .audio-placeholder {
+    background: #f0f0f0;
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    margin: 1rem 0;
+}
+.video-placeholder i, .audio-placeholder i {
+    font-size: 4rem;
+    color: #999;
+    margin-bottom: 1rem;
+}
+</style>
 <script>
+// Guías visuales disponibles
+const visualGuides = {
+    'register': {
+        title: 'Registro de Usuario - Guía Visual',
+        steps: [
+            {
+                number: 1,
+                icon: 'fa-home',
+                title: 'Accede a la Página de Registro',
+                description: 'Desde la página principal, haz clic en "Registrarse" o ve directamente a /register',
+                visual: '<div class="visual-diagram"><i class="fas fa-home icon-large"></i><p>Página Principal → Botón "Registrarse"</p></div>',
+                video: 'https://ejemplo.com/videos/registro-paso1.mp4',
+                audio: 'https://ejemplo.com/audio/registro-paso1.mp3'
+            },
+            {
+                number: 2,
+                icon: 'fa-edit',
+                title: 'Completa el Formulario',
+                description: 'Llena todos los campos requeridos con tu información personal',
+                visual: '<div class="visual-diagram"><i class="fas fa-edit icon-large"></i><p>Formulario con campos: Email, Contraseña, Nombre, Teléfono, País, Cédula</p></div>',
+                video: 'https://ejemplo.com/videos/registro-paso2.mp4',
+                audio: 'https://ejemplo.com/audio/registro-paso2.mp3'
+            },
+            {
+                number: 3,
+                icon: 'fa-envelope',
+                title: 'Verifica tu Email',
+                description: 'Revisa tu bandeja de entrada y haz clic en el enlace de verificación',
+                visual: '<div class="visual-diagram"><i class="fas fa-envelope icon-large"></i><p>Email recibido → Enlace de verificación → Cuenta verificada</p></div>',
+                video: 'https://ejemplo.com/videos/registro-paso3.mp4',
+                audio: 'https://ejemplo.com/audio/registro-paso3.mp3'
+            }
+        ]
+    },
+    'membership': {
+        title: 'Compra de Membresía - Guía Visual',
+        steps: [
+            {
+                number: 1,
+                icon: 'fa-crown',
+                title: 'Selecciona tu Membresía',
+                description: 'Ve a la sección "Membresía" y elige el plan que mejor se adapte a tus necesidades',
+                visual: '<div class="visual-diagram"><i class="fas fa-crown icon-large"></i><p>4 Planes disponibles: Básico (Gratis), Pro ($60), Premium ($120), DeLuxe ($200)</p></div>',
+                video: 'https://ejemplo.com/videos/membresia-paso1.mp4',
+                audio: 'https://ejemplo.com/audio/membresia-paso1.mp3'
+            },
+            {
+                number: 2,
+                icon: 'fa-shopping-cart',
+                title: 'Agrega al Carrito',
+                description: 'Haz clic en "Agregar al Carrito" para el plan seleccionado',
+                visual: '<div class="visual-diagram"><i class="fas fa-shopping-cart icon-large"></i><p>Botón "Agregar al Carrito" → Producto agregado</p></div>',
+                video: 'https://ejemplo.com/videos/membresia-paso2.mp4',
+                audio: 'https://ejemplo.com/audio/membresia-paso2.mp3'
+            },
+            {
+                number: 3,
+                icon: 'fa-credit-card',
+                title: 'Procede al Pago',
+                description: 'Ve al carrito y selecciona tu método de pago preferido',
+                visual: '<div class="visual-diagram"><i class="fas fa-credit-card icon-large"></i><p>Carrito → Checkout → Seleccionar método de pago</p></div>',
+                video: 'https://ejemplo.com/videos/membresia-paso3.mp4',
+                audio: 'https://ejemplo.com/audio/membresia-paso3.mp3'
+            },
+            {
+                number: 4,
+                icon: 'fa-check-circle',
+                title: 'Confirma tu Pago',
+                description: 'Completa el proceso de pago y recibe confirmación',
+                visual: '<div class="visual-diagram"><i class="fas fa-check-circle icon-large"></i><p>Pago completado → Email de confirmación → Membresía activa</p></div>',
+                video: 'https://ejemplo.com/videos/membresia-paso4.mp4',
+                audio: 'https://ejemplo.com/audio/membresia-paso4.mp3'
+            }
+        ]
+    },
+    'payment': {
+        title: 'Proceso de Pago - Guía Visual',
+        steps: [
+            {
+                number: 1,
+                icon: 'fa-credit-card',
+                title: 'Selecciona Método de Pago',
+                description: 'En el checkout, elige entre Stripe, PayPal, Banco General, Yappy o Interbank',
+                visual: '<div class="visual-diagram"><i class="fas fa-credit-card icon-large"></i><p>5 métodos disponibles: Tarjeta, PayPal, Transferencias</p></div>',
+                video: 'https://ejemplo.com/videos/pago-paso1.mp4',
+                audio: 'https://ejemplo.com/audio/pago-paso1.mp3'
+            },
+            {
+                number: 2,
+                icon: 'fa-lock',
+                title: 'Completa la Información',
+                description: 'Ingresa los datos según el método seleccionado (tarjeta, cuenta bancaria, etc.)',
+                visual: '<div class="visual-diagram"><i class="fas fa-lock icon-large"></i><p>Formulario seguro → Datos encriptados SSL</p></div>',
+                video: 'https://ejemplo.com/videos/pago-paso2.mp4',
+                audio: 'https://ejemplo.com/audio/pago-paso2.mp3'
+            },
+            {
+                number: 3,
+                icon: 'fa-check',
+                title: 'Confirma el Pago',
+                description: 'Revisa el resumen y confirma la transacción',
+                visual: '<div class="visual-diagram"><i class="fas fa-check icon-large"></i><p>Resumen → Confirmar → Procesamiento</p></div>',
+                video: 'https://ejemplo.com/videos/pago-paso3.mp4',
+                audio: 'https://ejemplo.com/audio/pago-paso3.mp3'
+            }
+        ]
+    },
+    'events': {
+        title: 'Registro a Eventos - Guía Visual',
+        steps: [
+            {
+                number: 1,
+                icon: 'fa-calendar',
+                title: 'Explora Eventos Disponibles',
+                description: 'Ve a la sección "Eventos" y revisa los eventos próximos',
+                visual: '<div class="visual-diagram"><i class="fas fa-calendar icon-large"></i><p>Lista de eventos → Filtros → Detalles</p></div>',
+                video: 'https://ejemplo.com/videos/eventos-paso1.mp4',
+                audio: 'https://ejemplo.com/audio/eventos-paso1.mp3'
+            },
+            {
+                number: 2,
+                icon: 'fa-tag',
+                title: 'Revisa Precio y Descuentos',
+                description: 'El precio se ajusta automáticamente según tu tipo de membresía',
+                visual: '<div class="visual-diagram"><i class="fas fa-tag icon-large"></i><p>Precio base → Descuento por membresía → Precio final</p></div>',
+                video: 'https://ejemplo.com/videos/eventos-paso2.mp4',
+                audio: 'https://ejemplo.com/audio/eventos-paso2.mp3'
+            },
+            {
+                number: 3,
+                icon: 'fa-user-check',
+                title: 'Regístrate al Evento',
+                description: 'Haz clic en "Registrarse" y completa el proceso',
+                visual: '<div class="visual-diagram"><i class="fas fa-user-check icon-large"></i><p>Botón "Registrarse" → Confirmación → Email recibido</p></div>',
+                video: 'https://ejemplo.com/videos/eventos-paso3.mp4',
+                audio: 'https://ejemplo.com/audio/eventos-paso3.mp3'
+            }
+        ]
+    },
+    'appointments': {
+        title: 'Reserva de Citas - Guía Visual',
+        steps: [
+            {
+                number: 1,
+                icon: 'fa-calendar-alt',
+                title: 'Selecciona Tipo de Servicio',
+                description: 'Elige el tipo de consulta o servicio que necesitas',
+                visual: '<div class="visual-diagram"><i class="fas fa-calendar-alt icon-large"></i><p>Servicios disponibles → Seleccionar tipo</p></div>',
+                video: 'https://ejemplo.com/videos/citas-paso1.mp4',
+                audio: 'https://ejemplo.com/audio/citas-paso1.mp3'
+            },
+            {
+                number: 2,
+                icon: 'fa-user-tie',
+                title: 'Elige un Asesor',
+                description: 'Selecciona el asesor que mejor se adapte a tus necesidades',
+                visual: '<div class="visual-diagram"><i class="fas fa-user-tie icon-large"></i><p>Lista de asesores → Perfiles → Seleccionar</p></div>',
+                video: 'https://ejemplo.com/videos/citas-paso2.mp4',
+                audio: 'https://ejemplo.com/audio/citas-paso2.mp3'
+            },
+            {
+                number: 3,
+                icon: 'fa-clock',
+                title: 'Selecciona Horario',
+                description: 'Elige un slot de tiempo disponible que te convenga',
+                visual: '<div class="visual-diagram"><i class="fas fa-clock icon-large"></i><p>Calendario → Horarios disponibles → Seleccionar</p></div>',
+                video: 'https://ejemplo.com/videos/citas-paso3.mp4',
+                audio: 'https://ejemplo.com/audio/citas-paso3.mp3'
+            },
+            {
+                number: 4,
+                icon: 'fa-check',
+                title: 'Confirma la Reserva',
+                description: 'Revisa los detalles y confirma tu cita',
+                visual: '<div class="visual-diagram"><i class="fas fa-check icon-large"></i><p>Resumen → Confirmar → Cita pendiente de aprobación</p></div>',
+                video: 'https://ejemplo.com/videos/citas-paso4.mp4',
+                audio: 'https://ejemplo.com/audio/citas-paso4.mp3'
+            }
+        ]
+    },
+    'admin-payments': {
+        title: 'Configuración de Métodos de Pago - Guía para Administradores',
+        steps: [
+            {
+                number: 1,
+                icon: 'fa-cog',
+                title: 'Accede al Panel de Configuración',
+                description: 'Ve a /admin/payments como administrador',
+                visual: '<div class="visual-diagram"><i class="fas fa-cog icon-large"></i><p>Panel Admin → Configuración de Pagos</p></div>',
+                video: 'https://ejemplo.com/videos/admin-pagos-paso1.mp4',
+                audio: 'https://ejemplo.com/audio/admin-pagos-paso1.mp3'
+            },
+            {
+                number: 2,
+                icon: 'fa-toggle-on',
+                title: 'Elige Fuente de Configuración',
+                description: 'Selecciona entre variables de entorno o base de datos',
+                visual: '<div class="visual-diagram"><i class="fas fa-toggle-on icon-large"></i><p>Switch: Variables de entorno ON/OFF</p></div>',
+                video: 'https://ejemplo.com/videos/admin-pagos-paso2.mp4',
+                audio: 'https://ejemplo.com/audio/admin-pagos-paso2.mp3'
+            },
+            {
+                number: 3,
+                icon: 'fa-key',
+                title: 'Ingresa las Credenciales',
+                description: 'Completa los campos para cada método de pago',
+                visual: '<div class="visual-diagram"><i class="fas fa-key icon-large"></i><p>Stripe, PayPal, Banco General, Yappy</p></div>',
+                video: 'https://ejemplo.com/videos/admin-pagos-paso3.mp4',
+                audio: 'https://ejemplo.com/audio/admin-pagos-paso3.mp3'
+            },
+            {
+                number: 4,
+                icon: 'fa-save',
+                title: 'Guarda la Configuración',
+                description: 'Haz clic en "Guardar" y verifica que todo funcione',
+                visual: '<div class="visual-diagram"><i class="fas fa-save icon-large"></i><p>Botón Guardar → Confirmación → Prueba</p></div>',
+                video: 'https://ejemplo.com/videos/admin-pagos-paso4.mp4',
+                audio: 'https://ejemplo.com/audio/admin-pagos-paso4.mp3'
+            }
+        ]
+    }
+};
+
+// Función para mostrar guía visual
+async function showVisualGuide(procedure) {
+    const guide = visualGuides[procedure];
+    if (!guide) return;
+    
+    const modal = new bootstrap.Modal(document.getElementById('visualGuideModal'));
+    const content = document.getElementById('visualGuideContent');
+    const title = document.getElementById('visualGuideModalLabel');
+    
+    title.innerHTML = `<i class="fas fa-video me-2"></i> ${guide.title}`;
+    
+    // Cargar configuraciones desde la base de datos
+    let mediaConfigs = {};
+    try {
+        const response = await fetch(`/api/media/config/${procedure}`);
+        const data = await response.json();
+        if (data.success && data.configs) {
+            data.configs.forEach(config => {
+                mediaConfigs[config.step_number] = config;
+            });
+        }
+    } catch (error) {
+        console.warn('No se pudieron cargar configuraciones de multimedia:', error);
+    }
+    
+    let html = `<div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4>${guide.title}</h4>
+                <p class="text-muted">Sigue los pasos visuales para completar el procedimiento</p>
+            </div>
+            <div>
+                <button class="btn btn-sm btn-outline-primary" onclick="toggleAudioMode()">
+                    <i class="fas fa-volume-up"></i> Modo Audio
+                </button>
+            </div>
+        </div>
+    </div>`;
+    
+    guide.steps.forEach((step, index) => {
+        // Usar configuración de BD si existe, sino usar valores por defecto
+        const mediaConfig = mediaConfigs[step.number];
+        const videoUrl = mediaConfig?.video_url || step.video || '';
+        const audioUrl = mediaConfig?.audio_url || step.audio || '';
+        
+        html += `
+        <div class="step-visual">
+            <div class="step-number">${step.number}</div>
+            <div class="step-content">
+                <h5><i class="fas ${step.icon} me-2"></i>${step.title}</h5>
+                <p>${step.description}</p>
+                ${step.visual}
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="video-placeholder">
+                            <i class="fas fa-video"></i>
+                            <p class="mb-2"><strong>Video Tutorial</strong></p>
+                            <p class="small text-muted">Paso ${step.number}: ${step.title}</p>`;
+        
+        if (videoUrl && !videoUrl.includes('ejemplo.com')) {
+            // Video configurado - mostrar reproductor
+            if (videoUrl.includes('youtube.com/embed') || videoUrl.includes('youtu.be')) {
+                html += `<iframe width="100%" height="315" src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            } else if (videoUrl.includes('vimeo.com')) {
+                html += `<iframe src="${videoUrl}" width="100%" height="315" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+            } else {
+                html += `<video controls class="w-100" style="max-height: 315px;">
+                    <source src="${videoUrl}" type="video/mp4">
+                    Tu navegador no soporta video HTML5.
+                </video>`;
+            }
+            html += `<div class="mt-2">
+                <small class="text-success"><i class="fas fa-check-circle"></i> Video configurado</small>
+            </div>`;
+        } else {
+            // Sin video configurado
+            html += `<button class="btn btn-sm btn-primary" onclick="playVideo('${videoUrl}')">
+                                <i class="fas fa-play"></i> Reproducir Video
+                            </button>
+                            <div class="mt-2">
+                                <small class="text-muted">URL: <code>${videoUrl || 'No configurado'}</code></small>
+                                <p class="small text-muted mt-1">💡 <strong>Nota:</strong> Configura el video desde <a href="/admin/media" target="_blank">Panel de Administración</a></p>
+                            </div>`;
+        }
+        
+        html += `</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="audio-placeholder">
+                            <i class="fas fa-volume-up"></i>
+                            <p class="mb-2"><strong>Audio Explicativo</strong></p>
+                            <p class="small text-muted">Escucha la explicación del paso</p>`;
+        
+        if (audioUrl && !audioUrl.includes('ejemplo.com')) {
+            // Audio configurado
+            html += `<audio controls class="w-100 mt-2">
+                                <source src="${audioUrl}" type="audio/mpeg">
+                                Tu navegador no soporta audio HTML5.
+                            </audio>
+                            <div class="mt-2">
+                                <small class="text-success"><i class="fas fa-check-circle"></i> Audio configurado</small>
+                            </div>`;
+        } else {
+            // Sin audio configurado
+            html += `<audio controls class="w-100 mt-2" disabled>
+                                <source src="${audioUrl || ''}" type="audio/mpeg">
+                                Audio no disponible
+                            </audio>
+                            <div class="mt-2">
+                                <small class="text-muted">URL: <code>${audioUrl || 'No configurado'}</code></small>
+                                <p class="small text-muted mt-1">💡 <strong>Nota:</strong> Configura el audio desde <a href="/admin/media" target="_blank">Panel de Administración</a></p>
+                            </div>`;
+        }
+        
+        html += `</div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        if (index < guide.steps.length - 1) {
+            html += '<div class="step-arrow"><i class="fas fa-arrow-down"></i></div>';
+        }
+    });
+    
+    content.innerHTML = html;
+    modal.show();
+}
+
+// Event listeners para las tarjetas
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.visual-guide-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const procedure = this.getAttribute('data-procedure');
+            showVisualGuide(procedure);
+        });
+    });
+});
+
+// Función para reproducir video
+function playVideo(url) {
+    if (url && !url.includes('ejemplo.com')) {
+        window.open(url, '_blank');
+    } else {
+        alert('El video aún no está disponible. Por favor, contacta al administrador para agregar el contenido multimedia.\n\nPara agregar un video:\n1. Sube el video a YouTube, Vimeo o tu servidor\n2. Actualiza la URL en el código JavaScript\n3. El video se reproducirá automáticamente');
+    }
+}
+
+// Función para modo audio
+function toggleAudioMode() {
+    const audios = document.querySelectorAll('audio');
+    if (audios.length > 0) {
+        audios[0].play();
+        let currentIndex = 0;
+        audios.forEach((audio, index) => {
+            audio.addEventListener('ended', function() {
+                if (index < audios.length - 1) {
+                    setTimeout(() => audios[index + 1].play(), 500);
+                }
+            });
+        });
+        alert('Modo audio activado: Los audios se reproducirán automáticamente en secuencia.');
+    }
+}
+
+// Búsqueda mejorada
 document.getElementById('helpSearch')?.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
-        // Aquí iría la lógica de búsqueda
-        alert('Búsqueda: ' + this.value);
+        const searchTerm = this.value.toLowerCase();
+        // Buscar en las guías visuales
+        for (const [key, guide] of Object.entries(visualGuides)) {
+            if (guide.title.toLowerCase().includes(searchTerm)) {
+                showVisualGuide(key);
+                return;
+            }
+            // Buscar en los pasos
+            for (const step of guide.steps) {
+                if (step.title.toLowerCase().includes(searchTerm) || 
+                    step.description.toLowerCase().includes(searchTerm)) {
+                    showVisualGuide(key);
+                    return;
+                }
+            }
+        }
+        alert('No se encontraron resultados para: ' + this.value);
     }
 });
 </script>

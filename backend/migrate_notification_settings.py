@@ -175,3 +175,11 @@ if __name__ == '__main__':
         print("❌ Error en la migración. Revisa los logs.")
         sys.exit(1)
 
+
+
+
+
+
+
+
+

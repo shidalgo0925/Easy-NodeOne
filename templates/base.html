@@ -93,6 +93,14 @@
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item me-1 d-flex align-items-center">
+                        <a class="nav-link nav-icon-link position-relative" href="{{ url_for('cart') }}" title="Carrito de Compras">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span id="cart-count-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem; display: none;">
+                                0
+                            </span>
+                        </a>
+                    </li>
+                    <li class="nav-item me-1 d-flex align-items-center">
                         <a class="nav-link nav-icon-link position-relative" href="{{ url_for('notifications') if url_for('notifications') else '#' }}" title="Notificaciones">
                             <i class="fas fa-bell"></i>
                             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge" style="font-size: 0.6rem; display: none;">
@@ -191,7 +199,7 @@
                         </li>
                         
                         <!-- Miembros - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'services', 'office365', 'membership'] or request.blueprint in ['events', 'appointments'] %}show{% endif %}">
+                        <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'services', 'office365'] or request.blueprint in ['events', 'appointments'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Miembros">
                                 <i class="menu-icon fa fa-users"></i>
                                 <span class="menu-title-text">Miembros</span>
@@ -217,12 +225,6 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'membership' %}active{% endif %}" href="{{ url_for('membership') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía">
-                                        <i class="menu-icon fa fa-crown"></i>
-                                        <span class="menu-title-text">Membresía</span>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Eventos">
                                         <i class="menu-icon fa fa-calendar"></i>
                                         <span class="menu-title-text">Eventos</span>
@@ -239,7 +241,7 @@
                         
                         {% if current_user.is_admin %}
                         <!-- Administración - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['admin_dashboard', 'admin_users', 'admin_memberships', 'admin_messaging', 'admin_messaging_detail', 'admin_email', 'admin_notifications'] or request.blueprint == 'admin_events' or request.endpoint == 'admin_events.discounts_index' or request.blueprint == 'admin_appointments' %}show{% endif %}">
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_dashboard', 'admin_users', 'admin_memberships', 'admin_messaging', 'admin_messaging_detail', 'admin_email', 'admin_notifications', 'admin_payments', 'admin_media'] or request.blueprint == 'admin_events' or request.endpoint == 'admin_events.discounts_index' or request.blueprint == 'admin_appointments' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Administración">
                                 <i class="menu-icon fa fa-cog"></i>
                                 <span class="menu-title-text">Administración</span>
@@ -277,6 +279,12 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_discount_codes' %}active{% endif %}" href="{{ url_for('admin_discount_codes') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Códigos de Descuento">
+                                        <i class="menu-icon fa fa-ticket-alt"></i>
+                                        <span class="menu-title-text">Códigos de Descuento</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'admin_appointments' %}active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Gestión de Citas">
                                         <i class="menu-icon fa fa-clock"></i>
                                         <span class="menu-title-text">Gestión de Citas</span>
@@ -298,6 +306,18 @@
                                     <a class="nav-link {% if request.endpoint == 'admin_notifications' %}active{% endif %}" href="{{ url_for('admin_notifications') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Notificaciones">
                                         <i class="menu-icon fa fa-bell"></i>
                                         <span class="menu-title-text">Notificaciones</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_payments' %}active{% endif %}" href="{{ url_for('admin_payments') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Configuración de Pagos">
+                                        <i class="menu-icon fa fa-credit-card"></i>
+                                        <span class="menu-title-text">Configuración de Pagos</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_media' %}active{% endif %}" href="{{ url_for('admin_media') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Configuración de Multimedia">
+                                        <i class="menu-icon fa fa-video"></i>
+                                        <span class="menu-title-text">Videos y Audios</span>
                                     </a>
                                 </li>
                             </ul>
@@ -700,6 +720,26 @@
     {% block scripts %}{% endblock %}
     
 <script>
+// Actualizar contador del carrito en el navbar
+document.addEventListener('DOMContentLoaded', function() {
+    {% if current_user.is_authenticated %}
+    fetch('/cart/count')
+        .then(response => response.json())
+        .then(data => {
+            const cartBadge = document.getElementById('cart-count-badge');
+            if (cartBadge) {
+                if (data.count > 0) {
+                    cartBadge.textContent = data.count;
+                    cartBadge.style.display = 'block';
+                } else {
+                    cartBadge.style.display = 'none';
+                }
+            }
+        })
+        .catch(error => console.error('Error cargando contador del carrito:', error));
+    {% endif %}
+});
+
 // Actualizar contador de notificaciones en el navbar
 document.addEventListener('DOMContentLoaded', function() {
     const notificationBadge = document.querySelector('.notification-badge');

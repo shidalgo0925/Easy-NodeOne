@@ -10,7 +10,7 @@
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">
                         <i class="fas fa-credit-card"></i> 
-                        Completar Pago - Membresía {{ membership_type.title() }}
+                        Completar Pago
                     </h4>
                 </div>
                 <div class="card-body">
@@ -20,46 +20,114 @@
                             <h5>Resumen del Pedido</h5>
                             <div class="card bg-light">
                                 <div class="card-body">
-                                    <p><strong>Membresía:</strong> {{ membership_type.title() }}</p>
-                                    <p><strong>Duración:</strong> 1 año</p>
-                                    <p><strong>Precio:</strong> ${{ "%.2f"|format(amount / 100) }}</p>
+                                    <!-- Carrito con múltiples productos -->
+                                    <div class="mb-3">
+                                        <strong>Productos:</strong>
+                                        <ul class="list-unstyled mt-2">
+                                            {% for item in cart.items %}
+                                            <li>
+                                                <small>{{ item.product_name }} - ${{ "%.2f"|format(item.get_subtotal() / 100) }}</small>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
                                     <p><strong>Correo:</strong> 
                                         <i class="fas fa-envelope text-primary"></i> 
                                         {{ current_user.email }}
                                     </p>
                                     <hr>
-                                    <h6><strong>Total: ${{ "%.2f"|format(amount / 100) }}</strong></h6>
+                                    {% if discount_breakdown %}
+                                    <div class="mb-2">
+                                        <small class="text-muted">Subtotal: ${{ "%.2f"|format(discount_breakdown.subtotal / 100) }}</small>
+                                    </div>
+                                    {% if discount_breakdown.master_discount %}
+                                    <div class="mb-2">
+                                        <small class="text-success">
+                                            <i class="fas fa-crown"></i> Descuento Maestro ({{ discount_breakdown.master_discount.discount.value }}{% if discount_breakdown.master_discount.discount.discount_type == 'percentage' %}%{% endif %}): 
+                                            -${{ "%.2f"|format(discount_breakdown.master_discount.amount / 100) }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    {% if discount_breakdown.code_discount %}
+                                    <div class="mb-2">
+                                        <small class="text-success">
+                                            <i class="fas fa-ticket-alt"></i> Código "{{ discount_breakdown.code_discount.code.code }}": 
+                                            -${{ "%.2f"|format(discount_breakdown.code_discount.amount / 100) }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    <hr>
+                                    {% endif %}
+                                    <h6><strong>Total: ${{ "%.2f"|format(total_amount / 100) }}</strong></h6>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <h5>Beneficios Incluidos</h5>
+                            <h5>Productos en tu pedido</h5>
                             <ul class="list-unstyled">
-                                {% if membership_type == 'basic' %}
-                                <li><i class="fas fa-check text-success"></i> Acceso a boletines RELATIC</li>
-                                <li><i class="fas fa-check text-success"></i> Recursos básicos</li>
-                                <li><i class="fas fa-check text-success"></i> Invitaciones a eventos abiertos</li>
-                                {% elif membership_type == 'pro' %}
-                                <li><i class="fas fa-check text-success"></i> Todo lo de Básico</li>
-                                <li><i class="fas fa-check text-success"></i> Acceso a revistas y bases de datos</li>
-                                <li><i class="fas fa-check text-success"></i> Soporte por email prioritario</li>
-                                <li><i class="fas fa-check text-success"></i> Certificaciones en eventos</li>
-                                {% elif membership_type == 'premium' %}
-                                <li><i class="fas fa-check text-success"></i> Todo lo de Pro</li>
-                                <li><i class="fas fa-check text-success"></i> Asesoría de publicación</li>
-                                <li><i class="fas fa-check text-success"></i> Soporte prioritario</li>
-                                <li><i class="fas fa-check text-success"></i> Acceso a webinars exclusivos</li>
-                                <li><i class="fas fa-check text-success"></i> Red de contactos académicos</li>
-                                <li><i class="fas fa-check text-success"></i> Descuentos en conferencias</li>
-                                {% else %}
-                                <li><i class="fas fa-check text-success"></i> Todo lo de Premium</li>
-                                <li><i class="fas fa-check text-success"></i> Acceso completo a O365</li>
-                                <li><i class="fas fa-check text-success"></i> Consultoría estratégica y personalizada</li>
-                                <li><i class="fas fa-check text-success"></i> Soporte dedicado 24/7</li>
-                                <li><i class="fas fa-check text-success"></i> API de integración</li>
-                                <li><i class="fas fa-check text-success"></i> Capacitaciones y eventos VIP</li>
-                                {% endif %}
+                                {% for item in cart.items %}
+                                <li><i class="fas fa-check text-success"></i> {{ item.product_name }}</li>
+                                {% endfor %}
                             </ul>
+                        </div>
+                    </div>
+
+                    <!-- Código de Descuento -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-ticket-alt"></i> ¿Tienes un código de descuento?
+                                    </h6>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="discount-code-input" 
+                                               placeholder="Introduce tu código aquí" style="text-transform: uppercase;"
+                                               onkeypress="if(event.key === 'Enter') applyDiscountCode()">
+                                        <button type="button" class="btn btn-primary" id="apply-discount-btn" onclick="applyDiscountCode()">
+                                            <i class="fas fa-check"></i> Aplicar
+                                        </button>
+                                        {% if discount_breakdown and discount_breakdown.code_discount %}
+                                        <button type="button" class="btn btn-outline-danger" onclick="removeDiscountCode()">
+                                            <i class="fas fa-times"></i> Remover
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                    <div id="discount-message" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Selección de método de pago -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>Método de Pago</h5>
+                            <div class="row g-3" id="payment-methods">
+                                {% if payment_methods %}
+                                    {% for method_key, method_name in payment_methods.items() %}
+                                    <div class="col-md-6">
+                                        <div class="form-check payment-method-option" data-method="{{ method_key }}">
+                                            <input class="form-check-input" type="radio" name="payment_method" 
+                                                   id="method_{{ method_key }}" value="{{ method_key }}"
+                                                   {% if loop.first %}checked{% endif %}>
+                                            <label class="form-check-label w-100" for="method_{{ method_key }}">
+                                                <div class="card">
+                                                    <div class="card-body">
+                                                        <i class="fas fa-credit-card me-2"></i>
+                                                        <strong>{{ method_name }}</strong>
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="col-12">
+                                        <div class="alert alert-warning">No hay métodos de pago disponibles</div>
+                                    </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
 
@@ -68,21 +136,42 @@
                         <div class="col-12">
                             <h5>Información de Pago</h5>
                             <form id="payment-form">
-                                <div class="mb-3">
-                                    <label for="card-element" class="form-label">
-                                        Información de la Tarjeta
-                                    </label>
-                                    <div id="card-element" class="form-control" style="height: 40px; padding: 10px;">
-                                        <!-- Stripe Elements se insertará aquí -->
+                                <!-- Stripe Card Element (solo para método stripe) -->
+                                <div id="stripe-payment-section" class="payment-section">
+                                    <div class="mb-3">
+                                        <label for="card-element" class="form-label">
+                                            Información de la Tarjeta
+                                        </label>
+                                        <div id="card-element" class="form-control" style="height: 40px; padding: 10px;">
+                                            <!-- Stripe Elements se insertará aquí -->
+                                        </div>
+                                        <div id="card-errors" role="alert" class="text-danger mt-2"></div>
                                     </div>
-                                    <div id="card-errors" role="alert" class="text-danger mt-2"></div>
                                 </div>
                                 
-                                <div class="d-grid gap-2">
+                                <!-- Información para pagos manuales (Banco General, Interbank, Yappy) -->
+                                <div id="manual-payment-section" class="payment-section d-none">
+                                    <div class="alert alert-info" id="manual-payment-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        <div id="manual-payment-content"></div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="receipt-upload" class="form-label">Comprobante de Pago (Opcional)</label>
+                                        <input type="file" class="form-control" id="receipt-upload" accept="image/*,.pdf">
+                                        <small class="form-text text-muted">Puedes subir una imagen o PDF del comprobante de pago</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- PayPal Button (se mostrará dinámicamente) -->
+                                <div id="paypal-payment-section" class="payment-section d-none">
+                                    <div id="paypal-button-container"></div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 mt-3">
                                     <button id="submit-button" class="btn btn-primary btn-lg" type="submit">
                                         <span id="button-text">
                                             <i class="fas fa-lock"></i> 
-                                            Pagar ${{ "%.2f"|format(amount / 100) }}
+                                            Pagar ${{ "%.2f"|format(total_amount / 100) }}
                                         </span>
                                         <span id="spinner" class="spinner-border spinner-border-sm d-none" role="status">
                                             <span class="visually-hidden">Procesando...</span>
@@ -96,16 +185,17 @@
                     <!-- Información de seguridad -->
                     <div class="row mt-4">
                         <div class="col-12">
-                            <div class="alert alert-warning">
+                            <div class="alert alert-info" id="demo-mode-alert" style="display: none;">
                                 <i class="fas fa-flask"></i>
-                                <strong>Modo Demo:</strong> 
-                                Este es un sistema de demostración. Los pagos se simulan automáticamente. 
-                                No se procesan transacciones reales.
+                                <strong>Modo de Prueba:</strong> 
+                                Estás en modo de prueba. Los pagos se simulan automáticamente y no se procesan transacciones reales.
+                                <br><small>Puedes probar todos los métodos de pago sin riesgo.</small>
                             </div>
-                            <div class="alert alert-info">
+                            <div class="alert alert-success">
                                 <i class="fas fa-shield-alt"></i>
                                 <strong>Pago Seguro:</strong> 
-                                En modo producción, tu información de pago estaría protegida con encriptación SSL y procesada de forma segura por Stripe.
+                                Tu información de pago está protegida con encriptación SSL. 
+                                <span id="production-mode-text" style="display: none;">Los pagos se procesan de forma segura.</span>
                             </div>
                         </div>
                     </div>
@@ -118,12 +208,17 @@
 <!-- Stripe JavaScript -->
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-    // Configuración de Stripe
-    const stripe = Stripe('{{ stripe_publishable_key }}');
+    let stripe = null;
+    let cardElement = null;
+    let currentPaymentMethod = 'stripe';
+    
+    // Inicializar Stripe si está disponible
+    {% if stripe_publishable_key %}
+    stripe = Stripe('{{ stripe_publishable_key }}');
     const elements = stripe.elements();
     
     // Crear elemento de tarjeta
-    const cardElement = elements.create('card', {
+    cardElement = elements.create('card', {
         style: {
             base: {
                 fontSize: '16px',
@@ -146,11 +241,86 @@
             displayError.textContent = '';
         }
     });
+    {% endif %}
+    
+    // Manejar cambio de método de pago
+    document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            currentPaymentMethod = this.value;
+            updatePaymentForm();
+        });
+    });
+    
+    function updatePaymentForm() {
+        // Ocultar todas las secciones
+        document.querySelectorAll('.payment-section').forEach(section => {
+            section.classList.add('d-none');
+        });
+        
+        // Mostrar sección según el método
+        if (currentPaymentMethod === 'stripe') {
+            document.getElementById('stripe-payment-section').classList.remove('d-none');
+            document.getElementById('submit-button').classList.remove('d-none');
+        } else if (currentPaymentMethod === 'paypal') {
+            document.getElementById('paypal-payment-section').classList.remove('d-none');
+            document.getElementById('submit-button').classList.add('d-none');
+            initPayPal();
+        } else {
+            // Métodos manuales (banco_general, interbank, yappy)
+            document.getElementById('manual-payment-section').classList.remove('d-none');
+            document.getElementById('submit-button').classList.remove('d-none');
+            showManualPaymentInfo(currentPaymentMethod);
+        }
+    }
+    
+    function showManualPaymentInfo(method) {
+        const content = document.getElementById('manual-payment-content');
+        let html = '';
+        
+        if (method === 'banco_general') {
+            html = `
+                <h6>Banco General</h6>
+                <p><strong>Cuenta Corriente:</strong> 03-78-01-089981-8</p>
+                <p><strong>Nombre:</strong> Multi Servicios TK</p>
+                <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
+            `;
+        } else if (method === 'interbank') {
+            html = `
+                <h6>Interbank</h6>
+                <p><strong>Cuenta de Ahorros:</strong> 898-346625274-5</p>
+                <p><strong>CCI:</strong> 003-898-013466252745-43</p>
+                <p><strong>Titular:</strong> Poma Gonzáles Sósimo Misael</p>
+                <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
+            `;
+        } else if (method === 'yappy') {
+            html = `
+                <h6>Yappy</h6>
+                <p><strong>Directorio:</strong> @multiservicio</p>
+                <p><strong>Nombre:</strong> Multiservicios TK</p>
+                <p class="mb-0">Realiza el pago por Yappy y sube el comprobante.</p>
+            `;
+        }
+        
+        content.innerHTML = html;
+    }
+    
+    function initPayPal() {
+        // PayPal se inicializará después de crear el payment intent
+        // Por ahora solo mostramos el contenedor
+    }
+    
+    // Inicializar formulario
+    updatePaymentForm();
     
     // Manejar envío del formulario
     const form = document.getElementById('payment-form');
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
+        
+        // PayPal se maneja diferente (redirección)
+        if (currentPaymentMethod === 'paypal') {
+            return;
+        }
         
         const submitButton = document.getElementById('submit-button');
         const buttonText = document.getElementById('button-text');
@@ -162,57 +332,152 @@
         spinner.classList.remove('d-none');
         
         try {
-            // Crear Payment Intent
+            // Crear Payment Intent con el método seleccionado
+            const requestData = {
+                payment_method: currentPaymentMethod,
+                cart_id: {{ cart.id }},
+                amount: {{ total_amount }}
+            };
+            
             const response = await fetch('/create-payment-intent', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    membership_type: '{{ membership_type }}',
-                    amount: {{ amount }}
-                }),
+                body: JSON.stringify(requestData),
             });
             
-            const { client_secret, payment_id, demo_mode } = await response.json();
+            const data = await response.json();
             
-            if (demo_mode) {
-                // Modo demo - simular pago exitoso
-                setTimeout(() => {
-                    window.location.href = `/payment-success?payment_id=${payment_id}`;
-                }, 2000);
-            } else {
-                // Modo real con Stripe
-                const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
-                    payment_method: {
-                        card: cardElement,
-                    }
-                });
-                
-                if (error) {
-                    // Mostrar error
-                    const displayError = document.getElementById('card-errors');
-                    displayError.textContent = error.message;
-                    
-                    // Restaurar botón
-                    submitButton.disabled = false;
-                    buttonText.classList.remove('d-none');
-                    spinner.classList.add('d-none');
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al crear el pago');
+            }
+            
+            // Procesar según el método
+            if (currentPaymentMethod === 'stripe') {
+                if (data.demo_mode) {
+                    // Modo demo
+                    setTimeout(() => {
+                        window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+                    }, 2000);
                 } else {
-                    // Pago exitoso
-                    window.location.href = `/payment-success?payment_id=${payment_id}`;
+                    // Modo real con Stripe
+                    const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
+                        payment_method: {
+                            card: cardElement,
+                        }
+                    });
+                    
+                    if (error) {
+                        const displayError = document.getElementById('card-errors');
+                        displayError.textContent = error.message;
+                        submitButton.disabled = false;
+                        buttonText.classList.remove('d-none');
+                        spinner.classList.add('d-none');
+                    } else {
+                        window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+                    }
                 }
+            } else if (currentPaymentMethod === 'paypal') {
+                // Redirigir a PayPal
+                if (data.payment_url) {
+                    window.location.href = data.payment_url + `&payment_id=${data.payment_id}`;
+                }
+            } else {
+                // Métodos manuales - mostrar mensaje y redirigir
+                alert('Pago iniciado. Por favor, sube el comprobante de pago cuando lo tengas.');
+                window.location.href = `/payment-success?payment_id=${data.payment_id}`;
             }
         } catch (err) {
             console.error('Error:', err);
             const displayError = document.getElementById('card-errors');
-            displayError.textContent = 'Ocurrió un error. Por favor, intenta nuevamente.';
+            if (displayError) {
+                displayError.textContent = err.message || 'Ocurrió un error. Por favor, intenta nuevamente.';
+            } else {
+                alert(err.message || 'Ocurrió un error. Por favor, intenta nuevamente.');
+            }
             
-            // Restaurar botón
             submitButton.disabled = false;
             buttonText.classList.remove('d-none');
             spinner.classList.add('d-none');
         }
     });
+
+    // Funciones para códigos de descuento
+    function applyDiscountCode() {
+        const codeInput = document.getElementById('discount-code-input');
+        const code = codeInput.value.trim().toUpperCase();
+        const messageDiv = document.getElementById('discount-message');
+        const applyBtn = document.getElementById('apply-discount-btn');
+        
+        if (!code) {
+            showDiscountMessage('Por favor, introduce un código', 'warning');
+            return;
+        }
+        
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aplicando...';
+        
+        fetch('/api/cart/apply-discount-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code: code })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showDiscountMessage(data.message, 'success');
+                // Recargar la página para actualizar el total
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showDiscountMessage(data.error || 'Error al aplicar el código', 'danger');
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = '<i class="fas fa-check"></i> Aplicar';
+            }
+        })
+        .catch(error => {
+            showDiscountMessage('Error al aplicar el código', 'danger');
+            applyBtn.disabled = false;
+            applyBtn.innerHTML = '<i class="fas fa-check"></i> Aplicar';
+        });
+    }
+    
+    function removeDiscountCode() {
+        const messageDiv = document.getElementById('discount-message');
+        
+        fetch('/api/cart/remove-discount-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showDiscountMessage(data.message, 'success');
+                // Recargar la página para actualizar el total
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showDiscountMessage(data.error || 'Error al remover el código', 'danger');
+            }
+        })
+        .catch(error => {
+            showDiscountMessage('Error al remover el código', 'danger');
+        });
+    }
+    
+    function showDiscountMessage(message, type) {
+        const messageDiv = document.getElementById('discount-message');
+        messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
+    }
 </script>
 {% endblock %}

@@ -5,18 +5,30 @@ Backend Flask para gestión de usuarios y membresías
 """
 
 import sys
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+import re
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
 import secrets
+from functools import wraps
+
+# Sistema de licencias (módulo independiente)
+try:
+    sys.path.insert(0, '/home/relaticpanama2025/.shh/license-system')
+    from license_validator import LicenseValidator
+    LICENSE_VALIDATOR = LicenseValidator('membresia-relatic')
+except Exception as e:
+    LICENSE_VALIDATOR = None
+    print(f"⚠️ Error inicializando sistema de licencias: {e}")
 try:
     import stripe
 except ImportError:
     stripe = None
     print("⚠️ Stripe no está instalado. Funcionalidad de pagos no disponible.")
+
 from flask_mail import Mail, Message
 try:
     from email_service import EmailService
@@ -31,12 +43,22 @@ try:
         get_appointment_confirmation_email,
         get_appointment_reminder_email,
         get_welcome_email,
-        get_password_reset_email
+        get_password_reset_email,
+        get_email_verification_email
     )
     EMAIL_TEMPLATES_AVAILABLE = True
 except ImportError:
     EMAIL_TEMPLATES_AVAILABLE = False
     print("⚠️ Email templates no disponibles. Usando templates básicos.")
+
+# Importar procesadores de pago
+try:
+    from payment_processors import get_payment_processor, PAYMENT_METHODS
+    PAYMENT_PROCESSORS_AVAILABLE = True
+except ImportError:
+    PAYMENT_PROCESSORS_AVAILABLE = False
+    print("⚠️ Payment processors no disponibles.")
+    PAYMENT_METHODS = {}
 
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
@@ -102,6 +124,7 @@ else:
 # Aplicar configuración de email desde BD al iniciar (si las tablas ya existen)
 # Usar before_request en lugar de before_first_request (deprecado en Flask 2.2+)
 _email_config_initialized = False
+_license_checked = False
 
 @app.before_request
 def initialize_email_config():
@@ -115,6 +138,40 @@ def initialize_email_config():
             print(f"⚠️ No se pudo inicializar configuración de email: {e}")
             import traceback
             traceback.print_exc()
+
+@app.before_request
+def check_license():
+    """Verificar licencia de la aplicación"""
+    global _license_checked
+    
+    # Solo verificar una vez al inicio
+    if _license_checked:
+        return
+    
+    _license_checked = True
+    
+    # Validar licencia usando el módulo independiente
+    if LICENSE_VALIDATOR:
+        LICENSE_VALIDATOR.check_and_log()
+        
+        # Modo permisivo: permite funcionar pero muestra advertencia
+        # Para modo restrictivo, descomenta las siguientes líneas:
+        # if not LICENSE_VALIDATOR.is_valid():
+        #     if request.path.startswith('/api/'):
+        #         return jsonify({'error': 'Servicio no disponible'}), 503
+        #     return render_template('error.html', message='Servicio no disponible'), 503
+
+# Agregar filtro personalizado para JSON en templates
+import json
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Filtro para parsear JSON en templates"""
+    if not value:
+        return {}
+    try:
+        return json.loads(value)
+    except:
+        return {}
 
 # Helper function para obtener el logo del sistema
 def get_system_logo():
@@ -193,6 +250,148 @@ def get_public_image_url(filename, absolute=True):
     
     return relative_url
 
+# Funciones de utilidad para validación de email
+def validate_email_format(email):
+    """
+    Validación estricta de formato de email
+    Retorna (is_valid, error_message)
+    """
+    if not email or not isinstance(email, str):
+        return False, "El email es obligatorio"
+    
+    email = email.strip().lower()
+    
+    # Validación básica de longitud
+    if len(email) > 120:
+        return False, "El email es demasiado largo (máximo 120 caracteres)"
+    
+    if len(email) < 5:
+        return False, "El email es demasiado corto"
+    
+    # Regex estricto para validar formato de email
+    email_regex = r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'
+    
+    if not re.match(email_regex, email):
+        return False, "El formato del email no es válido"
+    
+    # Validar estructura del dominio
+    parts = email.split('@')
+    if len(parts) != 2:
+        return False, "El email debe tener un formato válido (usuario@dominio.com)"
+    
+    domain = parts[1]
+    domain_parts = domain.split('.')
+    
+    if len(domain_parts) < 2:
+        return False, "El dominio del email debe tener al menos una extensión (ej: .com, .org)"
+    
+    # La extensión debe tener al menos 2 caracteres y ser solo letras
+    extension = domain_parts[-1]
+    if len(extension) < 2 or not extension.isalpha():
+        return False, "La extensión del dominio no es válida"
+    
+    # Dominios temporales bloqueados (lista básica)
+    blocked_domains = [
+        'tempmail.com', 'mailinator.com', 'guerrillamail.com', 
+        '10minutemail.com', 'throwaway.email', 'temp-mail.org',
+        'maildrop.cc', 'getnada.com', 'mohmal.com'
+    ]
+    
+    if domain.lower() in blocked_domains:
+        return False, "No se permiten direcciones de correo temporal"
+    
+    return True, None
+
+# Lista de países válidos
+VALID_COUNTRIES = [
+    'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica',
+    'Cuba', 'Ecuador', 'El Salvador', 'España', 'Guatemala', 'Honduras',
+    'México', 'Nicaragua', 'Panamá', 'Paraguay', 'Perú', 'República Dominicana',
+    'Uruguay', 'Venezuela', 'Estados Unidos', 'Canadá', 'Otro'
+]
+
+def validate_country(country):
+    """
+    Validar que el país sea válido
+    Retorna (is_valid, error_message)
+    """
+    if not country or not isinstance(country, str):
+        return False, "El país es obligatorio"
+    
+    country = country.strip()
+    
+    if country not in VALID_COUNTRIES:
+        return False, f"El país '{country}' no es válido. Seleccione un país de la lista."
+    
+    return True, None
+
+def validate_cedula_or_passport(cedula_or_passport, country=None):
+    """
+    Validar formato de cédula o pasaporte según el país
+    Retorna (is_valid, error_message)
+    """
+    if not cedula_or_passport or not isinstance(cedula_or_passport, str):
+        return False, "La cédula o pasaporte es obligatorio"
+    
+    cedula_or_passport = cedula_or_passport.strip()
+    
+    # Validación básica de longitud
+    if len(cedula_or_passport) < 4:
+        return False, "La cédula o pasaporte es demasiado corta (mínimo 4 caracteres)"
+    
+    if len(cedula_or_passport) > 20:
+        return False, "La cédula o pasaporte es demasiado larga (máximo 20 caracteres)"
+    
+    # Validación específica por país
+    if country:
+        country = country.strip()
+        
+        # Panamá: formato 8-123-456 o 12345678 (8 dígitos)
+        if country == 'Panamá':
+            # Remover guiones y espacios
+            cleaned = re.sub(r'[-\s]', '', cedula_or_passport)
+            if not cleaned.isdigit():
+                return False, "La cédula panameña debe contener solo números"
+            if len(cleaned) != 8:
+                return False, "La cédula panameña debe tener 8 dígitos (formato: 8-123-456 o 12345678)"
+        
+        # Colombia: formato 1234567890 (10 dígitos)
+        elif country == 'Colombia':
+            cleaned = re.sub(r'[-\s.]', '', cedula_or_passport)
+            if not cleaned.isdigit():
+                return False, "La cédula colombiana debe contener solo números"
+            if len(cleaned) < 7 or len(cleaned) > 10:
+                return False, "La cédula colombiana debe tener entre 7 y 10 dígitos"
+        
+        # Argentina: formato 12345678 (8 dígitos) o 12.345.678
+        elif country == 'Argentina':
+            cleaned = re.sub(r'[-\s.]', '', cedula_or_passport)
+            if not cleaned.isdigit():
+                return False, "El DNI argentino debe contener solo números"
+            if len(cleaned) < 7 or len(cleaned) > 8:
+                return False, "El DNI argentino debe tener 7 u 8 dígitos"
+        
+        # México: formato CURP o RFC (alfanumérico)
+        elif country == 'México':
+            if not re.match(r'^[A-Z0-9]{10,18}$', cedula_or_passport.upper()):
+                return False, "El formato de identificación mexicana no es válido (CURP o RFC)"
+        
+        # Pasaportes internacionales: formato alfanumérico
+        # Permitir formato estándar de pasaporte (letras y números)
+        if 'pasaporte' in cedula_or_passport.lower() or len(cedula_or_passport) > 10:
+            if not re.match(r'^[A-Z0-9]{6,20}$', cedula_or_passport.upper()):
+                return False, "El formato del pasaporte no es válido (debe ser alfanumérico, 6-20 caracteres)"
+    
+    # Validación general: debe ser alfanumérico (letras y números)
+    if not re.match(r'^[A-Z0-9\-\s\.]{4,20}$', cedula_or_passport.upper()):
+        return False, "El formato de cédula o pasaporte no es válido (debe ser alfanumérico)"
+    
+    return True, None
+
+def generate_verification_token():
+    """Generar token único para verificación de email"""
+    return secrets.token_urlsafe(32)
+
 # Modelos de la base de datos
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -201,12 +400,20 @@ class User(UserMixin, db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     phone = db.Column(db.String(20))
+    country = db.Column(db.String(100))  # País del usuario
+    cedula_or_passport = db.Column(db.String(20))  # Cédula o pasaporte
     tags = db.Column(db.String(500))  # Etiquetas separadas por comas
     user_group = db.Column(db.String(100))  # Grupo del usuario
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)  # Campo para administradores
     is_advisor = db.Column(db.Boolean, default=False)  # Campo para asesores que atienden citas
+    
+    # Verificación de email
+    email_verified = db.Column(db.Boolean, default=False)
+    email_verification_token = db.Column(db.String(100), unique=True, nullable=True)
+    email_verification_token_expires = db.Column(db.DateTime, nullable=True)
+    email_verification_sent_at = db.Column(db.DateTime, nullable=True)
     
     # Relación con membresías
     memberships = db.relationship('Membership', backref='user', lazy=True)
@@ -255,15 +462,50 @@ class Benefit(db.Model):
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    stripe_payment_intent_id = db.Column(db.String(100), unique=True, nullable=False)
+    
+    # Método de pago y referencia
+    payment_method = db.Column(db.String(50), nullable=False)  # stripe, paypal, banco_general, yappy, interbank
+    payment_reference = db.Column(db.String(200))  # ID de transacción del proveedor (stripe_payment_intent_id, paypal_order_id, etc.)
+    
+    # Información del pago
     amount = db.Column(db.Integer, nullable=False)  # Amount in cents
     currency = db.Column(db.String(3), default='usd')
-    status = db.Column(db.String(20), default='pending')  # pending, succeeded, failed
-    membership_type = db.Column(db.String(50), nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, awaiting_confirmation, succeeded, failed, cancelled
+    
+    # Información adicional
+    membership_type = db.Column(db.String(50), nullable=False)  # 'cart' para pagos del carrito, o tipo específico
+    payment_url = db.Column(db.String(500))  # URL para pagos externos (PayPal, Banco General, etc.)
+    receipt_url = db.Column(db.String(500))  # URL del comprobante subido por el usuario
+    receipt_filename = db.Column(db.String(255))  # Nombre del archivo del comprobante
+    
+    # Metadata adicional (JSON) - usando payment_metadata porque metadata es reservado en SQLAlchemy
+    payment_metadata = db.Column(db.Text)  # JSON con información adicional del pago
+    
+    # Fechas
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    paid_at = db.Column(db.DateTime)  # Fecha cuando se confirmó el pago
     
     user = db.relationship('User', backref=db.backref('payments', lazy=True))
+    
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        import json
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'payment_method': self.payment_method,
+            'payment_reference': self.payment_reference,
+            'amount': self.amount,
+            'currency': self.currency,
+            'status': self.status,
+            'membership_type': self.membership_type,
+            'payment_url': self.payment_url,
+            'receipt_url': self.receipt_url,
+            'metadata': json.loads(self.payment_metadata) if self.payment_metadata else {},
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'paid_at': self.paid_at.isoformat() if self.paid_at else None
+        }
 
 class Subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -444,6 +686,7 @@ class Discount(db.Model):
     category = db.Column(db.String(50), default='event')  # event, appointment, service
     applies_automatically = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    is_master = db.Column(db.Boolean, default=False)  # Descuento maestro global
     max_uses = db.Column(db.Integer)
     uses = db.Column(db.Integer, default=0)  # Alias para compatibilidad con esquema antiguo
     current_uses = db.Column(db.Integer, default=0)  # Contador de usos
@@ -477,6 +720,100 @@ class EventDiscount(db.Model):
     discount_id = db.Column(db.Integer, db.ForeignKey('discount.id'), nullable=False)
     priority = db.Column(db.Integer, default=1)  # Orden de aplicación si hay múltiples
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class DiscountCode(db.Model):
+    """Códigos promocionales que los usuarios introducen manualmente"""
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    
+    # Tipo y valor del descuento
+    discount_type = db.Column(db.String(20), default='percentage')  # percentage, fixed
+    value = db.Column(db.Float, nullable=False)
+    
+    # Alcance del descuento
+    applies_to = db.Column(db.String(50), default='all')  # all, events, memberships, appointments
+    event_ids = db.Column(db.Text)  # JSON array de event IDs (opcional)
+    
+    # Vigencia
+    start_date = db.Column(db.DateTime)
+    end_date = db.Column(db.DateTime)
+    
+    # Límites de uso
+    max_uses_total = db.Column(db.Integer)  # Límite total de usos
+    max_uses_per_user = db.Column(db.Integer, default=1)  # Límite por usuario
+    current_uses = db.Column(db.Integer, default=0)
+    
+    # Estado
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # Metadata
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relaciones
+    creator = db.relationship('User', foreign_keys=[created_by], backref='created_discount_codes')
+    applications = db.relationship('DiscountApplication', backref='discount_code', lazy=True, cascade='all, delete-orphan')
+    
+    def can_use(self, user_id=None):
+        """Verifica si el código puede ser usado por un usuario"""
+        if not self.is_active:
+            return False, "Este código de descuento no está activo"
+        
+        # Verificar vigencia
+        now = datetime.utcnow()
+        if self.start_date and now < self.start_date:
+            return False, f"Este código será válido a partir del {self.start_date.strftime('%d/%m/%Y')}"
+        if self.end_date and now > self.end_date:
+            return False, "Este código de descuento ha expirado"
+        
+        # Verificar límite total
+        if self.max_uses_total and self.current_uses >= self.max_uses_total:
+            return False, "Este código ha alcanzado su límite de usos"
+        
+        # Verificar límite por usuario
+        if user_id and self.max_uses_per_user:
+            user_uses = DiscountApplication.query.filter_by(
+                discount_code_id=self.id,
+                user_id=user_id
+            ).count()
+            if user_uses >= self.max_uses_per_user:
+                return False, f"Ya has usado este código el máximo de veces permitidas ({self.max_uses_per_user})"
+        
+        return True, "Código válido"
+    
+    def apply_discount(self, amount):
+        """Aplica el descuento a un monto"""
+        if self.discount_type == 'percentage':
+            return amount * (self.value / 100)
+        elif self.discount_type == 'fixed':
+            return min(self.value, amount)  # No puede ser mayor que el monto
+        return 0
+
+
+class DiscountApplication(db.Model):
+    """Historial de aplicación de códigos de descuento"""
+    id = db.Column(db.Integer, primary_key=True)
+    discount_code_id = db.Column(db.Integer, db.ForeignKey('discount_code.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payment.id'), nullable=True)
+    cart_id = db.Column(db.Integer, db.ForeignKey('cart.id'), nullable=True)
+    
+    # Montos
+    original_amount = db.Column(db.Float, nullable=False)  # Monto original
+    discount_amount = db.Column(db.Float, nullable=False)  # Monto descontado
+    final_amount = db.Column(db.Float, nullable=False)  # Monto final
+    
+    # Metadata
+    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relaciones
+    user = db.relationship('User', backref='discount_applications')
+    payment = db.relationship('Payment', backref='discount_applications')
+    cart = db.relationship('Cart', backref='discount_applications')
 
 
 # ---------------------------------------------------------------------------
@@ -669,6 +1006,11 @@ class EmailConfig(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    @staticmethod
+    def get_active_config():
+        """Obtener la configuración activa de email"""
+        return EmailConfig.query.filter_by(is_active=True).first()
+    
     def to_dict(self):
         """Convertir a diccionario para JSON (sin password)"""
         return {
@@ -683,11 +1025,6 @@ class EmailConfig(db.Model):
             'is_active': self.is_active,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-    
-    @staticmethod
-    def get_active_config():
-        """Obtener la configuración activa de email"""
-        return EmailConfig.query.filter_by(is_active=True).first()
     
     def apply_to_app(self, app_instance):
         """Aplicar esta configuración a la instancia de Flask"""
@@ -706,10 +1043,164 @@ class EmailConfig(db.Model):
             app_instance.config['MAIL_PORT'] = self.mail_port
             app_instance.config['MAIL_USE_TLS'] = self.mail_use_tls
             app_instance.config['MAIL_USE_SSL'] = self.mail_use_ssl
-            app_instance.config['MAIL_USERNAME'] = self.mail_username or ''
-            app_instance.config['MAIL_PASSWORD'] = self.mail_password or ''
+            app_instance.config['MAIL_USERNAME'] = self.mail_username
+            app_instance.config['MAIL_PASSWORD'] = self.mail_password
             app_instance.config['MAIL_DEFAULT_SENDER'] = self.mail_default_sender
 
+class PaymentConfig(db.Model):
+    """Configuración de métodos de pago"""
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Stripe
+    stripe_secret_key = db.Column(db.String(500))
+    stripe_publishable_key = db.Column(db.String(500))
+    stripe_webhook_secret = db.Column(db.String(500))
+    
+    # PayPal
+    paypal_client_id = db.Column(db.String(500))
+    paypal_client_secret = db.Column(db.String(500))
+    paypal_mode = db.Column(db.String(20), default='sandbox')  # sandbox o live
+    paypal_return_url = db.Column(db.String(500))
+    paypal_cancel_url = db.Column(db.String(500))
+    
+    # Banco General (CyberSource)
+    banco_general_merchant_id = db.Column(db.String(200))
+    banco_general_api_key = db.Column(db.String(500))
+    banco_general_shared_secret = db.Column(db.String(500))
+    banco_general_api_url = db.Column(db.String(500), default='https://api.cybersource.com')
+    
+    # Yappy
+    yappy_api_key = db.Column(db.String(500))
+    yappy_merchant_id = db.Column(db.String(200))
+    yappy_api_url = db.Column(db.String(500), default='https://api.yappy.im')
+    
+    # Configuración general
+    use_environment_variables = db.Column(db.Boolean, default=True)  # Si usa vars de entorno o BD
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        """Convertir a diccionario para JSON (sin secrets)"""
+        return {
+            'id': self.id,
+            'stripe_publishable_key': self.stripe_publishable_key if not self.use_environment_variables else '[Desde variables de entorno]',
+            'paypal_mode': self.paypal_mode,
+            'paypal_return_url': self.paypal_return_url,
+            'paypal_cancel_url': self.paypal_cancel_url,
+            'banco_general_merchant_id': self.banco_general_merchant_id if not self.use_environment_variables else '[Desde variables de entorno]',
+            'banco_general_api_url': self.banco_general_api_url,
+            'yappy_merchant_id': self.yappy_merchant_id if not self.use_environment_variables else '[Desde variables de entorno]',
+            'yappy_api_url': self.yappy_api_url,
+            'use_environment_variables': self.use_environment_variables,
+            'is_active': self.is_active,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    @staticmethod
+    def get_active_config():
+        """Obtener la configuración activa de pagos"""
+        return PaymentConfig.query.filter_by(is_active=True).first()
+    
+    def get_stripe_secret_key(self):
+        """Obtener Stripe secret key (de BD o variable de entorno)"""
+        if self.use_environment_variables:
+            return os.getenv('STRIPE_SECRET_KEY', '')
+        return self.stripe_secret_key or ''
+    
+    def get_stripe_publishable_key(self):
+        """Obtener Stripe publishable key"""
+        if self.use_environment_variables:
+            return os.getenv('STRIPE_PUBLISHABLE_KEY', '')
+        return self.stripe_publishable_key or ''
+    
+    def get_paypal_client_id(self):
+        """Obtener PayPal Client ID"""
+        if self.use_environment_variables:
+            return os.getenv('PAYPAL_CLIENT_ID', '')
+        return self.paypal_client_id or ''
+    
+    def get_paypal_client_secret(self):
+        """Obtener PayPal Client Secret"""
+        if self.use_environment_variables:
+            return os.getenv('PAYPAL_CLIENT_SECRET', '')
+        return self.paypal_client_secret or ''
+    
+    def get_banco_general_merchant_id(self):
+        """Obtener Banco General Merchant ID"""
+        if self.use_environment_variables:
+            return os.getenv('BANCO_GENERAL_MERCHANT_ID', '')
+        return self.banco_general_merchant_id or ''
+    
+    def get_banco_general_api_key(self):
+        """Obtener Banco General API Key"""
+        if self.use_environment_variables:
+            return os.getenv('BANCO_GENERAL_API_KEY', '')
+        return self.banco_general_api_key or ''
+    
+    def get_yappy_api_key(self):
+        """Obtener Yappy API Key"""
+        if self.use_environment_variables:
+            return os.getenv('YAPPY_API_KEY', '')
+        return self.yappy_api_key or ''
+
+class MediaConfig(db.Model):
+    """Configuración de URLs de videos y audios para guías visuales"""
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Identificador del procedimiento y paso
+    procedure_key = db.Column(db.String(100), nullable=False)  # 'register', 'membership', etc.
+    step_number = db.Column(db.Integer, nullable=False)  # 1, 2, 3, etc.
+    
+    # URLs de multimedia
+    video_url = db.Column(db.String(500))  # URL del video
+    audio_url = db.Column(db.String(500))  # URL del audio
+    
+    # Metadatos
+    step_title = db.Column(db.String(200))  # Título del paso (para referencia)
+    description = db.Column(db.Text)  # Descripción opcional
+    
+    # Control
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        """Convertir a diccionario"""
+        return {
+            'id': self.id,
+            'procedure_key': self.procedure_key,
+            'step_number': self.step_number,
+            'video_url': self.video_url,
+            'audio_url': self.audio_url,
+            'step_title': self.step_title,
+            'description': self.description,
+            'is_active': self.is_active
+        }
+    
+    @staticmethod
+    def get_all_configs():
+        """Obtener todas las configuraciones activas"""
+        return MediaConfig.query.filter_by(is_active=True).order_by(
+            MediaConfig.procedure_key, MediaConfig.step_number
+        ).all()
+    
+    @staticmethod
+    def get_procedure_configs(procedure_key):
+        """Obtener configuraciones de un procedimiento específico"""
+        return MediaConfig.query.filter_by(
+            procedure_key=procedure_key, 
+            is_active=True
+        ).order_by(MediaConfig.step_number).all()
+    
+    @staticmethod
+    def get_config(procedure_key, step_number):
+        """Obtener configuración específica"""
+        return MediaConfig.query.filter_by(
+            procedure_key=procedure_key,
+            step_number=step_number,
+            is_active=True
+        ).first()
 
 class EmailTemplate(db.Model):
     """Templates de correo editables desde el panel de administración"""
@@ -1102,6 +1593,194 @@ class ActivityLog(db.Model):
         db.session.add(log)
         return log
 
+# Modelos de Carrito de Compras
+class Cart(db.Model):
+    """Carrito de compras del usuario"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    
+    # Códigos de descuento aplicados
+    discount_code_id = db.Column(db.Integer, db.ForeignKey('discount_code.id'), nullable=True)
+    master_discount_id = db.Column(db.Integer, db.ForeignKey('discount.id'), nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relaciones
+    user = db.relationship('User', backref='cart')
+    items = db.relationship('CartItem', backref='cart', lazy=True, cascade='all, delete-orphan')
+    discount_code = db.relationship('DiscountCode', foreign_keys=[discount_code_id], backref='carts')
+    master_discount = db.relationship('Discount', foreign_keys=[master_discount_id], backref='carts')
+    
+    def get_subtotal(self):
+        """Calcular el subtotal del carrito (sin descuentos)"""
+        return sum(item.get_subtotal() for item in self.items)
+    
+    def get_total(self):
+        """Calcular el total del carrito (con descuentos aplicados)"""
+        return self.get_final_total()
+    
+    def get_items_count(self):
+        """Obtener cantidad de items en el carrito"""
+        return len(self.items)
+    
+    def get_master_discount_amount(self):
+        """Obtener el descuento maestro aplicable"""
+        if not self.master_discount_id:
+            # Buscar descuento maestro activo
+            master = Discount.query.filter_by(
+                is_master=True,
+                is_active=True
+            ).first()
+            
+            if master and master.can_use():
+                now = datetime.utcnow()
+                if (not master.start_date or now >= master.start_date) and \
+                   (not master.end_date or now <= master.end_date):
+                    self.master_discount_id = master.id
+                    db.session.commit()
+                    return master
+            return None
+        
+        master = Discount.query.get(self.master_discount_id)
+        if master and master.can_use():
+            return master
+        return None
+    
+    def get_discount_breakdown(self):
+        """Obtener desglose de descuentos aplicados"""
+        subtotal = self.get_subtotal()
+        breakdown = {
+            'subtotal': subtotal,
+            'master_discount': None,
+            'code_discount': None,
+            'total_discount': 0,
+            'final_total': subtotal
+        }
+        
+        # Aplicar descuento maestro
+        master = self.get_master_discount_amount()
+        if master:
+            if master.discount_type == 'percentage':
+                discount_amount = subtotal * (master.value / 100)
+            else:
+                discount_amount = min(master.value, subtotal)
+            
+            breakdown['master_discount'] = {
+                'discount': master,
+                'amount': discount_amount
+            }
+            breakdown['total_discount'] += discount_amount
+            subtotal_after_master = subtotal - discount_amount
+        else:
+            subtotal_after_master = subtotal
+        
+        # Aplicar código promocional
+        if self.discount_code_id:
+            code = DiscountCode.query.get(self.discount_code_id)
+            if code:
+                can_use, message = code.can_use(self.user_id)
+                if can_use:
+                    discount_amount = code.apply_discount(subtotal_after_master)
+                    breakdown['code_discount'] = {
+                        'code': code,
+                        'amount': discount_amount
+                    }
+                    breakdown['total_discount'] += discount_amount
+                    subtotal_after_master -= discount_amount
+        
+        breakdown['final_total'] = max(0, subtotal - breakdown['total_discount'])
+        return breakdown
+    
+    def get_final_total(self):
+        """Calcular el total final con todos los descuentos"""
+        breakdown = self.get_discount_breakdown()
+        return breakdown['final_total']
+    
+    def apply_discount_code(self, code_string):
+        """Aplicar un código de descuento al carrito"""
+        code = DiscountCode.query.filter_by(code=code_string.upper().strip()).first()
+        if not code:
+            return False, "Código de descuento no encontrado"
+        
+        can_use, message = code.can_use(self.user_id)
+        if not can_use:
+            return False, message
+        
+        # Verificar que el código aplique a los productos del carrito
+        if code.applies_to != 'all':
+            # Verificar si hay items que califiquen
+            has_qualifying_items = False
+            for item in self.items:
+                if code.applies_to == 'events' and item.product_type == 'event':
+                    has_qualifying_items = True
+                    break
+                elif code.applies_to == 'memberships' and item.product_type == 'membership':
+                    has_qualifying_items = True
+                    break
+            
+            if not has_qualifying_items:
+                return False, f"Este código solo aplica a {code.applies_to}"
+        
+        self.discount_code_id = code.id
+        db.session.commit()
+        return True, "Código aplicado correctamente"
+    
+    def remove_discount_code(self):
+        """Remover el código de descuento del carrito"""
+        self.discount_code_id = None
+        db.session.commit()
+        return True
+    
+    def clear(self):
+        """Vaciar el carrito"""
+        CartItem.query.filter_by(cart_id=self.id).delete()
+        self.discount_code_id = None
+        self.master_discount_id = None
+        db.session.commit()
+
+
+class CartItem(db.Model):
+    """Items individuales en el carrito"""
+    id = db.Column(db.Integer, primary_key=True)
+    cart_id = db.Column(db.Integer, db.ForeignKey('cart.id'), nullable=False)
+    
+    # Tipo de producto: 'membership', 'event', 'service'
+    product_type = db.Column(db.String(50), nullable=False)
+    product_id = db.Column(db.Integer, nullable=False)  # ID del producto según su tipo
+    
+    # Información del producto (cache para evitar joins)
+    product_name = db.Column(db.String(200), nullable=False)
+    product_description = db.Column(db.Text)
+    
+    # Precio y cantidad
+    unit_price = db.Column(db.Float, nullable=False)  # Precio unitario en centavos
+    quantity = db.Column(db.Integer, default=1, nullable=False)
+    
+    # Metadata adicional (JSON para flexibilidad) - usando item_metadata para evitar conflicto con SQLAlchemy
+    item_metadata = db.Column(db.Text)  # JSON con información adicional del producto
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def get_subtotal(self):
+        """Calcular subtotal del item"""
+        return self.unit_price * self.quantity
+    
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'product_type': self.product_type,
+            'product_id': self.product_id,
+            'product_name': self.product_name,
+            'product_description': self.product_description,
+            'unit_price': self.unit_price,
+            'quantity': self.quantity,
+            'subtotal': self.get_subtotal(),
+            'metadata': self.item_metadata
+        }
+
 # Función helper para validar archivos
 def allowed_file(filename):
     """Verifica si el archivo tiene una extensión permitida"""
@@ -1119,47 +1798,254 @@ def index():
     """Página principal"""
     return render_template('index.html')
 
+# Decoradores
+def email_verified_required(f):
+    """Decorador para requerir email verificado"""
+    @wraps(f)
+    @login_required
+    def decorated_function(*args, **kwargs):
+        if not current_user.email_verified:
+            # Si la request es JSON/AJAX, devolver JSON en lugar de redirigir
+            if request.is_json or request.headers.get('Content-Type') == 'application/json':
+                return jsonify({
+                    'success': False,
+                    'error': 'Debes verificar tu email para acceder a esta función. Revisa tu bandeja de entrada o solicita un nuevo enlace de verificación.',
+                    'requires_verification': True
+                }), 403
+            flash('Debes verificar tu email para acceder a esta función. Revisa tu bandeja de entrada o solicita un nuevo enlace de verificación.', 'warning')
+            return redirect(url_for('resend_verification'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def send_verification_email(user):
+    """Enviar email de verificación al usuario"""
+    try:
+        if not EMAIL_TEMPLATES_AVAILABLE or not email_service:
+            print(f"⚠️ Email service no disponible. No se enviará email de verificación a {user.email}")
+            return False
+        
+        # Refrescar usuario desde BD para asegurar que tenemos la versión más reciente
+        db.session.refresh(user)
+        
+        # Generar token de verificación (solo si no existe o expiró)
+        if not user.email_verification_token or (user.email_verification_token_expires and user.email_verification_token_expires < datetime.utcnow()):
+            token = generate_verification_token()
+            user.email_verification_token = token
+            user.email_verification_token_expires = datetime.utcnow() + timedelta(hours=24)
+            user.email_verification_sent_at = datetime.utcnow()
+            
+            # Guardar token en BD ANTES de enviar email
+            db.session.commit()
+            print(f"✅ Token de verificación generado y guardado para {user.email}")
+        else:
+            # Usar token existente si aún es válido
+            token = user.email_verification_token
+            print(f"✅ Reutilizando token existente para {user.email}")
+        
+        # Obtener base_url
+        if has_request_context() and request:
+            base_url = request.url_root.rstrip('/')
+        else:
+            base_url = os.getenv('BASE_URL', 'https://miembros.relatic.org')
+        
+        verification_url = f"{base_url}/verify-email/{token}"
+        
+        # Generar HTML del email
+        html_content = get_email_verification_email(user, verification_url)
+        
+        # Enviar email
+        success = email_service.send_email(
+            subject='Verifica tu Email - RelaticPanama',
+            recipients=[user.email],
+            html_content=html_content,
+            email_type='email_verification',
+            related_entity_type='user',
+            related_entity_id=user.id,
+            recipient_id=user.id,
+            recipient_name=f"{user.first_name} {user.last_name}"
+        )
+        
+        if success:
+            print(f"✅ Email de verificación enviado exitosamente a {user.email}")
+            return True
+        else:
+            print(f"❌ Error al enviar email de verificación a {user.email}")
+            # El token ya está guardado, así que el usuario puede intentar reenviar
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error enviando email de verificación: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return False
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """Registro de nuevos usuarios"""
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        first_name = request.form['first_name']
-        last_name = request.form['last_name']
-        phone = request.form.get('phone', '')
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        first_name = request.form.get('first_name', '').strip()
+        last_name = request.form.get('last_name', '').strip()
+        phone = request.form.get('phone', '').strip()
+        country = request.form.get('country', '').strip()
+        cedula_or_passport = request.form.get('cedula_or_passport', '').strip()
+        
+        # Validar campos obligatorios
+        if not email or not password or not first_name or not last_name:
+            flash('Todos los campos obligatorios deben ser completados.', 'error')
+            return render_template('register.html')
+        
+        # Validar país
+        if country:
+            is_valid, error_message = validate_country(country)
+            if not is_valid:
+                flash(error_message, 'error')
+                return render_template('register.html')
+        
+        # Validar cédula o pasaporte
+        if cedula_or_passport:
+            is_valid, error_message = validate_cedula_or_passport(cedula_or_passport, country)
+            if not is_valid:
+                flash(error_message, 'error')
+                return render_template('register.html')
+        
+        # Validar formato de email
+        is_valid, error_message = validate_email_format(email)
+        if not is_valid:
+            flash(error_message, 'error')
+            return render_template('register.html')
         
         # Verificar si el usuario ya existe
-        if User.query.filter_by(email=email).first():
+        if User.query.filter_by(email=email.lower()).first():
             flash('El correo electrónico ya está registrado.', 'error')
             return render_template('register.html')
         
         # Crear nuevo usuario
         user = User(
-            email=email,
+            email=email.lower(),
             first_name=first_name,
             last_name=last_name,
-            phone=phone
+            phone=phone if phone else None,
+            country=country if country else None,
+            cedula_or_passport=cedula_or_passport if cedula_or_passport else None
         )
         user.set_password(password)
+        user.email_verified = False
         
         db.session.add(user)
-        db.session.commit()
+        db.session.commit()  # Commit inicial para obtener el ID del usuario
         
-        # Enviar notificación de bienvenida
+        # Enviar email de verificación (genera el token y hace commit)
         try:
-            # Asegurar que la configuración de email esté actualizada
             apply_email_config_from_db()
-            NotificationEngine.notify_welcome(user)
+            send_verification_email(user)
         except Exception as e:
-            print(f"❌ Error enviando notificación de bienvenida: {e}")
+            print(f"❌ Error enviando email de verificación: {e}")
             import traceback
             traceback.print_exc()
         
-        flash('Registro exitoso. Por favor, inicia sesión.', 'success')
+        # Enviar notificación de bienvenida (solo si el email se envió correctamente)
+        try:
+            NotificationEngine.notify_welcome(user)
+        except Exception as e:
+            print(f"❌ Error enviando notificación de bienvenida: {e}")
+        
+        flash('Registro exitoso. Por favor, verifica tu email para acceder a todas las funciones. Revisa tu bandeja de entrada (y spam).', 'success')
         return redirect(url_for('login'))
     
-    return render_template('register.html')
+    return render_template('register.html', valid_countries=VALID_COUNTRIES)
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """Verificar email con token"""
+    try:
+        # Buscar usuario con el token (sin importar si está verificado o no)
+        user = User.query.filter_by(email_verification_token=token).first()
+        
+        if not user:
+            print(f"❌ Token de verificación no encontrado: {token[:20]}...")
+            flash('El enlace de verificación no es válido. Por favor, solicita uno nuevo.', 'error')
+            return redirect(url_for('login'))
+        
+        print(f"🔍 Verificando email para usuario: {user.email} (ID: {user.id})")
+        print(f"   Token expira: {user.email_verification_token_expires}")
+        print(f"   Hora actual: {datetime.utcnow()}")
+        print(f"   Ya verificado: {user.email_verified}")
+        
+        # Si ya está verificado, permitir acceso pero informar
+        if user.email_verified:
+            flash('Tu email ya está verificado. Puedes iniciar sesión normalmente.', 'info')
+            if current_user.is_authenticated and current_user.id == user.id:
+                return redirect(url_for('dashboard'))
+            return redirect(url_for('login'))
+        
+        # Verificar si el token expiró
+        if user.email_verification_token_expires:
+            time_diff = (user.email_verification_token_expires - datetime.utcnow()).total_seconds()
+            print(f"   Tiempo restante: {time_diff} segundos")
+            
+            if time_diff <= 0:
+                print(f"❌ Token expirado para usuario {user.email}")
+                flash('El enlace de verificación ha expirado. Por favor, solicita uno nuevo.', 'error')
+                return redirect(url_for('resend_verification'))
+        
+        # Verificar email
+        user.email_verified = True
+        user.email_verification_token = None
+        user.email_verification_token_expires = None
+        db.session.commit()
+        
+        print(f"✅ Email verificado exitosamente para {user.email}")
+        flash('¡Email verificado exitosamente! Ahora puedes iniciar sesión y acceder a todas las funciones.', 'success')
+        
+        # Si el usuario no está logueado, redirigir al login con mensaje claro
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+        
+        # Si está logueado pero es otro usuario, cerrar sesión y redirigir
+        if current_user.id != user.id:
+            logout_user()
+            flash('Por favor, inicia sesión con tu cuenta.', 'info')
+            return redirect(url_for('login'))
+        
+        return redirect(url_for('dashboard'))
+        
+    except Exception as e:
+        print(f"❌ Error en verify_email: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        flash('Ocurrió un error al verificar tu email. Por favor, intenta nuevamente o solicita un nuevo enlace.', 'error')
+        return redirect(url_for('login'))
+
+@app.route('/resend-verification', methods=['GET', 'POST'])
+@login_required
+def resend_verification():
+    """Reenviar email de verificación"""
+    if request.method == 'POST':
+        if current_user.email_verified:
+            flash('Tu email ya está verificado.', 'info')
+            return redirect(url_for('dashboard'))
+        
+        try:
+            apply_email_config_from_db()
+            if send_verification_email(current_user):
+                flash('Email de verificación reenviado. Revisa tu bandeja de entrada (y spam).', 'success')
+            else:
+                flash('Error al enviar el email de verificación. Por favor, intenta más tarde.', 'error')
+        except Exception as e:
+            flash('Error al reenviar el email de verificación.', 'error')
+            print(f"❌ Error reenviando verificación: {e}")
+        
+        return redirect(url_for('dashboard'))
+    
+    # Si es GET, mostrar página simple para reenviar
+    if current_user.email_verified:
+        return redirect(url_for('dashboard'))
+    
+    return render_template('resend_verification.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -1274,11 +2160,7 @@ def membership():
     active_membership = current_user.get_active_membership()
     return render_template('membership.html', membership=active_membership)
 
-@app.route('/subscription')
-@login_required
-def subscription_form():
-    """Formulario de suscripción adicional (membresía $30)"""
-    return render_template('subscription_form.html')
+# Ruta eliminada: subscription_form ya no está disponible
 
 @app.route('/benefits')
 @login_required
@@ -1368,37 +2250,239 @@ def help():
     return render_template('help.html')
 
 # Rutas de pago
+@app.route('/checkout')
+@login_required
+@email_verified_required
+def checkout():
+    """Página de checkout para pagos desde el carrito"""
+    cart = get_or_create_cart(current_user.id)
+    
+    if cart.get_items_count() == 0:
+        flash('Tu carrito está vacío. Agrega productos antes de proceder al pago.', 'warning')
+        return redirect(url_for('cart'))
+    
+    # Obtener desglose de descuentos
+    discount_breakdown = cart.get_discount_breakdown()
+    total_amount = discount_breakdown['final_total']
+    
+    # Obtener métodos de pago disponibles
+    payment_methods = PAYMENT_METHODS if PAYMENT_PROCESSORS_AVAILABLE else {'stripe': 'Stripe (Tarjeta de Crédito)'}
+    
+    return render_template('checkout.html', 
+                         cart=cart,
+                         total_amount=total_amount,
+                         discount_breakdown=discount_breakdown,
+                         stripe_publishable_key=STRIPE_PUBLISHABLE_KEY if stripe else None,
+                         payment_methods=payment_methods)
+
 @app.route('/checkout/<membership_type>')
 @login_required
-def checkout(membership_type):
-    """Página de checkout para pagos"""
+def checkout_membership(membership_type):
+    """Página de checkout directo para membresía (compatibilidad con sistema anterior)"""
     if membership_type not in ['basic', 'pro', 'premium', 'deluxe']:
         flash('Tipo de membresía inválido.', 'error')
         return redirect(url_for('membership'))
     
-    # Precios en centavos
+    # Agregar al carrito automáticamente
     prices = {
-        'basic': 0,         # $0.00 - Plan gratuito
-        'pro': 6000,        # $60.00
-        'premium': 12000,   # $120.00
-        'deluxe': 20000     # $200.00
+        'basic': 0,
+        'pro': 6000,
+        'premium': 12000,
+        'deluxe': 20000
     }
     
-    amount = prices[membership_type]
+    # Generar ID único basado en el tipo de membresía
+    import hashlib
+    product_id = int(hashlib.md5(membership_type.encode()).hexdigest()[:8], 16) % 1000000
     
-    return render_template('checkout.html', 
-                         membership_type=membership_type,
-                         amount=amount,
-                         stripe_publishable_key=STRIPE_PUBLISHABLE_KEY if stripe else None)
+    add_to_cart(
+        current_user.id,
+        'membership',
+        product_id,
+        f"Membresía {membership_type.title()}",
+        prices[membership_type],
+        1,
+        f"Plan de membresía {membership_type.title()} - 1 año",
+        {'membership_type': membership_type}
+    )
+    
+    # Redirigir al checkout del carrito
+    return redirect(url_for('checkout'))
 
-@app.route('/create-payment-intent', methods=['POST'])
+@app.route('/api/cart/apply-discount-code', methods=['POST'])
 @login_required
-def create_payment_intent():
-    """Crear Payment Intent de Stripe (Modo Demo)"""
+def api_apply_discount_code():
+    """API para aplicar código de descuento al carrito"""
     try:
         data = request.get_json()
-        membership_type = data['membership_type']
-        amount = data['amount']
+        code = data.get('code', '').strip().upper()
+        
+        if not code:
+            return jsonify({'success': False, 'error': 'El código es requerido'}), 400
+        
+        cart = get_or_create_cart(current_user.id)
+        success, message = cart.apply_discount_code(code)
+        
+        if success:
+            # Recalcular desglose
+            breakdown = cart.get_discount_breakdown()
+            return jsonify({
+                'success': True,
+                'message': message,
+                'breakdown': {
+                    'subtotal': breakdown['subtotal'],
+                    'master_discount_amount': breakdown['master_discount']['amount'] if breakdown['master_discount'] else 0,
+                    'code_discount_amount': breakdown['code_discount']['amount'] if breakdown['code_discount'] else 0,
+                    'total_discount': breakdown['total_discount'],
+                    'final_total': breakdown['final_total']
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cart/remove-discount-code', methods=['POST'])
+@login_required
+def api_remove_discount_code():
+    """API para remover código de descuento del carrito"""
+    try:
+        cart = get_or_create_cart(current_user.id)
+        cart.remove_discount_code()
+        
+        # Recalcular desglose
+        breakdown = cart.get_discount_breakdown()
+        return jsonify({
+            'success': True,
+            'message': 'Código de descuento removido',
+            'breakdown': {
+                'subtotal': breakdown['subtotal'],
+                'master_discount_amount': breakdown['master_discount']['amount'] if breakdown['master_discount'] else 0,
+                'code_discount_amount': 0,
+                'total_discount': breakdown['total_discount'],
+                'final_total': breakdown['final_total']
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/create-payment-intent', methods=['POST'])
+@email_verified_required
+def create_payment_intent():
+    """Crear Payment Intent o iniciar pago con el método seleccionado"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        payment_method = data.get('payment_method', 'stripe')
+        
+        cart = get_or_create_cart(current_user.id)
+        
+        if cart.get_items_count() == 0:
+            return jsonify({'error': 'El carrito está vacío'}), 400
+        
+        # Usar el total con descuentos aplicados
+        discount_breakdown = cart.get_discount_breakdown()
+        total_amount = discount_breakdown['final_total']
+        
+        # Validar método de pago
+        if payment_method not in PAYMENT_METHODS:
+            return jsonify({'error': f'Método de pago no válido: {payment_method}'}), 400
+        
+        # Obtener procesador de pago
+        if not PAYMENT_PROCESSORS_AVAILABLE:
+            return jsonify({'error': 'Sistema de pagos no disponible'}), 500
+        
+        # Obtener configuración de pagos de la BD
+        payment_config = PaymentConfig.get_active_config()
+        processor = get_payment_processor(payment_method, payment_config)
+        
+        # Crear metadata para el pago
+        import json
+        metadata = {
+            'user_id': current_user.id,
+            'cart_id': cart.id,
+            'items_count': cart.get_items_count()
+        }
+        
+        # Crear pago con el procesador
+        success, payment_data, error_message = processor.create_payment(
+            amount=total_amount,
+            currency='usd',
+            metadata=metadata
+        )
+        
+        if not success:
+            return jsonify({'error': error_message or 'Error al crear el pago'}), 400
+        
+        # Guardar pago en la base de datos
+        payment = Payment(
+            user_id=current_user.id,
+            payment_method=payment_method,
+            payment_reference=payment_data.get('payment_reference', ''),
+            amount=total_amount,
+            currency='usd',
+            status='pending',
+            membership_type='cart',
+            payment_url=payment_data.get('payment_url'),
+            payment_metadata=json.dumps(metadata)
+        )
+        db.session.add(payment)
+        db.session.commit()
+        
+        # Preparar respuesta según el método
+        response_data = {
+            'payment_id': payment.id,
+            'payment_method': payment_method,
+            'amount': total_amount,
+            'status': 'pending'
+        }
+        
+        # Agregar datos específicos según el método
+        if payment_method == 'stripe':
+            response_data['client_secret'] = payment_data.get('client_secret', 'demo_client_secret')
+            # Detectar modo demo desde el procesador o configuración
+            if payment_config:
+                has_stripe_key = bool(payment_config.get_stripe_secret_key() and 
+                                    not payment_config.get_stripe_secret_key().startswith('sk_test_your_'))
+            else:
+                has_stripe_key = bool(os.getenv('STRIPE_SECRET_KEY') and 
+                                    not os.getenv('STRIPE_SECRET_KEY', '').startswith('sk_test_your_'))
+            response_data['demo_mode'] = payment_data.get('demo_mode', not has_stripe_key)
+        elif payment_method == 'paypal':
+            response_data['payment_url'] = payment_data.get('payment_url')
+            response_data['order_id'] = payment_data.get('payment_reference')
+        elif payment_method in ['banco_general', 'interbank']:
+            response_data['bank_account'] = payment_data.get('bank_account')
+            response_data['payment_reference'] = payment_data.get('payment_reference')
+            response_data['manual'] = True
+        elif payment_method == 'yappy':
+            response_data['yappy_info'] = payment_data.get('yappy_info')
+            response_data['payment_reference'] = payment_data.get('payment_reference')
+            response_data['manual'] = True
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"Error en create_payment_intent: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# Ruta legacy para compatibilidad (solo Stripe)
+@app.route('/create-payment-intent-legacy', methods=['POST'])
+@email_verified_required
+def create_payment_intent_legacy():
+    """Crear Payment Intent de Stripe desde el carrito (método legacy)"""
+    try:
+        cart = get_or_create_cart(current_user.id)
+        
+        if cart.get_items_count() == 0:
+            return jsonify({'error': 'El carrito está vacío'}), 400
+        
+        total_amount = cart.get_total()
         
         # Modo Demo - Simular pago exitoso
         demo_mode = True  # Cambiar a False cuando tengas Stripe configurado
@@ -1410,48 +2494,89 @@ def create_payment_intent():
             # Guardar en la base de datos
             payment = Payment(
                 user_id=current_user.id,
-                stripe_payment_intent_id=fake_intent_id,
-                amount=amount,
-                membership_type=membership_type,
+                payment_method='stripe',
+                payment_reference=fake_intent_id,
+                amount=total_amount,
+                membership_type='cart',  # Indica que es un pago del carrito
                 status='succeeded'  # Simular pago exitoso
             )
             db.session.add(payment)
             db.session.commit()
             
-            # Crear suscripción automáticamente
-            end_date = datetime.utcnow() + timedelta(days=365)
-            subscription = Subscription(
-                user_id=current_user.id,
-                payment_id=payment.id,
-                membership_type=membership_type,
-                status='active',
-                end_date=end_date
-            )
-            db.session.add(subscription)
+            # Procesar cada item del carrito
+            subscriptions_created = []
+            items_processed = 0
+            import json
+            
+            # Crear copia de la lista antes de procesar
+            cart_items_list = list(cart.items)
+            
+            for item in cart_items_list:
+                items_processed += 1
+                
+                if item.product_type == 'membership':
+                    metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+                    membership_type = metadata.get('membership_type', 'basic')
+                    
+                    # Crear suscripción
+                    end_date = datetime.utcnow() + timedelta(days=365)
+                    subscription = Subscription(
+                        user_id=current_user.id,
+                        payment_id=payment.id,
+                        membership_type=membership_type,
+                        status='active',
+                        end_date=end_date
+                    )
+                    db.session.add(subscription)
+                    subscriptions_created.append(subscription)
+                
+                elif item.product_type == 'event':
+                    # Registrar al evento (si existe la funcionalidad)
+                    metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+                    event_id = metadata.get('event_id')
+                    if event_id:
+                        # Aquí se podría registrar al evento automáticamente
+                        pass
+                
+            
             db.session.commit()
+            
+            # Vaciar el carrito después del pago exitoso
+            cart.clear()
             
             return jsonify({
                 'client_secret': 'demo_client_secret',
                 'payment_id': payment.id,
-                'demo_mode': True
+                'demo_mode': True,
+                'items_processed': items_processed
             })
         else:
             # Modo real con Stripe
+            # Crear metadata con información del carrito
+            import json
+            cart_metadata = {
+                'user_id': current_user.id,
+                'items_count': cart.get_items_count(),
+                'items': [item.to_dict() for item in cart.items]
+            }
+            
             intent = stripe.PaymentIntent.create(
-                amount=amount,
+                amount=total_amount,
                 currency='usd',
                 metadata={
-                    'user_id': current_user.id,
-                    'membership_type': membership_type
+                    'user_id': str(current_user.id),
+                    'cart_id': str(cart.id),
+                    'items': json.dumps(cart_metadata['items'])
                 }
             )
             
             # Guardar en la base de datos
             payment = Payment(
                 user_id=current_user.id,
-                stripe_payment_intent_id=intent.id,
-                amount=amount,
-                membership_type=membership_type,
+                payment_method='stripe',
+                payment_reference=intent.id,
+                amount=total_amount,
+                membership_type='cart',
                 status='pending'
             )
             db.session.add(payment)
@@ -1464,6 +2589,9 @@ def create_payment_intent():
             })
         
     except Exception as e:
+        print(f"Error en create_payment_intent: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 400
 
 @app.route('/payment-success')
@@ -1474,10 +2602,137 @@ def payment_success():
     if payment_id:
         payment = Payment.query.get(payment_id)
         if payment and payment.user_id == current_user.id:
+            # Procesar items del carrito si el pago fue exitoso
+            if payment.status == 'succeeded':
+                cart = get_or_create_cart(current_user.id)
+                process_cart_after_payment(cart, payment)
+                cart.clear()
+                db.session.commit()
             return render_template('payment_success.html', payment=payment)
     
     flash('Información de pago no encontrada.', 'error')
     return redirect(url_for('membership'))
+
+@app.route('/payment/paypal/return', methods=['GET'])
+@login_required
+def paypal_return():
+    """Callback de retorno de PayPal después del pago"""
+    token = request.args.get('token')
+    payment_id = request.args.get('payment_id')
+    
+    if not token or not payment_id:
+        flash('Error en el proceso de pago de PayPal.', 'error')
+        return redirect(url_for('checkout'))
+    
+    payment = Payment.query.get(payment_id)
+    if not payment or payment.user_id != current_user.id:
+        flash('Pago no encontrado.', 'error')
+        return redirect(url_for('checkout'))
+    
+    # Capturar el pago de PayPal
+    if PAYMENT_PROCESSORS_AVAILABLE:
+        try:
+            payment_config = PaymentConfig.get_active_config()
+            processor = get_payment_processor('paypal', payment_config)
+            # PayPal ya captura automáticamente, solo verificamos
+            success, status, payment_data = processor.verify_payment(token)
+            
+            if success and status == 'succeeded':
+                payment.status = 'succeeded'
+                payment.paid_at = datetime.utcnow()
+                db.session.commit()
+                
+                # Procesar carrito
+                cart = get_or_create_cart(current_user.id)
+                process_cart_after_payment(cart, payment)
+                cart.clear()
+                db.session.commit()
+                
+                return redirect(url_for('payment_success', payment_id=payment.id))
+            else:
+                payment.status = 'failed'
+                db.session.commit()
+                flash('El pago no se pudo completar.', 'error')
+        except Exception as e:
+            print(f"Error procesando retorno de PayPal: {e}")
+            flash('Error procesando el pago.', 'error')
+    
+    return redirect(url_for('checkout'))
+
+@app.route('/payment/paypal/cancel', methods=['GET'])
+@login_required
+def paypal_cancel():
+    """Callback de cancelación de PayPal"""
+    payment_id = request.args.get('payment_id')
+    
+    if payment_id:
+        payment = Payment.query.get(payment_id)
+        if payment and payment.user_id == current_user.id:
+            payment.status = 'cancelled'
+            db.session.commit()
+    
+    flash('Pago cancelado.', 'warning')
+    return redirect(url_for('checkout'))
+
+def process_cart_after_payment(cart, payment):
+    """Procesar carrito después de un pago exitoso y registrar uso de códigos de descuento"""
+    import json
+    subscriptions_created = []
+    
+    # Obtener desglose de descuentos antes de procesar
+    discount_breakdown = cart.get_discount_breakdown()
+    original_amount = discount_breakdown['subtotal']
+    final_amount = discount_breakdown['final_total']
+    total_discount = discount_breakdown['total_discount']
+    
+    # Registrar uso del código de descuento si existe
+    if cart.discount_code_id:
+        discount_code = DiscountCode.query.get(cart.discount_code_id)
+        if discount_code:
+            # Incrementar contador de usos
+            discount_code.current_uses = (discount_code.current_uses or 0) + 1
+            
+            # Crear registro de aplicación
+            code_discount_amount = discount_breakdown['code_discount']['amount'] if discount_breakdown['code_discount'] else 0
+            discount_application = DiscountApplication(
+                discount_code_id=discount_code.id,
+                user_id=payment.user_id,
+                payment_id=payment.id,
+                cart_id=cart.id,
+                original_amount=original_amount,
+                discount_amount=code_discount_amount,
+                final_amount=final_amount
+            )
+            db.session.add(discount_application)
+    
+    # Procesar items del carrito
+    for item in cart.items:
+        if item.product_type == 'membership':
+            metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+            membership_type = metadata.get('membership_type', 'basic')
+            
+            # Crear suscripción
+            end_date = datetime.utcnow() + timedelta(days=365)
+            subscription = Subscription(
+                user_id=payment.user_id,
+                payment_id=payment.id,
+                membership_type=membership_type,
+                status='active',
+                end_date=end_date
+            )
+            db.session.add(subscription)
+            subscriptions_created.append(subscription)
+        
+        elif item.product_type == 'event':
+            # Registrar al evento
+            metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+            event_id = metadata.get('event_id')
+            if event_id:
+                # Aquí se registraría al evento automáticamente
+                pass
+    
+    db.session.commit()
+    return subscriptions_created
 
 @app.route('/payment-cancel')
 @login_required
@@ -1485,6 +2740,318 @@ def payment_cancel():
     """Página de cancelación del pago"""
     flash('El pago fue cancelado. Puedes intentar nuevamente.', 'warning')
     return redirect(url_for('membership'))
+
+# Funciones helper para el carrito
+def generate_discount_code(prefix="DSC", length=8, custom_part=None):
+    """
+    Genera un código de descuento único automáticamente
+    
+    Args:
+        prefix: Prefijo del código (ej: "DSC", "EVT", "PROMO")
+        length: Longitud de la parte aleatoria
+        custom_part: Parte personalizada opcional (se inserta entre prefijo y aleatorio)
+    
+    Returns:
+        str: Código único generado
+    """
+    import random
+    import string
+    
+    max_attempts = 100
+    attempt = 0
+    
+    while attempt < max_attempts:
+        # Generar parte aleatoria
+        random_part = ''.join(random.choices(
+            string.ascii_uppercase + string.digits, 
+            k=length
+        ))
+        
+        # Construir código
+        if custom_part:
+            code = f"{prefix}-{custom_part}-{random_part}"
+        else:
+            code = f"{prefix}-{random_part}"
+        
+        # Verificar que no exista
+        if not DiscountCode.query.filter_by(code=code).first():
+            return code
+        
+        attempt += 1
+    
+    # Si no se pudo generar en 100 intentos, usar timestamp
+    import time
+    timestamp = str(int(time.time()))[-6:]
+    code = f"{prefix}-{timestamp}"
+    
+    # Verificar unicidad final
+    if DiscountCode.query.filter_by(code=code).first():
+        code = f"{prefix}-{timestamp}-{random.randint(1000, 9999)}"
+    
+    return code
+
+
+def get_or_create_cart(user_id):
+    """Obtener o crear carrito para el usuario"""
+    cart = Cart.query.filter_by(user_id=user_id).first()
+    if not cart:
+        cart = Cart(user_id=user_id)
+        db.session.add(cart)
+        db.session.commit()
+    return cart
+
+def add_to_cart(user_id, product_type, product_id, product_name, unit_price, quantity=1, product_description=None, metadata=None):
+    """Agregar producto al carrito"""
+    cart = get_or_create_cart(user_id)
+    
+    # Verificar si el producto ya está en el carrito
+    existing_item = CartItem.query.filter_by(
+        cart_id=cart.id,
+        product_type=product_type,
+        product_id=product_id
+    ).first()
+    
+    if existing_item:
+        # Actualizar cantidad
+        existing_item.quantity += quantity
+        existing_item.updated_at = datetime.utcnow()
+    else:
+        # Crear nuevo item
+        import json
+        metadata_json = json.dumps(metadata) if metadata else None
+        
+        new_item = CartItem(
+            cart_id=cart.id,
+            product_type=product_type,
+            product_id=product_id,
+            product_name=product_name,
+            product_description=product_description,
+            unit_price=unit_price,
+            quantity=quantity,
+            item_metadata=metadata_json
+        )
+        db.session.add(new_item)
+    
+    cart.updated_at = datetime.utcnow()
+    db.session.commit()
+    return cart
+
+# Rutas del Carrito de Compras
+@app.route('/cart')
+@login_required
+def cart():
+    """Ver carrito de compras"""
+    cart = get_or_create_cart(current_user.id)
+    return render_template('cart.html', cart=cart)
+
+@app.route('/cart/add', methods=['POST'])
+@login_required
+@email_verified_required
+def cart_add():
+    """Agregar producto al carrito"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        product_type = data.get('product_type')
+        quantity = int(data.get('quantity', 1))
+        
+        # Validar tipo de producto
+        if product_type not in ['membership', 'event', 'service']:
+            return jsonify({'success': False, 'error': 'Tipo de producto inválido'}), 400
+        
+        # Si el usuario ya tiene membresía activa, verificar que no intente comprar otra membresía del mismo tipo
+        if product_type == 'membership':
+            active_membership = current_user.get_active_membership()
+            if active_membership:
+                membership_type_requested = data.get('membership_type')
+                if membership_type_requested == active_membership.membership_type:
+                    return jsonify({
+                        'success': False, 
+                        'error': f'Ya tienes una membresía {membership_type_requested.title()} activa'
+                    }), 400
+        
+        # Obtener información del producto según su tipo
+        product_name = ""
+        product_description = ""
+        unit_price = 0
+        metadata = {}
+        product_id = 0  # Inicializar product_id
+        
+        if product_type == 'membership':
+            membership_type = data.get('membership_type')
+            if not membership_type:
+                return jsonify({'success': False, 'error': 'Tipo de membresía no especificado'}), 400
+            
+            prices = {
+                'basic': 0,
+                'pro': 6000,
+                'premium': 12000,
+                'deluxe': 20000
+            }
+            unit_price = prices.get(membership_type, 0)
+            product_name = f"Membresía {membership_type.title()}"
+            product_description = f"Plan de membresía {membership_type.title()} - 1 año"
+            metadata = {'membership_type': membership_type}
+            # Generar ID único basado en el tipo de membresía
+            import hashlib
+            product_id = int(hashlib.md5(membership_type.encode()).hexdigest()[:8], 16) % 1000000
+            
+            
+        elif product_type == 'event':
+            product_id = int(data.get('product_id', 0))
+            if product_id == 0:
+                return jsonify({'success': False, 'error': 'ID de evento no especificado'}), 400
+            event = Event.query.get(product_id)
+            if not event:
+                return jsonify({'success': False, 'error': 'Evento no encontrado'}), 404
+            
+            # Calcular precio según membresía del usuario
+            active_membership = current_user.get_active_membership()
+            membership_type = active_membership.membership_type if active_membership else 'basic'
+            pricing = event.pricing_for_membership(membership_type)
+            
+            unit_price = int(pricing['final_price'] * 100)  # Convertir a centavos
+            product_name = event.title
+            product_description = event.summary or event.description[:200] if event.description else ""
+            metadata = {
+                'event_id': event.id,
+                'event_slug': event.slug,
+                'base_price': pricing['base_price'],
+                'final_price': pricing['final_price'],
+                'discount_applied': pricing['discount'] is not None
+            }
+        
+        elif product_type == 'service':
+            # Obtener información del servicio desde los datos enviados
+            product_id = int(data.get('product_id', 0))
+            if product_id == 0:
+                return jsonify({'success': False, 'error': 'ID de servicio no especificado'}), 400
+            service_name = data.get('service_name', 'Servicio')
+            base_price = float(data.get('base_price', 0))  # Precio base del servicio
+            
+            # Calcular precio con descuento según membresía
+            active_membership = current_user.get_active_membership()
+            membership_type = active_membership.membership_type if active_membership else 'basic'
+            
+            # Descuentos por membresía para servicios
+            discounts = {
+                'basic': 0,      # Sin descuento
+                'pro': 10,       # 10% descuento
+                'premium': 20,   # 20% descuento
+                'deluxe': 30     # 30% descuento
+            }
+            
+            discount_percent = discounts.get(membership_type, 0)
+            final_price = base_price * (1 - discount_percent / 100)
+            unit_price = int(final_price * 100)  # Convertir a centavos
+            
+            product_name = service_name
+            product_description = data.get('service_description', 'Servicio de RELATIC')
+            metadata = {
+                'service_id': product_id,
+                'base_price': base_price,
+                'final_price': final_price,
+                'discount_percent': discount_percent,
+                'membership_type': membership_type,
+                'discount_applied': discount_percent > 0
+            }
+        
+        # Agregar al carrito
+        cart = add_to_cart(
+            current_user.id,
+            product_type,
+            product_id,
+            product_name,
+            unit_price,
+            quantity,
+            product_description,
+            metadata
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Producto agregado al carrito',
+            'cart_items_count': cart.get_items_count(),
+            'cart_total': cart.get_total()
+        })
+        
+    except ValueError as e:
+        # Error de conversión de tipos
+        print(f"Error de validación agregando al carrito: {e}")
+        return jsonify({'success': False, 'error': f'Error de validación: {str(e)}'}), 400
+    except Exception as e:
+        print(f"Error agregando al carrito: {e}")
+        import traceback
+        traceback.print_exc()
+        # Asegurar que siempre devolvemos JSON
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/cart/remove/<int:item_id>', methods=['POST'])
+@login_required
+def cart_remove(item_id):
+    """Eliminar item del carrito"""
+    try:
+        cart = get_or_create_cart(current_user.id)
+        item = CartItem.query.filter_by(id=item_id, cart_id=cart.id).first()
+        
+        if not item:
+            return jsonify({'success': False, 'error': 'Item no encontrado'}), 404
+        
+        db.session.delete(item)
+        cart.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Producto eliminado del carrito',
+            'cart_items_count': cart.get_items_count(),
+            'cart_total': cart.get_total()
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/cart/update/<int:item_id>', methods=['POST'])
+@login_required
+def cart_update(item_id):
+    """Actualizar cantidad de un item en el carrito"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        quantity = int(data.get('quantity', 1))
+        
+        if quantity < 1:
+            return jsonify({'success': False, 'error': 'La cantidad debe ser al menos 1'}), 400
+        
+        cart = get_or_create_cart(current_user.id)
+        item = CartItem.query.filter_by(id=item_id, cart_id=cart.id).first()
+        
+        if not item:
+            return jsonify({'success': False, 'error': 'Item no encontrado'}), 404
+        
+        item.quantity = quantity
+        item.updated_at = datetime.utcnow()
+        cart.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Cantidad actualizada',
+            'cart_items_count': cart.get_items_count(),
+            'cart_total': cart.get_total(),
+            'item_subtotal': item.get_subtotal()
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/cart/count', methods=['GET'])
+@login_required
+def cart_count():
+    """Obtener cantidad de items en el carrito (API)"""
+    cart = get_or_create_cart(current_user.id)
+    return jsonify({
+        'count': cart.get_items_count(),
+        'total': cart.get_total()
+    })
 
 @app.route('/stripe-webhook', methods=['POST'])
 def stripe_webhook():
@@ -1513,7 +3080,7 @@ def handle_successful_payment(payment_intent):
     try:
         # Buscar el pago en la base de datos
         payment = Payment.query.filter_by(
-            stripe_payment_intent_id=payment_intent['id']
+            payment_reference=payment_intent['id']
         ).first()
         
         if payment:
@@ -1574,6 +3141,8 @@ class NotificationEngine:
                     message=f'El usuario {user.first_name} {user.last_name} ({user.email}) se ha registrado al evento "{event.title}". Estado: {registration.registration_status}.'
                 )
                 db.session.add(notification)
+                # Hacer commit de la notificación primero
+                db.session.flush()  # Para obtener el ID de la notificación
                 
                 # Enviar email al responsable
                 try:
@@ -1603,6 +3172,10 @@ class NotificationEngine:
                         <p>Puedes gestionar los registros desde el panel de administración.</p>
                         <p>Saludos,<br>Equipo RelaticPanama</p>
                         """
+                    # Verificar que mail esté configurado
+                    if not mail:
+                        raise Exception("Flask-Mail no está inicializado")
+                    
                     msg = Message(
                         subject=f'[RelaticPanama] Nuevo registro: {event.title}',
                         recipients=[recipient.email],
@@ -1611,7 +3184,7 @@ class NotificationEngine:
                     mail.send(msg)
                     notification.email_sent = True
                     notification.email_sent_at = datetime.utcnow()
-                    # Registrar en EmailLog
+                    # Registrar en EmailLog ANTES del commit
                     log_email_sent(
                         recipient_email=recipient.email,
                         subject=f'[RelaticPanama] Nuevo registro: {event.title}',
@@ -1623,9 +3196,13 @@ class NotificationEngine:
                         recipient_name=f"{recipient.first_name} {recipient.last_name}",
                         status='sent'
                     )
+                    print(f"✅ Email de notificación enviado a {recipient.email} para evento {event.id}")
                 except Exception as e:
-                    print(f"Error enviando email de notificación a {recipient.email}: {e}")
-                    # Registrar fallo en EmailLog
+                    print(f"❌ Error enviando email de notificación a {recipient.email}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    notification.email_sent = False
+                    # Registrar fallo en EmailLog ANTES del commit
                     log_email_sent(
                         recipient_email=recipient.email,
                         subject=f'[RelaticPanama] Nuevo registro: {event.title}',
@@ -1636,7 +3213,7 @@ class NotificationEngine:
                         recipient_id=recipient.id,
                         recipient_name=f"{recipient.first_name} {recipient.last_name}",
                         status='failed',
-                        error_message=str(e)
+                        error_message=str(e)[:1000]  # Limitar tamaño del error
                     )
             
             db.session.commit()
@@ -1800,8 +3377,13 @@ class NotificationEngine:
                         recipient_name=f"{recipient.first_name} {recipient.last_name}",
                         status='sent'
                     )
+                    print(f"✅ Email de confirmación enviado a {recipient.email} para evento {event.id}")
                 except Exception as e:
-                    print(f"Error enviando email de confirmación a {recipient.email}: {e}")
+                    print(f"❌ Error enviando email de confirmación a {recipient.email}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    notification.email_sent = False
+                    # Registrar fallo en EmailLog
                     log_email_sent(
                         recipient_email=recipient.email,
                         subject=f'[RelaticPanama] Registro confirmado: {event.title}',
@@ -2287,7 +3869,7 @@ class NotificationEngine:
             db.session.rollback()
 
 
-def log_email_sent(recipient_email, subject, html_content, text_content=None, 
+def log_email_sent(recipient_email, subject, html_content=None, text_content=None, 
                    email_type=None, related_entity_type=None, related_entity_id=None,
                    recipient_id=None, recipient_name=None, status='sent', error_message=None):
     """Registrar un email enviado en EmailLog"""
@@ -2308,8 +3890,11 @@ def log_email_sent(recipient_email, subject, html_content, text_content=None,
         )
         db.session.add(email_log)
         db.session.commit()
+        print(f"📧 Email registrado en log: {email_type or 'general'} → {recipient_email} ({status})")
     except Exception as e:
-        print(f"Error registrando email en log: {e}")
+        print(f"❌ Error registrando email en log: {e}")
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
 
 def send_payment_confirmation_email(user, payment, subscription):
@@ -2497,7 +4082,8 @@ def admin_users():
                          group_filter=group_filter,
                          tag_filter=tag_filter,
                          groups=groups,
-                         unique_tags=unique_tags)
+                         unique_tags=unique_tags,
+                         valid_countries=VALID_COUNTRIES)
 
 
 @app.route('/admin/users/<int:user_id>/update', methods=['POST'])
@@ -2508,12 +4094,34 @@ def admin_update_user(user_id):
     first_name = request.form.get('first_name', '').strip()
     last_name = request.form.get('last_name', '').strip()
     phone = request.form.get('phone', '').strip()
+    country = request.form.get('country', '').strip()
+    cedula_or_passport = request.form.get('cedula_or_passport', '').strip()
 
     if first_name:
         user.first_name = first_name
     if last_name:
         user.last_name = last_name
     user.phone = phone or None
+    
+    # Actualizar país con validación
+    if country:
+        is_valid, error_message = validate_country(country)
+        if not is_valid:
+            flash(error_message, 'error')
+            return redirect(url_for('admin_users'))
+        user.country = country
+    else:
+        user.country = None
+    
+    # Actualizar cédula o pasaporte con validación
+    if cedula_or_passport:
+        is_valid, error_message = validate_cedula_or_passport(cedula_or_passport, country or user.country)
+        if not is_valid:
+            flash(error_message, 'error')
+            return redirect(url_for('admin_users'))
+        user.cedula_or_passport = cedula_or_passport
+    else:
+        user.cedula_or_passport = None
     
     # Actualizar tags y grupo
     user.tags = request.form.get('tags', '').strip() or None
@@ -2522,11 +4130,16 @@ def admin_update_user(user_id):
     # Actualizar email si cambió
     new_email = request.form.get('email', '').strip()
     if new_email and new_email != user.email:
+        # Validar formato de email
+        is_valid, error_message = validate_email_format(new_email)
+        if not is_valid:
+            flash(error_message, 'error')
+            return redirect(url_for('admin_users'))
         # Verificar que el nuevo email no esté en uso
-        if User.query.filter_by(email=new_email).first():
+        if User.query.filter_by(email=new_email.lower()).first():
             flash('El email ya está en uso por otro usuario.', 'error')
             return redirect(url_for('admin_users'))
-        user.email = new_email
+        user.email = new_email.lower()
     
     # Actualizar contraseña si se proporcionó
     new_password = request.form.get('password', '').strip()
@@ -2570,6 +4183,8 @@ def admin_create_user():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
         phone = request.form.get('phone', '').strip()
+        country = request.form.get('country', '').strip()
+        cedula_or_passport = request.form.get('cedula_or_passport', '').strip()
         is_active = bool(request.form.get('is_active'))
         is_admin = bool(request.form.get('is_admin'))
         is_advisor = bool(request.form.get('is_advisor'))
@@ -2585,8 +4200,28 @@ def admin_create_user():
             flash('La contraseña debe tener al menos 6 caracteres.', 'error')
             return redirect(url_for('admin_users'))
         
+        # Validar formato de email
+        is_valid, error_message = validate_email_format(email)
+        if not is_valid:
+            flash(error_message, 'error')
+            return redirect(url_for('admin_users'))
+        
+        # Validar país si se proporciona
+        if country:
+            is_valid, error_message = validate_country(country)
+            if not is_valid:
+                flash(error_message, 'error')
+                return redirect(url_for('admin_users'))
+        
+        # Validar cédula o pasaporte si se proporciona
+        if cedula_or_passport:
+            is_valid, error_message = validate_cedula_or_passport(cedula_or_passport, country)
+            if not is_valid:
+                flash(error_message, 'error')
+                return redirect(url_for('admin_users'))
+        
         # Verificar si el email ya existe
-        if User.query.filter_by(email=email).first():
+        if User.query.filter_by(email=email.lower()).first():
             flash('El email ya está registrado.', 'error')
             return redirect(url_for('admin_users'))
         
@@ -2595,9 +4230,11 @@ def admin_create_user():
         new_user = User(
             first_name=first_name,
             last_name=last_name,
-            email=email,
+            email=email.lower(),
             password_hash=generate_password_hash(password),
             phone=phone or None,
+            country=country if country else None,
+            cedula_or_passport=cedula_or_passport if cedula_or_passport else None,
             tags=tags,
             user_group=user_group,
             is_active=is_active,
@@ -2707,6 +4344,9 @@ def admin_messaging():
     email_types = db.session.query(EmailLog.email_type).distinct().all()
     email_types = [t[0] for t in email_types if t[0]]
     
+    # Obtener notificaciones sin email enviado (para diagnóstico)
+    notifications_without_email = Notification.query.filter_by(email_sent=False).order_by(Notification.created_at.desc()).limit(10).all()
+    
     return render_template('admin/messaging.html',
                          emails=emails,
                          pagination=pagination,
@@ -2716,7 +4356,8 @@ def admin_messaging():
                          email_types=email_types,
                          current_type=email_type,
                          current_status=status,
-                         search=search)
+                         search=search,
+                         notifications_without_email=notifications_without_email)
 
 @app.route('/admin/messaging/<int:email_id>')
 @admin_required
@@ -3467,6 +5108,297 @@ def api_email_template(template_id):
                 'error': str(e)
             }), 500
 
+# Rutas de administración para configuración de multimedia
+@app.route('/admin/media')
+@admin_required
+def admin_media():
+    """Panel de configuración de videos y audios para guías visuales"""
+    # Obtener todas las configuraciones agrupadas por procedimiento
+    all_configs = MediaConfig.get_all_configs()
+    
+    # Agrupar por procedimiento
+    procedures = {}
+    for config in all_configs:
+        if config.procedure_key not in procedures:
+            procedures[config.procedure_key] = []
+        procedures[config.procedure_key].append(config.to_dict())
+    
+    # Definir procedimientos disponibles
+    available_procedures = {
+        'register': 'Registro de Usuario',
+        'membership': 'Compra de Membresía',
+        'payment': 'Proceso de Pago',
+        'events': 'Registro a Eventos',
+        'appointments': 'Reserva de Citas',
+        'admin-payments': 'Configuración de Métodos de Pago'
+    }
+    
+    return render_template('admin/media.html',
+                         procedures=procedures,
+                         available_procedures=available_procedures)
+
+@app.route('/api/admin/media/config', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@admin_required
+def api_media_config():
+    """API para gestionar configuración de multimedia"""
+    if request.method == 'GET':
+        # Obtener todas las configuraciones
+        configs = MediaConfig.get_all_configs()
+        return jsonify({
+            'success': True,
+            'configs': [c.to_dict() for c in configs]
+        })
+    
+    elif request.method == 'POST':
+        # Crear nueva configuración
+        data = request.get_json()
+        
+        # Verificar si ya existe
+        existing = MediaConfig.query.filter_by(
+            procedure_key=data.get('procedure_key'),
+            step_number=data.get('step_number')
+        ).first()
+        
+        if existing:
+            return jsonify({
+                'success': False,
+                'error': 'Ya existe una configuración para este procedimiento y paso'
+            }), 400
+        
+        config = MediaConfig(
+            procedure_key=data.get('procedure_key'),
+            step_number=data.get('step_number'),
+            video_url=data.get('video_url', ''),
+            audio_url=data.get('audio_url', ''),
+            step_title=data.get('step_title', ''),
+            description=data.get('description', ''),
+            is_active=True
+        )
+        
+        try:
+            db.session.add(config)
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Configuración creada exitosamente',
+                'config': config.to_dict()
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    
+    elif request.method == 'PUT':
+        # Actualizar configuración existente
+        data = request.get_json()
+        config_id = data.get('id')
+        
+        if not config_id:
+            return jsonify({
+                'success': False,
+                'error': 'ID de configuración requerido'
+            }), 400
+        
+        config = MediaConfig.query.get(config_id)
+        if not config:
+            return jsonify({
+                'success': False,
+                'error': 'Configuración no encontrada'
+            }), 404
+        
+        # Actualizar campos
+        if 'video_url' in data:
+            config.video_url = data.get('video_url', '')
+        if 'audio_url' in data:
+            config.audio_url = data.get('audio_url', '')
+        if 'step_title' in data:
+            config.step_title = data.get('step_title', '')
+        if 'description' in data:
+            config.description = data.get('description', '')
+        if 'is_active' in data:
+            config.is_active = bool(data.get('is_active', True))
+        
+        config.updated_at = datetime.utcnow()
+        
+        try:
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Configuración actualizada exitosamente',
+                'config': config.to_dict()
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    
+    elif request.method == 'DELETE':
+        # Eliminar configuración
+        config_id = request.args.get('id')
+        
+        if not config_id:
+            return jsonify({
+                'success': False,
+                'error': 'ID de configuración requerido'
+            }), 400
+        
+        config = MediaConfig.query.get(config_id)
+        if not config:
+            return jsonify({
+                'success': False,
+                'error': 'Configuración no encontrada'
+            }), 404
+        
+        try:
+            db.session.delete(config)
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Configuración eliminada exitosamente'
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+@app.route('/api/media/config/<procedure_key>')
+def get_media_config(procedure_key):
+    """API pública para obtener configuraciones de multimedia (para el frontend)"""
+    configs = MediaConfig.get_procedure_configs(procedure_key)
+    return jsonify({
+        'success': True,
+        'procedure_key': procedure_key,
+        'configs': [c.to_dict() for c in configs]
+    })
+
+# Rutas de administración para configuración de pagos
+@app.route('/admin/payments')
+@admin_required
+def admin_payments():
+    """Panel de configuración de métodos de pago"""
+    try:
+        # Obtener configuración directamente con query explícito
+        payment_config = db.session.query(PaymentConfig).filter_by(is_active=True).first()
+        
+        # Verificar que sea realmente un PaymentConfig y tenga el método to_dict
+        if payment_config:
+            if not isinstance(payment_config, PaymentConfig):
+                print(f"⚠️ Error: Se obtuvo un objeto de tipo {type(payment_config).__name__} en lugar de PaymentConfig")
+                config_dict = None
+            elif not hasattr(payment_config, 'to_dict'):
+                print(f"⚠️ Error: PaymentConfig no tiene método to_dict")
+                config_dict = None
+            else:
+                config_dict = payment_config.to_dict()
+        else:
+            config_dict = None
+    except Exception as e:
+        print(f"❌ Error obteniendo PaymentConfig: {e}")
+        import traceback
+        traceback.print_exc()
+        config_dict = None
+    
+    return render_template('admin/payments.html', 
+                         payment_config=config_dict)
+
+@app.route('/api/admin/payments/config', methods=['GET', 'POST', 'PUT'])
+@admin_required
+def api_payment_config():
+    """API para obtener y actualizar configuración de pagos"""
+    if request.method == 'GET':
+        config = PaymentConfig.get_active_config()
+        if config:
+            return jsonify({'success': True, 'config': config.to_dict()})
+        else:
+            return jsonify({'success': False, 'message': 'No hay configuración activa'})
+    
+    elif request.method in ['POST', 'PUT']:
+        data = request.get_json()
+        
+        # Desactivar todas las configuraciones anteriores
+        PaymentConfig.query.update({'is_active': False})
+        
+        # Buscar si existe una configuración
+        config = PaymentConfig.query.first()
+        
+        if not config:
+            # Crear nueva configuración
+            config = PaymentConfig(
+                stripe_secret_key=data.get('stripe_secret_key', ''),
+                stripe_publishable_key=data.get('stripe_publishable_key', ''),
+                stripe_webhook_secret=data.get('stripe_webhook_secret', ''),
+                paypal_client_id=data.get('paypal_client_id', ''),
+                paypal_client_secret=data.get('paypal_client_secret', ''),
+                paypal_mode=data.get('paypal_mode', 'sandbox'),
+                paypal_return_url=data.get('paypal_return_url', ''),
+                paypal_cancel_url=data.get('paypal_cancel_url', ''),
+                banco_general_merchant_id=data.get('banco_general_merchant_id', ''),
+                banco_general_api_key=data.get('banco_general_api_key', ''),
+                banco_general_shared_secret=data.get('banco_general_shared_secret', ''),
+                banco_general_api_url=data.get('banco_general_api_url', 'https://api.cybersource.com'),
+                yappy_api_key=data.get('yappy_api_key', ''),
+                yappy_merchant_id=data.get('yappy_merchant_id', ''),
+                yappy_api_url=data.get('yappy_api_url', 'https://api.yappy.im'),
+                use_environment_variables=bool(data.get('use_environment_variables', True)),
+                is_active=True
+            )
+            db.session.add(config)
+        else:
+            # Actualizar configuración existente
+            if 'stripe_secret_key' in data:
+                config.stripe_secret_key = data.get('stripe_secret_key', config.stripe_secret_key)
+            if 'stripe_publishable_key' in data:
+                config.stripe_publishable_key = data.get('stripe_publishable_key', config.stripe_publishable_key)
+            if 'stripe_webhook_secret' in data:
+                config.stripe_webhook_secret = data.get('stripe_webhook_secret', config.stripe_webhook_secret)
+            if 'paypal_client_id' in data:
+                config.paypal_client_id = data.get('paypal_client_id', config.paypal_client_id)
+            if 'paypal_client_secret' in data:
+                config.paypal_client_secret = data.get('paypal_client_secret', config.paypal_client_secret)
+            if 'paypal_mode' in data:
+                config.paypal_mode = data.get('paypal_mode', config.paypal_mode)
+            if 'paypal_return_url' in data:
+                config.paypal_return_url = data.get('paypal_return_url', config.paypal_return_url)
+            if 'paypal_cancel_url' in data:
+                config.paypal_cancel_url = data.get('paypal_cancel_url', config.paypal_cancel_url)
+            if 'banco_general_merchant_id' in data:
+                config.banco_general_merchant_id = data.get('banco_general_merchant_id', config.banco_general_merchant_id)
+            if 'banco_general_api_key' in data:
+                config.banco_general_api_key = data.get('banco_general_api_key', config.banco_general_api_key)
+            if 'banco_general_shared_secret' in data:
+                config.banco_general_shared_secret = data.get('banco_general_shared_secret', config.banco_general_shared_secret)
+            if 'banco_general_api_url' in data:
+                config.banco_general_api_url = data.get('banco_general_api_url', config.banco_general_api_url)
+            if 'yappy_api_key' in data:
+                config.yappy_api_key = data.get('yappy_api_key', config.yappy_api_key)
+            if 'yappy_merchant_id' in data:
+                config.yappy_merchant_id = data.get('yappy_merchant_id', config.yappy_merchant_id)
+            if 'yappy_api_url' in data:
+                config.yappy_api_url = data.get('yappy_api_url', config.yappy_api_url)
+            config.use_environment_variables = bool(data.get('use_environment_variables', config.use_environment_variables))
+            config.is_active = True
+            config.updated_at = datetime.utcnow()
+        
+        try:
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Configuración de pagos actualizada exitosamente',
+                'config': config.to_dict()
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
 @app.route('/api/admin/email/templates/<int:template_id>/reset', methods=['POST'])
 @admin_required
 def api_email_template_reset(template_id):
@@ -3511,6 +5443,369 @@ def api_email_template_reset(template_id):
             'success': False,
             'error': str(e)
         }), 500
+
+# ============================================================================
+# RUTAS ADMINISTRATIVAS - CÓDIGOS DE DESCUENTO
+# ============================================================================
+
+@app.route('/admin/discount-codes')
+@admin_required
+def admin_discount_codes():
+    """Panel de gestión de códigos de descuento"""
+    search = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    query = DiscountCode.query
+    
+    # Filtro de búsqueda
+    if search:
+        query = query.filter(
+            db.or_(
+                DiscountCode.code.ilike(f'%{search}%'),
+                DiscountCode.name.ilike(f'%{search}%')
+            )
+        )
+    
+    # Filtro de estado
+    if status_filter == 'active':
+        query = query.filter_by(is_active=True)
+    elif status_filter == 'inactive':
+        query = query.filter_by(is_active=False)
+    
+    # Ordenar y paginar
+    query = query.order_by(DiscountCode.created_at.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    codes = pagination.items
+    
+    # Obtener descuento maestro activo
+    master_discount = Discount.query.filter_by(is_master=True, is_active=True).first()
+    
+    # Obtener eventos para el selector (eventos publicados)
+    events = Event.query.filter_by(publish_status='published').order_by(Event.title).all()
+    
+    return render_template('admin/discount_codes.html',
+                         codes=codes,
+                         pagination=pagination,
+                         search=search,
+                         status_filter=status_filter,
+                         master_discount=master_discount,
+                         events=events)
+
+
+@app.route('/admin/discount-codes/create', methods=['POST'])
+@admin_required
+def admin_discount_code_create():
+    """Crear nuevo código de descuento"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        
+        # Obtener datos del formulario
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        code_input = data.get('code', '').strip().upper()
+        generate_auto = data.get('generate_auto', 'false') == 'true'
+        prefix = data.get('prefix', 'DSC').strip().upper()
+        discount_type = data.get('discount_type', 'percentage')
+        value = float(data.get('value', 0))
+        applies_to = data.get('applies_to', 'all')
+        event_ids = data.get('event_ids', [])
+        
+        # Generar o validar código
+        if generate_auto:
+            code = generate_discount_code(prefix=prefix)
+        else:
+            if not code_input:
+                return jsonify({'success': False, 'error': 'El código es requerido'}), 400
+            
+            # Verificar que no exista
+            if DiscountCode.query.filter_by(code=code_input).first():
+                return jsonify({'success': False, 'error': 'Este código ya existe'}), 400
+            
+            code = code_input
+        
+        # Validar valor
+        if value <= 0:
+            return jsonify({'success': False, 'error': 'El valor del descuento debe ser mayor a 0'}), 400
+        
+        if discount_type == 'percentage' and value > 100:
+            return jsonify({'success': False, 'error': 'El porcentaje no puede ser mayor a 100%'}), 400
+        
+        # Fechas
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else None
+        
+        if start_date and end_date and start_date > end_date:
+            return jsonify({'success': False, 'error': 'La fecha de inicio debe ser anterior a la fecha de fin'}), 400
+        
+        # Límites
+        max_uses_total = int(data.get('max_uses_total', 0)) if data.get('max_uses_total') else None
+        max_uses_per_user = int(data.get('max_uses_per_user', 1))
+        
+        # Event IDs (JSON)
+        event_ids_json = None
+        if event_ids and isinstance(event_ids, list):
+            import json
+            event_ids_json = json.dumps(event_ids)
+        
+        # Crear código
+        discount_code = DiscountCode(
+            code=code,
+            name=name,
+            description=description,
+            discount_type=discount_type,
+            value=value,
+            applies_to=applies_to,
+            event_ids=event_ids_json,
+            start_date=start_date,
+            end_date=end_date,
+            max_uses_total=max_uses_total,
+            max_uses_per_user=max_uses_per_user,
+            created_by=current_user.id,
+            is_active=True
+        )
+        
+        db.session.add(discount_code)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Código de descuento creado exitosamente',
+            'code_id': discount_code.id,
+            'code': discount_code.code
+        })
+    
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Error en los datos: {str(e)}'}), 400
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/discount-codes/<int:code_id>', methods=['GET'])
+@admin_required
+def admin_discount_code_get(code_id):
+    """Obtener información de un código de descuento"""
+    try:
+        code = DiscountCode.query.get_or_404(code_id)
+        
+        # Parsear event_ids si existe
+        event_ids = []
+        if code.event_ids:
+            import json
+            try:
+                event_ids = json.loads(code.event_ids)
+            except:
+                pass
+        
+        return jsonify({
+            'success': True,
+            'code': {
+                'id': code.id,
+                'code': code.code,
+                'name': code.name,
+                'description': code.description,
+                'discount_type': code.discount_type,
+                'value': code.value,
+                'applies_to': code.applies_to,
+                'event_ids': event_ids,
+                'start_date': code.start_date.isoformat() if code.start_date else None,
+                'end_date': code.end_date.isoformat() if code.end_date else None,
+                'max_uses_total': code.max_uses_total,
+                'max_uses_per_user': code.max_uses_per_user,
+                'is_active': code.is_active,
+                'current_uses': code.current_uses
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/discount-codes/<int:code_id>/update', methods=['POST'])
+@admin_required
+def admin_discount_code_update(code_id):
+    """Actualizar código de descuento"""
+    try:
+        code = DiscountCode.query.get_or_404(code_id)
+        data = request.get_json() if request.is_json else request.form
+        
+        # Actualizar campos
+        if 'name' in data:
+            code.name = data.get('name', '').strip()
+        if 'description' in data:
+            code.description = data.get('description', '').strip()
+        if 'discount_type' in data:
+            code.discount_type = data.get('discount_type')
+        if 'value' in data:
+            value = float(data.get('value', 0))
+            if value <= 0:
+                return jsonify({'success': False, 'error': 'El valor debe ser mayor a 0'}), 400
+            if code.discount_type == 'percentage' and value > 100:
+                return jsonify({'success': False, 'error': 'El porcentaje no puede ser mayor a 100%'}), 400
+            code.value = value
+        if 'applies_to' in data:
+            code.applies_to = data.get('applies_to')
+        if 'event_ids' in data:
+            event_ids = data.get('event_ids', [])
+            import json
+            code.event_ids = json.dumps(event_ids) if event_ids else None
+        
+        # Fechas
+        if 'start_date' in data:
+            start_date_str = data.get('start_date')
+            code.start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
+        if 'end_date' in data:
+            end_date_str = data.get('end_date')
+            code.end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else None
+        
+        if code.start_date and code.end_date and code.start_date > code.end_date:
+            return jsonify({'success': False, 'error': 'La fecha de inicio debe ser anterior a la fecha de fin'}), 400
+        
+        # Límites
+        if 'max_uses_total' in data:
+            max_uses = data.get('max_uses_total')
+            code.max_uses_total = int(max_uses) if max_uses else None
+        if 'max_uses_per_user' in data:
+            code.max_uses_per_user = int(data.get('max_uses_per_user', 1))
+        
+        # Estado
+        if 'is_active' in data:
+            code.is_active = bool(data.get('is_active'))
+        
+        code.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Código de descuento actualizado exitosamente'
+        })
+    
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Error en los datos: {str(e)}'}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/discount-codes/<int:code_id>/delete', methods=['POST'])
+@admin_required
+def admin_discount_code_delete(code_id):
+    """Eliminar código de descuento"""
+    try:
+        code = DiscountCode.query.get_or_404(code_id)
+        
+        # Verificar si tiene aplicaciones
+        if code.applications:
+            return jsonify({
+                'success': False,
+                'error': 'No se puede eliminar un código que ya ha sido usado'
+            }), 400
+        
+        db.session.delete(code)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Código de descuento eliminado exitosamente'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/discount-codes/generate', methods=['POST'])
+@admin_required
+def api_generate_discount_code():
+    """API para generar código automáticamente"""
+    try:
+        data = request.get_json()
+        prefix = data.get('prefix', 'DSC').strip().upper()
+        length = int(data.get('length', 8))
+        custom_part = data.get('custom_part', '').strip().upper()
+        
+        code = generate_discount_code(prefix=prefix, length=length, custom_part=custom_part if custom_part else None)
+        
+        return jsonify({
+            'success': True,
+            'code': code
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/master-discount', methods=['GET', 'POST'])
+@admin_required
+def admin_master_discount():
+    """Gestionar descuento maestro"""
+    if request.method == 'GET':
+        master_discount = Discount.query.filter_by(is_master=True, is_active=True).first()
+        return render_template('admin/master_discount.html', master_discount=master_discount)
+    
+    # POST - Crear o actualizar descuento maestro
+    try:
+        data = request.get_json() if request.is_json else request.form
+        
+        # Desactivar todos los descuentos maestros anteriores
+        Discount.query.filter_by(is_master=True).update({'is_master': False})
+        
+        # Verificar si se está activando o desactivando
+        is_active = data.get('is_active', 'false') == 'true'
+        
+        if not is_active:
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Descuento maestro desactivado'
+            })
+        
+        # Crear o actualizar descuento maestro
+        discount_id = data.get('discount_id')
+        
+        if discount_id:
+            # Usar descuento existente
+            discount = Discount.query.get_or_404(discount_id)
+            discount.is_master = True
+            discount.is_active = True
+        else:
+            # Crear nuevo descuento maestro
+            name = data.get('name', 'Descuento Maestro').strip()
+            discount_type = data.get('discount_type', 'percentage')
+            value = float(data.get('value', 0))
+            
+            if value <= 0:
+                return jsonify({'success': False, 'error': 'El valor debe ser mayor a 0'}), 400
+            
+            discount = Discount(
+                name=name,
+                code=f'MASTER-{int(datetime.utcnow().timestamp())}',
+                discount_type=discount_type,
+                value=value,
+                is_master=True,
+                is_active=True,
+                applies_automatically=True
+            )
+            db.session.add(discount)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Descuento maestro configurado exitosamente',
+            'discount_id': discount.id
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Registrar blueprints de eventos
 try:
@@ -3625,18 +5920,35 @@ def mark_all_notifications_read():
 @login_required
 def delete_notification(notification_id):
     """Eliminar notificación"""
-    notification = Notification.query.filter_by(
-        id=notification_id,
-        user_id=current_user.id
-    ).first_or_404()
-    
     try:
+        notification = Notification.query.filter_by(
+            id=notification_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not notification:
+            return jsonify({
+                'success': False, 
+                'error': 'Notificación no encontrada o no tienes permisos para eliminarla'
+            }), 404
+        
         db.session.delete(notification)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Notificación eliminada'})
+        
+        print(f"✅ Notificación {notification_id} eliminada por usuario {current_user.id}")
+        return jsonify({
+            'success': True, 
+            'message': 'Notificación eliminada exitosamente'
+        })
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"❌ Error eliminando notificación {notification_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False, 
+            'error': f'Error al eliminar notificación: {str(e)}'
+        }), 500
 
 def ensure_email_log_columns():
     """Asegurar que todas las columnas necesarias existan en la tabla email_log"""

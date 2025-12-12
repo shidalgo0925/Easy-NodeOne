@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifica tu Email - RelaticPanama</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6f7;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e2e2e2;
+        }
+        .header {
+            background: #003366;
+            padding: 25px;
+            color: #ffffff;
+            text-align: center;
+        }
+        .header img {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .content {
+            padding: 30px;
+            color: #333333;
+            line-height: 1.6;
+        }
+        .content h2 {
+            color: #003366;
+            margin-top: 0;
+        }
+        .btn {
+            display: inline-block;
+            margin: 20px 0;
+            padding: 14px 30px;
+            background: #003366;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .btn:hover {
+            background: #004488;
+        }
+        .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #003366;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            color: #856404;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            padding: 20px;
+            color: #666;
+            background: #f0f0f0;
+        }
+        .link-fallback {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            word-break: break-all;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {% if logo_url %}
+            <img src="{{ logo_url }}" alt="RELATIC PANAMÁ" style="max-width: 120px;">
+            {% else %}
+            <div style="font-size: 24px; font-weight: bold;">RELATIC PANAMÁ</div>
+            {% endif %}
+        </div>
+        <div class="content">
+            <h2>Verifica tu Correo Electrónico</h2>
+            <p>Hola <strong>{{ user_first_name }} {{ user_last_name }}</strong>,</p>
+            <p>Gracias por registrarte en RelaticPanama. Para completar tu registro y acceder a todas las funciones, necesitamos verificar tu dirección de correo electrónico.</p>
+            
+            <div class="info-box">
+                <strong>¿Por qué verificamos tu email?</strong>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Asegura que tu email es válido y accesible</li>
+                    <li>Protege tu cuenta de accesos no autorizados</li>
+                    <li>Te permite recibir notificaciones importantes</li>
+                    <li>Es necesario para realizar pagos y registrarte en eventos</li>
+                </ul>
+            </div>
+            
+            <p style="text-align: center;">
+                <a href="{{ verification_url }}" class="btn">Verificar mi Email</a>
+            </p>
+            
+            <div class="warning-box">
+                <strong>⚠️ Importante:</strong> Este enlace expirará en 24 horas. Si no verificas tu email en ese tiempo, deberás solicitar un nuevo enlace de verificación.
+            </div>
+            
+            <p>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
+            <div class="link-fallback">
+                {{ verification_url }}
+            </div>
+            
+            <p>Si no te registraste en RelaticPanama, puedes ignorar este correo de forma segura.</p>
+        </div>
+        <div class="footer">
+            <p>© {{ year }} RelaticPanama – Todos los derechos reservados.</p>
+            <p>Si tienes alguna pregunta, contacta a: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+        </div>
+    </div>
+</body>
+</html>
+

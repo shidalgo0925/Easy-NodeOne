@@ -118,8 +118,11 @@
                                     <th>ID</th>
                                     <th>Nombre</th>
                                     <th>Email</th>
+                                    <th>País</th>
+                                    <th>Cédula/Pasaporte</th>
                                     <th>Teléfono</th>
                                     <th>Grupo</th>
+                                    <th>Membresía</th>
                                     <th>Etiquetas</th>
                                     <th>Fecha Registro</th>
                                     <th>Estado</th>
@@ -134,12 +137,30 @@
                                     <td>{{ user.id }}</td>
                                     <td>{{ user.first_name }} {{ user.last_name }}</td>
                                     <td>{{ user.email }}</td>
+                                    <td>{{ user.country or 'N/A' }}</td>
+                                    <td>{{ user.cedula_or_passport or 'N/A' }}</td>
                                     <td>{{ user.phone or 'N/A' }}</td>
                                     <td>
                                         {% if user.user_group %}
                                             <span class="badge bg-info">{{ user.user_group }}</span>
                                         {% else %}
                                             <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user_memberships and user_memberships.get(user.id) %}
+                                            {% set mem = user_memberships[user.id] %}
+                                            <span class="badge bg-{{ 'success' if mem.status == 'active' else 'warning' }}" 
+                                                  data-bs-toggle="tooltip" 
+                                                  data-bs-placement="top" 
+                                                  title="Vence: {{ mem.end_date.strftime('%d/%m/%Y') if mem.end_date else 'N/A' }}">
+                                                {{ mem.type.title() }}
+                                            </span>
+                                            {% if mem.end_date %}
+                                                <br><small class="text-muted">Vence: {{ mem.end_date.strftime('%d/%m/%Y') }}</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">Sin membresía</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -169,7 +190,7 @@
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-primary" 
-                                                onclick="editUser({{ user.id }}, '{{ user.first_name }}', '{{ user.last_name }}', '{{ user.email }}', '{{ user.phone or '' }}', {{ 'true' if user.is_active else 'false' }}, {{ 'true' if user.is_admin else 'false' }}, {{ 'true' if user.is_advisor else 'false' }}, '{{ user.user_group or '' }}', '{{ user.tags or '' }}')"
+                                                onclick="editUser({{ user.id }}, '{{ user.first_name }}', '{{ user.last_name }}', '{{ user.email }}', '{{ user.phone or '' }}', '{{ user.country or '' }}', '{{ user.cedula_or_passport or '' }}', {{ 'true' if user.is_active else 'false' }}, {{ 'true' if user.is_admin else 'false' }}, {{ 'true' if user.is_advisor else 'false' }}, '{{ user.user_group or '' }}', '{{ user.tags or '' }}')"
                                                 data-bs-toggle="tooltip" 
                                                 data-bs-placement="top" 
                                                 title="Editar usuario">
@@ -263,6 +284,24 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label for="create_country" class="form-label">País</label>
+                            <select class="form-select" id="create_country" name="country">
+                                <option value="">Seleccione un país</option>
+                                {% if valid_countries %}
+                                    {% for country in valid_countries %}
+                                        <option value="{{ country }}">{{ country }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="create_cedula_or_passport" class="form-label">Cédula / DNI / Pasaporte</label>
+                            <input type="text" class="form-control" id="create_cedula_or_passport" name="cedula_or_passport" 
+                                   placeholder="Ej: 8-123-456 o A12345678">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
                             <label for="create_password" class="form-label">Contraseña</label>
                             <input type="password" class="form-control" id="create_password" name="password" required minlength="6">
                             <small class="form-text text-muted">Mínimo 6 caracteres</small>
@@ -348,6 +387,24 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label for="edit_country" class="form-label">País</label>
+                            <select class="form-select" id="edit_country" name="country">
+                                <option value="">Seleccione un país</option>
+                                {% if valid_countries %}
+                                    {% for country in valid_countries %}
+                                        <option value="{{ country }}">{{ country }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_cedula_or_passport" class="form-label">Cédula / DNI / Pasaporte</label>
+                            <input type="text" class="form-control" id="edit_cedula_or_passport" name="cedula_or_passport" 
+                                   placeholder="Ej: 8-123-456 o A12345678">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
                             <label for="edit_user_group" class="form-label">Grupo</label>
                             <input type="text" class="form-control" id="edit_user_group" name="user_group" 
                                    placeholder="Ej: Investigadores, Estudiantes..."
@@ -409,12 +466,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-function editUser(id, firstName, lastName, email, phone, isActive, isAdmin, isAdvisor, userGroup, tags) {
+function editUser(id, firstName, lastName, email, phone, country, cedulaOrPassport, isActive, isAdmin, isAdvisor, userGroup, tags) {
     document.getElementById('edit_user_id').value = id;
     document.getElementById('edit_first_name').value = firstName;
     document.getElementById('edit_last_name').value = lastName;
     document.getElementById('edit_email').value = email;
     document.getElementById('edit_phone').value = phone || '';
+    document.getElementById('edit_country').value = country || '';
+    document.getElementById('edit_cedula_or_passport').value = cedulaOrPassport || '';
     document.getElementById('edit_user_group').value = userGroup || '';
     document.getElementById('edit_tags').value = tags || '';
     document.getElementById('edit_is_active').checked = isActive === 'true' || isActive === true;

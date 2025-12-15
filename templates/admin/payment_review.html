@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Revisar Pago - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="display-6 mb-4">
+                <i class="fas fa-search"></i> Revisar Pago #{{ payment.id }}
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información del Usuario -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-user"></i> Información del Usuario</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Nombre:</strong> {{ user.first_name }} {{ user.last_name }}</p>
+                    <p><strong>Email:</strong> {{ user.email }}</p>
+                    <p><strong>Teléfono:</strong> {{ user.phone or 'N/A' }}</p>
+                    <p><strong>País:</strong> {{ user.country or 'N/A' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información del Pago -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-money-bill"></i> Información del Pago</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>ID de Pago:</strong> #{{ payment.id }}</p>
+                    <p><strong>Monto Esperado:</strong> ${{ "%.2f"|format(payment.amount / 100) }}</p>
+                    <p><strong>Método:</strong> {{ payment.payment_method.replace('_', ' ').title() }}</p>
+                    <p><strong>Estado:</strong> 
+                        <span class="badge bg-{{ 'success' if payment.status == 'succeeded' else 'warning' }}">
+                            {{ payment.status.title() }}
+                        </span>
+                    </p>
+                    <p><strong>Fecha:</strong> {{ payment.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                    {% if payment.receipt_url %}
+                    <p><strong>Comprobante:</strong> 
+                        <a href="{{ payment.receipt_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-file"></i> Ver Comprobante
+                        </a>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datos OCR -->
+    {% if ocr_data %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="fas fa-robot"></i> Datos Extraídos por OCR</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Datos Detectados:</h6>
+                            <ul class="list-group">
+                                <li class="list-group-item">
+                                    <strong>Monto:</strong> 
+                                    <span class="badge bg-{{ 'success' if ocr_data.amount and (ocr_data.amount - (payment.amount/100))|abs < 0.01 else 'warning' }}">
+                                        ${{ "%.2f"|format(ocr_data.amount) if ocr_data.amount else 'No detectado' }}
+                                    </span>
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Fecha:</strong> {{ ocr_data.date or 'No detectada' }}
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Referencia:</strong> {{ ocr_data.reference or 'No detectada' }}
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Banco:</strong> {{ ocr_data.bank or 'No detectado' }}
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Cuenta:</strong> {{ ocr_data.account_number or 'No detectada' }}
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Pagador:</strong> {{ ocr_data.payer_name or 'No detectado' }}
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Comparación:</h6>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th>Campo</th>
+                                    <th>Esperado</th>
+                                    <th>Detectado</th>
+                                    <th>Estado</th>
+                                </tr>
+                                <tr>
+                                    <td>Monto</td>
+                                    <td>${{ "%.2f"|format(payment.amount / 100) }}</td>
+                                    <td>${{ "%.2f"|format(ocr_data.amount) if ocr_data.amount else 'N/A' }}</td>
+                                    <td>
+                                        {% if ocr_data.amount and (ocr_data.amount - (payment.amount/100))|abs < 0.01 %}
+                                            <span class="badge bg-success">✓ Coincide</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">⚠ No coincide</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Acciones -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary">
+                    <h5 class="mb-0"><i class="fas fa-cog"></i> Acciones</h5>
+                </div>
+                <div class="card-body">
+                    <form id="reviewForm">
+                        <div class="mb-3">
+                            <label for="adminNotes" class="form-label">Notas del Administrador</label>
+                            <textarea class="form-control" id="adminNotes" rows="3" 
+                                      placeholder="Agregar notas sobre la revisión..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-lg" onclick="approvePayment({{ payment.id }})">
+                                <i class="fas fa-check"></i> Aprobar Pago y Otorgar Membresía
+                            </button>
+                            <button type="button" class="btn btn-danger btn-lg" onclick="rejectPayment({{ payment.id }})">
+                                <i class="fas fa-times"></i> Rechazar Pago
+                            </button>
+                            <a href="/admin/payments" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-arrow-left"></i> Volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function approvePayment(paymentId) {
+    const notes = document.getElementById('adminNotes').value;
+    
+    if (!confirm('¿Estás seguro de aprobar este pago? Se otorgará la membresía al usuario.')) {
+        return;
+    }
+    
+    fetch(`/api/admin/payments/${paymentId}/approve`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes: notes })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Pago aprobado exitosamente. La membresía ha sido otorgada.');
+            window.location.href = '/admin/payments';
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo aprobar el pago'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al aprobar el pago');
+    });
+}
+
+function rejectPayment(paymentId) {
+    const notes = document.getElementById('adminNotes').value;
+    
+    if (!notes) {
+        if (!confirm('¿Estás seguro de rechazar este pago? Se notificará al usuario.')) {
+            return;
+        }
+    } else {
+        if (!confirm('¿Estás seguro de rechazar este pago? Se notificará al usuario con las notas proporcionadas.')) {
+            return;
+        }
+    }
+    
+    fetch(`/api/admin/payments/${paymentId}/reject`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes: notes })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Pago rechazado. El usuario ha sido notificado.');
+            window.location.href = '/admin/payments';
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo rechazar el pago'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al rechazar el pago');
+    });
+}
+</script>
+{% endblock %}
+

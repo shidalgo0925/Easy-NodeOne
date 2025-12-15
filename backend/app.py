@@ -464,7 +464,7 @@ class Payment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     # Método de pago y referencia
-    payment_method = db.Column(db.String(50), nullable=False)  # stripe, paypal, banco_general, yappy, interbank
+    payment_method = db.Column(db.String(50), nullable=False)  # stripe, paypal, banco_general, yappy
     payment_reference = db.Column(db.String(200))  # ID de transacción del proveedor (stripe_payment_intent_id, paypal_order_id, etc.)
     
     # Información del pago
@@ -477,6 +477,12 @@ class Payment(db.Model):
     payment_url = db.Column(db.String(500))  # URL para pagos externos (PayPal, Banco General, etc.)
     receipt_url = db.Column(db.String(500))  # URL del comprobante subido por el usuario
     receipt_filename = db.Column(db.String(255))  # Nombre del archivo del comprobante
+    
+    # OCR y verificación
+    ocr_data = db.Column(db.Text)  # JSON con datos extraídos por OCR
+    ocr_status = db.Column(db.String(20), default='pending')  # pending, verified, rejected, needs_review
+    ocr_verified_at = db.Column(db.DateTime)  # Fecha de verificación OCR
+    admin_notes = db.Column(db.Text)  # Notas del administrador
     
     # Metadata adicional (JSON) - usando payment_metadata porque metadata es reservado en SQLAlchemy
     payment_metadata = db.Column(db.Text)  # JSON con información adicional del pago
@@ -1784,8 +1790,12 @@ class CartItem(db.Model):
 # Función helper para validar archivos
 def allowed_file(filename):
     """Verifica si el archivo tiene una extensión permitida"""
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'pdf'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Carpeta para guardar comprobantes de pago
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'receipts')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Configuración del login manager
 @login_manager.user_loader
@@ -1797,6 +1807,11 @@ def load_user(user_id):
 def index():
     """Página principal"""
     return render_template('index.html')
+
+@app.route('/promocion')
+def promocion():
+    """Página de promoción de servicios - Standalone"""
+    return render_template('promocion.html')
 
 # Decoradores
 def email_verified_required(f):
@@ -2375,8 +2390,50 @@ def api_remove_discount_code():
 def create_payment_intent():
     """Crear Payment Intent o iniciar pago con el método seleccionado"""
     try:
-        data = request.get_json() if request.is_json else request.form
+        # Manejar tanto JSON como FormData (para métodos manuales con archivos)
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+        
         payment_method = data.get('payment_method', 'stripe')
+        
+        # Manejar archivo de comprobante si existe (métodos manuales)
+        receipt_file = None
+        receipt_filename = None
+        receipt_url = None
+        ocr_data = None
+        ocr_status = 'pending'
+        
+        if 'receipt' in request.files:
+            file = request.files['receipt']
+            if file and file.filename != '' and allowed_file(file.filename):
+                # Generar nombre único para el archivo
+                import secrets
+                file_ext = file.filename.rsplit('.', 1)[1].lower()
+                unique_filename = f"{current_user.id}_{secrets.token_hex(8)}.{file_ext}"
+                file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+                file.save(file_path)
+                receipt_filename = file.filename
+                receipt_url = f"/static/uploads/receipts/{unique_filename}"
+                print(f"✅ Comprobante guardado: {receipt_url}")
+                
+                # Procesar con OCR si está disponible
+                try:
+                    from ocr_processor import get_ocr_processor
+                    ocr_processor = get_ocr_processor()
+                    if ocr_processor:
+                        print(f"🔄 Procesando documento con OCR...")
+                        extracted_data, ocr_error = ocr_processor.extract_payment_data(file_path)
+                        if extracted_data:
+                            ocr_data = json.dumps(extracted_data)
+                            print(f"✅ OCR completado. Datos extraídos: {extracted_data}")
+                        elif ocr_error:
+                            print(f"⚠️ Error en OCR: {ocr_error}")
+                except Exception as e:
+                    print(f"⚠️ Error procesando OCR: {e}")
+                    import traceback
+                    traceback.print_exc()
         
         cart = get_or_create_cart(current_user.id)
         
@@ -2417,6 +2474,60 @@ def create_payment_intent():
         if not success:
             return jsonify({'error': error_message or 'Error al crear el pago'}), 400
         
+        # Detectar si estamos en modo demo
+        is_demo_mode = payment_data.get('demo_mode', False)
+        
+        # Si es modo demo, también verificar si no hay credenciales configuradas
+        if not is_demo_mode:
+            if payment_method == 'stripe':
+                if payment_config:
+                    has_stripe_key = bool(payment_config.get_stripe_secret_key() and 
+                                        not payment_config.get_stripe_secret_key().startswith('sk_test_your_'))
+                else:
+                    has_stripe_key = bool(os.getenv('STRIPE_SECRET_KEY') and 
+                                        not os.getenv('STRIPE_SECRET_KEY', '').startswith('sk_test_your_'))
+                is_demo_mode = not has_stripe_key
+            elif payment_method == 'paypal':
+                if payment_config:
+                    has_paypal_creds = bool(payment_config.get_paypal_client_id() and payment_config.get_paypal_client_secret())
+                else:
+                    has_paypal_creds = bool(os.getenv('PAYPAL_CLIENT_ID') and os.getenv('PAYPAL_CLIENT_SECRET'))
+                is_demo_mode = not has_paypal_creds
+            else:
+                # Métodos manuales siempre están en modo demo hasta que se configuren APIs
+                is_demo_mode = True
+        
+        # Validar datos OCR si existen
+        ocr_verified = False
+        if ocr_data:
+            try:
+                extracted = json.loads(ocr_data)
+                expected_amount = total_amount / 100.0  # Convertir de centavos a dólares
+                extracted_amount = extracted.get('amount')
+                
+                # Verificar si el monto coincide (con tolerancia de 0.01)
+                if extracted_amount and abs(extracted_amount - expected_amount) < 0.01:
+                    ocr_status = 'verified'
+                    ocr_verified = True
+                    print(f"✅ Monto verificado: ${extracted_amount} coincide con ${expected_amount}")
+                else:
+                    ocr_status = 'needs_review'
+                    print(f"⚠️ Monto no coincide: OCR=${extracted_amount}, Esperado=${expected_amount}")
+            except Exception as e:
+                print(f"⚠️ Error validando OCR: {e}")
+                ocr_status = 'needs_review'
+        
+        # Determinar estado inicial del pago
+        # Si es método manual con OCR verificado, aprobar automáticamente
+        # Si es modo demo sin OCR, aprobar automáticamente
+        # Si OCR necesita revisión, dejar en pending
+        if ocr_verified:
+            initial_status = 'succeeded'
+        elif is_demo_mode and not receipt_url:  # Demo sin archivo
+            initial_status = 'succeeded'
+        else:
+            initial_status = 'pending'
+        
         # Guardar pago en la base de datos
         payment = Payment(
             user_id=current_user.id,
@@ -2424,37 +2535,66 @@ def create_payment_intent():
             payment_reference=payment_data.get('payment_reference', ''),
             amount=total_amount,
             currency='usd',
-            status='pending',
+            status=initial_status,
             membership_type='cart',
             payment_url=payment_data.get('payment_url'),
-            payment_metadata=json.dumps(metadata)
+            payment_metadata=json.dumps(metadata),
+            receipt_url=receipt_url,
+            receipt_filename=receipt_filename,
+            ocr_data=ocr_data,
+            ocr_status=ocr_status
         )
+        
+        if initial_status == 'succeeded':
+            payment.paid_at = datetime.utcnow()
+            if ocr_verified:
+                payment.ocr_verified_at = datetime.utcnow()
+        
         db.session.add(payment)
         db.session.commit()
+        
+        # Si el pago está aprobado (demo o OCR verificado), procesar el carrito inmediatamente
+        if initial_status == 'succeeded':
+            try:
+                process_cart_after_payment(cart, payment)
+                cart.clear()
+                db.session.commit()
+                print(f"✅ Pago en modo demo procesado exitosamente. Payment ID: {payment.id}")
+            except Exception as e:
+                print(f"⚠️ Error procesando carrito en modo demo: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+        
+        # Si OCR necesita revisión, enviar notificaciones después del commit
+        if ocr_status == 'needs_review':
+            try:
+                send_ocr_review_notifications(payment, current_user, json.loads(ocr_data) if ocr_data else None)
+            except Exception as e:
+                print(f"⚠️ Error enviando notificaciones OCR: {e}")
         
         # Preparar respuesta según el método
         response_data = {
             'payment_id': payment.id,
             'payment_method': payment_method,
             'amount': total_amount,
-            'status': 'pending'
+            'status': initial_status,
+            'demo_mode': is_demo_mode,
+            'ocr_data': json.loads(ocr_data) if ocr_data else None,
+            'ocr_status': ocr_status,
+            'ocr_verified': ocr_verified
+            'ocr_data': json.loads(ocr_data) if ocr_data else None,
+            'ocr_status': ocr_status,
+            'ocr_verified': ocr_verified
         }
         
         # Agregar datos específicos según el método
         if payment_method == 'stripe':
             response_data['client_secret'] = payment_data.get('client_secret', 'demo_client_secret')
-            # Detectar modo demo desde el procesador o configuración
-            if payment_config:
-                has_stripe_key = bool(payment_config.get_stripe_secret_key() and 
-                                    not payment_config.get_stripe_secret_key().startswith('sk_test_your_'))
-            else:
-                has_stripe_key = bool(os.getenv('STRIPE_SECRET_KEY') and 
-                                    not os.getenv('STRIPE_SECRET_KEY', '').startswith('sk_test_your_'))
-            response_data['demo_mode'] = payment_data.get('demo_mode', not has_stripe_key)
         elif payment_method == 'paypal':
             response_data['payment_url'] = payment_data.get('payment_url')
             response_data['order_id'] = payment_data.get('payment_reference')
-        elif payment_method in ['banco_general', 'interbank']:
+        elif payment_method == 'banco_general':
             response_data['bank_account'] = payment_data.get('bank_account')
             response_data['payment_reference'] = payment_data.get('payment_reference')
             response_data['manual'] = True
@@ -2602,12 +2742,26 @@ def payment_success():
     if payment_id:
         payment = Payment.query.get(payment_id)
         if payment and payment.user_id == current_user.id:
-            # Procesar items del carrito si el pago fue exitoso
+            # Procesar items del carrito si el pago fue exitoso y aún no se procesó
             if payment.status == 'succeeded':
                 cart = get_or_create_cart(current_user.id)
-                process_cart_after_payment(cart, payment)
-                cart.clear()
-                db.session.commit()
+                
+                # Verificar si el carrito ya fue procesado (tiene items)
+                # Si el carrito está vacío, significa que ya fue procesado en modo demo
+                if cart.get_items_count() > 0:
+                    try:
+                        process_cart_after_payment(cart, payment)
+                        cart.clear()
+                        db.session.commit()
+                        print(f"✅ Carrito procesado en payment_success para Payment ID: {payment.id}")
+                    except Exception as e:
+                        print(f"⚠️ Error procesando carrito en payment_success: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        db.session.rollback()
+                else:
+                    print(f"ℹ️ Carrito ya procesado previamente para Payment ID: {payment.id}")
+            
             return render_template('payment_success.html', payment=payment)
     
     flash('Información de pago no encontrada.', 'error')
@@ -3897,6 +4051,82 @@ def log_email_sent(recipient_email, subject, html_content=None, text_content=Non
         traceback.print_exc()
         db.session.rollback()
 
+def send_ocr_review_notifications(payment, user, ocr_extracted_data):
+    """Enviar notificaciones cuando OCR necesita revisión manual"""
+    try:
+        # Obtener administradores
+        admins = User.query.filter_by(is_admin=True, is_active=True).all()
+        
+        if not admins:
+            print("⚠️ No hay administradores para notificar")
+            return
+        
+        # Preparar datos para el email
+        expected_amount = payment.amount / 100.0
+        extracted_amount = ocr_extracted_data.get('amount') if ocr_extracted_data else None
+        
+        # Email al usuario
+        if EMAIL_TEMPLATES_AVAILABLE and email_service:
+            user_html = f"""
+            <h2>Revisión de Pago Requerida</h2>
+            <p>Hola {user.first_name},</p>
+            <p>Hemos recibido tu comprobante de pago, pero necesitamos verificar algunos datos:</p>
+            <ul>
+                <li><strong>Monto esperado:</strong> ${expected_amount:.2f}</li>
+                <li><strong>Monto en comprobante:</strong> ${extracted_amount:.2f} {'(detectado)' if extracted_amount else '(no detectado)'}</li>
+                <li><strong>Método de pago:</strong> {payment.payment_method.title()}</li>
+            </ul>
+            <p>Nuestro equipo revisará tu comprobante y te notificará cuando se apruebe tu membresía.</p>
+            <p>Saludos,<br>Equipo RelaticPanama</p>
+            """
+            
+            email_service.send_email(
+                subject='Revisión de Pago - RelaticPanama',
+                recipients=[user.email],
+                html_content=user_html,
+                email_type='payment_review',
+                related_entity_type='payment',
+                related_entity_id=payment.id,
+                recipient_id=user.id,
+                recipient_name=f"{user.first_name} {user.last_name}"
+            )
+        
+        # Email a administradores
+        admin_html = f"""
+        <h2>Revisión de Pago Requerida</h2>
+        <p>Se requiere revisión manual de un pago:</p>
+        <ul>
+            <li><strong>Usuario:</strong> {user.first_name} {user.last_name} ({user.email})</li>
+            <li><strong>ID de Pago:</strong> {payment.id}</li>
+            <li><strong>Monto esperado:</strong> ${expected_amount:.2f}</li>
+            <li><strong>Monto detectado:</strong> ${extracted_amount:.2f} {'(detectado)' if extracted_amount else '(no detectado)'}</li>
+            <li><strong>Método:</strong> {payment.payment_method.title()}</li>
+            <li><strong>Referencia:</strong> {ocr_extracted_data.get('reference', 'N/A') if ocr_extracted_data else 'N/A'}</li>
+            <li><strong>Fecha detectada:</strong> {ocr_extracted_data.get('date', 'N/A') if ocr_extracted_data else 'N/A'}</li>
+            <li><strong>Banco detectado:</strong> {ocr_extracted_data.get('bank', 'N/A') if ocr_extracted_data else 'N/A'}</li>
+        </ul>
+        <p><a href="/admin/payments/review/{payment.id}">Revisar Pago</a></p>
+        """
+        
+        for admin in admins:
+            if EMAIL_TEMPLATES_AVAILABLE and email_service:
+                email_service.send_email(
+                    subject=f'Revisión de Pago Requerida - Pago #{payment.id}',
+                    recipients=[admin.email],
+                    html_content=admin_html,
+                    email_type='payment_review_admin',
+                    related_entity_type='payment',
+                    related_entity_id=payment.id,
+                    recipient_id=admin.id,
+                    recipient_name=f"{admin.first_name} {admin.last_name}"
+                )
+        
+        print(f"✅ Notificaciones OCR enviadas para Payment ID: {payment.id}")
+    except Exception as e:
+        print(f"⚠️ Error enviando notificaciones OCR: {e}")
+        import traceback
+        traceback.print_exc()
+
 def send_payment_confirmation_email(user, payment, subscription):
     """Enviar email de confirmación de pago"""
     try:
@@ -4072,6 +4302,27 @@ def admin_users():
             unique_tags.update([t.strip() for t in tag_str[0].split(',') if t.strip()])
     unique_tags = sorted(list(unique_tags))
     
+    # Obtener membresías activas para cada usuario (para mostrar en la tabla)
+    user_memberships = {}
+    for user in users:
+        active_membership = user.get_active_membership()
+        if active_membership:
+            # Determinar tipo de membresía y fecha de expiración
+            if isinstance(active_membership, Subscription):
+                user_memberships[user.id] = {
+                    'type': active_membership.membership_type,
+                    'end_date': active_membership.end_date,
+                    'status': active_membership.status,
+                    'is_subscription': True
+                }
+            else:
+                user_memberships[user.id] = {
+                    'type': active_membership.membership_type,
+                    'end_date': active_membership.end_date,
+                    'status': 'active' if active_membership.is_active else 'expired',
+                    'is_subscription': False
+                }
+    
     return render_template('admin/users.html', 
                          users=users,
                          pagination=pagination,
@@ -4083,7 +4334,8 @@ def admin_users():
                          tag_filter=tag_filter,
                          groups=groups,
                          unique_tags=unique_tags,
-                         valid_countries=VALID_COUNTRIES)
+                         valid_countries=VALID_COUNTRIES,
+                         user_memberships=user_memberships)
 
 
 @app.route('/admin/users/<int:user_id>/update', methods=['POST'])
@@ -4294,9 +4546,56 @@ def admin_delete_user(user_id):
 @app.route('/admin/memberships')
 @admin_required
 def admin_memberships():
-    """Gestión de membresías"""
-    memberships = Membership.query.order_by(Membership.created_at.desc()).all()
-    return render_template('admin/memberships.html', memberships=memberships)
+    """Gestión de membresías (incluye Membership y Subscription)"""
+    # Obtener membresías antiguas (Membership)
+    old_memberships = Membership.query.order_by(Membership.created_at.desc()).all()
+    
+    # Obtener suscripciones nuevas (Subscription)
+    subscriptions = Subscription.query.order_by(Subscription.created_at.desc()).all()
+    
+    # Combinar ambas listas para mostrar en el template
+    # Convertir Subscription a formato compatible con Membership para el template
+    all_memberships = []
+    
+    # Agregar suscripciones (prioridad)
+    for sub in subscriptions:
+        all_memberships.append({
+            'id': sub.id,
+            'user': sub.user,
+            'membership_type': sub.membership_type,
+            'start_date': sub.start_date,
+            'end_date': sub.end_date,
+            'amount': sub.payment.amount / 100.0 if sub.payment else 0.0,  # Convertir de centavos
+            'is_active': sub.is_currently_active(),
+            'payment_status': 'paid' if sub.payment and sub.payment.status == 'succeeded' else 'pending',
+            'payment_id': sub.payment_id,
+            'is_subscription': True,
+            'created_at': sub.created_at
+        })
+    
+    # Agregar membresías antiguas
+    for mem in old_memberships:
+        all_memberships.append({
+            'id': mem.id,
+            'user': mem.user,
+            'membership_type': mem.membership_type,
+            'start_date': mem.start_date,
+            'end_date': mem.end_date,
+            'amount': mem.amount if hasattr(mem, 'amount') else 0.0,
+            'is_active': mem.is_active if hasattr(mem, 'is_active') else False,
+            'payment_status': mem.payment_status if hasattr(mem, 'payment_status') else 'unknown',
+            'payment_id': None,
+            'is_subscription': False,
+            'created_at': mem.created_at if hasattr(mem, 'created_at') else datetime.utcnow()
+        })
+    
+    # Ordenar por fecha de creación (más recientes primero)
+    all_memberships.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    return render_template('admin/memberships.html', 
+                         memberships=all_memberships,
+                         subscriptions=subscriptions,
+                         old_memberships=old_memberships)
 
 # Rutas administrativas para gestión de mensajería
 @app.route('/admin/messaging')
@@ -5278,10 +5577,122 @@ def get_media_config(procedure_key):
     })
 
 # Rutas de administración para configuración de pagos
+@app.route('/admin/payments/review/<int:payment_id>')
+@admin_required
+def admin_payment_review(payment_id):
+    """Revisar y aprobar/rechazar pago con OCR"""
+    payment = Payment.query.get_or_404(payment_id)
+    user = User.query.get(payment.user_id)
+    
+    # Parsear datos OCR
+    ocr_data = None
+    if payment.ocr_data:
+        try:
+            import json
+            ocr_data = json.loads(payment.ocr_data)
+        except:
+            pass
+    
+    return render_template('admin/payment_review.html',
+                         payment=payment,
+                         user=user,
+                         ocr_data=ocr_data)
+
+@app.route('/api/admin/payments/<int:payment_id>/approve', methods=['POST'])
+@admin_required
+def api_approve_payment(payment_id):
+    """Aprobar pago y otorgar membresía"""
+    try:
+        payment = Payment.query.get_or_404(payment_id)
+        
+        if payment.status == 'succeeded':
+            return jsonify({'success': False, 'error': 'El pago ya está aprobado'}), 400
+        
+        # Aprobar pago
+        payment.status = 'succeeded'
+        payment.ocr_status = 'verified'
+        payment.ocr_verified_at = datetime.utcnow()
+        payment.paid_at = datetime.utcnow()
+        
+        admin_notes = request.json.get('notes', '')
+        if admin_notes:
+            payment.admin_notes = admin_notes
+        
+        db.session.commit()
+        
+        # Procesar carrito si existe
+        cart = get_or_create_cart(payment.user_id)
+        if cart.get_items_count() > 0:
+            process_cart_after_payment(cart, payment)
+            cart.clear()
+            db.session.commit()
+        
+        # Enviar notificación al usuario
+        user = User.query.get(payment.user_id)
+        if user:
+            try:
+                subscription = Subscription.query.filter_by(payment_id=payment.id).first()
+                if subscription:
+                    NotificationEngine.notify_membership_payment(user, payment, subscription)
+            except:
+                pass
+        
+        return jsonify({'success': True, 'message': 'Pago aprobado exitosamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/payments/<int:payment_id>/reject', methods=['POST'])
+@admin_required
+def api_reject_payment(payment_id):
+    """Rechazar pago"""
+    try:
+        payment = Payment.query.get_or_404(payment_id)
+        
+        payment.status = 'failed'
+        payment.ocr_status = 'rejected'
+        payment.ocr_verified_at = datetime.utcnow()
+        
+        admin_notes = request.json.get('notes', '')
+        if admin_notes:
+            payment.admin_notes = admin_notes
+        
+        db.session.commit()
+        
+        # Enviar notificación al usuario
+        user = User.query.get(payment.user_id)
+        if user and EMAIL_TEMPLATES_AVAILABLE and email_service:
+            try:
+                html_content = f"""
+                <h2>Pago Rechazado</h2>
+                <p>Hola {user.first_name},</p>
+                <p>Lamentamos informarte que tu pago #{payment.id} ha sido rechazado.</p>
+                <p><strong>Razón:</strong> {admin_notes or 'No se pudo verificar el comprobante de pago'}</p>
+                <p>Por favor, verifica los datos de tu comprobante y vuelve a intentar.</p>
+                <p>Saludos,<br>Equipo RelaticPanama</p>
+                """
+                email_service.send_email(
+                    subject='Pago Rechazado - RelaticPanama',
+                    recipients=[user.email],
+                    html_content=html_content,
+                    email_type='payment_rejected',
+                    related_entity_type='payment',
+                    related_entity_id=payment.id,
+                    recipient_id=user.id,
+                    recipient_name=f"{user.first_name} {user.last_name}"
+                )
+            except:
+                pass
+        
+        return jsonify({'success': True, 'message': 'Pago rechazado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/admin/payments')
 @admin_required
 def admin_payments():
-    """Panel de configuración de métodos de pago"""
+    """Panel de configuración de métodos de pago y revisión de pagos pendientes"""
     try:
         # Obtener configuración directamente con query explícito
         payment_config = db.session.query(PaymentConfig).filter_by(is_active=True).first()
@@ -5304,8 +5715,15 @@ def admin_payments():
         traceback.print_exc()
         config_dict = None
     
-    return render_template('admin/payments.html', 
-                         payment_config=config_dict)
+    # Obtener pagos pendientes de revisión
+    pending_payments = Payment.query.filter(
+        Payment.ocr_status.in_(['pending', 'needs_review']),
+        Payment.status == 'pending'
+    ).order_by(Payment.created_at.desc()).limit(20).all()
+    
+    return render_template('admin/payments.html',
+                         payment_config=config_dict,
+                         pending_payments=pending_payments)
 
 @app.route('/api/admin/payments/config', methods=['GET', 'POST', 'PUT'])
 @admin_required

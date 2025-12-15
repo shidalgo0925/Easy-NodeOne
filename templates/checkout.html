@@ -149,7 +149,7 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Información para pagos manuales (Banco General, Interbank, Yappy) -->
+                                <!-- Información para pagos manuales (Banco General, Yappy) -->
                                 <div id="manual-payment-section" class="payment-section d-none">
                                     <div class="alert alert-info" id="manual-payment-info">
                                         <i class="fas fa-info-circle"></i>
@@ -189,7 +189,7 @@
                                 <i class="fas fa-flask"></i>
                                 <strong>Modo de Prueba:</strong> 
                                 Estás en modo de prueba. Los pagos se simulan automáticamente y no se procesan transacciones reales.
-                                <br><small>Puedes probar todos los métodos de pago sin riesgo.</small>
+                                <br><small>Puedes probar todos los métodos de pago sin riesgo. El pago se completará automáticamente.</small>
                             </div>
                             <div class="alert alert-success">
                                 <i class="fas fa-shield-alt"></i>
@@ -266,7 +266,7 @@
             document.getElementById('submit-button').classList.add('d-none');
             initPayPal();
         } else {
-            // Métodos manuales (banco_general, interbank, yappy)
+            // Métodos manuales (banco_general, yappy)
             document.getElementById('manual-payment-section').classList.remove('d-none');
             document.getElementById('submit-button').classList.remove('d-none');
             showManualPaymentInfo(currentPaymentMethod);
@@ -282,14 +282,6 @@
                 <h6>Banco General</h6>
                 <p><strong>Cuenta Corriente:</strong> 03-78-01-089981-8</p>
                 <p><strong>Nombre:</strong> Multi Servicios TK</p>
-                <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
-            `;
-        } else if (method === 'interbank') {
-            html = `
-                <h6>Interbank</h6>
-                <p><strong>Cuenta de Ahorros:</strong> 898-346625274-5</p>
-                <p><strong>CCI:</strong> 003-898-013466252745-43</p>
-                <p><strong>Titular:</strong> Poma Gonzáles Sósimo Misael</p>
                 <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
             `;
         } else if (method === 'yappy') {
@@ -312,6 +304,12 @@
     // Inicializar formulario
     updatePaymentForm();
     
+    // Detectar modo demo al cargar (verificar si Stripe está configurado)
+    {% if not stripe_publishable_key or stripe_publishable_key.startswith('pk_test_your_') %}
+    // Modo demo detectado - mostrar alerta
+    document.getElementById('demo-mode-alert').style.display = 'block';
+    {% endif %}
+    
     // Manejar envío del formulario
     const form = document.getElementById('payment-form');
     form.addEventListener('submit', async function(event) {
@@ -332,19 +330,37 @@
         spinner.classList.remove('d-none');
         
         try {
-            // Crear Payment Intent con el método seleccionado
-            const requestData = {
-                payment_method: currentPaymentMethod,
-                cart_id: {{ cart.id }},
-                amount: {{ total_amount }}
-            };
+            // Obtener archivo de comprobante si existe (métodos manuales)
+            const receiptFile = document.getElementById('receipt-upload').files[0];
+            const isManualMethod = ['banco_general', 'yappy'].includes(currentPaymentMethod);
+            
+            let formData;
+            let headers;
+            
+            // Si es método manual y hay archivo, usar FormData
+            if (isManualMethod && receiptFile) {
+                formData = new FormData();
+                formData.append('payment_method', currentPaymentMethod);
+                formData.append('cart_id', {{ cart.id }});
+                formData.append('amount', {{ total_amount }});
+                formData.append('receipt', receiptFile);
+                headers = {}; // No establecer Content-Type, el navegador lo hace automáticamente con FormData
+            } else {
+                // Métodos sin archivo, usar JSON
+                formData = JSON.stringify({
+                    payment_method: currentPaymentMethod,
+                    cart_id: {{ cart.id }},
+                    amount: {{ total_amount }}
+                });
+                headers = {
+                    'Content-Type': 'application/json',
+                };
+            }
             
             const response = await fetch('/create-payment-intent', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData),
+                headers: headers,
+                body: formData,
             });
             
             const data = await response.json();
@@ -353,35 +369,68 @@
                 throw new Error(data.error || 'Error al crear el pago');
             }
             
-            // Procesar según el método
+            // Si hay datos OCR, mostrar confirmación
+            if (data.ocr_data && data.ocr_status === 'needs_review') {
+                // Mostrar modal de confirmación con datos OCR
+                showOCRConfirmation(data);
+                submitButton.disabled = false;
+                buttonText.classList.remove('d-none');
+                spinner.classList.add('d-none');
+                return;
+            }
+            
+            // Verificar si estamos en modo demo
+            if (data.demo_mode) {
+                // Mostrar alerta de modo demo si no está visible
+                const demoAlert = document.getElementById('demo-mode-alert');
+                if (demoAlert) {
+                    demoAlert.style.display = 'block';
+                }
+                
+                // En modo demo, simular procesamiento y redirigir
+                console.log('Modo demo activado - Simulando pago exitoso');
+                
+                // Esperar un momento para mostrar el procesamiento
+                setTimeout(() => {
+                    window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+                }, 1500);
+                return;
+            }
+            
+            // Si OCR está verificado, redirigir directamente
+            if (data.ocr_verified) {
+                window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+                return;
+            }
+            
+            // Procesar según el método (modo real)
             if (currentPaymentMethod === 'stripe') {
-                if (data.demo_mode) {
-                    // Modo demo
-                    setTimeout(() => {
-                        window.location.href = `/payment-success?payment_id=${data.payment_id}`;
-                    }, 2000);
-                } else {
-                    // Modo real con Stripe
-                    const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
-                        payment_method: {
-                            card: cardElement,
-                        }
-                    });
-                    
-                    if (error) {
-                        const displayError = document.getElementById('card-errors');
-                        displayError.textContent = error.message;
-                        submitButton.disabled = false;
-                        buttonText.classList.remove('d-none');
-                        spinner.classList.add('d-none');
-                    } else {
-                        window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+                // Modo real con Stripe
+                if (!stripe) {
+                    throw new Error('Stripe no está configurado');
+                }
+                
+                const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
+                    payment_method: {
+                        card: cardElement,
                     }
+                });
+                
+                if (error) {
+                    const displayError = document.getElementById('card-errors');
+                    displayError.textContent = error.message;
+                    submitButton.disabled = false;
+                    buttonText.classList.remove('d-none');
+                    spinner.classList.add('d-none');
+                } else {
+                    window.location.href = `/payment-success?payment_id=${data.payment_id}`;
                 }
             } else if (currentPaymentMethod === 'paypal') {
                 // Redirigir a PayPal
                 if (data.payment_url) {
                     window.location.href = data.payment_url + `&payment_id=${data.payment_id}`;
+                } else {
+                    throw new Error('URL de PayPal no disponible');
                 }
             } else {
                 // Métodos manuales - mostrar mensaje y redirigir
@@ -478,6 +527,86 @@
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>`;
+    }
+    
+    function showOCRConfirmation(data) {
+        const ocr = data.ocr_data;
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'ocrConfirmationModal';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title">
+                            <i class="fas fa-search"></i> Verificación de Comprobante
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 
+                            Hemos procesado tu comprobante. Por favor, verifica los datos extraídos:
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Datos Esperados:</h6>
+                                <ul class="list-group mb-3">
+                                    <li class="list-group-item">
+                                        <strong>Monto:</strong> $${(data.amount / 100).toFixed(2)}
+                                    </li>
+                                    <li class="list-group-item">
+                                        <strong>Método:</strong> ${data.payment_method.replace('_', ' ').toUpperCase()}
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Datos Detectados en Comprobante:</h6>
+                                <ul class="list-group mb-3">
+                                    <li class="list-group-item ${ocr.amount && Math.abs(ocr.amount - (data.amount/100)) < 0.01 ? 'list-group-item-success' : 'list-group-item-warning'}">
+                                        <strong>Monto:</strong> $${ocr.amount ? ocr.amount.toFixed(2) : 'No detectado'}
+                                    </li>
+                                    <li class="list-group-item">
+                                        <strong>Fecha:</strong> ${ocr.date || 'No detectada'}
+                                    </li>
+                                    <li class="list-group-item">
+                                        <strong>Referencia:</strong> ${ocr.reference || 'No detectada'}
+                                    </li>
+                                    <li class="list-group-item">
+                                        <strong>Banco:</strong> ${ocr.bank || 'No detectado'}
+                                    </li>
+                                    <li class="list-group-item">
+                                        <strong>Cuenta:</strong> ${ocr.account_number || 'No detectada'}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        ${ocr.amount && Math.abs(ocr.amount - (data.amount/100)) >= 0.01 ? 
+                            '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> El monto detectado no coincide con el esperado. El pago será revisado manualmente.</div>' : 
+                            '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Los datos coinciden. Tu pago será procesado automáticamente.</div>'
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        <button type="button" class="btn btn-primary" onclick="confirmOCRPayment(${data.payment_id})">
+                            <i class="fas fa-check"></i> Confirmar y Continuar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Limpiar modal al cerrar
+        modal.addEventListener('hidden.bs.modal', function() {
+            modal.remove();
+        });
+    }
+    
+    function confirmOCRPayment(paymentId) {
+        window.location.href = `/payment-success?payment_id=${paymentId}`;
     }
 </script>
 {% endblock %}

@@ -13,8 +13,7 @@ PAYMENT_METHODS = {
     'stripe': 'Stripe (Tarjeta de Crédito)',
     'paypal': 'PayPal',
     'banco_general': 'Banco General',
-    'yappy': 'Yappy',
-    'interbank': 'Interbank (Transferencia)'
+    'yappy': 'Yappy'
 }
 
 # Estados de pago
@@ -192,7 +191,14 @@ class PayPalProcessor(PaymentProcessor):
         import requests
         
         if not self.client_id or not self.client_secret:
-            return False, None, "PayPal no está configurado. Configura PAYPAL_CLIENT_ID y PAYPAL_CLIENT_SECRET"
+            # Modo demo - simular pago de PayPal
+            import secrets
+            fake_order_id = f"PAYPAL-DEMO-{secrets.token_hex(16)}"
+            return True, {
+                'payment_reference': fake_order_id,
+                'payment_url': None,
+                'demo_mode': True
+            }, None
         
         access_token = self._get_access_token()
         if not access_token:
@@ -315,33 +321,18 @@ class BancoGeneralProcessor(PaymentProcessor):
         Crear enlace de pago con Banco General
         Por ahora retorna estructura para método manual hasta que se configure la API
         """
-        # Si no hay credenciales, usar método manual
-        if not self.merchant_id or not self.api_key:
-            # Generar número de referencia único
-            import secrets
-            reference = f"BG-{secrets.token_hex(8).upper()}"
-            
-            return True, {
-                'payment_reference': reference,
-                'payment_url': None,  # Se mostrarán datos bancarios
-                'manual': True,
-                'bank_account': {
-                    'bank': 'Banco General',
-                    'account_type': 'Cuenta Corriente',
-                    'account_number': '03-78-01-089981-8',
-                    'account_name': 'Multi Servicios TK'
-                }
-            }, None
-        
-        # TODO: Implementar API de CyberSource cuando se tengan las credenciales
-        # Por ahora retorna método manual
+        # Generar número de referencia único
         import secrets
         reference = f"BG-{secrets.token_hex(8).upper()}"
         
+        # Si no hay credenciales, usar método manual (modo demo)
+        is_demo = not (self.merchant_id and self.api_key)
+        
         return True, {
             'payment_reference': reference,
-            'payment_url': None,
+            'payment_url': None,  # Se mostrarán datos bancarios
             'manual': True,
+            'demo_mode': is_demo,
             'bank_account': {
                 'bank': 'Banco General',
                 'account_type': 'Cuenta Corriente',
@@ -381,10 +372,14 @@ class YappyProcessor(PaymentProcessor):
         import secrets
         reference = f"YAPPY-{secrets.token_hex(8).upper()}"
         
+        # Verificar si hay credenciales configuradas
+        is_demo = not (self.api_key and self.merchant_id)
+        
         return True, {
             'payment_reference': reference,
             'payment_url': None,
             'manual': True,
+            'demo_mode': is_demo,
             'yappy_info': {
                 'directorio': '@multiservicio',
                 'nombre': 'Multiservicios TK'
@@ -398,36 +393,7 @@ class YappyProcessor(PaymentProcessor):
         }
 
 
-class InterbankProcessor(PaymentProcessor):
-    """Procesador para pagos con Interbank (transferencia bancaria)"""
-    
-    def __init__(self):
-        super().__init__('interbank')
-    
-    def create_payment(self, amount, currency='USD', metadata=None):
-        """Crear referencia de pago para Interbank"""
-        import secrets
-        reference = f"INTERBANK-{secrets.token_hex(8).upper()}"
-        
-        return True, {
-            'payment_reference': reference,
-            'payment_url': None,
-            'manual': True,
-            'bank_account': {
-                'bank': 'Interbank',
-                'account_type': 'Cuenta de Ahorros',
-                'account_number': '898-346625274-5',
-                'cci': '003-898-013466252745-43',
-                'titular': 'Poma Gonzáles Sósimo Misael'
-            }
-        }, None
-    
-    def verify_payment(self, payment_reference):
-        """Verificar pago - requiere confirmación manual"""
-        return True, 'awaiting_confirmation', {
-            'note': 'Pago requiere confirmación manual'
-        }
-
+# Clase InterbankProcessor eliminada - método de pago Interbank deshabilitado
 
 def get_payment_processor(payment_method, config=None):
     """Factory para obtener el procesador de pago correcto"""
@@ -435,8 +401,7 @@ def get_payment_processor(payment_method, config=None):
         'stripe': StripeProcessor,
         'paypal': PayPalProcessor,
         'banco_general': BancoGeneralProcessor,
-        'yappy': YappyProcessor,
-        'interbank': InterbankProcessor
+        'yappy': YappyProcessor
     }
     
     processor_class = processors.get(payment_method)

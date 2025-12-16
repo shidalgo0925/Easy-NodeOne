@@ -8,7 +8,9 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_system_logo()) }}" onerror="this.href='{{ url_for('static', filename='images/favicon.svg') }}';">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/intro.js@latest/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <style>
         /* Paleta de colores RELATIC - Basada en las imágenes proporcionadas */
         :root {
@@ -113,16 +115,25 @@
                             <i class="fas fa-question-circle"></i>
                         </a>
                     </li>
+                    <li class="nav-item me-1 d-flex align-items-center">
+                        <a class="nav-link nav-icon-link" href="#" onclick="if(typeof startTour === 'function') { startTour(); } else { alert('El tour se está cargando, por favor espera un momento e intenta de nuevo.'); } return false;" title="Iniciar Tour Guiado" id="tourNavBtn">
+                            <i class="fas fa-route"></i>
+                        </a>
+                    </li>
                     <li class="nav-item me-2 d-flex align-items-center">
                         <a class="nav-link nav-icon-link" href="{{ url_for('settings') }}" title="Configuración">
                             <i class="fas fa-cog"></i>
                         </a>
                     </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-user"></i> {{ current_user.first_name }}
+                        <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <img src="{{ current_user.get_profile_picture_url() }}" alt="{{ current_user.first_name }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default-avatar.png') }}'; this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            <i class="fas fa-user" style="display: none;"></i>
+                            <span>{{ current_user.first_name }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="#" onclick="startTour(); return false;"><i class="fas fa-route me-2"></i>Tour Guiado</a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('profile') }}">Perfil</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('membership') }}">Membresía</a></li>
                             <li><hr class="dropdown-divider"></li>
@@ -241,7 +252,7 @@
                         
                         {% if current_user.is_admin %}
                         <!-- Administración - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['admin_dashboard', 'admin_users', 'admin_memberships', 'admin_messaging', 'admin_messaging_detail', 'admin_email', 'admin_notifications', 'admin_payments', 'admin_media'] or request.blueprint == 'admin_events' or request.endpoint == 'admin_events.discounts_index' or request.blueprint == 'admin_appointments' %}show{% endif %}">
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_dashboard', 'admin_users', 'admin_memberships', 'admin_messaging', 'admin_messaging_detail', 'admin_email', 'admin_notifications', 'admin_payments', 'admin_media', 'admin_backup'] or request.blueprint == 'admin_events' or request.endpoint == 'admin_events.discounts_index' or request.blueprint == 'admin_appointments' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Administración">
                                 <i class="menu-icon fa fa-cog"></i>
                                 <span class="menu-title-text">Administración</span>
@@ -264,6 +275,15 @@
                                     <a class="nav-link {% if request.endpoint == 'admin_memberships' %}active{% endif %}" href="{{ url_for('admin_memberships') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresías">
                                         <i class="menu-icon fa fa-crown"></i>
                                         <span class="menu-title-text">Membresías</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_payments' %}active{% endif %}" href="{{ url_for('admin_payments') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Ver Pagos">
+                                        <i class="menu-icon fa fa-money-bill-wave"></i>
+                                        <span class="menu-title-text">Ver Pagos</span>
+                                        {% if pending_payments_count and pending_payments_count > 0 %}
+                                        <span class="badge bg-danger ms-2">{{ pending_payments_count }}</span>
+                                        {% endif %}
                                     </a>
                                 </li>
                                 <li class="nav-item">
@@ -309,15 +329,15 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_payments' %}active{% endif %}" href="{{ url_for('admin_payments') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Configuración de Pagos">
-                                        <i class="menu-icon fa fa-credit-card"></i>
-                                        <span class="menu-title-text">Configuración de Pagos</span>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_media' %}active{% endif %}" href="{{ url_for('admin_media') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Configuración de Multimedia">
                                         <i class="menu-icon fa fa-video"></i>
                                         <span class="menu-title-text">Videos y Audios</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_backup' %}active{% endif %}" href="{{ url_for('admin_backup') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Respaldos de BD">
+                                        <i class="menu-icon fa fa-database"></i>
+                                        <span class="menu-title-text">Respaldos de BD</span>
                                     </a>
                                 </li>
                             </ul>
@@ -366,9 +386,6 @@
                             <div class="d-flex flex-column gap-2">
                                 <a href="mailto:info@relaticpanama.org" class="text-light text-decoration-none">
                                     <i class="fas fa-envelope me-2"></i> info@relaticpanama.org
-                                </a>
-                                <a href="tel:+507-1234-5678" class="text-light text-decoration-none">
-                                    <i class="fas fa-phone me-2"></i> +507-1234-5678
                                 </a>
                             </div>
                         </div>
@@ -448,9 +465,6 @@
                             <a href="mailto:info@relaticpanama.org" class="text-light text-decoration-none">
                                 <i class="fas fa-envelope me-2"></i> info@relaticpanama.org
                             </a>
-                            <a href="tel:+507-1234-5678" class="text-light text-decoration-none">
-                                <i class="fas fa-phone me-2"></i> +507-1234-5678
-                            </a>
                         </div>
                     </div>
                     <div class="col-lg-4 col-md-6">
@@ -516,6 +530,14 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/intro.js@latest/minified/intro.min.js"></script>
+    {% if current_user.is_authenticated %}
+        {% if current_user.is_admin %}
+        <script src="{{ url_for('static', filename='js/tour-admin.js') }}"></script>
+        {% else %}
+        <script src="{{ url_for('static', filename='js/tour-user.js') }}"></script>
+        {% endif %}
+    {% endif %}
     <script>
         // Sidebar Toggle Functionality (usando el botón dentro del menú y el botón de expandir)
         document.addEventListener('DOMContentLoaded', function() {
@@ -531,10 +553,17 @@
             }
             
             if (leftPanel && rightPanel) {
-                // Check localStorage for saved state
-                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-                if (isCollapsed) {
-                    document.body.classList.add('sidebar-collapsed');
+                // Si estamos en una página admin, forzar expansión del sidebar
+                const isAdminPage = window.location.pathname.includes('/admin');
+                if (isAdminPage) {
+                    document.body.classList.remove('sidebar-collapsed');
+                    localStorage.setItem('sidebarCollapsed', 'false');
+                } else {
+                    // Check localStorage for saved state solo si NO es página admin
+                    const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                    if (isCollapsed) {
+                        document.body.classList.add('sidebar-collapsed');
+                    }
                 }
                 
                 // Botón hamburguesa dentro del menú
@@ -771,5 +800,54 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Función global para iniciar el tour (debe estar fuera del DOMContentLoaded) -->
+<script>
+    // Función global para iniciar el tour (detecta automáticamente si es admin o usuario común)
+    function startTour() {
+        {% if current_user.is_authenticated %}
+            {% if current_user.is_admin %}
+            if (typeof startAdminTour === 'function') {
+                // Limpiar el estado de completado para permitir reiniciar
+                localStorage.removeItem('relatic_tour_admin_completed');
+                startAdminTour();
+            } else {
+                // Esperar a que el script del tour se cargue
+                setTimeout(function() {
+                    if (typeof startAdminTour === 'function') {
+                        localStorage.removeItem('relatic_tour_admin_completed');
+                        startAdminTour();
+                    } else {
+                        alert('El tour de administrador se está cargando. Por favor espera un momento e intenta de nuevo.');
+                    }
+                }, 500);
+            }
+            {% else %}
+            if (typeof startUserTour === 'function') {
+                // Limpiar el estado de completado para permitir reiniciar
+                localStorage.removeItem('relatic_tour_user_completed');
+                startUserTour();
+            } else {
+                // Esperar a que el script del tour se cargue
+                setTimeout(function() {
+                    if (typeof startUserTour === 'function') {
+                        localStorage.removeItem('relatic_tour_user_completed');
+                        startUserTour();
+                    } else {
+                        alert('El tour de usuario se está cargando. Por favor espera un momento e intenta de nuevo.');
+                    }
+                }, 500);
+            }
+            {% endif %}
+        {% else %}
+            alert('Por favor, inicia sesión para acceder al tour guiado.');
+        {% endif %}
+    }
+    
+    // Hacer la función disponible globalmente
+    window.startTour = startTour;
+</script>
+</body>
+</html>
 </body>
 </html>

@@ -1,0 +1,184 @@
+/**
+ * Estilos personalizados para el tour guiado de RELATIC Panamá
+ * Compatible con Intro.js
+ */
+
+/* Personalización de los tooltips del tour */
+.introjs-tooltip {
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-width: 400px;
+    max-width: 600px;
+    padding: 25px;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.introjs-tooltip h3 {
+    color: #4169E1;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-weight: 700;
+    font-size: 24px;
+}
+
+.introjs-tooltip h4 {
+    color: #4169E1;
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 20px;
+}
+
+.introjs-tooltip p {
+    margin-bottom: 12px;
+    line-height: 1.7;
+    font-size: 16px;
+}
+
+.introjs-tooltip ul {
+    margin: 10px 0;
+    padding-left: 25px;
+}
+
+.introjs-tooltip li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.introjs-tooltip strong {
+    color: #4169E1;
+    font-weight: 600;
+}
+
+/* Botones del tour con colores RELATIC */
+.introjs-button {
+    background-color: #4169E1;
+    border-color: #4169E1;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.introjs-button:hover {
+    background-color: #3151C7;
+    border-color: #3151C7;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(65, 105, 225, 0.3);
+}
+
+.introjs-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(65, 105, 225, 0.25);
+}
+
+.introjs-skipbutton {
+    color: #6c757d;
+    background-color: transparent;
+    border: none;
+}
+
+.introjs-skipbutton:hover {
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+/* Resaltado de elementos */
+.introjs-helperLayer {
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5),
+                0 0 0 4px #4169E1,
+                0 0 20px rgba(65, 105, 225, 0.5);
+}
+
+.introjs-helperNumberLayer {
+    background: linear-gradient(135deg, #4169E1 0%, #3151C7 100%);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(65, 105, 225, 0.4);
+}
+
+/* Barra de progreso */
+.introjs-progress {
+    background-color: #e9ecef;
+    border-radius: 4px;
+    height: 4px;
+}
+
+.introjs-progressbar {
+    background: linear-gradient(90deg, #4169E1 0%, #00CED1 100%);
+    border-radius: 4px;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+/* Bullets de navegación */
+.introjs-bullets ul li a {
+    background-color: #dee2e6;
+    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+}
+
+.introjs-bullets ul li a.active {
+    background-color: #4169E1;
+}
+
+/* Botón de iniciar tour en la página de ayuda */
+#startTourBtn {
+    background: linear-gradient(135deg, #4169E1 0%, #00CED1 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(65, 105, 225, 0.3);
+    transition: all 0.3s ease;
+}
+
+#startTourBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(65, 105, 225, 0.4);
+    background: linear-gradient(135deg, #3151C7 0%, #00B8CC 100%);
+}
+
+#startTourBtn:active {
+    transform: translateY(0);
+}
+
+/* Animación de entrada para el mensaje de completación */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.alert.position-fixed {
+    animation: slideInRight 0.3s ease-out;
+}
+
+/* Responsive: ajustes para móviles */
+@media (max-width: 768px) {
+    .introjs-tooltip {
+        max-width: 90%;
+        font-size: 14px;
+    }
+    
+    .introjs-button {
+        padding: 6px 12px;
+        font-size: 14px;
+    }
+    
+    #startTourBtn {
+        width: 100%;
+        margin-top: 1rem;
+    }
+}
+

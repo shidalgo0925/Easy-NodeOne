@@ -6,7 +6,7 @@ Backend Flask para gestión de usuarios y membresías
 
 import sys
 import re
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -66,7 +66,11 @@ app = Flask(__name__, template_folder='../templates', static_folder='../static')
 # Ensure module alias 'app' points to this instance even when running as __main__
 sys.modules.setdefault('app', sys.modules[__name__])
 app.config['SECRET_KEY'] = secrets.token_hex(16)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///relaticpanama.db'
+# Usar ruta absoluta para la base de datos para evitar confusiones
+basedir = os.path.abspath(os.path.dirname(__file__))
+db_path = os.path.join(os.path.dirname(basedir), 'instance', 'relaticpanama.db')
+os.makedirs(os.path.dirname(db_path), exist_ok=True)  # Crear directorio instance/ si no existe
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuración de Stripe
@@ -209,6 +213,28 @@ def get_system_logo():
 def inject_logo():
     """Inyectar función para obtener logo en todos los templates"""
     return dict(get_system_logo=get_system_logo)
+
+# Context processor para admin - pasar datos comunes a todas las páginas admin
+@app.context_processor
+def inject_admin_data():
+    """Inyectar datos comunes para páginas admin"""
+    admin_data = {}
+    
+    # Solo calcular si el usuario es admin y está autenticado
+    if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated and hasattr(current_user, 'is_admin') and current_user.is_admin:
+        try:
+            # Contar pagos pendientes de revisión OCR
+            pending_payments_count = Payment.query.filter(
+                Payment.ocr_status.in_(['pending', 'needs_review']),
+                Payment.status == 'pending'
+            ).count()
+            admin_data['pending_payments_count'] = pending_payments_count
+        except:
+            admin_data['pending_payments_count'] = 0
+    else:
+        admin_data['pending_payments_count'] = 0
+    
+    return admin_data
 
 # Helper function para URLs de imágenes públicas
 def get_public_image_url(filename, absolute=True):
@@ -415,8 +441,24 @@ class User(UserMixin, db.Model):
     email_verification_token_expires = db.Column(db.DateTime, nullable=True)
     email_verification_sent_at = db.Column(db.DateTime, nullable=True)
     
+    # Foto de perfil
+    profile_picture = db.Column(db.String(500), nullable=True)  # Ruta a la imagen de perfil
+    
     # Relación con membresías
     memberships = db.relationship('Membership', backref='user', lazy=True)
+    
+    def get_profile_picture_url(self):
+        """Retorna la URL de la foto de perfil o una por defecto"""
+        # Usar has_request_context para evitar errores fuera de contexto de Flask
+        if has_request_context():
+            if self.profile_picture:
+                return url_for('static', filename=f'uploads/profiles/{self.profile_picture}', _external=False)
+            return url_for('static', filename='images/default-avatar.png', _external=False)
+        else:
+            # Fuera del contexto de Flask, retornar ruta relativa
+            if self.profile_picture:
+                return f'/static/uploads/profiles/{self.profile_picture}'
+            return '/static/images/default-avatar.png'
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -508,8 +550,14 @@ class Payment(db.Model):
             'membership_type': self.membership_type,
             'payment_url': self.payment_url,
             'receipt_url': self.receipt_url,
+            'receipt_filename': self.receipt_filename,
+            'ocr_data': json.loads(self.ocr_data) if self.ocr_data else None,
+            'ocr_status': self.ocr_status,
+            'ocr_verified_at': self.ocr_verified_at.isoformat() if self.ocr_verified_at else None,
+            'admin_notes': self.admin_notes,
             'metadata': json.loads(self.payment_metadata) if self.payment_metadata else {},
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'paid_at': self.paid_at.isoformat() if self.paid_at else None
         }
 
@@ -1211,7 +1259,7 @@ class MediaConfig(db.Model):
 class EmailTemplate(db.Model):
     """Templates de correo editables desde el panel de administración"""
     id = db.Column(db.Integer, primary_key=True)
-    template_key = db.Column(db.String(50), unique=True, nullable=False)  # welcome, membership_payment, etc.
+    template_key = db.Column(db.String(100), unique=True, nullable=True)  # welcome, membership_payment, etc. (nullable para compatibilidad con registros antiguos)
     name = db.Column(db.String(200), nullable=False)  # Nombre descriptivo
     subject = db.Column(db.String(500), nullable=False)  # Asunto del correo
     html_content = db.Column(db.Text, nullable=False)  # Contenido HTML
@@ -2199,6 +2247,91 @@ def profile():
     """Perfil del usuario"""
     return render_template('profile.html')
 
+@app.route('/profile/upload-photo', methods=['POST'])
+@login_required
+def upload_profile_photo():
+    """Subir foto de perfil del usuario"""
+    try:
+        if 'photo' not in request.files:
+            return jsonify({'success': False, 'error': 'No se proporcionó ninguna imagen'}), 400
+        
+        file = request.files['photo']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No se seleccionó ningún archivo'}), 400
+        
+        if file and allowed_file(file.filename):
+            # Validar que sea una imagen
+            if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                return jsonify({'success': False, 'error': 'Formato de archivo no válido. Solo se permiten imágenes (PNG, JPG, JPEG, GIF, WEBP)'}), 400
+            
+            # Crear directorio si no existe
+            upload_dir = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'profiles')
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            # Generar nombre único para el archivo
+            file_ext = os.path.splitext(file.filename)[1]
+            filename = f"{current_user.id}_{int(datetime.utcnow().timestamp())}{file_ext}"
+            filepath = os.path.join(upload_dir, filename)
+            
+            # Guardar el archivo
+            file.save(filepath)
+            
+            # Eliminar foto anterior si existe
+            if current_user.profile_picture:
+                old_filepath = os.path.join(upload_dir, current_user.profile_picture)
+                if os.path.exists(old_filepath):
+                    try:
+                        os.remove(old_filepath)
+                    except:
+                        pass  # Ignorar errores al eliminar archivo antiguo
+            
+            # Actualizar en la base de datos
+            current_user.profile_picture = filename
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Foto de perfil actualizada correctamente',
+                'photo_url': current_user.get_profile_picture_url()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Formato de archivo no permitido'}), 400
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Error al subir la foto: {str(e)}'}), 500
+
+@app.route('/profile/remove-photo', methods=['POST'])
+@login_required
+def remove_profile_photo():
+    """Eliminar foto de perfil del usuario"""
+    try:
+        if current_user.profile_picture:
+            # Eliminar archivo físico
+            upload_dir = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'profiles')
+            filepath = os.path.join(upload_dir, current_user.profile_picture)
+            if os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except:
+                    pass
+            
+            # Actualizar en la base de datos
+            current_user.profile_picture = None
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Foto de perfil eliminada correctamente'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'No hay foto de perfil para eliminar'}), 400
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Error al eliminar la foto: {str(e)}'}), 500
+
 @app.route('/services')
 @login_required
 def services():
@@ -2580,9 +2713,6 @@ def create_payment_intent():
             'amount': total_amount,
             'status': initial_status,
             'demo_mode': is_demo_mode,
-            'ocr_data': json.loads(ocr_data) if ocr_data else None,
-            'ocr_status': ocr_status,
-            'ocr_verified': ocr_verified
             'ocr_data': json.loads(ocr_data) if ocr_data else None,
             'ocr_status': ocr_status,
             'ocr_verified': ocr_verified
@@ -4210,6 +4340,12 @@ def admin_required(f):
 @admin_required
 def admin_dashboard():
     """Panel de administración principal"""
+    # Contar pagos pendientes de revisión OCR
+    pending_payments_count = Payment.query.filter(
+        Payment.ocr_status.in_(['pending', 'needs_review']),
+        Payment.status == 'pending'
+    ).count()
+    
     total_users = User.query.count()
     total_memberships = Membership.query.count()
     active_memberships = Membership.query.filter_by(is_active=True).count()
@@ -5724,6 +5860,160 @@ def admin_payments():
     return render_template('admin/payments.html',
                          payment_config=config_dict,
                          pending_payments=pending_payments)
+
+@app.route('/admin/backup')
+@admin_required
+def admin_backup():
+    """Panel de respaldo de base de datos"""
+    # Obtener lista de backups existentes
+    backups_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backups')
+    backups = []
+    
+    if os.path.exists(backups_dir):
+        for filename in sorted(os.listdir(backups_dir), reverse=True):
+            if filename.startswith('relaticpanama_backup_') and filename.endswith('.db'):
+                filepath = os.path.join(backups_dir, filename)
+                file_stat = os.stat(filepath)
+                backups.append({
+                    'filename': filename,
+                    'size': file_stat.st_size,
+                    'size_mb': round(file_stat.st_size / (1024 * 1024), 2),
+                    'created_at': datetime.fromtimestamp(file_stat.st_mtime),
+                    'path': filepath
+                })
+    
+    return render_template('admin/backup.html', backups=backups)
+
+@app.route('/admin/backup/create', methods=['POST'])
+@admin_required
+def create_backup():
+    """Crear respaldo de base de datos y devolverlo para descarga"""
+    try:
+        # Crear respaldo
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        db_path = os.path.join(project_root, 'instance', 'relaticpanama.db')
+        backups_dir = os.path.join(project_root, 'backups')
+        
+        os.makedirs(backups_dir, exist_ok=True)
+        
+        if not os.path.exists(db_path):
+            return jsonify({'success': False, 'error': 'Base de datos no encontrada'}), 404
+        
+        # Generar nombre de respaldo
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f'relaticpanama_backup_{timestamp}.db'
+        backup_path = os.path.join(backups_dir, backup_filename)
+        
+        # Copiar base de datos
+        import shutil
+        shutil.copy2(db_path, backup_path)
+        
+        # Registrar en logs
+        print(f"✅ Respaldo creado por admin: {backup_filename}")
+        
+        # Devolver archivo para descarga
+        return send_file(
+            backup_path,
+            as_attachment=True,
+            download_name=backup_filename,
+            mimetype='application/x-sqlite3'
+        )
+        
+    except Exception as e:
+        print(f"❌ Error al crear respaldo: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/backup/download/<filename>')
+@admin_required
+def download_backup(filename):
+    """Descargar un respaldo existente"""
+    try:
+        # Validar nombre de archivo (seguridad)
+        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+            return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
+        
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        backup_path = os.path.join(project_root, 'backups', filename)
+        
+        if not os.path.exists(backup_path):
+            return jsonify({'success': False, 'error': 'Respaldo no encontrado'}), 404
+        
+        return send_file(
+            backup_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/x-sqlite3'
+        )
+        
+    except Exception as e:
+        print(f"❌ Error al descargar respaldo: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/backup/delete/<filename>', methods=['POST'])
+@admin_required
+def delete_backup(filename):
+    """Eliminar un respaldo"""
+    try:
+        # Validar nombre de archivo (seguridad)
+        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+            return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
+        
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        backup_path = os.path.join(project_root, 'backups', filename)
+        
+        if not os.path.exists(backup_path):
+            return jsonify({'success': False, 'error': 'Respaldo no encontrado'}), 404
+        
+        os.remove(backup_path)
+        
+        return jsonify({'success': True, 'message': 'Respaldo eliminado exitosamente'})
+        
+    except Exception as e:
+        print(f"❌ Error al eliminar respaldo: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/backup/restore/<filename>', methods=['POST'])
+@admin_required
+def restore_backup(filename):
+    """Restaurar base de datos desde un respaldo"""
+    try:
+        # Validar nombre de archivo (seguridad)
+        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+            return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
+        
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        backup_path = os.path.join(project_root, 'backups', filename)
+        db_path = os.path.join(project_root, 'instance', 'relaticpanama.db')
+        
+        if not os.path.exists(backup_path):
+            return jsonify({'success': False, 'error': 'Respaldo no encontrado'}), 404
+        
+        # Crear respaldo de seguridad antes de restaurar
+        import shutil
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        safety_backup = os.path.join(project_root, 'backups', f'safety_backup_before_restore_{timestamp}.db')
+        
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, safety_backup)
+            print(f"✅ Respaldo de seguridad creado: {safety_backup}")
+        
+        # Restaurar base de datos
+        shutil.copy2(backup_path, db_path)
+        
+        print(f"✅ Base de datos restaurada desde: {filename}")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Base de datos restaurada exitosamente desde {filename}. Se creó un respaldo de seguridad antes de la restauración.'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error al restaurar respaldo: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/payments/config', methods=['GET', 'POST', 'PUT'])
 @admin_required

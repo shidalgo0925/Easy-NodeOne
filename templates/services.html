@@ -131,11 +131,19 @@
                             <h6 class="mb-0 fw-bold">{{ service.title }}</h6>
                         </div>
                         <p class="text-muted mb-3 small">{{ service.description }}</p>
-                        {% if service.link %}
-                        <a href="{{ service.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
-                            Ver más <i class="fas fa-arrow-right ms-1"></i>
-                        </a>
-                        {% endif %}
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% if service.link %}
+                            <a href="{{ service.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
+                                Ver más <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                            {% endif %}
+                            {% if plan.name != 'GRATIS / BÁSICO' %}
+                            <button onclick="addServiceToCart('{{ service.title|replace("'", "\\'") }}', '{{ service.description|replace("'", "\\'") }}', '{{ plan.name|lower|replace(' ', '_')|replace('/', '_') }}_{{ service.title|lower|replace(' ', '_') }}')" 
+                                    class="btn btn-sm btn-success">
+                                <i class="fas fa-cart-plus"></i> Agregar al Carrito
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -197,5 +205,92 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function addServiceToCart(serviceName, serviceDescription, serviceId) {
+    // Generar ID numérico único basado en el string
+    function stringToId(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash) % 1000000;
+    }
+    
+    const numericId = stringToId(serviceId);
+    
+    // Obtener precio base del servicio (puedes ajustar esto según tus necesidades)
+    // Por ahora usamos un precio base de ejemplo, deberías obtenerlo de la base de datos o configuración
+    const basePrice = 50.00; // Precio base en USD
+    
+    const data = {
+        product_type: 'service',
+        product_id: numericId,
+        service_name: serviceName,
+        base_price: basePrice,
+        service_description: serviceDescription,
+        quantity: 1
+    };
+    
+    fetch('/cart/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        // Verificar si la respuesta es JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            // Si no es JSON, leer como texto para ver qué pasó
+            return response.text().then(text => {
+                throw new Error('Respuesta no válida del servidor. Por favor, verifica tu sesión.');
+            });
+        }
+    })
+    .then(data => {
+        if (data.success) {
+            const cartBadge = document.getElementById('cart-count-badge');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_items_count;
+                cartBadge.style.display = 'block';
+            }
+            showServiceNotification('Servicio agregado al carrito', 'success');
+        } else {
+            if (data.requires_verification) {
+                showServiceNotification('Por favor, verifica tu correo electrónico antes de continuar.', 'error');
+                // Opcional: redirigir a la página de verificación
+                setTimeout(() => {
+                    window.location.href = '/verify-email';
+                }, 2000);
+            } else {
+                showServiceNotification('Error: ' + (data.error || 'Error desconocido'), 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showServiceNotification('Ocurrió un error al agregar el servicio al carrito: ' + error.message, 'error');
+    });
+}
+
+function showServiceNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
 </script>
 {% endblock %}

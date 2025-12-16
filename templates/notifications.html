@@ -206,30 +206,64 @@ function markAllAsRead() {
 
 function deleteNotification(notificationId) {
     if (confirm('¿Estás seguro de que deseas eliminar esta notificación?')) {
+        // Encontrar el elemento antes de hacer la petición para asegurar que existe
+        const item = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+        if (!item) {
+            console.error('No se encontró el elemento de notificación con ID:', notificationId);
+            alert('Error: No se pudo encontrar la notificación');
+            return;
+        }
+        
+        // Mostrar indicador de carga
+        const deleteButton = item.querySelector('button[onclick*="deleteNotification"]');
+        if (deleteButton) {
+            deleteButton.disabled = true;
+            deleteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+        
         fetch(`/api/notifications/${notificationId}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            credentials: 'same-origin'
         })
-        .then(response => response.json())
+        .then(response => {
+            // Verificar si la respuesta es exitosa
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || `Error HTTP: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                const item = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
-                if (item) {
+                // Eliminar el elemento del DOM
+                item.style.transition = 'opacity 0.3s';
+                item.style.opacity = '0';
+                setTimeout(() => {
                     item.remove();
-                }
-                const items = document.querySelectorAll('.notification-item');
-                if (items.length === 0) {
-                    document.getElementById('noNotifications').style.display = 'block';
-                }
+                    
+                    // Verificar si quedan notificaciones
+                    const items = document.querySelectorAll('.notification-item');
+                    if (items.length === 0) {
+                        document.getElementById('noNotifications').style.display = 'block';
+                    }
+                }, 300);
             } else {
-                alert('Error al eliminar la notificación');
+                throw new Error(data.error || 'Error desconocido al eliminar');
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('Error al eliminar la notificación');
+            console.error('Error al eliminar notificación:', error);
+            alert('Error al eliminar la notificación: ' + error.message);
+            
+            // Restaurar botón
+            if (deleteButton) {
+                deleteButton.disabled = false;
+                deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+            }
         });
     }
 }

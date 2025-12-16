@@ -65,3 +65,4 @@ if __name__ == '__main__':
     migrate_payment_table()
     print("✅ Migración finalizada.")
 
+

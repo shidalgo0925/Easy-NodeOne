@@ -34,6 +34,21 @@
                 </div>
 
 <div class="container-fluid py-4">
+    <!-- Advertencia de Email No Verificado -->
+    {% if not current_user.email_verified %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle me-3 fs-4"></i>
+            <div class="flex-grow-1">
+                <strong>Email no verificado</strong>
+                <p class="mb-0">Debes verificar tu email para acceder a todas las funciones (pagos, eventos, etc.). 
+                <a href="{{ url_for('resend_verification') }}" class="alert-link">Reenviar email de verificación</a></p>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+    
     <!-- Mensaje de Bienvenida -->
     <div class="welcome-section mb-5">
         <h1 class="h2 mb-2">Bienvenido de vuelta, {{ current_user.first_name }}</h1>

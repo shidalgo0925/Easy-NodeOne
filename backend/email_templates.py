@@ -502,3 +502,73 @@ def get_password_reset_email(user, reset_token, reset_url):
         year=datetime.now().year
     )
 
+
+def get_email_verification_email(user, verification_url):
+    """Template para verificación de email usando el nuevo template HTML"""
+    try:
+        # Importar get_public_image_url desde app
+        from app import get_public_image_url, app
+        import os
+        from flask import has_request_context, request
+        
+        # Generar URLs absolutas (necesarias para emails)
+        logo_path_png = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos', 'logo-relatic.png')
+        logo_path_svg = os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'logo-relatic.svg')
+        
+        # Obtener base_url
+        if has_request_context() and request:
+            base_url = request.url_root.rstrip('/')
+        else:
+            base_url = os.getenv('BASE_URL', 'https://miembros.relatic.org')
+        
+        if os.path.exists(logo_path_png):
+            try:
+                logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
+            except Exception:
+                logo_url = f"{base_url}/static/public/emails/logos/logo-relatic.png"
+        elif os.path.exists(logo_path_svg):
+            logo_url = f"{base_url}/static/images/logo-relatic.svg"
+        else:
+            logo_url = None
+        
+        # Renderizar el template HTML
+        if has_request_context():
+            html = render_template('emails/sistema/verificacion_email.html',
+                                  logo_url=logo_url,
+                                  user_first_name=user.first_name,
+                                  user_last_name=user.last_name,
+                                  verification_url=verification_url,
+                                  year=datetime.now().year,
+                                  contact_email='administracion@relaticpanama.org')
+        else:
+            with app.app_context():
+                html = render_template('emails/sistema/verificacion_email.html',
+                                      logo_url=logo_url,
+                                      user_first_name=user.first_name,
+                                      user_last_name=user.last_name,
+                                      verification_url=verification_url,
+                                      year=datetime.now().year,
+                                      contact_email='administracion@relaticpanama.org')
+        
+        return html
+    except Exception as e:
+        # Fallback al template anterior si hay error
+        import traceback
+        traceback.print_exc()
+        content = f"""
+            <h2>Verifica tu Correo Electrónico</h2>
+            <p>Hola <strong>{user.first_name} {user.last_name}</strong>,</p>
+            <p>Gracias por registrarte en RelaticPanama. Para completar tu registro, verifica tu email haciendo clic en el siguiente enlace:</p>
+            <p style="text-align: center;">
+                <a href="{verification_url}" class="button">Verificar mi Email</a>
+            </p>
+            <p>Este enlace expirará en 24 horas.</p>
+            <p><small>O copia y pega este enlace en tu navegador:</small><br>
+            <small style="color: #666; word-break: break-all;">{verification_url}</small></p>
+        """
+        return get_email_template_base().format(
+            subject="Verifica tu Email - RelaticPanama",
+            content=content,
+            year=datetime.now().year
+        )
+

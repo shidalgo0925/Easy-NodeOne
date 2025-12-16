@@ -267,6 +267,11 @@ def event_detail(slug):
 @login_required
 def register_to_event(slug):
     """Registrar usuario a un evento"""
+    # Verificar que el email esté verificado
+    if not current_user.email_verified:
+        flash('Debes verificar tu email para registrarte en eventos. Revisa tu bandeja de entrada o solicita un nuevo enlace de verificación.', 'warning')
+        return redirect(url_for('resend_verification'))
+    
     ensure_models()
     event = Event.query.filter_by(slug=slug).first_or_404()
     membership = current_user.get_active_membership()

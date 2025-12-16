@@ -11,29 +11,46 @@
                     <h3><i class="fas fa-user-plus"></i> Registro de Usuario</h3>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST">
+                    <form method="POST" id="registerForm">
                         <div class="mb-3">
-                            <label for="first_name" class="form-label">Nombre</label>
+                            <label for="first_name" class="form-label">Nombre <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="first_name" name="first_name" required>
                         </div>
                         <div class="mb-3">
-                            <label for="last_name" class="form-label">Apellido</label>
+                            <label for="last_name" class="form-label">Apellido <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="last_name" name="last_name" required>
                         </div>
                         <div class="mb-3">
-                            <label for="email" class="form-label">Correo Electrónico</label>
+                            <label for="email" class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
                             <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="country" class="form-label">País <span class="text-danger">*</span></label>
+                            <select class="form-select" id="country" name="country" required>
+                                <option value="">Seleccione su país</option>
+                                {% if valid_countries %}
+                                    {% for country in valid_countries %}
+                                        <option value="{{ country }}">{{ country }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cedula_or_passport" class="form-label">Cédula / DNI / Pasaporte <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="cedula_or_passport" name="cedula_or_passport" 
+                                   placeholder="Ej: 8-123-456 (Panamá) o A12345678 (Pasaporte)" required>
+                            <small class="form-text text-muted">Ingrese su cédula, DNI o número de pasaporte</small>
                         </div>
                         <div class="mb-3">
                             <label for="phone" class="form-label">Teléfono (Opcional)</label>
                             <input type="tel" class="form-control" id="phone" name="phone">
                         </div>
                         <div class="mb-3">
-                            <label for="password" class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                            <label for="password" class="form-label">Contraseña <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="password" name="password" required minlength="6">
                         </div>
                         <div class="mb-3">
-                            <label for="confirm_password" class="form-label">Confirmar Contraseña</label>
+                            <label for="confirm_password" class="form-label">Confirmar Contraseña <span class="text-danger">*</span></label>
                             <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
                         </div>
                         <div class="d-grid">
@@ -54,14 +71,45 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
+    const form = document.getElementById('registerForm');
     const password = document.getElementById('password');
     const confirmPassword = document.getElementById('confirm_password');
+    const country = document.getElementById('country');
+    const cedulaOrPassport = document.getElementById('cedula_or_passport');
+    
+    // Validación de formato de cédula según país
+    function validateCedulaFormat() {
+        const countryValue = country.value;
+        const cedulaValue = cedulaOrPassport.value.trim();
+        
+        if (!cedulaValue || !countryValue) return true;
+        
+        // Panamá: 8 dígitos (formato: 8-123-456 o 12345678)
+        if (countryValue === 'Panamá') {
+            const cleaned = cedulaValue.replace(/[-\s]/g, '');
+            if (!/^\d{8}$/.test(cleaned)) {
+                cedulaOrPassport.setCustomValidity('La cédula panameña debe tener 8 dígitos (formato: 8-123-456 o 12345678)');
+                return false;
+            }
+        }
+        
+        cedulaOrPassport.setCustomValidity('');
+        return true;
+    }
+    
+    country.addEventListener('change', validateCedulaFormat);
+    cedulaOrPassport.addEventListener('input', validateCedulaFormat);
     
     form.addEventListener('submit', function(e) {
         if (password.value !== confirmPassword.value) {
             e.preventDefault();
             alert('Las contraseñas no coinciden');
+            return false;
+        }
+        
+        if (!validateCedulaFormat()) {
+            e.preventDefault();
+            return false;
         }
     });
 });

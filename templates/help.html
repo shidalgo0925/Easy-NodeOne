@@ -6,10 +6,21 @@
 <div class="container py-4">
     <div class="row">
         <div class="col-12">
-            <h1 class="display-6 mb-4">
-                <i class="fas fa-question-circle"></i> Centro de Ayuda
-            </h1>
-            <p class="lead text-muted">Encuentra respuestas a tus preguntas y obtén soporte</p>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="display-6 mb-2">
+                        <i class="fas fa-question-circle"></i> Centro de Ayuda
+                    </h1>
+                    <p class="lead text-muted mb-0">Encuentra respuestas a tus preguntas y obtén soporte</p>
+                </div>
+                {% if current_user.is_authenticated %}
+                <div>
+                    <button id="startTourBtn" class="btn btn-primary btn-lg" onclick="startTour()">
+                        <i class="fas fa-route me-2"></i> Iniciar Tour Guiado
+                    </button>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -1589,9 +1600,6 @@ PAYPAL_MODE=live</code></pre>
                         <a href="mailto:info@relaticpanama.org" class="btn btn-primary">
                             <i class="fas fa-envelope"></i> Enviar Email
                         </a>
-                        <a href="tel:+507-1234-5678" class="btn btn-outline-primary">
-                            <i class="fas fa-phone"></i> Llamar
-                        </a>
                     </div>
                 </div>
             </div>
@@ -2059,6 +2067,9 @@ function toggleAudioMode() {
         alert('Modo audio activado: Los audios se reproducirán automáticamente en secuencia.');
     }
 }
+
+// La función startTour() está definida globalmente en base.html
+// No es necesario redefinirla aquí
 
 // Búsqueda mejorada
 document.getElementById('helpSearch')?.addEventListener('keypress', function(e) {

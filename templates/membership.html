@@ -37,9 +37,25 @@
                             <p><strong>Vencimiento:</strong> {{ membership.end_date.strftime('%d/%m/%Y') }}</p>
                         </div>
                     </div>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Descuentos activos:</strong> 
+                        {% if membership.membership_type == 'pro' %}
+                        Disfrutas de <strong>10% de descuento</strong> en servicios y eventos.
+                        {% elif membership.membership_type == 'premium' %}
+                        Disfrutas de <strong>20% de descuento</strong> en servicios y eventos.
+                        {% elif membership.membership_type == 'deluxe' %}
+                        Disfrutas de <strong>30% de descuento</strong> en servicios y eventos.
+                        {% else %}
+                        Los servicios y eventos se aplican con precios estándar.
+                        {% endif %}
+                    </div>
                     <div class="mt-3">
                         <a href="{{ url_for('benefits') }}" class="btn btn-primary">
                             <i class="fas fa-star"></i> Ver Beneficios
+                        </a>
+                        <a href="{{ url_for('services') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-th-large"></i> Ver Servicios
                         </a>
                     </div>
                 </div>
@@ -47,36 +63,12 @@
         </div>
     </div>
     {% else %}
-    <!-- No Membership -->
+    <!-- No Membership - Mensaje informativo -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Sin Membresía Activa</h5>
-                </div>
-                <div class="card-body text-center">
-                    <i class="fas fa-crown fa-3x text-warning mb-3"></i>
-                    <h5>No tienes una membresía activa</h5>
-                    <p class="text-muted">Adquiere una membresía para acceder a todos los beneficios</p>
-                    <div class="alert alert-info mb-3">
-                        <i class="fas fa-envelope text-primary"></i>
-                        <strong>Correo registrado:</strong> {{ current_user.email }}
-                    </div>
-                    <div class="d-flex gap-3 justify-content-center flex-wrap">
-                        <a href="{{ url_for('checkout', membership_type='basic') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-crown"></i> Activar Básico (Gratis)
-                        </a>
-                        <a href="{{ url_for('checkout', membership_type='pro') }}" class="btn btn-primary">
-                            <i class="fas fa-bolt"></i> Comprar Pro ($60/año)
-                        </a>
-                        <a href="{{ url_for('checkout', membership_type='premium') }}" class="btn btn-success">
-                            <i class="fas fa-star"></i> Comprar Premium ($120/año)
-                        </a>
-                        <a href="{{ url_for('checkout', membership_type='deluxe') }}" class="btn btn-warning">
-                            <i class="fas fa-gem"></i> Comprar DeLuxe ($200/año)
-                        </a>
-                    </div>
-                </div>
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Sin Membresía Activa</strong> - Adquiere una membresía para acceder a todos los beneficios y descuentos en servicios.
             </div>
         </div>
     </div>
@@ -101,18 +93,21 @@
                                 <div class="plan-header bg-info text-white">
                                     <strong>Pro</strong>
                                     <div class="plan-price">$60/año</div>
+                                    <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">10% desc. servicios</small>
                                 </div>
                             </th>
                             <th class="text-center" style="width: 18.75%;">
                                 <div class="plan-header bg-success text-white">
                                     <strong>Premium</strong>
                                     <div class="plan-price">$120/año</div>
+                                    <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">20% desc. servicios</small>
                                 </div>
                             </th>
                             <th class="text-center" style="width: 18.75%;">
                                 <div class="plan-header bg-warning text-dark">
                                     <strong>DeLuxe</strong>
                                     <div class="plan-price">$200/año</div>
+                                    <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">30% desc. servicios</small>
                                 </div>
                             </th>
                         </tr>
@@ -185,38 +180,46 @@
                             <td><strong>Acción</strong></td>
                             <td class="text-center">
                                 {% if not membership %}
-                                <a href="{{ url_for('checkout', membership_type='basic') }}" class="btn btn-sm btn-outline-primary w-100">
-                                    <i class="fas fa-crown"></i> Activar
-                                </a>
-                                {% else %}
+                                <button onclick="addToCart('membership', 'basic', 'Membresía Básico', 0)" class="btn btn-sm btn-outline-primary w-100">
+                                    <i class="fas fa-cart-plus"></i> Agregar
+                                </button>
+                                {% elif membership.membership_type == 'basic' %}
                                 <span class="badge bg-secondary">Tu plan</span>
+                                {% else %}
+                                <span class="badge bg-light text-muted">-</span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
                                 {% if not membership %}
-                                <a href="{{ url_for('checkout', membership_type='pro') }}" class="btn btn-sm btn-info text-white w-100">
-                                    <i class="fas fa-bolt"></i> Comprar
-                                </a>
-                                {% else %}
+                                <button onclick="addToCart('membership', 'pro', 'Membresía Pro', 6000)" class="btn btn-sm btn-info text-white w-100">
+                                    <i class="fas fa-cart-plus"></i> Agregar
+                                </button>
+                                {% elif membership.membership_type == 'pro' %}
                                 <span class="badge bg-secondary">Tu plan</span>
+                                {% else %}
+                                <span class="badge bg-light text-muted">-</span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
                                 {% if not membership %}
-                                <a href="{{ url_for('checkout', membership_type='premium') }}" class="btn btn-sm btn-success w-100">
-                                    <i class="fas fa-star"></i> Comprar
-                                </a>
-                                {% else %}
+                                <button onclick="addToCart('membership', 'premium', 'Membresía Premium', 12000)" class="btn btn-sm btn-success w-100">
+                                    <i class="fas fa-cart-plus"></i> Agregar
+                                </button>
+                                {% elif membership.membership_type == 'premium' %}
                                 <span class="badge bg-secondary">Tu plan</span>
+                                {% else %}
+                                <span class="badge bg-light text-muted">-</span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
                                 {% if not membership %}
-                                <a href="{{ url_for('checkout', membership_type='deluxe') }}" class="btn btn-sm btn-warning w-100">
-                                    <i class="fas fa-gem"></i> Comprar
-                                </a>
-                                {% else %}
+                                <button onclick="addToCart('membership', 'deluxe', 'Membresía DeLuxe', 20000)" class="btn btn-sm btn-warning w-100">
+                                    <i class="fas fa-cart-plus"></i> Agregar
+                                </button>
+                                {% elif membership.membership_type == 'deluxe' %}
                                 <span class="badge bg-secondary">Tu plan</span>
+                                {% else %}
+                                <span class="badge bg-light text-muted">-</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -226,238 +229,135 @@
         </div>
     </div>
 
-    <!-- Membership Plans (Cards) -->
-    <div class="row">
-        <div class="col-lg-10 mx-auto">
-            <h3 class="text-center mb-4">Planes de Membresía Disponibles</h3>
-        </div>
-    </div>
-    
-    <div class="row g-4 justify-content-center">
-        <!-- Basic Plan -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card membership-card h-100">
-                <div class="card-header bg-primary text-white text-center">
-                    <h4 class="mb-0">Básico</h4>
-                    <small>Plan Gratuito</small>
-                </div>
-                <div class="card-body text-center">
-                    <h2 class="card-title">$0<span class="fs-6 text-muted">/año</span></h2>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success"></i> Acceso a boletines RELATIC</li>
-                        <li><i class="fas fa-check text-success"></i> Recursos básicos</li>
-                        <li><i class="fas fa-check text-success"></i> Invitaciones a eventos abiertos</li>
-                    </ul>
-                    {% if not membership %}
-                    <a href="{{ url_for('checkout', membership_type='basic') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-crown"></i> Activar Básico
-                    </a>
-                    <a href="{{ url_for('subscription_form') }}" class="btn btn-outline-primary ms-2">
-                        Formulario de Suscripción ($30)
-                    </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <!-- Pro Plan -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card membership-card h-100 border-info">
-                <div class="card-header bg-info text-white text-center">
-                    <h4 class="mb-0">Pro</h4>
-                    <small>Plan Recomendado</small>
-                </div>
-                <div class="card-body text-center">
-                    <h2 class="card-title">$60<span class="fs-6 text-muted">/año</span></h2>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success"></i> Todo lo de Básico</li>
-                        <li><i class="fas fa-check text-success"></i> Acceso a revistas y bases de datos</li>
-                        <li><i class="fas fa-check text-success"></i> Soporte por email prioritario</li>
-                        <li><i class="fas fa-check text-success"></i> Certificaciones en eventos</li>
-                    </ul>
-                    {% if not membership %}
-                    <a href="{{ url_for('checkout', membership_type='pro') }}" class="btn btn-info text-white">
-                        <i class="fas fa-bolt"></i> Comprar Pro
-                    </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <!-- Premium Plan -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card membership-card h-100 border-success">
-                <div class="card-header bg-success text-white text-center">
-                    <h4 class="mb-0">Premium</h4>
-                    <small>Más Popular</small>
-                </div>
-                <div class="card-body text-center">
-                    <h2 class="card-title">$120<span class="fs-6 text-muted">/año</span></h2>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success"></i> Todo lo de Pro</li>
-                        <li><i class="fas fa-check text-success"></i> Asesoría de publicación</li>
-                        <li><i class="fas fa-check text-success"></i> Soporte prioritario</li>
-                        <li><i class="fas fa-check text-success"></i> Recursos exclusivos</li>
-                        <li><i class="fas fa-check text-success"></i> Sesiones de consultoría</li>
-                    </ul>
-                    {% if not membership %}
-                    <a href="{{ url_for('checkout', membership_type='premium') }}" class="btn btn-success">
-                        <i class="fas fa-star"></i> Comprar Premium
-                    </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <!-- Deluxe Plan -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card membership-card h-100 deluxe">
-                <div class="card-header bg-warning text-dark text-center">
-                    <h4 class="mb-0">DeLuxe</h4>
-                    <small>Para Organizaciones</small>
-                </div>
-                <div class="card-body text-center">
-                    <h2 class="card-title">$200<span class="fs-6 text-muted">/año</span></h2>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success"></i> Todo lo de Premium</li>
-                        <li><i class="fas fa-check text-success"></i> Acceso completo a O365</li>
-                        <li><i class="fas fa-check text-success"></i> Soporte 24/7</li>
-                        <li><i class="fas fa-check text-success"></i> Consultoría personalizada ilimitada</li>
-                        <li><i class="fas fa-check text-success"></i> Recursos premium</li>
-                        <li><i class="fas fa-check text-success"></i> Descuentos en eventos</li>
-                    </ul>
-                    {% if not membership %}
-                    <a href="{{ url_for('checkout', membership_type='deluxe') }}" class="btn btn-warning">
-                        <i class="fas fa-gem"></i> Comprar DeLuxe
-                    </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Sección de Pago -->
-    <div class="payment-section my-5">
-        <div class="row g-4">
-            <!-- Resumen de Pago -->
-            <div class="col-lg-4 col-md-6">
-                <div class="card payment-card shadow-sm h-100">
-                    <div class="card-body">
-                        <h4 class="card-title mb-3">
-                            <i class="fas fa-receipt text-primary me-2"></i>Resumen de Pago
-                        </h4>
-                        <div class="summary-box p-3 mb-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="text-muted">Plan seleccionado</span>
-                                <strong id="selectedPlanLabel">Premium</strong>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="text-muted">Precio anual</span>
-                                <span class="price-tag" id="selectedPlanPrice">$120</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="text-muted">Siguiente pago</span>
-                                <span>05/12/2025</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted">Estado</span>
-                                <span class="badge bg-success">Al día</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary w-100 mb-2">
-                            <i class="fas fa-lock me-2"></i>Pagar ahora
-                        </button>
-                        <button class="btn btn-outline-primary w-100">
-                            <i class="fas fa-download me-2"></i>Descargar recibo
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Métodos de Pago -->
-            <div class="col-lg-4 col-md-6">
-                <div class="card payment-card shadow-sm h-100">
-                    <div class="card-body">
-                        <h4 class="card-title mb-3">
-                            <i class="fas fa-credit-card text-primary me-2"></i>Métodos de Pago
-                        </h4>
-                        <div class="method-card active mb-3 p-3 d-flex align-items-center">
-                            <div class="method-icon bg-primary text-white me-3">
-                                <i class="fab fa-cc-visa"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between">
-                                    <strong>Visa terminada en 4242</strong>
-                                    <span class="badge bg-success">Principal</span>
-                                </div>
-                                <small class="text-muted">Expira 08/2026</small>
-                            </div>
-                        </div>
-                        <div class="method-card mb-3 p-3 d-flex align-items-center">
-                            <div class="method-icon bg-secondary text-white me-3">
-                                <i class="fab fa-cc-mastercard"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <strong>Mastercard terminada en 8877</strong>
-                                <small class="text-muted d-block">Expira 02/2027</small>
-                            </div>
-                        </div>
-                        <a href="#" class="btn btn-outline-primary w-100">
-                            <i class="fas fa-plus me-2"></i>Agregar método de pago
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Historial de Pagos -->
-            <div class="col-lg-4 col-md-12">
-                <div class="card payment-card shadow-sm h-100">
-                    <div class="card-body">
-                        <h4 class="card-title mb-3">
-                            <i class="fas fa-history text-primary me-2"></i>Historial de Pagos
-                        </h4>
-                        <div class="payment-history">
-                            <div class="payment-item d-flex align-items-center mb-3">
-                                <div class="payment-icon bg-success text-white me-3">
-                                    <i class="fas fa-check"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between">
-                                        <strong>Pago anual Premium</strong>
-                                        <span class="text-success">$120</span>
-                                    </div>
-                                    <small class="text-muted">Pagado el 05/12/2024 · Visa 4242</small>
-                                </div>
-                            </div>
-                            <div class="payment-item d-flex align-items-center mb-3">
-                                <div class="payment-icon bg-success text-white me-3">
-                                    <i class="fas fa-check"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between">
-                                        <strong>Renovación Premium</strong>
-                                        <span class="text-success">$120</span>
-                                    </div>
-                                    <small class="text-muted">Pagado el 05/12/2023 · Mastercard 8877</small>
-                                </div>
-                            </div>
-                            <div class="payment-item d-flex align-items-center">
-                                <div class="payment-icon bg-warning text-white me-3">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between">
-                                        <strong>Próxima renovación</strong>
-                                        <span class="text-warning">$120</span>
-                                    </div>
-                                    <small class="text-muted">Programada para 05/12/2025</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <!-- Información adicional -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h5><i class="fas fa-info-circle"></i> Información Importante</h5>
+                <ul class="mb-0">
+                    <li>Los planes de membresía tienen validez anual y se renuevan automáticamente.</li>
+                    <li>Los descuentos en servicios y eventos se aplican automáticamente según tu plan de membresía.</li>
+                    <li>Puedes agregar múltiples productos al carrito y pagarlos todos juntos.</li>
+                    <li>Para ver todos los servicios disponibles, visita la <a href="{{ url_for('services') }}" class="alert-link">página de servicios</a>.</li>
+                </ul>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function addToCart(productType, productId, productName, unitPrice, serviceData = null) {
+    // Determinar membership_type si es una membresía
+    let membershipType = null;
+    let finalProductId = productId;
+    
+    if (productType === 'membership') {
+        membershipType = productId; // En este caso productId es el tipo de membresía ('basic', 'pro', etc.)
+        // El backend calculará el product_id basado en membership_type, así que enviamos 0 como placeholder
+        finalProductId = 0;
+    } else {
+        finalProductId = parseInt(productId) || 0;
+    }
+    
+    const data = {
+        product_type: productType,
+        product_id: finalProductId,
+        quantity: 1
+    };
+    
+    // Para membresías, siempre enviar membership_type
+    if (productType === 'membership' && membershipType) {
+        data.membership_type = membershipType;
+    }
+    
+    // Si es un servicio, agregar información adicional
+    if (productType === 'service' && serviceData) {
+        data.service_name = serviceData.name || productName;
+        data.base_price = serviceData.base_price || (unitPrice / 100);
+        data.service_description = serviceData.description || '';
+    }
+    
+    fetch('/cart/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        // Verificar si la respuesta es JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            // Si no es JSON, leer como texto para ver qué pasó
+            return response.text().then(text => {
+                throw new Error('Respuesta no válida del servidor. Por favor, verifica tu sesión.');
+            });
+        }
+    })
+    .then(data => {
+        if (data.success) {
+            // Actualizar contador del carrito
+            const cartBadge = document.getElementById('cart-count-badge');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_items_count;
+                cartBadge.style.display = 'block';
+            }
+            
+            // Mostrar mensaje de éxito con toast o alert mejorado
+            showNotification('Producto agregado al carrito', 'success');
+            
+            // Opcional: redirigir al carrito después de 1 segundo
+            // setTimeout(() => window.location.href = '/cart', 1000);
+        } else {
+            if (data.requires_verification) {
+                showNotification('Por favor, verifica tu correo electrónico antes de continuar.', 'error');
+                // Opcional: redirigir a la página de verificación
+                setTimeout(() => {
+                    window.location.href = '/resend-verification';
+                }, 2000);
+            } else {
+                showNotification('Error: ' + (data.error || 'Error desconocido'), 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Ocurrió un error al agregar el producto al carrito: ' + error.message, 'error');
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Crear notificación visual
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(notification);
+    
+    // Auto-remover después de 3 segundos
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function hash(str) {
+    // Generar hash MD5-like para coincidir con Python
+    // Python usa: int(hashlib.md5(membership_type.encode()).hexdigest()[:8], 16) % 1000000
+    // Simulamos esto en JavaScript
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    // Convertir a string hexadecimal y tomar primeros 8 caracteres
+    const hexStr = Math.abs(hash).toString(16).padStart(8, '0').substring(0, 8);
+    return parseInt(hexStr, 16) % 1000000;
+}
+</script>
 {% endblock %}

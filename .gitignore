@@ -71,6 +71,10 @@ instance/
 # User uploads
 static/uploads/
 
+# Database backups (keep local only)
+backups/*.db
+!backups/.gitkeep
+
 # Coverage reports
 htmlcov/
 .coverage

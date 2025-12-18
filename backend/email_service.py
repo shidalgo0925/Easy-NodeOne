@@ -78,7 +78,6 @@ class EmailService:
                     sender=sender
                 )
                 
-                # Flask-Mail maneja la conexión automáticamente
                 self.mail.send(msg)
                 logger.info(f"Email enviado exitosamente a {recipients} - Asunto: {subject}")
                 
@@ -113,7 +112,7 @@ class EmailService:
                                 'sent_at': datetime.utcnow()
                             }
                             
-                            # Incluir 'to_email' si la tabla lo requiere (compatibilidad)
+                            # Si la tabla tiene to_email, agregarlo
                             from sqlalchemy import inspect
                             inspector = inspect(db.engine)
                             columns = [c['name'] for c in inspector.get_columns('email_log')]
@@ -170,7 +169,7 @@ class EmailService:
                                     'sent_at': None
                                 }
                                 
-                                # Incluir 'to_email' si la tabla lo requiere (compatibilidad)
+                                # Si la tabla tiene to_email, agregarlo
                                 from sqlalchemy import inspect
                                 inspector = inspect(db.engine)
                                 columns = [c['name'] for c in inspector.get_columns('email_log')]

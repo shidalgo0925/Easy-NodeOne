@@ -142,3 +142,12 @@ Se ha implementado un sistema completo de configuración de notificaciones que p
 **Fecha de implementación**: 2025-12-04
 **Versión**: 1.0.0
 
+
+
+
+
+
+
+
+
+

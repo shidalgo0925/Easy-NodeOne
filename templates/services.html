@@ -37,7 +37,7 @@
                 <button class="btn btn-sm btn-outline-primary filter-btn active" data-filter="all">
                     <i class="fas fa-th"></i> Todos
                 </button>
-                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="basico">
+                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="basic">
                     <i class="fas fa-tag"></i> Básico
                 </button>
                 <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="pro">
@@ -53,64 +53,119 @@
         </div>
     </div>
 
-    {% set plans = [
-        {
-            'name': 'GRATIS / BÁSICO',
-            'price': '$0',
-            'badge': 'Incluido con la membresía gratuita',
-            'color': 'bg-success',
-            'services': [
-                {'icon': 'fas fa-newspaper', 'title': 'Revistas', 'description': 'Acceso a material y boletines abiertos difundidos por RELATIC.', 'link': 'https://relaticpanama.org/_journals/'},
-                {'icon': 'fas fa-image', 'title': 'Carteles', 'description': 'Exhibe carteles en los portales públicos de la red.', 'link': 'https://relaticpanama.org/_posters/'},
-                {'icon': 'fas fa-book', 'title': 'Libros digitales', 'description': 'Consulta y comparte libros digitales alojados en RELATIC.', 'link': 'https://relaticpanama.org/_books/index.php/edrp/catalog'}
-            ]
-        },
-        {
-            'name': 'PRO',
-            'price': '$60/año',
-            'badge': 'Plan recomendado',
-            'color': 'bg-info',
-            'services': [
-                {'icon': 'fas fa-graduation-cap', 'title': 'Aprendizaje continuo', 'description': 'Cursos y talleres con apoyo integral del equipo RELATIC.', 'link': 'https://dev.relatic.org/detalles-aprendizaje'},
-                {'icon': 'fas fa-shield-alt', 'title': 'Propiedad Intelectual', 'description': 'Guía para registro y protección de derechos de autor.', 'link': 'https://dev.relatic.org/detalles-propiedad-intelectual'},
-                {'icon': 'fas fa-pen-fancy', 'title': 'Formateo rápido', 'description': 'Formateo gratuito para artículos y manuscritos.', 'link': 'https://dev.relatic.org/detalles-formateo-rapido'},
-                {'icon': 'fas fa-envelope', 'title': 'Correo y suites colaborativas', 'description': 'Correo institucional, programas de apoyo y plataformas de comunicación.', 'link': None},
-                {'icon': 'fas fa-users', 'title': 'Apoyo colaborativo', 'description': 'Feedback directo de colegas y expertos de la red.', 'link': None},
-                {'icon': 'fas fa-bullhorn', 'title': 'Difusión inmediata', 'description': 'Publicación y difusión sin costo en portales científicos RELATIC.', 'link': None},
-                {'icon': 'fas fa-tools', 'title': 'Herramientas adicionales', 'description': 'Alertas personalizadas, métricas de impacto y gestores bibliográficos.', 'link': None}
-            ]
-        },
-        {
-            'name': 'PREMIUM',
-            'price': '$120/año',
-            'badge': 'Más beneficios',
-            'color': 'bg-primary',
-            'services': [
-                {'icon': 'fas fa-database', 'title': 'Bases suscritas', 'description': 'Acceso a bases y revistas de alto impacto no disponibles de forma gratuita.', 'link': None},
-                {'icon': 'fas fa-ticket-alt', 'title': 'Eventos con descuento', 'description': 'Participa con tarifas preferenciales en congresos y seminarios.', 'link': None},
-                {'icon': 'fas fa-file-signature', 'title': 'Publicación con descuento', 'description': 'Servicios con descuento para edición, revisión y difusión.', 'link': None},
-                {'icon': 'fas fa-user-tie', 'title': 'Consultorías especializadas', 'description': 'Asesorías personalizadas para proyectos y convocatorias.', 'link': None},
-                {'icon': 'fas fa-certificate', 'title': 'Certificaciones', 'description': 'Certificados oficiales con tarifas reducidas.', 'link': None},
-                {'icon': 'fas fa-laptop-code', 'title': 'Plataformas avanzadas', 'description': 'Herramientas tecnológicas para análisis y visualización de datos.', 'link': None}
-            ]
-        },
-        {
-            'name': 'DE LUXE',
-            'price': '$200/año',
-            'badge': 'Experiencia completa',
-            'color': 'bg-warning text-dark',
-            'services': [
-                {'icon': 'fas fa-hand-holding-usd', 'title': 'Financiamiento prioritario', 'description': 'Acceso exclusivo a becas, fondos y convocatorias globales.', 'link': None},
-                {'icon': 'fas fa-medal', 'title': 'Visibilidad y prestigio', 'description': 'Promoción preferente en eventos internacionales y plataformas digitales.', 'link': None},
-                {'icon': 'fas fa-network-wired', 'title': 'Networking internacional', 'description': 'Invitaciones VIP a conferencias y programas avanzados.', 'link': None},
-                {'icon': 'fas fa-project-diagram', 'title': 'Colaboraciones estratégicas', 'description': 'Acceso facilitado a consorcios y proyectos multidisciplinarios.', 'link': None},
-                {'icon': 'fas fa-users-cog', 'title': 'Comités científicos', 'description': 'Participa en grupos que definen agendas de investigación.', 'link': None},
-                {'icon': 'fas fa-balance-scale', 'title': 'Gestión de PI y transferencia', 'description': 'Acompañamiento en propiedad intelectual, transferencia y divulgación.', 'link': None}
-            ]
-        }
-    ] %}
+    {# Usar datos de BD si están disponibles, sino usar datos hardcodeados como fallback #}
+    {% if services_by_plan and plans_info %}
+        {# Datos desde BD #}
+        {% set plan_types = ['basic', 'pro', 'premium', 'deluxe'] %}
+        {% for plan_type in plan_types %}
+            {% if plan_type in services_by_plan %}
+                {% set plan = plans_info[plan_type] %}
+                {% set plan_services = services_by_plan[plan_type] %}
+    <div class="plan-section mb-5" data-plan="{{ plan_type }}">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3">
+            <div>
+                <h2 class="h4 mb-1">{{ plan.name }}</h2>
+                <small class="text-muted">{{ plan.badge }}</small>
+            </div>
+            <span class="badge {{ plan.color }} px-3 py-2 mt-3 mt-md-0">{{ plan.price }}</span>
+        </div>
+        <div class="row g-4">
+            {% for service in plan_services %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm service-detail-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="service-icon-circle bg-blue me-3">
+                                <i class="{{ service.icon }}"></i>
+                            </div>
+                            <h6 class="mb-0 fw-bold">{{ service.name }}</h6>
+                        </div>
+                        <p class="text-muted mb-3 small">{{ service.description }}</p>
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% if service.external_link %}
+                            <a href="{{ service.external_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
+                                Ver más <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                            {% endif %}
+                            {% if plan_type != 'basic' %}
+                                {% if service.pricing.is_included %}
+                                <span class="badge bg-success">Incluido en tu plan</span>
+                                {% else %}
+                                <button onclick="addServiceToCart('{{ service.name|replace("'", "\\'") }}', '{{ service.description|replace("'", "\\'") }}', {{ service.id }})" 
+                                        class="btn btn-sm btn-success">
+                                    <i class="fas fa-cart-plus"></i> Agregar al Carrito (${{ "%.2f"|format(service.pricing.final_price) }})
+                                </button>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        {# Fallback: Datos hardcodeados #}
+        {% set plans = [
+            {
+                'name': 'GRATIS / BÁSICO',
+                'price': '$0',
+                'badge': 'Incluido con la membresía gratuita',
+                'color': 'bg-success',
+                'services': [
+                    {'icon': 'fas fa-newspaper', 'title': 'Revistas', 'description': 'Acceso a material y boletines abiertos difundidos por RELATIC.', 'link': 'https://relaticpanama.org/_journals/'},
+                    {'icon': 'fas fa-image', 'title': 'Carteles', 'description': 'Exhibe carteles en los portales públicos de la red.', 'link': 'https://relaticpanama.org/_posters/'},
+                    {'icon': 'fas fa-book', 'title': 'Libros digitales', 'description': 'Consulta y comparte libros digitales alojados en RELATIC.', 'link': 'https://relaticpanama.org/_books/index.php/edrp/catalog'}
+                ]
+            },
+            {
+                'name': 'PRO',
+                'price': '$60/año',
+                'badge': 'Plan recomendado',
+                'color': 'bg-info',
+                'services': [
+                    {'icon': 'fas fa-graduation-cap', 'title': 'Aprendizaje continuo', 'description': 'Cursos y talleres con apoyo integral del equipo RELATIC.', 'link': 'https://dev.relatic.org/detalles-aprendizaje'},
+                    {'icon': 'fas fa-shield-alt', 'title': 'Propiedad Intelectual', 'description': 'Guía para registro y protección de derechos de autor.', 'link': 'https://dev.relatic.org/detalles-propiedad-intelectual'},
+                    {'icon': 'fas fa-pen-fancy', 'title': 'Formateo rápido', 'description': 'Formateo gratuito para artículos y manuscritos.', 'link': 'https://dev.relatic.org/detalles-formateo-rapido'},
+                    {'icon': 'fas fa-envelope', 'title': 'Correo y suites colaborativas', 'description': 'Correo institucional, programas de apoyo y plataformas de comunicación.', 'link': None},
+                    {'icon': 'fas fa-users', 'title': 'Apoyo colaborativo', 'description': 'Feedback directo de colegas y expertos de la red.', 'link': None},
+                    {'icon': 'fas fa-bullhorn', 'title': 'Difusión inmediata', 'description': 'Publicación y difusión sin costo en portales científicos RELATIC.', 'link': None},
+                    {'icon': 'fas fa-tools', 'title': 'Herramientas adicionales', 'description': 'Alertas personalizadas, métricas de impacto y gestores bibliográficos.', 'link': None}
+                ]
+            },
+            {
+                'name': 'PREMIUM',
+                'price': '$120/año',
+                'badge': 'Más beneficios',
+                'color': 'bg-primary',
+                'services': [
+                    {'icon': 'fas fa-database', 'title': 'Bases suscritas', 'description': 'Acceso a bases y revistas de alto impacto no disponibles de forma gratuita.', 'link': None},
+                    {'icon': 'fas fa-ticket-alt', 'title': 'Eventos con descuento', 'description': 'Participa con tarifas preferenciales en congresos y seminarios.', 'link': None},
+                    {'icon': 'fas fa-file-signature', 'title': 'Publicación con descuento', 'description': 'Servicios con descuento para edición, revisión y difusión.', 'link': None},
+                    {'icon': 'fas fa-user-tie', 'title': 'Consultorías especializadas', 'description': 'Asesorías personalizadas para proyectos y convocatorias.', 'link': None},
+                    {'icon': 'fas fa-certificate', 'title': 'Certificaciones', 'description': 'Certificados oficiales con tarifas reducidas.', 'link': None},
+                    {'icon': 'fas fa-laptop-code', 'title': 'Plataformas avanzadas', 'description': 'Herramientas tecnológicas para análisis y visualización de datos.', 'link': None}
+                ]
+            },
+            {
+                'name': 'DE LUXE',
+                'price': '$200/año',
+                'badge': 'Experiencia completa',
+                'color': 'bg-warning text-dark',
+                'services': [
+                    {'icon': 'fas fa-hand-holding-usd', 'title': 'Financiamiento prioritario', 'description': 'Acceso exclusivo a becas, fondos y convocatorias globales.', 'link': None},
+                    {'icon': 'fas fa-medal', 'title': 'Visibilidad y prestigio', 'description': 'Promoción preferente en eventos internacionales y plataformas digitales.', 'link': None},
+                    {'icon': 'fas fa-network-wired', 'title': 'Networking internacional', 'description': 'Invitaciones VIP a conferencias y programas avanzados.', 'link': None},
+                    {'icon': 'fas fa-project-diagram', 'title': 'Colaboraciones estratégicas', 'description': 'Acceso facilitado a consorcios y proyectos multidisciplinarios.', 'link': None},
+                    {'icon': 'fas fa-users-cog', 'title': 'Comités científicos', 'description': 'Participa en grupos que definen agendas de investigación.', 'link': None},
+                    {'icon': 'fas fa-balance-scale', 'title': 'Gestión de PI y transferencia', 'description': 'Acompañamiento en propiedad intelectual, transferencia y divulgación.', 'link': None}
+                ]
+            }
+        ] %}
 
-    {% for plan in plans %}
+        {% for plan in plans %}
     <div class="plan-section mb-5" data-plan="{{ plan.name|lower|replace(' ', '')|replace('/', '') }}">
         <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3">
             <div>
@@ -150,7 +205,8 @@
             {% endfor %}
         </div>
     </div>
-    {% endfor %}
+        {% endfor %}
+    {% endif %}
 </div>
 
 <script>
@@ -175,7 +231,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const title = card.querySelector('h6').textContent.toLowerCase();
                 const description = card.querySelector('p').textContent.toLowerCase();
                 const matchesSearch = !searchTerm || title.includes(searchTerm) || description.includes(searchTerm);
-                const matchesFilter = activeFilter === 'all' || planName.includes(activeFilter);
+                // Mapear filtros: basico -> basic, deluxe -> deluxe
+                const filterMap = {'basico': 'basic', 'basic': 'basic', 'pro': 'pro', 'premium': 'premium', 'deluxe': 'deluxe'};
+                const normalizedFilter = filterMap[activeFilter] || activeFilter;
+                const matchesFilter = activeFilter === 'all' || planName === normalizedFilter || planName.includes(normalizedFilter);
 
                 if (matchesSearch && matchesFilter) {
                     card.closest('.col-md-6').style.display = '';
@@ -218,7 +277,13 @@ function addServiceToCart(serviceName, serviceDescription, serviceId) {
         return Math.abs(hash) % 1000000;
     }
     
-    const numericId = stringToId(serviceId);
+    // Si serviceId es numérico, usarlo directamente; sino generar hash
+    let numericId;
+    if (typeof serviceId === 'number' || !isNaN(parseInt(serviceId))) {
+        numericId = parseInt(serviceId);
+    } else {
+        numericId = stringToId(serviceId);
+    }
     
     // Obtener precio base del servicio (puedes ajustar esto según tus necesidades)
     // Por ahora usamos un precio base de ejemplo, deberías obtenerlo de la base de datos o configuración

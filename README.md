@@ -11,10 +11,9 @@ Sistema completo de gestión de membresías para RelaticPanama con integración 
   - **Premium**: $120/año - Todo lo de Pro + asesoría, soporte prioritario y webinars exclusivos
   - **DeLuxe**: $200/año - Todo lo de Premium + O365 completo, soporte 24/7 y consultoría estratégica
 
-### Formulario de Suscripción Adicional
-- **Precio**: $30 USD
-- **Campos completos**: Email, país, cédula/DNI, pasaporte, afiliación, ORCID, datos personales, foto carnet
-- **Métodos de pago**: Banco General, Yappy, PayPal, Interbank
+### Información de Usuario
+- **Campos requeridos**: Email, nombre, apellido, país, cédula/DNI/pasaporte
+- **Validaciones**: Formato de email, formato de cédula según país, país válido
 
 ### Tecnologías
 - **Backend**: Flask (Python)
@@ -45,6 +44,8 @@ relaticpanama/
 ├── static/
 │   └── css/
 │       └── custom.css         # Estilos personalizados
+├── docs/                      # Documentación
+│   └── CONFIGURACION_PAGOS.md # Guía de configuración de pagos
 ├── requirements.txt           # Dependencias Python
 ├── config.py                 # Configuración
 ├── STRIPE_SETUP.md          # Guía de configuración de Stripe
@@ -90,6 +91,16 @@ python app.py
 La aplicación estará disponible en `http://localhost:8080`
 
 ## 🔧 Configuración
+
+### Métodos de Pago
+El sistema soporta múltiples métodos de pago configurables desde el panel de administración:
+- **Stripe**: Tarjetas de crédito/débito
+- **PayPal**: Pagos mediante PayPal
+- **Banco General**: Pagos mediante CyberSource
+- **Yappy**: Pagos móviles (Panamá)
+- **Interbank**: Transferencias bancarias (Perú)
+
+📖 **Documentación completa**: Ver [docs/CONFIGURACION_PAGOS.md](docs/CONFIGURACION_PAGOS.md)
 
 ### Stripe
 1. Crear cuenta en [Stripe](https://stripe.com)

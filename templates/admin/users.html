@@ -2,8 +2,8 @@
 
 {% block title %}Gestionar Usuarios - RelaticPanama{% endblock %}
 
-{% block content %}
-<div class="container-fluid px-0">
+{% block page_content %}
+<div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
@@ -122,7 +122,6 @@
                                     <th>Cédula/Pasaporte</th>
                                     <th>Teléfono</th>
                                     <th>Grupo</th>
-                                    <th>Membresía</th>
                                     <th>Etiquetas</th>
                                     <th>Fecha Registro</th>
                                     <th>Estado</th>
@@ -145,22 +144,6 @@
                                             <span class="badge bg-info">{{ user.user_group }}</span>
                                         {% else %}
                                             <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if user_memberships and user_memberships.get(user.id) %}
-                                            {% set mem = user_memberships[user.id] %}
-                                            <span class="badge bg-{{ 'success' if mem.status == 'active' else 'warning' }}" 
-                                                  data-bs-toggle="tooltip" 
-                                                  data-bs-placement="top" 
-                                                  title="Vence: {{ mem.end_date.strftime('%d/%m/%Y') if mem.end_date else 'N/A' }}">
-                                                {{ mem.type.title() }}
-                                            </span>
-                                            {% if mem.end_date %}
-                                                <br><small class="text-muted">Vence: {{ mem.end_date.strftime('%d/%m/%Y') }}</small>
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="badge bg-secondary">Sin membresía</span>
                                         {% endif %}
                                     </td>
                                     <td>

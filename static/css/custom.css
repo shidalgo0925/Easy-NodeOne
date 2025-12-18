@@ -939,9 +939,9 @@ body.sidebar-collapsed .menu-hamburger-btn {
     font-size: 18px;
 }
 
-/* Mostrar botón de expandir cuando el sidebar está colapsado */
-body.sidebar-collapsed .expand-sidebar-btn {
-    display: block !important;
+/* Ocultar botón de expandir (ya no es necesario porque el sidebar se mantiene visible) */
+.expand-sidebar-btn {
+    display: none !important;
 }
 
 .navbar .navbar-header {

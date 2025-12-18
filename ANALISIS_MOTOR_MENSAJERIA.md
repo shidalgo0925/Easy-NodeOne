@@ -293,3 +293,12 @@ En `/admin` (Panel de Administración) hay botones para:
 **Fecha de análisis**: 2025-12-04
 **Versión del sistema**: 1.0.0
 
+
+
+
+
+
+
+
+
+

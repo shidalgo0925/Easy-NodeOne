@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RELATIC Panamá - Servicios de Membresía</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --yellow-top: #FFD700;
+            --orange-bottom: #FF8C00;
+            --cyan-top: #00CED1;
+            --turquoise-bottom: #40E0D0;
+            --royal-blue: #4169E1;
+            --dark-blue: #1E3A8A;
+            --black: #000000;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            background: #0a0e27;
+            color: #fff;
+        }
+
+        /* Partículas de fondo animadas */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(65, 105, 225, 0.5);
+            border-radius: 50%;
+            animation: float 15s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(100px);
+                opacity: 0;
+            }
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: linear-gradient(135deg, var(--royal-blue) 0%, var(--dark-blue) 50%, #0a0e27 100%);
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(65, 105, 225, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: movePattern 20s linear infinite;
+        }
+
+        @keyframes movePattern {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero h1 {
+            font-size: 4.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #fff 0%, var(--cyan-top) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 206, 209, 0.5);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 10px rgba(0, 206, 209, 0.5)); }
+            to { filter: drop-shadow(0 0 20px rgba(0, 206, 209, 0.8)); }
+        }
+
+        .hero p {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 1rem 3rem;
+            background: linear-gradient(135deg, var(--cyan-top) 0%, var(--royal-blue) 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(65, 105, 225, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .cta-button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(65, 105, 225, 0.6);
+        }
+
+        /* Scroll Indicator */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        /* Plans Section */
+        .plans-section {
+            padding: 100px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--cyan-top) 0%, var(--royal-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.3rem;
+            opacity: 0.8;
+            margin-bottom: 60px;
+        }
+
+        .plan-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 60px;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plan-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .plan-card:hover::before {
+            left: 100%;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 60px rgba(65, 105, 225, 0.3);
+            border-color: rgba(0, 206, 209, 0.5);
+        }
+
+        .plan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .plan-name {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--cyan-top) 0%, var(--royal-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .plan-price {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--cyan-top);
+        }
+
+        .plan-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            background: linear-gradient(135deg, var(--cyan-top) 0%, var(--royal-blue) 100%);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .service-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-card::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, rgba(0, 206, 209, 0.2) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            transition: width 0.4s, height 0.4s;
+            border-radius: 50%;
+        }
+
+        .service-card:hover::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        .service-card:hover {
+            transform: scale(1.05) translateY(-5px);
+            border-color: var(--cyan-top);
+            box-shadow: 0 10px 30px rgba(0, 206, 209, 0.3);
+        }
+
+        .service-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--cyan-top) 0%, var(--royal-blue) 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .service-card:hover .service-icon {
+            transform: rotate(360deg) scale(1.1);
+        }
+
+        .service-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--cyan-top);
+        }
+
+        .service-description {
+            font-size: 0.95rem;
+            opacity: 0.8;
+            line-height: 1.6;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            padding: 80px 0;
+            background: rgba(65, 105, 225, 0.1);
+            position: relative;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 30px;
+        }
+
+        .stat-number {
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--cyan-top) 0%, var(--royal-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 60px 0;
+            background: rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        /* Animaciones de entrada */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1.2rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .plan-name {
+                font-size: 1.8rem;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Efecto de ondas */
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%230a0e27' fill-opacity='1' d='M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E") no-repeat bottom;
+            background-size: cover;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Partículas de fondo -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="wave"></div>
+        <div class="hero-content">
+            <h1>RELATIC Panamá</h1>
+            <p>Red Latinoamericana de Investigaciones Cualitativas</p>
+            <p style="font-size: 1.2rem; opacity: 0.8;">Descubre todos los servicios exclusivos de membresía</p>
+            <a href="#plans" class="cta-button">
+                <i class="fas fa-arrow-down me-2"></i>Explorar Servicios
+            </a>
+        </div>
+        <div class="scroll-indicator">
+            <i class="fas fa-chevron-down fa-2x" style="opacity: 0.6;"></i>
+        </div>
+    </section>
+
+    <!-- Plans Section -->
+    <section class="plans-section" id="plans">
+        <div class="container">
+            <h2 class="section-title fade-in">Planes de Membresía</h2>
+            <p class="section-subtitle fade-in">Elige el plan perfecto para tu crecimiento académico</p>
+
+            <!-- Plan Básico -->
+            <div class="plan-card fade-in">
+                <div class="plan-header">
+                    <div>
+                        <span class="plan-badge" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">GRATIS</span>
+                        <h3 class="plan-name">Básico</h3>
+                    </div>
+                    <div class="plan-price">$0/año</div>
+                </div>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-newspaper"></i>
+                        </div>
+                        <h4 class="service-title">Revistas</h4>
+                        <p class="service-description">Acceso a material y boletines abiertos difundidos por RELATIC.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-image"></i>
+                        </div>
+                        <h4 class="service-title">Carteles</h4>
+                        <p class="service-description">Exhibe carteles en los portales públicos de la red.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <h4 class="service-title">Libros Digitales</h4>
+                        <p class="service-description">Consulta y comparte libros digitales alojados en RELATIC.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plan Pro -->
+            <div class="plan-card fade-in">
+                <div class="plan-header">
+                    <div>
+                        <span class="plan-badge">Plan Recomendado</span>
+                        <h3 class="plan-name">Pro</h3>
+                    </div>
+                    <div class="plan-price">$60/año</div>
+                </div>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <h4 class="service-title">Aprendizaje Continuo</h4>
+                        <p class="service-description">Cursos y talleres con apoyo integral del equipo RELATIC.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h4 class="service-title">Propiedad Intelectual</h4>
+                        <p class="service-description">Guía para registro y protección de derechos de autor.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-pen-fancy"></i>
+                        </div>
+                        <h4 class="service-title">Formateo Rápido</h4>
+                        <p class="service-description">Formateo gratuito para artículos y manuscritos.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <h4 class="service-title">Correo y Suites Colaborativas</h4>
+                        <p class="service-description">Correo institucional, programas de apoyo y plataformas de comunicación.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h4 class="service-title">Apoyo Colaborativo</h4>
+                        <p class="service-description">Feedback directo de colegas y expertos de la red.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-bullhorn"></i>
+                        </div>
+                        <h4 class="service-title">Difusión Inmediata</h4>
+                        <p class="service-description">Publicación y difusión sin costo en portales científicos RELATIC.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <h4 class="service-title">Herramientas Adicionales</h4>
+                        <p class="service-description">Alertas personalizadas, métricas de impacto y gestores bibliográficos.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plan Premium -->
+            <div class="plan-card fade-in">
+                <div class="plan-header">
+                    <div>
+                        <span class="plan-badge" style="background: linear-gradient(135deg, var(--royal-blue) 0%, var(--dark-blue) 100%);">Más Beneficios</span>
+                        <h3 class="plan-name">Premium</h3>
+                    </div>
+                    <div class="plan-price">$120/año</div>
+                </div>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <h4 class="service-title">Bases Suscritas</h4>
+                        <p class="service-description">Acceso a bases y revistas de alto impacto no disponibles de forma gratuita.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <h4 class="service-title">Eventos con Descuento</h4>
+                        <p class="service-description">Participa con tarifas preferenciales en congresos y seminarios.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-file-signature"></i>
+                        </div>
+                        <h4 class="service-title">Publicación con Descuento</h4>
+                        <p class="service-description">Servicios con descuento para edición, revisión y difusión.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <h4 class="service-title">Consultorías Especializadas</h4>
+                        <p class="service-description">Asesorías personalizadas para proyectos y convocatorias.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <h4 class="service-title">Certificaciones</h4>
+                        <p class="service-description">Certificados oficiales con tarifas reducidas.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-laptop-code"></i>
+                        </div>
+                        <h4 class="service-title">Plataformas Avanzadas</h4>
+                        <p class="service-description">Herramientas tecnológicas para análisis y visualización de datos.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plan DeLuxe -->
+            <div class="plan-card fade-in">
+                <div class="plan-header">
+                    <div>
+                        <span class="plan-badge" style="background: linear-gradient(135deg, var(--yellow-top) 0%, var(--orange-bottom) 100%); color: #000;">Experiencia Completa</span>
+                        <h3 class="plan-name">DeLuxe</h3>
+                    </div>
+                    <div class="plan-price">$200/año</div>
+                </div>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                        <h4 class="service-title">Financiamiento Prioritario</h4>
+                        <p class="service-description">Acceso exclusivo a becas, fondos y convocatorias globales.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-medal"></i>
+                        </div>
+                        <h4 class="service-title">Visibilidad y Prestigio</h4>
+                        <p class="service-description">Promoción preferente en eventos internacionales y plataformas digitales.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                        <h4 class="service-title">Networking Internacional</h4>
+                        <p class="service-description">Invitaciones VIP a conferencias y programas avanzados.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <h4 class="service-title">Colaboraciones Estratégicas</h4>
+                        <p class="service-description">Acceso facilitado a consorcios y proyectos multidisciplinarios.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-users-cog"></i>
+                        </div>
+                        <h4 class="service-title">Comités Científicos</h4>
+                        <p class="service-description">Participa en grupos que definen agendas de investigación.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="service-icon">
+                            <i class="fas fa-balance-scale"></i>
+                        </div>
+                        <h4 class="service-title">Gestión de PI y Transferencia</h4>
+                        <p class="service-description">Acompañamiento en propiedad intelectual, transferencia y divulgación.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-3 col-6">
+                    <div class="stat-card fade-in">
+                        <div class="stat-number" data-target="500">0</div>
+                        <div class="stat-label">+ Miembros Activos</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="stat-card fade-in">
+                        <div class="stat-number" data-target="50">0</div>
+                        <div class="stat-label">+ Eventos Realizados</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="stat-card fade-in">
+                        <div class="stat-number" data-target="100">0</div>
+                        <div class="stat-label">+ Publicaciones</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="stat-card fade-in">
+                        <div class="stat-number" data-target="95">0</div>
+                        <div class="stat-label">% Satisfacción</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <h3 style="margin-bottom: 20px;">¿Listo para comenzar?</h3>
+            <p style="opacity: 0.8; margin-bottom: 30px;">Únete a la red más grande de investigadores cualitativos de Latinoamérica</p>
+            <a href="https://miembros.relatic.org/register" class="cta-button" target="_blank">
+                <i class="fas fa-rocket me-2"></i>Regístrate Ahora
+            </a>
+            <div style="margin-top: 40px; opacity: 0.6;">
+                <p>&copy; 2025 RELATIC Panamá. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Crear partículas animadas
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Animación de entrada al hacer scroll
+        function observeElements() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+        }
+
+        // Contador animado
+        function animateCounter(element) {
+            const target = parseInt(element.getAttribute('data-target'));
+            const duration = 2000;
+            const increment = target / (duration / 16);
+            let current = 0;
+
+            const updateCounter = () => {
+                current += increment;
+                if (current < target) {
+                    element.textContent = Math.floor(current) + (target >= 100 ? '' : '+');
+                    requestAnimationFrame(updateCounter);
+                } else {
+                    element.textContent = target + (target >= 100 ? '' : '+');
+                }
+            };
+
+            updateCounter();
+        }
+
+        // Observar estadísticas para animar contadores
+        function observeStats() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !entry.target.classList.contains('counted')) {
+                        entry.target.classList.add('counted');
+                        animateCounter(entry.target);
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            document.querySelectorAll('.stat-number').forEach(el => observer.observe(el));
+        }
+
+        // Smooth scroll para enlaces
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Efecto parallax en hero
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const hero = document.querySelector('.hero');
+            if (hero) {
+                hero.style.transform = `translateY(${scrolled * 0.5}px)`;
+                hero.style.opacity = 1 - (scrolled / 800);
+            }
+        });
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+            observeElements();
+            observeStats();
+        });
+    </script>
+</body>
+</html>
+

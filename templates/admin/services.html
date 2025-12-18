@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Servicios - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid px-0">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-6 mb-3">
+                    <i class="fas fa-th-large"></i> Gestión de Servicios
+                </h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createServiceModal">
+                    <i class="fas fa-plus"></i> Crear Servicio
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Servicios -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Servicios del Catálogo</h5>
+                </div>
+                <div class="card-body">
+                    {% if services %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Orden</th>
+                                    <th>Icono</th>
+                                    <th>Nombre</th>
+                                    <th>Descripción</th>
+                                    <th>Planes Disponibles</th>
+                                    <th>Precio Base</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for service in services %}
+                                <tr>
+                                    <td>{{ service.display_order }}</td>
+                                    <td><i class="{{ service.icon or 'fas fa-cog' }}"></i></td>
+                                    <td><strong>{{ service.name }}</strong></td>
+                                    <td>{{ service.description[:50] }}{% if service.description|length > 50 %}...{% endif %}</td>
+                                    <td>
+                                        {% set pricing_rules = service.pricing_rules|selectattr("is_active")|list %}
+                                        {% if pricing_rules %}
+                                            {% for rule in pricing_rules %}
+                                                <span class="badge bg-info me-1">{{ rule.membership_type|upper }}</span>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ service.membership_type|upper }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>${{ "%.2f"|format(service.base_price) }}</td>
+                                    <td>
+                                        {% if service.is_active %}
+                                        <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editService({{ service.id }})" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteService({{ service.id }}, '{{ service.name }}')" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No hay servicios registrados. Crea el primero usando el botón de arriba.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear/Editar Servicio -->
+<div class="modal fade" id="createServiceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="serviceModalTitle">Crear Servicio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="serviceForm">
+                    <input type="hidden" id="serviceId" name="service_id">
+                    
+                    <div class="mb-3">
+                        <label for="serviceName" class="form-label">Nombre del Servicio *</label>
+                        <input type="text" class="form-control" id="serviceName" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="serviceDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="serviceDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="serviceIcon" class="form-label">Icono (FontAwesome)</label>
+                            <input type="text" class="form-control" id="serviceIcon" name="icon" placeholder="fas fa-cog" value="fas fa-cog">
+                            <small class="text-muted">Ej: fas fa-newspaper, fas fa-book</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="serviceMembershipType" class="form-label">Tipo de Membresía *</label>
+                            <select class="form-select" id="serviceMembershipType" name="membership_type" required>
+                                <option value="basic">Básico</option>
+                                <option value="pro">Pro</option>
+                                <option value="premium">Premium</option>
+                                <option value="deluxe">Deluxe</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="serviceBasePrice" class="form-label">Precio Base (USD)</label>
+                            <input type="number" class="form-control" id="serviceBasePrice" name="base_price" step="0.01" min="0" value="50.00">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="serviceDisplayOrder" class="form-label">Orden de Visualización</label>
+                            <input type="number" class="form-control" id="serviceDisplayOrder" name="display_order" value="0">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="serviceExternalLink" class="form-label">Enlace Externo (opcional)</label>
+                        <input type="url" class="form-control" id="serviceExternalLink" name="external_link" placeholder="https://...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="serviceIsActive" name="is_active" checked>
+                            <label class="form-check-label" for="serviceIsActive">
+                                Servicio Activo
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveService()">Guardar Servicio</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let editingServiceId = null;
+
+function editService(serviceId) {
+    editingServiceId = serviceId;
+    
+    // Hacer fetch para obtener el servicio
+    fetch(`/api/admin/services/${serviceId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                fillForm(data.service);
+                document.getElementById('serviceModalTitle').textContent = 'Editar Servicio';
+                new bootstrap.Modal(document.getElementById('createServiceModal')).show();
+            } else {
+                alert('Error al cargar el servicio: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al cargar el servicio');
+        });
+}
+
+function fillForm(service) {
+    document.getElementById('serviceId').value = service.id || '';
+    document.getElementById('serviceName').value = service.name || '';
+    document.getElementById('serviceDescription').value = service.description || '';
+    document.getElementById('serviceIcon').value = service.icon || 'fas fa-cog';
+    document.getElementById('serviceMembershipType').value = service.membership_type || 'basic';
+    document.getElementById('serviceBasePrice').value = service.base_price || 50.00;
+    document.getElementById('serviceDisplayOrder').value = service.display_order || 0;
+    document.getElementById('serviceExternalLink').value = service.external_link || '';
+    document.getElementById('serviceIsActive').checked = service.is_active !== false && service.is_active !== 'false';
+}
+
+function saveService() {
+    const form = document.getElementById('serviceForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const formData = {
+        name: document.getElementById('serviceName').value,
+        description: document.getElementById('serviceDescription').value,
+        icon: document.getElementById('serviceIcon').value,
+        membership_type: document.getElementById('serviceMembershipType').value,
+        base_price: parseFloat(document.getElementById('serviceBasePrice').value),
+        display_order: parseInt(document.getElementById('serviceDisplayOrder').value),
+        external_link: document.getElementById('serviceExternalLink').value,
+        is_active: document.getElementById('serviceIsActive').checked
+    };
+    
+    const serviceId = document.getElementById('serviceId').value;
+    const url = serviceId ? `/api/admin/services/update/${serviceId}` : '/api/admin/services/create';
+    const method = serviceId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Servicio guardado exitosamente');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo guardar el servicio'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar el servicio');
+    });
+}
+
+function deleteService(serviceId, serviceName) {
+    if (!confirm(`¿Estás seguro de eliminar el servicio "${serviceName}"?`)) {
+        return;
+    }
+    
+    fetch(`/api/admin/services/delete/${serviceId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Servicio eliminado exitosamente');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo eliminar el servicio'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al eliminar el servicio');
+    });
+}
+
+// Limpiar formulario al cerrar modal
+document.getElementById('createServiceModal').addEventListener('hidden.bs.modal', function () {
+    editingServiceId = null;
+    document.getElementById('serviceForm').reset();
+    document.getElementById('serviceId').value = '';
+    document.getElementById('serviceModalTitle').textContent = 'Crear Servicio';
+    document.getElementById('serviceIsActive').checked = true;
+});
+</script>
+{% endblock %}

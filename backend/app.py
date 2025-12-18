@@ -99,23 +99,40 @@ mail = Mail(app)
 # Aplicar configuración de email desde BD si existe (después de crear las tablas)
 def apply_email_config_from_db():
     """Aplicar configuración de email desde la base de datos"""
+    global mail, email_service
     try:
         # EmailConfig ya está definido arriba, no necesita import
         email_config = EmailConfig.get_active_config()
         if email_config:
             email_config.apply_to_app(app)
             # Reinicializar Mail con nueva configuración
-            global mail
-            mail = Mail(app)
+            mail = Mail()
+            mail.init_app(app)  # Inicializar correctamente Flask-Mail
             if EMAIL_TEMPLATES_AVAILABLE:
-                global email_service
                 email_service = EmailService(mail)
             print("✅ Configuración de email cargada desde base de datos")
+        else:
+            # Si no hay configuración en BD, usar variables de entorno o valores por defecto
+            print("⚠️ No hay configuración de email en BD, usando variables de entorno")
+            # Asegurar que mail esté inicializado
+            if not mail:
+                mail = Mail(app)
+                mail.init_app(app)
+            if EMAIL_TEMPLATES_AVAILABLE:
+                if not email_service:
+                    email_service = EmailService(mail)
     except Exception as e:
         print(f"⚠️ No se pudo cargar configuración de email desde BD: {e}")
         print("   Usando configuración por defecto o variables de entorno")
         import traceback
         traceback.print_exc()
+        # Asegurar que mail esté inicializado incluso si falla
+        if not mail:
+            mail = Mail(app)
+            mail.init_app(app)
+        if EMAIL_TEMPLATES_AVAILABLE:
+            if not email_service:
+                email_service = EmailService(mail)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
 
@@ -1835,6 +1852,101 @@ class CartItem(db.Model):
             'metadata': self.item_metadata
         }
 
+# Modelos de Servicios
+class Service(db.Model):
+    """Modelo para servicios del catálogo"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    icon = db.Column(db.String(100))  # Clase de FontAwesome (ej: 'fas fa-newspaper')
+    membership_type = db.Column(db.String(50), nullable=False)  # basic, pro, premium, deluxe
+    external_link = db.Column(db.String(500))  # URL externa si aplica
+    base_price = db.Column(db.Float, default=50.0)  # Precio base en USD
+    is_active = db.Column(db.Boolean, default=True)
+    display_order = db.Column(db.Integer, default=0)  # Orden de visualización
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relación con reglas de precios
+    pricing_rules = db.relationship('ServicePricingRule', backref='service', lazy=True, cascade='all, delete-orphan')
+    
+    def pricing_for_membership(self, user_membership_type=None):
+        """Calcula el precio final considerando reglas por membresía y jerarquía."""
+        base_price = self.base_price or 0.0
+        final_price = base_price
+        discount_percentage = 0.0
+        is_included = False
+        
+        # Definir jerarquía de membresías
+        membership_hierarchy = {
+            'basic': 0,
+            'pro': 1,
+            'premium': 2,
+            'deluxe': 3
+        }
+        
+        service_tier = membership_hierarchy.get(self.membership_type, -1)
+        user_tier = membership_hierarchy.get(user_membership_type, -1)
+        
+        if user_membership_type and user_tier >= service_tier:
+            # Si la membresía del usuario es igual o superior al nivel del servicio, es gratis
+            final_price = 0.0
+            is_included = True
+        else:
+            # Si no está incluido por jerarquía, buscar reglas de precio/descuento
+            if user_membership_type:
+                rule = ServicePricingRule.query.filter_by(
+                    service_id=self.id,
+                    membership_type=user_membership_type,
+                    is_active=True
+                ).first()
+                
+                if rule:
+                    if rule.is_included:
+                        final_price = 0.0
+                        is_included = True
+                    elif rule.price is not None:
+                        final_price = rule.price
+                    elif rule.discount_percentage:
+                        discount_percentage = rule.discount_percentage
+                        final_price = max(0.0, base_price * (1 - discount_percentage / 100))
+        
+        return {
+            'base_price': base_price,
+            'final_price': final_price,
+            'discount_percentage': discount_percentage,
+            'is_included': is_included
+        }
+    
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'icon': self.icon,
+            'membership_type': self.membership_type,
+            'external_link': self.external_link,
+            'base_price': self.base_price,
+            'is_active': self.is_active,
+            'display_order': self.display_order
+        }
+
+class ServicePricingRule(db.Model):
+    """Reglas de precio/descuento por tipo de membresía para servicios."""
+    id = db.Column(db.Integer, primary_key=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    membership_type = db.Column(db.String(50), nullable=False)
+    price = db.Column(db.Float)  # Precio fijo (sobrescribe base_price)
+    discount_percentage = db.Column(db.Float, default=0.0)  # Descuento porcentual
+    is_included = db.Column(db.Boolean, default=False)  # Si está incluido (gratis) en la membresía
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.UniqueConstraint('service_id', 'membership_type', name='uq_service_pricing_membership'),
+    )
+
 # Función helper para validar archivos
 def allowed_file(filename):
     """Verifica si el archivo tiene una extensión permitida"""
@@ -2337,7 +2449,69 @@ def remove_profile_photo():
 def services():
     """Módulo de Servicios"""
     active_membership = current_user.get_active_membership()
-    return render_template('services.html', membership=active_membership)
+    membership_type = active_membership.membership_type if active_membership else 'basic'
+    
+    # Obtener servicios desde BD agrupados por plan
+    services_by_plan = {}
+    plans_info = {
+        'basic': {'name': 'GRATIS / BÁSICO', 'price': '$0', 'badge': 'Incluido con la membresía gratuita', 'color': 'bg-success'},
+        'pro': {'name': 'PRO', 'price': '$60/año', 'badge': 'Plan recomendado', 'color': 'bg-info'},
+        'premium': {'name': 'PREMIUM', 'price': '$120/año', 'badge': 'Más beneficios', 'color': 'bg-primary'},
+        'deluxe': {'name': 'DE LUXE', 'price': '$200/año', 'badge': 'Experiencia completa', 'color': 'bg-warning text-dark'}
+    }
+    
+    # Obtener todos los servicios activos ordenados
+    all_services = Service.query.filter_by(is_active=True).order_by(Service.display_order, Service.name).all()
+    
+    # Agrupar servicios por plan
+    # Un servicio puede aparecer en múltiples planes si tiene reglas de precio para cada uno
+    for service in all_services:
+        # Obtener todas las reglas de precio activas para este servicio
+        pricing_rules = ServicePricingRule.query.filter_by(
+            service_id=service.id,
+            is_active=True
+        ).all()
+        
+        # Planes donde este servicio está disponible
+        available_plans = set()
+        
+        # Si tiene reglas de precio, agregar a esos planes
+        if pricing_rules:
+            for rule in pricing_rules:
+                available_plans.add(rule.membership_type)
+        else:
+            # Si no tiene reglas, usar el membership_type del servicio como plan base
+            available_plans.add(service.membership_type)
+        
+        # Calcular precio para el usuario actual
+        pricing = service.pricing_for_membership(membership_type)
+        
+        # Agregar el servicio a todos los planes donde está disponible
+        # Para cada plan, calcular el precio específico de ese plan
+        for plan_type in available_plans:
+            if plan_type not in services_by_plan:
+                services_by_plan[plan_type] = []
+            
+            # Calcular precio específico para este plan
+            plan_pricing = service.pricing_for_membership(plan_type)
+            
+            service_data = {
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'icon': service.icon or 'fas fa-cog',
+                'external_link': service.external_link,
+                'base_price': service.base_price,
+                'pricing': plan_pricing  # Precio específico para este plan
+            }
+            
+            services_by_plan[plan_type].append(service_data)
+    
+    return render_template('services.html', 
+                         membership=active_membership,
+                         services_by_plan=services_by_plan,
+                         plans_info=plans_info,
+                         user_membership_type=membership_type)
 
 @app.route('/office365')
 @login_required
@@ -6449,6 +6623,101 @@ def api_generate_discount_code():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+@app.route('/admin/services')
+@admin_required
+def admin_services():
+    """Panel de administración de servicios"""
+    services = Service.query.order_by(Service.display_order, Service.name).all()
+    return render_template('admin/services.html', services=services)
+
+@app.route('/api/admin/services/create', methods=['POST'])
+@admin_required
+def admin_services_create():
+    """Crear nuevo servicio"""
+    try:
+        data = request.get_json()
+        
+        service = Service(
+            name=data.get('name'),
+            description=data.get('description', ''),
+            icon=data.get('icon', 'fas fa-cog'),
+            membership_type=data.get('membership_type', 'basic'),
+            external_link=data.get('external_link', ''),
+            base_price=float(data.get('base_price', 50.0)),
+            is_active=data.get('is_active', True),
+            display_order=int(data.get('display_order', 0))
+        )
+        
+        db.session.add(service)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Servicio creado exitosamente', 'service': service.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/services/update/<int:service_id>', methods=['PUT'])
+@admin_required
+def admin_services_update(service_id):
+    """Actualizar servicio"""
+    try:
+        service = Service.query.get_or_404(service_id)
+        data = request.get_json()
+        
+        service.name = data.get('name', service.name)
+        service.description = data.get('description', service.description)
+        service.icon = data.get('icon', service.icon)
+        service.membership_type = data.get('membership_type', service.membership_type)
+        service.external_link = data.get('external_link', service.external_link)
+        service.base_price = float(data.get('base_price', service.base_price))
+        service.is_active = data.get('is_active', service.is_active)
+        service.display_order = int(data.get('display_order', service.display_order))
+        service.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Servicio actualizado exitosamente', 'service': service.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/services/<int:service_id>', methods=['GET'])
+@admin_required
+def admin_services_get(service_id):
+    """Obtener un servicio por ID con sus reglas de precio"""
+    try:
+        service = Service.query.get_or_404(service_id)
+        service_dict = service.to_dict()
+        
+        # Incluir reglas de precio
+        pricing_rules = ServicePricingRule.query.filter_by(service_id=service_id).all()
+        service_dict['pricing_rules'] = [{
+            'id': rule.id,
+            'membership_type': rule.membership_type,
+            'price': rule.price,
+            'discount_percentage': rule.discount_percentage,
+            'is_included': rule.is_included,
+            'is_active': rule.is_active
+        } for rule in pricing_rules]
+        
+        return jsonify({'success': True, 'service': service_dict})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+
+@app.route('/api/admin/services/delete/<int:service_id>', methods=['DELETE'])
+@admin_required
+def admin_services_delete(service_id):
+    """Eliminar servicio"""
+    try:
+        service = Service.query.get_or_404(service_id)
+        db.session.delete(service)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Servicio eliminado exitosamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/admin/master-discount', methods=['GET', 'POST'])
 @admin_required

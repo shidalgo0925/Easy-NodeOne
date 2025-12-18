@@ -122,12 +122,11 @@ def initialize_email_templates():
                     print(f"✓ Actualizado: {template_data['name']}")
                 else:
                     # Crear nuevo template (sin contenido HTML, usa el por defecto)
-                    # Usar un placeholder mínimo para evitar errores de NOT NULL
                     template = EmailTemplate(
                         template_key=template_data['template_key'],
                         name=template_data['name'],
                         subject=template_data['subject'],
-                        html_content='<!-- Template por defecto del sistema -->',  # Placeholder mínimo
+                        html_content='',  # Vacío = usa template por defecto
                         text_content=None,
                         category=template_data['category'],
                         is_custom=False,  # Por defecto usa el template del código

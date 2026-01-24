@@ -29,7 +29,12 @@ except ImportError:
     stripe = None
     print("⚠️ Stripe no está instalado. Funcionalidad de pagos no disponible.")
 
-from flask_mail import Mail, Message
+try:
+    from flask_mail import Mail, Message
+except ImportError:
+    Mail = None
+    Message = None
+    print("⚠️ flask_mail no está instalado. Funcionalidad de email no disponible.")
 try:
     from email_service import EmailService
     from email_templates import (
@@ -94,7 +99,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@re
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
-mail = Mail(app)
+mail = Mail(app) if Mail else None
 
 # Aplicar configuración de email desde BD si existe (después de crear las tablas)
 def apply_email_config_from_db():
@@ -106,7 +111,7 @@ def apply_email_config_from_db():
         if email_config:
             email_config.apply_to_app(app)
             # Reinicializar Mail con nueva configuración
-            mail = Mail()
+            mail = Mail() if Mail else None
             mail.init_app(app)  # Inicializar correctamente Flask-Mail
             if EMAIL_TEMPLATES_AVAILABLE:
                 email_service = EmailService(mail)
@@ -345,6 +350,19 @@ def validate_email_format(email):
     
     return True, None
 
+# Decorador para requerir permisos de administrador
+def admin_required(f):
+    """Decorador para requerir permisos de administrador"""
+    from functools import wraps
+    @wraps(f)
+    @login_required
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_admin:
+            flash('No tienes permisos para acceder a esta página.', 'error')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Lista de países válidos
 VALID_COUNTRIES = [
     'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica',
@@ -484,7 +502,40 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
     
     def get_active_membership(self):
-        # Buscar suscripción activa primero
+        """
+        Obtener membresía activa del usuario.
+        Los administradores siempre tienen acceso completo sin restricciones de planes.
+        """
+        # Los administradores tienen acceso completo, no necesitan membresía
+        if hasattr(self, 'is_admin') and self.is_admin:
+            # Retornar un objeto virtual que simula una membresía premium ilimitada
+            # Esto permite que el código existente funcione sin cambios
+            class AdminMembership:
+                """Membresía virtual para administradores con acceso completo"""
+                def __init__(self):
+                    from datetime import timedelta
+                    self.membership_type = 'admin'
+                    self.status = 'active'
+                    self.start_date = datetime.utcnow()
+                    # Fecha muy lejana (100 años) para evitar problemas en templates
+                    # pero técnicamente "ilimitada" para administradores
+                    self.end_date = datetime.utcnow() + timedelta(days=36500)  # ~100 años
+                    self.is_active = True
+                    self.payment_status = 'paid'
+                    self.amount = 0.0
+                
+                def is_currently_active(self):
+                    return True
+                
+                def __bool__(self):
+                    return True
+                
+                def __repr__(self):
+                    return '<AdminMembership: Full Access>'
+            
+            return AdminMembership()
+        
+        # Para usuarios normales, buscar suscripción activa primero
         active_subscription = Subscription.query.filter_by(
             user_id=self.id, 
             status='active'
@@ -499,7 +550,7 @@ class User(UserMixin, db.Model):
 class Membership(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    membership_type = db.Column(db.String(50), nullable=False)  # 'basic', 'pro', 'premium', 'deluxe'
+    membership_type = db.Column(db.String(50), nullable=False)  # 'basic', 'pro', 'premium', 'deluxe', 'corporativo'
     start_date = db.Column(db.DateTime, default=datetime.utcnow)
     end_date = db.Column(db.DateTime, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
@@ -1020,7 +1071,7 @@ class Notification(db.Model):
     def mark_as_read(self):
         """Marcar notificación como leída"""
         self.is_read = True
-        db.session.commit()
+        # Commit removido - se hace en el endpoint
 
 
 class EmailLog(db.Model):
@@ -1665,6 +1716,114 @@ class ActivityLog(db.Model):
         return log
 
 # Modelos de Carrito de Compras
+
+class HistoryTransaction(db.Model):
+    """
+    Historial de transacciones y eventos del sistema
+    Registro inmutable de todas las acciones relevantes
+    """
+    __tablename__ = 'history_transaction'
+    
+    # Identificación
+    id = db.Column(db.Integer, primary_key=True)
+    uuid = db.Column(db.String(36), unique=True, nullable=False)
+    
+    # Temporal
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Tipo y Actor
+    transaction_type = db.Column(db.String(50), nullable=False, index=True)
+    # Valores: USER_ACTION, SYSTEM_ACTION, ERROR, WARNING, INFO, SECURITY_EVENT
+    
+    actor_type = db.Column(db.String(20), nullable=False)
+    # Valores: 'user' | 'system'
+    
+    actor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    # ID del usuario si actor_type='user', NULL si 'system'
+    
+    # Propietario y Visibilidad
+    owner_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    # Usuario dueño de la transacción (para filtrado)
+    
+    visibility = db.Column(db.String(20), nullable=False, default='both')
+    # Valores: 'admin' | 'user' | 'both'
+    
+    # Acción y Estado
+    action = db.Column(db.String(200), nullable=False)
+    # Descripción de la acción ejecutada
+    
+    status = db.Column(db.String(20), nullable=False, default='success', index=True)
+    # Valores: 'pending' | 'success' | 'failed' | 'cancelled'
+    
+    # Contexto
+    context_app = db.Column(db.String(100), nullable=True)
+    context_screen = db.Column(db.String(100), nullable=True)
+    context_module = db.Column(db.String(100), nullable=True)
+    
+    # Datos
+    payload = db.Column(db.Text, nullable=True)
+    # JSON serializado con datos de entrada
+    
+    result = db.Column(db.Text, nullable=True)
+    # JSON serializado con resultado de la acción
+    
+    transaction_metadata = db.Column('transaction_transaction_metadata', db.Text, nullable=True)
+    # JSON serializado: {ip, device, session_id, user_agent}
+    # Nota: El nombre de la columna en BD es transaction_transaction_metadata por compatibilidad
+    
+    # Relaciones
+    actor_user = db.relationship('User', foreign_keys=[actor_id], backref='history_as_actor')
+    owner_user = db.relationship('User', foreign_keys=[owner_user_id], backref='history_transactions')
+    
+    def __init__(self, **kwargs):
+        """Inicializar con UUID automático"""
+        import uuid as uuid_lib
+        if 'uuid' not in kwargs or not kwargs.get('uuid'):
+            kwargs['uuid'] = str(uuid_lib.uuid4())
+        super(HistoryTransaction, self).__init__(**kwargs)
+    
+    def to_dict(self, include_sensitive=False):
+        """Serializar a diccionario"""
+        data = {
+            'id': self.id,
+            'uuid': self.uuid,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'transaction_type': self.transaction_type,
+            'actor_type': self.actor_type,
+            'actor_id': self.actor_id,
+            'owner_user_id': self.owner_user_id,
+            'visibility': self.visibility,
+            'action': self.action,
+            'status': self.status,
+            'context': {
+                'app': self.context_app,
+                'screen': self.context_screen,
+                'module': self.context_module
+            }
+        }
+        
+        if include_sensitive:
+            # Solo para admin
+            import json
+            data['payload'] = json.loads(self.payload) if self.payload else None
+            data['result'] = json.loads(self.result) if self.result else None
+            data['transaction_metadata'] = json.loads(self.transaction_metadata) if self.transaction_metadata else None
+        else:
+            # Para usuarios: solo resultado básico
+            if self.result:
+                import json
+                try:
+                    result_data = json.loads(self.result)
+                    data['result_summary'] = result_data.get('summary', '')
+                except:
+                    data['result_summary'] = ''
+        
+        return data
+    
+    def __repr__(self):
+        return f'<HistoryTransaction {self.id}: {self.action} ({self.status})>'
+
 class Cart(db.Model):
     """Carrito de compras del usuario"""
     id = db.Column(db.Integer, primary_key=True)
@@ -1859,7 +2018,8 @@ class Service(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     icon = db.Column(db.String(100))  # Clase de FontAwesome (ej: 'fas fa-newspaper')
-    membership_type = db.Column(db.String(50), nullable=False)  # basic, pro, premium, deluxe
+    membership_type = db.Column(db.String(50), nullable=False)  # basic, pro, premium, deluxe, corporativo
+    category_id = db.Column(db.Integer, db.ForeignKey('service_category.id'), nullable=True)  # Categoría del servicio
     external_link = db.Column(db.String(500))  # URL externa si aplica
     base_price = db.Column(db.Float, default=50.0)  # Precio base en USD
     is_active = db.Column(db.Boolean, default=True)
@@ -1882,7 +2042,8 @@ class Service(db.Model):
             'basic': 0,
             'pro': 1,
             'premium': 2,
-            'deluxe': 3
+            'deluxe': 3,
+            'corporativo': 4
         }
         
         service_tier = membership_hierarchy.get(self.membership_type, -1)
@@ -1920,17 +2081,63 @@ class Service(db.Model):
     
     def to_dict(self):
         """Convertir a diccionario para JSON"""
+        try:
+            category_dict = None
+            if self.category:
+                try:
+                    category_dict = self.category.to_dict()
+                except:
+                    # Si hay error al serializar categoría, solo incluir ID
+                    category_dict = {'id': self.category.id, 'name': self.category.name} if self.category else None
+        except:
+            category_dict = None
+        
+        return {
+            'id': self.id,
+            'name': self.name or '',
+            'description': self.description or '',
+            'icon': self.icon or 'fas fa-cog',
+            'membership_type': self.membership_type,
+            'category_id': self.category_id,
+            'category': category_dict,
+            'external_link': self.external_link or '',
+            'base_price': float(self.base_price) if self.base_price else 0.0,
+            'is_active': self.is_active if self.is_active is not None else True,
+            'display_order': self.display_order or 0
+        }
+
+class ServiceCategory(db.Model):
+    """Categorías para organizar servicios"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    slug = db.Column(db.String(100), unique=True)  # URL-friendly identifier
+    description = db.Column(db.Text)
+    icon = db.Column(db.String(100))  # Clase FontAwesome (ej: 'fas fa-book')
+    color = db.Column(db.String(20), default='primary')  # Color para badges/tarjetas
+    display_order = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relación con servicios
+    services = db.relationship('Service', backref='category', lazy=True)
+    
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
         return {
             'id': self.id,
             'name': self.name,
+            'slug': self.slug,
             'description': self.description,
             'icon': self.icon,
-            'membership_type': self.membership_type,
-            'external_link': self.external_link,
-            'base_price': self.base_price,
+            'color': self.color,
+            'display_order': self.display_order,
             'is_active': self.is_active,
-            'display_order': self.display_order
+            'services_count': len([s for s in self.services if s.is_active]) if self.services else 0
         }
+    
+    def __repr__(self):
+        return f'<ServiceCategory {self.name}>'
 
 class ServicePricingRule(db.Model):
     """Reglas de precio/descuento por tipo de membresía para servicios."""
@@ -1946,6 +2153,46 @@ class ServicePricingRule(db.Model):
     __table_args__ = (
         db.UniqueConstraint('service_id', 'membership_type', name='uq_service_pricing_membership'),
     )
+
+class MembershipDiscount(db.Model):
+    """Descuentos por tipo de membresía aplicables a servicios y eventos en el carrito"""
+    id = db.Column(db.Integer, primary_key=True)
+    membership_type = db.Column(db.String(50), nullable=False)  # basic, pro, premium, deluxe, corporativo
+    product_type = db.Column(db.String(50), nullable=False)  # service, event
+    discount_percentage = db.Column(db.Float, nullable=False, default=0.0)  # 0-100
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.UniqueConstraint('membership_type', 'product_type', name='uq_membership_discount'),
+    )
+    
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'membership_type': self.membership_type,
+            'product_type': self.product_type,
+            'discount_percentage': float(self.discount_percentage),
+            'is_active': self.is_active
+        }
+    
+    def __repr__(self):
+        return f'<MembershipDiscount {self.membership_type} - {self.product_type}: {self.discount_percentage}%>'
+    
+    @staticmethod
+    def get_discount(membership_type, product_type='service'):
+        """Obtener descuento para un tipo de membresía y producto"""
+        discount = MembershipDiscount.query.filter_by(
+            membership_type=membership_type,
+            product_type=product_type,
+            is_active=True
+        ).first()
+        
+        if discount:
+            return discount.discount_percentage
+        return 0.0  # Sin descuento por defecto
 
 # Función helper para validar archivos
 def allowed_file(filename):
@@ -1963,6 +2210,102 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # Rutas principales
+
+@app.route('/api/notifications/<int:notification_id>/toggle-read', methods=['POST'])
+@login_required
+def toggle_notification_read(notification_id):
+    """Toggle estado de lectura de notificación (leída <-> no leída)"""
+    try:
+        notification = Notification.query.filter_by(
+            id=notification_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not notification:
+            return jsonify({
+                'success': False,
+                'error': 'Notificación no encontrada'
+            }), 404
+        
+        # Toggle estado
+        notification.is_read = not notification.is_read
+        db.session.commit()
+        
+        action = 'leída' if notification.is_read else 'no leída'
+        print(f"✅ Notificación {notification_id} marcada como {action} por usuario {current_user.id}")
+        return jsonify({
+            'success': True,
+            'message': f'Notificación marcada como {action}',
+            'notification': {
+                'id': notification.id,
+                'is_read': notification.is_read
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error cambiando estado de notificación {notification_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/notifications/delete-read', methods=['DELETE'])
+@login_required
+def delete_read_notifications():
+    """Eliminar todas las notificaciones leídas del usuario"""
+    try:
+        deleted_count = Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=True
+        ).delete()
+        
+        db.session.commit()
+        
+        print(f"✅ {deleted_count} notificaciones leídas eliminadas por usuario {current_user.id}")
+        return jsonify({
+            'success': True,
+            'message': f'{deleted_count} notificación(es) leída(s) eliminada(s)',
+            'deleted_count': deleted_count
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error eliminando notificaciones leídas: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/notifications/delete-all', methods=['DELETE'])
+@login_required
+def delete_all_notifications():
+    """Eliminar todas las notificaciones del usuario"""
+    try:
+        deleted_count = Notification.query.filter_by(
+            user_id=current_user.id
+        ).delete()
+        
+        db.session.commit()
+        
+        print(f"✅ {deleted_count} notificaciones eliminadas por usuario {current_user.id}")
+        return jsonify({
+            'success': True,
+            'message': f'{deleted_count} notificación(es) eliminada(s)',
+            'deleted_count': deleted_count
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error eliminando todas las notificaciones: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/')
 def index():
     """Página principal"""
@@ -2111,6 +2454,21 @@ def register():
         
         db.session.add(user)
         db.session.commit()  # Commit inicial para obtener el ID del usuario
+
+        # Registrar registro de usuario en historial
+        try:
+            from history_module import HistoryLogger
+            HistoryLogger.log_user_action(
+                user_id=user.id,
+                action="Registro de nuevo usuario",
+                status="success",
+                context={"app": "web", "screen": "register", "module": "auth"},
+                payload={"email": email, "first_name": first_name, "last_name": last_name},
+                result={"user_id": user.id},
+                request=request
+            )
+        except Exception as e:
+            pass  # No romper el flujo si falla el historial
         
         # Enviar email de verificación (genera el token y hace commit)
         try:
@@ -2233,6 +2591,33 @@ def login():
         
         if user and user.check_password(password) and user.is_active:
             login_user(user)
+            # Registrar en historial
+            try:
+                from history_module import HistoryLogger
+                HistoryLogger.log_user_action(
+                    user_id=user.id,
+                    action="Login exitoso",
+                    status="success",
+                    context={"app": "web", "screen": "login", "module": "auth"},
+                    request=request
+                )
+            except Exception as e:
+                pass  # No romper el flujo si falla el historial
+            
+            # Verificar estado del usuario al iniciar sesión
+            try:
+                from user_status_checker import UserStatusChecker
+                user_status = UserStatusChecker.check_user_status(user.id, db.session)
+                if user_status.get('summary', {}).get('total_pending_actions', 0) > 0:
+                    urgent_count = user_status['summary'].get('urgent_actions', 0)
+                    if urgent_count > 0:
+                        flash(f'Tienes {urgent_count} acción(es) urgente(s) pendiente(s). Revisa tu panel.', 'warning')
+                    else:
+                        flash(f'Tienes {user_status["summary"]["total_pending_actions"]} acción(es) pendiente(s).', 'info')
+                session['user_status_checked'] = True
+            except Exception as e:
+                print(f"⚠️ Error verificando estado del usuario al iniciar sesión: {e}")
+            
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('dashboard'))
         else:
@@ -2244,6 +2629,19 @@ def login():
 @login_required
 def logout():
     """Cerrar sesión"""
+    # Registrar logout en historial
+    try:
+        from history_module import HistoryLogger
+        HistoryLogger.log_user_action(
+            user_id=current_user.id,
+            action="Logout",
+            status="success",
+            context={"app": "web", "screen": "logout", "module": "auth"},
+            request=request
+        )
+    except Exception as e:
+        pass  # No romper el flujo si falla el historial
+
     logout_user()
     flash('Has cerrado sesión exitosamente.', 'info')
     return redirect(url_for('index'))
@@ -2251,8 +2649,12 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    """Panel de control del usuario"""
+    """Panel de control del usuario con verificación completa de estado"""
     from app import Appointment, EventRegistration, Event
+    from user_status_checker import UserStatusChecker
+    
+    # Verificar estado completo del usuario
+    user_status = UserStatusChecker.check_user_status(current_user.id, db.session)
     
     active_membership = current_user.get_active_membership()
     benefits = Benefit.query.filter_by(is_active=True).all()
@@ -2319,7 +2721,8 @@ def dashboard():
                          registered_events_count=registered_events_count,
                          all_public_events=all_public_events,
                          show_onboarding=show_onboarding,
-                         is_new_user=is_new_user)
+                         is_new_user=is_new_user,
+                         user_status=user_status)  # Pasar estado del usuario al template
 
 @app.route('/api/onboarding/seen', methods=['POST'])
 @login_required
@@ -2328,14 +2731,846 @@ def mark_onboarding_seen():
     session['onboarding_seen'] = True
     return jsonify({'success': True})
 
+@app.route('/api/user/status', methods=['GET'])
+@login_required
+def get_user_status():
+    """API endpoint para obtener el estado completo del usuario"""
+    try:
+        from user_status_checker import UserStatusChecker
+        user_status = UserStatusChecker.check_user_status(current_user.id, db.session)
+        return jsonify({'success': True, 'status': user_status}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/user/dashboard', methods=['GET'])
+@login_required
+def get_user_dashboard():
+    """API endpoint para obtener datos completos del dashboard"""
+    try:
+        from user_status_checker import UserStatusChecker
+        dashboard_data = UserStatusChecker.get_user_dashboard_data(current_user.id, db.session)
+        return jsonify({'success': True, 'dashboard': dashboard_data}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/membership')
 @login_required
 def membership():
     """Página de membresía"""
     active_membership = current_user.get_active_membership()
-    return render_template('membership.html', membership=active_membership)
+    
+    # Precios de membresías (en dólares)
+    pricing_monthly = {
+        'basic': 0,
+        'pro': 5,  # $5/mes = $60/año
+        'premium': 10,  # $10/mes = $120/año
+        'deluxe': 15,  # $15/mes = $180/año
+        'corporativo': 25  # $25/mes = $300/año
+    }
+    
+    pricing_yearly = {
+        'basic': 0,
+        'pro': 60,  # $60/año
+        'premium': 120,  # $120/año
+        'deluxe': 200,  # $200/año
+        'corporativo': 300  # $300/año
+    }
+    
+    # Obtener todos los servicios activos de la base de datos
+    all_services = Service.query.filter_by(is_active=True).order_by(Service.display_order, Service.name).all()
+    
+    # Jerarquía de membresías
+    membership_hierarchy = {
+        'basic': 0,
+        'pro': 1,
+        'premium': 2,
+        'deluxe': 3,
+        'corporativo': 4
+    }
+    
+    # Para cada servicio, determinar en qué planes está disponible
+    # Esto se usará en el template para mostrar checkmarks
+    services_with_plans = []
+    for service in all_services:
+        # Obtener todas las reglas de precio activas para este servicio
+        pricing_rules = ServicePricingRule.query.filter_by(
+            service_id=service.id,
+            is_active=True
+        ).all()
+        
+        available_plans = []
+        
+        # SIEMPRE incluir el membership_type base del servicio (CRÍTICO)
+        # Esto asegura que un servicio con membership_type='corporativo' siempre aparezca en corporativo
+        if service.membership_type:
+            if service.membership_type not in available_plans:
+                available_plans.append(service.membership_type)
+        
+        # Si tiene reglas de precio, agregar también esos planes
+        # Las pricing_rules permiten que un servicio aparezca en múltiples planes
+        if pricing_rules:
+            for rule in pricing_rules:
+                if rule.membership_type and rule.membership_type not in available_plans:
+                    available_plans.append(rule.membership_type)
+        else:
+            # Si no tiene reglas, agregar también a todos los planes superiores (jerarquía)
+            # Esto permite que servicios básicos aparezcan en todos los planes superiores
+            # IMPORTANTE: Excluir 'corporativo' de la herencia automática
+            # Solo servicios explícitamente marcados como corporativo aparecen en ese plan
+            service_tier = membership_hierarchy.get(service.membership_type, -1)
+            if service_tier >= 0:  # Solo si el tier es válido
+                for plan_type, tier in membership_hierarchy.items():
+                    # Excluir corporativo de la herencia automática
+                    if tier > service_tier and plan_type != 'corporativo' and plan_type not in available_plans:
+                        available_plans.append(plan_type)
+        
+        services_with_plans.append({
+            'service': service,
+            'available_plans': available_plans
+        })
+    
+    return render_template('membership.html', 
+                         membership=active_membership,
+                         pricing_monthly=pricing_monthly,
+                         pricing_yearly=pricing_yearly,
+                         services_with_plans=services_with_plans,
+                         membership_hierarchy=membership_hierarchy)
 
-# Ruta eliminada: subscription_form ya no está disponible
+
+
+@app.route('/api/history', methods=['GET'])
+@login_required
+def api_get_history():
+    """
+    API endpoint para obtener historial de transacciones del usuario
+    Filtros: transaction_type, status, start_date, end_date
+    Paginación: page, per_page
+    """
+    try:
+        from history_module import HistoryLogger
+        from app import HistoryTransaction
+        
+        # Parámetros de filtro
+        transaction_type = request.args.get('transaction_type')  # USER_ACTION, SYSTEM_ACTION, ERROR, etc.
+        status = request.args.get('status')  # success, failed, pending, cancelled
+        start_date = request.args.get('start_date')  # YYYY-MM-DD
+        end_date = request.args.get('end_date')  # YYYY-MM-DD
+        search = request.args.get('search')  # Búsqueda en action
+        
+        # Parámetros de paginación
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 20, type=int), 100)  # Máximo 100 por página
+        
+        # Construir query base - solo transacciones del usuario o visibles para el usuario
+        query = HistoryTransaction.query.filter(
+            (HistoryTransaction.owner_user_id == current_user.id) |
+            (HistoryTransaction.visibility.in_(['user', 'both']))
+        )
+        
+        # Aplicar filtros
+        if transaction_type:
+            query = query.filter(HistoryTransaction.transaction_type == transaction_type)
+        
+        if status:
+            query = query.filter(HistoryTransaction.status == status)
+        
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                query = query.filter(HistoryTransaction.timestamp >= start_dt)
+            except ValueError:
+                pass
+        
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                # Agregar 23:59:59 al final del día
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                query = query.filter(HistoryTransaction.timestamp <= end_dt)
+            except ValueError:
+                pass
+        
+        if search:
+            query = query.filter(HistoryTransaction.action.contains(search))
+        
+        # Ordenar por timestamp descendente (más recientes primero)
+        query = query.order_by(HistoryTransaction.timestamp.desc())
+        
+        # Paginación
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        # Serializar resultados
+        transactions = []
+        for transaction in pagination.items:
+            transactions.append(transaction.to_dict(include_sensitive=False))
+        
+        return jsonify({
+            'success': True,
+            'transactions': transactions,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo historial: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/history/<int:transaction_id>', methods=['GET'])
+@login_required
+def api_get_history_detail(transaction_id):
+    """
+    API endpoint para obtener detalles de una transacción específica
+    """
+    try:
+        from app import HistoryTransaction
+        
+        # Buscar transacción
+        transaction = HistoryTransaction.query.filter_by(id=transaction_id).first()
+        
+        if not transaction:
+            return jsonify({
+                'success': False,
+                'error': 'Transacción no encontrada'
+            }), 404
+        
+        # Verificar permisos: debe ser del usuario o visible para el usuario
+        if transaction.owner_user_id != current_user.id and transaction.visibility not in ['user', 'both']:
+            return jsonify({
+                'success': False,
+                'error': 'No tienes permiso para ver esta transacción'
+            }), 403
+        
+        # Retornar detalles (sin información sensible para usuarios normales)
+        include_sensitive = current_user.is_admin if hasattr(current_user, 'is_admin') else False
+        
+        return jsonify({
+            'success': True,
+            'transaction': transaction.to_dict(include_sensitive=include_sensitive)
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo detalle de transacción: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/history/stats', methods=['GET'])
+@login_required
+def api_get_history_stats():
+    """
+    API endpoint para obtener estadísticas del historial del usuario
+    """
+    try:
+        from app import HistoryTransaction
+        from collections import Counter
+        
+        # Obtener todas las transacciones del usuario
+        transactions = HistoryTransaction.query.filter(
+            (HistoryTransaction.owner_user_id == current_user.id) |
+            (HistoryTransaction.visibility.in_(['user', 'both']))
+        ).all()
+        
+        # Contar por tipo
+        type_counts = Counter(t.transaction_type for t in transactions)
+        
+        # Contar por status
+        status_counts = Counter(t.status for t in transactions)
+        
+        # Transacciones recientes (últimos 7 días)
+        from datetime import timedelta
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent_count = HistoryTransaction.query.filter(
+            (HistoryTransaction.owner_user_id == current_user.id) |
+            (HistoryTransaction.visibility.in_(['user', 'both'])),
+            HistoryTransaction.timestamp >= week_ago
+        ).count()
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total': len(transactions),
+                'recent_7_days': recent_count,
+                'by_type': dict(type_counts),
+                'by_status': dict(status_counts)
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo estadísticas de historial: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+
+# ============================================================================
+# API ADMIN - HISTORIAL DE TRANSACCIONES
+# ============================================================================
+
+@app.route('/api/admin/history', methods=['GET'])
+@admin_required
+def api_admin_get_history():
+    """
+    API endpoint ADMIN para obtener historial de transacciones de todos los usuarios
+    Filtros avanzados: user_id, transaction_type, status, start_date, end_date, search
+    Paginación: page, per_page
+    """
+    try:
+        from app import HistoryTransaction, User
+        
+        # Parámetros de filtro
+        user_id = request.args.get('user_id', type=int)  # Filtrar por usuario específico
+        transaction_type = request.args.get('transaction_type')
+        status = request.args.get('status')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        search = request.args.get('search')
+        actor_type = request.args.get('actor_type')  # 'user' o 'system'
+        visibility = request.args.get('visibility')  # 'admin', 'user', 'both'
+        
+        # Parámetros de paginación
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 50, type=int), 200)  # Máximo 200 por página para admin
+        
+        # Construir query base - ADMIN puede ver TODAS las transacciones
+        query = HistoryTransaction.query
+        
+        # Aplicar filtros
+        if user_id:
+            query = query.filter(
+                (HistoryTransaction.owner_user_id == user_id) |
+                (HistoryTransaction.actor_id == user_id)
+            )
+        
+        if transaction_type:
+            query = query.filter(HistoryTransaction.transaction_type == transaction_type)
+        
+        if status:
+            query = query.filter(HistoryTransaction.status == status)
+        
+        if actor_type:
+            query = query.filter(HistoryTransaction.actor_type == actor_type)
+        
+        if visibility:
+            query = query.filter(HistoryTransaction.visibility == visibility)
+        
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                query = query.filter(HistoryTransaction.timestamp >= start_dt)
+            except ValueError:
+                pass
+        
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                query = query.filter(HistoryTransaction.timestamp <= end_dt)
+            except ValueError:
+                pass
+        
+        if search:
+            query = query.filter(HistoryTransaction.action.contains(search))
+        
+        # Ordenar por timestamp descendente
+        query = query.order_by(HistoryTransaction.timestamp.desc())
+        
+        # Paginación
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        # Serializar resultados con información completa (admin)
+        transactions = []
+        for transaction in pagination.items:
+            trans_dict = transaction.to_dict(include_sensitive=True)
+            # Agregar información del usuario si existe
+            if transaction.actor_id:
+                actor = User.query.get(transaction.actor_id)
+                if actor:
+                    trans_dict['actor'] = {
+                        'id': actor.id,
+                        'email': actor.email,
+                        'first_name': actor.first_name,
+                        'last_name': actor.last_name
+                    }
+            if transaction.owner_user_id:
+                owner = User.query.get(transaction.owner_user_id)
+                if owner:
+                    trans_dict['owner'] = {
+                        'id': owner.id,
+                        'email': owner.email,
+                        'first_name': owner.first_name,
+                        'last_name': owner.last_name
+                    }
+            transactions.append(trans_dict)
+        
+        return jsonify({
+            'success': True,
+            'transactions': transactions,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo historial admin: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/admin/history/<int:transaction_id>', methods=['GET'])
+@admin_required
+def api_admin_get_history_detail(transaction_id):
+    """
+    API endpoint ADMIN para obtener detalles completos de una transacción
+    Incluye toda la información sensible (payload, result, metadata)
+    """
+    try:
+        from app import HistoryTransaction, User
+        
+        # Buscar transacción
+        transaction = HistoryTransaction.query.filter_by(id=transaction_id).first()
+        
+        if not transaction:
+            return jsonify({
+                'success': False,
+                'error': 'Transacción no encontrada'
+            }), 404
+        
+        # ADMIN puede ver TODAS las transacciones
+        trans_dict = transaction.to_dict(include_sensitive=True)
+        
+        # Agregar información de usuarios relacionados
+        if transaction.actor_id:
+            actor = User.query.get(transaction.actor_id)
+            if actor:
+                trans_dict['actor'] = {
+                    'id': actor.id,
+                    'email': actor.email,
+                    'first_name': actor.first_name,
+                    'last_name': actor.last_name
+                }
+        
+        if transaction.owner_user_id:
+            owner = User.query.get(transaction.owner_user_id)
+            if owner:
+                trans_dict['owner'] = {
+                    'id': owner.id,
+                    'email': owner.email,
+                    'first_name': owner.first_name,
+                    'last_name': owner.last_name
+                }
+        
+        return jsonify({
+            'success': True,
+            'transaction': trans_dict
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo detalle admin de transacción: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/admin/history/stats', methods=['GET'])
+@admin_required
+def api_admin_get_history_stats():
+    """
+    API endpoint ADMIN para obtener estadísticas globales del historial
+    """
+    try:
+        from app import HistoryTransaction, User
+        from collections import Counter
+        from datetime import timedelta
+        
+        # Parámetros opcionales
+        user_id = request.args.get('user_id', type=int)
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Construir query base
+        query = HistoryTransaction.query
+        
+        if user_id:
+            query = query.filter(
+                (HistoryTransaction.owner_user_id == user_id) |
+                (HistoryTransaction.actor_id == user_id)
+            )
+        
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                query = query.filter(HistoryTransaction.timestamp >= start_dt)
+            except ValueError:
+                pass
+        
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                query = query.filter(HistoryTransaction.timestamp <= end_dt)
+            except ValueError:
+                pass
+        
+        transactions = query.all()
+        
+        # Estadísticas generales
+        total = len(transactions)
+        
+        # Contar por tipo
+        type_counts = Counter(t.transaction_type for t in transactions)
+        
+        # Contar por status
+        status_counts = Counter(t.status for t in transactions)
+        
+        # Contar por actor_type
+        actor_type_counts = Counter(t.actor_type for t in transactions)
+        
+        # Transacciones recientes
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        month_ago = datetime.utcnow() - timedelta(days=30)
+        
+        recent_7_days = sum(1 for t in transactions if t.timestamp >= week_ago)
+        recent_30_days = sum(1 for t in transactions if t.timestamp >= month_ago)
+        
+        # Top usuarios por número de transacciones
+        user_transaction_counts = Counter()
+        for t in transactions:
+            if t.owner_user_id:
+                user_transaction_counts[t.owner_user_id] += 1
+        
+        top_users = []
+        for user_id, count in user_transaction_counts.most_common(10):
+            user = User.query.get(user_id)
+            if user:
+                top_users.append({
+                    'user_id': user_id,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'transaction_count': count
+                })
+        
+        # Errores recientes
+        errors_recent = sum(1 for t in transactions 
+                           if t.transaction_type == 'ERROR' and t.timestamp >= week_ago)
+        
+        # Eventos de seguridad recientes
+        security_recent = sum(1 for t in transactions 
+                             if t.transaction_type == 'SECURITY_EVENT' and t.timestamp >= week_ago)
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total': total,
+                'recent_7_days': recent_7_days,
+                'recent_30_days': recent_30_days,
+                'by_type': dict(type_counts),
+                'by_status': dict(status_counts),
+                'by_actor_type': dict(actor_type_counts),
+                'errors_recent_7_days': errors_recent,
+                'security_events_recent_7_days': security_recent,
+                'top_users': top_users
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo estadísticas admin de historial: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/admin/history/export', methods=['GET'])
+@admin_required
+def api_admin_export_history():
+    """
+    API endpoint ADMIN para exportar historial en formato CSV
+    """
+    try:
+        from app import HistoryTransaction, User
+        from flask import Response
+        import csv
+        import io
+        
+        # Parámetros de filtro (mismos que /api/admin/history)
+        user_id = request.args.get('user_id', type=int)
+        transaction_type = request.args.get('transaction_type')
+        status = request.args.get('status')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Construir query (misma lógica que api_admin_get_history)
+        query = HistoryTransaction.query
+        
+        if user_id:
+            query = query.filter(
+                (HistoryTransaction.owner_user_id == user_id) |
+                (HistoryTransaction.actor_id == user_id)
+            )
+        
+        if transaction_type:
+            query = query.filter(HistoryTransaction.transaction_type == transaction_type)
+        
+        if status:
+            query = query.filter(HistoryTransaction.status == status)
+        
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                query = query.filter(HistoryTransaction.timestamp >= start_dt)
+            except ValueError:
+                pass
+        
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                query = query.filter(HistoryTransaction.timestamp <= end_dt)
+            except ValueError:
+                pass
+        
+        transactions = query.order_by(HistoryTransaction.timestamp.desc()).limit(10000).all()
+        
+        # Crear CSV en memoria
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Encabezados
+        writer.writerow([
+            'ID', 'UUID', 'Timestamp', 'Transaction Type', 'Actor Type', 
+            'Actor ID', 'Owner User ID', 'Visibility', 'Action', 'Status',
+            'Context App', 'Context Screen', 'Context Module'
+        ])
+        
+        # Datos
+        for t in transactions:
+            writer.writerow([
+                t.id, t.uuid, t.timestamp.isoformat() if t.timestamp else '',
+                t.transaction_type, t.actor_type, t.actor_id or '',
+                t.owner_user_id or '', t.visibility, t.action, t.status,
+                t.context_app or '', t.context_screen or '', t.context_module or ''
+            ])
+        
+        # Crear respuesta
+        output.seek(0)
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=history_export.csv'}
+        )
+        
+        return response
+        
+    except Exception as e:
+        print(f"❌ Error exportando historial: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/payments/history')
+@login_required
+def payments_history():
+    """Historial de pagos del usuario con información completa de compras"""
+    from datetime import datetime, timedelta
+    from collections import Counter
+    import json
+    
+    # Obtener todos los pagos del usuario ordenados por fecha (más recientes primero)
+    payments = Payment.query.filter_by(user_id=current_user.id).order_by(
+        Payment.created_at.desc()
+    ).all()
+    
+    # Calcular conteos por estado
+    status_counts = Counter(payment.status for payment in payments)
+    
+    # Obtener pagos pendientes por más de 5 minutos
+    current_time = datetime.utcnow()
+    long_pending_payments = []
+    
+    # Enriquecer cada pago con información adicional
+    payments_with_details = []
+    for payment in payments:
+        payment_data = {
+            'payment': payment,
+            'subscriptions': [],
+            'event_registrations': [],
+            'purchased_items': [],
+            'discount_applications': [],
+            'history_transactions': []
+        }
+        
+        # Obtener suscripciones creadas por este pago
+        subscriptions = Subscription.query.filter_by(payment_id=payment.id).all()
+        payment_data['subscriptions'] = subscriptions
+        
+        # Obtener eventos registrados por este pago
+        # Buscar por payment_reference
+        event_registrations = []
+        if payment.payment_reference:
+            event_registrations = EventRegistration.query.filter(
+                EventRegistration.payment_reference == payment.payment_reference,
+                EventRegistration.user_id == current_user.id
+            ).all()
+        
+        # Si no se encontraron, buscar por payment_reference como string del payment_id
+        if not event_registrations:
+            event_registrations = EventRegistration.query.filter(
+                EventRegistration.payment_reference == str(payment.id),
+                EventRegistration.user_id == current_user.id
+            ).all()
+        
+        # Si aún no se encontraron, buscar por fecha de pago cercana (últimos 10 minutos)
+        if not event_registrations and payment.paid_at:
+            from datetime import timedelta
+            time_window_start = payment.paid_at - timedelta(minutes=10)
+            time_window_end = payment.paid_at + timedelta(minutes=10)
+            event_registrations = EventRegistration.query.filter(
+                EventRegistration.user_id == current_user.id,
+                EventRegistration.payment_date >= time_window_start,
+                EventRegistration.payment_date <= time_window_end,
+                EventRegistration.payment_status == 'paid'
+            ).all()
+        
+        # También buscar en el historial de transacciones para eventos
+        if not event_registrations:
+            for transaction in history_transactions:
+                if 'Compra realizada' in transaction.action and transaction.result:
+                    try:
+                        result = json.loads(transaction.result)
+                        if 'events' in result and result['events']:
+                            event_ids = [e.get('event_id') for e in result['events'] if e.get('event_id')]
+                            if event_ids:
+                                found_events = EventRegistration.query.filter(
+                                    EventRegistration.event_id.in_(event_ids),
+                                    EventRegistration.user_id == current_user.id
+                                ).all()
+                                if found_events:
+                                    event_registrations = found_events
+                                    break
+                    except:
+                        pass
+        
+        payment_data['event_registrations'] = event_registrations
+        
+        # Obtener descuentos aplicados
+        discount_applications = DiscountApplication.query.filter_by(payment_id=payment.id).all()
+        payment_data['discount_applications'] = discount_applications
+        
+        # Obtener información del historial de transacciones relacionado
+        history_transactions = HistoryTransaction.query.filter(
+            HistoryTransaction.owner_user_id == current_user.id
+        ).filter(
+            HistoryTransaction.payload.contains(f'"payment_id": {payment.id}')
+        ).order_by(HistoryTransaction.timestamp.desc()).limit(5).all()
+        
+        # Extraer items comprados del historial
+        for transaction in history_transactions:
+            try:
+                if transaction.payload:
+                    payload = json.loads(transaction.payload)
+                    if 'items' in payload:
+                        payment_data['purchased_items'] = payload['items']
+                    if 'discount_breakdown' in payload:
+                        payment_data['discount_breakdown'] = payload['discount_breakdown']
+            except:
+                pass
+            
+            # Si es una transacción de compra, obtener items del result
+            if 'Compra realizada' in transaction.action:
+                try:
+                    if transaction.result:
+                        result = json.loads(transaction.result)
+                        if 'subscriptions' in result:
+                            payment_data['subscriptions_info'] = result['subscriptions']
+                        if 'events' in result:
+                            # Obtener eventos desde los IDs del historial
+                            event_ids = [e.get('event_id') for e in result['events']]
+                            if event_ids:
+                                event_registrations = EventRegistration.query.filter(
+                                    EventRegistration.event_id.in_(event_ids),
+                                    EventRegistration.user_id == current_user.id
+                                ).all()
+                                payment_data['event_registrations'] = event_registrations
+                except:
+                    pass
+        
+        # Si no hay items en el historial, intentar obtenerlos del payment_metadata
+        if not payment_data['purchased_items'] and payment.payment_metadata:
+            try:
+                metadata = json.loads(payment.payment_metadata)
+                if 'items' in metadata:
+                    payment_data['purchased_items'] = metadata['items']
+            except:
+                pass
+        
+        # Agregar información de historial de transacciones
+        payment_data['history_transactions'] = [
+            {
+                'id': t.id,
+                'action': t.action,
+                'timestamp': t.timestamp,
+                'status': t.status
+            }
+            for t in history_transactions
+        ]
+        
+        payments_with_details.append(payment_data)
+        
+        # Para pagos pendientes
+        if payment.status in ['pending', 'awaiting_confirmation'] and payment.created_at:
+            time_elapsed = (current_time - payment.created_at).total_seconds() / 60
+            if time_elapsed > 5:  # Más de 5 minutos
+                hours = int(time_elapsed / 60)
+                minutes = int(time_elapsed % 60)
+                if hours > 0:
+                    time_elapsed_str = f"{hours}h {minutes}m"
+                else:
+                    time_elapsed_str = f"{minutes}m"
+                
+                long_pending_payments.append({
+                    'payment': payment,
+                    'time_elapsed': time_elapsed,
+                    'time_elapsed_str': time_elapsed_str
+                })
+    
+    return render_template('payments_history.html',
+                         payments=payments_with_details,
+                         status_counts=status_counts,
+                         long_pending_payments=long_pending_payments,
+                         current_time=current_time)
 
 @app.route('/benefits')
 @login_required
@@ -2457,13 +3692,34 @@ def services():
         'basic': {'name': 'GRATIS / BÁSICO', 'price': '$0', 'badge': 'Incluido con la membresía gratuita', 'color': 'bg-success'},
         'pro': {'name': 'PRO', 'price': '$60/año', 'badge': 'Plan recomendado', 'color': 'bg-info'},
         'premium': {'name': 'PREMIUM', 'price': '$120/año', 'badge': 'Más beneficios', 'color': 'bg-primary'},
-        'deluxe': {'name': 'DE LUXE', 'price': '$200/año', 'badge': 'Experiencia completa', 'color': 'bg-warning text-dark'}
+        'deluxe': {'name': 'DE LUXE', 'price': '$200/año', 'badge': 'Experiencia completa', 'color': 'bg-warning text-dark'},
+        'corporativo': {'name': 'CORPORATIVO', 'price': '$300/año', 'badge': 'Para empresas', 'color': 'bg-dark text-white'}
     }
+    
+    # Obtener todas las categorías activas
+    categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order, ServiceCategory.name).all()
     
     # Obtener todos los servicios activos ordenados
     all_services = Service.query.filter_by(is_active=True).order_by(Service.display_order, Service.name).all()
     
-    # Agrupar servicios por plan
+    # Agrupar servicios por categoría primero, luego por plan
+    services_by_category = {}
+    services_without_category = []
+    
+    for service in all_services:
+        if service.category_id and service.category:
+            cat_id = service.category_id
+            if cat_id not in services_by_category:
+                services_by_category[cat_id] = {
+                    'category': service.category,
+                    'services_by_plan': {}
+                }
+            # Agregar servicio al plan correspondiente dentro de la categoría
+            # (lógica similar a la anterior)
+        else:
+            services_without_category.append(service)
+    
+    # Agrupar servicios por plan (para compatibilidad con template actual)
     # Un servicio puede aparecer en múltiples planes si tiene reglas de precio para cada uno
     for service in all_services:
         # Obtener todas las reglas de precio activas para este servicio
@@ -2475,13 +3731,14 @@ def services():
         # Planes donde este servicio está disponible
         available_plans = set()
         
-        # Si tiene reglas de precio, agregar a esos planes
+        # SIEMPRE incluir el membership_type base del servicio
+        if service.membership_type:
+            available_plans.add(service.membership_type)
+        
+        # Si tiene reglas de precio, agregar también esos planes
         if pricing_rules:
             for rule in pricing_rules:
                 available_plans.add(rule.membership_type)
-        else:
-            # Si no tiene reglas, usar el membership_type del servicio como plan base
-            available_plans.add(service.membership_type)
         
         # Calcular precio para el usuario actual
         pricing = service.pricing_for_membership(membership_type)
@@ -2507,10 +3764,14 @@ def services():
             
             services_by_plan[plan_type].append(service_data)
     
+    # Obtener todas las categorías activas para filtros
+    categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order, ServiceCategory.name).all()
+    
     return render_template('services.html', 
                          membership=active_membership,
                          services_by_plan=services_by_plan,
                          plans_info=plans_info,
+                         categories=categories,
                          user_membership_type=membership_type)
 
 @app.route('/office365')
@@ -2547,23 +3808,41 @@ def settings():
     return render_template('settings.html')
 
 @app.route('/notifications')
+@app.route('/notifications')
 @login_required
 def notifications():
     """Módulo de Notificaciones"""
-    # Obtener notificaciones del usuario
-    user_notifications = Notification.query.filter_by(
-        user_id=current_user.id
-    ).order_by(Notification.created_at.desc()).all()
-    
-    # Contar no leídas
-    unread_count = Notification.query.filter_by(
-        user_id=current_user.id,
-        is_read=False
-    ).count()
-    
-    return render_template('notifications.html', 
-                         notifications=user_notifications,
-                         unread_count=unread_count)
+    try:
+        # Obtener todas las notificaciones del usuario
+        user_notifications = Notification.query.filter_by(
+            user_id=current_user.id
+        ).order_by(Notification.created_at.desc()).all()
+        
+        # Contar no leídas
+        unread_count = Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=False
+        ).count()
+        
+        # Logging para debug
+        print(f"📬 Usuario {current_user.id} ({current_user.email}):")
+        print(f"   Total notificaciones: {len(user_notifications)}")
+        print(f"   No leídas: {unread_count}")
+        if user_notifications:
+            for n in user_notifications[:5]:  # Mostrar primeras 5
+                print(f"   - ID {n.id}: {n.title} (leída: {n.is_read})")
+        
+        return render_template('notifications.html', 
+                             notifications=user_notifications,
+                             unread_count=unread_count)
+    except Exception as e:
+        print(f"❌ Error en endpoint /notifications: {e}")
+        import traceback
+        traceback.print_exc()
+        # Retornar página vacía en caso de error
+        return render_template('notifications.html', 
+                             notifications=[],
+                             unread_count=0)
 
 @app.route('/help')
 @login_required
@@ -2601,7 +3880,7 @@ def checkout():
 @login_required
 def checkout_membership(membership_type):
     """Página de checkout directo para membresía (compatibilidad con sistema anterior)"""
-    if membership_type not in ['basic', 'pro', 'premium', 'deluxe']:
+    if membership_type not in ['basic', 'pro', 'premium', 'deluxe', 'corporativo']:
         flash('Tipo de membresía inválido.', 'error')
         return redirect(url_for('membership'))
     
@@ -2860,6 +4139,48 @@ def create_payment_intent():
         db.session.add(payment)
         db.session.commit()
         
+        # Registrar creación de pago en historial
+        try:
+            from history_module import HistoryLogger
+            cart_items = []
+            for item in cart.items:
+                cart_items.append({
+                    'product_type': item.product_type,
+                    'product_id': item.product_id,
+                    'product_name': item.product_name,
+                    'quantity': item.quantity,
+                    'unit_price': item.unit_price,
+                    'total_price': item.unit_price * item.quantity
+                })
+            
+            HistoryLogger.log_user_action(
+                user_id=current_user.id,
+                action=f"Pago creado - {payment_method.upper()} - ${total_amount/100:.2f}",
+                status=initial_status,
+                context={"app": "web", "screen": "checkout", "module": "payment"},
+                payload={
+                    "payment_id": payment.id,
+                    "payment_method": payment_method,
+                    "amount": total_amount,
+                    "currency": "usd",
+                    "cart_id": cart.id,
+                    "items_count": cart.get_items_count(),
+                    "items": cart_items,
+                    "discount_breakdown": discount_breakdown,
+                    "demo_mode": is_demo_mode,
+                    "ocr_status": ocr_status,
+                    "ocr_verified": ocr_verified
+                },
+                result={
+                    "payment_id": payment.id,
+                    "status": initial_status,
+                    "payment_reference": payment.payment_reference
+                },
+                visibility="both"
+            )
+        except Exception as e:
+            print(f"⚠️ Error registrando creación de pago en historial: {e}")
+        
         # Si el pago está aprobado (demo o OCR verificado), procesar el carrito inmediatamente
         if initial_status == 'succeeded':
             try:
@@ -2867,6 +4188,12 @@ def create_payment_intent():
                 cart.clear()
                 db.session.commit()
                 print(f"✅ Pago en modo demo procesado exitosamente. Payment ID: {payment.id}")
+                
+                # Enviar webhook a Odoo (no bloquea si falla)
+                try:
+                    send_payment_to_odoo(payment, current_user, cart)
+                except Exception as e:
+                    print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
             except Exception as e:
                 print(f"⚠️ Error procesando carrito en modo demo: {e}")
                 import traceback
@@ -3046,6 +4373,31 @@ def payment_success():
     if payment_id:
         payment = Payment.query.get(payment_id)
         if payment and payment.user_id == current_user.id:
+            # Registrar confirmación de pago en historial si cambió de estado
+            if payment.status == 'succeeded':
+                try:
+                    from history_module import HistoryLogger
+                    HistoryLogger.log_user_action(
+                        user_id=current_user.id,
+                        action=f"Pago confirmado - {payment.payment_method.upper()} - ${payment.amount/100:.2f}",
+                        status="success",
+                        context={"app": "web", "screen": "payment_success", "module": "payment"},
+                        payload={
+                            "payment_id": payment.id,
+                            "payment_method": payment.payment_method,
+                            "amount": payment.amount,
+                            "payment_reference": payment.payment_reference
+                        },
+                        result={
+                            "payment_id": payment.id,
+                            "status": "succeeded",
+                            "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
+                        },
+                        visibility="both"
+                    )
+                except Exception as e:
+                    print(f"⚠️ Error registrando confirmación de pago en historial: {e}")
+            
             # Procesar items del carrito si el pago fue exitoso y aún no se procesó
             if payment.status == 'succeeded':
                 cart = get_or_create_cart(current_user.id)
@@ -3065,6 +4417,12 @@ def payment_success():
                         db.session.rollback()
                 else:
                     print(f"ℹ️ Carrito ya procesado previamente para Payment ID: {payment.id}")
+                
+                # Enviar webhook a Odoo (no bloquea si falla)
+                try:
+                    send_payment_to_odoo(payment, current_user, cart)
+                except Exception as e:
+                    print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
             
             return render_template('payment_success.html', payment=payment)
     
@@ -3100,11 +4458,42 @@ def paypal_return():
                 payment.paid_at = datetime.utcnow()
                 db.session.commit()
                 
+                # Registrar confirmación de pago en historial
+                try:
+                    from history_module import HistoryLogger
+                    HistoryLogger.log_user_action(
+                        user_id=current_user.id,
+                        action=f"Pago confirmado - PayPal - ${payment.amount/100:.2f}",
+                        status="success",
+                        context={"app": "web", "screen": "paypal_return", "module": "payment"},
+                        payload={
+                            "payment_id": payment.id,
+                            "payment_method": "paypal",
+                            "amount": payment.amount,
+                            "payment_reference": payment.payment_reference,
+                            "token": token
+                        },
+                        result={
+                            "payment_id": payment.id,
+                            "status": "succeeded",
+                            "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
+                        },
+                        visibility="both"
+                    )
+                except Exception as e:
+                    print(f"⚠️ Error registrando confirmación de pago PayPal en historial: {e}")
+                
                 # Procesar carrito
                 cart = get_or_create_cart(current_user.id)
                 process_cart_after_payment(cart, payment)
                 cart.clear()
                 db.session.commit()
+                
+                # Enviar webhook a Odoo (no bloquea si falla)
+                try:
+                    send_payment_to_odoo(payment, current_user, cart)
+                except Exception as e:
+                    print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
                 
                 return redirect(url_for('payment_success', payment_id=payment.id))
             else:
@@ -3132,10 +4521,49 @@ def paypal_cancel():
     flash('Pago cancelado.', 'warning')
     return redirect(url_for('checkout'))
 
+def send_payment_to_odoo(payment, user, cart=None):
+    """
+    Envía webhook a Odoo cuando se confirma un pago
+    Esta función no debe interrumpir el flujo principal si falla
+    """
+    try:
+        from odoo_integration_service import get_odoo_service
+        
+        # Obtener items del carrito si está disponible
+        cart_items = None
+        if cart:
+            cart_items = list(cart.items)
+        
+        # Enviar webhook a Odoo
+        odoo_service = get_odoo_service()
+        success, error_msg, response_data = odoo_service.send_payment_webhook(
+            payment=payment,
+            user=user,
+            cart_items=cart_items
+        )
+        
+        if success:
+            print(f"✅ Pago {payment.id} sincronizado exitosamente con Odoo")
+        else:
+            print(f"⚠️ Error sincronizando pago {payment.id} con Odoo: {error_msg}")
+        
+        return success, error_msg
+        
+    except ImportError:
+        print("⚠️ Servicio de integración Odoo no disponible")
+        return False, "Servicio no disponible"
+    except Exception as e:
+        print(f"⚠️ Error enviando pago a Odoo: {e}")
+        import traceback
+        traceback.print_exc()
+        return False, str(e)
+
+
 def process_cart_after_payment(cart, payment):
     """Procesar carrito después de un pago exitoso y registrar uso de códigos de descuento"""
     import json
     subscriptions_created = []
+    events_registered = []
     
     # Obtener desglose de descuentos antes de procesar
     discount_breakdown = cart.get_discount_breakdown()
@@ -3186,10 +4614,132 @@ def process_cart_after_payment(cart, payment):
             metadata = json.loads(item.item_metadata) if item.item_metadata else {}
             event_id = metadata.get('event_id')
             if event_id:
-                # Aquí se registraría al evento automáticamente
-                pass
+                # Verificar si el evento existe
+                event = Event.query.get(event_id)
+                if event:
+                    # Verificar si ya está registrado
+                    existing_registration = EventRegistration.query.filter_by(
+                        event_id=event_id,
+                        user_id=payment.user_id
+                    ).first()
+                    
+                    if not existing_registration:
+                        # Calcular precio con descuentos
+                        base_price = item.unit_price
+                        discount_amount = 0
+                        
+                        # Aplicar descuento del código si aplica a eventos
+                        if cart.discount_code_id:
+                            discount_code = DiscountCode.query.get(cart.discount_code_id)
+                            if discount_code and discount_code.applies_to in ['all', 'events']:
+                                discount_amount = discount_code.apply_discount(base_price)
+                        
+                        final_price = base_price - discount_amount
+                        
+                        # Crear registro de evento
+                        event_registration = EventRegistration(
+                            event_id=event_id,
+                            user_id=payment.user_id,
+                            registration_status='confirmed',
+                            base_price=base_price / 100.0,  # Convertir de centavos a dólares
+                            discount_applied=discount_amount / 100.0,
+                            final_price=final_price / 100.0,
+                            payment_status='paid',
+                            payment_method=payment.payment_method,
+                            payment_reference=payment.payment_reference or str(payment.id),
+                            payment_date=payment.paid_at or datetime.utcnow(),
+                            confirmation_email_sent=False
+                        )
+                        db.session.add(event_registration)
+                    else:
+                        # Actualizar registro existente con información de pago
+                        existing_registration.payment_status = 'paid'
+                        existing_registration.payment_method = payment.payment_method
+                        existing_registration.payment_reference = payment.payment_reference
+                        existing_registration.payment_date = payment.paid_at or datetime.utcnow()
+                        existing_registration.registration_status = 'confirmed'
+                        event_registration = existing_registration
+                    
+                    if event_registration:
+                        events_registered.append(event_registration)
     
     db.session.commit()
+
+    # Registrar compra detallada en historial
+    try:
+        from history_module import HistoryLogger
+        import json
+        
+        # Preparar detalles de los items comprados
+        purchased_items = []
+        for item in cart.items:
+            item_data = {
+                'product_type': item.product_type,
+                'product_id': item.product_id,
+                'product_name': item.product_name,
+                'quantity': item.quantity,
+                'unit_price': item.unit_price,
+                'total_price': item.unit_price * item.quantity
+            }
+            
+            # Agregar metadata específica según el tipo
+            if item.item_metadata:
+                metadata = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
+                item_data['metadata'] = metadata
+            
+            purchased_items.append(item_data)
+        
+        # Preparar información de suscripciones creadas
+        subscriptions_info = []
+        for sub in subscriptions_created:
+            subscriptions_info.append({
+                'subscription_id': sub.id,
+                'membership_type': sub.membership_type,
+                'status': sub.status,
+                'end_date': sub.end_date.isoformat() if sub.end_date else None
+            })
+        
+        # Preparar información de eventos registrados
+        events_info = []
+        for event_reg in events_registered:
+            event_info = {
+                'registration_id': event_reg.id,
+                'event_id': event_reg.event_id,
+                'event_name': event_reg.event.title if event_reg.event else 'N/A',
+                'status': event_reg.registration_status,
+                'final_price': event_reg.final_price
+            }
+            events_info.append(event_info)
+        
+        HistoryLogger.log_user_action(
+            user_id=payment.user_id,
+            action=f"Compra realizada - {len(purchased_items)} item(s) - ${final_amount/100:.2f}",
+            status="success",
+            context={"app": "web", "screen": "payment", "module": "cart"},
+            payload={
+                "payment_id": payment.id,
+                "cart_id": cart.id,
+                "items": purchased_items,
+                "original_amount": original_amount,
+                "total_discount": total_discount,
+                "final_amount": final_amount,
+                "discount_code_id": cart.discount_code_id
+            },
+            result={
+                "subscriptions_created": len(subscriptions_created),
+                "subscriptions": subscriptions_info,
+                "events_registered": len(events_registered),
+                "events": events_info,
+                "payment_id": payment.id,
+                "total_paid": final_amount
+            },
+            visibility="both"
+        )
+    except Exception as e:
+        print(f"⚠️ Error registrando compra en historial: {e}")
+        import traceback
+        traceback.print_exc()
+    
     return subscriptions_created
 
 @app.route('/payment-cancel')
@@ -3390,15 +4940,8 @@ def cart_add():
             active_membership = current_user.get_active_membership()
             membership_type = active_membership.membership_type if active_membership else 'basic'
             
-            # Descuentos por membresía para servicios
-            discounts = {
-                'basic': 0,      # Sin descuento
-                'pro': 10,       # 10% descuento
-                'premium': 20,   # 20% descuento
-                'deluxe': 30     # 30% descuento
-            }
-            
-            discount_percent = discounts.get(membership_type, 0)
+            # Obtener descuento desde la tabla MembershipDiscount
+            discount_percent = MembershipDiscount.get_discount(membership_type, product_type='service')
             final_price = base_price * (1 - discount_percent / 100)
             unit_price = int(final_price * 100)  # Convertir a centavos
             
@@ -3544,7 +5087,33 @@ def handle_successful_payment(payment_intent):
         if payment:
             # Actualizar estado del pago
             payment.status = 'succeeded'
+            payment.paid_at = datetime.utcnow()
             db.session.commit()
+            
+            # Registrar confirmación de pago vía webhook en historial
+            try:
+                from history_module import HistoryLogger
+                # Registrar como acción del usuario (el pago es del usuario)
+                HistoryLogger.log_user_action(
+                    user_id=payment.user_id,
+                    action=f"Pago confirmado - Stripe Webhook - ${payment.amount/100:.2f}",
+                    status="success",
+                    context={"app": "webhook", "screen": "payment", "module": "stripe"},
+                    payload={
+                        "payment_id": payment.id,
+                        "payment_method": "stripe",
+                        "amount": payment.amount,
+                        "event_type": event.get('type') if 'event' in locals() else None
+                    },
+                    result={
+                        "payment_id": payment.id,
+                        "status": "succeeded",
+                        "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
+                    },
+                    visibility="both"
+                )
+            except Exception as e:
+                print(f"⚠️ Error registrando confirmación de pago Stripe en historial: {e}")
             
             # Crear suscripción
             end_date = datetime.utcnow() + timedelta(days=365)  # 1 año
@@ -3560,6 +5129,13 @@ def handle_successful_payment(payment_intent):
             
             # Enviar notificación y email de confirmación
             NotificationEngine.notify_membership_payment(payment.user, payment, subscription)
+            
+            # Enviar webhook a Odoo (no bloquea si falla)
+            try:
+                cart = get_or_create_cart(payment.user_id)
+                send_payment_to_odoo(payment, payment.user, cart)
+            except Exception as e:
+                print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
             
     except Exception as e:
         print(f"Error handling payment: {e}")
@@ -4498,48 +6074,63 @@ def api_user_membership():
     return jsonify({'error': 'No active membership found'}), 404
 
 # Rutas de administración
-def admin_required(f):
-    """Decorador para requerir permisos de administrador"""
-    from functools import wraps
-    @wraps(f)
-    @login_required
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_admin:
-            flash('No tienes permisos para acceder a esta página.', 'error')
-            return redirect(url_for('dashboard'))
-        return f(*args, **kwargs)
-    return decorated_function
-
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
     """Panel de administración principal"""
-    # Contar pagos pendientes de revisión OCR
-    pending_payments_count = Payment.query.filter(
-        Payment.ocr_status.in_(['pending', 'needs_review']),
-        Payment.status == 'pending'
-    ).count()
-    
-    total_users = User.query.count()
-    total_memberships = Membership.query.count()
-    active_memberships = Membership.query.filter_by(is_active=True).count()
-    total_payments = Payment.query.filter_by(status='succeeded').count()
-    total_revenue = sum([p.amount for p in Payment.query.filter_by(status='succeeded').all()]) / 100
-    
-    # Usuarios recientes
-    recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
-    
-    # Membresías recientes
-    recent_memberships = Membership.query.order_by(Membership.created_at.desc()).limit(5).all()
-    
-    return render_template('admin/dashboard.html',
-                         total_users=total_users,
-                         total_memberships=total_memberships,
-                         active_memberships=active_memberships,
-                         total_payments=total_payments,
-                         total_revenue=total_revenue,
-                         recent_users=recent_users,
-                         recent_memberships=recent_memberships)
+    try:
+        # Contar pagos pendientes de revisión OCR (si el campo existe)
+        try:
+            pending_payments_count = Payment.query.filter(
+                Payment.ocr_status.in_(['pending', 'needs_review']),
+                Payment.status == 'pending'
+            ).count()
+        except AttributeError:
+            # Si ocr_status no existe, contar solo pendientes
+            pending_payments_count = Payment.query.filter_by(status='pending').count()
+        
+        total_users = User.query.count()
+        
+        # Usar Subscription en lugar de Membership si es necesario
+        try:
+            total_memberships = Membership.query.count()
+            active_memberships = Membership.query.filter_by(is_active=True).count()
+            recent_memberships = Membership.query.order_by(Membership.created_at.desc()).limit(5).all()
+        except (AttributeError, Exception) as e:
+            # Fallback a Subscription
+            print(f"⚠️ Error con Membership, usando Subscription: {e}")
+            total_memberships = Subscription.query.filter_by(status='active').count()
+            active_memberships = Subscription.query.filter_by(status='active').count()
+            recent_memberships = Subscription.query.order_by(Subscription.created_at.desc()).limit(5).all()
+        
+        total_payments = Payment.query.filter_by(status='succeeded').count()
+        
+        # Calcular revenue de forma segura
+        try:
+            succeeded_payments = Payment.query.filter_by(status='succeeded').all()
+            total_revenue = sum([p.amount for p in succeeded_payments]) / 100.0
+        except Exception as e:
+            print(f"⚠️ Error calculando revenue: {e}")
+            total_revenue = 0.0
+        
+        # Usuarios recientes
+        recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
+        
+        return render_template('admin/dashboard.html',
+                             total_users=total_users,
+                             total_memberships=total_memberships,
+                             active_memberships=active_memberships,
+                             total_payments=total_payments,
+                             total_revenue=total_revenue,
+                             recent_users=recent_users,
+                             recent_memberships=recent_memberships,
+                             pending_payments_count=pending_payments_count)
+    except Exception as e:
+        print(f"❌ Error en admin_dashboard: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al cargar el panel de administración: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/admin/users')
 @admin_required
@@ -5946,6 +7537,12 @@ def api_approve_payment(payment_id):
                     NotificationEngine.notify_membership_payment(user, payment, subscription)
             except:
                 pass
+            
+            # Enviar webhook a Odoo (no bloquea si falla)
+            try:
+                send_payment_to_odoo(payment, user, cart)
+            except Exception as e:
+                print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
         
         return jsonify({'success': True, 'message': 'Pago aprobado exitosamente'})
     except Exception as e:
@@ -6031,9 +7628,64 @@ def admin_payments():
         Payment.status == 'pending'
     ).order_by(Payment.created_at.desc()).limit(20).all()
     
+    # Obtener transacciones del historial relacionadas con pagos
+    # Filtrar por transacciones de tipo 'payment' o 'purchase'
+    payment_transactions = HistoryTransaction.query.filter(
+        HistoryTransaction.transaction_type.in_(['payment', 'purchase'])
+    ).order_by(HistoryTransaction.timestamp.desc()).limit(100).all()
+    
+    # Enriquecer transacciones con información del usuario y pago
+    enriched_transactions = []
+    for trans in payment_transactions:
+        trans_dict = trans.to_dict(include_sensitive=True)
+        
+        # Agregar información del usuario
+        if trans.actor_id:
+            actor = User.query.get(trans.actor_id)
+            if actor:
+                trans_dict['actor'] = {
+                    'id': actor.id,
+                    'email': actor.email,
+                    'first_name': actor.first_name,
+                    'last_name': actor.last_name
+                }
+        
+        # Intentar extraer payment_id del payload o result
+        payment_id = None
+        try:
+            import json
+            if trans.payload:
+                payload_data = json.loads(trans.payload)
+                payment_id = payload_data.get('payment_id') or payload_data.get('payment', {}).get('id')
+            if not payment_id and trans.result:
+                result_data = json.loads(trans.result)
+                payment_id = result_data.get('payment_id') or result_data.get('payment', {}).get('id')
+        except:
+            pass
+        
+        # Agregar información del pago si existe
+        if payment_id:
+            payment = Payment.query.get(payment_id)
+            if payment:
+                trans_dict['payment'] = {
+                    'id': payment.id,
+                    'amount': float(payment.amount) / 100 if payment.amount else 0,  # Convertir de centavos a dólares
+                    'currency': payment.currency.upper() if payment.currency else 'USD',
+                    'status': payment.status,
+                    'method': payment.payment_method
+                }
+        
+        enriched_transactions.append(trans_dict)
+    
+    # Debug: Log para verificar que se están pasando las transacciones
+    print(f"📊 admin_payments(): Pasando {len(enriched_transactions)} transacciones al template")
+    if enriched_transactions:
+        print(f"   - Primera transacción: ID {enriched_transactions[0].get('id')}, Tipo: {enriched_transactions[0].get('transaction_type')}")
+    
     return render_template('admin/payments.html',
                          payment_config=config_dict,
-                         pending_payments=pending_payments)
+                         pending_payments=pending_payments,
+                         payment_transactions=enriched_transactions)
 
 @app.route('/admin/backup')
 @admin_required
@@ -6665,15 +8317,67 @@ def admin_services_update(service_id):
         service = Service.query.get_or_404(service_id)
         data = request.get_json()
         
+        # Obtener planes seleccionados
+        membership_plans = data.get('membership_plans', [])
+        if isinstance(membership_plans, str):
+            membership_plans = [membership_plans]
+        elif not isinstance(membership_plans, list):
+            # Fallback al método antiguo si viene membership_type
+            membership_plans = [data.get('membership_type', service.membership_type)]
+        
+        if not membership_plans:
+            return jsonify({'success': False, 'error': 'Debe seleccionar al menos un plan de membresía'}), 400
+        
+        # Jerarquía para determinar el plan base
+        membership_hierarchy = {
+            'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4
+        }
+        
+        # El plan base será el más bajo en jerarquía
+        base_plan = min(membership_plans, key=lambda p: membership_hierarchy.get(p, 999))
+        
+        category_id = data.get('category_id')
+        if category_id:
+            # Verificar que la categoría existe
+            category = ServiceCategory.query.get(category_id)
+            if not category:
+                return jsonify({'success': False, 'error': 'Categoría no encontrada'}), 400
+        
         service.name = data.get('name', service.name)
         service.description = data.get('description', service.description)
         service.icon = data.get('icon', service.icon)
-        service.membership_type = data.get('membership_type', service.membership_type)
+        service.membership_type = base_plan  # Actualizar plan base
+        service.category_id = category_id if category_id else None
         service.external_link = data.get('external_link', service.external_link)
         service.base_price = float(data.get('base_price', service.base_price))
         service.is_active = data.get('is_active', service.is_active)
         service.display_order = int(data.get('display_order', service.display_order))
         service.updated_at = datetime.utcnow()
+        
+        # Obtener todas las reglas de precio existentes
+        existing_rules = {rule.membership_type: rule for rule in service.pricing_rules}
+        
+        # Actualizar o crear reglas para los planes seleccionados
+        for plan in membership_plans:
+            if plan != base_plan:  # El plan base no necesita regla
+                if plan in existing_rules:
+                    # Actualizar regla existente
+                    existing_rules[plan].is_included = True
+                    existing_rules[plan].is_active = True
+                else:
+                    # Crear nueva regla
+                    rule = ServicePricingRule(
+                        service_id=service.id,
+                        membership_type=plan,
+                        is_included=True,
+                        is_active=True
+                    )
+                    db.session.add(rule)
+        
+        # Desactivar reglas para planes que ya no están seleccionados
+        for plan, rule in existing_rules.items():
+            if plan not in membership_plans:
+                rule.is_active = False
         
         db.session.commit()
         
@@ -6688,21 +8392,36 @@ def admin_services_get(service_id):
     """Obtener un servicio por ID con sus reglas de precio"""
     try:
         service = Service.query.get_or_404(service_id)
-        service_dict = service.to_dict()
+        
+        # Construir diccionario manualmente para evitar problemas de serialización
+        service_dict = {
+            'id': service.id,
+            'name': service.name,
+            'description': service.description or '',
+            'icon': service.icon or 'fas fa-cog',
+            'membership_type': service.membership_type,
+            'category_id': service.category_id,
+            'external_link': service.external_link or '',
+            'base_price': float(service.base_price) if service.base_price else 0.0,
+            'is_active': service.is_active,
+            'display_order': service.display_order or 0
+        }
         
         # Incluir reglas de precio
         pricing_rules = ServicePricingRule.query.filter_by(service_id=service_id).all()
         service_dict['pricing_rules'] = [{
             'id': rule.id,
             'membership_type': rule.membership_type,
-            'price': rule.price,
-            'discount_percentage': rule.discount_percentage,
+            'price': float(rule.price) if rule.price else None,
+            'discount_percentage': float(rule.discount_percentage) if rule.discount_percentage else 0.0,
             'is_included': rule.is_included,
             'is_active': rule.is_active
         } for rule in pricing_rules]
         
         return jsonify({'success': True, 'service': service_dict})
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 404
 
 @app.route('/api/admin/services/delete/<int:service_id>', methods=['DELETE'])
@@ -6715,6 +8434,250 @@ def admin_services_delete(service_id):
         db.session.commit()
         
         return jsonify({'success': True, 'message': 'Servicio eliminado exitosamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+# ==================== RUTAS ADMIN PARA CATEGORÍAS DE SERVICIOS ====================
+
+@app.route('/admin/service-categories')
+@admin_required
+def admin_service_categories():
+    """Panel de administración de categorías de servicios"""
+    categories = ServiceCategory.query.order_by(ServiceCategory.display_order, ServiceCategory.name).all()
+    return render_template('admin/service_categories.html', categories=categories)
+
+@app.route('/api/admin/service-categories/create', methods=['POST'])
+@admin_required
+def admin_service_categories_create():
+    """Crear nueva categoría"""
+    try:
+        data = request.get_json()
+        
+        # Generar slug si no se proporciona
+        slug = data.get('slug', '').strip()
+        if not slug:
+            from flask import url_for
+            import re
+            name = data.get('name', '').strip()
+            slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+        
+        # Verificar que el slug sea único
+        existing = ServiceCategory.query.filter_by(slug=slug).first()
+        if existing:
+            counter = 1
+            original_slug = slug
+            while existing:
+                slug = f"{original_slug}-{counter}"
+                existing = ServiceCategory.query.filter_by(slug=slug).first()
+                counter += 1
+        
+        category = ServiceCategory(
+            name=data.get('name'),
+            slug=slug,
+            description=data.get('description', ''),
+            icon=data.get('icon', 'fas fa-folder'),
+            color=data.get('color', 'primary'),
+            display_order=int(data.get('display_order', 0)),
+            is_active=data.get('is_active', True)
+        )
+        
+        db.session.add(category)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Categoría creada exitosamente', 'category': category.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/service-categories/update/<int:category_id>', methods=['PUT'])
+@admin_required
+def admin_service_categories_update(category_id):
+    """Actualizar categoría"""
+    try:
+        category = ServiceCategory.query.get_or_404(category_id)
+        data = request.get_json()
+        
+        # Verificar slug único si se cambia
+        new_slug = data.get('slug', category.slug).strip()
+        if new_slug != category.slug:
+            existing = ServiceCategory.query.filter_by(slug=new_slug).first()
+            if existing and existing.id != category_id:
+                return jsonify({'success': False, 'error': 'El slug ya está en uso'}), 400
+        
+        category.name = data.get('name', category.name)
+        category.slug = new_slug
+        category.description = data.get('description', category.description)
+        category.icon = data.get('icon', category.icon)
+        category.color = data.get('color', category.color)
+        category.display_order = int(data.get('display_order', category.display_order))
+        category.is_active = data.get('is_active', category.is_active)
+        category.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Categoría actualizada exitosamente', 'category': category.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/service-categories/<int:category_id>', methods=['GET'])
+@admin_required
+def admin_service_categories_get(category_id):
+    """Obtener una categoría por ID"""
+    try:
+        category = ServiceCategory.query.get_or_404(category_id)
+        return jsonify({'success': True, 'category': category.to_dict()})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+
+@app.route('/api/admin/service-categories/delete/<int:category_id>', methods=['DELETE'])
+@admin_required
+def admin_service_categories_delete(category_id):
+    """Eliminar categoría"""
+    try:
+        category = ServiceCategory.query.get_or_404(category_id)
+        
+        # Verificar si tiene servicios asociados
+        if category.services:
+            return jsonify({
+                'success': False, 
+                'error': f'No se puede eliminar la categoría porque tiene {len(category.services)} servicio(s) asociado(s)'
+            }), 400
+        
+        db.session.delete(category)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Categoría eliminada exitosamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/service-categories', methods=['GET'])
+@admin_required
+def admin_service_categories_list():
+    """Listar todas las categorías activas (para selects)"""
+    try:
+        categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order, ServiceCategory.name).all()
+        return jsonify({
+            'success': True, 
+            'categories': [cat.to_dict() for cat in categories]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ==================== RUTAS ADMIN PARA DESCUENTOS DE MEMBRESÍA ====================
+
+@app.route('/admin/membership-discounts')
+@admin_required
+def admin_membership_discounts():
+    """Panel de administración de descuentos por membresía"""
+    discounts = MembershipDiscount.query.order_by(
+        MembershipDiscount.product_type,
+        MembershipDiscount.membership_type
+    ).all()
+    return render_template('admin/membership_discounts.html', discounts=discounts)
+
+@app.route('/api/admin/membership-discounts/create', methods=['POST'])
+@admin_required
+def admin_membership_discounts_create():
+    """Crear nuevo descuento de membresía"""
+    try:
+        data = request.get_json()
+        
+        # Validar que no exista ya un descuento para esta combinación
+        existing = MembershipDiscount.query.filter_by(
+            membership_type=data.get('membership_type'),
+            product_type=data.get('product_type')
+        ).first()
+        
+        if existing:
+            return jsonify({
+                'success': False,
+                'error': f'Ya existe un descuento para {data.get("membership_type")} - {data.get("product_type")}'
+            }), 400
+        
+        discount = MembershipDiscount(
+            membership_type=data.get('membership_type'),
+            product_type=data.get('product_type'),
+            discount_percentage=float(data.get('discount_percentage', 0)),
+            is_active=data.get('is_active', True)
+        )
+        
+        db.session.add(discount)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Descuento creado exitosamente',
+            'discount': discount.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/membership-discounts/update/<int:discount_id>', methods=['PUT'])
+@admin_required
+def admin_membership_discounts_update(discount_id):
+    """Actualizar descuento de membresía"""
+    try:
+        discount = MembershipDiscount.query.get_or_404(discount_id)
+        data = request.get_json()
+        
+        # Si cambia membership_type o product_type, verificar que no exista otro
+        new_membership_type = data.get('membership_type', discount.membership_type)
+        new_product_type = data.get('product_type', discount.product_type)
+        
+        if (new_membership_type != discount.membership_type or 
+            new_product_type != discount.product_type):
+            existing = MembershipDiscount.query.filter_by(
+                membership_type=new_membership_type,
+                product_type=new_product_type
+            ).first()
+            
+            if existing and existing.id != discount_id:
+                return jsonify({
+                    'success': False,
+                    'error': f'Ya existe un descuento para {new_membership_type} - {new_product_type}'
+                }), 400
+        
+        discount.membership_type = new_membership_type
+        discount.product_type = new_product_type
+        discount.discount_percentage = float(data.get('discount_percentage', discount.discount_percentage))
+        discount.is_active = data.get('is_active', discount.is_active)
+        discount.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Descuento actualizado exitosamente',
+            'discount': discount.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/membership-discounts/<int:discount_id>', methods=['GET'])
+@admin_required
+def admin_membership_discounts_get(discount_id):
+    """Obtener un descuento por ID"""
+    try:
+        discount = MembershipDiscount.query.get_or_404(discount_id)
+        return jsonify({'success': True, 'discount': discount.to_dict()})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+
+@app.route('/api/admin/membership-discounts/delete/<int:discount_id>', methods=['DELETE'])
+@admin_required
+def admin_membership_discounts_delete(discount_id):
+    """Eliminar descuento de membresía"""
+    try:
+        discount = MembershipDiscount.query.get_or_404(discount_id)
+        db.session.delete(discount)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Descuento eliminado exitosamente'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -6871,12 +8834,45 @@ def api_notifications():
 @login_required
 def mark_notification_read(notification_id):
     """Marcar notificación como leída"""
-    notification = Notification.query.filter_by(
-        id=notification_id,
-        user_id=current_user.id
-    ).first_or_404()
-    notification.mark_as_read()
-    return jsonify({'success': True, 'message': 'Notificación marcada como leída'})
+    try:
+        notification = Notification.query.filter_by(
+            id=notification_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not notification:
+            return jsonify({
+                'success': False,
+                'error': 'Notificación no encontrada'
+            }), 404
+        
+        if notification.is_read:
+            return jsonify({
+                'success': True,
+                'message': 'Notificación ya estaba marcada como leída'
+            })
+        
+        notification.mark_as_read()
+        db.session.commit()
+        
+        print(f"✅ Notificación {notification_id} marcada como leída por usuario {current_user.id}")
+        return jsonify({
+            'success': True,
+            'message': 'Notificación marcada como leída',
+            'notification': {
+                'id': notification.id,
+                'is_read': notification.is_read
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error marcando notificación {notification_id} como leída: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/notifications/read-all', methods=['POST'])
 @login_required

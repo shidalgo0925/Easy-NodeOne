@@ -2,6 +2,65 @@
 
 {% block title %}Checkout - RelaticPanama{% endblock %}
 
+{% block head %}
+<style>
+    /* Estilos elegantes para Stripe Elements */
+    #stripe-card-element {
+        padding: 12px;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        background-color: #fff;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    #stripe-card-element:focus {
+        border-color: #0d6efd;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    #stripe-card-element.StripeElement--invalid {
+        border-color: #dc3545;
+    }
+    
+    #stripe-card-element.StripeElement--focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .payment-method-option .card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border: 2px solid transparent;
+    }
+    
+    .payment-method-option .card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .payment-method-option input[type="radio"]:checked + label .card {
+        border-color: #0d6efd;
+        background-color: #f0f7ff;
+    }
+    
+    .payment-section {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
 {% block page_content %}
 <div class="container py-4">
     <div class="row justify-content-center">
@@ -106,16 +165,34 @@
                             <div class="row g-3" id="payment-methods">
                                 {% if payment_methods %}
                                     {% for method_key, method_name in payment_methods.items() %}
-                                    <div class="col-md-6">
+                                    <div class="col-md-6 col-lg-4">
                                         <div class="form-check payment-method-option" data-method="{{ method_key }}">
                                             <input class="form-check-input" type="radio" name="payment_method" 
                                                    id="method_{{ method_key }}" value="{{ method_key }}"
                                                    {% if loop.first %}checked{% endif %}>
                                             <label class="form-check-label w-100" for="method_{{ method_key }}">
-                                                <div class="card">
-                                                    <div class="card-body">
-                                                        <i class="fas fa-credit-card me-2"></i>
-                                                        <strong>{{ method_name }}</strong>
+                                                <div class="card h-100">
+                                                    <div class="card-body text-center">
+                                                        {% if method_key == 'stripe' %}
+                                                            <i class="fab fa-cc-stripe fa-2x text-primary mb-2"></i>
+                                                            <div><strong>Tarjeta de Crédito</strong></div>
+                                                            <small class="text-muted">Visa, Mastercard, Amex</small>
+                                                        {% elif method_key == 'paypal' %}
+                                                            <i class="fab fa-paypal fa-2x text-primary mb-2"></i>
+                                                            <div><strong>PayPal</strong></div>
+                                                            <small class="text-muted">Pago rápido y seguro</small>
+                                                        {% elif method_key == 'yappy' %}
+                                                            <i class="fas fa-mobile-alt fa-2x text-success mb-2"></i>
+                                                            <div><strong>Yappy</strong></div>
+                                                            <small class="text-muted">Pago móvil Panamá</small>
+                                                        {% elif method_key == 'banco_general' %}
+                                                            <i class="fas fa-university fa-2x text-info mb-2"></i>
+                                                            <div><strong>Banco General</strong></div>
+                                                            <small class="text-muted">Transferencia bancaria</small>
+                                                        {% else %}
+                                                            <i class="fas fa-credit-card fa-2x text-primary mb-2"></i>
+                                                            <div><strong>{{ method_name }}</strong></div>
+                                                        {% endif %}
                                                     </div>
                                                 </div>
                                             </label>
@@ -136,20 +213,7 @@
                         <div class="col-12">
                             <h5>Información de Pago</h5>
                             <form id="payment-form">
-                                <!-- Stripe Card Element (solo para método stripe) -->
-                                <div id="stripe-payment-section" class="payment-section">
-                                    <div class="mb-3">
-                                        <label for="card-element" class="form-label">
-                                            Información de la Tarjeta
-                                        </label>
-                                        <div id="card-element" class="form-control" style="height: 40px; padding: 10px;">
-                                            <!-- Stripe Elements se insertará aquí -->
-                                        </div>
-                                        <div id="card-errors" role="alert" class="text-danger mt-2"></div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Información para pagos manuales (Banco General, Interbank, Yappy) -->
+                                <!-- Información para pagos manuales (Banco General, Yappy) -->
                                 <div id="manual-payment-section" class="payment-section d-none">
                                     <div class="alert alert-info" id="manual-payment-info">
                                         <i class="fas fa-info-circle"></i>
@@ -162,11 +226,47 @@
                                     </div>
                                 </div>
                                 
+                                <!-- Stripe Card Form (se mostrará dinámicamente) -->
+                                <div id="stripe-payment-section" class="payment-section d-none">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white">
+                                            <h6 class="mb-0">
+                                                <i class="fab fa-cc-stripe me-2"></i>
+                                                Información de Tarjeta
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="stripe-card-element" class="mb-3">
+                                                <!-- Stripe Elements creará el formulario aquí -->
+                                            </div>
+                                            <div id="stripe-card-errors" class="alert alert-danger d-none" role="alert"></div>
+                                            <div class="d-grid gap-2">
+                                                <button id="stripe-submit-button" class="btn btn-primary btn-lg" type="button">
+                                                    <span id="stripe-button-text">
+                                                        <i class="fas fa-lock"></i> 
+                                                        Pagar ${{ "%.2f"|format(total_amount / 100) }}
+                                                    </span>
+                                                    <span id="stripe-spinner" class="spinner-border spinner-border-sm d-none" role="status">
+                                                        <span class="visually-hidden">Procesando...</span>
+                                                    </span>
+                                                </button>
+                                            </div>
+                                            <p class="text-center mt-3 mb-0">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-shield-alt"></i>
+                                                    Pagos procesados de forma segura por Stripe
+                                                </small>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <!-- PayPal Button (se mostrará dinámicamente) -->
                                 <div id="paypal-payment-section" class="payment-section d-none">
                                     <div id="paypal-button-container"></div>
                                 </div>
                                 
+                                <!-- Botón genérico para otros métodos -->
                                 <div class="d-grid gap-2 mt-3">
                                     <button id="submit-button" class="btn btn-primary btn-lg" type="submit">
                                         <span id="button-text">
@@ -205,43 +305,14 @@
     </div>
 </div>
 
-<!-- Stripe JavaScript -->
+<!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
 <script>
+    let currentPaymentMethod = 'paypal'; // PayPal como método por defecto
     let stripe = null;
-    let cardElement = null;
-    let currentPaymentMethod = 'stripe';
-    
-    // Inicializar Stripe si está disponible
-    {% if stripe_publishable_key %}
-    stripe = Stripe('{{ stripe_publishable_key }}');
-    const elements = stripe.elements();
-    
-    // Crear elemento de tarjeta
-    cardElement = elements.create('card', {
-        style: {
-            base: {
-                fontSize: '16px',
-                color: '#424770',
-                '::placeholder': {
-                    color: '#aab7c4',
-                },
-            },
-        },
-    });
-    
-    cardElement.mount('#card-element');
-    
-    // Manejar errores de la tarjeta
-    cardElement.on('change', function(event) {
-        const displayError = document.getElementById('card-errors');
-        if (event.error) {
-            displayError.textContent = event.error.message;
-        } else {
-            displayError.textContent = '';
-        }
-    });
-    {% endif %}
+    let stripeElements = null;
+    let stripeCardElement = null;
+    let stripeClientSecret = null;
     
     // Manejar cambio de método de pago
     document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
@@ -256,20 +327,234 @@
         document.querySelectorAll('.payment-section').forEach(section => {
             section.classList.add('d-none');
         });
+        document.getElementById('submit-button').classList.add('d-none');
+        document.getElementById('stripe-submit-button').classList.add('d-none');
         
         // Mostrar sección según el método
         if (currentPaymentMethod === 'stripe') {
             document.getElementById('stripe-payment-section').classList.remove('d-none');
-            document.getElementById('submit-button').classList.remove('d-none');
+            document.getElementById('stripe-submit-button').classList.remove('d-none');
+            initStripe();
         } else if (currentPaymentMethod === 'paypal') {
             document.getElementById('paypal-payment-section').classList.remove('d-none');
-            document.getElementById('submit-button').classList.add('d-none');
             initPayPal();
+        } else if (currentPaymentMethod === 'yappy') {
+            // Yappy usa Botón de Pago automático - mostrar botón de pago
+            document.getElementById('submit-button').classList.remove('d-none');
+            // El botón creará la orden y redirigirá automáticamente
         } else {
-            // Métodos manuales (banco_general, interbank, yappy)
+            // Métodos manuales (solo banco_general ahora)
             document.getElementById('manual-payment-section').classList.remove('d-none');
             document.getElementById('submit-button').classList.remove('d-none');
             showManualPaymentInfo(currentPaymentMethod);
+        }
+    }
+    
+    async function initStripe() {
+        const stripeSection = document.getElementById('stripe-payment-section');
+        const cardElement = document.getElementById('stripe-card-element');
+        const cardErrors = document.getElementById('stripe-card-errors');
+        
+        // Limpiar errores previos
+        cardErrors.classList.add('d-none');
+        cardErrors.textContent = '';
+        
+        // Mostrar loading
+        cardElement.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando Stripe...</span></div><p class="mt-2 text-muted">Preparando formulario de pago...</p></div>';
+        
+        try {
+            // Crear payment intent
+            const result = await createPaymentIntent('stripe');
+            
+            if (!result.success) {
+                cardElement.innerHTML = `<div class="alert alert-danger">Error: ${result.error}</div>`;
+                return;
+            }
+            
+            const data = result.data;
+            
+            // Verificar si está en modo demo
+            if (data.demo_mode && data.status === 'succeeded') {
+                // Modo demo - pago ya procesado, redirigir a success
+                cardElement.innerHTML = `
+                    <div class="text-center">
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            <p class="mb-2"><strong>Pago procesado (Modo Demo)</strong></p>
+                            <p class="mb-0">Redirigiendo...</p>
+                        </div>
+                    </div>
+                `;
+                setTimeout(() => {
+                    window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+                }, 1500);
+                return;
+            }
+            
+            // Obtener publishable key desde el template
+            const stripePublishableKey = '{{ stripe_publishable_key }}';
+            
+            if (!stripePublishableKey || stripePublishableKey === '' || stripePublishableKey.includes('your_key')) {
+                // Modo demo - no hay clave real
+                cardElement.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <p class="mb-2"><strong>Modo Demo</strong></p>
+                        <p class="mb-0">Stripe no está configurado. El pago se procesará en modo demo.</p>
+                    </div>
+                    <div class="d-grid gap-2 mt-3">
+                        <button id="demo-stripe-button" class="btn btn-primary btn-lg" type="button">
+                            <i class="fas fa-check"></i> 
+                            Confirmar Pago (Demo)
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('demo-stripe-button').addEventListener('click', async function() {
+                    const submitBtn = document.getElementById('stripe-submit-button');
+                    submitBtn.disabled = true;
+                    
+                    // Simular pago demo
+                    window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+                });
+                return;
+            }
+            
+            // Inicializar Stripe
+            if (!stripe) {
+                stripe = Stripe(stripePublishableKey);
+            }
+            
+            stripeClientSecret = data.client_secret;
+            
+            // Crear elementos de Stripe
+            if (!stripeElements) {
+                stripeElements = stripe.elements({
+                    appearance: {
+                        theme: 'stripe',
+                        variables: {
+                            colorPrimary: '#0d6efd',
+                            colorBackground: '#ffffff',
+                            colorText: '#212529',
+                            colorDanger: '#dc3545',
+                            fontFamily: 'system-ui, -apple-system, sans-serif',
+                            spacingUnit: '4px',
+                            borderRadius: '8px'
+                        }
+                    }
+                });
+            }
+            
+            // Crear elemento de tarjeta
+            if (!stripeCardElement) {
+                stripeCardElement = stripeElements.create('card', {
+                    style: {
+                        base: {
+                            fontSize: '16px',
+                            color: '#212529',
+                            '::placeholder': {
+                                color: '#6c757d',
+                            },
+                            padding: '12px'
+                        },
+                        invalid: {
+                            color: '#dc3545',
+                            iconColor: '#dc3545',
+                        },
+                    },
+                });
+                
+                // Montar el elemento de tarjeta
+                stripeCardElement.mount('#stripe-card-element');
+                
+                // Manejar errores de validación en tiempo real
+                stripeCardElement.on('change', function(event) {
+                    const displayError = document.getElementById('stripe-card-errors');
+                    if (event.error) {
+                        displayError.textContent = event.error.message;
+                        displayError.classList.remove('d-none');
+                    } else {
+                        displayError.classList.add('d-none');
+                    }
+                });
+            }
+            
+            // Configurar botón de envío
+            const submitButton = document.getElementById('stripe-submit-button');
+            submitButton.onclick = async function() {
+                await handleStripeSubmit();
+            };
+            
+        } catch (error) {
+            console.error('Error inicializando Stripe:', error);
+            cardElement.innerHTML = `<div class="alert alert-danger">Error: ${error.message || 'No se pudo inicializar Stripe'}</div>`;
+        }
+    }
+    
+    async function handleStripeSubmit() {
+        const submitButton = document.getElementById('stripe-submit-button');
+        const buttonText = document.getElementById('stripe-button-text');
+        const spinner = document.getElementById('stripe-spinner');
+        const cardErrors = document.getElementById('stripe-card-errors');
+        
+        // Validar que Stripe esté inicializado
+        if (!stripe || !stripeCardElement || !stripeClientSecret) {
+            cardErrors.textContent = 'Por favor, espera a que el formulario se cargue completamente.';
+            cardErrors.classList.remove('d-none');
+            return;
+        }
+        
+        // Mostrar spinner
+        submitButton.disabled = true;
+        buttonText.classList.add('d-none');
+        spinner.classList.remove('d-none');
+        cardErrors.classList.add('d-none');
+        
+        try {
+            // Confirmar el pago con Stripe
+            const {error, paymentIntent} = await stripe.confirmCardPayment(stripeClientSecret, {
+                payment_method: {
+                    card: stripeCardElement,
+                    billing_details: {
+                        name: '{{ current_user.first_name }} {{ current_user.last_name }}',
+                        email: '{{ current_user.email }}'
+                    }
+                }
+            });
+            
+            if (error) {
+                // Mostrar error al usuario
+                cardErrors.textContent = error.message;
+                cardErrors.classList.remove('d-none');
+                
+                // Restaurar botón
+                submitButton.disabled = false;
+                buttonText.classList.remove('d-none');
+                spinner.classList.add('d-none');
+            } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+                // Pago exitoso - redirigir a página de éxito
+                window.location.href = `/payment-success?payment_id=${paymentIntent.metadata.payment_id || ''}`;
+            } else {
+                // Estado inesperado
+                cardErrors.textContent = 'El pago está siendo procesado. Te redirigiremos en breve...';
+                cardErrors.classList.remove('d-none');
+                cardErrors.classList.remove('alert-danger');
+                cardErrors.classList.add('alert-info');
+                
+                // Redirigir después de un momento
+                setTimeout(() => {
+                    window.location.href = `/payment-success`;
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Error procesando pago Stripe:', error);
+            cardErrors.textContent = error.message || 'Ocurrió un error al procesar el pago. Por favor, intenta nuevamente.';
+            cardErrors.classList.remove('d-none');
+            
+            // Restaurar botón
+            submitButton.disabled = false;
+            buttonText.classList.remove('d-none');
+            spinner.classList.add('d-none');
         }
     }
     
@@ -284,41 +569,136 @@
                 <p><strong>Nombre:</strong> Multi Servicios TK</p>
                 <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
             `;
-        } else if (method === 'interbank') {
-            html = `
-                <h6>Interbank</h6>
-                <p><strong>Cuenta de Ahorros:</strong> 898-346625274-5</p>
-                <p><strong>CCI:</strong> 003-898-013466252745-43</p>
-                <p><strong>Titular:</strong> Poma Gonzáles Sósimo Misael</p>
-                <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
-            `;
-        } else if (method === 'yappy') {
-            html = `
-                <h6>Yappy</h6>
-                <p><strong>Directorio:</strong> @multiservicio</p>
-                <p><strong>Nombre:</strong> Multiservicios TK</p>
-                <p class="mb-0">Realiza el pago por Yappy y sube el comprobante.</p>
-            `;
         }
+        // Yappy ya no es manual - se maneja automáticamente con Botón de Pago
         
         content.innerHTML = html;
     }
     
-    function initPayPal() {
-        // PayPal se inicializará después de crear el payment intent
-        // Por ahora solo mostramos el contenedor
+    // Función unificada para crear pago (usada por PayPal y otros métodos)
+    async function createPaymentIntent(paymentMethod, showLoading = true) {
+        const requestData = {
+            payment_method: paymentMethod,
+            cart_id: {{ cart.id }},
+            amount: {{ total_amount }}
+        };
+        
+        try {
+            const response = await fetch('/create-payment-intent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData),
+            });
+            
+            // Verificar que la respuesta sea JSON antes de parsear
+            const contentType = response.headers.get('content-type') || '';
+            let data;
+            
+            if (contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                const text = await response.text();
+                console.error('❌ Respuesta no JSON recibida:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    contentType: contentType,
+                    preview: text.substring(0, 500)
+                });
+                throw new Error(`Error del servidor (${response.status}): El servidor no respondió con JSON.`);
+            }
+            
+            if (!response.ok) {
+                throw new Error(data.error || data.message || `Error ${response.status}: ${response.statusText}`);
+            }
+            
+            return { success: true, data: data };
+        } catch (error) {
+            console.error(`❌ Error creando pago con ${paymentMethod}:`, error);
+            return { success: false, error: error.message || 'Error al crear el pago' };
+        }
+    }
+    
+    let paypalPaymentUrl = null;
+    let paypalPaymentId = null;
+    
+    async function initPayPal() {
+        const container = document.getElementById('paypal-button-container');
+        container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando PayPal...</span></div><p class="mt-2">Preparando pago con PayPal...</p></div>';
+        
+        const result = await createPaymentIntent('paypal');
+        
+        if (!result.success) {
+            container.innerHTML = `<div class="alert alert-danger">Error: ${result.error}</div>`;
+            return;
+        }
+        
+        const data = result.data;
+        
+        // Verificar si está en modo demo
+        if (data.demo_mode && data.status === 'succeeded') {
+            // Modo demo - pago ya procesado, redirigir a success
+            container.innerHTML = `
+                <div class="text-center">
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        <p class="mb-2"><strong>Pago procesado (Modo Demo)</strong></p>
+                        <p class="mb-0">Redirigiendo...</p>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => {
+                window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+            }, 1500);
+        } else if (data.payment_url) {
+            paypalPaymentUrl = data.payment_url;
+            paypalPaymentId = data.payment_id;
+            
+            // Agregar payment_id a la URL de PayPal si no está ya incluido
+            if (paypalPaymentId && !paypalPaymentUrl.includes('payment_id=')) {
+                const separator = paypalPaymentUrl.includes('?') ? '&' : '?';
+                paypalPaymentUrl = `${paypalPaymentUrl}${separator}payment_id=${paypalPaymentId}`;
+            }
+            
+            // Mostrar botón de PayPal
+            container.innerHTML = `
+                <div class="text-center">
+                    <p class="mb-3">Serás redirigido a PayPal para completar el pago</p>
+                    <button id="paypal-redirect-btn" class="btn btn-primary btn-lg" style="background-color: #0070ba; border-color: #0070ba;">
+                        <i class="fab fa-paypal me-2"></i>
+                        Pagar con PayPal - ${{ "%.2f"|format(total_amount / 100) }}
+                    </button>
+                    <p class="mt-2 small text-muted">Al hacer clic, serás redirigido a PayPal de forma segura</p>
+                </div>
+            `;
+            
+            // Agregar evento al botón
+            document.getElementById('paypal-redirect-btn').addEventListener('click', function() {
+                if (paypalPaymentUrl) {
+                    window.location.href = paypalPaymentUrl;
+                }
+            });
+        } else {
+            container.innerHTML = '<div class="alert alert-danger">Error: No se pudo obtener la URL de PayPal. Por favor, intenta nuevamente.</div>';
+        }
     }
     
     // Inicializar formulario
     updatePaymentForm();
     
-    // Manejar envío del formulario
+        // Manejar envío del formulario
     const form = document.getElementById('payment-form');
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
         
-        // PayPal se maneja diferente (redirección)
+        // PayPal se maneja diferente (redirección) - ya se inicializó en initPayPal()
         if (currentPaymentMethod === 'paypal') {
+            if (paypalPaymentUrl) {
+                window.location.href = paypalPaymentUrl + (paypalPaymentId ? `&payment_id=${paypalPaymentId}` : '');
+            } else {
+                alert('Por favor, espera a que PayPal se cargue completamente.');
+            }
             return;
         }
         
@@ -332,74 +712,84 @@
         spinner.classList.remove('d-none');
         
         try {
-            // Crear Payment Intent con el método seleccionado
-            const requestData = {
-                payment_method: currentPaymentMethod,
-                cart_id: {{ cart.id }},
-                amount: {{ total_amount }}
-            };
+            // Usar función unificada para crear pago
+            const result = await createPaymentIntent(currentPaymentMethod);
             
-            const response = await fetch('/create-payment-intent', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData),
-            });
+            // Detener spinner
+            submitButton.disabled = false;
+            buttonText.classList.remove('d-none');
+            spinner.classList.add('d-none');
             
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Error al crear el pago');
+            if (!result.success) {
+                throw new Error(result.error);
             }
             
+            const data = result.data;
+            
             // Procesar según el método
-            if (currentPaymentMethod === 'stripe') {
-                if (data.demo_mode) {
-                    // Modo demo
-                    setTimeout(() => {
-                        window.location.href = `/payment-success?payment_id=${data.payment_id}`;
-                    }, 2000);
-                } else {
-                    // Modo real con Stripe
-                    const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
-                        payment_method: {
-                            card: cardElement,
-                        }
-                    });
-                    
-                    if (error) {
-                        const displayError = document.getElementById('card-errors');
-                        displayError.textContent = error.message;
-                        submitButton.disabled = false;
-                        buttonText.classList.remove('d-none');
-                        spinner.classList.add('d-none');
-                    } else {
-                        window.location.href = `/payment-success?payment_id=${data.payment_id}`;
-                    }
-                }
-            } else if (currentPaymentMethod === 'paypal') {
-                // Redirigir a PayPal
+            if (currentPaymentMethod === 'paypal') {
+                // PayPal ya se maneja en initPayPal(), pero por si acaso
                 if (data.payment_url) {
-                    window.location.href = data.payment_url + `&payment_id=${data.payment_id}`;
+                    let paypalUrl = data.payment_url;
+                    if (data.payment_id && !paypalUrl.includes('payment_id=')) {
+                        const separator = paypalUrl.includes('?') ? '&' : '?';
+                        paypalUrl = `${paypalUrl}${separator}payment_id=${data.payment_id}`;
+                    }
+                    window.location.href = paypalUrl;
+                }
+            } else if (currentPaymentMethod === 'yappy') {
+                // Yappy puede ser automático (con API) o manual (si API no disponible)
+                if (data.manual && data.api_unavailable) {
+                    // Modo manual: redirigir a success con información del pago
+                    // El pago ya fue creado en el backend con estado 'pending'
+                    const params = new URLSearchParams({
+                        payment_id: data.payment_id,
+                        manual: 'true',
+                        reference: data.payment_reference || '',
+                        method: 'yappy'
+                    });
+                    window.location.href = `/payment-success?${params.toString()}`;
+                } else if (data.payment_url) {
+                    // Modo automático: redirigir a Yappy
+                    window.location.href = data.payment_url;
+                } else {
+                    throw new Error(data.error || 'No se pudo crear el pago con Yappy. Verifica la configuración.');
                 }
             } else {
-                // Métodos manuales - mostrar mensaje y redirigir
+                // Métodos manuales (solo banco_general) - mostrar mensaje y redirigir
                 alert('Pago iniciado. Por favor, sube el comprobante de pago cuando lo tengas.');
                 window.location.href = `/payment-success?payment_id=${data.payment_id}`;
             }
         } catch (err) {
-            console.error('Error:', err);
-            const displayError = document.getElementById('card-errors');
-            if (displayError) {
-                displayError.textContent = err.message || 'Ocurrió un error. Por favor, intenta nuevamente.';
-            } else {
-                alert(err.message || 'Ocurrió un error. Por favor, intenta nuevamente.');
-            }
+            console.error('Error completo:', err);
             
+            // Detener spinner siempre
             submitButton.disabled = false;
             buttonText.classList.remove('d-none');
             spinner.classList.add('d-none');
+            
+            // Mostrar error al usuario
+            let errorMessage = 'Ocurrió un error. Por favor, intenta nuevamente.';
+            
+            if (err.message) {
+                errorMessage = err.message;
+            } else if (err.response) {
+                // Si hay respuesta del servidor
+                try {
+                    const errorData = await err.response.json();
+                    errorMessage = errorData.error || errorData.message || errorMessage;
+                } catch (e) {
+                    errorMessage = `Error ${err.response.status}: ${err.response.statusText}`;
+                }
+            }
+            
+            const displayError = document.getElementById('card-errors');
+            if (displayError) {
+                displayError.textContent = errorMessage;
+                displayError.style.display = 'block';
+            } else {
+                alert(errorMessage);
+            }
         }
     });
 

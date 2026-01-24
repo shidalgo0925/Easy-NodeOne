@@ -133,6 +133,11 @@
                                             <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-primary" title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </a>
+                                            <form method="POST" action="{{ url_for('admin_events.duplicate_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Deseas duplicar el evento \"{{ event.title }}\"?\n\nSe creará una copia en borrador que podrás editar.');">
+                                                <button type="submit" class="btn btn-outline-info" title="Duplicar">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </form>
                                             <form method="POST" action="{{ url_for('admin_events.delete_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este evento?');">
                                                 <button type="submit" class="btn btn-outline-danger" title="Eliminar">
                                                     <i class="fas fa-trash"></i>

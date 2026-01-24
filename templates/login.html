@@ -3,7 +3,7 @@
 {% block title %}Iniciar Sesión - RelaticPanama{% endblock %}
 
 {% block page_content %}
-<div class="container py-5">
+<div class="container pt-3 pb-2">
     <div class="row justify-content-center">
         <div class="col-md-6">
             <div class="card shadow">
@@ -24,8 +24,44 @@
                             <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
                         </div>
                     </form>
+                    
+                    {# Login Social - Comentado temporalmente hasta que se implemente OAuth #}
+                    {# 
+                    <div class="mt-4">
+                        <div class="text-center mb-3">
+                            <span class="text-muted">O continúa con</span>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('oauth_login', provider='google') }}" class="btn btn-outline-danger">
+                                <i class="fab fa-google me-2"></i> Google
+                            </a>
+                            <a href="{{ url_for('oauth_login', provider='facebook') }}" class="btn btn-outline-primary">
+                                <i class="fab fa-facebook me-2"></i> Facebook
+                            </a>
+                            <a href="{{ url_for('oauth_login', provider='linkedin') }}" class="btn btn-outline-info">
+                                <i class="fab fa-linkedin me-2"></i> LinkedIn
+                            </a>
+                        </div>
+                        <div class="alert alert-info mt-3 mb-0" role="alert">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                <strong>¿No funciona el login social?</strong>
+                                <br>
+                                Las credenciales OAuth deben configurarse en las variables de entorno.
+                                <br>
+                                <a href="{{ url_for('help') }}#oauth-config" class="alert-link">
+                                    <i class="fas fa-question-circle me-1"></i>Ver guía de configuración
+                                </a>
+                            </small>
+                        </div>
+                    </div>
+                    #}
+                    
                     <hr>
                     <div class="text-center">
+                        {# <p class="mb-2">
+                            <a href="{{ url_for('forgot_password') }}">¿Olvidaste tu contraseña?</a>
+                        </p> #}
                         <p class="mb-0">¿No tienes una cuenta? <a href="{{ url_for('register') }}">Regístrate aquí</a></p>
                     </div>
                 </div>

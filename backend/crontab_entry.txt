@@ -1,0 +1,2 @@
+# Verificación automática de pagos (Yappy, PayPal, Stripe/TCR) cada 10 minutos
+*/10 * * * * cd /home/relaticpanama2025/projects/membresia-relatic/backend && /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 verify_all_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/payments_verification.log 2>&1

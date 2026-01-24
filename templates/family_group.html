@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Grupo Familiar - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="display-6 mb-4">
+                <i class="fas fa-users"></i> {{ group.name }}
+            </h1>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Información del Grupo</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Nombre:</strong> {{ group.name }}</p>
+                            <p><strong>Membresía:</strong> <span class="badge bg-info">{{ group.membership_type.title() }}</span></p>
+                            <p><strong>Propietario:</strong> {{ group.owner.first_name }} {{ group.owner.last_name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Miembros:</strong> {{ group.members|selectattr('is_active')|list|length }} / {{ group.max_members }}</p>
+                            <p><strong>Creado:</strong> {{ group.created_at.strftime('%d/%m/%Y') }}</p>
+                            <p><strong>Estado:</strong> 
+                                {% if group.is_active %}
+                                <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Acciones</h5>
+                </div>
+                <div class="card-body">
+                    {% if current_member and current_member.role in ['owner', 'admin'] or group.owner_id == current_user.id %}
+                    <button type="button" class="btn btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#addMemberModal">
+                        <i class="fas fa-user-plus"></i> Agregar Miembro
+                    </button>
+                    {% endif %}
+                    <a href="{{ url_for('membership') }}" class="btn btn-secondary w-100">
+                        <i class="fas fa-arrow-left"></i> Volver a Membresía
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Miembros del Grupo</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Email</th>
+                                    <th>Rol</th>
+                                    <th>Agregado</th>
+                                    <th>Estado</th>
+                                    {% if current_member and current_member.role in ['owner', 'admin'] or group.owner_id == current_user.id %}
+                                    <th>Acciones</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for member in group.members %}
+                                <tr>
+                                    <td>{{ member.user.first_name }} {{ member.user.last_name }}</td>
+                                    <td>{{ member.user.email }}</td>
+                                    <td>
+                                        {% if member.role == 'owner' %}
+                                        <span class="badge bg-primary">Propietario</span>
+                                        {% elif member.role == 'admin' %}
+                                        <span class="badge bg-info">Administrador</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Miembro</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ member.added_at.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        {% if member.is_active %}
+                                        <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    {% if current_member and current_member.role in ['owner', 'admin'] or group.owner_id == current_user.id %}
+                                    <td>
+                                        {% if member.role != 'owner' and member.is_active %}
+                                        <form method="POST" action="{{ url_for('remove_family_member', group_id=group.id, member_id=member.id) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de remover a {{ member.user.first_name }} del grupo?');">
+                                            <button type="submit" class="btn btn-sm btn-danger">
+                                                <i class="fas fa-user-minus"></i> Remover
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agregar Miembro -->
+<div class="modal fade" id="addMemberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Miembro al Grupo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_family_member', group_id=group.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email del Usuario</label>
+                        <input type="email" class="form-control" id="email" name="email" required placeholder="usuario@ejemplo.com">
+                        <small class="text-muted">El usuario debe estar registrado en la plataforma.</small>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        El usuario recibirá acceso a los beneficios de la membresía del grupo.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar Miembro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+

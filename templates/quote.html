@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+
+{% block title %}Cotización - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<style>
+    .quote-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .billing-toggle-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding: 0.5rem 0;
+    }
+    
+    .billing-label {
+        font-weight: 600;
+        font-size: 1rem;
+        transition: color 0.3s;
+    }
+    
+    .billing-label.active {
+        color: #212529;
+    }
+    
+    .billing-label.inactive {
+        color: #6c757d;
+    }
+    
+    .custom-switch {
+        position: relative;
+        width: 60px;
+        height: 30px;
+    }
+    
+    .custom-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .switch-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #e9ecef;
+        transition: 0.3s;
+        border-radius: 30px;
+    }
+    
+    .switch-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 4px;
+        bottom: 4px;
+        background-color: #6f42c1;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+    
+    .custom-switch input:checked + .switch-slider {
+        background-color: #e9ecef;
+    }
+    
+    .custom-switch input:checked + .switch-slider:before {
+        transform: translateX(30px);
+    }
+    
+    .price-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .price-label {
+        color: #6c757d;
+    }
+    
+    .price-label .highlight {
+        color: #8b2e5c;
+        font-weight: 600;
+    }
+    
+    .price-value {
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+    
+    .discount-value {
+        color: #28a745;
+        font-weight: 600;
+    }
+    
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .total-label {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    .total-value {
+        font-weight: 600;
+        font-size: 1.5rem;
+        color: #6f42c1;
+    }
+    
+    .btn-compra {
+        background-color: #6f42c1;
+        border-color: #6f42c1;
+        color: white;
+        font-weight: 500;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        width: 100%;
+        margin-bottom: 0.75rem;
+    }
+    
+    .btn-compra:hover {
+        background-color: #5a32a3;
+        border-color: #5a32a3;
+        color: white;
+    }
+    
+    .btn-cotizacion {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        color: #495057;
+        font-weight: 500;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        width: 100%;
+    }
+    
+    .btn-cotizacion:hover {
+        background-color: #e9ecef;
+        border-color: #dee2e6;
+        color: #495057;
+    }
+</style>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            <div class="card quote-card">
+                <div class="card-body p-4">
+                    <!-- Toggle Anual/Mensual -->
+                    <div class="billing-toggle-container">
+                        <span class="billing-label {% if billing_cycle == 'yearly' %}active{% else %}inactive{% endif %}" id="labelAnual">Anual</span>
+                        <label class="custom-switch">
+                            <input type="checkbox" id="billingToggle" 
+                                   {% if billing_cycle == 'monthly' %}checked{% endif %}
+                                   onchange="toggleBillingCycle()">
+                            <span class="switch-slider"></span>
+                        </label>
+                        <span class="billing-label {% if billing_cycle == 'monthly' %}active{% else %}inactive{% endif %}" id="labelMensual">Mensual</span>
+                    </div>
+
+                    <!-- Detalles de Precio -->
+                    <div>
+                        <div class="price-row">
+                            <div class="price-label">
+                                1 usuario, <span class="highlight">todas las aplicaciones</span>
+                            </div>
+                            <span class="price-value" id="basePrice">US$ {{ "%.2f"|format(base_price) }}</span>
+                        </div>
+                        
+                        <div class="price-row">
+                            <span class="price-label">Descuento inicial del primer año</span>
+                            <span class="discount-value" id="discountAmount">US$ -{{ "%.2f"|format(discount_amount) }}</span>
+                        </div>
+                        
+                        <div class="total-row">
+                            <span class="total-label">Total al mes</span>
+                            <span class="total-value" id="totalPrice">US$ {{ "%.2f"|format(total_monthly) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="mt-4">
+                        <button type="button" class="btn btn-compra" onclick="buyNow()">
+                            Compra ahora
+                        </button>
+                        <button type="button" class="btn btn-cotizacion" onclick="sendOrPrintQuote()">
+                            Enviar / Imprimir la cotización
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Precios base (en dólares)
+const PRICES = {
+    monthly: {
+        base: {{ monthly_base_price }},
+        discount: {{ monthly_discount }},
+        total: {{ monthly_total }}
+    },
+    yearly: {
+        base: {{ yearly_base_price }},
+        discount: {{ yearly_discount }},
+        total: {{ yearly_total }}
+    }
+};
+
+let currentCycle = '{{ billing_cycle }}';
+
+function toggleBillingCycle() {
+    const toggle = document.getElementById('billingToggle');
+    currentCycle = toggle.checked ? 'monthly' : 'yearly';
+    
+    const prices = PRICES[currentCycle];
+    
+    // Actualizar precios
+    document.getElementById('basePrice').textContent = `US$ ${prices.base.toFixed(2)}`;
+    document.getElementById('discountAmount').textContent = `US$ -${prices.discount.toFixed(2)}`;
+    document.getElementById('totalPrice').textContent = `US$ ${prices.total.toFixed(2)}`;
+    
+    // Actualizar estilos de las etiquetas
+    const labelAnual = document.getElementById('labelAnual');
+    const labelMensual = document.getElementById('labelMensual');
+    
+    if (currentCycle === 'monthly') {
+        labelAnual.classList.remove('active');
+        labelAnual.classList.add('inactive');
+        labelMensual.classList.remove('inactive');
+        labelMensual.classList.add('active');
+    } else {
+        labelAnual.classList.remove('inactive');
+        labelAnual.classList.add('active');
+        labelMensual.classList.remove('active');
+        labelMensual.classList.add('inactive');
+    }
+}
+
+function buyNow() {
+    // Redirigir al checkout con el ciclo de facturación seleccionado
+    window.location.href = `/checkout?billing_cycle=${currentCycle}`;
+}
+
+function sendOrPrintQuote() {
+    // Crear datos de la cotización
+    const quoteData = {
+        billing_cycle: currentCycle,
+        base_price: PRICES[currentCycle].base,
+        discount: PRICES[currentCycle].discount,
+        total: PRICES[currentCycle].total,
+        date: new Date().toISOString()
+    };
+    
+    // Opción 1: Enviar por email
+    const sendEmail = confirm('¿Deseas enviar la cotización por correo electrónico?');
+    
+    if (sendEmail) {
+        fetch('/api/quote/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(quoteData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Cotización enviada exitosamente');
+            } else {
+                alert('Error al enviar la cotización: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al enviar la cotización');
+        });
+    } else {
+        // Opción 2: Imprimir
+        printQuote(quoteData);
+    }
+}
+
+function printQuote(data) {
+    // Crear ventana de impresión
+    const printWindow = window.open('', '_blank');
+    const cycleText = data.billing_cycle === 'monthly' ? 'Mensual' : 'Anual';
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Cotización - RelaticPanama</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .details { margin: 20px 0; }
+                .row { display: flex; justify-content: space-between; margin: 10px 0; }
+                .total { font-size: 1.5em; font-weight: bold; color: #6f42c1; margin-top: 20px; }
+                .footer { margin-top: 30px; text-align: center; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Cotización - RelaticPanama</h1>
+                <p>Fecha: ${new Date(data.date).toLocaleDateString('es-PA')}</p>
+            </div>
+            <div class="details">
+                <div class="row">
+                    <span>Plan: ${cycleText}</span>
+                </div>
+                <div class="row">
+                    <span>1 usuario, todas las aplicaciones:</span>
+                    <span>US$ ${data.base_price.toFixed(2)}</span>
+                </div>
+                <div class="row">
+                    <span>Descuento inicial del primer año:</span>
+                    <span class="text-success">US$ -${data.discount.toFixed(2)}</span>
+                </div>
+                <div class="row total">
+                    <span>Total al mes:</span>
+                    <span>US$ ${data.total.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="footer">
+                <p>Esta cotización es válida por 30 días</p>
+                <p>RelaticPanama - www.relaticpanama.org</p>
+            </div>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
+}
+</script>
+{% endblock %}
+

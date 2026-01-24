@@ -1,0 +1,11 @@
+[Unit]
+Description=Timer para verificación automática de pagos Yappy cada 5 minutos
+Requires=yappy-verification.service
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

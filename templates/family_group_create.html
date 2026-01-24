@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Grupo Familiar - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="display-6 mb-4">
+                <i class="fas fa-users"></i> Crear Grupo Familiar
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Información del Grupo</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre del Grupo</label>
+                            <input type="text" class="form-control" id="name" name="name" required placeholder="Ej: Familia Pérez">
+                            <small class="text-muted">Este nombre será visible para todos los miembros del grupo.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="membership_type" class="form-label">Tipo de Membresía</label>
+                            <select class="form-select" id="membership_type" name="membership_type" required>
+                                <option value="">Selecciona un plan...</option>
+                                <option value="basic">Básico - $0/año</option>
+                                <option value="pro">Pro - $60/año (10% descuento)</option>
+                                <option value="premium">Premium - $120/año (20% descuento)</option>
+                                <option value="deluxe">Deluxe - $180/año (30% descuento)</option>
+                            </select>
+                            <small class="text-muted">Todos los miembros del grupo compartirán esta membresía.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="max_members" class="form-label">Máximo de Miembros</label>
+                            <input type="number" class="form-control" id="max_members" name="max_members" value="5" min="2" max="10" required>
+                            <small class="text-muted">Puedes agregar hasta 10 miembros al grupo (incluyéndote a ti).</small>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Información:</strong> Como propietario del grupo, podrás agregar y remover miembros. 
+                            Todos los miembros compartirán los beneficios de la membresía seleccionada.
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('membership') }}" class="btn btn-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">Crear Grupo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+

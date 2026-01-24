@@ -12,10 +12,32 @@
                         <i class="fas fa-bell"></i> Notificaciones
                     </h1>
                     <p class="text-muted mb-0">Gestiona tus alertas y notificaciones</p>
+                    <!-- Contador mejorado -->
+                    <div class="mt-2">
+                        <span class="badge bg-primary me-2">
+                            <i class="fas fa-bell"></i> Total: <span id="totalCount">{{ notifications|length }}</span>
+                        </span>
+                        <span class="badge bg-warning">
+                            <i class="fas fa-envelope-open"></i> No leídas: <span id="unreadCount">{{ unread_count }}</span>
+                        </span>
+                    </div>
                 </div>
-                <button class="btn btn-outline-primary" onclick="markAllAsRead()">
-                    <i class="fas fa-check-double"></i> Marcar todas como leídas
-                </button>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-primary" onclick="markAllAsRead()" title="Marcar todas como leídas">
+                        <i class="fas fa-check-double"></i> Marcar todas
+                    </button>
+                    <button type="button" class="btn btn-outline-danger dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">Más acciones</span>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="deleteReadNotifications(); return false;">
+                            <i class="fas fa-trash text-warning"></i> Eliminar leídas
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="deleteAllNotifications(); return false;">
+                            <i class="fas fa-trash-alt text-danger"></i> Eliminar todas
+                        </a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -108,15 +130,24 @@
                                                     <i class="fas fa-clock"></i> {{ notification.created_at.strftime('%d/%m/%Y %H:%M') if notification.created_at else 'Fecha no disponible' }}
                                                 </small>
                                             </div>
-                                            <div>
+                                            <div class="d-flex gap-2 align-items-center">
                                                 {% if notification.is_read %}
                                                     <span class="badge bg-secondary">Leída</span>
                                                 {% else %}
                                                     <span class="badge bg-primary">No leída</span>
                                                 {% endif %}
-                                                <button class="btn btn-sm btn-link text-danger" onclick="deleteNotification({{ notification.id }})">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <button class="btn btn-outline-primary" 
+                                                            onclick="toggleNotificationRead({{ notification.id }})" 
+                                                            title="{% if notification.is_read %}Marcar como no leída{% else %}Marcar como leída{% endif %}">
+                                                        <i class="fas fa-{% if notification.is_read %}envelope-open{% else %}envelope{% endif %}"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger" 
+                                                            onclick="deleteNotification({{ notification.id }})" 
+                                                            title="Eliminar notificación">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -246,18 +277,21 @@ function deleteNotification(notificationId) {
                     item.remove();
                     
                     // Verificar si quedan notificaciones
-                    const items = document.querySelectorAll('.notification-item');
-                    if (items.length === 0) {
-                        document.getElementById('noNotifications').style.display = 'block';
-                    }
+                const items = document.querySelectorAll('.notification-item');
+                if (items.length === 0) {
+                    document.getElementById('noNotifications').style.display = 'block';
+                }
                 }, 300);
+                updateCounters();
+                updateNavbarBadge();
+                showToast('success', 'Notificación eliminada exitosamente');
             } else {
                 throw new Error(data.error || 'Error desconocido al eliminar');
             }
         })
         .catch(error => {
             console.error('Error al eliminar notificación:', error);
-            alert('Error al eliminar la notificación: ' + error.message);
+            showToast('error', 'Error al eliminar la notificación: ' + error.message);
             
             // Restaurar botón
             if (deleteButton) {
@@ -289,18 +323,13 @@ document.querySelectorAll('.notification-item').forEach(item => {
                         badge.className = 'badge bg-secondary';
                         badge.textContent = 'Leída';
                     }
-                    // Actualizar contador en el navbar si existe
-                    const notificationBadge = document.querySelector('.notification-badge');
-                    if (notificationBadge) {
-                        const currentCount = parseInt(notificationBadge.textContent) || 0;
-                        const newCount = Math.max(0, currentCount - 1);
-                        if (newCount > 0) {
-                            notificationBadge.textContent = newCount;
-                            notificationBadge.style.display = 'block';
-                        } else {
-                            notificationBadge.style.display = 'none';
-                        }
+                    // Actualizar icono del botón toggle
+                    const toggleBtn = this.querySelector('button[onclick*="toggleNotificationRead"]');
+                    if (toggleBtn) {
+                        toggleBtn.innerHTML = '<i class="fas fa-envelope-open"></i>';
                     }
+                    updateCounters();
+                    updateNavbarBadge();
                 }
             })
             .catch(error => {
@@ -309,6 +338,229 @@ document.querySelectorAll('.notification-item').forEach(item => {
         }
     });
 });
+
+// Toggle estado de lectura (leída <-> no leída)
+function toggleNotificationRead(notificationId) {
+    const item = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+    if (!item) return;
+    
+    const button = item.querySelector('button[onclick*="toggleNotificationRead"]');
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    
+    fetch(`/api/notifications/${notificationId}/toggle-read`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const isRead = data.notification.is_read;
+            item.dataset.status = isRead ? 'read' : 'unread';
+            
+            // Actualizar badge
+            const badge = item.querySelector('.badge');
+            if (badge) {
+                badge.className = isRead ? 'badge bg-secondary' : 'badge bg-primary';
+                badge.textContent = isRead ? 'Leída' : 'No leída';
+            }
+            
+            // Actualizar icono del botón
+            if (button) {
+                button.innerHTML = `<i class="fas fa-${isRead ? 'envelope-open' : 'envelope'}"></i>`;
+            }
+            
+            // Actualizar contadores
+            updateCounters();
+            updateNavbarBadge();
+            
+            showToast('success', data.message);
+        } else {
+            showToast('error', data.error || 'Error al cambiar estado');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'Error al cambiar estado de la notificación');
+    })
+    .finally(() => {
+        if (button) button.disabled = false;
+    });
+}
+
+// Eliminar todas las notificaciones leídas
+function deleteReadNotifications() {
+    if (!confirm('¿Estás seguro de que deseas eliminar todas las notificaciones leídas?')) {
+        return;
+    }
+    
+    fetch('/api/notifications/delete-read', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Eliminar elementos leídos del DOM
+            const readItems = document.querySelectorAll('.notification-item[data-status="read"]');
+            readItems.forEach(item => {
+                item.style.transition = 'opacity 0.3s';
+                item.style.opacity = '0';
+                setTimeout(() => item.remove(), 300);
+            });
+            
+            updateCounters();
+            updateNavbarBadge();
+            showToast('success', data.message);
+            
+            // Verificar si quedan notificaciones
+            setTimeout(() => {
+                const items = document.querySelectorAll('.notification-item');
+                if (items.length === 0) {
+                    document.getElementById('noNotifications').style.display = 'block';
+                }
+            }, 400);
+        } else {
+            showToast('error', data.error || 'Error al eliminar notificaciones');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'Error al eliminar notificaciones leídas');
+    });
+}
+
+// Eliminar todas las notificaciones
+function deleteAllNotifications() {
+    if (!confirm('¿Estás seguro de que deseas eliminar TODAS las notificaciones? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    fetch('/api/notifications/delete-all', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Eliminar todos los elementos del DOM
+            const allItems = document.querySelectorAll('.notification-item');
+            allItems.forEach(item => {
+                item.style.transition = 'opacity 0.3s';
+                item.style.opacity = '0';
+            });
+            
+            setTimeout(() => {
+                allItems.forEach(item => item.remove());
+                document.getElementById('noNotifications').style.display = 'block';
+                updateCounters();
+                updateNavbarBadge();
+            }, 300);
+            
+            showToast('success', data.message);
+        } else {
+            showToast('error', data.error || 'Error al eliminar notificaciones');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'Error al eliminar todas las notificaciones');
+    });
+}
+
+// Actualizar contadores en la página
+function updateCounters() {
+    const items = document.querySelectorAll('.notification-item');
+    const unreadItems = document.querySelectorAll('.notification-item[data-status="unread"]');
+    
+    const totalCount = document.getElementById('totalCount');
+    const unreadCount = document.getElementById('unreadCount');
+    
+    if (totalCount) totalCount.textContent = items.length;
+    if (unreadCount) unreadCount.textContent = unreadItems.length;
+}
+
+// Actualizar badge del navbar
+function updateNavbarBadge() {
+    const unreadItems = document.querySelectorAll('.notification-item[data-status="unread"]');
+    const notificationBadge = document.querySelector('.notification-badge');
+    
+    if (notificationBadge) {
+        const count = unreadItems.length;
+        if (count > 0) {
+            notificationBadge.textContent = count;
+            notificationBadge.style.display = 'block';
+        } else {
+            notificationBadge.style.display = 'none';
+        }
+    }
+}
+
+// Función para mostrar toasts (notificaciones flotantes)
+function showToast(type, message) {
+    // Crear toast si no existe
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-info';
+    const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas ${icon} me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+    toast.show();
+    
+    // Remover del DOM después de ocultarse
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+// Mejorar markAllAsRead para actualizar contadores
+const originalMarkAllAsRead = markAllAsRead;
+markAllAsRead = function() {
+    originalMarkAllAsRead();
+    setTimeout(() => {
+        updateCounters();
+        updateNavbarBadge();
+    }, 500);
+};
+
+// Mejorar deleteNotification para actualizar contadores
+const originalDeleteNotification = deleteNotification;
+deleteNotification = function(notificationId) {
+    originalDeleteNotification(notificationId);
+    setTimeout(() => {
+        updateCounters();
+        updateNavbarBadge();
+    }, 400);
+};
 </script>
 {% endblock %}
 

@@ -266,7 +266,7 @@ def event_detail(slug):
 @events_bp.route('/<string:slug>/register', methods=['POST'])
 @login_required
 def register_to_event(slug):
-    """Registrar usuario a un evento"""
+    """Registrar usuario a un evento - Agrega al carrito si tiene precio, registra directamente si es gratis"""
     # Verificar que el email esté verificado
     if not current_user.email_verified:
         flash('Debes verificar tu email para registrarte en eventos. Revisa tu bandeja de entrada o solicita un nuevo enlace de verificación.', 'warning')
@@ -303,42 +303,98 @@ def register_to_event(slug):
     final_price = pricing['final_price']
     discount_applied = base_price - final_price
     
-    # Crear registro
-    registration = EventRegistration(
-        event_id=event.id,
-        user_id=current_user.id,
-        base_price=base_price,
-        final_price=final_price,
-        discount_applied=discount_applied,
-        membership_type=membership_type,
-        registration_status='pending' if final_price > 0 else 'confirmed'
-    )
+    # Si el evento es GRATIS (precio = 0), registrar directamente sin pasar por carrito
+    if final_price == 0:
+        # Crear registro directamente para eventos gratis
+        registration = EventRegistration(
+            event_id=event.id,
+            user_id=current_user.id,
+            base_price=base_price,
+            final_price=final_price,
+            discount_applied=discount_applied,
+            membership_type=membership_type,
+            registration_status='confirmed'  # Confirmado automáticamente si es gratis
+        )
+        
+        db.session.add(registration)
+        
+        # Actualizar contador de registrados
+        if event.registered_count is None:
+            event.registered_count = 0
+        event.registered_count += 1
+        
+        # Log de actividad
+        ActivityLog.log_activity(
+            current_user.id,
+            'register_event',
+            'event',
+            event.id,
+            f'Usuario registrado al evento (gratis): {event.title}',
+            request
+        )
+        
+        db.session.commit()
+        
+        # Notificar al responsable del evento
+        if NotificationEngine:
+            NotificationEngine.notify_event_registration(event, current_user, registration)
+        
+        flash('Te has registrado exitosamente al evento. Recibirás un email de confirmación.', 'success')
+        return redirect(url_for('events.event_detail', slug=slug))
     
-    db.session.add(registration)
-    
-    # Actualizar contador de registrados
-    if event.registered_count is None:
-        event.registered_count = 0
-    event.registered_count += 1
-    
-    # Log de actividad
-    ActivityLog.log_activity(
-        current_user.id,
-        'register_event',
-        'event',
-        event.id,
-        f'Usuario registrado al evento: {event.title}',
-        request
-    )
-    
-    db.session.commit()
-    
-    # Notificar al responsable del evento
-    if NotificationEngine:
-        NotificationEngine.notify_event_registration(event, current_user, registration)
-    
-    flash('Te has registrado exitosamente al evento. Recibirás un email de confirmación.', 'success')
-    return redirect(url_for('events.event_detail', slug=slug))
+    # Si el evento tiene precio, AGREGAR AL CARRITO
+    else:
+        # Importar funciones del carrito desde app.py
+        from app import add_to_cart, get_or_create_cart
+        
+        # Verificar si el evento ya está en el carrito
+        cart = get_or_create_cart(current_user.id)
+        from app import CartItem
+        import json
+        
+        existing_cart_item = CartItem.query.filter_by(
+            cart_id=cart.id,
+            product_type='event',
+            product_id=event.id
+        ).first()
+        
+        if existing_cart_item:
+            flash('Este evento ya está en tu carrito de compras.', 'info')
+            return redirect(url_for('cart'))
+        
+        # Agregar evento al carrito
+        metadata = {
+            'event_id': event.id,
+            'event_slug': event.slug,
+            'base_price': base_price,
+            'final_price': final_price,
+            'discount_applied': discount_applied,
+            'membership_type': membership_type
+        }
+        
+        add_to_cart(
+            user_id=current_user.id,
+            product_type='event',
+            product_id=event.id,
+            product_name=event.title,
+            unit_price=int(final_price * 100),  # Convertir a centavos
+            quantity=1,
+            product_description=event.summary or (event.description[:200] if event.description else ""),
+            metadata=metadata
+        )
+        
+        # Log de actividad
+        ActivityLog.log_activity(
+            current_user.id,
+            'add_event_to_cart',
+            'event',
+            event.id,
+            f'Evento agregado al carrito: {event.title}',
+            request
+        )
+        
+        flash('Evento agregado al carrito. Completa el pago para confirmar tu registro.', 'success')
+        return redirect(url_for('cart'))
 
 
 @events_bp.route('/<string:slug>/cancel-registration', methods=['POST'])
@@ -386,27 +442,64 @@ def cancel_event_registration(slug):
 @admin_required
 def confirm_event_registration(event_id, registration_id):
     """Confirmar un registro pendiente a un evento"""
+    print(f"🔍 confirm_event_registration llamado - event_id: {event_id}, registration_id: {registration_id}")
     ensure_models()
     event = Event.query.get_or_404(event_id)
     registration = EventRegistration.query.get_or_404(registration_id)
     user = registration.user
     
+    print(f"📋 Registro encontrado - Estado actual: {registration.registration_status}, Usuario: {user.email}")
+    
     if registration.event_id != event.id:
         flash('El registro no corresponde a este evento.', 'error')
         return redirect(url_for('admin_events.admin_events_index'))
     
-    # Confirmar el registro
+    # Confirmar el registro PRIMERO y hacer commit inmediatamente
     old_status = registration.registration_status
     registration.registration_status = 'confirmed'
+    print(f"✅ Estado cambiado de '{old_status}' a 'confirmed'")
     
-    # Enviar email de confirmación al usuario
+    # Log de actividad
+    ActivityLog.log_activity(
+        current_user.id,
+        'confirm_event_registration',
+        'event',
+        event.id,
+        f'Registro confirmado: {user.first_name} {user.last_name} - {event.title}',
+        request
+    )
+    
+    # Hacer commit INMEDIATAMENTE para guardar el cambio de estado
     try:
-        from flask_mail import Message
-        from app import mail
-        msg = Message(
-            subject=f'[RelaticPanama] Registro confirmado: {event.title}',
-            recipients=[user.email],
-            html=f"""
+        db.session.commit()
+        print(f"✅ Commit exitoso. Estado cambiado a 'confirmed' para usuario {user.email}")
+        
+        # Refrescar para obtener el estado actualizado
+        db.session.refresh(registration)
+        print(f"🔍 Verificación post-commit - Estado: {registration.registration_status}")
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error haciendo commit del estado: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al confirmar el registro: {str(e)}', 'error')
+        return redirect(request.referrer or url_for('admin_events.admin_events_index'))
+    
+    # DESPUÉS del commit, enviar emails (si fallan, el registro ya está confirmado)
+    # Enviar email de confirmación al usuario usando EmailService
+    try:
+        from app import EmailService, log_email_sent
+        from email_templates import get_event_registration_email
+        email_service = EmailService()
+        
+        # Usar template de email si está disponible
+        try:
+            email_template = get_event_registration_email(event, user, registration)
+            html_content = email_template
+            text_content = None  # El template ya incluye todo
+        except:
+            # Fallback si el template no está disponible
+            html_content = f"""
             <h2>¡Registro Confirmado!</h2>
             <p>Hola {user.first_name},</p>
             <p>Tu registro al evento <strong>{event.title}</strong> ha sido confirmado.</p>
@@ -419,28 +512,52 @@ def confirm_event_registration(event_id, registration_id):
             <p>Te esperamos en el evento. Si tienes alguna pregunta, no dudes en contactarnos.</p>
             <p>Saludos,<br>Equipo RelaticPanama</p>
             """
+            text_content = None
+        
+        # Enviar email usando EmailService (que registra automáticamente en EmailLog)
+        email_sent = email_service.send_email(
+            subject=f'[RelaticPanama] Registro confirmado: {event.title}',
+            recipients=[user.email],
+            html_content=html_content,
+            text_content=text_content,
+            email_type='event_confirmation',
+            related_entity_type='event',
+            related_entity_id=event.id,
+            recipient_id=user.id,
+            recipient_name=f"{user.first_name} {user.last_name}"
         )
-        mail.send(msg)
-        registration.confirmation_email_sent = True
-        registration.confirmation_email_sent_at = datetime.utcnow()
+        
+        if email_sent:
+            registration.confirmation_email_sent = True
+            registration.confirmation_email_sent_at = datetime.utcnow()
+            db.session.commit()  # Guardar el flag de email enviado
+            print(f"✅ Email de confirmación enviado a {user.email} para evento {event.id}")
+        else:
+            print(f"❌ Error enviando email de confirmación a {user.email}")
+            registration.confirmation_email_sent = False
+            try:
+                db.session.commit()  # Guardar el flag aunque haya fallado
+            except:
+                pass
+            
     except Exception as e:
-        print(f"Error enviando email de confirmación: {e}")
+        print(f"❌ Error enviando email de confirmación: {e}")
+        import traceback
+        traceback.print_exc()
+        registration.confirmation_email_sent = False
+        try:
+            db.session.commit()  # Guardar el flag aunque haya fallado
+        except:
+            pass
     
-    # Notificar al responsable del evento
+    # Notificar al responsable del evento (después de confirmar el registro)
     if NotificationEngine:
-        NotificationEngine.notify_event_confirmation(event, user, registration)
+        print(f"📧 Enviando notificaciones a responsables del evento...")
+        try:
+            NotificationEngine.notify_event_confirmation(event, user, registration)
+        except Exception as e:
+            print(f"⚠️ Error en notificaciones (no afecta la confirmación): {e}")
     
-    # Log de actividad
-    ActivityLog.log_activity(
-        current_user.id,
-        'confirm_event_registration',
-        'event',
-        event.id,
-        f'Registro confirmado: {user.first_name} {user.last_name} - {event.title}',
-        request
-    )
-    
-    db.session.commit()
     flash(f'Registro de {user.first_name} {user.last_name} confirmado exitosamente.', 'success')
     return redirect(request.referrer or url_for('admin_events.admin_events_index'))
 
@@ -825,6 +942,84 @@ def edit_event(event_id):
         default_end=event.end_date
     )
 
+
+@admin_events_bp.route('/<int:event_id>/duplicate', methods=['POST'])
+@admin_required
+def duplicate_event(event_id):
+    """Duplicar evento"""
+    ensure_models()
+    original = Event.query.get_or_404(event_id)
+    
+    try:
+        # Crear copia del evento
+        duplicate = Event(
+            title=f"{original.title} (Copia)",
+            slug=_unique_slug(_slugify(f"{original.title} (Copia)")),
+            summary=original.summary,
+            description=original.description,
+            category=original.category,
+            format=original.format,
+            tags=original.tags,
+            base_price=original.base_price,
+            currency=original.currency,
+            location=original.location,
+            virtual_link=original.virtual_link,
+            capacity=original.capacity,
+            publish_status='draft',  # Por defecto borrador
+            featured=False,  # No destacar por defecto
+            start_date=original.start_date,
+            end_date=original.end_date,
+            registration_deadline=original.registration_deadline,
+            created_by=current_user.id,
+            moderator_id=original.moderator_id,
+            administrator_id=original.administrator_id,
+            speaker_id=original.speaker_id
+        )
+        
+        db.session.add(duplicate)
+        db.session.flush()  # Para obtener el ID del duplicado
+        
+        # Copiar imagen de portada si existe
+        if original.cover_image:
+            duplicate.cover_image = original.cover_image
+        
+        # Copiar imágenes de galería
+        for original_image in original.gallery_images:
+            db.session.add(EventImage(
+                event_id=duplicate.id,
+                file_path=original_image.file_path,
+                sort_order=original_image.sort_order,
+                is_primary=original_image.is_primary
+            ))
+        
+        # Copiar descuentos asociados
+        for event_discount in original.discounts:
+            db.session.add(EventDiscount(
+                event_id=duplicate.id,
+                discount_id=event_discount.discount_id,
+                priority=event_discount.priority
+            ))
+        
+        db.session.commit()
+        
+        ActivityLog.log_activity(
+            current_user.id,
+            'duplicate_event',
+            'event',
+            duplicate.id,
+            f'Evento duplicado desde: {original.title}',
+            request
+        )
+        
+        flash(f'Evento "{original.title}" duplicado exitosamente.', 'success')
+        return redirect(url_for('admin_events.edit_event', event_id=duplicate.id))
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error duplicando evento: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al duplicar evento: {str(e)}', 'error')
+        return redirect(url_for('admin_events.admin_events_index'))
 
 @admin_events_bp.route('/<int:event_id>/delete', methods=['POST'])
 @admin_required

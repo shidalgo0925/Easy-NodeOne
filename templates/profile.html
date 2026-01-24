@@ -19,44 +19,78 @@
                     <h5 class="mb-0"><i class="fas fa-user-edit"></i> Información Personal</h5>
                 </div>
                 <div class="card-body">
-                    <form>
+                    <form id="profile-form">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="first_name" class="form-label">Nombre</label>
-                                    <input type="text" class="form-control" id="first_name" value="{{ current_user.first_name }}" readonly>
+                                    <label for="first_name" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="first_name" name="first_name" 
+                                           value="{{ current_user.first_name }}" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="last_name" class="form-label">Apellido</label>
-                                    <input type="text" class="form-control" id="last_name" value="{{ current_user.last_name }}" readonly>
+                                    <label for="last_name" class="form-label">Apellido <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="last_name" name="last_name" 
+                                           value="{{ current_user.last_name }}" required>
                                 </div>
                             </div>
                         </div>
                         <div class="mb-3">
                             <label for="email" class="form-label">Correo Electrónico</label>
                             <input type="email" class="form-control" id="email" value="{{ current_user.email }}" readonly>
+                            <small class="form-text text-muted">El correo electrónico no se puede modificar por seguridad.</small>
                         </div>
                         <div class="mb-3">
                             <label for="country" class="form-label">País</label>
-                            <input type="text" class="form-control" id="country" value="{{ current_user.country or 'No especificado' }}" readonly>
+                            <select class="form-select" id="country" name="country">
+                                <option value="">Selecciona un país</option>
+                                <option value="Panamá" {% if current_user.country == 'Panamá' %}selected{% endif %}>Panamá</option>
+                                <option value="Costa Rica" {% if current_user.country == 'Costa Rica' %}selected{% endif %}>Costa Rica</option>
+                                <option value="Colombia" {% if current_user.country == 'Colombia' %}selected{% endif %}>Colombia</option>
+                                <option value="México" {% if current_user.country == 'México' %}selected{% endif %}>México</option>
+                                <option value="Perú" {% if current_user.country == 'Perú' %}selected{% endif %}>Perú</option>
+                                <option value="Chile" {% if current_user.country == 'Chile' %}selected{% endif %}>Chile</option>
+                                <option value="Argentina" {% if current_user.country == 'Argentina' %}selected{% endif %}>Argentina</option>
+                                <option value="España" {% if current_user.country == 'España' %}selected{% endif %}>España</option>
+                                <option value="Estados Unidos" {% if current_user.country == 'Estados Unidos' %}selected{% endif %}>Estados Unidos</option>
+                                <option value="Otro" {% if current_user.country and current_user.country not in ['Panamá', 'Costa Rica', 'Colombia', 'México', 'Perú', 'Chile', 'Argentina', 'España', 'Estados Unidos'] %}selected{% endif %}>Otro</option>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label for="cedula_or_passport" class="form-label">Cédula / DNI / Pasaporte</label>
-                            <input type="text" class="form-control" id="cedula_or_passport" value="{{ current_user.cedula_or_passport or 'No especificado' }}" readonly>
+                            <input type="text" class="form-control" id="cedula_or_passport" name="cedula_or_passport" 
+                                   value="{{ current_user.cedula_or_passport or '' }}" 
+                                   placeholder="Ingresa tu cédula, DNI o pasaporte">
                         </div>
                         <div class="mb-3">
-                            <label for="phone" class="form-label">Teléfono</label>
-                            <input type="tel" class="form-control" id="phone" value="{{ current_user.phone or 'No especificado' }}" readonly>
+                            <label for="phone" class="form-label">
+                                <i class="fas fa-mobile-alt"></i> Teléfono / Celular
+                            </label>
+                            <input type="tel" class="form-control" id="phone" name="phone" 
+                                   value="{{ current_user.phone or '' }}" 
+                                   placeholder="Ej: +507 6123-4567"
+                                   pattern="[+]?[0-9 ()-]+"
+                                   maxlength="20">
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                Este número se mostrará en los pagos con Yappy para facilitar el proceso.
+                            </small>
                         </div>
                         <div class="mb-3">
                             <label for="created_at" class="form-label">Miembro desde</label>
                             <input type="text" class="form-control" id="created_at" value="{{ current_user.created_at.strftime('%d/%m/%Y') }}" readonly>
                         </div>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            <strong>Nota:</strong> Para modificar tu información personal, contacta a nuestro equipo de soporte.
+                        
+                        <div id="profile-message" class="mt-3"></div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="button" class="btn btn-outline-secondary" id="cancel-edit-btn" style="display: none;" onclick="cancelEdit()">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Guardar Cambios
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -112,4 +146,77 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('profile-form');
+    
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            const messageDiv = document.getElementById('profile-message');
+            
+            // Deshabilitar botón y mostrar loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+            messageDiv.innerHTML = '';
+            
+            // Recopilar datos del formulario
+            const formData = {
+                first_name: document.getElementById('first_name').value.trim(),
+                last_name: document.getElementById('last_name').value.trim(),
+                country: document.getElementById('country').value.trim(),
+                cedula_or_passport: document.getElementById('cedula_or_passport').value.trim(),
+                phone: document.getElementById('phone').value.trim()
+            };
+            
+            // Validaciones básicas
+            if (!formData.first_name || !formData.last_name) {
+                messageDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Nombre y apellido son requeridos.</div>';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/profile/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    messageDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + data.message + '</div>';
+                    
+                    // Recargar la página después de 1.5 segundos para mostrar los cambios
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    messageDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> ' + (data.error || 'Error al guardar los cambios') + '</div>';
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                messageDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Error de conexión. Por favor, intenta nuevamente.</div>';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+    }
+});
+
+function cancelEdit() {
+    // Recargar la página para cancelar cambios
+    window.location.reload();
+}
+</script>
 {% endblock %}

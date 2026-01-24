@@ -1,0 +1,859 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Pagos - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6 mb-3">
+                <i class="fas fa-history"></i> Historial de Pagos
+            </h1>
+            <p class="text-muted">Todos tus pagos y sus estados</p>
+        </div>
+    </div>
+
+    <!-- Estadísticas por Estatus -->
+    {% if status_counts %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Resumen por Estado</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for status, count in status_counts.items() %}
+                        <div class="col-md-3 mb-3">
+                            <div class="card border-{% if status == 'succeeded' %}success{% elif status == 'pending' %}warning{% elif status == 'failed' %}danger{% elif status == 'cancelled' %}secondary{% else %}info{% endif %}">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0">{{ count }}</h3>
+                                    <small class="text-muted">
+                                        {% if status == 'succeeded' %}
+                                            <span class="badge bg-success">Completados</span>
+                                        {% elif status == 'pending' %}
+                                            <span class="badge bg-warning">Pendientes</span>
+                                        {% elif status == 'failed' %}
+                                            <span class="badge bg-danger">Fallidos</span>
+                                        {% elif status == 'cancelled' %}
+                                            <span class="badge bg-secondary">Cancelados</span>
+                                        {% elif status == 'awaiting_confirmation' %}
+                                            <span class="badge bg-info">Esperando Confirmación</span>
+                                        {% else %}
+                                            <span class="badge bg-dark">{{ status }}</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alerta para pagos con más de 5 minutos pendientes -->
+    {% if long_pending_payments %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading">
+                    <i class="fas fa-info-circle"></i> 
+                    Verificación Manual Disponible
+                </h5>
+                <p class="mb-2">
+                    <strong>El sistema verifica automáticamente los pagos cada 5 minutos.</strong> 
+                    Si tu pago lleva más de 5 minutos pendiente, puedes verificar manualmente con tu código de comprobante:
+                </p>
+                <ul class="mb-2">
+                    {% for item in long_pending_payments %}
+                    <li>
+                        <strong>Pago #{{ item.payment.id }}</strong>: 
+                        ${{ "%.2f"|format(item.payment.amount / 100) }} - 
+                        Pendiente desde hace <strong>{{ item.time_elapsed_str }}</strong>
+                        {% if item.payment.payment_method == 'yappy' %}
+                            <button type="button" 
+                                    class="btn btn-sm btn-success ms-2" 
+                                    onclick="showVerifyModal({{ item.payment.id }}, '{{ item.payment.payment_reference or '' }}', {{ item.payment.amount }})">
+                                <i class="fas fa-check-circle"></i> Verificar Ahora
+                            </button>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <hr>
+                <p class="mb-0">
+                    <small>
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Nota:</strong> El sistema verifica automáticamente cada 5 minutos. 
+                        La verificación manual solo es necesaria si el pago lleva más de 5 minutos pendiente. 
+                        Si el problema persiste después de verificar, contacta al soporte.
+                    </small>
+                </p>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pagos Pendientes (Destacados) -->
+    {% set pending_payments = [] %}
+    {% for payment_data in payments %}
+        {% if payment_data.payment.status in ['pending', 'awaiting_confirmation'] %}
+            {% set _ = pending_payments.append(payment_data.payment) %}
+        {% endif %}
+    {% endfor %}
+    {% if pending_payments %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-warning shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Pagos Pendientes de Verificación ({{ pending_payments|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>¿Realizaste un pago con Yappy?</strong> 
+                        Si recibiste un código de comprobante (ejemplo: EBOWR-XXXXXXXX), puedes verificar tu pago manualmente usando el botón "Verificar" abajo.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Monto</th>
+                                    <th>Referencia</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in pending_payments %}
+                                {% if payment.payment_method == 'yappy' %}
+                                {% set time_elapsed = (current_time - payment.created_at).total_seconds() / 60 if payment.created_at and current_time else 0 %}
+                                {% set minutes_elapsed = time_elapsed|int %}
+                                {% set hours_elapsed = (minutes_elapsed / 60)|int %}
+                                {% set is_long_pending = minutes_elapsed > 5 %}
+                                {% set show_verify_button = minutes_elapsed > 5 %}
+                                <tr class="{% if is_long_pending %}table-warning{% endif %}" 
+                                    data-payment-created="{{ payment.created_at.isoformat() if payment.created_at else '' }}"
+                                    data-payment-id="{{ payment.id }}">
+                                    <td>
+                                        <small>{{ payment.created_at.strftime('%d/%m/%Y %H:%M') if payment.created_at else 'N/A' }}</small>
+                                        {% if is_long_pending %}
+                                            <br><small class="text-danger payment-time-elapsed">
+                                                <i class="fas fa-exclamation-triangle"></i> 
+                                                <span class="time-value">
+                                                    {% if hours_elapsed > 0 %}
+                                                        {{ hours_elapsed }}h {{ minutes_elapsed % 60 }}m
+                                                    {% else %}
+                                                        {{ minutes_elapsed }}m
+                                                    {% endif %}
+                                                </span>
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>${{ "%.2f"|format(payment.amount / 100) }}</strong></td>
+                                    <td>
+                                        <small class="font-monospace">{{ payment.payment_reference or 'N/A' }}</small>
+                                        {% if payment.yappy_transaction_id %}
+                                            <br><small class="text-success">
+                                                <i class="fas fa-check"></i> {{ payment.yappy_transaction_id }}
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div>
+                                            {% if payment.status == 'pending' %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-clock"></i> Pendiente
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-hourglass-half"></i> Esperando Confirmación
+                                                </span>
+                                            {% endif %}
+                                            
+                                            {% if minutes_elapsed > 0 %}
+                                                <br><small class="text-muted mt-1 d-block payment-time-elapsed">
+                                                    <i class="fas fa-clock"></i> 
+                                                    <span class="time-value">
+                                                        {% if hours_elapsed > 0 %}
+                                                            {{ hours_elapsed }}h {{ minutes_elapsed % 60 }}m
+                                                        {% else %}
+                                                            {{ minutes_elapsed }}m
+                                                        {% endif %}
+                                                    </span>
+                                                </small>
+                                            {% endif %}
+                                            
+                                            <!-- Barra de progreso -->
+                                            <div class="progress mt-1" style="height: 8px; width: 200px;">
+                                                {% if minutes_elapsed < 10 %}
+                                                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated payment-progress" 
+                                                         role="progressbar" 
+                                                         style="width: {{ (minutes_elapsed / 10 * 100)|int }}%"
+                                                         data-minutes="{{ minutes_elapsed }}"
+                                                         aria-valuenow="{{ minutes_elapsed }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="10">
+                                                    </div>
+                                                {% elif minutes_elapsed < 30 %}
+                                                    <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated payment-progress" 
+                                                         role="progressbar" 
+                                                         style="width: {{ (minutes_elapsed / 30 * 100)|int }}%"
+                                                         data-minutes="{{ minutes_elapsed }}"
+                                                         aria-valuenow="{{ minutes_elapsed }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="30">
+                                                    </div>
+                                                {% else %}
+                                                    <div class="progress-bar bg-danger progress-bar-striped progress-bar-animated payment-progress" 
+                                                         role="progressbar" 
+                                                         style="width: 100%"
+                                                         data-minutes="{{ minutes_elapsed }}"
+                                                         aria-valuenow="{{ minutes_elapsed }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100">
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            {% if is_long_pending %}
+                                                <span class="badge bg-danger mt-1">
+                                                    <i class="fas fa-exclamation-triangle"></i> 
+                                                    Requiere atención
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-success" 
+                                                onclick="showVerifyModal({{ payment.id }}, '{{ payment.payment_reference }}', {{ payment.amount }})">
+                                            <i class="fas fa-check-circle"></i> Verificar
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de Pagos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Todos los Pagos ({{ payments|length }}) <small class="text-muted">- Haz clic en una fila para ver detalles</small></h5>
+                </div>
+                <div class="card-body">
+                    {% if payments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Método</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                    <th>Referencia</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment_data in payments %}
+                                {% set payment = payment_data.payment %}
+                                <tr data-bs-toggle="collapse" data-bs-target="#payment-details-{{ payment.id }}" aria-expanded="false" style="cursor: pointer;">
+                                    <td>{{ payment.id }}</td>
+                                    <td>
+                                        <small>
+                                            {{ payment.created_at.strftime('%d/%m/%Y') if payment.created_at else 'N/A' }}<br>
+                                            <span class="text-muted">{{ payment.created_at.strftime('%H:%M') if payment.created_at else '' }}</span>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if payment.payment_method == 'paypal' %}
+                                            <i class="fab fa-paypal text-primary"></i> PayPal
+                                        {% elif payment.payment_method == 'yappy' %}
+                                            <i class="fas fa-mobile-alt text-info"></i> Yappy
+                                        {% elif payment.payment_method == 'stripe' or payment.payment_method == 'tcr' %}
+                                            <i class="fab fa-cc-stripe text-success"></i> Stripe/TCR
+                                        {% elif payment.payment_method == 'banco_general' %}
+                                            <i class="fas fa-university text-success"></i> Banco General
+                                        {% else %}
+                                            <i class="fas fa-credit-card"></i> {{ payment.payment_method|title }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>${{ "%.2f"|format(payment.amount / 100) if payment.amount else '0.00' }}</strong>
+                                        {% if payment_data.purchased_items %}
+                                            <br><small class="text-muted">{{ payment_data.purchased_items|length }} item(s)</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if payment.status == 'succeeded' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check-circle"></i> Completado
+                                            </span>
+                                            {% if payment.paid_at %}
+                                                <br><small class="text-muted">{{ payment.paid_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                            {% endif %}
+                                        {% elif payment.status in ['pending', 'awaiting_confirmation'] %}
+                                            {% set time_elapsed = (current_time - payment.created_at).total_seconds() / 60 if payment.created_at and current_time else 0 %}
+                                            {% set minutes_elapsed = time_elapsed|int %}
+                                            {% set hours_elapsed = (minutes_elapsed / 60)|int %}
+                                            {% set is_long_pending = minutes_elapsed > 5 %}
+                                            {% set show_verify_button = minutes_elapsed > 5 %}
+                                            
+                                            <div>
+                                                {% if payment.status == 'pending' %}
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-clock"></i> Pendiente
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-info">
+                                                        <i class="fas fa-hourglass-half"></i> Esperando Confirmación
+                                                    </span>
+                                                {% endif %}
+                                                
+                                                {% if minutes_elapsed > 0 %}
+                                                    <br><small class="text-muted payment-time-elapsed">
+                                                        <i class="fas fa-clock"></i> 
+                                                        <span class="time-value">
+                                                            {% if hours_elapsed > 0 %}
+                                                                {{ hours_elapsed }}h {{ minutes_elapsed % 60 }}m
+                                                            {% else %}
+                                                                {{ minutes_elapsed }}m
+                                                            {% endif %}
+                                                        </span>
+                                                    </small>
+                                                {% endif %}
+                                                
+                                                {% if is_long_pending %}
+                                                    <br><span class="badge bg-danger mt-1">
+                                                        <i class="fas fa-exclamation-triangle"></i> 
+                                                        Más de 30 min
+                                                    </span>
+                                                {% endif %}
+                                                
+                                                <!-- Barra de progreso visual (ajustada a 5 minutos) -->
+                                                <div class="progress mt-1 payment-progress-container" style="height: 8px; width: 150px;">
+                                                    {% if minutes_elapsed < 5 %}
+                                                        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated payment-progress" 
+                                                             role="progressbar" 
+                                                             style="width: {{ (minutes_elapsed / 5 * 100)|int }}%"
+                                                             data-minutes="{{ minutes_elapsed }}"
+                                                             aria-valuenow="{{ minutes_elapsed }}" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="5">
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated payment-progress" 
+                                                             role="progressbar" 
+                                                             style="width: 100%"
+                                                             data-minutes="{{ minutes_elapsed }}"
+                                                             aria-valuenow="{{ minutes_elapsed }}" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="100">
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% elif payment.status == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times-circle"></i> Fallido
+                                            </span>
+                                        {% elif payment.status == 'cancelled' %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-ban"></i> Cancelado
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-dark">{{ payment.status|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="font-monospace">{{ payment.payment_reference or 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if payment.invoice_id %}
+                                            <a href="{{ url_for('invoice_detail', invoice_id=payment.invoice_id) }}" 
+                                               class="btn btn-sm btn-outline-primary" 
+                                               title="Ver factura">
+                                                <i class="fas fa-file-invoice"></i>
+                                            </a>
+                                        {% endif %}
+                                        {% if payment.payment_method == 'yappy' and payment.status in ['pending', 'awaiting_confirmation'] %}
+                                            {% set time_elapsed = (current_time - payment.created_at).total_seconds() / 60 if payment.created_at and current_time else 0 %}
+                                            {% set minutes_elapsed = time_elapsed|int %}
+                                            {% if minutes_elapsed > 5 %}
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-success" 
+                                                    title="Verificar manualmente con código de comprobante (disponible después de 5 minutos)"
+                                                    onclick="showVerifyModal({{ payment.id }}, '{{ payment.payment_reference }}', {{ payment.amount }})">
+                                                <i class="fas fa-check-circle"></i> Verificar
+                                            </button>
+                                            {% else %}
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock"></i> 
+                                                Auto-verificación en curso
+                                                <br>
+                                                <span class="badge bg-info">Disponible en {{ 5 - minutes_elapsed }} min</span>
+                                            </small>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <!-- Detalles expandibles del pago -->
+                                <tr>
+                                    <td colspan="7" class="p-0">
+                                        <div class="collapse" id="payment-details-{{ payment.id }}">
+                                            <div class="card card-body bg-light">
+                                                <h6 class="mb-3"><i class="fas fa-shopping-cart"></i> Detalles de la Compra</h6>
+                                                
+                                                <!-- Items comprados -->
+                                                {% if payment_data.purchased_items %}
+                                                <div class="mb-3">
+                                                    <h6 class="text-muted">Items Comprados:</h6>
+                                                    <table class="table table-sm table-bordered">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Producto</th>
+                                                                <th>Tipo</th>
+                                                                <th>Cantidad</th>
+                                                                <th>Precio Unitario</th>
+                                                                <th>Total</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for item in payment_data.purchased_items %}
+                                                            <tr>
+                                                                <td>{{ item.product_name }}</td>
+                                                                <td><span class="badge bg-info">{{ item.product_type|title }}</span></td>
+                                                                <td>{{ item.quantity }}</td>
+                                                                <td>${{ "%.2f"|format(item.unit_price / 100) }}</td>
+                                                                <td><strong>${{ "%.2f"|format((item.unit_price * item.quantity) / 100) }}</strong></td>
+                                                            </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                <!-- Descuentos aplicados -->
+                                                {% if payment_data.discount_applications %}
+                                                <div class="mb-3">
+                                                    <h6 class="text-muted">Descuentos Aplicados:</h6>
+                                                    <ul class="list-group">
+                                                        {% for discount in payment_data.discount_applications %}
+                                                        <li class="list-group-item">
+                                                            <strong>{{ discount.discount_code.code if discount.discount_code else 'N/A' }}</strong>
+                                                            - Descuento: ${{ "%.2f"|format(discount.discount_amount / 100) }}
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                <!-- Suscripciones creadas -->
+                                                {% if payment_data.subscriptions %}
+                                                <div class="mb-3">
+                                                    <h6 class="text-muted">Suscripciones Creadas:</h6>
+                                                    <ul class="list-group">
+                                                        {% for subscription in payment_data.subscriptions %}
+                                                        <li class="list-group-item">
+                                                            <strong>{{ subscription.membership_type|title }}</strong>
+                                                            - Estado: <span class="badge bg-{% if subscription.status == 'active' %}success{% else %}secondary{% endif %}">{{ subscription.status }}</span>
+                                                            {% if subscription.end_date %}
+                                                            - Vence: {{ subscription.end_date.strftime('%d/%m/%Y') }}
+                                                            {% endif %}
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                <!-- Eventos registrados -->
+                                                {% if payment_data.event_registrations %}
+                                                <div class="mb-3">
+                                                    <h6 class="text-muted">Eventos Registrados:</h6>
+                                                    <ul class="list-group">
+                                                        {% for event_reg in payment_data.event_registrations %}
+                                                        <li class="list-group-item">
+                                                            <strong>{{ event_reg.event.title if event_reg.event else 'Evento' }}</strong>
+                                                            - Estado: <span class="badge bg-{% if event_reg.registration_status == 'confirmed' %}success{% elif event_reg.registration_status == 'pending' %}warning{% else %}secondary{% endif %}">{{ event_reg.registration_status|title }}</span>
+                                                            {% if event_reg.final_price %}
+                                                            - Precio: ${{ "%.2f"|format(event_reg.final_price) }}
+                                                            {% endif %}
+                                                            {% if event_reg.event and event_reg.event.start_date %}
+                                                            <br><small class="text-muted">
+                                                                <i class="fas fa-calendar"></i> {{ event_reg.event.start_date.strftime('%d/%m/%Y %H:%M') if event_reg.event.start_date else 'Fecha por definir' }}
+                                                            </small>
+                                                            {% endif %}
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                <!-- Información del historial -->
+                                                {% if payment_data.history_transactions %}
+                                                <div class="mb-3">
+                                                    <h6 class="text-muted">Eventos del Historial:</h6>
+                                                    <ul class="list-group">
+                                                        {% for transaction in payment_data.history_transactions %}
+                                                        <li class="list-group-item">
+                                                            <small>
+                                                                <i class="fas fa-clock"></i> {{ transaction.timestamp.strftime('%d/%m/%Y %H:%M') }}
+                                                                - {{ transaction.action }}
+                                                                <span class="badge bg-{% if transaction.status == 'success' %}success{% elif transaction.status == 'failed' %}danger{% else %}warning{% endif %}">{{ transaction.status }}</span>
+                                                            </small>
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                {% if not payment_data.purchased_items and not payment_data.subscriptions and not payment_data.discount_applications %}
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle"></i> No hay detalles adicionales disponibles para este pago.
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle"></i> No tienes pagos registrados aún.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información adicional -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6><i class="fas fa-info-circle"></i> Información sobre los Estados:</h6>
+                    <ul class="mb-0">
+                        <li><span class="badge bg-success">Completado</span>: El pago fue procesado exitosamente.</li>
+                        <li><span class="badge bg-warning">Pendiente</span>: El pago está en proceso de verificación.</li>
+                        <li><span class="badge bg-info">Esperando Confirmación</span>: El pago requiere confirmación manual o del proveedor.</li>
+                        <li><span class="badge bg-danger">Fallido</span>: El pago no pudo ser procesado.</li>
+                        <li><span class="badge bg-secondary">Cancelado</span>: El pago fue cancelado por el usuario o el sistema.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para verificar pago -->
+<div class="modal fade" id="verifyPaymentModal" tabindex="-1" aria-labelledby="verifyPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="verifyPaymentModalLabel">
+                    <i class="fas fa-check-circle"></i> Verificar Pago Yappy
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    Ingresa el código de comprobante que recibiste de Yappy (ejemplo: EBOWR-38807178)
+                </div>
+                
+                <form id="verifyPaymentForm">
+                    <input type="hidden" id="verify_payment_id" name="payment_id">
+                    
+                    <div class="mb-3">
+                        <label for="receipt_code" class="form-label">Código de Comprobante de Yappy</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="receipt_code" 
+                               name="receipt_code" 
+                               placeholder="EBOWR-XXXXXXXX"
+                               required>
+                        <small class="form-text text-muted">
+                            Este código aparece en el comprobante que recibiste después de realizar el pago en Yappy
+                        </small>
+                    </div>
+                    
+                    <div id="verifyResult" style="display: none;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="verifyBtn" onclick="verifyPayment()">
+                    <i class="fas fa-search"></i> Verificar Pago
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPaymentId = null;
+let currentPaymentAmount = null;
+
+function showVerifyModal(paymentId, paymentReference, amount) {
+    currentPaymentId = paymentId;
+    currentPaymentAmount = amount;
+    document.getElementById('verify_payment_id').value = paymentId;
+    document.getElementById('receipt_code').value = '';
+    document.getElementById('verifyResult').style.display = 'none';
+    document.getElementById('verifyResult').innerHTML = '';
+    
+    // Mostrar información del pago
+    const modalBody = document.querySelector('#verifyPaymentModal .modal-body');
+    let infoHtml = `
+        <div class="alert alert-light mb-3">
+            <strong>Información del pago:</strong><br>
+            <small>Referencia: <code>${paymentReference}</code></small><br>
+            <small>Monto: <strong>$${(amount / 100).toFixed(2)}</strong></small>
+        </div>
+    `;
+    modalBody.insertAdjacentHTML('afterbegin', infoHtml);
+    
+    const modal = new bootstrap.Modal(document.getElementById('verifyPaymentModal'));
+    modal.show();
+}
+
+function verifyPayment() {
+    const receiptCode = document.getElementById('receipt_code').value.trim();
+    const paymentId = document.getElementById('verify_payment_id').value;
+    const verifyBtn = document.getElementById('verifyBtn');
+    const resultDiv = document.getElementById('verifyResult');
+    
+    if (!receiptCode) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div class="alert alert-warning">Por favor, ingresa el código de comprobante</div>';
+        return;
+    }
+    
+    // Deshabilitar botón y mostrar loading
+    verifyBtn.disabled = true;
+    verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Verificando pago con Yappy...</div>';
+    
+    // Llamar al endpoint
+    fetch('/api/payments/yappy/verify-by-code', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+            receipt_code: receiptCode,
+            payment_id: parseInt(paymentId)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.payment_confirmed) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle"></i> ¡Pago Confirmado!</h6>
+                        <p>${data.message}</p>
+                        <p><small>Referencia: ${data.payment_reference || 'N/A'}</small></p>
+                        ${data.yappy_transaction_id ? `<p><small>Código Yappy: ${data.yappy_transaction_id}</small></p>` : ''}
+                    </div>
+                `;
+                
+                // Recargar página después de 2 segundos
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                // Pago encontrado pero no confirmado aún
+                let alertClass = 'alert-warning';
+                let icon = 'fas fa-clock';
+                let title = 'Pago en Proceso';
+                
+                if (data.yappy_status) {
+                    title = `Estado en Yappy: ${data.yappy_status}`;
+                }
+                
+                let html = `
+                    <div class="alert ${alertClass}">
+                        <h6><i class="${icon}"></i> ${title}</h6>
+                        <p>${data.message}</p>
+                        ${data.yappy_transaction_id ? `<p><small><strong>Código guardado:</strong> ${data.yappy_transaction_id}</small></p>` : ''}
+                        ${data.info ? `<p><small class="text-muted">${data.info}</small></p>` : ''}
+                        ${data.status ? `<p><small>Estado actual: <strong>${data.status}</strong></small></p>` : ''}
+                    </div>
+                `;
+                
+                if (data.yappy_transaction_id) {
+                    html += `
+                        <div class="alert alert-info mt-2">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>¿Qué sigue?</strong><br>
+                            <small>
+                                El código de comprobante ha sido guardado. El sistema verificará automáticamente 
+                                cuando Yappy confirme el pago (generalmente en unos minutos). 
+                                También puedes volver a verificar más tarde haciendo clic en "Verificar" nuevamente.
+                            </small>
+                        </div>
+                    `;
+                }
+                
+                resultDiv.innerHTML = html;
+            }
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Error</h6>
+                    <p>${data.error}</p>
+                    ${data.suggestion ? `<p><small>${data.suggestion}</small></p>` : ''}
+                </div>
+            `;
+        }
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = '<i class="fas fa-search"></i> Verificar Pago';
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <h6><i class="fas fa-exclamation-triangle"></i> Error</h6>
+                <p>Error al verificar el pago: ${error.message}</p>
+            </div>
+        `;
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = '<i class="fas fa-search"></i> Verificar Pago';
+    });
+}
+
+// Limpiar modal al cerrar
+document.getElementById('verifyPaymentModal').addEventListener('hidden.bs.modal', function () {
+    const resultDiv = document.getElementById('verifyResult');
+    resultDiv.style.display = 'none';
+    resultDiv.innerHTML = '';
+    // Remover info del pago si existe
+    const infoAlert = document.querySelector('#verifyPaymentModal .modal-body .alert-light');
+    if (infoAlert) {
+        infoAlert.remove();
+    }
+});
+
+// Actualizar tiempo transcurrido en tiempo real para pagos pendientes
+function updatePendingPaymentsTime() {
+    const pendingRows = document.querySelectorAll('tr[data-payment-created]');
+    const now = new Date();
+    
+    pendingRows.forEach(row => {
+        const createdTimestamp = row.getAttribute('data-payment-created');
+        if (!createdTimestamp) return;
+        
+        const createdDate = new Date(createdTimestamp);
+        const diffMs = now - createdDate;
+        const diffMinutes = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMinutes / 60);
+        
+        // Actualizar badge de tiempo
+        const timeElements = row.querySelectorAll('.payment-time-elapsed .time-value');
+        timeElements.forEach(el => {
+            if (diffHours > 0) {
+                el.textContent = `${diffHours}h ${diffMinutes % 60}m`;
+            } else {
+                el.textContent = `${diffMinutes}m`;
+            }
+        });
+        
+            // Cambiar color si pasa de 5 minutos (tiempo para verificación manual)
+            const timeBadges = row.querySelectorAll('.payment-time-elapsed');
+            timeBadges.forEach(badge => {
+                if (diffMinutes > 5) {
+                    badge.classList.remove('text-muted');
+                    badge.classList.add('text-warning');
+                }
+            });
+            
+            // Actualizar barra de progreso (ajustada a 5 minutos)
+            const progressBar = row.querySelector('.payment-progress');
+            if (progressBar) {
+                let percentage = 0;
+                let newClass = '';
+                if (diffMinutes < 5) {
+                    percentage = (diffMinutes / 5) * 100;
+                    newClass = 'progress-bar bg-success progress-bar-striped progress-bar-animated payment-progress';
+                } else {
+                    percentage = 100;
+                    newClass = 'progress-bar bg-warning progress-bar-striped progress-bar-animated payment-progress';
+                }
+                progressBar.className = newClass;
+                progressBar.style.width = percentage + '%';
+                progressBar.setAttribute('aria-valuenow', diffMinutes);
+                progressBar.setAttribute('data-minutes', diffMinutes);
+                
+                // Mostrar botón de verificación si pasa de 5 minutos
+                if (diffMinutes > 5) {
+                    const actionCell = row.querySelector('td:last-child');
+                    if (actionCell && !actionCell.querySelector('.btn-success')) {
+                        const verifyButton = document.createElement('button');
+                        verifyButton.type = 'button';
+                        verifyButton.className = 'btn btn-sm btn-success';
+                        verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Verificar';
+                        verifyButton.onclick = function() {
+                            const paymentId = row.getAttribute('data-payment-id');
+                            const paymentRef = row.querySelector('td:nth-child(3) small').textContent.trim();
+                            const paymentAmount = parseFloat(row.querySelector('td:nth-child(2) strong').textContent.replace('$', '')) * 100;
+                            showVerifyModal(paymentId, paymentRef, paymentAmount);
+                        };
+                        actionCell.innerHTML = '';
+                        actionCell.appendChild(verifyButton);
+                    }
+                } else {
+                    // Mostrar mensaje de espera si aún no pasan 5 minutos
+                    const actionCell = row.querySelector('td:last-child');
+                    if (actionCell && !actionCell.querySelector('.text-muted')) {
+                        const waitMsg = document.createElement('small');
+                        waitMsg.className = 'text-muted';
+                        waitMsg.innerHTML = `
+                            <i class="fas fa-clock"></i> Verificación automática en curso...
+                            <br>
+                            <span class="badge bg-info">Disponible en ${5 - diffMinutes} min</span>
+                        `;
+                        actionCell.innerHTML = '';
+                        actionCell.appendChild(waitMsg);
+                    }
+                }
+            }
+            
+            // Cambiar color de fila si pasa de 5 minutos
+            if (diffMinutes > 5) {
+                row.classList.add('table-warning');
+            }
+    });
+}
+
+// Actualizar cada minuto
+if (document.querySelectorAll('tr[data-payment-created]').length > 0) {
+    updatePendingPaymentsTime();
+    setInterval(updatePendingPaymentsTime, 60000); // Cada minuto
+}
+</script>
+{% endblock %}

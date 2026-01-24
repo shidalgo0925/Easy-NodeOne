@@ -293,7 +293,6 @@
                                         <li><strong>PayPal:</strong> Pagos mediante cuenta PayPal o tarjeta</li>
                                         <li><strong>Banco General:</strong> Transferencias bancarias (Panamá)</li>
                                         <li><strong>Yappy:</strong> Pagos móviles (Panamá)</li>
-                                        <li><strong>Interbank:</strong> Transferencias bancarias (Perú)</li>
                                     </ul>
                                 </div>
                             </div>
@@ -1368,6 +1367,99 @@ PAYPAL_MODE=live</code></pre>
                             </div>
                         </div>
 
+                        <!-- Configuración de Login Social (OAuth) -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="oauth-config">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin15-oauth">
+                                    <i class="fab fa-google me-2"></i> Configurar Login Social (OAuth)
+                                </button>
+                            </h2>
+                            <div id="admin15-oauth" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>¿Qué es el Login Social?</h6>
+                                    <p>El login social permite a los usuarios iniciar sesión usando sus cuentas de Google, Facebook o LinkedIn, sin necesidad de crear una contraseña.</p>
+                                    
+                                    <h6 class="mt-3">Configurar Google OAuth</h6>
+                                    <ol>
+                                        <li>Ve a <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+                                        <li>Crea o selecciona un proyecto</li>
+                                        <li>Ve a <strong>APIs & Services</strong> > <strong>Credentials</strong></li>
+                                        <li>Haz clic en <strong>+ CREATE CREDENTIALS</strong> > <strong>OAuth client ID</strong></li>
+                                        <li>Selecciona <strong>Web application</strong></li>
+                                        <li>Configura:
+                                            <ul>
+                                                <li><strong>Name:</strong> RelaticPanama</li>
+                                                <li><strong>Authorized JavaScript origins:</strong> <code>https://miembros.relatic.org</code></li>
+                                                <li><strong>Authorized redirect URIs:</strong> <code>https://miembros.relatic.org/auth/google/callback</code></li>
+                                            </ul>
+                                        </li>
+                                        <li>Copia el <strong>Client ID</strong> y <strong>Client Secret</strong></li>
+                                        <li>Configura las variables de entorno:
+                                            <pre class="bg-light p-3 rounded"><code>export GOOGLE_CLIENT_ID="tu-client-id.apps.googleusercontent.com"
+export GOOGLE_CLIENT_SECRET="tu-client-secret"
+export BASE_URL="https://miembros.relatic.org"</code></pre>
+                                        </li>
+                                        <li>Reinicia el servicio: <code>sudo systemctl restart membresia-relatic.service</code></li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar Facebook OAuth</h6>
+                                    <ol>
+                                        <li>Ve a <a href="https://developers.facebook.com/" target="_blank">Facebook Developers</a></li>
+                                        <li>Crea una nueva app</li>
+                                        <li>Agrega el producto <strong>Facebook Login</strong></li>
+                                        <li>Configura <strong>Valid OAuth Redirect URIs</strong>:
+                                            <ul>
+                                                <li><code>https://miembros.relatic.org/auth/facebook/callback</code></li>
+                                            </ul>
+                                        </li>
+                                        <li>Obtén <strong>App ID</strong> y <strong>App Secret</strong> desde <strong>Settings</strong> > <strong>Basic</strong></li>
+                                        <li>Configura las variables de entorno:
+                                            <pre class="bg-light p-3 rounded"><code>export FACEBOOK_CLIENT_ID="tu-app-id"
+export FACEBOOK_CLIENT_SECRET="tu-app-secret"</code></pre>
+                                        </li>
+                                        <li>Reinicia el servicio</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Configurar LinkedIn OAuth</h6>
+                                    <ol>
+                                        <li>Ve a <a href="https://www.linkedin.com/developers/" target="_blank">LinkedIn Developers</a></li>
+                                        <li>Crea una nueva app</li>
+                                        <li>En <strong>Auth</strong>, agrega <strong>Redirect URLs</strong>:
+                                            <ul>
+                                                <li><code>https://miembros.relatic.org/auth/linkedin/callback</code></li>
+                                            </ul>
+                                        </li>
+                                        <li>Obtén <strong>Client ID</strong> y <strong>Client Secret</strong></li>
+                                        <li>Configura las variables de entorno:
+                                            <pre class="bg-light p-3 rounded"><code>export LINKEDIN_CLIENT_ID="tu-client-id"
+export LINKEDIN_CLIENT_SECRET="tu-client-secret"</code></pre>
+                                        </li>
+                                        <li>Reinicia el servicio</li>
+                                    </ol>
+                                    
+                                    <div class="alert alert-warning mt-3">
+                                        <strong><i class="fas fa-exclamation-triangle me-2"></i>Importante:</strong>
+                                        <ul class="mb-0 mt-2">
+                                            <li>Las URLs de callback deben coincidir <strong>exactamente</strong> con las configuradas en cada proveedor</li>
+                                            <li>Nunca commitees las credenciales en el repositorio</li>
+                                            <li>Para desarrollo local, agrega también <code>http://localhost:9000/auth/[proveedor]/callback</code></li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <h6 class="mt-3">Verificar Configuración</h6>
+                                    <ol>
+                                        <li>Ve a la pantalla de login</li>
+                                        <li>Haz clic en un botón de login social (ej: Google)</li>
+                                        <li>Si está configurado correctamente, serás redirigido al proveedor</li>
+                                        <li>Si ves un error, verifica las credenciales y URLs</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Documentación Completa</h6>
+                                    <p>Para más detalles, consulta: <code>docs/CONFIGURACION_LOGIN_SOCIAL.md</code></p>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Configuración de Multimedia -->
                         <div class="accordion-item">
                             <h2 class="accordion-header">
@@ -1679,7 +1771,7 @@ const visualGuides = {
                 title: 'Accede a la Página de Registro',
                 description: 'Desde la página principal, haz clic en "Registrarse" o ve directamente a /register',
                 visual: '<div class="visual-diagram"><i class="fas fa-home icon-large"></i><p>Página Principal → Botón "Registrarse"</p></div>',
-                video: 'https://ejemplo.com/videos/registro-paso1.mp4',
+                video: 'https://youtu.be/ICnvjxIFTwE?si=dbFZKCZX-VCIzLaL',
                 audio: 'https://ejemplo.com/audio/registro-paso1.mp3'
             },
             {
@@ -1750,7 +1842,7 @@ const visualGuides = {
                 number: 1,
                 icon: 'fa-credit-card',
                 title: 'Selecciona Método de Pago',
-                description: 'En el checkout, elige entre Stripe, PayPal, Banco General, Yappy o Interbank',
+                description: 'En el checkout, elige entre Stripe, PayPal, Banco General o Yappy',
                 visual: '<div class="visual-diagram"><i class="fas fa-credit-card icon-large"></i><p>5 métodos disponibles: Tarjeta, PayPal, Transferencias</p></div>',
                 video: 'https://ejemplo.com/videos/pago-paso1.mp4',
                 audio: 'https://ejemplo.com/audio/pago-paso1.mp3'
@@ -1891,6 +1983,34 @@ const visualGuides = {
     }
 };
 
+// Función para convertir URL de YouTube a formato embed
+function convertYouTubeUrl(url) {
+    if (!url) return { embed: '', watch: '' };
+    
+    let videoId = '';
+    let watchUrl = '';
+    
+    // Detectar diferentes formatos de URL de YouTube
+    if (url.includes('youtube.com/watch?v=')) {
+        videoId = url.split('v=')[1].split('&')[0];
+        watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    } else if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1].split('?')[0].split('&')[0];
+        watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    } else if (url.includes('youtube.com/embed/')) {
+        videoId = url.split('embed/')[1].split('?')[0].split('&')[0];
+        watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    } else {
+        // Si ya es embed o no es YouTube, retornar tal cual
+        return { embed: url, watch: url };
+    }
+    
+    // Crear URL embed con parámetros que ayudan con restricciones
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0`;
+    
+    return { embed: embedUrl, watch: watchUrl, videoId: videoId };
+}
+
 // Función para mostrar guía visual
 async function showVisualGuide(procedure) {
     const guide = visualGuides[procedure];
@@ -1953,19 +2073,51 @@ async function showVisualGuide(procedure) {
         
         if (videoUrl && !videoUrl.includes('ejemplo.com')) {
             // Video configurado - mostrar reproductor
-            if (videoUrl.includes('youtube.com/embed') || videoUrl.includes('youtu.be')) {
-                html += `<iframe width="100%" height="315" src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            let youtubeInfo = null;
+            let finalVideoUrl = videoUrl;
+            
+            // Detectar y convertir URLs de YouTube
+            if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+                youtubeInfo = convertYouTubeUrl(videoUrl);
+                finalVideoUrl = youtubeInfo.embed;
+            }
+            
+            if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+                // Video de YouTube - mostrar embed con mensaje de error y botón alternativo prominente
+                html += `<div class="alert alert-info mb-3" role="alert">
+                    <h6><i class="fas fa-info-circle me-2"></i>Nota sobre el Video</h6>
+                    <p class="mb-2">Si ves el mensaje "Este contenido está bloqueado", el video tiene restricciones de incrustación.</p>
+                    <p class="mb-0"><strong>Solución:</strong> Haz clic en el botón rojo de abajo para ver el video directamente en YouTube.</p>
+                </div>`;
+                html += `<div class="position-relative">
+                    <iframe width="100%" height="315" src="${finalVideoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>`;
+                if (youtubeInfo && youtubeInfo.watch) {
+                    html += `<div class="mt-3 text-center">
+                        <a href="${youtubeInfo.watch}" target="_blank" class="btn btn-danger btn-lg">
+                            <i class="fab fa-youtube me-2"></i> Ver Video en YouTube
+                        </a>
+                        <p class="text-muted small mt-2 mb-0">Si el video está bloqueado arriba, haz clic aquí para verlo directamente en YouTube</p>
+                    </div>`;
+                } else {
+                    html += `<div class="mt-2">
+                        <small class="text-success"><i class="fas fa-check-circle"></i> Video configurado</small>
+                    </div>`;
+                }
             } else if (videoUrl.includes('vimeo.com')) {
                 html += `<iframe src="${videoUrl}" width="100%" height="315" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+                html += `<div class="mt-2">
+                    <small class="text-success"><i class="fas fa-check-circle"></i> Video configurado</small>
+                </div>`;
             } else {
                 html += `<video controls class="w-100" style="max-height: 315px;">
                     <source src="${videoUrl}" type="video/mp4">
                     Tu navegador no soporta video HTML5.
                 </video>`;
+                html += `<div class="mt-2">
+                    <small class="text-success"><i class="fas fa-check-circle"></i> Video configurado</small>
+                </div>`;
             }
-            html += `<div class="mt-2">
-                <small class="text-success"><i class="fas fa-check-circle"></i> Video configurado</small>
-            </div>`;
         } else {
             // Sin video configurado
             html += `<button class="btn btn-sm btn-primary" onclick="playVideo('${videoUrl}')">
@@ -2023,6 +2175,41 @@ async function showVisualGuide(procedure) {
 
 // Event listeners para las tarjetas
 document.addEventListener('DOMContentLoaded', function() {
+    // Abrir accordion si se accede con hash #oauth-config
+    if (window.location.hash === '#oauth-config') {
+        const oauthCollapse = document.getElementById('admin15-oauth');
+        const oauthHeader = document.getElementById('oauth-config');
+        if (oauthCollapse && oauthHeader) {
+            // Abrir el accordion
+            const bsCollapse = new bootstrap.Collapse(oauthCollapse, {
+                toggle: true
+            });
+            // Scroll suave al elemento después de que se abra
+            setTimeout(() => {
+                oauthHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Ajustar un poco más arriba para que no quede pegado al borde
+                window.scrollBy(0, -20);
+            }, 500);
+        }
+    }
+    
+    // También manejar cuando se hace clic en el enlace desde otra página
+    window.addEventListener('hashchange', function() {
+        if (window.location.hash === '#oauth-config') {
+            const oauthCollapse = document.getElementById('admin15-oauth');
+            const oauthHeader = document.getElementById('oauth-config');
+            if (oauthCollapse && oauthHeader) {
+                const bsCollapse = new bootstrap.Collapse(oauthCollapse, {
+                    toggle: true
+                });
+                setTimeout(() => {
+                    oauthHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    window.scrollBy(0, -20);
+                }, 500);
+            }
+        }
+    });
+    
     document.querySelectorAll('.visual-guide-card').forEach(card => {
         card.addEventListener('click', function() {
             const procedure = this.getAttribute('data-procedure');

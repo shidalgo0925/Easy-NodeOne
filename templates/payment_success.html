@@ -1,11 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Pago Exitoso - RelaticPanama{% endblock %}
+{% block title %}
+    {% if payment.status == 'succeeded' %}
+        Pago Exitoso - RelaticPanama
+    {% else %}
+        Pago Pendiente - RelaticPanama
+    {% endif %}
+{% endblock %}
 
 {% block page_content %}
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-lg-8">
+            {% if payment.status == 'succeeded' %}
+            <!-- ========== PAGO CONFIRMADO - Mostrar éxito ========== -->
             <div class="card border-success">
                 <div class="card-header bg-success text-white text-center">
                     <h4 class="mb-0">
@@ -35,6 +43,9 @@
                                         {{ current_user.email }}
                                     </p>
                                     <p><strong>Fecha:</strong> {{ payment.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                                    {% if payment.paid_at %}
+                                    <p><strong>Confirmado:</strong> {{ payment.paid_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                                    {% endif %}
                                     <p><strong>Estado:</strong> 
                                         <span class="badge bg-success">Confirmado</span>
                                     </p>
@@ -117,7 +128,445 @@
                     </div>
                 </div>
             </div>
+            
+            {% else %}
+            <!-- ========== PAGO PENDIENTE - Mostrar opciones de pago ========== -->
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-clock fa-2x"></i>
+                        <br>Pago Pendiente de Confirmación
+                    </h4>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-mobile-alt fa-4x text-warning mb-3"></i>
+                        <h3>Tu pago con Yappy está pendiente</h3>
+                        <p class="lead text-muted">
+                            Sigue las instrucciones a continuación para completar tu pago.
+                        </p>
+                        <div class="alert alert-success mb-4">
+                            <i class="fas fa-check-circle"></i> <strong>Puedes cerrar esta página tranquilamente</strong><br>
+                            <div class="mt-2">
+                                <strong>El sistema verificará tu pago automáticamente de 2 formas:</strong>
+                                <ul class="text-start mt-2 mb-0">
+                                    <li><i class="fas fa-bolt text-primary"></i> <strong>Webhook automático:</strong> Cuando Yappy confirme tu pago, el sistema lo procesará inmediatamente</li>
+                                    <li><i class="fas fa-clock text-info"></i> <strong>Verificación periódica:</strong> El sistema verifica cada 5 minutos los pagos pendientes</li>
+                                </ul>
+                                <div class="mt-2">
+                                    <i class="fas fa-envelope text-success"></i> <strong>Recibirás un email</strong> cuando tu pago sea confirmado y tu membresía se active automáticamente.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-md-10">
+                            <!-- Formulario para código de comprobante -->
+                            <div class="card border-info mb-4">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-receipt text-info"></i> Verificar Pago con Código de Comprobante
+                                    </h6>
+                                    <p class="text-muted small">
+                                        Después de realizar el pago, ingresa el código de comprobante que recibiste de Yappy.
+                                    </p>
+                                    
+                                    <form id="verify-yappy-form" class="mt-3">
+                                        <div class="mb-3">
+                                            <label for="yappy_receipt_code" class="form-label">
+                                                <strong>Código de Comprobante Yappy</strong>
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                class="form-control form-control-lg text-center" 
+                                                id="yappy_receipt_code" 
+                                                name="receipt_code"
+                                                placeholder="Ej: YAPPY-123456789"
+                                                required
+                                                autocomplete="off"
+                                            >
+                                            <small class="form-text text-muted">
+                                                Este código aparece en el comprobante de pago de Yappy
+                                            </small>
+                                        </div>
+                                        
+                                        <div class="d-grid gap-2">
+                                            <button type="submit" class="btn btn-primary btn-lg" id="verify-btn">
+                                                <i class="fas fa-search"></i> Buscar y Verificar Pago
+                                            </button>
+                                        </div>
+                                    </form>
+                                    
+                                    <div id="verify-result" class="mt-3" style="display: none;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Información del Pago -->
+                            <div class="card bg-light mb-4">
+                                <div class="card-body text-start">
+                                    <h6><i class="fas fa-info-circle"></i> Información del Pago</h6>
+                                    {% if merchant_phone %}
+                                    <div class="alert alert-primary mb-3">
+                                        <strong><i class="fas fa-mobile-alt"></i> Número de Celular del Comercio:</strong><br>
+                                        <code class="fs-5 fw-bold text-primary">{{ merchant_phone }}</code><br>
+                                        <small class="text-muted">Usa este número para realizar el pago con Yappy.</small>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-info mb-3">
+                                        <strong><i class="fas fa-key"></i> Código de Referencia del Pago:</strong><br>
+                                        <code class="fs-5 fw-bold text-primary">{{ payment.payment_reference }}</code><br>
+                                        <small class="text-muted">Guarda este código para referencia. Lo necesitarás si verificas el pago manualmente.</small>
+                                    </div>
+                                    {% endif %}
+                                    <p class="mb-1"><strong>Monto:</strong> ${{ "%.2f"|format(payment.amount / 100) }}</p>
+                                    <p class="mb-0"><strong>Estado:</strong> 
+                                        <span class="badge bg-warning">Pendiente</span>
+                                    </p>
+                                    {% if current_user.phone and payment.payment_reference %}
+                                    <p class="mt-2 mb-0">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle"></i> 
+                                            Código de referencia: <code>{{ payment.payment_reference }}</code>
+                                        </small>
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Opciones de Pago Yappy -->
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-mobile-alt"></i> Cómo Realizar el Pago
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <!-- Opción 1: Escanear QR -->
+                                    <div class="card border-success mb-3">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title">
+                                                <i class="fas fa-qrcode text-success"></i> Opción 1: Escanear Código QR
+                                            </h6>
+                                            <p class="text-muted small mb-3">
+                                                Escanea este código QR con la app Yappy para pagar directamente
+                                            </p>
+                                            <div class="d-flex justify-content-center mb-3">
+                                                <div style="position: relative;">
+                                                    <img src="{{ payment_config.yappy_qr_image_path if payment_config and payment_config.yappy_qr_image_path else '/static/images/yappy-qr-multiserviciostk.png' }}" 
+                                                         alt="QR Code {{ payment_config.yappy_directory_name if payment_config and payment_config.yappy_directory_name else '@multiserviciostk' }}" 
+                                                         class="img-fluid"
+                                                         style="max-width: 300px; border: 2px dashed #ccc; padding: 10px; background: white;"
+                                                         onerror="this.style.display='none'; document.getElementById('qr-fallback').style.display='block';"
+                                                         id="yappy-qr-image">
+                                                    <div id="qr-fallback" style="display: none;" class="alert alert-warning">
+                                                        <i class="fas fa-exclamation-triangle"></i> QR no disponible. Usa la Opción 2.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p class="text-muted small mb-0">
+                                                <i class="fas fa-info-circle"></i> Escanea el QR con Yappy y realiza el pago por <strong>${{ "%.2f"|format(payment.amount / 100) }}</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Opción 2: Buscar por Nombre de Directorio -->
+                                    <div class="card border-warning mb-3">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title">
+                                                <i class="fas fa-search text-warning"></i> Opción 2: Buscar por Nombre en Yappy
+                                            </h6>
+                                            <p class="text-muted small mb-3">
+                                                Busca el comercio por su nombre en el directorio de Yappy
+                                            </p>
+                                            <div class="alert alert-warning mb-3">
+                                                <h4 class="mb-2">
+                                                    <span class="badge bg-warning text-dark fs-4" id="yappy-directory-name">{{ payment_config.yappy_directory_name if payment_config and payment_config.yappy_directory_name else '@multiserviciostk' }}</span>
+                                                </h4>
+                                                <p class="mb-2 small">
+                                                    Busca este nombre en el directorio de Yappy
+                                                </p>
+                                                <button class="btn btn-sm btn-warning" onclick="copyDirectoryName()">
+                                                    <i class="fas fa-copy"></i> Copiar Nombre
+                                                </button>
+                                            </div>
+                                            <ol class="text-start small mb-0">
+                                                <li class="mb-2">Abre la aplicación <strong>Yappy</strong> en tu teléfono</li>
+                                                <li class="mb-2">Ve al menú y selecciona <strong>"Buscar"</strong> o <strong>"Directorio"</strong></li>
+                                                <li class="mb-2">Busca el nombre: <strong><code id="directory-name-text">{{ payment_config.yappy_directory_name if payment_config and payment_config.yappy_directory_name else '@multiserviciostk' }}</code></strong></li>
+                                                <li class="mb-2">Selecciona el comercio <strong>"{{ payment_config.yappy_business_name if payment_config and payment_config.yappy_business_name else 'MULTISERVICIOS TK' }}"</strong></li>
+                                                <li class="mb-0">Realiza el pago por <strong>${{ "%.2f"|format(payment.amount / 100) }}</strong></li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Información del Monto -->
+                                    <div class="alert alert-primary mb-0">
+                                        <strong><i class="fas fa-dollar-sign"></i> Monto a Pagar:</strong>
+                                        <h3 class="mb-0 text-center">${{ "%.2f"|format(payment.amount / 100) }}</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
+
+{% if payment.payment_method == 'yappy' and payment.status == 'pending' %}
+<script>
+// Obtener valores configurables desde la base de datos
+const YAPPY_DIRECTORY_NAME = '{{ payment_config.yappy_directory_name if payment_config and payment_config.yappy_directory_name else "@multiserviciostk" }}';
+const YAPPY_QR_IMAGE_PATH = '{{ payment_config.yappy_qr_image_path if payment_config and payment_config.yappy_qr_image_path else "/static/images/yappy-qr-multiserviciostk.png" }}';
+const YAPPY_BUSINESS_NAME = '{{ payment_config.yappy_business_name if payment_config and payment_config.yappy_business_name else "MULTISERVICIOS TK" }}';
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('verify-yappy-form');
+    const verifyBtn = document.getElementById('verify-btn');
+    const resultDiv = document.getElementById('verify-result');
+    const receiptCodeInput = document.getElementById('yappy_receipt_code');
+    
+    // Actualizar elementos del DOM con el nombre del directorio
+    const directoryNameElement = document.getElementById('directory-name-text');
+    const yappyDirectoryNameElement = document.getElementById('yappy-directory-name');
+    if (directoryNameElement) directoryNameElement.textContent = YAPPY_DIRECTORY_NAME;
+    if (yappyDirectoryNameElement) yappyDirectoryNameElement.textContent = YAPPY_DIRECTORY_NAME;
+    
+    if (!form) return;
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const receiptCode = receiptCodeInput.value.trim();
+        if (!receiptCode) {
+            showResult('<div class="alert alert-danger">Por favor, ingresa el código de comprobante</div>', 'danger');
+            return;
+        }
+        
+        // Deshabilitar botón y mostrar loading
+        verifyBtn.disabled = true;
+        const originalText = verifyBtn.innerHTML;
+        verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Buscando y verificando...';
+        
+        try {
+            const response = await fetch('/api/payments/yappy/verify-by-code', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    receipt_code: receiptCode,
+                    payment_id: {{ payment.id }}
+                })
+            });
+            
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                // Si la respuesta no es JSON válido
+                showResult(
+                    `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> <strong>Error del servidor:</strong> Respuesta inválida (${response.status}). Por favor, intenta nuevamente.</div>`,
+                    'danger'
+                );
+                return;
+            }
+            
+            if (data.success) {
+                if (data.payment_found && data.payment_confirmed) {
+                    showResult(
+                        '<div class="alert alert-success"><i class="fas fa-check-circle"></i> <strong>¡Pago confirmado exitosamente!</strong><br>Tu membresía ha sido activada. El carrito ha sido procesado y recibirás una notificación por email. Redirigiendo...</div>',
+                        'success'
+                    );
+                    // Redirigir después de 3 segundos para mostrar el estado de éxito
+                    setTimeout(() => {
+                        window.location.href = '/payment-success?payment_id={{ payment.id }}';
+                    }, 3000);
+                } else if (data.payment_found) {
+                    showResult(
+                        '<div class="alert alert-warning" id="pending-payment-alert"><i class="fas fa-clock"></i> <strong>Pago encontrado pero aún no confirmado.</strong><br><div class="mt-2 alert alert-success"><strong><i class="fas fa-check-circle"></i> Puedes cerrar esta página:</strong><ul class="text-start small mt-2 mb-0"><li><i class="fas fa-bolt text-primary"></i> <strong>Webhook automático:</strong> El sistema procesará el pago cuando Yappy lo confirme</li><li><i class="fas fa-clock text-info"></i> <strong>Verificación periódica:</strong> El sistema verifica cada 5 minutos automáticamente</li><li><i class="fas fa-envelope text-success"></i> <strong>Email automático:</strong> Recibirás confirmación cuando se procese</li></ul></div><div class="mt-2"><small class="text-muted" id="verification-status">Verificando en esta página... (0/30)</small></div><button class="btn btn-sm btn-warning mt-2" onclick="checkPaymentStatus()"><i class="fas fa-sync-alt"></i> Verificar Ahora</button></div>',
+                        'warning'
+                    );
+                    // Iniciar verificación automática cada 10 segundos
+                    startAutoVerification();
+                } else {
+                    showResult(
+                        '<div class="alert alert-info"><i class="fas fa-search"></i> <strong>Pago no encontrado con ese código.</strong><br>Verifica que hayas ingresado el código correcto del comprobante de Yappy.</div>',
+                        'info'
+                    );
+                }
+            } else {
+                showResult(
+                    `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${data.error || 'No se pudo verificar el pago'}</div>`,
+                    'danger'
+                );
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showResult(
+                '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> <strong>Error de conexión.</strong> Por favor, intenta nuevamente.</div>',
+                'danger'
+            );
+        } finally {
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = originalText;
+        }
+    });
+    
+    function showResult(html, type) {
+        resultDiv.innerHTML = html;
+        resultDiv.style.display = 'block';
+        resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
+    // Variables para verificación automática
+    let autoVerificationInterval = null;
+    let verificationAttempts = 0;
+    const MAX_VERIFICATION_ATTEMPTS = 30; // 30 intentos = 5 minutos (cada 10 segundos)
+    
+    function startAutoVerification() {
+        // Limpiar intervalo anterior si existe
+        if (autoVerificationInterval) {
+            clearInterval(autoVerificationInterval);
+        }
+        
+        verificationAttempts = 0;
+        
+        // Verificar cada 10 segundos
+        autoVerificationInterval = setInterval(() => {
+            verificationAttempts++;
+            
+            // Actualizar contador visual
+            const statusElement = document.getElementById('verification-status');
+            if (statusElement) {
+                statusElement.textContent = `Verificando automáticamente... (${verificationAttempts}/${MAX_VERIFICATION_ATTEMPTS})`;
+            }
+            
+            if (verificationAttempts > MAX_VERIFICATION_ATTEMPTS) {
+                // Detener después de 5 minutos
+                clearInterval(autoVerificationInterval);
+                showResult(
+                    '<div class="alert alert-success"><i class="fas fa-check-circle"></i> <strong>Verificación automática detenida después de 5 minutos.</strong><br><div class="mt-2 alert alert-info"><strong>No te preocupes, puedes cerrar esta página:</strong><ul class="text-start mt-2 mb-0"><li><i class="fas fa-bolt text-primary"></i> <strong>Webhook automático:</strong> El sistema procesará el pago cuando Yappy lo confirme</li><li><i class="fas fa-clock text-info"></i> <strong>Verificación periódica:</strong> El sistema verifica cada 5 minutos automáticamente en segundo plano</li><li><i class="fas fa-envelope text-success"></i> <strong>Email automático:</strong> Recibirás confirmación cuando se procese</li><li><i class="fas fa-save text-warning"></i> <strong>Tu pago está registrado:</strong> Código de referencia guardado en el sistema</li></ul></div><button class="btn btn-sm btn-primary mt-2" onclick="checkPaymentStatus()"><i class="fas fa-sync-alt"></i> Verificar Manualmente</button></div>',
+                    'success'
+                );
+                return;
+            }
+            
+            // Verificar estado del pago
+            checkPaymentStatus(true); // true = verificación silenciosa
+        }, 10000); // 10 segundos
+    }
+    
+    function stopAutoVerification() {
+        if (autoVerificationInterval) {
+            clearInterval(autoVerificationInterval);
+            autoVerificationInterval = null;
+        }
+    }
+    
+    function checkPaymentStatus(silent = false) {
+        if (!silent) {
+            // Mostrar indicador de carga
+            const currentResult = resultDiv.innerHTML;
+            resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Verificando estado del pago...</div>';
+        }
+        
+        // Verificar estado del pago consultando directamente
+        fetch(`/api/payments/yappy/verify-by-code`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                receipt_code: receiptCodeInput.value.trim() || '{{ payment.payment_reference }}',
+                payment_id: {{ payment.id }}
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.payment_found && data.payment_confirmed) {
+                // Pago confirmado - detener verificación automática
+                stopAutoVerification();
+                
+                // Detener verificación automática
+                stopAutoVerification();
+                
+                showResult(
+                    '<div class="alert alert-success"><i class="fas fa-check-circle fa-2x"></i> <strong>¡Pago confirmado exitosamente!</strong><br>Tu membresía ha sido activada. El carrito ha sido procesado y recibirás una notificación por email.<br><div class="mt-3"><i class="fas fa-spinner fa-spin"></i> Redirigiendo a la página de confirmación...</div></div>',
+                    'success'
+                );
+                
+                // Redirigir después de 3 segundos para que el usuario vea el mensaje
+                setTimeout(() => {
+                    window.location.href = '/payment-success?payment_id={{ payment.id }}';
+                }, 3000);
+            } else if (data.success && data.payment_found && !data.payment_confirmed) {
+                // Aún no confirmado
+                if (!silent) {
+                    showResult(
+                        `<div class="alert alert-warning" id="pending-payment-alert"><i class="fas fa-clock"></i> <strong>Pago encontrado pero aún no confirmado.</strong><br>Estado actual: <strong>${data.status || 'pendiente'}</strong>.<br><div class="mt-2 alert alert-success"><strong><i class="fas fa-check-circle"></i> Puedes cerrar esta página:</strong><ul class="text-start small mt-2 mb-0"><li><i class="fas fa-bolt text-primary"></i> <strong>Webhook automático:</strong> El sistema procesará cuando Yappy confirme</li><li><i class="fas fa-clock text-info"></i> <strong>Verificación periódica:</strong> El sistema verifica cada 5 minutos automáticamente</li><li><i class="fas fa-envelope text-success"></i> <strong>Email automático:</strong> Recibirás confirmación cuando se procese</li></ul></div><div class="mt-2"><small class="text-muted" id="verification-status">Verificando en esta página... (${verificationAttempts}/${MAX_VERIFICATION_ATTEMPTS})</small></div><button class="btn btn-sm btn-warning mt-2" onclick="checkPaymentStatus()"><i class="fas fa-sync-alt"></i> Verificar Ahora</button></div>`,
+                        'warning'
+                    );
+                } else {
+                    // Actualizar solo el contador si es verificación silenciosa
+                    const statusElement = document.getElementById('verification-status');
+                    if (statusElement) {
+                        statusElement.textContent = `Verificando en esta página... (${verificationAttempts}/${MAX_VERIFICATION_ATTEMPTS})`;
+                    }
+                }
+            } else {
+                // Error o no encontrado
+                if (!silent) {
+                    showResult(
+                        `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${data.error || 'No se pudo verificar el pago'}</div>`,
+                        'danger'
+                    );
+                }
+            }
+        })
+        .catch(error => {
+            if (!silent) {
+                console.error('Error:', error);
+                showResult(
+                    '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> <strong>Error de conexión.</strong> Por favor, intenta nuevamente.</div>',
+                    'danger'
+                );
+            }
+        });
+    }
+    
+    // Limpiar intervalo cuando se sale de la página
+    window.addEventListener('beforeunload', () => {
+        stopAutoVerification();
+    });
+});
+
+function copyDirectoryName() {
+    navigator.clipboard.writeText(YAPPY_DIRECTORY_NAME).then(function() {
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-success');
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-warning');
+        }, 2000);
+    }).catch(function(err) {
+        // Fallback para navegadores antiguos
+        const textArea = document.createElement('textarea');
+        textArea.value = YAPPY_DIRECTORY_NAME;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('Nombre copiado: ' + YAPPY_DIRECTORY_NAME);
+    });
+}
+</script>
+{% endif %}
 {% endblock %}

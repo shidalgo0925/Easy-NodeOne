@@ -66,7 +66,10 @@ class EmailService:
         
         # Obtener remitente por defecto si no se especifica
         if not sender:
-            sender = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org') if hasattr(self.mail, 'app') else 'noreply@relaticpanama.org'
+            if hasattr(self.mail, 'app') and self.mail.app is not None:
+                sender = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+            else:
+                sender = 'noreply@relaticpanama.org'
         
         for attempt in range(self.max_retries):
             try:
@@ -93,7 +96,13 @@ class EmailService:
                                 user = User.query.filter_by(email=recipient_email).first()
                             
                             # Obtener remitente de la configuración
-                            from_email = sender or (self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org') if hasattr(self.mail, 'app') else 'noreply@relaticpanama.org')
+                            if not sender:
+                                if hasattr(self.mail, 'app') and self.mail.app is not None:
+                                    from_email = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+                                else:
+                                    from_email = 'noreply@relaticpanama.org'
+                            else:
+                                from_email = sender
                             
                             # Crear diccionario con datos del email log
                             email_log_data = {

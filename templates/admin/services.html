@@ -66,12 +66,17 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-primary" onclick="editService({{ service.id }})" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteService({{ service.id }}, '{{ service.name }}')" title="Eliminar">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="editService({{ service.id }})" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" onclick="duplicateService({{ service.id }}, '{{ service.name }}')" title="Duplicar">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" onclick="deleteService({{ service.id }}, '{{ service.name }}')" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -119,13 +124,40 @@
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="serviceMembershipType" class="form-label">Tipo de Membresía *</label>
-                            <select class="form-select" id="serviceMembershipType" name="membership_type" required>
-                                <option value="basic">Básico</option>
-                                <option value="pro">Pro</option>
-                                <option value="premium">Premium</option>
-                                <option value="deluxe">Deluxe</option>
-                            </select>
+                            <label class="form-label">Planes de Membresía *</label>
+                            <div class="border rounded p-3" style="background-color: #f8f9fa;">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planBasic" name="membership_plans" value="basic">
+                                    <label class="form-check-label" for="planBasic">
+                                        <strong>Básico</strong> <span class="text-muted">(Gratis)</span>
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planPro" name="membership_plans" value="pro">
+                                    <label class="form-check-label" for="planPro">
+                                        <strong>Pro</strong> <span class="text-muted">($60/año)</span>
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planPremium" name="membership_plans" value="premium">
+                                    <label class="form-check-label" for="planPremium">
+                                        <strong>Premium</strong> <span class="text-muted">($120/año)</span>
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planDeluxe" name="membership_plans" value="deluxe">
+                                    <label class="form-check-label" for="planDeluxe">
+                                        <strong>Deluxe</strong> <span class="text-muted">($200/año)</span>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planCorporativo" name="membership_plans" value="corporativo">
+                                    <label class="form-check-label" for="planCorporativo">
+                                        <strong>Corporativo</strong> <span class="text-muted">($300/año)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <small class="text-muted">Selecciona uno o más planes donde estará disponible este servicio</small>
                         </div>
                     </div>
                     
@@ -170,22 +202,29 @@ let editingServiceId = null;
 function editService(serviceId) {
     editingServiceId = serviceId;
     
-    // Hacer fetch para obtener el servicio
-    fetch(`/api/admin/services/${serviceId}`)
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                fillForm(data.service);
-                document.getElementById('serviceModalTitle').textContent = 'Editar Servicio';
-                new bootstrap.Modal(document.getElementById('createServiceModal')).show();
-            } else {
-                alert('Error al cargar el servicio: ' + (data.error || 'Error desconocido'));
+    // Asegurar que las categorías estén cargadas antes de llenar el formulario
+    Promise.all([
+        fetch(`/api/admin/services/${serviceId}`).then(r => {
+            if (!r.ok) {
+                throw new Error(`HTTP error! status: ${r.status}`);
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error al cargar el servicio');
-        });
+            return r.json();
+        }),
+        loadCategories() // Cargar categorías en paralelo
+    ])
+    .then(([serviceData, categoriesData]) => {
+        if (serviceData.success) {
+            fillForm(serviceData.service);
+            document.getElementById('serviceModalTitle').textContent = 'Editar Servicio';
+            new bootstrap.Modal(document.getElementById('createServiceModal')).show();
+        } else {
+            alert('Error al cargar el servicio: ' + (serviceData.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error completo:', error);
+        alert('Error al cargar el servicio: ' + error.message);
+    });
 }
 
 function fillForm(service) {
@@ -193,11 +232,53 @@ function fillForm(service) {
     document.getElementById('serviceName').value = service.name || '';
     document.getElementById('serviceDescription').value = service.description || '';
     document.getElementById('serviceIcon').value = service.icon || 'fas fa-cog';
-    document.getElementById('serviceMembershipType').value = service.membership_type || 'basic';
+    
+    // Establecer categoría - verificar que el elemento existe y está cargado
+    const categorySelect = document.getElementById('serviceCategory');
+    if (categorySelect) {
+        // Si el select solo tiene la opción "Sin categoría", cargar categorías primero
+        if (categorySelect.options.length <= 1) {
+            loadCategories().then(() => {
+                categorySelect.value = service.category_id || '';
+            });
+        } else {
+            categorySelect.value = service.category_id || '';
+        }
+    }
+    
     document.getElementById('serviceBasePrice').value = service.base_price || 50.00;
     document.getElementById('serviceDisplayOrder').value = service.display_order || 0;
     document.getElementById('serviceExternalLink').value = service.external_link || '';
     document.getElementById('serviceIsActive').checked = service.is_active !== false && service.is_active !== 'false';
+    
+    // Limpiar todos los checkboxes primero
+    document.querySelectorAll('.membership-plan-checkbox').forEach(cb => cb.checked = false);
+    
+    // Función helper para capitalizar (basic -> Basic, corporativo -> Corporativo)
+    function capitalizePlan(plan) {
+        if (!plan) return '';
+        return plan.charAt(0).toUpperCase() + plan.slice(1);
+    }
+    
+    // Marcar el plan base del servicio
+    if (service.membership_type) {
+        const baseCheckbox = document.getElementById(`plan${capitalizePlan(service.membership_type)}`);
+        if (baseCheckbox) {
+            baseCheckbox.checked = true;
+        }
+    }
+    
+    // Marcar planes de pricing_rules si existen
+    if (service.pricing_rules && Array.isArray(service.pricing_rules)) {
+        service.pricing_rules.forEach(rule => {
+            if (rule.is_active && rule.membership_type) {
+                const ruleCheckbox = document.getElementById(`plan${capitalizePlan(rule.membership_type)}`);
+                if (ruleCheckbox) {
+                    ruleCheckbox.checked = true;
+                }
+            }
+        });
+    }
 }
 
 function saveService() {
@@ -207,11 +288,20 @@ function saveService() {
         return;
     }
     
+    // Obtener planes seleccionados de los checkboxes
+    const selectedPlans = Array.from(document.querySelectorAll('.membership-plan-checkbox:checked'))
+        .map(cb => cb.value);
+    
+    if (selectedPlans.length === 0) {
+        alert('Debes seleccionar al menos un plan de membresía');
+        return;
+    }
+    
     const formData = {
         name: document.getElementById('serviceName').value,
         description: document.getElementById('serviceDescription').value,
         icon: document.getElementById('serviceIcon').value,
-        membership_type: document.getElementById('serviceMembershipType').value,
+        membership_plans: selectedPlans,  // Array de planes seleccionados
         base_price: parseFloat(document.getElementById('serviceBasePrice').value),
         display_order: parseInt(document.getElementById('serviceDisplayOrder').value),
         external_link: document.getElementById('serviceExternalLink').value,
@@ -244,6 +334,32 @@ function saveService() {
     });
 }
 
+function duplicateService(serviceId, serviceName) {
+    if (!confirm(`¿Deseas duplicar el servicio "${serviceName}"?\n\nSe creará una copia inactiva que podrás editar.`)) {
+        return;
+    }
+    
+    fetch(`/api/admin/services/duplicate/${serviceId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Servicio duplicado exitosamente');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo duplicar el servicio'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al duplicar el servicio');
+    });
+}
+
 function deleteService(serviceId, serviceName) {
     if (!confirm(`¿Estás seguro de eliminar el servicio "${serviceName}"?`)) {
         return;
@@ -270,6 +386,36 @@ function deleteService(serviceId, serviceName) {
     });
 }
 
+// Cargar categorías al abrir el modal
+document.getElementById('createServiceModal').addEventListener('show.bs.modal', function () {
+    loadCategories();
+});
+
+function loadCategories() {
+    fetch('/api/admin/service-categories')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('serviceCategory');
+                // Mantener la opción "Sin categoría"
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">Sin categoría</option>';
+                data.categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.id;
+                    option.textContent = cat.name;
+                    select.appendChild(option);
+                });
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error cargando categorías:', error);
+        });
+}
+
 // Limpiar formulario al cerrar modal
 document.getElementById('createServiceModal').addEventListener('hidden.bs.modal', function () {
     editingServiceId = null;
@@ -277,6 +423,8 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     document.getElementById('serviceId').value = '';
     document.getElementById('serviceModalTitle').textContent = 'Crear Servicio';
     document.getElementById('serviceIsActive').checked = true;
+    // Limpiar checkboxes de planes
+    document.querySelectorAll('.membership-plan-checkbox').forEach(cb => cb.checked = false);
 });
 </script>
 {% endblock %}

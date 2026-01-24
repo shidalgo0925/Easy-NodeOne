@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Pagos Recurrentes - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="display-6 mb-4">
+                <i class="fas fa-sync-alt"></i> Pagos Recurrentes
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if recurring_payments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Membresía</th>
+                                    <th>Período</th>
+                                    <th>Monto</th>
+                                    <th>Próxima Facturación</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in recurring_payments %}
+                                <tr>
+                                    <td>{{ payment.membership_type.title() }}</td>
+                                    <td>
+                                        {% if payment.billing_cycle == 'monthly' %}
+                                        <span class="badge bg-info">Mensual</span>
+                                        {% elif payment.billing_cycle == 'yearly' %}
+                                        <span class="badge bg-success">Anual</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ payment.billing_cycle }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>${{ "%.2f"|format(payment.amount / 100) }} {{ payment.currency.upper() }}</td>
+                                    <td>
+                                        {% if payment.next_billing_date %}
+                                        {{ payment.next_billing_date.strftime('%d/%m/%Y') }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if payment.status == 'succeeded' %}
+                                        <span class="badge bg-success">Activo</span>
+                                        {% elif payment.status == 'pending' %}
+                                        <span class="badge bg-warning">Pendiente</span>
+                                        {% elif payment.status == 'cancelled' %}
+                                        <span class="badge bg-secondary">Cancelado</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{{ payment.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if payment.status != 'cancelled' %}
+                                        <form method="POST" action="{{ url_for('cancel_recurring_payment', payment_id=payment.id) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de cancelar este pago recurrente?');">
+                                            <button type="submit" class="btn btn-sm btn-danger">
+                                                <i class="fas fa-times"></i> Cancelar
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No tienes pagos recurrentes activos.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+

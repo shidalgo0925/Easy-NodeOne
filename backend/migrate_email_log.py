@@ -29,3 +29,5 @@ with app.app_context():
             print(f"❌ Error con db.create_all(): {e2}")
             sys.exit(1)
 
+
+

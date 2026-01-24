@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Movimientos - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6 mb-3">
+                <i class="fas fa-chart-line"></i> Historial de Movimientos
+            </h1>
+            <p class="text-muted">Todas tus facturas y pagos en un solo lugar</p>
+        </div>
+    </div>
+
+    <!-- Estadísticas Generales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-primary mb-0">${{ "%.2f"|format(total_invoiced) }}</h3>
+                    <small class="text-muted">Total Facturado</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-0">${{ "%.2f"|format(total_paid) }}</h3>
+                    <small class="text-muted">Total Pagado</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-0">${{ "%.2f"|format(total_pending) }}</h3>
+                    <small class="text-muted">Pendiente de Pago</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-info mb-0">{{ movements|length }}</h3>
+                    <small class="text-muted">Total de Movimientos</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen por Tipo -->
+    {% if total_by_type %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Resumen por Tipo</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for m_type, total in total_by_type.items() %}
+                        <div class="col-md-3 mb-3">
+                            <div class="card border-{% if m_type == 'invoice' %}primary{% elif m_type == 'payment' %}success{% elif m_type == 'subscription' %}warning{% elif m_type == 'event' %}info{% elif m_type == 'appointment' %}success{% else %}secondary{% endif %}">
+                                <div class="card-body text-center">
+                                    <h5 class="mb-0">${{ "%.2f"|format(total) }}</h5>
+                                    <small class="text-muted">
+                                        {% if m_type == 'invoice' %}
+                                            Facturas
+                                        {% elif m_type == 'payment' %}
+                                            Pagos
+                                        {% elif m_type == 'subscription' %}
+                                            Membresías
+                                        {% elif m_type == 'event' %}
+                                            Eventos
+                                        {% elif m_type == 'appointment' %}
+                                            Citas
+                                        {% elif m_type == 'wallet' %}
+                                            Wallet
+                                        {% else %}
+                                            {{ m_type|title }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de Movimientos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Todos los Movimientos ({{ movements|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if movements %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                    <th>Referencia</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movement in movements %}
+                                <tr>
+                                    <td>
+                                        <small>
+                                            {{ movement.date.strftime('%d/%m/%Y') if movement.date else 'N/A' }}<br>
+                                            <span class="text-muted">{{ movement.date.strftime('%H:%M') if movement.date else '' }}</span>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if movement.type == 'invoice' %}
+                                            <span class="badge bg-primary">
+                                                <i class="fas fa-file-invoice"></i> Factura
+                                            </span>
+                                        {% elif movement.type == 'payment' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-credit-card"></i> Pago
+                                            </span>
+                                        {% elif movement.type == 'subscription' %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-crown"></i> Membresía
+                                            </span>
+                                        {% elif movement.type == 'event' %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-calendar-alt"></i> Evento
+                                            </span>
+                                        {% elif movement.type == 'appointment' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-calendar-check"></i> Cita
+                                            </span>
+                                        {% elif movement.type == 'wallet' %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-wallet"></i> Wallet
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-dark">{{ movement.type|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ movement.description }}</strong>
+                                        {% if movement.details %}
+                                            {% if movement.type == 'invoice' %}
+                                                {% if movement.details.description %}
+                                                    <br><small class="text-muted">{{ movement.details.description }}</small>
+                                                {% endif %}
+                                                {% if movement.details.related_payments > 0 %}
+                                                    <br><small class="text-success"><i class="fas fa-check"></i> {{ movement.details.related_payments }} pago(s) asociado(s)</small>
+                                                {% endif %}
+                                            {% elif movement.type == 'payment' %}
+                                                <br><small class="text-muted">
+                                                    Método: {{ movement.details.payment_method.upper() if movement.details.payment_method else 'N/A' }}
+                                                    {% if movement.details.invoice_number %}
+                                                        | Factura: {{ movement.details.invoice_number }}
+                                                    {% endif %}
+                                                </small>
+                                            {% elif movement.type == 'subscription' %}
+                                                <br><small class="text-muted">
+                                                    {{ movement.details.membership_type.replace('_', ' ').title() }} 
+                                                    ({{ movement.details.billing_cycle }})
+                                                </small>
+                                            {% elif movement.type == 'event' %}
+                                                <br><small class="text-muted">Evento ID: {{ movement.details.event_id }}</small>
+                                            {% elif movement.type == 'appointment' %}
+                                                <br><small class="text-muted">{{ movement.details.appointment_type }}</small>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if movement.type == 'wallet' %}
+                                            {% if movement.amount < 0 %}
+                                                <strong class="text-danger">-${{ "%.2f"|format(-movement.amount) }}</strong>
+                                            {% else %}
+                                                <strong class="text-success">+${{ "%.2f"|format(movement.amount) }}</strong>
+                                            {% endif %}
+                                        {% else %}
+                                            <strong>${{ "%.2f"|format(movement.amount) }}</strong>
+                                        {% endif %}
+                                        <br><small class="text-muted">{{ movement.currency.upper() }}</small>
+                                    </td>
+                                    <td>
+                                        {% if movement.status == 'paid' or movement.status == 'succeeded' or movement.status == 'completed' or movement.status == 'confirmed' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check-circle"></i> Pagado
+                                            </span>
+                                        {% elif movement.status == 'pending' or movement.status == 'awaiting_confirmation' %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-clock"></i> Pendiente
+                                            </span>
+                                        {% elif movement.status == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times-circle"></i> Fallido
+                                            </span>
+                                        {% elif movement.status == 'cancelled' %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-ban"></i> Cancelado
+                                            </span>
+                                        {% elif movement.status == 'active' %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-check"></i> Activo
+                                            </span>
+                                        {% elif movement.status == 'expired' %}
+                                            <span class="badge bg-dark">
+                                                <i class="fas fa-hourglass-end"></i> Expirado
+                                            </span>
+                                        {% elif movement.status == 'overdue' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-exclamation-triangle"></i> Vencida
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-dark">{{ movement.status|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="font-monospace">{{ movement.reference or 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if movement.type == 'invoice' %}
+                                            <a href="{{ url_for('invoice_detail', invoice_id=movement.id) }}" 
+                                               class="btn btn-sm btn-outline-primary" 
+                                               title="Ver factura">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        {% elif movement.type == 'payment' %}
+                                            {% if movement.details.invoice_id %}
+                                                <a href="{{ url_for('invoice_detail', invoice_id=movement.details.invoice_id) }}" 
+                                                   class="btn btn-sm btn-outline-info" 
+                                                   title="Ver factura relacionada">
+                                                    <i class="fas fa-file-invoice"></i>
+                                                </a>
+                                            {% endif %}
+                                        {% elif movement.type == 'subscription' %}
+                                            <a href="{{ url_for('membership') }}" 
+                                               class="btn btn-sm btn-outline-info" 
+                                               title="Ver membresía">
+                                                <i class="fas fa-info-circle"></i>
+                                            </a>
+                                        {% elif movement.type == 'event' %}
+                                            {% if movement.details.event_id %}
+                                                <a href="{{ url_for('event_detail', event_id=movement.details.event_id) if url_for('event_detail', event_id=movement.details.event_id) else '#' }}" 
+                                                   class="btn btn-sm btn-outline-info" 
+                                                   title="Ver evento">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            {% endif %}
+                                        {% elif movement.type == 'appointment' %}
+                                            <a href="{{ url_for('appointment_detail', appointment_id=movement.id) if url_for('appointment_detail', appointment_id=movement.id) else '#' }}" 
+                                               class="btn btn-sm btn-outline-success" 
+                                               title="Ver cita">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle"></i> No tienes movimientos registrados aún.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información sobre Tipos de Movimientos -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6><i class="fas fa-info-circle"></i> Tipos de Movimientos:</h6>
+                    <ul class="mb-0">
+                        <li><span class="badge bg-primary"><i class="fas fa-file-invoice"></i> Factura</span>: Facturas generadas por compras o servicios.</li>
+                        <li><span class="badge bg-success"><i class="fas fa-credit-card"></i> Pago</span>: Pagos realizados (PayPal, Yappy, Stripe, etc.) asociados a facturas.</li>
+                        <li><span class="badge bg-warning"><i class="fas fa-crown"></i> Membresía</span>: Pagos de membresías y suscripciones.</li>
+                        <li><span class="badge bg-info"><i class="fas fa-calendar-alt"></i> Evento</span>: Registros y pagos de eventos.</li>
+                        <li><span class="badge bg-success"><i class="fas fa-calendar-check"></i> Cita</span>: Reservas y pagos de citas.</li>
+                        <li><span class="badge bg-secondary"><i class="fas fa-wallet"></i> Wallet</span>: Transacciones de crédito y débito en tu wallet.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

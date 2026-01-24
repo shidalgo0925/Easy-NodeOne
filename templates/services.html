@@ -49,6 +49,9 @@
                 <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="deluxe">
                     <i class="fas fa-tag"></i> DeLuxe
                 </button>
+                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="corporativo">
+                    <i class="fas fa-tag"></i> Corporativo
+                </button>
             </div>
         </div>
     </div>
@@ -56,7 +59,7 @@
     {# Usar datos de BD si están disponibles, sino usar datos hardcodeados como fallback #}
     {% if services_by_plan and plans_info %}
         {# Datos desde BD #}
-        {% set plan_types = ['basic', 'pro', 'premium', 'deluxe'] %}
+        {% set plan_types = ['basic', 'pro', 'premium', 'deluxe', 'corporativo'] %}
         {% for plan_type in plan_types %}
             {% if plan_type in services_by_plan %}
                 {% set plan = plans_info[plan_type] %}
@@ -126,7 +129,7 @@
                 'badge': 'Plan recomendado',
                 'color': 'bg-info',
                 'services': [
-                    {'icon': 'fas fa-graduation-cap', 'title': 'Aprendizaje continuo', 'description': 'Cursos y talleres con apoyo integral del equipo RELATIC.', 'link': 'https://dev.relatic.org/detalles-aprendizaje'},
+                    {'icon': 'fas fa-graduation-cap', 'title': 'Aprendizaje continuo', 'description': 'Cursos y talleres con apoyo integral del equipo RELATIC.', 'link': 'https://relaticpanama.org/_classroom/'},
                     {'icon': 'fas fa-shield-alt', 'title': 'Propiedad Intelectual', 'description': 'Guía para registro y protección de derechos de autor.', 'link': 'https://dev.relatic.org/detalles-propiedad-intelectual'},
                     {'icon': 'fas fa-pen-fancy', 'title': 'Formateo rápido', 'description': 'Formateo gratuito para artículos y manuscritos.', 'link': 'https://dev.relatic.org/detalles-formateo-rapido'},
                     {'icon': 'fas fa-envelope', 'title': 'Correo y suites colaborativas', 'description': 'Correo institucional, programas de apoyo y plataformas de comunicación.', 'link': None},
@@ -231,8 +234,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const title = card.querySelector('h6').textContent.toLowerCase();
                 const description = card.querySelector('p').textContent.toLowerCase();
                 const matchesSearch = !searchTerm || title.includes(searchTerm) || description.includes(searchTerm);
-                // Mapear filtros: basico -> basic, deluxe -> deluxe
-                const filterMap = {'basico': 'basic', 'basic': 'basic', 'pro': 'pro', 'premium': 'premium', 'deluxe': 'deluxe'};
+                // Mapear filtros: basico -> basic, deluxe -> deluxe, corporativo -> corporativo
+                const filterMap = {'basico': 'basic', 'basic': 'basic', 'pro': 'pro', 'premium': 'premium', 'deluxe': 'deluxe', 'corporativo': 'corporativo'};
                 const normalizedFilter = filterMap[activeFilter] || activeFilter;
                 const matchesFilter = activeFilter === 'all' || planName === normalizedFilter || planName.includes(normalizedFilter);
 

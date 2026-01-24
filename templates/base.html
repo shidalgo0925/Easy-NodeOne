@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Content Security Policy para permitir métodos de pago (Stripe, PayPal, Yappy, Banco General) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.stripe.com https://merchant-ui-api.stripe.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://www.paypal.com https://www.sandbox.paypal.com https://api.cybersource.com https://api.yappy.im https://cdn.jsdelivr.net; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://www.sandbox.paypal.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com;">
     <title>{% block title %}RelaticPanama - Sistema de Membresía{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename=get_system_logo()) }}" onerror="this.href='{{ url_for('static', filename='images/favicon.svg') }}';">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_system_logo()) }}" onerror="this.href='{{ url_for('static', filename='images/favicon.svg') }}';">
@@ -134,6 +136,10 @@
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                             <li><a class="dropdown-item" href="{{ url_for('profile') }}">Perfil</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('membership') }}">Membresía</a></li>
+                            {# <li><a class="dropdown-item" href="{{ url_for('wallet') }}"><i class="fas fa-wallet"></i> Wallet</a></li> #}
+                            <li><a class="dropdown-item" href="{{ url_for('payments_history') }}"><i class="fas fa-history"></i> Historial de Pagos</a></li>
+                            {# <li><a class="dropdown-item" href="{{ url_for('invoices') }}"><i class="fas fa-file-invoice"></i> Facturas</a></li> #}
+                            {# <li><a class="dropdown-item" href="{{ url_for('recurring_payments') }}"><i class="fas fa-sync-alt"></i> Pagos Recurrentes</a></li> #}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('logout') }}">Cerrar Sesión</a></li>
                         </ul>
@@ -153,7 +159,7 @@
 
     <!-- Main Content -->
     <main>
-        {% if current_user.is_authenticated and request.endpoint not in ['index', 'login', 'register'] %}
+        {% if current_user.is_authenticated and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'index', 'login', 'register'] %}
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -216,7 +222,7 @@
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Beneficios">
+                                    <a class="nav-link {% if request.endpoint == 'wallet.benefits' or request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Beneficios">
                                         <i class="menu-icon fa fa-gift"></i>
                                         <span class="menu-title-text">Beneficios</span>
                                     </a>
@@ -311,6 +317,12 @@
                                         <span class="menu-title-text">Historial de Emails</span>
                                     </a>
                                 </li>
+                                {# <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_announcements' or request.endpoint == 'admin_announcements_create' or request.endpoint == 'admin_announcements_edit' %}active{% endif %}" href="{{ url_for('admin_announcements') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Anuncios">
+                                        <i class="menu-icon fa fa-bullhorn"></i>
+                                        <span class="menu-title-text">Anuncios</span>
+                                    </a>
+                                </li> #}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_notifications' %}active{% endif %}" href="{{ url_for('admin_notifications') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Notificaciones">
                                         <i class="menu-icon fa fa-bell"></i>
@@ -372,7 +384,7 @@
         {% block page_content %}
                     {% block content %}{% endblock %}
         {% endblock %}
-        {% if current_user.is_authenticated and request.endpoint not in ['index', 'login', 'register'] %}
+        {% if current_user.is_authenticated and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'index', 'login', 'register'] %}
             </div>
             <!-- Footer -->
             <footer class="footer py-5 mt-4">
@@ -553,7 +565,8 @@
                 localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
             }
             
-            if (leftPanel && rightPanel) {
+            // Verificar si existe leftPanel (menú lateral)
+            if (leftPanel) {
                 // Check localStorage for saved state
                 const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
                 if (isCollapsed) {
@@ -767,30 +780,26 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
     const notificationBadge = document.querySelector('.notification-badge');
     if (notificationBadge) {
-        // Contar notificaciones basado en elementos del dashboard
-        let count = 0;
-        
-        // Verificar si hay alertas en el dashboard
-        const alerts = document.querySelectorAll('.alert');
-        if (alerts.length > 0) {
-            count = alerts.length;
-        }
-        
-        // También verificar elementos específicos que indican notificaciones
-        const membershipWarning = document.querySelector('.alert-warning');
-        const upcomingAppointments = document.querySelector('[data-appointments]');
-        const upcomingEvents = document.querySelector('[data-events]');
-        
-        if (membershipWarning) count++;
-        if (upcomingAppointments) count++;
-        if (upcomingEvents) count++;
-        
-        if (count > 0) {
-            notificationBadge.textContent = count;
-            notificationBadge.style.display = 'block';
-        } else {
-            notificationBadge.style.display = 'none';
-        }
+        // Obtener contador real de notificaciones desde la API
+        fetch('/api/notifications?limit=1')
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.unread_count !== undefined) {
+                    const count = data.unread_count;
+                    if (count > 0) {
+                        notificationBadge.textContent = count;
+                        notificationBadge.style.display = 'block';
+                    } else {
+                        notificationBadge.style.display = 'none';
+                    }
+                } else {
+                    notificationBadge.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error cargando contador de notificaciones:', error);
+                notificationBadge.style.display = 'none';
+            });
     }
 });
 </script>

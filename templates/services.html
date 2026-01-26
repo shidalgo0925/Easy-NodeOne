@@ -91,12 +91,22 @@
                             </a>
                             {% endif %}
                             {% if plan_type != 'basic' %}
-                                {% if service.pricing.is_included %}
+                                {% if service.pricing.is_included and service.pricing.final_price == 0 %}
                                 <span class="badge bg-success">Incluido en tu plan</span>
                                 {% else %}
+                                {% if service.pricing.discount_percentage > 0 %}
+                                <div class="mb-2">
+                                    <div class="text-muted small mb-1">
+                                        <span class="text-decoration-line-through">${{ "%.2f"|format(service.pricing.base_price) }}</span>
+                                        <span class="badge bg-info ms-1">{{ membership_type|upper }}</span>
+                                        <span class="badge bg-success ms-1">-{{ "%.0f"|format(service.pricing.discount_percentage) }}%</span>
+                                    </div>
+                                </div>
+                                {% endif %}
                                 <button onclick="addServiceToCart('{{ service.name|replace("'", "\\'") }}', '{{ service.description|replace("'", "\\'") }}', {{ service.id }})" 
-                                        class="btn btn-sm btn-success">
-                                    <i class="fas fa-cart-plus"></i> Agregar al Carrito (${{ "%.2f"|format(service.pricing.final_price) }})
+                                        class="btn btn-sm btn-success w-100">
+                                    <i class="fas fa-cart-plus"></i> Agregar al Carrito
+                                    <strong class="ms-1">${{ "%.2f"|format(service.pricing.final_price) }}</strong>
                                 </button>
                                 {% endif %}
                             {% endif %}

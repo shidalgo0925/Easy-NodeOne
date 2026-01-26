@@ -1,92 +1,119 @@
 #!/usr/bin/env python3
 """
-Script para verificar la configuración de email y los logs
+Script para verificar la configuración actual de SMTP
 """
 
 import sys
 import os
+
+# Agregar el directorio actual al path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import app, db, EmailConfig, EmailLog
-from datetime import datetime, timedelta
+from app import app, db, EmailConfig
 
-with app.app_context():
-    print("\n" + "="*70)
-    print("VERIFICACIÓN DE CONFIGURACIÓN DE EMAIL")
-    print("="*70)
+def check_email_config():
+    """Verificar configuración de email"""
+    print("=" * 60)
+    print("VERIFICACIÓN DE CONFIGURACIÓN SMTP")
+    print("=" * 60)
     
-    # Verificar configuración activa
-    config = EmailConfig.get_active_config()
-    if config:
-        print("\n✅ CONFIGURACIÓN ACTIVA:")
-        print(f"   Servidor: {config.mail_server}")
-        print(f"   Puerto: {config.mail_port}")
-        print(f"   TLS: {config.mail_use_tls}")
-        print(f"   SSL: {config.mail_use_ssl}")
-        print(f"   Usuario: {config.mail_username or '(no configurado)'}")
-        print(f"   Remitente: {config.mail_default_sender}")
-        print(f"   Usa variables de entorno: {config.use_environment_variables}")
-        print(f"   Activa: {config.is_active}")
+    with app.app_context():
+        # Obtener configuración activa
+        config = EmailConfig.get_active_config()
+        
+        if not config:
+            print("\n❌ No hay configuración de email activa en la base de datos")
+            print("\n📝 Configuraciones disponibles:")
+            all_configs = EmailConfig.query.all()
+            if all_configs:
+                for cfg in all_configs:
+                    print(f"   - ID: {cfg.id}, Activa: {cfg.is_active}, Servidor: {cfg.mail_server}")
+            else:
+                print("   - No hay configuraciones en la base de datos")
+            return
+        
+        print(f"\n✅ Configuración activa encontrada (ID: {config.id})")
+        print("\n📧 CONFIGURACIÓN SMTP:")
+        print(f"   Servidor:        {config.mail_server}")
+        print(f"   Puerto:          {config.mail_port}")
+        print(f"   TLS:             {config.mail_use_tls}")
+        print(f"   SSL:             {config.mail_use_ssl}")
+        print(f"   Usuario:         {config.mail_username or '(vacío)'}")
+        print(f"   Contraseña:      {'*' * 16 if config.mail_password else '(vacía)'}")
+        print(f"   Remitente:        {config.mail_default_sender}")
+        print(f"   Usa vars. env.:   {config.use_environment_variables}")
         print(f"   Última actualización: {config.updated_at}")
-    else:
-        print("\n❌ NO HAY CONFIGURACIÓN ACTIVA EN LA BASE DE DATOS")
-    
-    # Verificar configuración de Flask
-    print("\n📧 CONFIGURACIÓN ACTUAL DE FLASK:")
-    print(f"   MAIL_SERVER: {app.config.get('MAIL_SERVER', 'no configurado')}")
-    print(f"   MAIL_PORT: {app.config.get('MAIL_PORT', 'no configurado')}")
-    print(f"   MAIL_USE_TLS: {app.config.get('MAIL_USE_TLS', 'no configurado')}")
-    print(f"   MAIL_USE_SSL: {app.config.get('MAIL_USE_SSL', 'no configurado')}")
-    print(f"   MAIL_USERNAME: {app.config.get('MAIL_USERNAME', 'no configurado')}")
-    print(f"   MAIL_PASSWORD: {'***' if app.config.get('MAIL_PASSWORD') else 'no configurado'}")
-    print(f"   MAIL_DEFAULT_SENDER: {app.config.get('MAIL_DEFAULT_SENDER', 'no configurado')}")
-    
-    # Verificar logs de email recientes
-    print("\n" + "="*70)
-    print("LOGS DE EMAIL (ÚLTIMOS 10)")
-    print("="*70)
-    
-    recent_logs = EmailLog.query.order_by(EmailLog.created_at.desc()).limit(10).all()
-    if recent_logs:
-        for log in recent_logs:
-            status_icon = "✅" if log.status == 'sent' else "❌"
-            print(f"\n{status_icon} [{log.created_at.strftime('%Y-%m-%d %H:%M:%S')}]")
-            print(f"   Tipo: {log.email_type}")
-            print(f"   Para: {log.recipient_email}")
-            print(f"   Asunto: {log.subject[:60]}...")
-            print(f"   Estado: {log.status}")
-            if log.error_message:
-                print(f"   Error: {log.error_message[:100]}...")
-            if log.sent_at:
-                print(f"   Enviado: {log.sent_at.strftime('%Y-%m-%d %H:%M:%S')}")
-    else:
-        print("\n⚠️ No hay logs de email en la base de datos")
-    
-    # Estadísticas
-    print("\n" + "="*70)
-    print("ESTADÍSTICAS")
-    print("="*70)
-    
-    total = EmailLog.query.count()
-    sent = EmailLog.query.filter_by(status='sent').count()
-    failed = EmailLog.query.filter_by(status='failed').count()
-    
-    print(f"   Total de emails: {total}")
-    print(f"   Enviados exitosamente: {sent}")
-    print(f"   Fallidos: {failed}")
-    
-    # Verificar últimos 24 horas
-    yesterday = datetime.utcnow() - timedelta(days=1)
-    recent_total = EmailLog.query.filter(EmailLog.created_at >= yesterday).count()
-    recent_sent = EmailLog.query.filter(EmailLog.created_at >= yesterday, EmailLog.status == 'sent').count()
-    recent_failed = EmailLog.query.filter(EmailLog.created_at >= yesterday, EmailLog.status == 'failed').count()
-    
-    print(f"\n   Últimas 24 horas:")
-    print(f"   Total: {recent_total}")
-    print(f"   Enviados: {recent_sent}")
-    print(f"   Fallidos: {recent_failed}")
-    
-    print("\n" + "="*70)
-    print("FIN DE VERIFICACIÓN")
-    print("="*70 + "\n")
+        
+        # Verificar variables de entorno si está configurado así
+        if config.use_environment_variables:
+            print("\n🔍 Variables de entorno:")
+            import os
+            mail_server = os.getenv('MAIL_SERVER', 'No configurada')
+            mail_port = os.getenv('MAIL_PORT', 'No configurada')
+            mail_username = os.getenv('MAIL_USERNAME', 'No configurada')
+            mail_password = os.getenv('MAIL_PASSWORD', 'No configurada')
+            
+            print(f"   MAIL_SERVER:     {mail_server}")
+            print(f"   MAIL_PORT:       {mail_port}")
+            print(f"   MAIL_USERNAME:   {mail_username}")
+            print(f"   MAIL_PASSWORD:   {'*' * 16 if mail_password != 'No configurada' else 'No configurada'}")
+        
+        # Verificar configuración actual de Flask
+        print("\n⚙️  CONFIGURACIÓN ACTUAL DE FLASK:")
+        print(f"   MAIL_SERVER:     {app.config.get('MAIL_SERVER', 'No configurada')}")
+        print(f"   MAIL_PORT:       {app.config.get('MAIL_PORT', 'No configurada')}")
+        print(f"   MAIL_USE_TLS:    {app.config.get('MAIL_USE_TLS', 'No configurada')}")
+        print(f"   MAIL_USE_SSL:    {app.config.get('MAIL_USE_SSL', 'No configurada')}")
+        print(f"   MAIL_USERNAME:   {app.config.get('MAIL_USERNAME', 'No configurada')}")
+        print(f"   MAIL_PASSWORD:   {'*' * 16 if app.config.get('MAIL_PASSWORD') else 'No configurada'}")
+        print(f"   MAIL_DEFAULT_SENDER: {app.config.get('MAIL_DEFAULT_SENDER', 'No configurada')}")
+        
+        # Análisis de los correos mencionados
+        print("\n📬 ANÁLISIS DE CORREOS DISPONIBLES:")
+        
+        email1 = "info@relaticpanama.org"
+        email2 = "easytechservices25@gmail.com"
+        
+        current_username = config.mail_username or app.config.get('MAIL_USERNAME', '')
+        current_sender = config.mail_default_sender or app.config.get('MAIL_DEFAULT_SENDER', '')
+        
+        print(f"\n   1. {email1}")
+        if email1 in current_username or email1 in current_sender:
+            print(f"      ✅ Está configurado como usuario o remitente")
+        else:
+            print(f"      ⚠️  No está configurado actualmente")
+        
+        print(f"\n   2. {email2}")
+        if email2 in current_username or email2 in current_sender:
+            print(f"      ✅ Está configurado como usuario o remitente")
+        else:
+            print(f"      ⚠️  No está configurado actualmente")
+        
+        # Recomendaciones
+        print("\n💡 RECOMENDACIONES:")
+        
+        if "gmail.com" in config.mail_server.lower():
+            print("   - Servidor Gmail detectado")
+            if not config.mail_password or len(config.mail_password) < 16:
+                print("   ⚠️  Para Gmail necesitas una CONTRASEÑA DE APLICACIÓN (16 caracteres)")
+                print("      Genera una en: https://myaccount.google.com/apppasswords")
+            else:
+                print("   ✅ Contraseña configurada (verifica que sea contraseña de aplicación)")
+        
+        if "relaticpanama.org" in email1:
+            print(f"   - Para {email1}:")
+            print("     * Verifica el servidor SMTP (puede ser Office 365, Gmail, o otro)")
+            print("     * Si es Office 365: smtp.office365.com, puerto 587, TLS=True")
+            print("     * Si es Gmail: smtp.gmail.com, puerto 587, TLS=True")
+        
+        if "gmail.com" in email2:
+            print(f"   - Para {email2}:")
+            print("     * Servidor: smtp.gmail.com")
+            print("     * Puerto: 587")
+            print("     * TLS: True")
+            print("     * Requiere contraseña de aplicación (16 caracteres)")
+        
+        print("\n" + "=" * 60)
 
+if __name__ == '__main__':
+    check_email_config()

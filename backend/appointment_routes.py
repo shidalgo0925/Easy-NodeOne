@@ -541,3 +541,266 @@ def api_slots():
         for slot in slots
     ])
 
+
+# ---------------------------------------------------------------------------
+# Rutas para Asesores (Advisors)
+# ---------------------------------------------------------------------------
+def advisor_required(f):
+    """Decorator para verificar que el usuario es asesor"""
+    @wraps(f)
+    @login_required
+    def decorated_function(*args, **kwargs):
+        ensure_models()
+        if not current_user.is_advisor:
+            flash('No tienes permisos para acceder a esta sección.', 'error')
+            return redirect(url_for('dashboard'))
+        
+        # Verificar que tiene perfil de asesor
+        advisor = Advisor.query.filter_by(user_id=current_user.id).first()
+        if not advisor or not advisor.is_active:
+            flash('Tu perfil de asesor no está activo.', 'error')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@appointments_bp.route('/advisor/dashboard')
+@advisor_required
+def advisor_dashboard():
+    """Dashboard del asesor: ver slots, cola de citas, etc."""
+    ensure_models()
+    advisor = Advisor.query.filter_by(user_id=current_user.id).first()
+    
+    # Slots disponibles del asesor
+    my_slots = AppointmentSlot.query.filter(
+        AppointmentSlot.advisor_id == advisor.id,
+        AppointmentSlot.start_datetime >= datetime.utcnow(),
+        AppointmentSlot.is_available == True
+    ).order_by(AppointmentSlot.start_datetime.asc()).limit(20).all()
+    
+    # Citas confirmadas próximas
+    upcoming_appointments = Appointment.query.filter(
+        Appointment.advisor_id == advisor.id,
+        Appointment.status == 'confirmed',
+        Appointment.start_datetime >= datetime.utcnow()
+    ).order_by(Appointment.start_datetime.asc()).limit(10).all()
+    
+    # Cola de citas pendientes (sin slot asignado)
+    queue_appointments = Appointment.query.filter(
+        Appointment.advisor_id == advisor.id,
+        Appointment.status == 'pending',
+        Appointment.slot_id.is_(None)
+    ).order_by(Appointment.queue_position.asc(), Appointment.created_at.asc()).all()
+    
+    # Tipos de cita asignados al asesor
+    appointment_types = AppointmentType.query.join(AppointmentAdvisor).filter(
+        AppointmentAdvisor.advisor_id == advisor.id,
+        AppointmentAdvisor.is_active == True,
+        AppointmentType.is_active == True
+    ).all()
+    
+    stats = {
+        'available_slots': len(my_slots),
+        'upcoming_appointments': len(upcoming_appointments),
+        'queue_appointments': len(queue_appointments),
+        'appointment_types': len(appointment_types)
+    }
+    
+    return render_template(
+        'appointments/advisor_dashboard.html',
+        advisor=advisor,
+        slots=my_slots,  # Espacios disponibles futuros
+        all_slots=all_my_slots,  # Todos los slots para ver historial
+        occupied_slots=occupied_slots,  # Slots ocupados futuros
+        past_slots=past_slots,  # Slots pasados
+        upcoming_appointments=upcoming_appointments,
+        queue_appointments=queue_appointments,
+        appointment_types=appointment_types,
+        stats=stats
+    )
+
+
+@appointments_bp.route('/advisor/slots/create', methods=['GET', 'POST'])
+@advisor_required
+def advisor_create_slot():
+    """Crear un slot disponible"""
+    ensure_models()
+    advisor = Advisor.query.filter_by(user_id=current_user.id).first()
+    
+    # Tipos de cita asignados al asesor
+    appointment_types = AppointmentType.query.join(AppointmentAdvisor).filter(
+        AppointmentAdvisor.advisor_id == advisor.id,
+        AppointmentAdvisor.is_active == True,
+        AppointmentType.is_active == True
+    ).all()
+    
+    if request.method == 'POST':
+        type_id = request.form.get('appointment_type_id', type=int)
+        start_raw = request.form.get('start_datetime', '').strip()
+        capacity = request.form.get('capacity', type=int) or 1
+        
+        appointment_type = AppointmentType.query.get_or_404(type_id)
+        
+        # Verificar que el asesor está asignado a este tipo
+        assignment = AppointmentAdvisor.query.filter_by(
+            appointment_type_id=type_id,
+            advisor_id=advisor.id,
+            is_active=True
+        ).first()
+        
+        if not assignment:
+            flash('No estás asignado a este tipo de cita.', 'error')
+            return redirect(url_for('appointments.advisor_create_slot'))
+        
+        try:
+            start_datetime = datetime.strptime(start_raw, '%Y-%m-%dT%H:%M')
+        except ValueError:
+            flash('Formato de fecha inválido. Use: YYYY-MM-DDTHH:MM', 'error')
+            return redirect(url_for('appointments.advisor_create_slot'))
+        
+        # Validar que la fecha es futura
+        if start_datetime < datetime.utcnow():
+            flash('No puedes crear slots en el pasado.', 'error')
+            return redirect(url_for('appointments.advisor_create_slot'))
+        
+        end_datetime = start_datetime + appointment_type.duration()
+        
+        # Verificar que no hay conflicto con otros slots
+        conflicting_slot = AppointmentSlot.query.filter(
+            AppointmentSlot.advisor_id == advisor.id,
+            AppointmentSlot.start_datetime < end_datetime,
+            AppointmentSlot.end_datetime > start_datetime,
+            AppointmentSlot.is_available == True
+        ).first()
+        
+        if conflicting_slot:
+            flash(f'Ya tienes un slot en ese horario: {conflicting_slot.start_datetime.strftime("%Y-%m-%d %H:%M")}', 'error')
+            return redirect(url_for('appointments.advisor_create_slot'))
+        
+        slot = AppointmentSlot(
+            appointment_type_id=appointment_type.id,
+            advisor_id=advisor.id,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            capacity=max(1, capacity),
+            is_auto_generated=False,
+            created_by=current_user.id,
+        )
+        
+        db.session.add(slot)
+        db.session.commit()
+        
+        ActivityLog.log_activity(
+            current_user.id,
+            'advisor_create_slot',
+            'appointment_slot',
+            slot.id,
+            f'Creó un slot para {appointment_type.name}',
+            request
+        )
+        
+        flash(f'Slot creado: {start_datetime.strftime("%d/%m/%Y %H:%M")}', 'success')
+        return redirect(url_for('appointments.advisor_dashboard'))
+    
+    return render_template(
+        'appointments/advisor_create_slot.html',
+        advisor=advisor,
+        appointment_types=appointment_types
+    )
+
+
+@appointments_bp.route('/advisor/queue')
+@advisor_required
+def advisor_queue():
+    """Ver cola de citas pendientes (sin slot asignado)"""
+    ensure_models()
+    advisor = Advisor.query.filter_by(user_id=current_user.id).first()
+    
+    queue_appointments = Appointment.query.filter(
+        Appointment.advisor_id == advisor.id,
+        Appointment.status == 'pending',
+        Appointment.slot_id.is_(None)
+    ).order_by(Appointment.queue_position.asc(), Appointment.created_at.asc()).all()
+    
+    # Slots disponibles del asesor para asignar
+    available_slots = AppointmentSlot.query.filter(
+        AppointmentSlot.advisor_id == advisor.id,
+        AppointmentSlot.start_datetime >= datetime.utcnow(),
+        AppointmentSlot.is_available == True,
+        AppointmentSlot.reserved_seats < AppointmentSlot.capacity
+    ).order_by(AppointmentSlot.start_datetime.asc()).all()
+    
+    return render_template(
+        'appointments/advisor_queue.html',
+        advisor=advisor,
+        queue_appointments=queue_appointments,
+        available_slots=available_slots,
+        partially_available_slots=partially_available
+    )
+
+
+@appointments_bp.route('/advisor/queue/<int:appointment_id>/assign-slot', methods=['POST'])
+@advisor_required
+def advisor_assign_slot_to_appointment(appointment_id):
+    """Asignar un slot a una cita en cola"""
+    ensure_models()
+    advisor = Advisor.query.filter_by(user_id=current_user.id).first()
+    
+    appointment = Appointment.query.get_or_404(appointment_id)
+    
+    # Verificar que la cita es del asesor y está en cola
+    if appointment.advisor_id != advisor.id:
+        flash('Esta cita no te corresponde.', 'error')
+        return redirect(url_for('appointments.advisor_queue'))
+    
+    if appointment.status != 'pending' or appointment.slot_id is not None:
+        flash('Esta cita ya tiene un slot asignado o no está en cola.', 'error')
+        return redirect(url_for('appointments.advisor_queue'))
+    
+    slot_id = request.form.get('slot_id', type=int)
+    if not slot_id:
+        flash('Debes seleccionar un slot.', 'error')
+        return redirect(url_for('appointments.advisor_queue'))
+    
+    slot = AppointmentSlot.query.get_or_404(slot_id)
+    
+    # Verificar que el slot es del asesor y está disponible
+    if slot.advisor_id != advisor.id:
+        flash('Este slot no te corresponde.', 'error')
+        return redirect(url_for('appointments.advisor_queue'))
+    
+    if not slot.is_available or slot.remaining_seats() <= 0:
+        flash('Este slot ya no está disponible.', 'error')
+        return redirect(url_for('appointments.advisor_queue'))
+    
+    # Asignar slot a la cita
+    appointment.slot_id = slot.id
+    appointment.start_datetime = slot.start_datetime
+    appointment.end_datetime = slot.end_datetime
+    appointment.status = 'confirmed'
+    appointment.advisor_confirmed = True
+    appointment.advisor_confirmed_at = datetime.utcnow()
+    
+    # Marcar slot como ocupado
+    slot.reserved_seats = (slot.reserved_seats or 0) + 1
+    if slot.remaining_seats() == 0:
+        slot.is_available = False
+    
+    db.session.commit()
+    
+    ActivityLog.log_activity(
+        current_user.id,
+        'advisor_assign_slot',
+        'appointment',
+        appointment.id,
+        f'Asignó slot a cita {appointment.reference}',
+        request
+    )
+    
+    # TODO: Enviar email de confirmación al cliente
+    # send_appointment_confirmation_email(appointment, appointment.user, advisor)
+    
+    flash(f'Slot asignado. Cita confirmada para {slot.start_datetime.strftime("%d/%m/%Y %H:%M")}', 'success')
+    return redirect(url_for('appointments.advisor_queue'))
+

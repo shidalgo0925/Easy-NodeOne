@@ -107,6 +107,7 @@ class EmailService:
                             # Crear diccionario con datos del email log
                             email_log_data = {
                                 'from_email': from_email,
+                                'to_email': recipient_email,  # Campo legacy en BD
                                 'recipient_id': user.id if user else None,
                                 'recipient_email': recipient_email,
                                 'recipient_name': recipient_name or (f"{user.first_name} {user.last_name}" if user else recipient_email),
@@ -120,13 +121,6 @@ class EmailService:
                                 'retry_count': attempt,
                                 'sent_at': datetime.utcnow()
                             }
-                            
-                            # Si la tabla tiene to_email, agregarlo
-                            from sqlalchemy import inspect
-                            inspector = inspect(db.engine)
-                            columns = [c['name'] for c in inspector.get_columns('email_log')]
-                            if 'to_email' in columns:
-                                email_log_data['to_email'] = recipient_email
                             
                             email_log = EmailLog(**email_log_data)
                             db.session.add(email_log)
@@ -177,13 +171,6 @@ class EmailService:
                                     'retry_count': attempt + 1,
                                     'sent_at': None
                                 }
-                                
-                                # Si la tabla tiene to_email, agregarlo
-                                from sqlalchemy import inspect
-                                inspector = inspect(db.engine)
-                                columns = [c['name'] for c in inspector.get_columns('email_log')]
-                                if 'to_email' in columns:
-                                    email_log_data['to_email'] = recipient_email
                                 
                                 email_log = EmailLog(**email_log_data)
                                 db.session.add(email_log)

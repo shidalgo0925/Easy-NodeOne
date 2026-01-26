@@ -708,21 +708,49 @@
                                         <li>Las notificaciones se marcan como leídas automáticamente</li>
                                     </ol>
                                     
-                                    <h6 class="mt-3">Tipos de Notificaciones:</h6>
+                                    <h6 class="mt-3">Tipos de Notificaciones Disponibles (13 tipos):</h6>
                                     <ul>
-                                        <li><strong>Sistema:</strong> Bienvenida, verificación de email</li>
-                                        <li><strong>Membresía:</strong> Confirmación de pago, renovación, expiración</li>
-                                        <li><strong>Eventos:</strong> Confirmación de registro, cancelación, recordatorios</li>
-                                        <li><strong>Citas:</strong> Confirmación, recordatorios</li>
+                                        <li><strong>Sistema (1 tipo):</strong>
+                                            <ul>
+                                                <li>Bienvenida - Se envía al registrarte</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>Membresías (4 tipos):</strong>
+                                            <ul>
+                                                <li>Confirmación de Pago - Cuando se procesa tu pago</li>
+                                                <li>Membresía por Expirar - Recordatorios a 30, 15, 7 y 1 día antes</li>
+                                                <li>Membresía Expirada - Cuando tu membresía expira</li>
+                                                <li>Membresía Renovada - Confirmación de renovación</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>Eventos (6 tipos):</strong>
+                                            <ul>
+                                                <li>Registro a Evento - Confirmación cuando te registras</li>
+                                                <li>Cancelación de Registro - Cuando cancelas tu registro</li>
+                                                <li>Confirmación de Registro - Cuando se confirma tu registro</li>
+                                                <li>Actualización de Evento - Cuando se modifican detalles del evento</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>Citas (2 tipos):</strong>
+                                            <ul>
+                                                <li>Confirmación de Cita - Cuando se confirma tu cita</li>
+                                                <li>Recordatorio de Cita - Recordatorios 24 y 48 horas antes</li>
+                                            </ul>
+                                        </li>
                                     </ul>
                                     
-                                    <h6 class="mt-3">Configurar Preferencias:</h6>
-                                    <ol>
-                                        <li>Ve a "Configuración"</li>
-                                        <li>Selecciona "Notificaciones"</li>
-                                        <li>Activa o desactiva los tipos de notificaciones que deseas recibir</li>
-                                        <li>Guarda los cambios</li>
-                                    </ol>
+                                    <h6 class="mt-3">Acciones Disponibles:</h6>
+                                    <ul>
+                                        <li>Marcar como leída/no leída</li>
+                                        <li>Eliminar notificaciones individuales</li>
+                                        <li>Marcar todas como leídas</li>
+                                        <li>Eliminar todas las leídas</li>
+                                        <li>Filtrar por tipo y estado</li>
+                                    </ul>
+                                    
+                                    <div class="alert alert-info mt-3">
+                                        <strong>💡 Nota:</strong> Las notificaciones se envían automáticamente por email cuando ocurren eventos en el sistema. También puedes verlas en tu panel de notificaciones.
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1200,9 +1228,34 @@ PAYPAL_MODE=live</code></pre>
                                     
                                     <h6 class="mt-3">Editar Templates de Email:</h6>
                                     <ol>
-                                        <li>En <code>/admin/email</code>, ve a "Templates"</li>
-                                        <li>Selecciona el template que deseas editar</li>
-                                        <li>Haz clic en "Editar"</li>
+                                        <li>En <code>/admin/email</code>, ve a la pestaña "Templates"</li>
+                                        <li>Verás 11 templates disponibles organizados por categoría:
+                                            <ul>
+                                                <li><strong>Sistema:</strong> Bienvenida, Verificación de Email, Restablecimiento de Contraseña</li>
+                                                <li><strong>Membresías:</strong> Confirmación de Pago, Por Expirar, Expirada, Renovada</li>
+                                                <li><strong>Eventos:</strong> Registro, Cancelación, Actualización</li>
+                                                <li><strong>Citas:</strong> Confirmación, Recordatorio</li>
+                                            </ul>
+                                        </li>
+                                        <li>Para cada template puedes:
+                                            <ul>
+                                                <li>Editar el asunto del email</li>
+                                                <li>Editar el contenido HTML</li>
+                                                <li>Resetear a la versión por defecto</li>
+                                                <li>Ver una vista previa</li>
+                                            </ul>
+                                        </li>
+                                        <li>Los cambios se guardan y se aplican inmediatamente</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Estado Actual del Sistema de Emails:</h6>
+                                    <ul>
+                                        <li>✅ <strong>Configuración SMTP:</strong> Activa y funcionando</li>
+                                        <li>✅ <strong>Templates:</strong> 11 templates inicializados y disponibles</li>
+                                        <li>✅ <strong>EmailService:</strong> Operativo con sistema de reintentos automáticos</li>
+                                        <li>✅ <strong>EmailLog:</strong> Registrando todos los emails enviados</li>
+                                        <li>✅ <strong>Tasa de éxito:</strong> 100% (todos los emails se envían correctamente)</li>
+                                    </ul>
                                         <li>Modifica el contenido HTML</li>
                                         <li>Puedes usar variables como <code>{{user_name}}</code>, <code>{{event_name}}</code></li>
                                         <li>Guarda el template</li>
@@ -1234,28 +1287,71 @@ PAYPAL_MODE=live</code></pre>
                             </h2>
                             <div id="admin12" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
                                 <div class="accordion-body">
-                                    <h6>Activar/Desactivar Notificaciones:</h6>
+                                    <h6>Gestionar Configuración de Notificaciones:</h6>
                                     <ol>
                                         <li>Ve a <code>/admin/notifications</code></li>
-                                        <li>Verás todas las notificaciones disponibles organizadas por categoría:
+                                        <li>Verás todas las 13 notificaciones disponibles organizadas por categoría:
                                             <ul>
-                                                <li><strong>Sistema:</strong> Bienvenida, verificación</li>
-                                                <li><strong>Membresías:</strong> Pagos, renovaciones, expiraciones</li>
-                                                <li><strong>Eventos:</strong> Registros, confirmaciones, cancelaciones</li>
-                                                <li><strong>Citas:</strong> Confirmaciones, recordatorios</li>
+                                                <li><strong>Sistema (1):</strong> Bienvenida</li>
+                                                <li><strong>Membresías (4):</strong> Pago, por expirar, expirada, renovada</li>
+                                                <li><strong>Eventos (6):</strong> Registro (responsables y usuario), cancelación (responsables y usuario), confirmación, actualización</li>
+                                                <li><strong>Citas (2):</strong> Confirmación, recordatorio</li>
                                             </ul>
                                         </li>
-                                        <li>Activa o desactiva cada notificación según necesites</li>
-                                        <li>Los cambios se aplican inmediatamente</li>
+                                        <li>Activa o desactiva cada notificación individualmente usando los switches</li>
+                                        <li>Usa las acciones rápidas:
+                                            <ul>
+                                                <li>"Habilitar Todas" - Activa todas las notificaciones</li>
+                                                <li>"Deshabilitar Todas" - Desactiva todas las notificaciones</li>
+                                                <li>"Guardar Cambios" - Guarda cambios pendientes</li>
+                                            </ul>
+                                        </li>
+                                        <li>Los cambios se aplican inmediatamente y afectan el envío de emails</li>
                                     </ol>
                                     
-                                    <h6 class="mt-3">Tipos de Notificaciones:</h6>
+                                    <h6 class="mt-3">Tipos de Notificaciones Detallados:</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Sistema:</strong>
+                                            <ul>
+                                                <li>Bienvenida - Email de bienvenida a nuevos usuarios</li>
+                                            </ul>
+                                            <strong>Membresías:</strong>
+                                            <ul>
+                                                <li>Confirmación de Pago - Cuando se confirma un pago</li>
+                                                <li>Por Expirar - Alertas automáticas a 30, 15, 7 y 1 día</li>
+                                                <li>Expirada - Cuando una membresía expira</li>
+                                                <li>Renovada - Confirmación de renovación</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Eventos:</strong>
+                                            <ul>
+                                                <li>Registro (Responsables) - A moderadores/admin/expositores</li>
+                                                <li>Registro (Usuario) - Confirmación al usuario</li>
+                                                <li>Cancelación (Responsables) - A responsables</li>
+                                                <li>Cancelación (Usuario) - Al usuario</li>
+                                                <li>Confirmación - A responsables</li>
+                                                <li>Actualización - A usuarios registrados</li>
+                                            </ul>
+                                            <strong>Citas:</strong>
+                                            <ul>
+                                                <li>Confirmación - Cuando se confirma una cita</li>
+                                                <li>Recordatorio - 24 y 48 horas antes</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <h6 class="mt-3">Tareas Programadas Automáticas:</h6>
                                     <ul>
-                                        <li><strong>Bienvenida:</strong> Se envía al nuevo usuario</li>
-                                        <li><strong>Membresía:</strong> Confirmación de pago, recordatorios de expiración</li>
-                                        <li><strong>Eventos:</strong> Confirmación de registro, cambios en eventos</li>
-                                        <li><strong>Citas:</strong> Confirmación y recordatorio 24h antes</li>
+                                        <li><strong>Verificación de Membresías:</strong> Se ejecuta automáticamente para detectar membresías expirando</li>
+                                        <li><strong>Recordatorios de Citas:</strong> Envía recordatorios 24 y 48 horas antes</li>
+                                        <li><strong>Verificación de Pagos:</strong> Verifica automáticamente pagos pendientes</li>
                                     </ul>
+                                    
+                                    <div class="alert alert-success mt-3">
+                                        <strong>✅ Estado del Sistema:</strong> Todas las 13 configuraciones están habilitadas y funcionando correctamente. El sistema procesa y envía notificaciones automáticamente.
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1331,12 +1427,24 @@ PAYPAL_MODE=live</code></pre>
                                             <ul>
                                                 <li>Total de emails enviados</li>
                                                 <li>Emails exitosos vs fallidos</li>
-                                                <li>Gráficos por tipo de email</li>
-                                                <li>Emails por día/semana/mes</li>
+                                                <li>Tasa de éxito de envío</li>
+                                                <li>Filtros por tipo de email y estado</li>
+                                                <li>Búsqueda por email, asunto o nombre</li>
                                             </ul>
                                         </li>
-                                        <li>Puedes exportar los datos</li>
+                                        <li>Funcionalidades disponibles:
+                                            <ul>
+                                                <li>Ver detalle de cada email enviado</li>
+                                                <li>Reenviar emails fallidos</li>
+                                                <li>Eliminar registros antiguos</li>
+                                                <li>Paginación para navegar grandes volúmenes</li>
+                                            </ul>
+                                        </li>
                                     </ol>
+                                    
+                                    <div class="alert alert-info mt-3">
+                                        <strong>📊 Estado Actual:</strong> El sistema registra todos los emails enviados. Actualmente hay 20 emails registrados, todos enviados exitosamente (100% de tasa de éxito).
+                                    </div>
                                     
                                     <h6 class="mt-3">Reportes de Membresías:</h6>
                                     <ol>

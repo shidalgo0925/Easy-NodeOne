@@ -10,7 +10,7 @@
     const adminTourSteps = [
         {
             element: '#left-panel',
-            intro: '<h3>¡Bienvenido Administrador!</h3><p>Este tour interactivo te enseñará cómo usar todas las funciones administrativas del sistema paso a paso.</p><p><strong>💡 Tip:</strong> Puedes iniciar este tour en cualquier momento desde el icono <i class="fas fa-route"></i> en el menú superior o lateral.</p>',
+            intro: '<h3>¡Bienvenido Administrador!</h3><p>Este tour interactivo te enseñará cómo usar todas las funciones administrativas del sistema paso a paso.</p><p><strong>💡 Tip:</strong> Puedes iniciar este tour en cualquier momento desde el icono <i class="fas fa-route"></i> en el menú superior o lateral.</p><div class="mt-3"><label class="d-flex align-items-center"><input type="checkbox" id="dontShowTourAgain" class="me-2"> <span>No mostrar más este tour</span></label></div>',
             position: 'right'
         },
         {
@@ -97,27 +97,12 @@
 
     /**
      * Inicializar el tour para administradores
+     * NOTA: El tour NO se inicia automáticamente, solo cuando el usuario hace clic en el icono
      */
     function initAdminTour() {
-        // Verificar si el tour ya fue completado
-        const tourCompleted = localStorage.getItem('relatic_tour_admin_completed');
-        
-        // Si ya fue completado, no iniciar automáticamente
-        if (tourCompleted === 'true') {
-            return;
-        }
-
-        // Verificar si estamos en una página principal (dashboard o admin dashboard)
-        const isMainPage = window.location.pathname.includes('/dashboard') || 
-                          window.location.pathname.includes('/admin') ||
-                          window.location.pathname === '/';
-
-        if (isMainPage) {
-            // Esperar a que el DOM esté completamente cargado
-            setTimeout(function() {
-                startAdminTour();
-            }, 1000);
-        }
+        // El tour solo se inicia manualmente cuando el usuario hace clic en el icono
+        // No se inicia automáticamente al cargar la página
+        return;
     }
 
     /**
@@ -141,12 +126,32 @@
                 buttonClass: 'btn btn-primary',
                 exitIntroOnEsc: true
             })
+            .onbeforechange(function(targetElement) {
+                // Verificar el checkbox en el primer paso
+                if (targetElement && targetElement.querySelector('#dontShowTourAgain')) {
+                    const checkbox = targetElement.querySelector('#dontShowTourAgain');
+                    if (checkbox && checkbox.checked) {
+                        localStorage.setItem('relatic_tour_admin_dont_show', 'true');
+                    }
+                }
+            })
             .oncomplete(function() {
+                // Verificar si el usuario marcó "no mostrar más"
+                const checkbox = document.querySelector('#dontShowTourAgain');
+                if (checkbox && checkbox.checked) {
+                    localStorage.setItem('relatic_tour_admin_dont_show', 'true');
+                }
+                
                 // Marcar el tour como completado
                 localStorage.setItem('relatic_tour_admin_completed', 'true');
                 showTourCompletionMessage();
             })
             .onexit(function() {
+                // Verificar si el usuario marcó "no mostrar más" al salir
+                const checkbox = document.querySelector('#dontShowTourAgain');
+                if (checkbox && checkbox.checked) {
+                    localStorage.setItem('relatic_tour_admin_dont_show', 'true');
+                }
                 // Si el usuario sale del tour, no marcarlo como completado
             })
             .start();

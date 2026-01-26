@@ -25,16 +25,21 @@ except Exception as e:
     print(f"⚠️ Error inicializando sistema de licencias: {e}")
 try:
     import stripe
+    STRIPE_AVAILABLE = True
 except ImportError:
     stripe = None
+    STRIPE_AVAILABLE = False
     print("⚠️ Stripe no está instalado. Funcionalidad de pagos no disponible.")
 
 try:
     from flask_mail import Mail, Message
+    FLASK_MAIL_AVAILABLE = True
 except ImportError:
     Mail = None
     Message = None
+    FLASK_MAIL_AVAILABLE = False
     print("⚠️ flask_mail no está instalado. Funcionalidad de email no disponible.")
+
 try:
     from email_service import EmailService
     from email_templates import (
@@ -52,8 +57,9 @@ try:
         get_email_verification_email
     )
     EMAIL_TEMPLATES_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     EMAIL_TEMPLATES_AVAILABLE = False
+    EmailService = None
     print("⚠️ Email templates no disponibles. Usando templates básicos.")
 
 # Importar procesadores de pago
@@ -1078,6 +1084,7 @@ class EmailLog(db.Model):
     """Registro completo de todos los emails enviados por el sistema"""
     id = db.Column(db.Integer, primary_key=True)
     from_email = db.Column(db.String(200))  # Email del remitente
+    to_email = db.Column(db.String(120), nullable=False)  # Email del destinatario (campo legacy, sinónimo de recipient_email)
     recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # NULL si es email externo
     recipient_email = db.Column(db.String(120), nullable=False)  # Email del destinatario
     recipient_name = db.Column(db.String(200))  # Nombre del destinatario
@@ -1611,13 +1618,14 @@ class Appointment(db.Model):
     reference = db.Column(db.String(40), unique=True, default=lambda: secrets.token_hex(4).upper())
     appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=False)
     advisor_id = db.Column(db.Integer, db.ForeignKey('advisor.id'), nullable=False)
-    slot_id = db.Column(db.Integer, db.ForeignKey('appointment_slot.id'))
+    slot_id = db.Column(db.Integer, db.ForeignKey('appointment_slot.id'), nullable=True)  # NULL cuando está en cola
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     membership_type = db.Column(db.String(50))
     is_group = db.Column(db.Boolean, default=False)
-    start_datetime = db.Column(db.DateTime, nullable=False)
-    end_datetime = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(20), default='pending')  # pending, confirmed, cancelled, completed, no_show
+    start_datetime = db.Column(db.DateTime, nullable=True)  # NULL cuando está en cola, se asigna cuando el asesor confirma
+    end_datetime = db.Column(db.DateTime, nullable=True)  # NULL cuando está en cola, se asigna cuando el asesor confirma
+    status = db.Column(db.String(20), default='pending')  # pending (en cola), confirmed, cancelled, completed, no_show
+    queue_position = db.Column(db.Integer, nullable=True)  # Posición en la cola (opcional, para ordenar)
     advisor_confirmed = db.Column(db.Boolean, default=False)
     advisor_confirmed_at = db.Column(db.DateTime)
     cancellation_reason = db.Column(db.Text)
@@ -1647,11 +1655,16 @@ class Appointment(db.Model):
     duration_actual = db.Column(db.Integer)  # Duración real en minutos
     rating = db.Column(db.Integer)  # Calificación del 1 al 5
     rating_comment = db.Column(db.Text)  # Comentario de la calificación
+    # Campos para vincular con servicios
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)  # Servicio relacionado (para citas de diagnóstico)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payment.id'), nullable=True)  # Pago relacionado
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+    
     user = db.relationship('User', backref='appointments')
     participants = db.relationship('AppointmentParticipant', backref='appointment', lazy=True, cascade='all, delete-orphan')
+    related_service = db.relationship('Service', foreign_keys=[service_id], backref='diagnostic_appointments')
+    payment = db.relationship('Payment', foreign_keys=[payment_id], backref='appointments')
 
     def can_user_cancel(self):
         """Permite cancelar si faltan al menos 12 horas."""
@@ -2024,53 +2037,66 @@ class Service(db.Model):
     base_price = db.Column(db.Float, default=50.0)  # Precio base en USD
     is_active = db.Column(db.Boolean, default=True)
     display_order = db.Column(db.Integer, default=0)  # Orden de visualización
+    # Campos para cita de diagnóstico
+    requires_diagnostic_appointment = db.Column(db.Boolean, default=False)  # Si requiere cita diagnóstico antes de usar
+    diagnostic_appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=True)  # Tipo de cita de diagnóstico
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relación con reglas de precios
     pricing_rules = db.relationship('ServicePricingRule', backref='service', lazy=True, cascade='all, delete-orphan')
+    # Relación con tipo de cita de diagnóstico
+    diagnostic_appointment_type = db.relationship('AppointmentType', foreign_keys=[diagnostic_appointment_type_id], backref='diagnostic_services')
     
     def pricing_for_membership(self, user_membership_type=None):
-        """Calcula el precio final considerando reglas por membresía y jerarquía."""
+        """Calcula el precio final considerando reglas por membresía y descuentos automáticos.
+        
+        IMPORTANTE: Los servicios siempre son facturables (nunca $0 por membresía),
+        solo se aplican descuentos según la membresía del usuario.
+        Solo se marcan como 'incluidos' si hay una regla explícita con is_included=True.
+        """
         base_price = self.base_price or 0.0
         final_price = base_price
         discount_percentage = 0.0
         is_included = False
         
-        # Definir jerarquía de membresías
-        membership_hierarchy = {
-            'basic': 0,
-            'pro': 1,
-            'premium': 2,
-            'deluxe': 3,
-            'corporativo': 4
-        }
+        # Si no hay precio base, el servicio es gratis
+        if base_price <= 0:
+            return {
+                'base_price': 0.0,
+                'final_price': 0.0,
+                'discount_percentage': 0.0,
+                'is_included': True
+            }
         
-        service_tier = membership_hierarchy.get(self.membership_type, -1)
-        user_tier = membership_hierarchy.get(user_membership_type, -1)
+        # Buscar regla explícita de precio para esta membresía
+        if user_membership_type:
+            rule = ServicePricingRule.query.filter_by(
+                service_id=self.id,
+                membership_type=user_membership_type,
+                is_active=True
+            ).first()
+            
+            if rule:
+                # Si hay una regla explícita que dice que está incluido, respetarla
+                if rule.is_included:
+                    final_price = 0.0
+                    is_included = True
+                # Si hay un precio fijo, usarlo
+                elif rule.price is not None:
+                    final_price = rule.price
+                # Si hay un descuento porcentual en la regla, aplicarlo
+                elif rule.discount_percentage:
+                    discount_percentage = rule.discount_percentage
+                    final_price = max(0.0, base_price * (1 - discount_percentage / 100))
         
-        if user_membership_type and user_tier >= service_tier:
-            # Si la membresía del usuario es igual o superior al nivel del servicio, es gratis
-            final_price = 0.0
-            is_included = True
-        else:
-            # Si no está incluido por jerarquía, buscar reglas de precio/descuento
-            if user_membership_type:
-                rule = ServicePricingRule.query.filter_by(
-                    service_id=self.id,
-                    membership_type=user_membership_type,
-                    is_active=True
-                ).first()
-                
-                if rule:
-                    if rule.is_included:
-                        final_price = 0.0
-                        is_included = True
-                    elif rule.price is not None:
-                        final_price = rule.price
-                    elif rule.discount_percentage:
-                        discount_percentage = rule.discount_percentage
-                        final_price = max(0.0, base_price * (1 - discount_percentage / 100))
+        # Si no hay regla explícita o no se aplicó descuento, aplicar descuento automático por membresía
+        if not is_included and user_membership_type and discount_percentage == 0.0:
+            # Obtener descuento automático desde MembershipDiscount
+            # MembershipDiscount ya está definido en este mismo archivo, no necesita import
+            discount_percentage = MembershipDiscount.get_discount(user_membership_type, product_type='service')
+            if discount_percentage > 0:
+                final_price = max(0.0, base_price * (1 - discount_percentage / 100))
         
         return {
             'base_price': base_price,
@@ -2103,7 +2129,9 @@ class Service(db.Model):
             'external_link': self.external_link or '',
             'base_price': float(self.base_price) if self.base_price else 0.0,
             'is_active': self.is_active if self.is_active is not None else True,
-            'display_order': self.display_order or 0
+            'display_order': self.display_order or 0,
+            'requires_diagnostic_appointment': self.requires_diagnostic_appointment if self.requires_diagnostic_appointment is not None else False,
+            'diagnostic_appointment_type_id': self.diagnostic_appointment_type_id
         }
 
 class ServiceCategory(db.Model):
@@ -3464,6 +3492,13 @@ def payments_history():
                 EventRegistration.payment_status == 'paid'
             ).all()
         
+        # Obtener información del historial de transacciones relacionado (ANTES de usarlo)
+        history_transactions = HistoryTransaction.query.filter(
+            HistoryTransaction.owner_user_id == current_user.id
+        ).filter(
+            HistoryTransaction.payload.contains(f'"payment_id": {payment.id}')
+        ).order_by(HistoryTransaction.timestamp.desc()).limit(5).all()
+        
         # También buscar en el historial de transacciones para eventos
         if not event_registrations:
             for transaction in history_transactions:
@@ -3488,13 +3523,6 @@ def payments_history():
         # Obtener descuentos aplicados
         discount_applications = DiscountApplication.query.filter_by(payment_id=payment.id).all()
         payment_data['discount_applications'] = discount_applications
-        
-        # Obtener información del historial de transacciones relacionado
-        history_transactions = HistoryTransaction.query.filter(
-            HistoryTransaction.owner_user_id == current_user.id
-        ).filter(
-            HistoryTransaction.payload.contains(f'"payment_id": {payment.id}')
-        ).order_by(HistoryTransaction.timestamp.desc()).limit(5).all()
         
         # Extraer items comprados del historial
         for transaction in history_transactions:
@@ -3740,18 +3768,17 @@ def services():
             for rule in pricing_rules:
                 available_plans.add(rule.membership_type)
         
-        # Calcular precio para el usuario actual
-        pricing = service.pricing_for_membership(membership_type)
+        # Calcular precio para el usuario actual (con descuento según su membresía)
+        user_pricing = service.pricing_for_membership(membership_type)
         
         # Agregar el servicio a todos los planes donde está disponible
-        # Para cada plan, calcular el precio específico de ese plan
+        # IMPORTANTE: Mostrar el precio con descuento según la membresía del usuario actual
         for plan_type in available_plans:
             if plan_type not in services_by_plan:
                 services_by_plan[plan_type] = []
             
-            # Calcular precio específico para este plan
-            plan_pricing = service.pricing_for_membership(plan_type)
-            
+            # Para mostrar en la lista, usar el precio calculado según la membresía del usuario actual
+            # Esto permite que el usuario vea el precio con descuento desde el inicio
             service_data = {
                 'id': service.id,
                 'name': service.name,
@@ -3759,7 +3786,8 @@ def services():
                 'icon': service.icon or 'fas fa-cog',
                 'external_link': service.external_link,
                 'base_price': service.base_price,
-                'pricing': plan_pricing  # Precio específico para este plan
+                'pricing': user_pricing,  # Precio con descuento según membresía del usuario actual
+                'requires_diagnostic_appointment': service.requires_diagnostic_appointment if service.requires_diagnostic_appointment is not None else False
             }
             
             services_by_plan[plan_type].append(service_data)
@@ -3772,7 +3800,8 @@ def services():
                          services_by_plan=services_by_plan,
                          plans_info=plans_info,
                          categories=categories,
-                         user_membership_type=membership_type)
+                         user_membership_type=membership_type,
+                         membership_type=membership_type)  # Para usar en el template
 
 @app.route('/office365')
 @login_required
@@ -4662,6 +4691,31 @@ def process_cart_after_payment(cart, payment):
                     
                     if event_registration:
                         events_registered.append(event_registration)
+        
+        elif item.product_type == 'service':
+            # Procesar servicio
+            metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+            service_id = metadata.get('service_id') or item.product_id
+            
+            if service_id:
+                service = Service.query.get(service_id)
+                if service and service.requires_diagnostic_appointment:
+                    # Crear cita de diagnóstico en cola
+                    try:
+                        from service_diagnostic_validation import create_diagnostic_appointment_from_payment
+                        user = User.query.get(payment.user_id)
+                        if user:
+                            appointment = create_diagnostic_appointment_from_payment(service, user, payment)
+                            print(f"✅ Cita de diagnóstico creada en cola: {appointment.reference} para servicio {service.name}")
+                            
+                            # TODO: Enviar email al usuario informando que está en cola
+                            # TODO: Enviar notificación al asesor sobre nueva cita en cola
+                    except Exception as e:
+                        print(f"⚠️ Error creando cita de diagnóstico para servicio {service_id}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        # No fallar el pago si falla la creación de la cita
+                        # Se puede crear manualmente después
     
     db.session.commit()
 
@@ -4929,31 +4983,40 @@ def cart_add():
             }
         
         elif product_type == 'service':
-            # Obtener información del servicio desde los datos enviados
+            # Obtener información del servicio
             product_id = int(data.get('product_id', 0))
             if product_id == 0:
                 return jsonify({'success': False, 'error': 'ID de servicio no especificado'}), 400
-            service_name = data.get('service_name', 'Servicio')
-            base_price = float(data.get('base_price', 0))  # Precio base del servicio
             
-            # Calcular precio con descuento según membresía
+            service = Service.query.get(product_id)
+            if not service:
+                return jsonify({'success': False, 'error': 'Servicio no encontrado'}), 404
+            
+            # Para servicios con diagnóstico: NO se requiere slot, va a cola
+            # El slot se asignará después por el asesor
+            
+            # Calcular precio usando el método del servicio (respeta reglas y descuentos)
             active_membership = current_user.get_active_membership()
             membership_type = active_membership.membership_type if active_membership else 'basic'
             
-            # Obtener descuento desde la tabla MembershipDiscount
-            discount_percent = MembershipDiscount.get_discount(membership_type, product_type='service')
-            final_price = base_price * (1 - discount_percent / 100)
-            unit_price = int(final_price * 100)  # Convertir a centavos
+            # Usar pricing_for_membership() que respeta ServicePricingRule y MembershipDiscount
+            pricing = service.pricing_for_membership(membership_type)
+            final_price = pricing['final_price']
             
-            product_name = service_name
-            product_description = data.get('service_description', 'Servicio de RELATIC')
+            # Convertir a centavos para almacenar en CartItem
+            unit_price = int(final_price * 100)
+            
+            product_name = service.name
+            product_description = service.description or 'Servicio de RELATIC'
             metadata = {
-                'service_id': product_id,
-                'base_price': base_price,
-                'final_price': final_price,
-                'discount_percent': discount_percent,
+                'service_id': service.id,
+                'base_price': pricing['base_price'],
+                'final_price': pricing['final_price'],
+                'discount_percentage': pricing['discount_percentage'],
+                'is_included': pricing['is_included'],
                 'membership_type': membership_type,
-                'discount_applied': discount_percent > 0
+                'discount_applied': pricing['discount_percentage'] > 0,
+                'requires_diagnostic': service.requires_diagnostic_appointment
             }
         
         # Agregar al carrito
@@ -6819,6 +6882,96 @@ def api_email_test():
     data = request.get_json()
     test_email = data.get('email', current_user.email)
     
+    # Validar email de destino
+    if not test_email or '@' not in test_email:
+        return jsonify({
+            'success': False,
+            'error': 'Email de destino inválido'
+        }), 400
+    
+    # Verificar configuración antes de enviar
+    email_config = EmailConfig.get_active_config()
+    if not email_config:
+        return jsonify({
+            'success': False,
+            'error': 'No hay configuración de email activa. Configura el servidor SMTP primero.',
+            'details': 'Ve a /admin/email y configura el servidor SMTP'
+        }), 400
+    
+    # Validar campos requeridos
+    validation_errors = []
+    
+    if not email_config.mail_server:
+        validation_errors.append('Servidor SMTP no configurado')
+    elif email_config.mail_server not in ['smtp.gmail.com', 'smtp.office365.com', 'smtp-mail.outlook.com']:
+        # Permitir otros servidores pero advertir
+        pass
+    
+    if not email_config.mail_port or email_config.mail_port <= 0:
+        validation_errors.append('Puerto SMTP no configurado o inválido')
+    
+    if not email_config.mail_username:
+        validation_errors.append('Usuario/Email SMTP no configurado')
+    elif '@' not in email_config.mail_username:
+        validation_errors.append('Usuario SMTP no parece ser un email válido')
+    
+    if not email_config.mail_password:
+        validation_errors.append('Contraseña SMTP no configurada')
+    elif len(email_config.mail_password) < 8:
+        validation_errors.append('Contraseña SMTP muy corta (mínimo 8 caracteres)')
+    
+    if not email_config.mail_default_sender:
+        validation_errors.append('Remitente por defecto no configurado')
+    elif '@' not in email_config.mail_default_sender:
+        validation_errors.append('Remitente por defecto no parece ser un email válido')
+    
+    # Verificar configuración específica según el servidor
+    if email_config.mail_server == 'smtp.gmail.com':
+        # Solo advertir si la contraseña es muy corta, pero no bloquear
+        if len(email_config.mail_password) < 8:
+            validation_errors.append('Contraseña SMTP muy corta (mínimo 8 caracteres)')
+        elif len(email_config.mail_password) != 16:
+            # Advertencia informativa pero no bloquea - permite intentar
+            pass  # No agregar error, solo permitir intentar
+        if not email_config.mail_use_tls:
+            validation_errors.append('Gmail requiere TLS habilitado')
+    
+    if email_config.mail_server == 'smtp.office365.com':
+        if not email_config.mail_use_tls:
+            validation_errors.append('Office 365 requiere TLS habilitado')
+        if email_config.mail_port not in [587, 25]:
+            validation_errors.append('Office 365 requiere puerto 587 (recomendado) o 25')
+    
+    # Si hay errores de validación, retornarlos
+    if validation_errors:
+        return jsonify({
+            'success': False,
+            'error': 'Configuración de email incompleta o incorrecta',
+            'details': validation_errors,
+            'config_summary': {
+                'server': email_config.mail_server or '(no configurado)',
+                'port': email_config.mail_port or '(no configurado)',
+                'username': email_config.mail_username or '(no configurado)',
+                'tls': email_config.mail_use_tls,
+                'sender': email_config.mail_default_sender or '(no configurado)',
+                'has_password': bool(email_config.mail_password),
+                'password_length': len(email_config.mail_password) if email_config.mail_password else 0
+            }
+        }), 400
+    
+    # Aplicar configuración antes de enviar
+    try:
+        email_config.apply_to_app(app)
+        # Reinicializar mail con nueva configuración
+        global mail
+        mail = Mail(app)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al aplicar configuración: {str(e)}'
+        }), 500
+    
+    # Intentar enviar el correo
     try:
         # Crear mensaje de prueba
         from flask_mail import Message
@@ -6829,6 +6982,8 @@ def api_email_test():
             <h2>Correo de Prueba</h2>
             <p>Este es un correo de prueba para verificar que la configuración SMTP está funcionando correctamente.</p>
             <p>Si recibes este correo, significa que la configuración es correcta.</p>
+            <p><strong>Remitente:</strong> {email_config.mail_default_sender}</p>
+            <p><strong>Servidor:</strong> {email_config.mail_server}</p>
             <p><strong>Fecha:</strong> {datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')}</p>
             <p>Saludos,<br>Equipo RelaticPanama</p>
             """
@@ -6837,12 +6992,93 @@ def api_email_test():
         
         return jsonify({
             'success': True,
-            'message': f'Correo de prueba enviado exitosamente a {test_email}'
+            'message': f'Correo de prueba enviado exitosamente a {test_email}',
+            'config_used': {
+                'server': email_config.mail_server,
+                'sender': email_config.mail_default_sender
+            }
         })
     except Exception as e:
+        error_msg = str(e)
+        error_details = []
+        
+        # Analizar el error y dar recomendaciones específicas
+        if 'application-specific password' in error_msg.lower() or '5.7.9' in error_msg or 'invalidsecondfactor' in error_msg.lower():
+            error_details.append('⚠️ Gmail requiere una CONTRASEÑA DE APLICACIÓN (16 caracteres)')
+            error_details.append('La contraseña normal de Gmail NO funciona para SMTP')
+            error_details.append('')
+            error_details.append('SOLUCIÓN: Generar contraseña de aplicación')
+            error_details.append('')
+            error_details.append('Pasos:')
+            error_details.append('1. Ve a: https://myaccount.google.com/apppasswords')
+            error_details.append('2. Inicia sesión con relaticpanama2025@gmail.com')
+            error_details.append('3. Si no tienes 2FA, actívalo primero (requerido)')
+            error_details.append('4. Selecciona:')
+            error_details.append('   - App: "Correo"')
+            error_details.append('   - Device: "Otro (nombre personalizado)"')
+            error_details.append('   - Escribe: "RelaticPanama"')
+            error_details.append('5. Haz clic en "Generar"')
+            error_details.append('6. Copia la contraseña de 16 caracteres (sin espacios)')
+            error_details.append('7. Actualiza la contraseña en /admin/email')
+            error_details.append('')
+            error_details.append('O visita: https://support.google.com/mail/?p=InvalidSecondFactor')
+        elif 'smtp_auth_disabled' in error_msg.lower() or '5.7.139' in error_msg or 'smtpclientauthentication is disabled' in error_msg.lower():
+            error_details.append('⚠️ SMTP AUTH está DESHABILITADO en tu tenant de Office 365')
+            error_details.append('')
+            error_details.append('SOLUCIÓN: Habilitar SMTP AUTH en Microsoft 365 Admin Center')
+            error_details.append('')
+            error_details.append('Pasos:')
+            error_details.append('1. Ve a https://admin.microsoft.com')
+            error_details.append('2. Configuración → Correo → Autenticación')
+            error_details.append('3. Busca "Autenticación SMTP básica"')
+            error_details.append('4. Habilita SMTP AUTH para el usuario info@relaticpanama.org')
+            error_details.append('')
+            error_details.append('O visita: https://aka.ms/smtp_auth_disabled')
+            error_details.append('')
+            error_details.append('Nota: Si no tienes permisos de administrador, contacta al administrador de Microsoft 365')
+        elif '535' in error_msg or 'badcredentials' in error_msg.lower() or ('authentication' in error_msg.lower() and 'credentials' in error_msg.lower()):
+            error_details.append('❌ Error de autenticación: Usuario o contraseña incorrectos')
+            if email_config.mail_server == 'smtp.gmail.com':
+                error_details.append('')
+                error_details.append('Para Gmail, verifica:')
+                error_details.append('1. El usuario es correcto: ' + (email_config.mail_username or 'no configurado'))
+                error_details.append('2. La contraseña es una contraseña de aplicación de 16 caracteres (sin espacios)')
+                error_details.append('3. La contraseña de aplicación no fue revocada')
+                error_details.append('')
+                error_details.append('Si la contraseña tiene espacios, quítalos')
+                error_details.append('Ejemplo: "abcd efgh ijkl mnop" → "abcdefghijklmnop"')
+                error_details.append('')
+                error_details.append('Para generar una nueva contraseña de aplicación:')
+                error_details.append('https://myaccount.google.com/apppasswords')
+        elif '535' in error_msg or 'authentication' in error_msg.lower():
+            error_details.append('Error de autenticación: Usuario o contraseña incorrectos')
+            if email_config.mail_server == 'smtp.gmail.com':
+                error_details.append('Para Gmail, asegúrate de usar una contraseña de aplicación (16 caracteres)')
+                error_details.append('Genera una en: https://myaccount.google.com/apppasswords')
+            elif email_config.mail_server == 'smtp.office365.com':
+                error_details.append('Para Office 365, verifica que la contraseña sea correcta')
+                error_details.append('Si tienes MFA activado, puede que necesites una contraseña de aplicación')
+        elif 'connection' in error_msg.lower() or 'timeout' in error_msg.lower():
+            error_details.append('Error de conexión: No se pudo conectar al servidor SMTP')
+            error_details.append(f'Verifica que el puerto {email_config.mail_port} esté abierto')
+        elif 'tls' in error_msg.lower() or 'ssl' in error_msg.lower():
+            error_details.append('Error de seguridad: Problema con TLS/SSL')
+            error_details.append('Verifica que TLS esté habilitado para este servidor')
+        
+        # Mensaje específico para SMTP AUTH deshabilitado
+        if 'smtp_auth_disabled' in error_msg.lower() or '5.7.139' in error_msg:
+            error_details.insert(0, '⚠️ SMTP AUTH está deshabilitado en tu tenant de Office 365')
+            error_details.append('Solución: Habilitar SMTP AUTH en el centro de administración de Microsoft 365')
+            error_details.append('Pasos:')
+            error_details.append('1. Ve a https://admin.microsoft.com')
+            error_details.append('2. Configuración → Correo → Autenticación')
+            error_details.append('3. Habilita "Autenticación SMTP básica" para el usuario info@relaticpanama.org')
+            error_details.append('O visita: https://aka.ms/smtp_auth_disabled')
+        
         return jsonify({
             'success': False,
-            'error': f'Error al enviar correo de prueba: {str(e)}'
+            'error': f'Error al enviar correo de prueba: {error_msg}',
+            'details': error_details if error_details else ['Revisa la configuración SMTP en /admin/email']
         }), 500
 
 @app.route('/api/admin/email/test-welcome', methods=['POST'])
@@ -8762,6 +8998,13 @@ try:
     app.register_blueprint(appointments_bp)
     app.register_blueprint(admin_appointments_bp)
     app.register_blueprint(appointments_api_bp)
+    
+    # Registrar API de slots para asesores
+    try:
+        from api_advisor_slots import advisor_slots_api_bp
+        app.register_blueprint(advisor_slots_api_bp)
+    except ImportError:
+        pass  # Opcional
 except ImportError as e:
     print(f"Warning: No se pudieron registrar los blueprints de citas: {e}")
 

@@ -111,6 +111,21 @@
                     </div>
                     <div class="row g-3 mt-2">
                         <div class="col-md-3">
+                            <a href="{{ url_for('admin_services') }}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-th-large"></i> Gestionar Servicios
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_service_categories') }}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-tags"></i> Categorías de Servicios
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_membership_discounts') }}" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-percent"></i> Descuentos por Membresía
+                            </a>
+                        </div>
+                        <div class="col-md-3">
                             <a href="{{ url_for('admin_notifications') }}" class="btn btn-outline-secondary w-100">
                                 <i class="fas fa-bell"></i> Notificaciones
                             </a>

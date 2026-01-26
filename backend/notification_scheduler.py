@@ -77,7 +77,7 @@ def check_appointment_reminders():
     """Verificar citas próximas y enviar recordatorios"""
     with app.app_context():
         try:
-            from app import Appointment, User, AdvisorProfile
+            from app import Appointment, User, Advisor
             
             # Buscar citas confirmadas en las próximas 24 y 48 horas
             now = datetime.utcnow()

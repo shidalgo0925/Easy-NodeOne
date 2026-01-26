@@ -59,6 +59,15 @@
                                     </td>
                                     <td>${{ "%.2f"|format(service.base_price) }}</td>
                                     <td>
+                                        {% if service.requires_appointment() %}
+                                        <span class="badge bg-info" title="Requiere cita">
+                                            <i class="fas fa-calendar-check"></i> Sí
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">No</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
                                         {% if service.is_active %}
                                         <span class="badge bg-success">Activo</span>
                                         {% else %}
@@ -186,6 +195,24 @@
                             </label>
                         </div>
                     </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="serviceRequiresAppointment" name="requires_appointment">
+                            <label class="form-check-label" for="serviceRequiresAppointment">
+                                <strong>Requiere cita</strong>
+                            </label>
+                            <small class="text-muted d-block">Si está marcado, el servicio requerirá agendar una cita antes de usarlo</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="appointmentTypeContainer" style="display: none;">
+                        <label for="serviceAppointmentType" class="form-label">Tipo de Cita *</label>
+                        <select class="form-select" id="serviceAppointmentType" name="appointment_type_id">
+                            <option value="">Selecciona un tipo de cita</option>
+                        </select>
+                        <small class="text-muted">Selecciona el tipo de cita que se requiere para este servicio</small>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -251,6 +278,30 @@ function fillForm(service) {
     document.getElementById('serviceExternalLink').value = service.external_link || '';
     document.getElementById('serviceIsActive').checked = service.is_active !== false && service.is_active !== 'false';
     
+    // Manejar "Requiere cita"
+    const requiresAppointment = service.appointment_type_id !== null && service.appointment_type_id !== undefined;
+    const requiresAppointmentCheckbox = document.getElementById('serviceRequiresAppointment');
+    const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
+    const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
+    
+    requiresAppointmentCheckbox.checked = requiresAppointment;
+    if (requiresAppointment) {
+        appointmentTypeContainer.style.display = 'block';
+        appointmentTypeSelect.required = true;
+        // Asegurar que los tipos de cita estén cargados antes de establecer el valor
+        if (appointmentTypeSelect.options.length <= 1) {
+            loadAppointmentTypes().then(() => {
+                appointmentTypeSelect.value = service.appointment_type_id || '';
+            });
+        } else {
+            appointmentTypeSelect.value = service.appointment_type_id || '';
+        }
+    } else {
+        appointmentTypeContainer.style.display = 'none';
+        appointmentTypeSelect.required = false;
+        appointmentTypeSelect.value = '';
+    }
+    
     // Limpiar todos los checkboxes primero
     document.querySelectorAll('.membership-plan-checkbox').forEach(cb => cb.checked = false);
     
@@ -297,6 +348,18 @@ function saveService() {
         return;
     }
     
+    // Obtener appointment_type_id si el checkbox está marcado
+    const requiresAppointment = document.getElementById('serviceRequiresAppointment').checked;
+    let appointmentTypeId = null;
+    if (requiresAppointment) {
+        const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
+        appointmentTypeId = appointmentTypeSelect.value || null;
+        if (!appointmentTypeId) {
+            alert('Debes seleccionar un tipo de cita cuando el servicio requiere cita');
+            return;
+        }
+    }
+    
     const formData = {
         name: document.getElementById('serviceName').value,
         description: document.getElementById('serviceDescription').value,
@@ -305,7 +368,8 @@ function saveService() {
         base_price: parseFloat(document.getElementById('serviceBasePrice').value),
         display_order: parseInt(document.getElementById('serviceDisplayOrder').value),
         external_link: document.getElementById('serviceExternalLink').value,
-        is_active: document.getElementById('serviceIsActive').checked
+        is_active: document.getElementById('serviceIsActive').checked,
+        appointment_type_id: appointmentTypeId
     };
     
     const serviceId = document.getElementById('serviceId').value;
@@ -386,10 +450,52 @@ function deleteService(serviceId, serviceName) {
     });
 }
 
-// Cargar categorías al abrir el modal
+// Cargar categorías y tipos de cita al abrir el modal
 document.getElementById('createServiceModal').addEventListener('show.bs.modal', function () {
     loadCategories();
+    loadAppointmentTypes();
 });
+
+// Manejar checkbox "Requiere cita"
+document.getElementById('serviceRequiresAppointment').addEventListener('change', function() {
+    const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
+    const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
+    
+    if (this.checked) {
+        appointmentTypeContainer.style.display = 'block';
+        appointmentTypeSelect.required = true;
+    } else {
+        appointmentTypeContainer.style.display = 'none';
+        appointmentTypeSelect.required = false;
+        appointmentTypeSelect.value = '';
+    }
+});
+
+function loadAppointmentTypes() {
+    return fetch('/api/admin/appointment-types')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('serviceAppointmentType');
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">Selecciona un tipo de cita</option>';
+                data.appointment_types.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.id;
+                    option.textContent = type.name + (type.description ? ` - ${type.description}` : '');
+                    select.appendChild(option);
+                });
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            }
+            return data;
+        })
+        .catch(error => {
+            console.error('Error cargando tipos de cita:', error);
+            return {success: false, error: error};
+        });
+}
 
 function loadCategories() {
     fetch('/api/admin/service-categories')
@@ -425,6 +531,11 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     document.getElementById('serviceIsActive').checked = true;
     // Limpiar checkboxes de planes
     document.querySelectorAll('.membership-plan-checkbox').forEach(cb => cb.checked = false);
+    // Limpiar checkbox y selector de cita
+    document.getElementById('serviceRequiresAppointment').checked = false;
+    document.getElementById('appointmentTypeContainer').style.display = 'none';
+    document.getElementById('serviceAppointmentType').value = '';
+    document.getElementById('serviceAppointmentType').required = false;
 });
 </script>
 {% endblock %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Estado de Pago{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('services') }}">Servicios</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Estado de Pago</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-receipt me-2"></i>Estado del Pago
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Estado del Pago -->
+                    {% if payment.status == 'succeeded' %}
+                        <div class="alert alert-success">
+                            <h5>
+                                <i class="fas fa-check-circle me-2"></i>Pago Completado
+                            </h5>
+                            <p class="mb-0">Tu pago ha sido procesado exitosamente.</p>
+                        </div>
+                    {% elif payment.status == 'pending' %}
+                        <div class="alert alert-warning">
+                            <h5>
+                                <i class="fas fa-clock me-2"></i>Pago Pendiente
+                            </h5>
+                            <p class="mb-0">Tu pago está siendo procesado. Por favor espera la confirmación.</p>
+                        </div>
+                    {% elif payment.status == 'awaiting_confirmation' %}
+                        <div class="alert alert-info">
+                            <h5>
+                                <i class="fas fa-hourglass-half me-2"></i>Esperando Confirmación
+                            </h5>
+                            <p class="mb-0">Tu solicitud ha sido registrada. Un administrador verificará el pago y confirmará tu cita.</p>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-secondary">
+                            <h5>
+                                <i class="fas fa-info-circle me-2"></i>Estado: {{ payment.status|upper }}
+                            </h5>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Detalles del Pago -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Detalles del Pago</h5>
+                        <table class="table table-bordered">
+                            <tr>
+                                <td><strong>Monto:</strong></td>
+                                <td class="text-end">${{ "%.2f"|format(payment.amount / 100) }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Método:</strong></td>
+                                <td class="text-end">{{ payment.payment_method|upper }}</td>
+                            </tr>
+                            {% if payment.payment_reference %}
+                            <tr>
+                                <td><strong>Referencia:</strong></td>
+                                <td class="text-end"><code>{{ payment.payment_reference }}</code></td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td><strong>Fecha:</strong></td>
+                                <td class="text-end">{{ payment.created_at.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!-- Información del Servicio (si aplica) -->
+                    {% if service %}
+                    <div class="mb-4">
+                        <h5 class="mb-3">Servicio</h5>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>{{ service.name }}</h6>
+                                {% if metadata.slot_datetime %}
+                                <p class="mb-0">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    Horario: {{ metadata.slot_datetime }}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Si hay appointment creado -->
+                    {% if appointment %}
+                        <div class="alert alert-success">
+                            <h5>
+                                <i class="fas fa-calendar-check me-2"></i>Cita Agendada
+                            </h5>
+                            <p><strong>Referencia:</strong> {{ appointment.reference }}</p>
+                            <p><strong>Fecha:</strong> {{ appointment.start_datetime.strftime('%d/%m/%Y %I:%M %p') }}</p>
+                            <p><strong>Estado:</strong> 
+                                <span class="badge bg-{{ 'success' if appointment.status == 'confirmed' else 'warning' }}">
+                                    {{ appointment.status|upper }}
+                                </span>
+                            </p>
+                            <a href="{{ url_for('appointments.appointments_home') }}" class="btn btn-primary">
+                                <i class="fas fa-calendar me-2"></i>Ver Mis Citas
+                            </a>
+                        </div>
+                    {% elif payment.status == 'succeeded' %}
+                        <!-- Si el pago fue exitoso pero no hay appointment, crear -->
+                        <div class="alert alert-info">
+                            <p>Procesando tu cita...</p>
+                            <a href="{{ url_for('service_payment_success_callback', payment_id=payment.id) }}" class="btn btn-primary">
+                                <i class="fas fa-check me-2"></i>Completar Proceso
+                            </a>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Si hay URL de pago externo -->
+                    {% if payment.payment_url and payment.status == 'pending' %}
+                        <div class="d-grid">
+                            <a href="{{ payment.payment_url }}" class="btn btn-primary" target="_blank">
+                                <i class="fas fa-external-link-alt me-2"></i>Completar Pago
+                            </a>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Saldo pendiente (si aplica) -->
+                    {% if metadata and metadata.remaining_balance and metadata.remaining_balance > 0 %}
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Saldo Pendiente</h6>
+                        <p class="mb-2">Tienes un saldo pendiente de <strong>${{ "%.2f"|format(metadata.remaining_balance) }}</strong></p>
+                        <p class="mb-0 small">Puedes pagar el saldo restante antes de tu cita.</p>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Botones de acción -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{{ url_for('services') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver a Servicios
+                        </a>
+                        {% if appointment %}
+                        <a href="{{ url_for('appointments.appointments_home') }}" class="btn btn-primary">
+                            <i class="fas fa-calendar me-2"></i>Ver Mis Citas
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -513,27 +513,48 @@ aside.left-panel {
 }
 
 body.sidebar-collapsed .sidebar-brand-full {
-    display: none;
+    display: none !important;
+}
+
+/* Ocultar todos los textos de RELATIC PANAMÁ cuando está colapsado */
+body.sidebar-collapsed .sidebar-brand-text,
+body.sidebar-collapsed .sidebar-brand-text-small {
+    display: none !important;
+}
+
+body.sidebar-collapsed .sidebar-brand-icon {
+    display: none !important;
 }
 
 body.sidebar-collapsed .sidebar-brand-narrow {
-    display: flex;
+    display: none !important;
 }
 
 body.sidebar-collapsed .sidebar-brand {
-    padding: 12px 8px;
+    padding: 12px 8px 48px 8px;
     justify-content: center;
     align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     flex-direction: column;
     gap: 8px;
-    min-height: auto;
+    min-height: 64px;
     background: #2d3b45;
+    position: relative;
 }
 
 body.sidebar-collapsed .sidebar-brand .menu-hamburger-btn {
     margin: 0;
     color: #e0e0e0;
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
 }
 
 body.sidebar-collapsed .sidebar-brand .menu-hamburger-btn:hover {
@@ -542,11 +563,7 @@ body.sidebar-collapsed .sidebar-brand .menu-hamburger-btn:hover {
 }
 
 body.sidebar-collapsed .sidebar-brand-narrow {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 8px 0;
+    display: none !important;
 }
 
 body.sidebar-collapsed .sidebar-brand-narrow i {
@@ -576,6 +593,50 @@ body.sidebar-collapsed aside.left-panel {
     width: 70px;
     padding: 0;
     background: #2d3b45;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Mejorar apariencia del sidebar colapsado */
+body.sidebar-collapsed aside.left-panel .navbar {
+    padding: 0;
+    width: 100%;
+}
+
+body.sidebar-collapsed aside.left-panel .navbar .navbar-nav {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+body.sidebar-collapsed aside.left-panel .navbar .navbar-nav li {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Mejorar apariencia del sidebar colapsado */
+body.sidebar-collapsed aside.left-panel .navbar {
+    padding: 0;
+    width: 100%;
+}
+
+body.sidebar-collapsed aside.left-panel .navbar .navbar-nav {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+body.sidebar-collapsed aside.left-panel .navbar .navbar-nav li {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 /* Ocultar textos cuando el sidebar está colapsado */
@@ -608,14 +669,23 @@ body.sidebar-collapsed .navbar .navbar-nav li > a {
     align-items: center;
     color: #e0e0e0;
     position: relative;
+    width: 100%;
+    margin: 0;
+    min-height: 48px;
+}
+
+/* Asegurar que los iconos estén perfectamente centrados */
+body.sidebar-collapsed .navbar .navbar-nav li > a::before {
+    content: '';
+    flex: 0 0 0;
+    width: 0;
 }
 
 body.sidebar-collapsed .navbar .navbar-nav li > a .menu-icon {
     float: none !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     text-align: center;
     width: 24px !important;
-    margin-right: 0 !important;
     font-size: 20px !important;
     color: #e0e0e0 !important;
     background: transparent !important;
@@ -627,6 +697,11 @@ body.sidebar-collapsed .navbar .navbar-nav li > a .menu-icon {
     visibility: visible !important;
     opacity: 1 !important;
     height: auto !important;
+    flex-shrink: 0;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
 }
 
 /* Hover y active cuando está colapsado - estilo dark */
@@ -637,7 +712,7 @@ body.sidebar-collapsed .navbar .navbar-nav li > a:hover {
 
 body.sidebar-collapsed .navbar .navbar-nav li > a:hover .menu-icon {
     color: #ffffff !important;
-    transform: scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1);
 }
 
 /* Active state en iconos colapsados */
@@ -650,6 +725,7 @@ body.sidebar-collapsed .navbar .navbar-nav .nav-link.active {
 body.sidebar-collapsed .navbar .navbar-nav > .active > a .menu-icon,
 body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon {
     color: #008ee2 !important;
+    transform: translate(-50%, -50%);
 }
 
 /* Nav Groups - Estilo CoreUI */
@@ -739,6 +815,27 @@ body.sidebar-collapsed .navbar .navbar-nav .nav-link {
     padding: 14px 0 !important;
     justify-content: center;
     position: relative;
+    width: 100%;
+    margin: 0;
+    border-left: 3px solid transparent;
+    border-right: none;
+    cursor: pointer;
+}
+
+/* Mejorar la apariencia visual de los items colapsados */
+body.sidebar-collapsed .navbar .navbar-nav .nav-link:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Mejorar espaciado entre items cuando está colapsado */
+body.sidebar-collapsed .navbar .navbar-nav > li {
+    margin-bottom: 4px;
+    width: 100%;
+}
+
+body.sidebar-collapsed .navbar .navbar-nav > li:first-child {
+    margin-top: 8px;
 }
 
 /* Tooltips cuando está colapsado */
@@ -1062,6 +1159,9 @@ body.sidebar-collapsed .navbar .navbar-nav li > a {
     padding: 16px 0;
     text-align: center;
     border-left: none;
+    width: 100%;
+    margin: 0;
+    position: relative;
 }
 
 .navbar .navbar-nav li > a .menu-title-text {

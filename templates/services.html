@@ -90,6 +90,18 @@
                                 Ver más <i class="fas fa-arrow-right ms-1"></i>
                             </a>
                             {% endif %}
+                            
+                            {# Botón para solicitar cita - se muestra si tiene appointment_type_id y no es gratuito (independiente del plan) #}
+                            {% if service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
+                                {% if service.pricing.final_price > 0 %}
+                                <a href="{{ url_for('service_request_appointment', service_id=service.id) }}" 
+                                   class="btn btn-sm btn-primary w-100 mb-2">
+                                    <i class="fas fa-calendar-check me-1"></i>Solicitar Cita
+                                </a>
+                                {% endif %}
+                            {% endif %}
+                            
+                            {# Botones de precio y carrito solo para planes no básicos #}
                             {% if plan_type != 'basic' %}
                                 {% if service.pricing.is_included and service.pricing.final_price == 0 %}
                                 <span class="badge bg-success">Incluido en tu plan</span>

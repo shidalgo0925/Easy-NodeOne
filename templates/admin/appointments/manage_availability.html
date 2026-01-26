@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurar Disponibilidad - {{ advisor.user.first_name if advisor.user else 'Asesor' }} - {{ appointment_type.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <p class="text-uppercase text-muted small mb-1">Panel administrativo</p>
+            <h1 class="h3 mb-0">
+                Configurar Disponibilidad: 
+                <strong>{{ advisor.user.first_name }} {{ advisor.user.last_name if advisor.user else 'Asesor' }}</strong> - 
+                <strong>{{ appointment_type.name }}</strong>
+            </h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Horarios de Disponibilidad Semanal
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="availabilityForm">
+                        <input type="hidden" name="timezone" value="America/Panama">
+                        
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Día</th>
+                                        <th>Horarios</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="availabilityTableBody">
+                                    {% set days = [
+                                        ('monday', 'Lunes', 0),
+                                        ('tuesday', 'Martes', 1),
+                                        ('wednesday', 'Miércoles', 2),
+                                        ('thursday', 'Jueves', 3),
+                                        ('friday', 'Viernes', 4),
+                                        ('saturday', 'Sábado', 5),
+                                        ('sunday', 'Domingo', 6)
+                                    ] %}
+                                    
+                                    {% for day_key, day_name, day_idx in days %}
+                                    <tr data-day="{{ day_key }}">
+                                        <td class="align-middle">
+                                            <strong>{{ day_name }}</strong>
+                                        </td>
+                                        <td>
+                                            <div class="time-slots-container" data-day="{{ day_key }}">
+                                                {% set day_availabilities = availabilities_by_day.get(day_idx, []) %}
+                                                {% if day_availabilities %}
+                                                    {% for av in day_availabilities %}
+                                                    <div class="time-slot-row mb-2 d-flex gap-2 align-items-center">
+                                                        <input type="time" 
+                                                               name="{{ day_key }}_start" 
+                                                               value="{{ av.start_time.strftime('%H:%M') }}" 
+                                                               class="form-control form-control-sm" 
+                                                               style="width: 120px;">
+                                                        <span>-</span>
+                                                        <input type="time" 
+                                                               name="{{ day_key }}_end" 
+                                                               value="{{ av.end_time.strftime('%H:%M') }}" 
+                                                               class="form-control form-control-sm" 
+                                                               style="width: 120px;">
+                                                        <button type="button" class="btn btn-sm btn-danger remove-time-slot">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <div class="time-slot-row mb-2 d-flex gap-2 align-items-center">
+                                                        <input type="time" 
+                                                               name="{{ day_key }}_start" 
+                                                               class="form-control form-control-sm" 
+                                                               style="width: 120px;">
+                                                        <span>-</span>
+                                                        <input type="time" 
+                                                               name="{{ day_key }}_end" 
+                                                               class="form-control form-control-sm" 
+                                                               style="width: 120px;">
+                                                        <button type="button" class="btn btn-sm btn-danger remove-time-slot">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary add-time-slot" data-day="{{ day_key }}">
+                                                <i class="fas fa-plus me-1"></i>Agregar Horario
+                                            </button>
+                                        </td>
+                                        <td class="align-middle">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary clear-day" data-day="{{ day_key }}">
+                                                <i class="fas fa-trash me-1"></i>Limpiar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-4 d-flex gap-2 justify-content-end">
+                            <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Guardar Horarios
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Información
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="small">
+                        <strong>Asesor:</strong><br>
+                        {% if advisor.user %}
+                            {{ advisor.user.first_name }} {{ advisor.user.last_name }}<br>
+                            <small class="text-muted">{{ advisor.user.email }}</small>
+                        {% else %}
+                            Asesor #{{ advisor.id }}
+                        {% endif %}
+                    </p>
+                    
+                    <p class="small">
+                        <strong>Servicio:</strong><br>
+                        {{ appointment_type.name }}<br>
+                        <small class="text-muted">Duración: {{ appointment_type.duration_minutes }} minutos</small>
+                    </p>
+
+                    <hr>
+
+                    <h6>Generar Slots</h6>
+                    <p class="small text-muted">
+                        Después de configurar los horarios, puedes generar los slots automáticamente.
+                    </p>
+                    <form method="POST" action="{{ url_for('admin_appointments.generate_slots_from_service_availability', advisor_id=advisor.id, appointment_type_id=appointment_type.id) }}">
+                        <div class="mb-2">
+                            <label class="form-label small">Días hacia adelante:</label>
+                            <input type="number" name="days_ahead" value="30" min="1" max="90" class="form-control form-control-sm">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success w-100">
+                            <i class="fas fa-magic me-1"></i>Generar Slots
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Agregar nuevo horario
+    document.querySelectorAll('.add-time-slot').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const day = this.getAttribute('data-day');
+            const container = document.querySelector(`.time-slots-container[data-day="${day}"]`);
+            
+            const newRow = document.createElement('div');
+            newRow.className = 'time-slot-row mb-2 d-flex gap-2 align-items-center';
+            newRow.innerHTML = `
+                <input type="time" name="${day}_start" class="form-control form-control-sm" style="width: 120px;">
+                <span>-</span>
+                <input type="time" name="${day}_end" class="form-control form-control-sm" style="width: 120px;">
+                <button type="button" class="btn btn-sm btn-danger remove-time-slot">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(newRow);
+            
+            // Agregar listener al botón de eliminar
+            newRow.querySelector('.remove-time-slot').addEventListener('click', function() {
+                newRow.remove();
+            });
+        });
+    });
+    
+    // Eliminar horario
+    document.querySelectorAll('.remove-time-slot').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.closest('.time-slot-row').remove();
+        });
+    });
+    
+    // Limpiar día completo
+    document.querySelectorAll('.clear-day').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const day = this.getAttribute('data-day');
+            const container = document.querySelector(`.time-slots-container[data-day="${day}"]`);
+            container.innerHTML = '';
+        });
+    });
+});
+</script>
+{% endblock %}

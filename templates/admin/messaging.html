@@ -70,7 +70,7 @@
             <div class="card">
                 <div class="card-body">
                     <form method="GET" action="{{ url_for('admin_messaging') }}" class="row g-3">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label for="type" class="form-label">Tipo de Email</label>
                             <select name="type" id="type" class="form-select">
                                 <option value="all" {% if current_type == 'all' %}selected{% endif %}>Todos</option>
@@ -81,7 +81,7 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label for="status" class="form-label">Estado</label>
                             <select name="status" id="status" class="form-select">
                                 <option value="all" {% if current_status == 'all' %}selected{% endif %}>Todos</option>
@@ -90,16 +90,26 @@
                                 <option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pendientes</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="search" class="form-label">Buscar</label>
                             <input type="text" name="search" id="search" class="form-control" 
                                    placeholder="Email, asunto, nombre..." value="{{ search }}">
                         </div>
-                        <div class="col-md-2 d-flex align-items-end">
+                        <div class="col-md-2">
+                            <label for="per_page" class="form-label">Registros por página</label>
+                            <select name="per_page" id="per_page" class="form-select">
+                                <option value="12" {% if pagination.per_page == 12 %}selected{% endif %}>12</option>
+                                <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
+                                <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
                             <button type="submit" class="btn btn-primary w-100">
                                 <i class="fas fa-search"></i> Filtrar
                             </button>
                         </div>
+                        <input type="hidden" name="page" value="1">
                     </form>
                 </div>
             </div>
@@ -255,7 +265,7 @@
                         <ul class="pagination justify-content-center">
                             {% if pagination.has_prev %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('admin_messaging', page=pagination.prev_num, type=current_type, status=current_status, search=search) }}">
+                                <a class="page-link" href="{{ url_for('admin_messaging', page=pagination.prev_num, type=current_type, status=current_status, search=search, per_page=pagination.per_page) }}">
                                     <i class="fas fa-chevron-left"></i> Anterior
                                 </a>
                             </li>
@@ -269,7 +279,7 @@
                                     </li>
                                     {% else %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin_messaging', page=page_num, type=current_type, status=current_status, search=search) }}">
+                                        <a class="page-link" href="{{ url_for('admin_messaging', page=page_num, type=current_type, status=current_status, search=search, per_page=pagination.per_page) }}">
                                             {{ page_num }}
                                         </a>
                                     </li>
@@ -283,7 +293,7 @@
                             
                             {% if pagination.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('admin_messaging', page=pagination.next_num, type=current_type, status=current_status, search=search) }}">
+                                <a class="page-link" href="{{ url_for('admin_messaging', page=pagination.next_num, type=current_type, status=current_status, search=search, per_page=pagination.per_page) }}">
                                     Siguiente <i class="fas fa-chevron-right"></i>
                                 </a>
                             </li>

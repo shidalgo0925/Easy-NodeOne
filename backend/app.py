@@ -1569,6 +1569,34 @@ class AdvisorAvailability(db.Model):
     )
 
 
+class AdvisorServiceAvailability(db.Model):
+    """
+    Horarios de disponibilidad de asesores por servicio/tipo de cita.
+    Permite configurar horarios específicos para cada combinación asesor-servicio.
+    Similar al Schedule Tab de Odoo.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    advisor_id = db.Column(db.Integer, db.ForeignKey('advisor.id'), nullable=False)
+    appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=False)
+    day_of_week = db.Column(db.Integer, nullable=False)  # 0 = lunes ... 6 = domingo
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+    timezone = db.Column(db.String(50), default='America/Panama')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    advisor = db.relationship('Advisor', backref='service_availabilities')
+    appointment_type = db.relationship('AppointmentType', backref='advisor_availabilities')
+    created_by_user = db.relationship('User', backref='service_availabilities_created', foreign_keys=[created_by])
+
+    __table_args__ = (
+        db.CheckConstraint('end_time > start_time', name='ck_service_availability_time_window'),
+        db.Index('idx_advisor_service_day', 'advisor_id', 'appointment_type_id', 'day_of_week'),
+    )
+
+
 class AppointmentPricing(db.Model):
     """Reglas de precio/descuento por tipo de membresía."""
     id = db.Column(db.Integer, primary_key=True)
@@ -2040,6 +2068,11 @@ class Service(db.Model):
     # Campos para cita de diagnóstico
     requires_diagnostic_appointment = db.Column(db.Boolean, default=False)  # Si requiere cita diagnóstico antes de usar
     diagnostic_appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=True)  # Tipo de cita de diagnóstico
+    # Campos para sistema de citas con pago/abono
+    appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=True)  # Tipo de cita asociado al servicio
+    requires_payment_before_appointment = db.Column(db.Boolean, default=True)  # Si requiere pago antes de agendar
+    deposit_amount = db.Column(db.Float, nullable=True)  # Abono fijo (ej: $50)
+    deposit_percentage = db.Column(db.Float, nullable=True)  # Abono porcentual (ej: 0.5 = 50%)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -2105,6 +2138,57 @@ class Service(db.Model):
             'is_included': is_included
         }
     
+    def calculate_deposit(self, user_membership_type=None):
+        """
+        Calcula el monto de abono requerido para este servicio.
+        
+        Retorna:
+            dict con:
+            - deposit_amount: monto a pagar como abono
+            - final_price: precio total del servicio
+            - remaining_balance: saldo pendiente después del abono
+            - requires_full_payment: si requiere pago completo
+        """
+        pricing = self.pricing_for_membership(user_membership_type)
+        final_price = pricing['final_price']
+        
+        # Si el servicio es gratuito, no requiere abono
+        if final_price <= 0:
+            return {
+                'deposit_amount': 0.0,
+                'final_price': 0.0,
+                'remaining_balance': 0.0,
+                'requires_full_payment': False
+            }
+        
+        # Calcular abono
+        deposit_amount = final_price  # Por defecto, pago completo
+        
+        if self.deposit_amount:
+            # Abono fijo
+            deposit_amount = min(self.deposit_amount, final_price)
+        elif self.deposit_percentage:
+            # Abono porcentual
+            deposit_amount = final_price * self.deposit_percentage
+        
+        remaining_balance = max(0.0, final_price - deposit_amount)
+        
+        return {
+            'deposit_amount': deposit_amount,
+            'final_price': final_price,
+            'remaining_balance': remaining_balance,
+            'requires_full_payment': (remaining_balance == 0.0)
+        }
+    
+    def requires_appointment(self):
+        """Verifica si el servicio requiere cita."""
+        return self.appointment_type_id is not None and self.is_active
+    
+    def is_free_service(self, user_membership_type=None):
+        """Verifica si el servicio es gratuito para el usuario."""
+        pricing = self.pricing_for_membership(user_membership_type)
+        return pricing['final_price'] <= 0 or pricing['is_included']
+    
     def to_dict(self):
         """Convertir a diccionario para JSON"""
         try:
@@ -2131,7 +2215,11 @@ class Service(db.Model):
             'is_active': self.is_active if self.is_active is not None else True,
             'display_order': self.display_order or 0,
             'requires_diagnostic_appointment': self.requires_diagnostic_appointment if self.requires_diagnostic_appointment is not None else False,
-            'diagnostic_appointment_type_id': self.diagnostic_appointment_type_id
+            'diagnostic_appointment_type_id': self.diagnostic_appointment_type_id,
+            'appointment_type_id': self.appointment_type_id,
+            'requires_payment_before_appointment': self.requires_payment_before_appointment if self.requires_payment_before_appointment is not None else True,
+            'deposit_amount': float(self.deposit_amount) if self.deposit_amount else None,
+            'deposit_percentage': float(self.deposit_percentage) if self.deposit_percentage else None
         }
 
 class ServiceCategory(db.Model):
@@ -3787,7 +3875,10 @@ def services():
                 'external_link': service.external_link,
                 'base_price': service.base_price,
                 'pricing': user_pricing,  # Precio con descuento según membresía del usuario actual
-                'requires_diagnostic_appointment': service.requires_diagnostic_appointment if service.requires_diagnostic_appointment is not None else False
+                'requires_diagnostic_appointment': service.requires_diagnostic_appointment if service.requires_diagnostic_appointment is not None else False,
+                'appointment_type_id': service.appointment_type_id,
+                'requires_appointment': service.requires_appointment(),
+                'is_free': service.is_free_service(membership_type)
             }
             
             services_by_plan[plan_type].append(service_data)
@@ -3802,6 +3893,354 @@ def services():
                          categories=categories,
                          user_membership_type=membership_type,
                          membership_type=membership_type)  # Para usar en el template
+
+
+@app.route('/services/<int:service_id>/request-appointment')
+@login_required
+def service_request_appointment(service_id):
+    """
+    Muestra el formulario para solicitar una cita de un servicio.
+    """
+    # Validar servicio
+    service = Service.query.get_or_404(service_id)
+    if not service.is_active:
+        flash('Este servicio no está disponible.', 'error')
+        return redirect(url_for('services'))
+    
+    # Verificar que el servicio requiere cita
+    if not service.requires_appointment():
+        flash('Este servicio no requiere cita.', 'info')
+        return redirect(url_for('services'))
+    
+    # Verificar membresía activa
+    membership = current_user.get_active_membership()
+    if not membership:
+        flash('Necesitas una membresía activa para solicitar citas.', 'warning')
+        return redirect(url_for('services'))
+    
+    membership_type = membership.membership_type
+    
+    # Verificar si el servicio es gratuito
+    if service.is_free_service(membership_type):
+        flash('Este servicio es gratuito y no requiere cita con pago.', 'info')
+        return redirect(url_for('services'))
+    
+    # Obtener tipo de cita asociado
+    appointment_type = AppointmentType.query.get(service.appointment_type_id)
+    if not appointment_type or not appointment_type.is_active:
+        flash('El tipo de cita asociado no está disponible.', 'error')
+        return redirect(url_for('services'))
+    
+    # Calcular precios y abono
+    pricing = service.pricing_for_membership(membership_type)
+    deposit_info = service.calculate_deposit(membership_type)
+    
+    # Obtener asesores asignados con información completa
+    # Solo incluir asesores que tengan horarios configurados
+    advisors_list = []
+    advisors_with_schedules = set()
+    
+    for assignment in appointment_type.advisor_assignments:
+        if assignment.is_active and assignment.advisor.is_active:
+            advisor = assignment.advisor
+            advisor_id = advisor.id
+            
+            # Verificar si tiene horarios configurados (específicos o generales)
+            has_specific_availability = AdvisorServiceAvailability.query.filter_by(
+                advisor_id=advisor_id,
+                appointment_type_id=service.appointment_type_id,
+                is_active=True
+            ).first() is not None
+            
+            has_general_availability = AdvisorAvailability.query.filter_by(
+                advisor_id=advisor_id,
+                is_active=True
+            ).first() is not None
+            
+            # Solo incluir si tiene algún tipo de disponibilidad
+            if has_specific_availability or has_general_availability:
+                advisors_list.append({
+                    'id': advisor.id,
+                    'name': f"{advisor.user.first_name} {advisor.user.last_name}" if advisor.user else 'Asesor',
+                    'bio': advisor.bio,
+                    'specializations': advisor.specializations,
+                    'photo_url': advisor.photo_url
+                })
+                advisors_with_schedules.add(advisor_id)
+    
+    # Si no hay asesores con horarios, mostrar error
+    if not advisors_list:
+        flash('Este servicio no tiene asesores con horarios configurados. Por favor, contacta al administrador.', 'error')
+        return redirect(url_for('services'))
+    
+    # Validar anticipación mínima y máxima (inspirado en Odoo)
+    now = datetime.utcnow()
+    min_schedule_hours = appointment_type.min_schedule_hours or 24
+    max_schedule_days = appointment_type.max_schedule_days or 90
+    
+    min_datetime = now + timedelta(hours=min_schedule_hours)
+    max_datetime = now + timedelta(days=max_schedule_days)
+    
+    # Obtener TODOS los slots disponibles para este servicio (sin filtrar por asesor)
+    # Primero, generar slots para todos los asesores asignados si no hay suficientes
+    for advisor_id in advisors_with_schedules:
+        existing_slots_count = AppointmentSlot.query.filter(
+            AppointmentSlot.advisor_id == advisor_id,
+            AppointmentSlot.appointment_type_id == service.appointment_type_id,
+            AppointmentSlot.start_datetime >= datetime.utcnow(),
+            AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30)
+        ).count()
+        
+        if existing_slots_count < 10:
+            generate_slots_from_availability(advisor_id, service.appointment_type_id, days_ahead=30)
+    
+    # Obtener todos los slots disponibles del servicio (con relaciones cargadas)
+    from sqlalchemy.orm import joinedload
+    available_slots = AppointmentSlot.query.options(
+        joinedload(AppointmentSlot.advisor).joinedload(Advisor.user)
+    ).filter(
+        AppointmentSlot.appointment_type_id == service.appointment_type_id,
+        AppointmentSlot.start_datetime >= datetime.utcnow(),
+        AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30),
+        AppointmentSlot.is_available == True
+    ).order_by(AppointmentSlot.start_datetime.asc()).limit(200).all()
+    
+    # Obtener asesor seleccionado (si viene en query param para filtrar)
+    selected_advisor_id = request.args.get('advisor_id', type=int)
+    
+    # Preparar slots para JSON (con información del asesor)
+    slots_data = []
+    for slot in available_slots:
+        advisor_name = 'Asesor'
+        if slot.advisor and slot.advisor.user:
+            advisor_name = f"{slot.advisor.user.first_name} {slot.advisor.user.last_name}"
+        
+        slots_data.append({
+            'id': slot.id,
+            'advisor_id': slot.advisor_id,
+            'advisor_name': advisor_name,
+            'start_datetime': slot.start_datetime.isoformat(),
+            'end_datetime': slot.end_datetime.isoformat(),
+            'capacity': slot.capacity,
+            'remaining_seats': slot.remaining_seats()
+        })
+    
+    import json
+    return render_template('services/request_appointment.html',
+                         service=service,
+                         appointment_type=appointment_type,
+                         advisors=advisors_list,
+                         selected_advisor_id=selected_advisor_id,
+                         membership=membership,
+                         pricing=pricing,
+                         deposit_info=deposit_info,
+                         available_slots_json=json.dumps(slots_data),
+                         available_slots=available_slots,  # Mantener para compatibilidad
+                         user=current_user)
+
+
+@app.route('/services/<int:service_id>/request-appointment', methods=['POST'])
+@login_required
+def service_request_appointment_submit(service_id):
+    """
+    Agrega el servicio con cita al carrito en lugar de procesar el pago directamente.
+    """
+    import json
+    
+    # Validar servicio
+    service = Service.query.get_or_404(service_id)
+    if not service.is_active or not service.requires_appointment():
+        flash('Este servicio no está disponible para citas.', 'error')
+        return redirect(url_for('services'))
+    
+    # Verificar membresía
+    membership = current_user.get_active_membership()
+    if not membership:
+        flash('Necesitas una membresía activa.', 'warning')
+        return redirect(url_for('services'))
+    
+    # Validar datos del formulario
+    slot_id = request.form.get('slot_id', type=int)
+    case_description = request.form.get('case_description', '').strip()
+    
+    # Validar descripción del caso
+    if not case_description or len(case_description) < 50:
+        flash('La descripción del caso debe tener al menos 50 caracteres.', 'error')
+        return redirect(url_for('service_request_appointment', service_id=service_id))
+    
+    if len(case_description) > 1000:
+        flash('La descripción del caso no puede exceder 1000 caracteres.', 'error')
+        return redirect(url_for('service_request_appointment', service_id=service_id))
+    
+    # Validar slot
+    if not slot_id:
+        flash('Debes seleccionar un horario disponible.', 'error')
+        return redirect(url_for('service_request_appointment', service_id=service_id))
+    
+    slot = AppointmentSlot.query.get_or_404(slot_id)
+    
+    # Verificar que el slot pertenece al tipo de cita del servicio
+    if slot.appointment_type_id != service.appointment_type_id:
+        flash('El horario seleccionado no corresponde a este servicio.', 'error')
+        return redirect(url_for('service_request_appointment', service_id=service_id))
+    
+    # Verificar disponibilidad del slot
+    if not slot.is_available or slot.remaining_seats() <= 0:
+        flash('Este horario ya no está disponible. Por favor selecciona otro.', 'warning')
+        return redirect(url_for('service_request_appointment', service_id=service_id))
+    
+    # Calcular precios
+    membership_type = membership.membership_type
+    pricing = service.pricing_for_membership(membership_type)
+    final_price = pricing['final_price']
+    
+    # Preparar metadata para el carrito
+    cart_metadata = {
+        'service_id': service.id,
+        'service_name': service.name,
+        'slot_id': slot.id,
+        'slot_datetime': slot.start_datetime.isoformat(),
+        'case_description': case_description,
+        'final_price': final_price,
+        'appointment_type_id': service.appointment_type_id,
+        'advisor_id': slot.advisor_id,
+        'requires_appointment': True,
+        'slot_end_datetime': slot.end_datetime.isoformat() if slot.end_datetime else None
+    }
+    
+    # Agregar al carrito
+    try:
+        cart = add_to_cart(
+            user_id=current_user.id,
+            product_type='service',
+            product_id=service.id,
+            product_name=f"{service.name} - Cita",
+            unit_price=int(final_price * 100),  # Convertir a centavos
+            quantity=1,
+            product_description=f"Servicio con cita agendada: {case_description[:100]}...",
+            metadata=cart_metadata
+        )
+        
+        flash('Servicio agregado al carrito exitosamente. Puedes continuar con el proceso de pago desde tu carrito.', 'success')
+        return redirect(url_for('cart'))
+    
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al agregar al carrito: {str(e)}', 'error')
+        return redirect(url_for('service_request_appointment', service_id=service_id))
+
+
+@app.route('/api/payments/<int:payment_id>/success')
+@login_required
+def service_payment_success_callback(payment_id):
+    """
+    Callback cuando un pago de servicio es exitoso. Crea el appointment.
+    """
+    import json
+    
+    payment = Payment.query.get_or_404(payment_id)
+    
+    # Verificar que el pago pertenece al usuario
+    if payment.user_id != current_user.id:
+        flash('No tienes permiso para acceder a este pago.', 'error')
+        return redirect(url_for('services'))
+    
+    # Solo procesar si es un pago de servicio (service_appointment)
+    if payment.membership_type != 'service_appointment':
+        # Si no es de servicio, usar el callback genérico
+        return redirect(url_for('payment_success_callback', payment_id=payment_id))
+    
+    # Verificar que el pago fue exitoso
+    if payment.status not in ['succeeded', 'awaiting_confirmation']:
+        flash('El pago no se ha completado aún.', 'warning')
+        return redirect(url_for('payment_status', payment_id=payment_id))
+    
+    # Verificar que no se haya creado ya el appointment
+    existing_appointment = Appointment.query.filter_by(payment_id=payment_id).first()
+    if existing_appointment:
+        flash('La cita ya fue creada anteriormente.', 'info')
+        return redirect(url_for('appointments.appointments_home'))
+    
+    # Extraer metadata
+    try:
+        metadata = json.loads(payment.payment_metadata)
+    except:
+        flash('Error al procesar los datos del pago.', 'error')
+        return redirect(url_for('services'))
+    
+    service_id = metadata.get('service_id')
+    slot_id = metadata.get('slot_id')
+    case_description = metadata.get('case_description')
+    final_price = metadata.get('final_price', 0.0)
+    deposit_amount = metadata.get('deposit_amount', 0.0)
+    
+    # Validar que el servicio y slot aún existen
+    service = Service.query.get(service_id)
+    slot = AppointmentSlot.query.get(slot_id)
+    
+    if not service or not slot:
+        flash('Error: El servicio o horario seleccionado ya no está disponible.', 'error')
+        return redirect(url_for('services'))
+    
+    # Verificar disponibilidad del slot
+    if not slot.is_available or slot.remaining_seats() <= 0:
+        flash('El horario seleccionado ya no está disponible. Contacta a soporte.', 'error')
+        return redirect(url_for('services'))
+    
+    # Determinar estado de pago
+    if deposit_amount >= final_price:
+        payment_status = 'paid'
+    else:
+        payment_status = 'partial'
+    
+    # Obtener membresía
+    membership = current_user.get_active_membership()
+    membership_type = membership.membership_type if membership else None
+    
+    # Calcular precios finales
+    pricing = service.pricing_for_membership(membership_type)
+    
+    # Crear Appointment
+    appointment = Appointment(
+        appointment_type_id=service.appointment_type_id,
+        advisor_id=slot.advisor_id,
+        slot_id=slot.id,
+        service_id=service.id,
+        payment_id=payment.id,
+        user_id=current_user.id,
+        membership_type=membership_type,
+        start_datetime=slot.start_datetime,
+        end_datetime=slot.end_datetime,
+        status='pending',  # Esperando confirmación del asesor
+        base_price=pricing['base_price'],
+        final_price=final_price,
+        discount_applied=pricing['base_price'] - pricing['final_price'],
+        payment_status=payment_status,
+        payment_method=payment.payment_method,
+        user_notes=case_description
+    )
+    
+    # Reservar slot
+    slot.reserved_seats = (slot.reserved_seats or 0) + 1
+    if slot.remaining_seats() == 0:
+        slot.is_available = False
+    
+    db.session.add(appointment)
+    db.session.commit()
+    
+    # Log actividad
+    ActivityLog.log_activity(
+        current_user.id,
+        'service_appointment_created',
+        'appointment',
+        appointment.id,
+        f'Cita creada para servicio {service.name} - Referencia: {appointment.reference}',
+        request
+    )
+    
+    flash(f'¡Cita agendada exitosamente! Referencia: {appointment.reference}', 'success')
+    return redirect(url_for('appointments.appointments_home'))
+
 
 @app.route('/office365')
 @login_required
@@ -3972,6 +4411,77 @@ def api_apply_discount_code():
     
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def redirect_to_stripe_checkout(payment, service, slot):
+    """
+    Crea una sesión de Stripe Checkout y redirige al usuario.
+    """
+    if not STRIPE_AVAILABLE or not stripe:
+        flash('El método de pago con tarjeta no está disponible.', 'error')
+        return redirect(url_for('service_request_appointment', service_id=service.id))
+    
+    try:
+        # Crear sesión de checkout
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': f'Cita: {service.name}',
+                        'description': f'Abono para cita el {slot.start_datetime.strftime("%d/%m/%Y %H:%M")}'
+                    },
+                    'unit_amount': int(payment.amount),  # Ya está en centavos
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=url_for('service_payment_success_callback', payment_id=payment.id, _external=True),
+            cancel_url=url_for('service_request_appointment', service_id=service.id, _external=True),
+            metadata={
+                'payment_id': str(payment.id),
+                'service_id': str(service.id),
+                'slot_id': str(slot.id)
+            }
+        )
+        
+        # Guardar referencia de Stripe
+        payment.payment_reference = checkout_session.id
+        payment.payment_url = checkout_session.url
+        db.session.commit()
+        
+        return redirect(checkout_session.url)
+    
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al crear la sesión de pago: {str(e)}', 'error')
+        return redirect(url_for('service_request_appointment', service_id=service.id))
+
+
+def generate_external_payment_url(payment, payment_method):
+    """
+    Genera URL para pagos externos (Banco General, Yappy).
+    """
+    # URL base del sistema
+    base_url = request.url_root.rstrip('/')
+    
+    # URL de callback
+    callback_url = url_for('payment_success_callback', payment_id=payment.id, _external=True)
+    cancel_url = url_for('services', _external=True)
+    
+    # Generar URL según el método
+    if payment_method == 'banco_general':
+        # TODO: Integrar con API de Banco General
+        # Por ahora, retornar URL de confirmación manual
+        return url_for('payment_status', payment_id=payment.id, _external=True)
+    
+    elif payment_method == 'yappy':
+        # TODO: Integrar con API de Yappy
+        # Por ahora, retornar URL de confirmación manual
+        return url_for('payment_status', payment_id=payment.id, _external=True)
+    
+    return callback_url
 
 
 @app.route('/api/cart/remove-discount-code', methods=['POST'])
@@ -4699,7 +5209,82 @@ def process_cart_after_payment(cart, payment):
             
             if service_id:
                 service = Service.query.get(service_id)
-                if service and service.requires_diagnostic_appointment:
+                
+                # Verificar si es un servicio con cita agendada (tiene slot_id en metadata)
+                slot_id = metadata.get('slot_id')
+                if slot_id and metadata.get('requires_appointment'):
+                    # Crear appointment con el slot seleccionado
+                    try:
+                        slot = AppointmentSlot.query.get(slot_id)
+                        if not slot:
+                            print(f"⚠️ Slot {slot_id} no encontrado para servicio {service_id}")
+                            continue
+                        
+                        # Verificar disponibilidad del slot
+                        if not slot.is_available or slot.remaining_seats() <= 0:
+                            print(f"⚠️ Slot {slot_id} ya no está disponible para servicio {service_id}")
+                            continue
+                        
+                        # Obtener información de la metadata
+                        case_description = metadata.get('case_description', '')
+                        advisor_id = metadata.get('advisor_id') or slot.advisor_id
+                        appointment_type_id = metadata.get('appointment_type_id') or service.appointment_type_id
+                        
+                        # Obtener membresía del usuario
+                        user = User.query.get(payment.user_id)
+                        membership = user.get_active_membership() if user else None
+                        membership_type = membership.membership_type if membership else 'basic'
+                        
+                        # Calcular precios
+                        pricing = service.pricing_for_membership(membership_type)
+                        final_price = pricing['final_price']
+                        
+                        # Determinar estado de pago
+                        deposit_amount = metadata.get('deposit_amount', final_price)
+                        if deposit_amount >= final_price:
+                            payment_status = 'paid'
+                        else:
+                            payment_status = 'partial'
+                        
+                        # Crear Appointment
+                        appointment = Appointment(
+                            appointment_type_id=appointment_type_id,
+                            advisor_id=advisor_id,
+                            slot_id=slot.id,
+                            service_id=service.id,
+                            payment_id=payment.id,
+                            user_id=payment.user_id,
+                            membership_type=membership_type,
+                            start_datetime=slot.start_datetime,
+                            end_datetime=slot.end_datetime,
+                            status='pending',  # Esperando confirmación del asesor
+                            base_price=pricing['base_price'],
+                            final_price=final_price,
+                            discount_applied=pricing['base_price'] - pricing['final_price'],
+                            payment_status=payment_status,
+                            payment_method=payment.payment_method,
+                            user_notes=case_description
+                        )
+                        
+                        # Reservar slot
+                        slot.reserved_seats = (slot.reserved_seats or 0) + 1
+                        if slot.remaining_seats() == 0:
+                            slot.is_available = False
+                        
+                        db.session.add(appointment)
+                        print(f"✅ Cita creada: {appointment.reference} para servicio {service.name} en slot {slot_id}")
+                        
+                        # TODO: Enviar email de confirmación al usuario
+                        # TODO: Enviar notificación al asesor
+                        
+                    except Exception as e:
+                        print(f"⚠️ Error creando cita para servicio {service_id} con slot {slot_id}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        # No fallar el pago si falla la creación de la cita
+                        # Se puede crear manualmente después
+                
+                elif service and service.requires_diagnostic_appointment:
                     # Crear cita de diagnóstico en cola
                     try:
                         from service_diagnostic_validation import create_diagnostic_appointment_from_payment
@@ -6567,7 +7152,10 @@ def admin_memberships():
 def admin_messaging():
     """Lista de todos los emails enviados"""
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 12, type=int)
+    # Limitar máximo a 100 registros por página
+    if per_page > 100:
+        per_page = 100
     email_type = request.args.get('type', 'all')
     status = request.args.get('status', 'all')
     search = request.args.get('search', '')
@@ -8526,6 +9114,18 @@ def admin_services_create():
     try:
         data = request.get_json()
         
+        # Manejar appointment_type_id
+        appointment_type_id = data.get('appointment_type_id')
+        if appointment_type_id == '' or appointment_type_id is None:
+            appointment_type_id = None
+        else:
+            appointment_type_id = int(appointment_type_id) if appointment_type_id else None
+            # Validar que el tipo de cita existe
+            if appointment_type_id:
+                appointment_type = AppointmentType.query.get(appointment_type_id)
+                if not appointment_type:
+                    return jsonify({'success': False, 'error': 'Tipo de cita no encontrado'}), 400
+        
         service = Service(
             name=data.get('name'),
             description=data.get('description', ''),
@@ -8534,7 +9134,8 @@ def admin_services_create():
             external_link=data.get('external_link', ''),
             base_price=float(data.get('base_price', 50.0)),
             is_active=data.get('is_active', True),
-            display_order=int(data.get('display_order', 0))
+            display_order=int(data.get('display_order', 0)),
+            appointment_type_id=appointment_type_id
         )
         
         db.session.add(service)
@@ -8588,6 +9189,20 @@ def admin_services_update(service_id):
         service.base_price = float(data.get('base_price', service.base_price))
         service.is_active = data.get('is_active', service.is_active)
         service.display_order = int(data.get('display_order', service.display_order))
+        
+        # Manejar appointment_type_id
+        appointment_type_id = data.get('appointment_type_id')
+        if appointment_type_id == '' or appointment_type_id is None:
+            service.appointment_type_id = None
+        else:
+            appointment_type_id = int(appointment_type_id) if appointment_type_id else None
+            # Validar que el tipo de cita existe
+            if appointment_type_id:
+                appointment_type = AppointmentType.query.get(appointment_type_id)
+                if not appointment_type:
+                    return jsonify({'success': False, 'error': 'Tipo de cita no encontrado'}), 400
+            service.appointment_type_id = appointment_type_id
+        
         service.updated_at = datetime.utcnow()
         
         # Obtener todas las reglas de precio existentes
@@ -8640,7 +9255,9 @@ def admin_services_get(service_id):
             'external_link': service.external_link or '',
             'base_price': float(service.base_price) if service.base_price else 0.0,
             'is_active': service.is_active,
-            'display_order': service.display_order or 0
+            'display_order': service.display_order or 0,
+            'appointment_type_id': service.appointment_type_id,
+            'requires_appointment': service.requires_appointment()
         }
         
         # Incluir reglas de precio
@@ -8659,6 +9276,295 @@ def admin_services_get(service_id):
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 404
+
+@app.route('/api/admin/appointment-types', methods=['GET'])
+@admin_required
+def admin_appointment_types_list():
+    """Obtener lista de tipos de cita disponibles"""
+    try:
+        appointment_types = AppointmentType.query.order_by(AppointmentType.display_order, AppointmentType.name).all()
+        types_list = [{
+            'id': at.id,
+            'name': at.name,
+            'description': at.description or '',
+            'duration_minutes': at.duration_minutes or 60
+        } for at in appointment_types]
+        return jsonify({'success': True, 'appointment_types': types_list})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+def generate_slots_from_availability(advisor_id, appointment_type_id, days_ahead=30, slot_interval_minutes=None):
+    """
+    Genera slots automáticamente desde AdvisorAvailability.
+    Similar a cómo Odoo genera slots desde el Schedule tab.
+    
+    Args:
+        advisor_id: ID del asesor
+        appointment_type_id: ID del tipo de cita
+        days_ahead: Días hacia adelante para generar slots (default: 30)
+        slot_interval_minutes: Intervalo entre slots (None = usar duración del appointment_type)
+    
+    Returns:
+        Lista de slots creados
+    """
+    from datetime import time as dt_time
+    
+    advisor = Advisor.query.get(advisor_id)
+    appointment_type = AppointmentType.query.get(appointment_type_id)
+    
+    if not advisor or not appointment_type:
+        return []
+    
+    # Verificar que el asesor está asignado a este tipo de cita
+    assignment = AppointmentAdvisor.query.filter_by(
+        appointment_type_id=appointment_type_id,
+        advisor_id=advisor_id,
+        is_active=True
+    ).first()
+    
+    if not assignment:
+        return []
+    
+    # Obtener disponibilidad específica del asesor para este servicio
+    availabilities = AdvisorServiceAvailability.query.filter_by(
+        advisor_id=advisor_id,
+        appointment_type_id=appointment_type_id,
+        is_active=True
+    ).all()
+    
+    # Si no hay disponibilidad específica, usar la disponibilidad general del asesor
+    if not availabilities:
+        availabilities_general = AdvisorAvailability.query.filter_by(
+            advisor_id=advisor_id,
+            is_active=True
+        ).all()
+        
+        if not availabilities_general:
+            return []
+        
+        # Convertir AdvisorAvailability a formato compatible
+        class AvailabilityWrapper:
+            def __init__(self, av):
+                self.day_of_week = av.day_of_week
+                self.start_time = av.start_time
+                self.end_time = av.end_time
+                self.timezone = av.timezone
+        
+        availabilities = [AvailabilityWrapper(av) for av in availabilities_general]
+    
+    # Duración del slot
+    slot_duration = appointment_type.duration()
+    slot_interval = timedelta(minutes=slot_interval_minutes) if slot_interval_minutes else slot_duration
+    
+    # Rango de fechas
+    start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = start_date + timedelta(days=days_ahead)
+    
+    slots_created = []
+    current_date = start_date
+    
+    while current_date < end_date:
+        day_of_week = current_date.weekday()  # 0 = lunes, 6 = domingo
+        
+        # Buscar disponibilidades para este día de la semana
+        day_availabilities = [av for av in availabilities if av.day_of_week == day_of_week]
+        
+        for availability in day_availabilities:
+            # Combinar fecha con hora de inicio
+            slot_start = datetime.combine(current_date.date(), availability.start_time)
+            slot_end_time = availability.end_time
+            
+            # Generar slots dentro de este bloque de disponibilidad
+            current_slot_start = slot_start
+            
+            while current_slot_start.time() < slot_end_time:
+                current_slot_end = current_slot_start + slot_duration
+                
+                # Verificar que el slot no exceda el bloque de disponibilidad
+                if current_slot_end.time() > slot_end_time:
+                    break
+                
+                # Verificar que no esté en el pasado
+                if current_slot_start < datetime.utcnow():
+                    current_slot_start += slot_interval
+                    continue
+                
+                # Verificar que no exista ya un slot en este horario
+                existing_slot = AppointmentSlot.query.filter(
+                    AppointmentSlot.advisor_id == advisor_id,
+                    AppointmentSlot.appointment_type_id == appointment_type_id,
+                    AppointmentSlot.start_datetime == current_slot_start,
+                    AppointmentSlot.is_available == True
+                ).first()
+                
+                if not existing_slot:
+                    # Verificar conflictos con otros slots del mismo asesor
+                    conflicting = AppointmentSlot.query.filter(
+                        AppointmentSlot.advisor_id == advisor_id,
+                        AppointmentSlot.start_datetime < current_slot_end,
+                        AppointmentSlot.end_datetime > current_slot_start,
+                        AppointmentSlot.is_available == True
+                    ).first()
+                    
+                    if not conflicting:
+                        # Crear nuevo slot
+                        new_slot = AppointmentSlot(
+                            appointment_type_id=appointment_type_id,
+                            advisor_id=advisor_id,
+                            start_datetime=current_slot_start,
+                            end_datetime=current_slot_end,
+                            capacity=1,
+                            is_available=True,
+                            is_auto_generated=True
+                        )
+                        db.session.add(new_slot)
+                        slots_created.append(new_slot)
+                
+                current_slot_start += slot_interval
+        
+        current_date += timedelta(days=1)
+    
+    if slots_created:
+        db.session.commit()
+    
+    return slots_created
+
+@app.route('/api/appointments/calendar/<int:advisor_id>', methods=['GET'])
+@login_required
+def get_advisor_calendar(advisor_id):
+    """
+    Obtener disponibilidad del asesor en formato calendario.
+    Similar a cómo Odoo muestra disponibilidad en calendario.
+    """
+    try:
+        appointment_type_id = request.args.get('appointment_type_id', type=int)
+        service_id = request.args.get('service_id', type=int)
+        start_date = request.args.get('start')  # YYYY-MM-DD
+        end_date = request.args.get('end')  # YYYY-MM-DD
+        
+        # Si viene service_id, obtener appointment_type_id del servicio
+        if service_id and not appointment_type_id:
+            service = Service.query.get(service_id)
+            if service and service.appointment_type_id:
+                appointment_type_id = service.appointment_type_id
+        
+        if not appointment_type_id:
+            return jsonify({'success': False, 'error': 'appointment_type_id o service_id requerido'}), 400
+        
+        advisor = Advisor.query.get_or_404(advisor_id)
+        
+        # Verificar que el asesor está asignado a este tipo de cita
+        assignment = AppointmentAdvisor.query.filter_by(
+            appointment_type_id=appointment_type_id,
+            advisor_id=advisor_id,
+            is_active=True
+        ).first()
+        
+        if not assignment:
+            return jsonify({'success': False, 'error': 'Asesor no asignado a este tipo de cita'}), 400
+        
+        # Generar slots si no existen (solo para próximos 30 días)
+        appointment_type = AppointmentType.query.get(appointment_type_id)
+        if appointment_type:
+            # Generar slots automáticamente si no hay suficientes
+            existing_slots_count = AppointmentSlot.query.filter(
+                AppointmentSlot.advisor_id == advisor_id,
+                AppointmentSlot.appointment_type_id == appointment_type_id,
+                AppointmentSlot.start_datetime >= datetime.utcnow(),
+                AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30)
+            ).count()
+            
+            if existing_slots_count < 10:  # Si hay menos de 10 slots, generar más
+                generate_slots_from_availability(advisor_id, appointment_type_id, days_ahead=30)
+        
+        # Parsear fechas si vienen
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            except:
+                start_dt = datetime.utcnow()
+        else:
+            start_dt = datetime.utcnow()
+        
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            except:
+                end_dt = start_dt + timedelta(days=30)
+        else:
+            end_dt = start_dt + timedelta(days=30)
+        
+        # Obtener slots disponibles
+        slots = AppointmentSlot.query.filter(
+            AppointmentSlot.advisor_id == advisor_id,
+            AppointmentSlot.appointment_type_id == appointment_type_id,
+            AppointmentSlot.start_datetime >= start_dt,
+            AppointmentSlot.start_datetime < end_dt,
+            AppointmentSlot.is_available == True
+        ).order_by(AppointmentSlot.start_datetime.asc()).all()
+        
+        # Obtener disponibilidad base del asesor
+        availabilities = AdvisorAvailability.query.filter_by(
+            advisor_id=advisor_id,
+            is_active=True
+        ).all()
+        
+        # Formatear para calendario (formato FullCalendar)
+        calendar_events = []
+        
+        # Agregar slots disponibles
+        for slot in slots:
+            calendar_events.append({
+                'id': f'slot_{slot.id}',
+                'title': f'Disponible ({slot.remaining_seats()} cupos)',
+                'start': slot.start_datetime.isoformat(),
+                'end': slot.end_datetime.isoformat(),
+                'backgroundColor': '#28a745',  # Verde para disponible
+                'borderColor': '#28a745',
+                'textColor': '#fff',
+                'extendedProps': {
+                    'type': 'slot',
+                    'slot_id': slot.id,
+                    'available': True,
+                    'remaining_seats': slot.remaining_seats(),
+                    'capacity': slot.capacity
+                }
+            })
+        
+        # Agregar disponibilidad base (horarios regulares)
+        availability_info = []
+        for av in availabilities:
+            day_names = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+            availability_info.append({
+                'day_of_week': av.day_of_week,
+                'day_name': day_names[av.day_of_week],
+                'start_time': av.start_time.strftime('%H:%M'),
+                'end_time': av.end_time.strftime('%H:%M'),
+                'timezone': av.timezone
+            })
+        
+        return jsonify({
+            'success': True,
+            'advisor': {
+                'id': advisor.id,
+                'name': f"{advisor.user.first_name} {advisor.user.last_name}" if advisor.user else 'Asesor',
+                'bio': advisor.bio,
+                'specializations': advisor.specializations
+            },
+            'appointment_type': {
+                'id': appointment_type.id,
+                'name': appointment_type.name,
+                'duration_minutes': appointment_type.duration_minutes
+            },
+            'events': calendar_events,
+            'availability': availability_info,
+            'timezone': availabilities[0].timezone if availabilities else 'America/Panama'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/admin/services/delete/<int:service_id>', methods=['DELETE'])
 @admin_required

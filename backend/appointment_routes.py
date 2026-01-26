@@ -34,6 +34,7 @@ Appointment = None
 AppointmentParticipant = None
 AppointmentPricing = None
 AdvisorAvailability = None
+AdvisorServiceAvailability = None
 ActivityLog = None
 
 
@@ -49,6 +50,7 @@ def init_models():
     global AppointmentParticipant
     global AppointmentPricing
     global AdvisorAvailability
+    global AdvisorServiceAvailability
     global ActivityLog
 
     if db is not None:
@@ -65,6 +67,7 @@ def init_models():
         AppointmentParticipant as _AppointmentParticipant,
         AppointmentPricing as _AppointmentPricing,
         AdvisorAvailability as _AdvisorAvailability,
+        AdvisorServiceAvailability as _AdvisorServiceAvailability,
         ActivityLog as _ActivityLog,
     )
 
@@ -78,6 +81,7 @@ def init_models():
     AppointmentParticipant = _AppointmentParticipant
     AppointmentPricing = _AppointmentPricing
     AdvisorAvailability = _AdvisorAvailability
+    AdvisorServiceAvailability = _AdvisorServiceAvailability
     ActivityLog = _ActivityLog
 
 
@@ -513,6 +517,200 @@ def create_advisor():
 
     flash('Asesor creado correctamente.', 'success')
     return redirect(url_for('admin_appointments.list_advisors'))
+
+
+# ===========================================================================
+# GESTIÓN DE DISPONIBILIDAD DE ASESORES POR SERVICIO
+# ===========================================================================
+
+@admin_appointments_bp.route('/availability')
+@admin_required
+def list_service_availability():
+    """Lista de configuración de disponibilidad de asesores por servicio"""
+    ensure_models()
+    
+    # Obtener todos los tipos de cita activos
+    appointment_types = AppointmentType.query.filter_by(is_active=True).order_by(AppointmentType.display_order, AppointmentType.name).all()
+    
+    # Obtener todos los asesores activos
+    advisors = Advisor.query.filter_by(is_active=True).order_by(Advisor.created_at.desc()).all()
+    
+    # Obtener disponibilidades agrupadas por asesor y tipo de cita
+    availabilities = AdvisorServiceAvailability.query.filter_by(is_active=True).order_by(
+        AdvisorServiceAvailability.advisor_id,
+        AdvisorServiceAvailability.appointment_type_id,
+        AdvisorServiceAvailability.day_of_week,
+        AdvisorServiceAvailability.start_time
+    ).all()
+    
+    # Agrupar por asesor y tipo de cita
+    availability_map = {}
+    for av in availabilities:
+        key = (av.advisor_id, av.appointment_type_id)
+        if key not in availability_map:
+            availability_map[key] = []
+        availability_map[key].append(av)
+    
+    return render_template(
+        'admin/appointments/service_availability.html',
+        appointment_types=appointment_types,
+        advisors=advisors,
+        availability_map=availability_map,
+    )
+
+
+@admin_appointments_bp.route('/availability/manage/<int:advisor_id>/<int:appointment_type_id>', methods=['GET', 'POST'])
+@admin_required
+def manage_service_availability(advisor_id, appointment_type_id):
+    """Gestionar horarios de disponibilidad de un asesor para un servicio específico"""
+    ensure_models()
+    
+    advisor = Advisor.query.get_or_404(advisor_id)
+    appointment_type = AppointmentType.query.get_or_404(appointment_type_id)
+    
+    # Verificar que el asesor está asignado a este tipo de cita
+    assignment = AppointmentAdvisor.query.filter_by(
+        appointment_type_id=appointment_type_id,
+        advisor_id=advisor_id,
+        is_active=True
+    ).first()
+    
+    if not assignment:
+        flash('El asesor no está asignado a este tipo de cita. Primero debe asignarlo.', 'error')
+        return redirect(url_for('admin_appointments.list_service_availability'))
+    
+    if request.method == 'POST':
+        # Eliminar disponibilidades existentes para este asesor-servicio
+        AdvisorServiceAvailability.query.filter_by(
+            advisor_id=advisor_id,
+            appointment_type_id=appointment_type_id
+        ).delete()
+        
+        # Procesar horarios enviados
+        days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        day_map = {day: idx for idx, day in enumerate(days)}
+        
+        created_count = 0
+        for day_name, day_idx in day_map.items():
+            # Obtener horarios para este día
+            start_times = request.form.getlist(f'{day_name}_start')
+            end_times = request.form.getlist(f'{day_name}_end')
+            
+            for start_str, end_str in zip(start_times, end_times):
+                if start_str and end_str:
+                    try:
+                        from datetime import time as dt_time
+                        start_time = datetime.strptime(start_str, '%H:%M').time()
+                        end_time = datetime.strptime(end_str, '%H:%M').time()
+                        
+                        if end_time > start_time:
+                            availability = AdvisorServiceAvailability(
+                                advisor_id=advisor_id,
+                                appointment_type_id=appointment_type_id,
+                                day_of_week=day_idx,
+                                start_time=start_time,
+                                end_time=end_time,
+                                timezone=request.form.get('timezone', 'America/Panama'),
+                                is_active=True,
+                                created_by=current_user.id
+                            )
+                            db.session.add(availability)
+                            created_count += 1
+                    except ValueError:
+                        continue
+        
+        db.session.commit()
+        
+        ActivityLog.log_activity(
+            current_user.id,
+            'update_service_availability',
+            'advisor_service_availability',
+            advisor_id,
+            f'Actualizó horarios de {advisor.user.first_name} {advisor.user.last_name} para {appointment_type.name}',
+            request
+        )
+        
+        flash(f'Horarios actualizados correctamente. Se crearon {created_count} bloques de disponibilidad.', 'success')
+        return redirect(url_for('admin_appointments.manage_service_availability', 
+                                advisor_id=advisor_id, 
+                                appointment_type_id=appointment_type_id))
+    
+    # GET: Mostrar formulario
+    existing_availabilities = AdvisorServiceAvailability.query.filter_by(
+        advisor_id=advisor_id,
+        appointment_type_id=appointment_type_id,
+        is_active=True
+    ).order_by('day_of_week', 'start_time').all()
+    
+    # Agrupar por día de la semana
+    availabilities_by_day = {day: [] for day in range(7)}
+    for av in existing_availabilities:
+        availabilities_by_day[av.day_of_week].append(av)
+    
+    return render_template(
+        'admin/appointments/manage_availability.html',
+        advisor=advisor,
+        appointment_type=appointment_type,
+        availabilities_by_day=availabilities_by_day,
+    )
+
+
+@admin_appointments_bp.route('/availability/delete/<int:availability_id>', methods=['POST'])
+@admin_required
+def delete_service_availability(availability_id):
+    """Eliminar un bloque de disponibilidad"""
+    ensure_models()
+    
+    availability = AdvisorServiceAvailability.query.get_or_404(availability_id)
+    advisor_id = availability.advisor_id
+    appointment_type_id = availability.appointment_type_id
+    
+    db.session.delete(availability)
+    db.session.commit()
+    
+    ActivityLog.log_activity(
+        current_user.id,
+        'delete_service_availability',
+        'advisor_service_availability',
+        availability_id,
+        f'Eliminó bloque de disponibilidad',
+        request
+    )
+    
+    flash('Bloque de disponibilidad eliminado correctamente.', 'success')
+    return redirect(url_for('admin_appointments.manage_service_availability',
+                          advisor_id=advisor_id,
+                          appointment_type_id=appointment_type_id))
+
+
+@admin_appointments_bp.route('/availability/generate-slots/<int:advisor_id>/<int:appointment_type_id>', methods=['POST'])
+@admin_required
+def generate_slots_from_service_availability(advisor_id, appointment_type_id):
+    """Generar slots automáticamente desde la configuración de disponibilidad"""
+    ensure_models()
+    
+    advisor = Advisor.query.get_or_404(advisor_id)
+    appointment_type = AppointmentType.query.get_or_404(appointment_type_id)
+    
+    days_ahead = request.form.get('days_ahead', type=int) or 30
+    
+    # Importar función desde app.py
+    from app import generate_slots_from_availability
+    slots_created = generate_slots_from_availability(advisor_id, appointment_type_id, days_ahead=days_ahead)
+    
+    ActivityLog.log_activity(
+        current_user.id,
+        'generate_slots',
+        'appointment_slot',
+        advisor_id,
+        f'Generó {len(slots_created)} slots para {advisor.user.first_name} {advisor.user.last_name} - {appointment_type.name}',
+        request
+    )
+    
+    flash(f'Se generaron {len(slots_created)} slots automáticamente para los próximos {days_ahead} días.', 'success')
+    return redirect(url_for('admin_appointments.manage_service_availability',
+                          advisor_id=advisor_id,
+                          appointment_type_id=appointment_type_id))
 
 
 # ---------------------------------------------------------------------------

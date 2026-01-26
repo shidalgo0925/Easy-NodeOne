@@ -98,14 +98,47 @@
         </div>
         
         <div class="col-md-4">
+            <!-- Foto de Perfil -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user-circle"></i> Foto de Perfil</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3 position-relative d-inline-block">
+                        <img id="profile-picture-preview" 
+                             src="{{ current_user.get_profile_picture_url() }}" 
+                             alt="Foto de perfil" 
+                             class="rounded-circle border border-3 border-primary"
+                             style="width: 150px; height: 150px; object-fit: cover; cursor: pointer;"
+                             onclick="document.getElementById('photo-input').click()">
+                        <div class="position-absolute bottom-0 end-0">
+                            <button type="button" class="btn btn-sm btn-primary rounded-circle" 
+                                    onclick="document.getElementById('photo-input').click()"
+                                    style="width: 35px; height: 35px; padding: 0;">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <input type="file" id="photo-input" accept="image/*" style="display: none;" onchange="handlePhotoUpload(event)">
+                    <div id="photo-message" class="mt-2"></div>
+                    <div class="d-grid gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('photo-input').click()">
+                            <i class="fas fa-upload"></i> Cambiar Foto
+                        </button>
+                        {% if current_user.profile_picture %}
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeProfilePhoto()">
+                            <i class="fas fa-trash"></i> Eliminar Foto
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Estadísticas</h5>
                 </div>
                 <div class="card-body">
-                    <div class="text-center mb-3">
-                        <i class="fas fa-user-circle fa-5x text-primary"></i>
-                    </div>
                     <div class="mb-3">
                         <strong>Estado de la cuenta:</strong>
                         <span class="badge bg-success">Activa</span>
@@ -217,6 +250,120 @@ document.addEventListener('DOMContentLoaded', function() {
 function cancelEdit() {
     // Recargar la página para cancelar cambios
     window.location.reload();
+}
+
+function handlePhotoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validar tipo de archivo
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        document.getElementById('photo-message').innerHTML = 
+            '<div class="alert alert-danger alert-sm"><i class="fas fa-exclamation-triangle"></i> Solo se permiten imágenes (JPG, PNG, GIF, WEBP)</div>';
+        return;
+    }
+    
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        document.getElementById('photo-message').innerHTML = 
+            '<div class="alert alert-danger alert-sm"><i class="fas fa-exclamation-triangle"></i> La imagen no debe superar los 5MB</div>';
+        return;
+    }
+    
+    // Mostrar preview
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('profile-picture-preview').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    
+    // Subir archivo
+    const formData = new FormData();
+    formData.append('photo', file);
+    
+    const messageDiv = document.getElementById('photo-message');
+    messageDiv.innerHTML = '<div class="alert alert-info alert-sm"><i class="fas fa-spinner fa-spin"></i> Subiendo foto...</div>';
+    
+    fetch('/profile/upload-photo', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            messageDiv.innerHTML = '<div class="alert alert-success alert-sm"><i class="fas fa-check-circle"></i> ' + data.message + '</div>';
+            // Actualizar la imagen con la URL del servidor
+            if (data.photo_url) {
+                document.getElementById('profile-picture-preview').src = data.photo_url;
+            }
+            // Mostrar botón de eliminar si no estaba visible
+            const removeBtn = document.querySelector('button[onclick="removeProfilePhoto()"]');
+            if (!removeBtn) {
+                const btnContainer = document.querySelector('.card-body.text-center .d-grid');
+                if (btnContainer) {
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'btn btn-sm btn-outline-danger';
+                    removeButton.onclick = removeProfilePhoto;
+                    removeButton.innerHTML = '<i class="fas fa-trash"></i> Eliminar Foto';
+                    btnContainer.appendChild(removeButton);
+                }
+            }
+            // Limpiar mensaje después de 3 segundos
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 3000);
+        } else {
+            messageDiv.innerHTML = '<div class="alert alert-danger alert-sm"><i class="fas fa-exclamation-triangle"></i> ' + (data.error || 'Error al subir la foto') + '</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        messageDiv.innerHTML = '<div class="alert alert-danger alert-sm"><i class="fas fa-exclamation-triangle"></i> Error de conexión. Por favor, intenta nuevamente.</div>';
+    });
+    
+    // Limpiar el input para permitir subir el mismo archivo de nuevo
+    event.target.value = '';
+}
+
+function removeProfilePhoto() {
+    if (!confirm('¿Estás seguro de que deseas eliminar tu foto de perfil?')) {
+        return;
+    }
+    
+    const messageDiv = document.getElementById('photo-message');
+    messageDiv.innerHTML = '<div class="alert alert-info alert-sm"><i class="fas fa-spinner fa-spin"></i> Eliminando foto...</div>';
+    
+    fetch('/profile/remove-photo', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            messageDiv.innerHTML = '<div class="alert alert-success alert-sm"><i class="fas fa-check-circle"></i> ' + data.message + '</div>';
+            // Restaurar imagen por defecto
+            document.getElementById('profile-picture-preview').src = '/static/images/default-avatar.png';
+            // Ocultar botón de eliminar
+            const removeBtn = document.querySelector('button[onclick="removeProfilePhoto()"]');
+            if (removeBtn) {
+                removeBtn.remove();
+            }
+            // Limpiar mensaje después de 3 segundos
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 3000);
+        } else {
+            messageDiv.innerHTML = '<div class="alert alert-danger alert-sm"><i class="fas fa-exclamation-triangle"></i> ' + (data.error || 'Error al eliminar la foto') + '</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        messageDiv.innerHTML = '<div class="alert alert-danger alert-sm"><i class="fas fa-exclamation-triangle"></i> Error de conexión. Por favor, intenta nuevamente.</div>';
+    });
 }
 </script>
 {% endblock %}

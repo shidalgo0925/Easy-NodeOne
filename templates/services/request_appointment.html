@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitar Cita - {{ service.name }}{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('services') }}">Servicios</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Solicitar Cita</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-check me-2"></i>
+                        Solicitar Cita: {{ service.name }}
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('service_request_appointment_submit', service_id=service.id) }}" id="appointmentForm">
+                        
+                        <!-- Datos del Miembro (Solo Lectura) -->
+                        <div class="mb-4">
+                            <h5 class="text-muted mb-3">
+                                <i class="fas fa-user me-2"></i>Datos del Miembro
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Nombre Completo</label>
+                                    <input type="text" class="form-control" value="{{ user.first_name }} {{ user.last_name }}" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Teléfono</label>
+                                    <input type="text" class="form-control" value="{{ user.phone or 'No registrado' }}" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Tipo de Membresía</label>
+                                    <input type="text" class="form-control" value="{{ membership.membership_type|upper }}" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Descripción del Caso -->
+                        <div class="mb-4">
+                            <label for="case_description" class="form-label">
+                                <i class="fas fa-file-alt me-2"></i>
+                                Describe brevemente tu caso o necesidad <span class="text-danger">*</span>
+                            </label>
+                            <textarea 
+                                class="form-control" 
+                                id="case_description" 
+                                name="case_description" 
+                                rows="5" 
+                                minlength="50" 
+                                maxlength="1000" 
+                                placeholder="Describe brevemente tu caso o necesidad (mínimo 50 caracteres)..."
+                                required></textarea>
+                            <div class="form-text">
+                                <span id="char_count" class="fw-bold">0</span> / 1000 caracteres (mínimo 50)
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Selección de Asesor y Horario -->
+                        <div class="mb-4">
+                            <!-- Lista de Asesores (Arriba) -->
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    <i class="fas fa-user-tie me-2"></i>
+                                    Filtrar por Asesor
+                                </label>
+                                <div class="card">
+                                    <div class="card-body p-2">
+                                        {% if advisors %}
+                                            <div class="list-group list-group-flush">
+                                                <button type="button" 
+                                                        class="list-group-item list-group-item-action advisor-filter-btn {% if not selected_advisor_id %}active{% endif %}" 
+                                                        data-advisor-id=""
+                                                        onclick="filterByAdvisor(null, this)">
+                                                    <i class="fas fa-users me-2"></i>
+                                                    <strong>Todos los Asesores</strong>
+                                                </button>
+                                                {% for advisor in advisors %}
+                                                <button type="button" 
+                                                        class="list-group-item list-group-item-action advisor-filter-btn {% if selected_advisor_id == advisor.id %}active{% endif %}" 
+                                                        data-advisor-id="{{ advisor.id }}"
+                                                        onclick="filterByAdvisor({{ advisor.id }}, this)">
+                                                    <div class="d-flex align-items-center">
+                                                        {% if advisor.photo_url %}
+                                                        <img src="{{ advisor.photo_url }}" class="rounded-circle me-2" width="40" height="40" alt="{{ advisor.name }}">
+                                                        {% else %}
+                                                        <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px; font-size: 1rem;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
+                                                        {% endif %}
+                                                        <div class="flex-grow-1">
+                                                            <strong class="d-block">{{ advisor.name }}</strong>
+                                                            {% if advisor.specializations %}
+                                                            <small class="text-muted">{{ advisor.specializations[:30] }}{% if advisor.specializations|length > 30 %}...{% endif %}</small>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <div class="alert alert-warning mb-0">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                No hay asesores disponibles.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Calendario Semanal (Abajo) -->
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <label class="form-label mb-0">
+                                        <i class="fas fa-calendar me-2"></i>
+                                        Espacios Disponibles <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="changeWeek(-1)">
+                                            <i class="fas fa-chevron-left"></i> Semana Anterior
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="changeWeek(1)">
+                                            Semana Siguiente <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="weeklyCalendar" class="card">
+                                    <div class="card-body p-0">
+                                        <div id="calendarHeader" class="border-bottom">
+                                            <!-- Se llenará con JavaScript -->
+                                        </div>
+                                        <div id="calendarBody" style="max-height: 500px; overflow-y: auto;">
+                                            <!-- Se llenará con JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="selectedSlotInfo" class="mt-3" style="display: none;">
+                                    <div class="alert alert-success">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>Horario seleccionado:</strong>
+                                        <span id="selectedSlotText"></span>
+                                    </div>
+                                </div>
+                                
+                                <input type="hidden" id="selected_slot_id" name="slot_id" value="">
+                                <input type="hidden" id="selected_advisor_id" name="advisor_id" value="">
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Resumen de Precios -->
+                        <div class="mb-4">
+                            <h5 class="text-muted mb-3">
+                                <i class="fas fa-dollar-sign me-2"></i>Resumen de Precios
+                            </h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <tr>
+                                        <td><strong>Precio Total del Servicio:</strong></td>
+                                        <td class="text-end"><strong>${{ "%.2f"|format(deposit_info.final_price) }}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Abono Requerido:</strong></td>
+                                        <td class="text-end"><strong class="text-primary">${{ "%.2f"|format(deposit_info.deposit_amount) }}</strong></td>
+                                    </tr>
+                                    {% if deposit_info.remaining_balance > 0 %}
+                                    <tr>
+                                        <td><strong>Saldo Pendiente:</strong></td>
+                                        <td class="text-end"><strong class="text-warning">${{ "%.2f"|format(deposit_info.remaining_balance) }}</strong></td>
+                                    </tr>
+                                    {% endif %}
+                                </table>
+                            </div>
+                            {% if pricing.discount_percentage > 0 %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Se aplicará un descuento del {{ pricing.discount_percentage|round(0) }}% según tu membresía.
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Información del Carrito -->
+                        <div class="mb-4">
+                            <div class="alert alert-info">
+                                <i class="fas fa-shopping-cart me-2"></i>
+                                <strong>El servicio se agregará a tu carrito</strong><br>
+                                <small>Después de agregarlo, podrás revisar tu carrito y proceder con el pago usando el método que prefieras.</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Botones -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('services') }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                                <i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedAdvisorId = {{ selected_advisor_id or 'null' }};
+let currentWeekStart = new Date();
+let allSlots = {{ available_slots_json | safe }};
+
+// Ajustar al inicio de la semana (lunes)
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Ajustar al lunes
+    return new Date(d.setDate(diff));
+}
+
+// Inicializar semana actual
+currentWeekStart = getWeekStart(new Date());
+currentWeekStart.setHours(0, 0, 0, 0);
+
+// Contador de caracteres
+document.getElementById('case_description').addEventListener('input', function() {
+    const count = this.value.length;
+    const charCount = document.getElementById('char_count');
+    charCount.textContent = count;
+    
+    if (count < 50) {
+        charCount.classList.add('text-danger');
+        charCount.classList.remove('text-success');
+    } else if (count >= 50 && count <= 1000) {
+        charCount.classList.remove('text-danger');
+        charCount.classList.add('text-success');
+    } else {
+        charCount.classList.add('text-danger');
+        charCount.classList.remove('text-success');
+    }
+});
+
+// Convertir slots a formato útil
+function processSlots(slots) {
+    return slots.map(slot => {
+        const startDate = new Date(slot.start_datetime);
+        const endDate = new Date(slot.end_datetime);
+        return {
+            id: slot.id,
+            advisor_id: slot.advisor_id,
+            advisor_name: slot.advisor_name || 'Asesor',
+            start: startDate,
+            end: endDate,
+            date: startDate.toISOString().split('T')[0],
+            hour: startDate.getHours(),
+            minute: startDate.getMinutes(),
+            dayOfWeek: startDate.getDay() === 0 ? 6 : startDate.getDay() - 1, // Lunes = 0
+            capacity: slot.capacity || 1,
+            remaining_seats: slot.remaining_seats || 1
+        };
+    });
+}
+
+// Organizar slots por día y hora (solo horas completas)
+function organizeSlotsByWeek(slots, weekStart) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    
+    const organized = {};
+    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    
+    // Inicializar estructura
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        const dateKey = dayDate.toISOString().split('T')[0];
+        organized[dateKey] = {
+            dayName: dayNames[i],
+            date: dayDate,
+            slots: {}
+        };
+    }
+    
+    // Agrupar slots por día y hora (redondeando a hora completa)
+    slots.forEach(slot => {
+        const slotDate = new Date(slot.start);
+        if (slotDate >= weekStart && slotDate < weekEnd) {
+            const dateKey = slot.date;
+            // Redondear a la hora completa más cercana (solo mostrar horas completas)
+            const slotHour = slot.hour;
+            const hourKey = `${slotHour.toString().padStart(2, '0')}:00`;
+            
+            if (!organized[dateKey].slots[hourKey]) {
+                organized[dateKey].slots[hourKey] = [];
+            }
+            organized[dateKey].slots[hourKey].push(slot);
+        }
+    });
+    
+    return organized;
+}
+
+// Renderizar calendario semanal
+function renderWeeklyCalendar() {
+    const processedSlots = processSlots(allSlots);
+    
+    // Filtrar por asesor si está seleccionado
+    let filteredSlots = processedSlots;
+    if (selectedAdvisorId) {
+        filteredSlots = processedSlots.filter(slot => slot.advisor_id == selectedAdvisorId);
+    }
+    
+    const organized = organizeSlotsByWeek(filteredSlots, currentWeekStart);
+    
+    // Renderizar header
+    const header = document.getElementById('calendarHeader');
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    
+    header.innerHTML = `
+        <div class="row g-0 text-center bg-light">
+            <div class="col-2 border-end p-2"><strong>Hora</strong></div>
+            ${Object.keys(organized).map(dateKey => {
+                const day = organized[dateKey];
+                return `<div class="col border-end p-2">
+                    <strong>${day.dayName}</strong><br>
+                    <small class="text-muted">${day.date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</small>
+                </div>`;
+            }).join('')}
+        </div>
+    `;
+    
+    // Generar horas del día (8 AM a 8 PM) - Solo horas completas
+    const hours = [];
+    for (let h = 8; h < 20; h++) {
+        hours.push(`${h.toString().padStart(2, '0')}:00`);
+    }
+    
+    // Renderizar body
+    const body = document.getElementById('calendarBody');
+    body.innerHTML = hours.map(hour => {
+        const [h, m] = hour.split(':').map(Number);
+        const hourKey = hour;
+        
+        return `
+            <div class="row g-0 border-bottom">
+                <div class="col-2 border-end p-2 text-center bg-light">
+                    <strong>${hour}</strong>
+                </div>
+                ${Object.keys(organized).map(dateKey => {
+                    const day = organized[dateKey];
+                    const daySlots = day.slots[hourKey] || [];
+                    
+                    if (daySlots.length > 0) {
+                        return daySlots.map(slot => `
+                            <div class="col p-1">
+                                <button type="button" 
+                                        class="btn btn-sm btn-success w-100 slot-btn" 
+                                        data-slot-id="${slot.id}"
+                                        data-advisor-id="${slot.advisor_id}"
+                                        data-advisor-name="${slot.advisor_name}"
+                                        onclick="selectSlot(${slot.id}, ${slot.advisor_id}, '${slot.advisor_name}', '${slot.start.toISOString()}', '${slot.end.toISOString()}')">
+                                    <small>
+                                        <i class="fas fa-clock me-1"></i>${hour}<br>
+                                        <i class="fas fa-user-tie me-1"></i>${slot.advisor_name}
+                                    </small>
+                                </button>
+                            </div>
+                        `).join('');
+                    } else {
+                        return `<div class="col border-start p-1"></div>`;
+                    }
+                }).join('')}
+            </div>
+        `;
+    }).join('');
+}
+
+// Seleccionar slot
+function selectSlot(slotId, advisorId, advisorName, startISO, endISO) {
+    // Deseleccionar todos los botones
+    document.querySelectorAll('.slot-btn').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+    });
+    
+    // Seleccionar el botón clickeado
+    const clickedBtn = document.querySelector(`.slot-btn[data-slot-id="${slotId}"]`);
+    if (clickedBtn) {
+        clickedBtn.classList.remove('btn-success');
+        clickedBtn.classList.add('btn-primary');
+    }
+    
+    // Guardar valores
+    document.getElementById('selected_slot_id').value = slotId;
+    document.getElementById('selected_advisor_id').value = advisorId;
+    
+    // Mostrar información del slot seleccionado
+    const startDate = new Date(startISO);
+    const endDate = new Date(endISO);
+    const dateStr = startDate.toLocaleDateString('es-ES', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    const timeStr = `${startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    
+    document.getElementById('selectedSlotText').textContent = `${dateStr} a las ${timeStr} con ${advisorName}`;
+    document.getElementById('selectedSlotInfo').style.display = 'block';
+    
+    // Habilitar botón de envío
+    document.getElementById('submitBtn').disabled = false;
+}
+
+// Cambiar semana
+function changeWeek(direction) {
+    currentWeekStart.setDate(currentWeekStart.getDate() + (direction * 7));
+    renderWeeklyCalendar();
+}
+
+// Filtrar slots por asesor
+function filterByAdvisor(advisorId, buttonElement) {
+    selectedAdvisorId = advisorId;
+    
+    // Actualizar UI de botones
+    document.querySelectorAll('.advisor-filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    if (buttonElement) {
+        buttonElement.classList.add('active');
+    }
+    
+    // Re-renderizar calendario
+    renderWeeklyCalendar();
+    
+    // Limpiar selección
+    document.getElementById('selected_slot_id').value = '';
+    document.getElementById('selected_advisor_id').value = '';
+    document.getElementById('selectedSlotInfo').style.display = 'none';
+    document.getElementById('submitBtn').disabled = true;
+}
+
+// Inicializar calendario
+document.addEventListener('DOMContentLoaded', function() {
+    // Parsear slots desde JSON si es necesario
+    try {
+        if (typeof allSlots === 'string') {
+            allSlots = JSON.parse(allSlots);
+        }
+    } catch (e) {
+        console.error('Error parsing slots:', e);
+        allSlots = [];
+    }
+    
+    // Los slots ya vienen procesados del servidor con la estructura correcta
+    renderWeeklyCalendar();
+    
+    // Inicializar filtro si hay asesor seleccionado
+    if (selectedAdvisorId) {
+        const advisorBtn = document.querySelector(`.advisor-filter-btn[data-advisor-id="${selectedAdvisorId}"]`);
+        if (advisorBtn) {
+            setTimeout(() => {
+                filterByAdvisor(selectedAdvisorId, advisorBtn);
+            }, 100);
+        }
+    }
+});
+
+// Validación del formulario
+document.getElementById('appointmentForm').addEventListener('submit', function(e) {
+    const description = document.getElementById('case_description').value;
+    const slotId = document.getElementById('selected_slot_id').value;
+    const advisorId = document.getElementById('selected_advisor_id').value;
+    
+    if (description.length < 50) {
+        e.preventDefault();
+        alert('La descripción debe tener al menos 50 caracteres.');
+        return false;
+    }
+    
+    if (!slotId) {
+        e.preventDefault();
+        alert('Debes seleccionar un horario disponible haciendo click en una hora disponible.');
+        return false;
+    }
+    
+    if (!advisorId) {
+        e.preventDefault();
+        alert('Error: No se pudo identificar el asesor del slot seleccionado.');
+        return false;
+    }
+});
+</script>
+
+<style>
+.advisor-filter-btn {
+    border: none;
+    text-align: left;
+    cursor: pointer;
+}
+.advisor-filter-btn:hover {
+    background-color: #f8f9fa;
+}
+.advisor-filter-btn.active {
+    background-color: #e7f3ff;
+    color: #0d6efd;
+    font-weight: bold;
+}
+.slot-btn {
+    transition: all 0.2s ease;
+    font-size: 0.75rem;
+    padding: 0.25rem;
+    white-space: normal;
+    word-wrap: break-word;
+}
+.slot-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.slot-btn.btn-primary {
+    border-width: 2px;
+    font-weight: bold;
+}
+#calendarBody .row {
+    min-height: 50px;
+}
+#calendarBody .col {
+    border-left: 1px solid #dee2e6;
+}
+</style>
+{% endblock %}

@@ -220,10 +220,11 @@
     background-color: var(--success-green) !important;
 }
 
-/* Navbar personalizada */
-.navbar-dark {
-    background-color: #000000 !important;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+/* Navbar estilo landing (igual que relatic-frontend: fondo blanco, texto oscuro) */
+.navbar-landing {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     padding: 0.5rem 0;
     z-index: 1030;
 }
@@ -236,55 +237,156 @@
     z-index: 1030;
 }
 
-.navbar-brand {
-    color: #ffffff !important;
+.navbar-landing .navbar-toggler {
+    border-color: rgba(0, 0, 0, 0.15);
+    color: #334155;
+}
+.navbar-landing .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(51, 65, 85, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Contenedor del navbar */
+.navbar .navbar-wrap {
+    padding-left: 3rem;
+    padding-right: 1.5rem;
+}
+
+.navbar-landing .navbar-brand {
+    color: #1e293b !important;
     font-weight: 700;
     font-size: 1.25rem;
     transition: color 0.3s ease;
     display: flex;
     align-items: center;
+    margin-left: 1.5rem;
+}
+
+.navbar-landing .navbar-brand:hover {
+    color: #2563eb !important;
+}
+
+.navbar-brand img,
+.navbar-brand .navbar-logo {
+    height: 40px;
+    max-height: 40px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+}
+
+/* Tres zonas: marca | navegación centrada | auth */
+.navbar-collapse-three {
+    display: flex;
+    flex-grow: 1;
+    align-items: center;
+}
+
+.navbar-nav-center {
+    flex: 1 1 auto;
+    justify-content: center;
     gap: 0.5rem;
 }
 
-.navbar-brand:hover {
-    color: var(--cyan-top) !important;
+.navbar-nav-center .nav-link {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
 }
 
-.navbar-brand img {
-    height: 35px;
+.navbar-nav-right,
+.navbar-collapse-three .navbar-nav:last-of-type {
+    margin-left: auto;
+    gap: 0.75rem;
 }
 
-.nav-link {
+.navbar-nav-right .nav-link,
+.navbar-collapse-three .navbar-nav:last-of-type .nav-link {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+
+/* Enlaces e iconos: estilo landing (texto oscuro, hover azul) */
+.navbar-landing .nav-link {
     transition: color 0.3s ease;
-    color: #ffffff !important;
+    color: #334155 !important;
     font-weight: 500;
     padding: 0.5rem 1rem !important;
 }
 
+.navbar-landing .nav-link:hover {
+    color: #2563eb !important;
+}
+
+.navbar-landing .nav-link.active {
+    color: #2563eb !important;
+}
+
+.navbar-landing .nav-icon-link {
+    font-size: 1.1rem;
+    padding: 0.5rem 0.75rem !important;
+    color: #334155 !important;
+}
+.navbar-landing .nav-icon-link:hover,
+.navbar-landing .nav-icon-link:hover i {
+    color: #2563eb !important;
+}
+
+/* Botones auth igual que landing: Registrarse (slate), Iniciar Sesión (azul), texto blanco */
+.nav-btn-landing {
+    border-radius: 0.5rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem !important;
+}
+.navbar-landing .nav-btn-register,
+.nav-btn-register {
+    background-color: #475569 !important;
+    color: #ffffff !important;
+}
+.navbar-landing .nav-btn-register:hover,
+.nav-btn-register:hover {
+    background-color: #334155 !important;
+    color: #ffffff !important;
+}
+.navbar-landing .nav-btn-login,
+.nav-btn-login {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+}
+.navbar-landing .nav-btn-login:hover,
+.nav-btn-login:hover {
+    background-color: #1d4ed8 !important;
+    color: #ffffff !important;
+}
+
+/* Fallback para nav-link / nav-icon-link sin .navbar-landing (por si se usa en otro contexto) */
+.nav-link {
+    transition: color 0.3s ease;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+}
 .nav-icon-link {
     font-size: 1.1rem;
     padding: 0.5rem 0.75rem !important;
 }
 
-.nav-icon-link i {
-    transition: color 0.3s ease;
+/* Dropdown en navbar landing: fondo claro */
+.navbar-landing .dropdown-menu {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    min-width: 180px;
 }
-
-.nav-icon-link:hover i {
-    color: var(--cyan-top);
+.navbar-landing .dropdown-item {
+    color: #334155;
 }
-
-.nav-link:hover {
-    color: var(--cyan-top) !important;
+.navbar-landing .dropdown-item:hover {
+    background-color: #f8fafc;
+    color: #2563eb;
 }
-
-.nav-link.active {
-    color: var(--cyan-top) !important;
+.navbar-landing .dropdown-divider {
+    border-color: #e2e8f0;
 }
 
 .dropdown-menu {
-    background-color: #1f2937;
-    border: 1px solid #374151;
     min-width: 180px;
 }
 
@@ -558,8 +660,9 @@ body.sidebar-collapsed .sidebar-brand .menu-hamburger-btn {
 }
 
 body.sidebar-collapsed .sidebar-brand .menu-hamburger-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    transform: translateX(-50%) scale(1.1);
 }
 
 body.sidebar-collapsed .sidebar-brand-narrow {
@@ -1011,19 +1114,20 @@ body.sidebar-collapsed .menu-hamburger-btn {
     position: fixed;
     top: 70px;
     left: 10px;
-    z-index: 1030;
+    z-index: 9999 !important; /* Asegurar que esté por encima de todo */
     background: var(--royal-blue);
     color: #ffffff;
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    pointer-events: auto !important; /* Asegurar que pueda recibir clics */
 }
 
 .expand-sidebar-btn:hover {
@@ -1036,8 +1140,13 @@ body.sidebar-collapsed .menu-hamburger-btn {
     font-size: 18px;
 }
 
-/* Ocultar botón de expandir (ya no es necesario porque el sidebar se mantiene visible) */
-.expand-sidebar-btn {
+/* Mostrar botón de expandir cuando el sidebar está colapsado */
+body.sidebar-collapsed .expand-sidebar-btn {
+    display: flex !important;
+}
+
+/* Ocultar botón de expandir cuando el sidebar está expandido */
+body:not(.sidebar-collapsed) .expand-sidebar-btn {
     display: none !important;
 }
 

@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Content Security Policy para permitir métodos de pago (Stripe, PayPal, Yappy, Banco General) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.stripe.com https://merchant-ui-api.stripe.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://www.paypal.com https://www.sandbox.paypal.com https://api.cybersource.com https://api.yappy.im https://cdn.jsdelivr.net; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://www.sandbox.paypal.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.stripe.com https://merchant-ui-api.stripe.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://www.paypal.com https://www.sandbox.paypal.com https://api.cybersource.com https://api.yappy.im https://cdn.jsdelivr.net; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://www.sandbox.paypal.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com;">
     <title>{% block title %}RelaticPanama - Sistema de Membresía{% endblock %}</title>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename=get_system_logo()) }}" onerror="this.href='{{ url_for('static', filename='images/favicon.svg') }}';">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_system_logo()) }}" onerror="this.href='{{ url_for('static', filename='images/favicon.svg') }}';">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo-relatic.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo-relatic.png') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
@@ -70,20 +70,20 @@
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename=get_system_logo()) }}" alt="RELATIC PANAMÁ" height="40" class="me-2" onerror="this.src='{{ url_for('static', filename='images/logo-relatic.svg') }}';">
+    <!-- Navbar: estilo landing (fondo claro, igual que relatic-frontend) -->
+    <nav class="navbar navbar-expand-lg navbar-landing fixed-top">
+        <div class="container-fluid navbar-wrap">
+            <a class="navbar-brand d-flex align-items-center" href="https://relaticpanama.org">
+                <img src="{{ url_for('static', filename='images/logo-relatic.png') }}" alt="RELATIC PANAMÁ" class="navbar-logo me-2" height="40">
                 <span>RELATIC PANAMÁ</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-<div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+            <div class="collapse navbar-collapse navbar-collapse-three" id="navbarNav">
+                <ul class="navbar-nav navbar-nav-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">Inicio</a>
+                        <a class="nav-link" href="https://relaticpanama.org">Inicio</a>
                     </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
@@ -94,7 +94,7 @@
                     </li>
                     {% endif %}
                 </ul>
-                <ul class="navbar-nav">
+                <ul class="navbar-nav navbar-nav-right">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item me-1 d-flex align-items-center">
                         <a class="nav-link nav-icon-link position-relative" href="{{ url_for('cart') }}" title="Carrito de Compras">
@@ -160,10 +160,10 @@
                     </li>
                     {% else %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('login') }}">Iniciar Sesión</a>
+                        <a class="nav-link nav-btn-landing nav-btn-register text-nowrap" href="{{ url_for('register') }}">Registrarse</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('register') }}">Registrarse</a>
+                        <a class="nav-link nav-btn-landing nav-btn-login text-nowrap" href="{{ url_for('login') }}">Iniciar Sesión</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -189,7 +189,7 @@
         {% endwith %}
         
         <!-- Botón para expandir sidebar cuando está colapsado -->
-        <button id="expandSidebarBtn" class="expand-sidebar-btn" aria-label="Expand sidebar" style="display: none;">
+        <button id="expandSidebarBtn" class="expand-sidebar-btn" aria-label="Expand sidebar" title="Expandir menú" style="display: none;">
             <i class="fas fa-bars"></i>
         </button>
         
@@ -200,7 +200,7 @@
                 <div class="sidebar-brand">
                     <a href="{{ url_for('dashboard') }}" class="sidebar-brand-full d-flex align-items-center text-decoration-none">
                         <div class="sidebar-brand-icon me-2">
-                            <img src="{{ url_for('static', filename=get_system_logo()) }}" alt="RELATIC" height="32" style="max-width: 32px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <img src="{{ url_for('static', filename='images/logo-relatic.png') }}" alt="RELATIC" height="32" style="max-width: 32px; object-fit: contain;">
                             <i class="fas fa-globe-americas" style="font-size: 24px; color: #FFD700; display: none;"></i>
                         </div>
                         <div>
@@ -209,7 +209,7 @@
                         </div>
                     </a>
                     <a href="{{ url_for('dashboard') }}" class="sidebar-brand-narrow text-decoration-none">
-                        <img src="{{ url_for('static', filename=get_system_logo()) }}" alt="RELATIC" height="24" style="max-width: 24px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <img src="{{ url_for('static', filename='images/logo-relatic.png') }}" alt="RELATIC" height="24" style="max-width: 24px; object-fit: contain;">
                         <i class="fas fa-globe-americas" style="display: none;"></i>
                     </a>
                     <button class="menu-hamburger-btn" aria-label="Menu">
@@ -228,7 +228,7 @@
                         </li>
                         
                         <!-- Miembros - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'services', 'office365'] or request.blueprint in ['events', 'appointments'] %}show{% endif %}">
+                        <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'services', 'office365'] or request.blueprint in ['events'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Miembros">
                                 <i class="menu-icon fa fa-users"></i>
                                 <span class="menu-title-text">Miembros</span>
@@ -257,12 +257,6 @@
                                     <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Eventos">
                                         <i class="menu-icon fa fa-calendar"></i>
                                         <span class="menu-title-text">Eventos</span>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Citas">
-                                        <i class="menu-icon fa fa-clock"></i>
-                                        <span class="menu-title-text">Citas</span>
                                     </a>
                                 </li>
                             </ul>
@@ -314,9 +308,9 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'admin_appointments' and request.endpoint == 'admin_appointments.admin_appointments_dashboard' %}active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Gestión de Citas">
-                                        <i class="menu-icon fa fa-calendar-check"></i>
-                                        <span class="menu-title-text">Gestión de Citas</span>
+                                    <a class="nav-link {% if request.blueprint == 'admin_appointments' and (request.endpoint == 'admin_appointments.admin_appointments_dashboard' or request.endpoint == 'admin_appointments.calendar_view') %}active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Calendario">
+                                        <i class="menu-icon fa fa-calendar"></i>
+                                        <span class="menu-title-text">Calendario</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
@@ -547,6 +541,32 @@
                 document.body.classList.toggle('sidebar-collapsed');
                 const isCollapsed = document.body.classList.contains('sidebar-collapsed');
                 localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+                
+                // Mostrar/ocultar botón de expandir según el estado
+                if (expandSidebarBtn) {
+                    if (isCollapsed) {
+                        expandSidebarBtn.style.display = 'flex';
+                    } else {
+                        expandSidebarBtn.style.display = 'none';
+                    }
+                }
+            }
+            
+            // Función de emergencia: expandir sidebar si está bloqueando
+            function ensureSidebarAccessible() {
+                if (leftPanel && document.body.classList.contains('sidebar-collapsed')) {
+                    // Verificar si el botón hamburguesa es clickeable
+                    const hamburgerBtn = document.querySelector('.menu-hamburger-btn');
+                    if (hamburgerBtn) {
+                        const rect = hamburgerBtn.getBoundingClientRect();
+                        const isVisible = rect.width > 0 && rect.height > 0 && 
+                                         window.getComputedStyle(hamburgerBtn).display !== 'none';
+                        if (!isVisible && expandSidebarBtn) {
+                            expandSidebarBtn.style.display = 'flex';
+                            console.log('Botón de expandir activado automáticamente');
+                        }
+                    }
+                }
             }
             
             // Verificar si existe leftPanel (menú lateral)
@@ -555,6 +575,15 @@
                 const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
                 if (isCollapsed) {
                     document.body.classList.add('sidebar-collapsed');
+                    // Mostrar botón de expandir si está colapsado
+                    if (expandSidebarBtn) {
+                        expandSidebarBtn.style.display = 'flex';
+                    }
+                } else {
+                    // Ocultar botón de expandir si está expandido
+                    if (expandSidebarBtn) {
+                        expandSidebarBtn.style.display = 'none';
+                    }
                 }
                 
                 // Botón hamburguesa dentro del menú
@@ -574,27 +603,76 @@
                         toggleSidebar();
                     });
                 }
+                
+                // Verificar accesibilidad después de un breve delay
+                setTimeout(ensureSidebarAccessible, 500);
             }
             
-            // Inicializar tooltips de Bootstrap
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl, {
-                    trigger: 'hover',
-                    delay: { show: 300, hide: 100 }
-                });
+            // Solución de emergencia: Si el sidebar está colapsado al cargar, asegurar que el botón sea visible
+            window.addEventListener('load', function() {
+                if (document.body.classList.contains('sidebar-collapsed') && expandSidebarBtn) {
+                    expandSidebarBtn.style.display = 'flex';
+                    console.log('Botón de expandir activado al cargar página');
+                }
             });
+            
+            // También verificar cuando se hace clic fuera del sidebar (si está colapsado y bloqueando)
+            document.addEventListener('click', function(e) {
+                if (document.body.classList.contains('sidebar-collapsed')) {
+                    const clickedElement = e.target;
+                    const isClickOnSidebar = leftPanel && leftPanel.contains(clickedElement);
+                    const isClickOnExpandBtn = expandSidebarBtn && expandSidebarBtn.contains(clickedElement);
+                    
+                    // Si se hace clic fuera del sidebar y no es en el botón de expandir, asegurar que el botón sea visible
+                    if (!isClickOnSidebar && !isClickOnExpandBtn && expandSidebarBtn) {
+                        const computedStyle = window.getComputedStyle(expandSidebarBtn);
+                        if (computedStyle.display === 'none') {
+                            expandSidebarBtn.style.display = 'flex';
+                            console.log('Botón de expandir activado por clic fuera del sidebar');
+                        }
+                    }
+                }
+            });
+            
+            // Atajo de teclado: Presionar Escape para expandir sidebar si está colapsado
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && document.body.classList.contains('sidebar-collapsed')) {
+                    toggleSidebar();
+                    console.log('Sidebar expandido con tecla Escape');
+                }
+            });
+            
+            // Inicializar tooltips de Bootstrap (verificar que bootstrap esté disponible)
+            var tooltipList = [];
+            if (typeof bootstrap !== 'undefined') {
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    try {
+                        return new bootstrap.Tooltip(tooltipTriggerEl, {
+                            trigger: 'hover',
+                            delay: { show: 300, hide: 100 }
+                        });
+                    } catch (e) {
+                        console.warn('Error inicializando tooltip:', e);
+                        return null;
+                    }
+                }).filter(function(tooltip) { return tooltip !== null; });
+            }
             
             // Actualizar tooltips cuando el sidebar se colapsa/expande
             function updateTooltips() {
-                const isCollapsed = document.body.classList.contains('sidebar-collapsed');
-                tooltipList.forEach(function(tooltip) {
-                    if (isCollapsed) {
-                        tooltip.enable();
-                    } else {
-                        tooltip.disable();
-                    }
-                });
+                if (tooltipList && tooltipList.length > 0) {
+                    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                    tooltipList.forEach(function(tooltip) {
+                        if (tooltip) {
+                            if (isCollapsed) {
+                                tooltip.enable();
+                            } else {
+                                tooltip.disable();
+                            }
+                        }
+                    });
+                }
             }
             
             // Observar cambios en el sidebar

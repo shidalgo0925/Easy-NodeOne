@@ -104,7 +104,7 @@
             </div>
 
             <div class="mt-3">
-                <a href="{{ url_for('membership') }}" class="btn btn-outline-primary">
+                <a href="{{ url_for('membership') }}" class="btn btn-outline-primary" onclick="expandSidebarBeforeNavigate(event)">
                     <i class="fas fa-arrow-left"></i> Seguir comprando
                 </a>
             </div>
@@ -264,6 +264,17 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCartCount(data.count);
         });
 });
+
+// Función para expandir el sidebar antes de navegar
+function expandSidebarBeforeNavigate(event) {
+    // Si el sidebar está colapsado, expandirlo antes de navegar
+    if (document.body.classList.contains('sidebar-collapsed')) {
+        document.body.classList.remove('sidebar-collapsed');
+        localStorage.setItem('sidebarCollapsed', 'false');
+    }
+    // Permitir que el navegador continúe con la navegación normal
+    // No llamamos event.preventDefault() para que el enlace funcione normalmente
+}
 </script>
 {% endblock %}
 

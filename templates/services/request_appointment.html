@@ -2,7 +2,10 @@
 
 {% block title %}Solicitar Cita - {{ service.name }}{% endblock %}
 
-{% block page_content %}
+{% block extra_head %}
+{% endblock %}
+
+{% block content %}
 <div class="container py-4">
     <div class="row">
         <div class="col-lg-10 mx-auto">
@@ -57,17 +60,41 @@
                                 <i class="fas fa-file-alt me-2"></i>
                                 Describe brevemente tu caso o necesidad <span class="text-danger">*</span>
                             </label>
+                            
+                            <!-- Templates rápidos -->
+                            <div class="mb-2">
+                                <small class="text-muted d-block mb-2">
+                                    <i class="fas fa-lightbulb me-1"></i>Plantillas rápidas (opcional):
+                                </small>
+                                <div class="btn-group-vertical w-100" role="group" id="descriptionTemplates">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm text-start template-btn" data-template="Necesito asesoría sobre {{ service.name }}. Me gustaría conocer más detalles sobre cómo puede ayudarme.">
+                                        <i class="fas fa-question-circle me-2"></i>Consulta general
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm text-start template-btn" data-template="Tengo una situación específica relacionada con {{ service.name }}. Requiero orientación profesional para resolverla.">
+                                        <i class="fas fa-handshake me-2"></i>Situación específica
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm text-start template-btn" data-template="Deseo agendar una cita para {{ service.name }}. Tengo algunas preguntas que me gustaría discutir durante la consulta.">
+                                        <i class="fas fa-calendar-check me-2"></i>Consulta con preguntas
+                                    </button>
+                                </div>
+                            </div>
+                            
                             <textarea 
                                 class="form-control" 
                                 id="case_description" 
                                 name="case_description" 
-                                rows="5" 
-                                minlength="50" 
+                                rows="4" 
+                                minlength="20" 
                                 maxlength="1000" 
-                                placeholder="Describe brevemente tu caso o necesidad (mínimo 50 caracteres)..."
+                                placeholder="Describe brevemente tu caso o necesidad (mínimo 20 caracteres)..."
                                 required></textarea>
                             <div class="form-text">
-                                <span id="char_count" class="fw-bold">0</span> / 1000 caracteres (mínimo 50)
+                                <span id="char_count" class="fw-bold">0</span> / 1000 caracteres 
+                                <span id="min_char_warning" class="text-danger">(mínimo 20 requeridos)</span>
+                                <span id="min_char_success" class="text-success" style="display: none;">✓ Mínimo cumplido</span>
+                            </div>
+                            <div id="description_help" class="alert alert-info mt-2" style="display: none;">
+                                <small><i class="fas fa-info-circle me-1"></i>Escribe al menos 20 caracteres y selecciona un horario para habilitar el botón de agregar al carrito.</small>
                             </div>
                         </div>
                         
@@ -125,30 +152,30 @@
                                 </div>
                             </div>
                             
-                            <!-- Calendario Semanal (Abajo) -->
+                            <!-- Lista Simple de Horarios Disponibles -->
                             <div>
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <label class="form-label mb-0">
                                         <i class="fas fa-calendar me-2"></i>
-                                        Espacios Disponibles <span class="text-danger">*</span>
+                                        Selecciona un Horario Disponible <span class="text-danger">*</span>
                                     </label>
-                                    <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="changeWeek(-1)">
-                                            <i class="fas fa-chevron-left"></i> Semana Anterior
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="changeWeek(1)">
-                                            Semana Siguiente <i class="fas fa-chevron-right"></i>
-                                        </button>
-                                    </div>
                                 </div>
                                 
-                                <div id="weeklyCalendar" class="card">
-                                    <div class="card-body p-0">
-                                        <div id="calendarHeader" class="border-bottom">
-                                            <!-- Se llenará con JavaScript -->
+                                <div id="slotsContainer" class="card">
+                                    <div class="card-body p-3">
+                                        <div id="slotsLoadingMessage" class="alert alert-info text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>Cargando horarios disponibles...
                                         </div>
-                                        <div id="calendarBody" style="max-height: 500px; overflow-y: auto;">
-                                            <!-- Se llenará con JavaScript -->
+                                        <div id="slotsEmptyMessage" class="alert alert-warning text-center" style="display: none;">
+                                            <i class="fas fa-info-circle me-2"></i>No hay horarios disponibles en este momento. Por favor, intenta con otro asesor o vuelve más tarde.
+                                        </div>
+                                        <div id="slotsList" class="row" style="display: none;">
+                                            <!-- Los slots se cargarán aquí dinámicamente -->
+                                        </div>
+                                        <div id="loadMoreContainer" class="text-center mt-4" style="display: none;">
+                                            <button id="loadMoreBtn" class="btn btn-outline-primary">
+                                                <i class="fas fa-chevron-down me-2"></i>Ver más horarios disponibles
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -158,6 +185,11 @@
                                         <i class="fas fa-check-circle me-2"></i>
                                         <strong>Horario seleccionado:</strong>
                                         <span id="selectedSlotText"></span>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Solo puedes seleccionar una cita a la vez. Haz clic nuevamente en el botón para deseleccionar.
+                                        </small>
                                     </div>
                                 </div>
                                 
@@ -213,7 +245,7 @@
                             <a href="{{ url_for('services') }}" class="btn btn-secondary">
                                 <i class="fas fa-times me-2"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                            <button type="submit" class="btn btn-secondary" id="submitBtn" disabled title="Completa la descripción (mínimo 50 caracteres) y selecciona un horario">
                                 <i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito
                             </button>
                         </div>
@@ -224,219 +256,435 @@
     </div>
 </div>
 
+<!-- FullCalendar JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/locales/es.js'></script>
+
 <script>
 let selectedAdvisorId = {{ selected_advisor_id or 'null' }};
-let currentWeekStart = new Date();
-let allSlots = {{ available_slots_json | safe }};
+let serviceId = {{ service.id }};
+let calendar = null;
+let selectedSlot = null;
 
-// Ajustar al inicio de la semana (lunes)
-function getWeekStart(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Ajustar al lunes
-    return new Date(d.setDate(diff));
-}
-
-// Inicializar semana actual
-currentWeekStart = getWeekStart(new Date());
-currentWeekStart.setHours(0, 0, 0, 0);
-
-// Contador de caracteres
-document.getElementById('case_description').addEventListener('input', function() {
-    const count = this.value.length;
-    const charCount = document.getElementById('char_count');
-    charCount.textContent = count;
+// Función para actualizar el estado del botón de envío
+function updateSubmitButtonState() {
+    const submitBtn = document.getElementById('submitBtn');
+    const descriptionEl = document.getElementById('case_description');
+    const slotIdEl = document.getElementById('selected_slot_id');
     
-    if (count < 50) {
-        charCount.classList.add('text-danger');
-        charCount.classList.remove('text-success');
-    } else if (count >= 50 && count <= 1000) {
-        charCount.classList.remove('text-danger');
-        charCount.classList.add('text-success');
-    } else {
-        charCount.classList.add('text-danger');
-        charCount.classList.remove('text-success');
+    if (!submitBtn) {
+        console.error('Botón submitBtn no encontrado');
+        return;
     }
-});
-
-// Convertir slots a formato útil
-function processSlots(slots) {
-    return slots.map(slot => {
-        const startDate = new Date(slot.start_datetime);
-        const endDate = new Date(slot.end_datetime);
-        return {
-            id: slot.id,
-            advisor_id: slot.advisor_id,
-            advisor_name: slot.advisor_name || 'Asesor',
-            start: startDate,
-            end: endDate,
-            date: startDate.toISOString().split('T')[0],
-            hour: startDate.getHours(),
-            minute: startDate.getMinutes(),
-            dayOfWeek: startDate.getDay() === 0 ? 6 : startDate.getDay() - 1, // Lunes = 0
-            capacity: slot.capacity || 1,
-            remaining_seats: slot.remaining_seats || 1
-        };
+    
+    const slotId = slotIdEl ? slotIdEl.value : '';
+    const description = descriptionEl ? descriptionEl.value.trim() : '';
+    const hasValidDescription = description.length >= 20 && description.length <= 1000;
+    // Validar que slotId sea un número válido mayor a 0
+    const slotIdNum = parseInt(slotId);
+    const hasSelectedSlot = slotId && slotId !== '' && slotId !== '0' && slotId !== 'null' && !isNaN(slotIdNum) && slotIdNum > 0;
+    
+    console.log('🔍 Estado del botón:', {
+        slotId: slotId,
+        slotIdType: typeof slotId,
+        hasSelectedSlot: hasSelectedSlot,
+        descriptionLength: description.length,
+        hasValidDescription: hasValidDescription,
+        submitBtnExists: !!submitBtn
     });
-}
-
-// Organizar slots por día y hora (solo horas completas)
-function organizeSlotsByWeek(slots, weekStart) {
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
     
-    const organized = {};
-    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    
-    // Inicializar estructura
-    for (let i = 0; i < 7; i++) {
-        const dayDate = new Date(weekStart);
-        dayDate.setDate(dayDate.getDate() + i);
-        const dateKey = dayDate.toISOString().split('T')[0];
-        organized[dateKey] = {
-            dayName: dayNames[i],
-            date: dayDate,
-            slots: {}
-        };
-    }
-    
-    // Agrupar slots por día y hora (redondeando a hora completa)
-    slots.forEach(slot => {
-        const slotDate = new Date(slot.start);
-        if (slotDate >= weekStart && slotDate < weekEnd) {
-            const dateKey = slot.date;
-            // Redondear a la hora completa más cercana (solo mostrar horas completas)
-            const slotHour = slot.hour;
-            const hourKey = `${slotHour.toString().padStart(2, '0')}:00`;
-            
-            if (!organized[dateKey].slots[hourKey]) {
-                organized[dateKey].slots[hourKey] = [];
-            }
-            organized[dateKey].slots[hourKey].push(slot);
+    // Habilitar si hay slot seleccionado (la descripción se valida al enviar el formulario)
+    if (hasSelectedSlot) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('btn-secondary');
+        submitBtn.classList.add('btn-primary');
+        if (hasValidDescription) {
+            submitBtn.title = 'Listo para agregar al carrito';
+        } else {
+            submitBtn.title = 'Recuerda completar la descripción (mínimo 20 caracteres) antes de enviar';
         }
-    });
-    
-    return organized;
+        console.log('✅ Botón HABILITADO - Slot seleccionado:', slotId);
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.classList.remove('btn-primary');
+        submitBtn.classList.add('btn-secondary');
+        submitBtn.title = 'Selecciona un horario disponible';
+        console.log('❌ Botón DESHABILITADO - No hay slot seleccionado. SlotId:', slotId, 'SlotIdNum:', slotIdNum, 'isNaN:', isNaN(slotIdNum));
+    }
 }
 
-// Renderizar calendario semanal
-function renderWeeklyCalendar() {
-    const processedSlots = processSlots(allSlots);
-    
-    // Filtrar por asesor si está seleccionado
-    let filteredSlots = processedSlots;
-    if (selectedAdvisorId) {
-        filteredSlots = processedSlots.filter(slot => slot.advisor_id == selectedAdvisorId);
-    }
-    
-    const organized = organizeSlotsByWeek(filteredSlots, currentWeekStart);
-    
-    // Renderizar header
-    const header = document.getElementById('calendarHeader');
-    const weekEnd = new Date(currentWeekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    
-    header.innerHTML = `
-        <div class="row g-0 text-center bg-light">
-            <div class="col-2 border-end p-2"><strong>Hora</strong></div>
-            ${Object.keys(organized).map(dateKey => {
-                const day = organized[dateKey];
-                return `<div class="col border-end p-2">
-                    <strong>${day.dayName}</strong><br>
-                    <small class="text-muted">${day.date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</small>
-                </div>`;
-            }).join('')}
-        </div>
-    `;
-    
-    // Generar horas del día (8 AM a 8 PM) - Solo horas completas
-    const hours = [];
-    for (let h = 8; h < 20; h++) {
-        hours.push(`${h.toString().padStart(2, '0')}:00`);
-    }
-    
-    // Renderizar body
-    const body = document.getElementById('calendarBody');
-    body.innerHTML = hours.map(hour => {
-        const [h, m] = hour.split(':').map(Number);
-        const hourKey = hour;
+// Contador de caracteres y validación en tiempo real
+const caseDescriptionEl = document.getElementById('case_description');
+if (caseDescriptionEl) {
+    caseDescriptionEl.addEventListener('input', function() {
+        const count = this.value.length;
+        const charCount = document.getElementById('char_count');
         
-        return `
-            <div class="row g-0 border-bottom">
-                <div class="col-2 border-end p-2 text-center bg-light">
-                    <strong>${hour}</strong>
-                </div>
-                ${Object.keys(organized).map(dateKey => {
-                    const day = organized[dateKey];
-                    const daySlots = day.slots[hourKey] || [];
-                    
-                    if (daySlots.length > 0) {
-                        return daySlots.map(slot => `
-                            <div class="col p-1">
-                                <button type="button" 
-                                        class="btn btn-sm btn-success w-100 slot-btn" 
-                                        data-slot-id="${slot.id}"
-                                        data-advisor-id="${slot.advisor_id}"
-                                        data-advisor-name="${slot.advisor_name}"
-                                        onclick="selectSlot(${slot.id}, ${slot.advisor_id}, '${slot.advisor_name}', '${slot.start.toISOString()}', '${slot.end.toISOString()}')">
-                                    <small>
-                                        <i class="fas fa-clock me-1"></i>${hour}<br>
-                                        <i class="fas fa-user-tie me-1"></i>${slot.advisor_name}
-                                    </small>
-                                </button>
-                            </div>
-                        `).join('');
-                    } else {
-                        return `<div class="col border-start p-1"></div>`;
-                    }
-                }).join('')}
-            </div>
-        `;
-    }).join('');
+        if (charCount) {
+            charCount.textContent = count;
+            
+            const minWarning = document.getElementById('min_char_warning');
+            const minSuccess = document.getElementById('min_char_success');
+            const descriptionHelp = document.getElementById('description_help');
+            
+            if (count < 20) {
+                charCount.classList.add('text-danger');
+                charCount.classList.remove('text-success');
+                if (minWarning) minWarning.style.display = 'inline';
+                if (minSuccess) minSuccess.style.display = 'none';
+                if (descriptionHelp) descriptionHelp.style.display = 'block';
+            } else if (count >= 20 && count <= 1000) {
+                charCount.classList.remove('text-danger');
+                charCount.classList.add('text-success');
+                if (minWarning) minWarning.style.display = 'none';
+                if (minSuccess) minSuccess.style.display = 'inline';
+                if (descriptionHelp) descriptionHelp.style.display = 'none';
+            } else {
+                charCount.classList.add('text-danger');
+                charCount.classList.remove('text-success');
+                if (minWarning) minWarning.style.display = 'none';
+                if (minSuccess) minSuccess.style.display = 'none';
+                if (descriptionHelp) descriptionHelp.style.display = 'block';
+            }
+        }
+        
+        // Actualizar estado del botón (solo verifica descripción, el slot se verifica por separado)
+        updateSubmitButtonState();
+    });
 }
 
-// Seleccionar slot
-function selectSlot(slotId, advisorId, advisorName, startISO, endISO) {
-    // Deseleccionar todos los botones
-    document.querySelectorAll('.slot-btn').forEach(btn => {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-success');
-    });
-    
-    // Seleccionar el botón clickeado
-    const clickedBtn = document.querySelector(`.slot-btn[data-slot-id="${slotId}"]`);
-    if (clickedBtn) {
-        clickedBtn.classList.remove('btn-success');
-        clickedBtn.classList.add('btn-primary');
+// Cargar y mostrar slots disponibles
+function loadAndDisplaySlots() {
+    if (!serviceId || serviceId === null || serviceId === 'null' || serviceId === 0) {
+        console.error('serviceId no válido:', serviceId);
+        document.getElementById('slotsLoadingMessage').style.display = 'none';
+        document.getElementById('slotsEmptyMessage').style.display = 'block';
+        return;
     }
     
-    // Guardar valores
-    document.getElementById('selected_slot_id').value = slotId;
-    document.getElementById('selected_advisor_id').value = advisorId;
+    const loadingMsg = document.getElementById('slotsLoadingMessage');
+    const emptyMsg = document.getElementById('slotsEmptyMessage');
+    const slotsList = document.getElementById('slotsList');
+    
+    // Obtener fecha actual y 30 días adelante
+    const now = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 30);
+    
+    const startStr = now.toISOString().split('T')[0];
+    const endStr = futureDate.toISOString().split('T')[0];
+    const url = `/api/services/${serviceId}/calendar?start=${startStr}&end=${endStr}${selectedAdvisorId ? '&advisor_id=' + selectedAdvisorId : ''}`;
+    
+    console.log('Cargando slots desde:', url);
+    
+    fetch(url)
+        .then(response => {
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                return response.text().then(text => {
+                    console.error('Respuesta no es JSON:', text.substring(0, 200));
+                    throw new Error('La API devolvió HTML en lugar de JSON');
+                });
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Slots recibidos:', data);
+            loadingMsg.style.display = 'none';
+            
+            if (data && data.success && Array.isArray(data.events) && data.events.length > 0) {
+                // Resetear contador cuando se cargan nuevos slots
+                displayedSlotsCount = 9;
+                displaySlots(data.events, false);
+                slotsList.style.display = 'block';
+                emptyMsg.style.display = 'none';
+            } else {
+                slotsList.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                document.getElementById('loadMoreContainer').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error cargando slots:', error);
+            loadingMsg.style.display = 'none';
+            emptyMsg.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Error al cargar horarios. Por favor, recarga la página.<br><small>' + error.message + '</small>';
+            emptyMsg.className = 'alert alert-danger text-center';
+            emptyMsg.style.display = 'block';
+            slotsList.style.display = 'none';
+        });
+}
+
+// Variables para paginación
+let allSlotsData = [];
+let displayedSlotsCount = 9; // Mostrar 9 slots inicialmente (3 filas x 3 columnas)
+const slotsPerPage = 9; // Cargar 9 más cada vez
+
+// Mostrar slots en la lista
+function displaySlots(events, showAll = false) {
+    const slotsList = document.getElementById('slotsList');
+    const loadMoreContainer = document.getElementById('loadMoreContainer');
+    
+    // Guardar todos los eventos
+    allSlotsData = events;
+    
+    // Determinar cuántos slots mostrar
+    const slotsToShow = showAll ? events.length : Math.min(displayedSlotsCount, events.length);
+    const eventsToDisplay = events.slice(0, slotsToShow);
+    
+    slotsList.innerHTML = '';
+    
+    // Agrupar por fecha solo los eventos a mostrar
+    const slotsByDate = {};
+    eventsToDisplay.forEach(event => {
+        const date = new Date(event.start);
+        const dateKey = date.toLocaleDateString('es-ES', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        
+        if (!slotsByDate[dateKey]) {
+            slotsByDate[dateKey] = [];
+        }
+        slotsByDate[dateKey].push(event);
+    });
+    
+    // Ordenar fechas (ordenar por fecha real, no por string)
+    const sortedDates = Object.keys(slotsByDate).sort((a, b) => {
+        // Obtener la primera fecha de cada grupo para comparar
+        const dateA = new Date(slotsByDate[a][0].start);
+        const dateB = new Date(slotsByDate[b][0].start);
+        return dateA - dateB;
+    });
+    
+    // Renderizar slots agrupados por fecha
+    sortedDates.forEach(dateKey => {
+        const dateHeader = document.createElement('div');
+        dateHeader.className = 'col-12 mb-3 mt-3';
+        dateHeader.style.width = '100%';
+        dateHeader.innerHTML = `<h6 class="text-primary mb-2 fw-bold"><i class="fas fa-calendar-day me-2"></i>${dateKey}</h6>`;
+        slotsList.appendChild(dateHeader);
+        
+        // Ordenar slots por hora dentro de cada fecha
+        slotsByDate[dateKey].sort((a, b) => {
+            return new Date(a.start) - new Date(b.start);
+        }).forEach(event => {
+            const slotCard = document.createElement('div');
+            slotCard.className = 'col-12 col-sm-6 col-md-4';
+            
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const timeStr = `${startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+            
+            slotCard.innerHTML = `
+                <div class="card slot-card h-100 mb-0" data-slot-id="${event.extendedProps.slot_id}" 
+                     data-advisor-id="${event.extendedProps.advisor_id}" 
+                     data-advisor-name="${event.extendedProps.advisor_name}"
+                     style="transition: all 0.2s;">
+                    <div class="card-body p-3 d-flex flex-column">
+                        <div class="mb-2">
+                            <h6 class="mb-2"><i class="fas fa-clock me-2 text-primary"></i>${timeStr}</h6>
+                            <p class="mb-2 small text-muted">
+                                <i class="fas fa-user-tie me-1"></i>${event.extendedProps.advisor_name}
+                            </p>
+                            <span class="badge bg-success">
+                                ${event.extendedProps.remaining_seats || 1} cupo(s) disponible(s)
+                            </span>
+                        </div>
+                        <div class="mt-auto pt-2">
+                            <button class="btn btn-primary btn-sm w-100 select-slot-btn" 
+                                    data-slot-id="${event.extendedProps.slot_id}"
+                                    data-advisor-id="${event.extendedProps.advisor_id}"
+                                    data-advisor-name="${event.extendedProps.advisor_name}">
+                                <i class="fas fa-check me-2"></i>Seleccionar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Agregar evento click al botón
+            const selectBtn = slotCard.querySelector('.select-slot-btn');
+            if (selectBtn) {
+                selectBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    const slotId = this.getAttribute('data-slot-id');
+                    const advisorId = this.getAttribute('data-advisor-id');
+                    const advisorName = this.getAttribute('data-advisor-name');
+                    
+                // Remover TODAS las selecciones anteriores (solo puede haber una selección)
+                document.querySelectorAll('.slot-card').forEach(card => {
+                    const btn = card.querySelector('.select-slot-btn');
+                    if (btn) {
+                        card.classList.remove('border-primary', 'bg-light');
+                        card.style.borderWidth = '';
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-primary');
+                        btn.innerHTML = '<i class="fas fa-check me-2"></i>Seleccionar';
+                    }
+                });
+                
+                // Seleccionar SOLO este slot (una sola cita permitida)
+                const card = this.closest('.slot-card');
+                if (card) {
+                    // Si ya estaba seleccionado, deseleccionarlo
+                    if (card.classList.contains('border-primary')) {
+                        card.classList.remove('border-primary', 'bg-light');
+                        card.style.borderWidth = '';
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-primary');
+                        this.innerHTML = '<i class="fas fa-check me-2"></i>Seleccionar';
+                        
+                        // Limpiar selección
+                        selectedSlot = null;
+                        document.getElementById('selected_slot_id').value = '';
+                        document.getElementById('selected_advisor_id').value = '';
+                        document.getElementById('selectedSlotInfo').style.display = 'none';
+                        
+                        // Actualizar estado del botón del carrito
+                        updateSubmitButtonState();
+                    } else {
+                        // Seleccionar este slot (nueva selección)
+                        card.classList.add('border-primary', 'bg-light');
+                        card.style.borderWidth = '2px';
+                        this.classList.add('btn-success');
+                        this.classList.remove('btn-primary');
+                        this.innerHTML = '<i class="fas fa-check-circle me-2"></i>Seleccionado';
+                        
+                        // Convertir a números y llamar a selectSlot
+                        const numericSlotId = parseInt(slotId);
+                        const numericAdvisorId = parseInt(advisorId);
+                        
+                        console.log('🖱️ Click en botón seleccionar:', {
+                            slotId: slotId,
+                            numericSlotId: numericSlotId,
+                            advisorId: advisorId,
+                            numericAdvisorId: numericAdvisorId
+                        });
+                        
+                        selectSlot(
+                            numericSlotId,
+                            numericAdvisorId,
+                            advisorName,
+                            startDate,
+                            endDate
+                        );
+                    }
+                }
+                });
+            }
+            
+            slotsList.appendChild(slotCard);
+        });
+    });
+    
+    // Mostrar/ocultar botón "Cargar más"
+    if (events.length > displayedSlotsCount && !showAll) {
+        loadMoreContainer.style.display = 'block';
+    } else {
+        loadMoreContainer.style.display = 'none';
+    }
+}
+
+// Función para cargar más slots
+function loadMoreSlots() {
+    displayedSlotsCount += slotsPerPage;
+    displaySlots(allSlotsData, false);
+    
+    // Scroll suave hacia el último slot cargado
+    setTimeout(() => {
+        const lastSlot = document.querySelector('#slotsList .col-md-4:last-child');
+        if (lastSlot) {
+            lastSlot.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, 100);
+}
+
+// Función para seleccionar un slot (SOLO UNA CITA PERMITIDA)
+function selectSlot(slotId, advisorId, advisorName, start, end) {
+    // Asegurar que solo hay una selección activa
+    if (selectedSlot && selectedSlot.id !== slotId) {
+        console.log('Deseleccionando slot anterior:', selectedSlot.id);
+    }
+    
+    // Guardar la nueva selección (reemplaza cualquier selección anterior)
+    selectedSlot = {
+        id: slotId,
+        advisor_id: advisorId,
+        advisor_name: advisorName,
+        start: start,
+        end: end
+    };
+    
+    // Guardar valores en el formulario (solo un slot puede estar seleccionado)
+    const slotIdInput = document.getElementById('selected_slot_id');
+    const advisorIdInput = document.getElementById('selected_advisor_id');
+    
+    if (slotIdInput) {
+        slotIdInput.value = slotId;
+        console.log('✅ Slot ID guardado en formulario:', slotId);
+    } else {
+        console.error('❌ Campo selected_slot_id no encontrado');
+    }
+    
+    if (advisorIdInput) {
+        advisorIdInput.value = advisorId;
+        console.log('✅ Advisor ID guardado en formulario:', advisorId);
+    } else {
+        console.error('❌ Campo selected_advisor_id no encontrado');
+    }
     
     // Mostrar información del slot seleccionado
-    const startDate = new Date(startISO);
-    const endDate = new Date(endISO);
-    const dateStr = startDate.toLocaleDateString('es-ES', { 
+    const dateStr = start.toLocaleDateString('es-ES', { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
     });
-    const timeStr = `${startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    const timeStr = `${start.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
     
-    document.getElementById('selectedSlotText').textContent = `${dateStr} a las ${timeStr} con ${advisorName}`;
-    document.getElementById('selectedSlotInfo').style.display = 'block';
+    const selectedSlotText = document.getElementById('selectedSlotText');
+    if (selectedSlotText) {
+        selectedSlotText.textContent = `${dateStr} a las ${timeStr} con ${advisorName}`;
+    }
     
-    // Habilitar botón de envío
-    document.getElementById('submitBtn').disabled = false;
+    const selectedSlotInfo = document.getElementById('selectedSlotInfo');
+    if (selectedSlotInfo) {
+        selectedSlotInfo.style.display = 'block';
+    }
+    
+    // Habilitar botón del carrito inmediatamente (solo requiere slot seleccionado)
+    console.log('🔄 Habilitando botón después de seleccionar slot...');
+    
+    // Habilitar directamente el botón
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('btn-secondary');
+        submitBtn.classList.add('btn-primary');
+        submitBtn.title = 'Listo para agregar al carrito';
+        console.log('✅ Botón habilitado directamente');
+    }
+    
+    // También llamar a la función de actualización para mantener consistencia
+    setTimeout(() => {
+        updateSubmitButtonState();
+    }, 50);
+    
+    console.log('✅ Slot seleccionado (única selección permitida):', {
+        slotId: slotId,
+        advisorId: advisorId,
+        advisorName: advisorName,
+        start: start,
+        end: end
+    });
 }
 
-// Cambiar semana
-function changeWeek(direction) {
-    currentWeekStart.setDate(currentWeekStart.getDate() + (direction * 7));
-    renderWeeklyCalendar();
-}
 
 // Filtrar slots por asesor
 function filterByAdvisor(advisorId, buttonElement) {
@@ -450,30 +698,45 @@ function filterByAdvisor(advisorId, buttonElement) {
         buttonElement.classList.add('active');
     }
     
-    // Re-renderizar calendario
-    renderWeeklyCalendar();
+    // Resetear contador de slots mostrados
+    displayedSlotsCount = 9;
+    
+    // Recargar slots con el filtro
+    loadAndDisplaySlots();
     
     // Limpiar selección
+    selectedSlot = null;
     document.getElementById('selected_slot_id').value = '';
     document.getElementById('selected_advisor_id').value = '';
     document.getElementById('selectedSlotInfo').style.display = 'none';
     document.getElementById('submitBtn').disabled = true;
 }
 
-// Inicializar calendario
+// Manejar templates de descripción
 document.addEventListener('DOMContentLoaded', function() {
-    // Parsear slots desde JSON si es necesario
-    try {
-        if (typeof allSlots === 'string') {
-            allSlots = JSON.parse(allSlots);
-        }
-    } catch (e) {
-        console.error('Error parsing slots:', e);
-        allSlots = [];
-    }
+    const templateButtons = document.querySelectorAll('.template-btn');
+    const descriptionTextarea = document.getElementById('case_description');
     
-    // Los slots ya vienen procesados del servidor con la estructura correcta
-    renderWeeklyCalendar();
+    templateButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const template = this.dataset.template;
+            if (descriptionTextarea) {
+                // Reemplazar SERVICIO_NOMBRE con el nombre real del servicio
+                const serviceName = '{{ service.name|e }}';
+                const finalTemplate = template.replace(/SERVICIO_NOMBRE/g, serviceName);
+                
+                descriptionTextarea.value = finalTemplate;
+                descriptionTextarea.dispatchEvent(new Event('input')); // Trigger para actualizar contador
+                descriptionTextarea.focus();
+                
+                // Scroll suave al textarea
+                descriptionTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    });
+    
+    // Cargar slots disponibles
+    loadAndDisplaySlots();
     
     // Inicializar filtro si hay asesor seleccionado
     if (selectedAdvisorId) {
@@ -487,29 +750,46 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Validación del formulario
-document.getElementById('appointmentForm').addEventListener('submit', function(e) {
-    const description = document.getElementById('case_description').value;
-    const slotId = document.getElementById('selected_slot_id').value;
-    const advisorId = document.getElementById('selected_advisor_id').value;
-    
-    if (description.length < 50) {
-        e.preventDefault();
-        alert('La descripción debe tener al menos 50 caracteres.');
-        return false;
-    }
-    
-    if (!slotId) {
-        e.preventDefault();
-        alert('Debes seleccionar un horario disponible haciendo click en una hora disponible.');
-        return false;
-    }
-    
-    if (!advisorId) {
-        e.preventDefault();
-        alert('Error: No se pudo identificar el asesor del slot seleccionado.');
-        return false;
-    }
-});
+const appointmentForm = document.getElementById('appointmentForm');
+if (appointmentForm) {
+    appointmentForm.addEventListener('submit', function(e) {
+        const description = document.getElementById('case_description').value.trim();
+        const slotId = document.getElementById('selected_slot_id').value;
+        const advisorId = document.getElementById('selected_advisor_id').value;
+        
+        // Validar descripción
+        if (!description || description.length < 50) {
+            e.preventDefault();
+            alert('La descripción debe tener al menos 50 caracteres. Actualmente tienes ' + description.length + ' caracteres.');
+            document.getElementById('case_description').focus();
+            return false;
+        }
+        
+        if (description.length > 1000) {
+            e.preventDefault();
+            alert('La descripción no puede exceder 1000 caracteres.');
+            document.getElementById('case_description').focus();
+            return false;
+        }
+        
+        // Validar que haya un slot seleccionado
+        if (!slotId || slotId === '') {
+            e.preventDefault();
+            alert('Debes seleccionar un horario disponible haciendo clic en el botón "Seleccionar" de un slot disponible.');
+            return false;
+        }
+        
+        // Validar que haya un asesor
+        if (!advisorId || advisorId === '') {
+            e.preventDefault();
+            alert('Error: No se pudo identificar el asesor del slot seleccionado. Por favor, selecciona otro horario.');
+            return false;
+        }
+        
+        // Si todo está bien, permitir el envío
+        console.log('✅ Formulario válido, enviando...');
+    });
+}
 </script>
 
 <style>
@@ -526,26 +806,84 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
     color: #0d6efd;
     font-weight: bold;
 }
-.slot-btn {
+.slot-card {
+    border: 1px solid #dee2e6;
     transition: all 0.2s ease;
-    font-size: 0.75rem;
-    padding: 0.25rem;
-    white-space: normal;
-    word-wrap: break-word;
+    margin-bottom: 0 !important;
 }
-.slot-btn:hover {
+.slot-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: #0d6efd;
+}
+.slot-card.border-primary {
+    border-width: 2px !important;
+    background-color: #e7f3ff !important;
+}
+/* Sistema de grid para slots - 3 columnas en desktop */
+#slotsList.row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+}
+#slotsList .col-12,
+#slotsList .col-sm-6,
+#slotsList .col-md-4 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    margin-bottom: 1rem;
+}
+#slotsList .col-12 {
+    flex: 0 0 100%;
+    max-width: 100%;
+}
+#slotsList .col-sm-6 {
+    flex: 0 0 100%;
+    max-width: 100%;
+}
+#slotsList .col-md-4 {
+    flex: 0 0 100%;
+    max-width: 100%;
+}
+@media (min-width: 576px) {
+    #slotsList .col-sm-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+@media (min-width: 768px) {
+    #slotsList .col-md-4 {
+        flex: 0 0 33.33333333%;
+        max-width: 33.33333333%;
+    }
+}
+#slotsList .slot-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.select-slot-btn {
+    transition: all 0.2s ease;
+}
+.select-slot-btn:hover {
     transform: scale(1.05);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
-.slot-btn.btn-primary {
-    border-width: 2px;
-    font-weight: bold;
+#submitBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
-#calendarBody .row {
-    min-height: 50px;
+#loadMoreContainer {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #dee2e6;
 }
-#calendarBody .col {
-    border-left: 1px solid #dee2e6;
+#loadMoreBtn {
+    min-width: 200px;
+}
+#loadMoreBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 </style>
 {% endblock %}

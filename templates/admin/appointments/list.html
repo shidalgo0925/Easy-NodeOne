@@ -16,8 +16,11 @@
             <a href="{{ url_for('admin_appointments.list_advisors') }}" class="btn btn-outline-primary">
                 <i class="fas fa-user-tie me-2"></i>Asesores
             </a>
-            <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-success">
-                <i class="fas fa-calendar-alt me-2"></i>Horarios por Servicio
+            <a href="{{ url_for('admin_appointments.calendar_view') }}" class="btn btn-outline-success">
+                <i class="fas fa-calendar me-2"></i>Calendario de Disponibilidad
+            </a>
+            <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-clock me-2"></i>Horarios Semanales
             </a>
         </div>
     </div>

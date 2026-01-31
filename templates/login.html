@@ -25,8 +25,7 @@
                         </div>
                     </form>
                     
-                    {# Login Social - Comentado temporalmente hasta que se implemente OAuth #}
-                    {# 
+                    {# Login social: Google, Facebook, LinkedIn (OAuth). Ver CONFIGURACION_LOGIN_SOCIAL.md #}
                     <div class="mt-4">
                         <div class="text-center mb-3">
                             <span class="text-muted">O continúa con</span>
@@ -55,13 +54,12 @@
                             </small>
                         </div>
                     </div>
-                    #}
                     
                     <hr>
                     <div class="text-center">
-                        {# <p class="mb-2">
+                        <p class="mb-2">
                             <a href="{{ url_for('forgot_password') }}">¿Olvidaste tu contraseña?</a>
-                        </p> #}
+                        </p>
                         <p class="mb-0">¿No tienes una cuenta? <a href="{{ url_for('register') }}">Regístrate aquí</a></p>
                     </div>
                 </div>

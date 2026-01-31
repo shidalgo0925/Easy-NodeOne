@@ -6,7 +6,7 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="display-6 mb-3">
+            <h1 class="h5 mb-2">
                 <i class="fas fa-envelope"></i> Configuración de Email
             </h1>
             <p class="text-muted">Configura el servidor SMTP y edita los templates de correo</p>
@@ -138,7 +138,7 @@
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Guardar Configuración
                             </button>
-                            <button type="button" class="btn btn-info" onclick="testEmail()">
+                            <button type="button" class="btn btn-info" onclick="openTestEmailModal()">
                                 <i class="fas fa-paper-plane"></i> Probar Envío
                             </button>
                             <a href="/api/admin/email/preview-welcome" target="_blank" class="btn btn-success">
@@ -314,10 +314,33 @@ document.getElementById('smtp-form').addEventListener('submit', async (e) => {
     }
 });
 
-// Probar envío de email
-async function testEmail() {
-    const email = prompt('Ingresa el email para enviar la prueba:', '{{ current_user.email if current_user else "" }}');
-    if (!email) return;
+// Abrir modal para prueba de email
+function openTestEmailModal() {
+    const modal = new bootstrap.Modal(document.getElementById('testEmailModal'));
+    modal.show();
+}
+
+// Enviar correo de prueba
+async function sendTestEmail() {
+    const emailInput = document.getElementById('test_email_input');
+    const email = emailInput.value.trim();
+    
+    if (!email) {
+        showAlert('Por favor ingresa un email de destino', 'warning');
+        return;
+    }
+    
+    // Validar formato básico de email
+    if (!email.includes('@') || !email.includes('.')) {
+        showAlert('Por favor ingresa un email válido', 'warning');
+        return;
+    }
+    
+    // Mostrar indicador de carga
+    const btn = document.querySelector('#testEmailModal .btn-primary');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
     
     try {
         const response = await fetch('/api/admin/email/test', {
@@ -327,13 +350,29 @@ async function testEmail() {
         });
         
         const data = await response.json();
+        
+        // Cerrar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('testEmailModal'));
+        modal.hide();
+        
         if (data.success) {
-            showAlert(data.message, 'success');
+            showAlert(data.message || `Correo de prueba enviado exitosamente a ${email}`, 'success');
         } else {
-            showAlert(data.error || 'Error al enviar', 'danger');
+            let errorMsg = data.error || 'Error al enviar el correo de prueba';
+            if (data.details && Array.isArray(data.details)) {
+                errorMsg += '<br><small>' + data.details.join('<br>') + '</small>';
+            } else if (data.details) {
+                errorMsg += '<br><small>' + data.details + '</small>';
+            }
+            showAlert(errorMsg, 'danger');
         }
     } catch (error) {
-        showAlert('Error de conexión', 'danger');
+        console.error('Error en sendTestEmail:', error);
+        showAlert('Error de conexión: ' + error.message, 'danger');
+    } finally {
+        // Restaurar botón
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 }
 

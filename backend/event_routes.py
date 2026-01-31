@@ -1054,8 +1054,33 @@ def delete_event(event_id):
 @admin_required
 def discounts_index():
     ensure_models()
-    discounts = Discount.query.order_by(Discount.created_at.desc()).all()
-    return render_template('admin/events/discount_list.html', discounts=discounts)
+    status = request.args.get('status', 'all')
+    discount_type = request.args.get('type', 'all')
+    search = request.args.get('search', '').strip()
+    q = Discount.query
+    if status == 'active':
+        q = q.filter_by(is_active=True)
+    elif status == 'inactive':
+        q = q.filter_by(is_active=False)
+    if discount_type == 'percentage':
+        q = q.filter_by(discount_type='percentage')
+    elif discount_type == 'fixed':
+        q = q.filter_by(discount_type='fixed')
+    if search:
+        q = q.filter(
+            or_(
+                Discount.name.ilike(f'%{search}%'),
+                Discount.code.ilike(f'%{search}%')
+            )
+        )
+    discounts = q.order_by(Discount.created_at.desc()).all()
+    return render_template(
+        'admin/events/discount_list.html',
+        discounts=discounts,
+        current_status=status,
+        current_type=discount_type,
+        search=search,
+    )
 
 
 @admin_events_bp.route('/discounts/create', methods=['GET', 'POST'])

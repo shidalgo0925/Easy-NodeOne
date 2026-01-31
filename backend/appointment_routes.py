@@ -36,6 +36,7 @@ AppointmentPricing = None
 AdvisorAvailability = None
 AdvisorServiceAvailability = None
 ActivityLog = None
+Service = None
 
 
 def init_models():
@@ -51,7 +52,9 @@ def init_models():
     global AppointmentPricing
     global AdvisorAvailability
     global AdvisorServiceAvailability
+    global DailyServiceAvailability
     global ActivityLog
+    global Service
 
     if db is not None:
         return
@@ -68,7 +71,9 @@ def init_models():
         AppointmentPricing as _AppointmentPricing,
         AdvisorAvailability as _AdvisorAvailability,
         AdvisorServiceAvailability as _AdvisorServiceAvailability,
+        DailyServiceAvailability as _DailyServiceAvailability,
         ActivityLog as _ActivityLog,
+        Service as _Service,
     )
 
     db = _db
@@ -82,7 +87,9 @@ def init_models():
     AppointmentPricing = _AppointmentPricing
     AdvisorAvailability = _AdvisorAvailability
     AdvisorServiceAvailability = _AdvisorServiceAvailability
+    DailyServiceAvailability = _DailyServiceAvailability
     ActivityLog = _ActivityLog
+    Service = _Service
 
 
 def ensure_models():
@@ -713,6 +720,248 @@ def generate_slots_from_service_availability(advisor_id, appointment_type_id):
                           appointment_type_id=appointment_type_id))
 
 
+# ===========================================================================
+# GESTIÓN DE DISPONIBILIDAD DIARIA (NUEVO SISTEMA)
+# ===========================================================================
+
+@admin_appointments_bp.route('/calendar')
+@admin_required
+def calendar_view():
+    """Vista de calendario visual para configurar disponibilidad (Servicio + Asesor + Hora)"""
+    ensure_models()
+    
+    # Obtener servicios que requieren cita (tienen appointment_type_id)
+    services = Service.query.filter(
+        Service.is_active == True,
+        Service.appointment_type_id.isnot(None)
+    ).order_by(Service.display_order, Service.name).all()
+    
+    # Obtener asesores activos
+    advisors = Advisor.query.filter_by(is_active=True).order_by(Advisor.created_at.desc()).all()
+    
+    return render_template(
+        'admin/appointments/calendar.html',
+        services=services,
+        advisors=advisors,
+    )
+
+
+@admin_appointments_bp.route('/calendar/configure/<date>', methods=['GET', 'POST'])
+@admin_required
+def configure_daily_availability(date):
+    """Configurar disponibilidad para un día específico"""
+    ensure_models()
+    
+    try:
+        selected_date = datetime.strptime(date, '%Y-%m-%d').date()
+    except ValueError:
+        flash('Fecha inválida.', 'error')
+        return redirect(url_for('admin_appointments.calendar_view'))
+    
+    # Verificar que la fecha no sea en el pasado
+    if selected_date < datetime.now().date():
+        flash('No se puede configurar disponibilidad para fechas pasadas.', 'error')
+        return redirect(url_for('admin_appointments.calendar_view'))
+    
+    if request.method == 'POST':
+        # Obtener datos del formulario
+        appointment_type_id = request.form.get('appointment_type_id', type=int)
+        advisor_id = request.form.get('advisor_id', type=int)
+        
+        if not appointment_type_id or not advisor_id:
+            flash('Debes seleccionar un servicio y un asesor.', 'error')
+            return redirect(url_for('admin_appointments.configure_daily_availability', date=date))
+        
+        # Verificar que el asesor está asignado al servicio
+        assignment = AppointmentAdvisor.query.filter_by(
+            appointment_type_id=appointment_type_id,
+            advisor_id=advisor_id,
+            is_active=True
+        ).first()
+        
+        if not assignment:
+            flash('El asesor seleccionado no está asignado a este servicio.', 'error')
+            return redirect(url_for('admin_appointments.configure_daily_availability', date=date))
+        
+        # Iniciar transacción
+        try:
+            # Eliminar disponibilidades existentes para este día, servicio y asesor
+            DailyServiceAvailability.query.filter_by(
+                date=selected_date,
+                appointment_type_id=appointment_type_id,
+                advisor_id=advisor_id
+            ).delete()
+            
+            # Procesar horarios enviados
+            start_times = request.form.getlist('start_time')
+            end_times = request.form.getlist('end_time')
+            
+            created_count = 0
+            for start_str, end_str in zip(start_times, end_times):
+                if start_str and end_str:
+                    try:
+                        start_time = datetime.strptime(start_str, '%H:%M').time()
+                        end_time = datetime.strptime(end_str, '%H:%M').time()
+                        
+                        if end_time > start_time:
+                            availability = DailyServiceAvailability(
+                                date=selected_date,
+                                advisor_id=advisor_id,
+                                appointment_type_id=appointment_type_id,
+                                start_time=start_time,
+                                end_time=end_time,
+                                timezone=request.form.get('timezone', 'America/Panama'),
+                                is_active=True,
+                                created_by=current_user.id
+                            )
+                            db.session.add(availability)
+                            created_count += 1
+                    except ValueError:
+                        continue
+            
+            # Commit de disponibilidades
+            db.session.commit()
+            
+            # Generar slots automáticamente desde la disponibilidad diaria
+            if created_count > 0:
+                _generate_slots_from_daily_availability(selected_date, advisor_id, appointment_type_id)
+            
+            # Log de actividad
+            advisor = Advisor.query.get(advisor_id)
+            appointment_type = AppointmentType.query.get(appointment_type_id)
+            ActivityLog.log_activity(
+                current_user.id,
+                'configure_daily_availability',
+                'daily_service_availability',
+                advisor_id,
+                f'Configuró disponibilidad para {selected_date.strftime("%d/%m/%Y")} - {appointment_type.name if appointment_type else "N/A"} - {advisor.user.first_name if advisor and advisor.user else "N/A"}',
+                request
+            )
+            
+            flash(f'Disponibilidad configurada correctamente. Se crearon {created_count} bloques de horario.', 'success')
+            return redirect(url_for('admin_appointments.calendar_view', saved='true'))
+            
+        except Exception as e:
+            # Rollback en caso de error
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            flash(f'Error al guardar disponibilidad: {str(e)}', 'error')
+            return redirect(url_for('admin_appointments.configure_daily_availability', date=date))
+    
+    # GET: Mostrar formulario
+    appointment_types = AppointmentType.query.filter_by(is_active=True).order_by(AppointmentType.display_order, AppointmentType.name).all()
+    advisors = Advisor.query.filter_by(is_active=True).order_by(Advisor.created_at.desc()).all()
+    
+    # Obtener disponibilidades existentes para este día
+    existing_availabilities = DailyServiceAvailability.query.filter_by(
+        date=selected_date,
+        is_active=True
+    ).order_by('appointment_type_id', 'advisor_id', 'start_time').all()
+    
+    # Agrupar por servicio y asesor
+    availabilities_by_service_advisor = {}
+    for av in existing_availabilities:
+        key = (av.appointment_type_id, av.advisor_id)
+        if key not in availabilities_by_service_advisor:
+            availabilities_by_service_advisor[key] = []
+        availabilities_by_service_advisor[key].append(av)
+    
+    return render_template(
+        'admin/appointments/configure_daily.html',
+        selected_date=selected_date,
+        appointment_types=appointment_types,
+        advisors=advisors,
+        availabilities_by_service_advisor=availabilities_by_service_advisor,
+    )
+
+
+def _generate_slots_from_daily_availability(date, advisor_id, appointment_type_id):
+    """
+    Genera slots automáticamente desde disponibilidad diaria configurada.
+    Se ejecuta cuando se guarda una configuración diaria.
+    """
+    ensure_models()
+    
+    advisor = Advisor.query.get(advisor_id)
+    appointment_type = AppointmentType.query.get(appointment_type_id)
+    
+    if not advisor or not appointment_type:
+        return []
+    
+    # Obtener disponibilidades del día
+    availabilities = DailyServiceAvailability.query.filter_by(
+        date=date,
+        advisor_id=advisor_id,
+        appointment_type_id=appointment_type_id,
+        is_active=True
+    ).all()
+    
+    if not availabilities:
+        return []
+    
+    # Duración del slot
+    slot_duration = appointment_type.duration()
+    
+    slots_created = []
+    
+    for availability in availabilities:
+        # Combinar fecha con hora de inicio
+        slot_start = datetime.combine(date, availability.start_time)
+        slot_end_time = availability.end_time
+        
+        # Generar slots dentro de este bloque de disponibilidad
+        current_slot_start = slot_start
+        
+        while current_slot_start.time() < slot_end_time:
+            current_slot_end = current_slot_start + slot_duration
+            
+            # Verificar que el slot no exceda el bloque de disponibilidad
+            if current_slot_end.time() > slot_end_time:
+                break
+            
+            # Verificar que no esté en el pasado
+            if current_slot_start < datetime.utcnow():
+                current_slot_start += slot_duration
+                continue
+            
+            # Verificar que no exista ya un slot en este horario
+            existing_slot = AppointmentSlot.query.filter(
+                AppointmentSlot.advisor_id == advisor_id,
+                AppointmentSlot.appointment_type_id == appointment_type_id,
+                AppointmentSlot.start_datetime == current_slot_start,
+                AppointmentSlot.is_available == True
+            ).first()
+            
+            if not existing_slot:
+                # Verificar conflictos con otros slots del mismo asesor
+                conflicting = AppointmentSlot.query.filter(
+                    AppointmentSlot.advisor_id == advisor_id,
+                    AppointmentSlot.start_datetime < current_slot_end,
+                    AppointmentSlot.end_datetime > current_slot_start,
+                    AppointmentSlot.is_available == True
+                ).first()
+                
+                if not conflicting:
+                    # Crear nuevo slot
+                    new_slot = AppointmentSlot(
+                        appointment_type_id=appointment_type_id,
+                        advisor_id=advisor_id,
+                        start_datetime=current_slot_start,
+                        end_datetime=current_slot_end,
+                        capacity=1,
+                        is_available=True,
+                        is_auto_generated=True
+                    )
+                    db.session.add(new_slot)
+                    slots_created.append(new_slot)
+            
+            current_slot_start += slot_duration
+    
+    db.session.commit()
+    return slots_created
+
+
 # ---------------------------------------------------------------------------
 # API Pública mínima (slots disponibles)
 # ---------------------------------------------------------------------------
@@ -1001,4 +1250,93 @@ def advisor_assign_slot_to_appointment(appointment_id):
     
     flash(f'Slot asignado. Cita confirmada para {slot.start_datetime.strftime("%d/%m/%Y %H:%M")}', 'success')
     return redirect(url_for('appointments.advisor_queue'))
+
+
+# ===========================================================================
+# API PARA CALENDARIO ADMINISTRATIVO
+# ===========================================================================
+
+@appointments_api_bp.route('/admin/availability', methods=['GET'])
+@admin_required
+def api_admin_availability():
+    """API para obtener disponibilidades configuradas para el calendario"""
+    ensure_models()
+    
+    try:
+        # Parámetros según instrucción técnica
+        service_id = request.args.get('service_id', type=int)
+        advisor_id = request.args.get('advisor_id', type=int)
+        start_date = request.args.get('start')  # YYYY-MM-DD (week_start)
+        end_date = request.args.get('end')  # YYYY-MM-DD (week_end)
+        
+        # Validar parámetros obligatorios
+        if not service_id or not advisor_id:
+            return jsonify({'success': False, 'error': 'service_id y advisor_id son obligatorios'}), 400
+        
+        # Obtener appointment_type_id del servicio
+        from app import Service as ServiceModel
+        service = ServiceModel.query.get(service_id)
+        if not service or not service.appointment_type_id:
+            return jsonify({'success': False, 'error': 'Servicio no encontrado o sin appointment_type'}), 404
+        
+        appointment_type_id = service.appointment_type_id
+        
+        # Parsear fechas
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
+            except:
+                start_dt = datetime.now().date()
+        else:
+            start_dt = datetime.now().date()
+        
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except:
+                end_dt = start_dt + timedelta(days=30)
+        else:
+            end_dt = start_dt + timedelta(days=30)
+        
+        # Construir query
+        query = DailyServiceAvailability.query.filter(
+            DailyServiceAvailability.date >= start_dt,
+            DailyServiceAvailability.date <= end_dt,
+            DailyServiceAvailability.is_active == True
+        )
+        
+        # Filtrar por appointment_type_id si viene
+        if appointment_type_id:
+            query = query.filter(DailyServiceAvailability.appointment_type_id == appointment_type_id)
+        
+        # Filtrar por advisor_id si viene
+        if advisor_id:
+            query = query.filter(DailyServiceAvailability.advisor_id == advisor_id)
+        
+        availabilities = query.order_by(DailyServiceAvailability.date, DailyServiceAvailability.start_time).all()
+        
+        # Formatear respuesta
+        availabilities_data = []
+        for av in availabilities:
+            availabilities_data.append({
+                'id': av.id,
+                'date': av.date.isoformat(),
+                'start_time': av.start_time.strftime('%H:%M'),
+                'end_time': av.end_time.strftime('%H:%M'),
+                'appointment_type_id': av.appointment_type_id,
+                'advisor_id': av.advisor_id,
+                'appointment_type_name': av.appointment_type.name if av.appointment_type else 'N/A',
+                'advisor_name': f"{av.advisor.user.first_name} {av.advisor.user.last_name}" if av.advisor and av.advisor.user else 'Asesor'
+            })
+        
+        return jsonify({
+            'success': True,
+            'availabilities': availabilities_data,
+            'total': len(availabilities_data)
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
 

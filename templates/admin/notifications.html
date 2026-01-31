@@ -6,7 +6,7 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="display-6 mb-3">
+            <h1 class="h5 mb-2">
                 <i class="fas fa-bell"></i> Configuración de Notificaciones
             </h1>
             <p class="text-muted">Activa o desactiva los diferentes tipos de notificaciones por email del sistema</p>
@@ -22,16 +22,10 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Acciones Rápidas</h5>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-success" onclick="enableAll()">
-                            <i class="fas fa-check-circle"></i> Habilitar Todas
-                        </button>
-                        <button type="button" class="btn btn-danger" onclick="disableAll()">
-                            <i class="fas fa-times-circle"></i> Deshabilitar Todas
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="saveAll()">
-                            <i class="fas fa-save"></i> Guardar Cambios
-                        </button>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-success" onclick="enableAll()"><i class="fas fa-check-circle"></i> Habilitar Todas</button>
+                        <button type="button" class="btn btn-danger" onclick="disableAll()"><i class="fas fa-times-circle"></i> Deshabilitar Todas</button>
+                        <button type="button" class="btn btn-primary" onclick="saveAll()"><i class="fas fa-save"></i> Guardar</button>
                     </div>
                 </div>
             </div>

@@ -2,6 +2,25 @@
 
 {% block title %}{{ appointment_type.name }} - Citas{% endblock %}
 
+{% block extra_head %}
+<!-- FullCalendar CSS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
+<style>
+    #appointments-calendar {
+        margin-top: 1rem;
+    }
+    .fc-event {
+        cursor: pointer;
+    }
+    .fc-event:hover {
+        opacity: 0.8;
+    }
+    .view-toggle {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
 {% block page_content %}
 <section class="py-5 bg-dark text-white">
     <div class="container">
@@ -56,58 +75,93 @@
     <div class="container">
         <div class="row g-4">
             <div class="col-lg-8">
+                <!-- Toggle entre Vista de Calendario y Tabla -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h3 class="h5 mb-0">Agenda disponible</h3>
-                            <span class="text-muted small">{{ slots|length }} horarios publicados</span>
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="text-muted small">{{ slots|length }} horarios publicados</span>
+                                <div class="btn-group btn-group-sm view-toggle" role="group">
+                                    <button type="button" class="btn btn-outline-primary active" id="view-calendar-btn">
+                                        <i class="fas fa-calendar-alt me-1"></i>Calendario
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" id="view-table-btn">
+                                        <i class="fas fa-list me-1"></i>Lista
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        {% if slots %}
-                        <div class="table-responsive">
-                            <table class="table align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Hora</th>
-                                        <th>Asesor</th>
-                                        <th class="text-center">Cupos</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for slot in slots %}
-                                    <tr>
-                                        <td>{{ slot.start_datetime.strftime('%d %b %Y') }}</td>
-                                        <td>{{ slot.start_datetime.strftime('%H:%M') }} - {{ slot.end_datetime.strftime('%H:%M') }}</td>
-                                        <td>
-                                            {% if slot.advisor and slot.advisor.user %}
-                                                {{ slot.advisor.user.first_name }} {{ slot.advisor.user.last_name }}
-                                            {% else %}
-                                                Asesor asignado
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-light text-dark">{{ slot.remaining_seats() }} / {{ slot.capacity }}</span>
-                                        </td>
-                                        <td class="text-end">
-                                            <form action="{{ url_for('appointments.book_appointment', slot_id=slot.id) }}" method="post" class="d-inline-flex gap-2">
-                                                <input type="hidden" name="notes" value="">
-                                                <button type="submit" class="btn btn-primary btn-sm" {% if membership is none %}disabled{% endif %}>
-                                                    Reservar
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                        
+                        <!-- Vista de Calendario -->
+                        <div id="calendar-view">
+                            {% if slots %}
+                            <div id="appointments-calendar"></div>
+                            <div id="calendar-status" class="mt-3">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>{{ slots|length }} horario(s) disponible(s)</strong> - Haz clic en un bloque verde para reservar
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>No hay slots disponibles en este momento.</strong><br>
+                                Los slots aparecerán aquí cuando se configuren en el calendario administrativo. 
+                                <a href="{{ url_for('appointments.appointments_home') }}" class="alert-link">Volver a servicios</a>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% else %}
-                        <div class="alert alert-info d-flex align-items-center mb-0">
-                            <i class="fas fa-info-circle me-3"></i>
-                            <div>No hay slots publicados aún. Vuelve a revisar o contacta a un asesor para solicitar disponibilidad.</div>
+                        
+                        <!-- Vista de Tabla (oculta por defecto) -->
+                        <div id="table-view" style="display: none;">
+                            {% if slots %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Hora</th>
+                                            <th>Asesor</th>
+                                            <th class="text-center">Cupos</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for slot in slots %}
+                                        <tr>
+                                            <td>{{ slot.start_datetime.strftime('%d %b %Y') }}</td>
+                                            <td>{{ slot.start_datetime.strftime('%H:%M') }} - {{ slot.end_datetime.strftime('%H:%M') }}</td>
+                                            <td>
+                                                {% if slot.advisor and slot.advisor.user %}
+                                                    {{ slot.advisor.user.first_name }} {{ slot.advisor.user.last_name }}
+                                                {% else %}
+                                                    Asesor asignado
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-light text-dark">{{ slot.remaining_seats() }} / {{ slot.capacity }}</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <form action="{{ url_for('appointments.book_appointment', slot_id=slot.id) }}" method="post" class="d-inline-flex gap-2">
+                                                    <input type="hidden" name="notes" value="">
+                                                    <button type="submit" class="btn btn-primary btn-sm" {% if membership is none %}disabled{% endif %}>
+                                                        Reservar
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info d-flex align-items-center mb-0">
+                                <i class="fas fa-info-circle me-3"></i>
+                                <div>No hay slots publicados aún. Vuelve a revisar o contacta a un asesor para solicitar disponibilidad.</div>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </div>
                 </div>
 
@@ -196,5 +250,350 @@
         </div>
     </div>
 </section>
+
+<!-- Modal para Reservar Cita desde Calendario -->
+<div class="modal fade" id="bookAppointmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-calendar-check me-2"></i>Reservar Cita
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bookAppointmentForm" method="POST">
+                    <input type="hidden" name="slot_id" id="modal_slot_id">
+                    <input type="hidden" name="notes" id="modal_notes" value="">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Fecha y Hora</label>
+                        <input type="text" class="form-control" id="modal_datetime" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Asesor</label>
+                        <input type="text" class="form-control" id="modal_advisor" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Cupos Disponibles</label>
+                        <input type="text" class="form-control" id="modal_seats" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modal_notes_input" class="form-label">Notas (opcional)</label>
+                        <textarea class="form-control" id="modal_notes_input" rows="3" placeholder="Agrega alguna nota o comentario para el asesor..."></textarea>
+                    </div>
+                    
+                    <div class="alert alert-warning" id="membership-warning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Necesitas una membresía activa para reservar citas.
+                    </div>
+                    
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="confirmBookBtn" {% if membership is none %}disabled{% endif %}>
+                            <i class="fas fa-check me-2"></i>Confirmar Reserva
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- FullCalendar JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const appointmentTypeId = {{ appointment_type.id }};
+    const hasMembership = {{ 'true' if membership else 'false' }};
+    let calendar = null;
+    
+    // Datos de slots desde el servidor
+    const slotsData = [
+        {% for slot in slots %}
+        {
+            id: {{ slot.id }},
+            start: '{{ slot.start_datetime.isoformat() }}',
+            end: '{{ slot.end_datetime.isoformat() }}',
+            advisor: {% if slot.advisor and slot.advisor.user %}'{{ slot.advisor.user.first_name }} {{ slot.advisor.user.last_name }}'{% else %}'Asesor asignado'{% endif %},
+            remaining: {{ slot.remaining_seats() }},
+            capacity: {{ slot.capacity }},
+            advisorId: {{ slot.advisor_id if slot.advisor_id else 'null' }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    console.log('📅 Slots recibidos del servidor:', slotsData.length);
+    console.log('📅 Datos completos:', slotsData);
+    
+    // Preparar eventos para FullCalendar con formato correcto
+    const calendarEvents = slotsData.map(function(slot) {
+        // Las fechas vienen en formato ISO desde Python
+        // FullCalendar necesita formato ISO8601 con timezone o sin timezone (se asume local)
+        let startStr = slot.start;
+        let endStr = slot.end;
+        
+        // Verificar y corregir formato si es necesario
+        if (startStr && !startStr.match(/[+-]\d{2}:\d{2}$/)) {
+            // Si no tiene timezone, agregar 'Z' para UTC o dejar sin timezone (FullCalendar lo manejará)
+            // Por ahora dejamos sin timezone y FullCalendar usará timeZone: 'local'
+        }
+        
+        const event = {
+            id: 'slot_' + slot.id,
+            title: slot.remaining > 0 ? 
+                `Disponible (${slot.remaining}/${slot.capacity})` : 
+                'Completo',
+            start: startStr,
+            end: endStr,
+            backgroundColor: slot.remaining > 0 ? '#28a745' : '#dc3545',
+            borderColor: slot.remaining > 0 ? '#28a745' : '#dc3545',
+            textColor: '#fff',
+            extendedProps: {
+                slotId: slot.id,
+                advisor: slot.advisor,
+                remaining: slot.remaining,
+                capacity: slot.capacity,
+                advisorId: slot.advisorId
+            },
+            classNames: slot.remaining > 0 ? ['available-slot'] : ['full-slot']
+        };
+        
+        console.log('📅 Evento preparado:', {
+            id: event.id,
+            title: event.title,
+            start: event.start,
+            end: event.end,
+            startDate: new Date(event.start),
+            isValid: !isNaN(new Date(event.start).getTime())
+        });
+        
+        return event;
+    });
+    
+    console.log('📅 Total eventos preparados:', calendarEvents.length);
+    
+    // Inicializar calendario
+    const calendarEl = document.getElementById('appointments-calendar');
+    if (!calendarEl) {
+        console.error('❌ Elemento #appointments-calendar no encontrado');
+    }
+    
+    if (calendarEl) {
+        console.log('✅ Inicializando FullCalendar...');
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            locale: 'es',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            slotMinTime: '08:00:00',
+            slotMaxTime: '20:00:00',
+            slotDuration: '00:30:00',
+            allDaySlot: false,
+            selectable: false,
+            height: 'auto',
+            timeZone: 'local', // Usar timezone local del navegador
+            events: calendarEvents,
+            eventDidMount: function(info) {
+                console.log('✅ Evento renderizado:', info.event.title, 'en', info.event.start);
+            },
+            eventClick: function(info) {
+                const slotId = info.event.extendedProps.slotId;
+                const slot = slotsData.find(s => s.id === slotId);
+                
+                if (!slot) return;
+                
+                if (slot.remaining <= 0) {
+                    alert('Este horario ya no tiene cupos disponibles.');
+                    return;
+                }
+                
+                if (!hasMembership) {
+                    document.getElementById('membership-warning').style.display = 'block';
+                }
+                
+                // Llenar modal
+                const startDate = new Date(slot.start);
+                const endDate = new Date(slot.end);
+                document.getElementById('modal_slot_id').value = slotId;
+                document.getElementById('modal_datetime').value = 
+                    startDate.toLocaleDateString('es-ES', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    }) + ' de ' + 
+                    startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + 
+                    ' a ' + 
+                    endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('modal_advisor').value = slot.advisor;
+                document.getElementById('modal_seats').value = `${slot.remaining} de ${slot.capacity} cupos disponibles`;
+                
+                // Mostrar modal
+                const modalEl = document.getElementById('bookAppointmentModal');
+                if (modalEl && typeof bootstrap !== 'undefined') {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+            },
+            datesSet: function(info) {
+                // Opcional: Cargar más slots si se cambia de mes/semana
+                // Por ahora usamos los slots que ya vienen del servidor
+            }
+        });
+        
+        calendar.render();
+        console.log('✅ Calendario renderizado');
+        
+        // Si hay slots, navegar al primer slot disponible
+        if (slotsData.length > 0) {
+            const firstSlot = slotsData[0];
+            try {
+                const firstSlotDate = new Date(firstSlot.start);
+                if (!isNaN(firstSlotDate.getTime())) {
+                    console.log('📅 Navegando al primer slot:', firstSlotDate.toISOString());
+                    calendar.gotoDate(firstSlotDate);
+                }
+            } catch(e) {
+                console.error('Error navegando al primer slot:', e);
+            }
+        }
+        
+        // Verificar eventos después de renderizar
+        setTimeout(function() {
+            const renderedEvents = calendar.getEvents();
+            console.log('📅 Eventos renderizados en calendario:', renderedEvents.length);
+            console.log('📅 Vista actual:', calendar.view.type, 'Fecha:', calendar.view.currentStart);
+            
+            if (renderedEvents.length === 0 && slotsData.length > 0) {
+                console.warn('⚠️ PROBLEMA: Hay', slotsData.length, 'slots pero no se renderizaron eventos');
+                console.warn('Verificando formato de fechas y rango visible...');
+                
+                const viewStart = calendar.view.activeStart;
+                const viewEnd = calendar.view.activeEnd;
+                console.log('📅 Rango visible del calendario:', viewStart.toISOString(), 'a', viewEnd.toISOString());
+                
+                slotsData.forEach(function(slot) {
+                    console.log('Slot ID:', slot.id);
+                    console.log('  Start:', slot.start);
+                    console.log('  End:', slot.end);
+                    try {
+                        const testDate = new Date(slot.start);
+                        const isValid = !isNaN(testDate.getTime());
+                        console.log('  - Fecha parseada:', testDate.toISOString(), 'Válida:', isValid);
+                        console.log('  - Dentro del rango visible:', testDate >= viewStart && testDate <= viewEnd);
+                    } catch(e) {
+                        console.error('  - Error parseando fecha:', e);
+                    }
+                });
+                
+                // Mostrar mensaje al usuario
+                const calendarStatus = document.getElementById('calendar-status');
+                if (calendarStatus) {
+                    calendarStatus.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i><strong>Nota:</strong> Hay ' + slotsData.length + ' slots disponibles pero no se están mostrando en el calendario. Intenta navegar a otras fechas o revisa la consola del navegador (F12) para más detalles.</div>';
+                }
+            } else if (renderedEvents.length > 0) {
+                console.log('✅ Éxito: Se renderizaron', renderedEvents.length, 'eventos en el calendario');
+                const calendarStatus = document.getElementById('calendar-status');
+                if (calendarStatus) {
+                    calendarStatus.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i><strong>' + renderedEvents.length + ' horario(s) visible(s)</strong> - Haz clic en un bloque verde para reservar</div>';
+                }
+            }
+        }, 1500);
+    } else {
+        console.error('❌ No se pudo inicializar el calendario - elemento #appointments-calendar no encontrado');
+    }
+    
+    // Toggle entre vista de calendario y tabla
+    const calendarView = document.getElementById('calendar-view');
+    const tableView = document.getElementById('table-view');
+    const viewCalendarBtn = document.getElementById('view-calendar-btn');
+    const viewTableBtn = document.getElementById('view-table-btn');
+    
+    if (viewCalendarBtn) {
+        viewCalendarBtn.addEventListener('click', function() {
+            calendarView.style.display = 'block';
+            tableView.style.display = 'none';
+            viewCalendarBtn.classList.add('active');
+            viewTableBtn.classList.remove('active');
+            if (calendar) {
+                calendar.updateSize();
+            }
+        });
+    }
+    
+    if (viewTableBtn) {
+        viewTableBtn.addEventListener('click', function() {
+            calendarView.style.display = 'none';
+            tableView.style.display = 'block';
+            viewTableBtn.classList.add('active');
+            viewCalendarBtn.classList.remove('active');
+        });
+    }
+    
+    // Manejar formulario de reserva
+    const bookForm = document.getElementById('bookAppointmentForm');
+    const modalNotesInput = document.getElementById('modal_notes_input');
+    
+    if (bookForm) {
+        bookForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const slotId = document.getElementById('modal_slot_id').value;
+            const notes = modalNotesInput ? modalNotesInput.value : '';
+            
+            // Actualizar campo oculto de notas
+            document.getElementById('modal_notes').value = notes;
+            
+            // Crear formulario dinámico para enviar
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/appointments/book/' + slotId;
+            
+            const slotIdInput = document.createElement('input');
+            slotIdInput.type = 'hidden';
+            slotIdInput.name = 'slot_id';
+            slotIdInput.value = slotId;
+            form.appendChild(slotIdInput);
+            
+            const notesInput = document.createElement('input');
+            notesInput.type = 'hidden';
+            notesInput.name = 'notes';
+            notesInput.value = notes;
+            form.appendChild(notesInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
+    
+    // Actualizar notas cuando cambia el textarea
+    if (modalNotesInput) {
+        modalNotesInput.addEventListener('input', function() {
+            document.getElementById('modal_notes').value = this.value;
+        });
+    }
+    
+    // Limpiar modal al cerrar
+    const bookModal = document.getElementById('bookAppointmentModal');
+    if (bookModal) {
+        bookModal.addEventListener('hidden.bs.modal', function() {
+            if (modalNotesInput) {
+                modalNotesInput.value = '';
+            }
+            document.getElementById('membership-warning').style.display = 'none';
+        });
+    }
+});
+</script>
 {% endblock %}
 

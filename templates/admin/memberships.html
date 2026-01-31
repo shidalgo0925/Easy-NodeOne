@@ -6,72 +6,137 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="display-6 mb-3">
+            <h1 class="h5 mb-2">
                 <i class="fas fa-crown"></i> Gestión de Membresías
             </h1>
         </div>
     </div>
 
+    <!-- Filtros en una línea -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h6>
+                </div>
+                <div class="card-body py-2">
+                    <form method="GET" action="{{ url_for('admin_memberships') }}" class="d-flex flex-wrap align-items-end gap-2">
+                        <div class="flex-shrink-0">
+                            <label for="search" class="form-label form-label-sm mb-0">Buscar</label>
+                            <input type="text" class="form-control form-control-sm" id="search" name="search" placeholder="Usuario, email..." value="{{ search }}" style="width:160px">
+                        </div>
+                        <div class="flex-shrink-0">
+                            <label for="type" class="form-label form-label-sm mb-0">Tipo</label>
+                            <select class="form-select form-select-sm" id="type" name="type" style="width:100px">
+                                <option value="all" {% if type_filter == 'all' %}selected{% endif %}>Todos</option>
+                                {% for t in membership_types %}
+                                <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t|title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <label for="status" class="form-label form-label-sm mb-0">Estado</label>
+                            <select class="form-select form-select-sm" id="status" name="status" style="width:95px">
+                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Activas</option>
+                                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactivas</option>
+                            </select>
+                        </div>
+                        <div class="flex-shrink-0 d-flex align-items-center gap-1">
+                            <label for="per_page" class="form-label form-label-sm mb-0 text-nowrap">Pág</label>
+                            <select class="form-select form-select-sm" id="per_page" name="per_page" onchange="this.form.submit()" style="width:60px">
+                                <option value="10" {% if request.args.get('per_page', '10') == '10' %}selected{% endif %}>10</option>
+                                <option value="25" {% if request.args.get('per_page', '10') == '25' %}selected{% endif %}>25</option>
+                                <option value="50" {% if request.args.get('per_page', '10') == '50' %}selected{% endif %}>50</option>
+                                <option value="100" {% if request.args.get('per_page', '10') == '100' %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-search"></i> Filtrar</button>
+                            <a href="{{ url_for('admin_memberships') }}" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i> Limpiar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card shadow-sm">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Membresías</h5>
-                    <span class="badge bg-primary">{{ memberships|length }} membresías</span>
+                    <span class="badge bg-primary">{{ pagination.total }} membresías</span>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
+                        <table class="table table-hover table-sm align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>ID</th>
+                                    <th class="text-nowrap">ID</th>
                                     <th>Usuario</th>
-                                    <th>Tipo</th>
-                                    <th>Fecha Inicio</th>
-                                    <th>Fecha Fin</th>
-                                    <th>Monto</th>
-                                    <th>Estado</th>
-                                    <th>Pago</th>
-                                    <th>Acciones</th>
+                                    <th class="text-nowrap">Tipo</th>
+                                    <th class="text-nowrap">Estado</th>
+                                    <th class="text-nowrap text-end">Fecha fin</th>
+                                    <th class="text-nowrap text-end">Monto</th>
+                                    <th class="text-nowrap text-end">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for membership in memberships %}
                                 <tr>
-                                    <td>{{ membership.id }}</td>
-                                    <td>{{ membership.user.first_name }} {{ membership.user.last_name }}</td>
-                                    <td>
-                                        <span class="badge bg-primary">{{ membership.membership_type.title() }}</span>
+                                    <td class="text-nowrap">{{ membership.id }}</td>
+                                    <td class="text-truncate" style="max-width:140px;" title="{{ membership.user.first_name }} {{ membership.user.last_name }} - {{ membership.user.email }}">{{ membership.user.first_name }} {{ membership.user.last_name }}</td>
+                                    <td class="text-nowrap"><span class="badge bg-primary">{{ membership.membership_type|title }}</span></td>
+                                    <td class="text-nowrap">
+                                        <span class="badge bg-{{ 'success' if membership.is_active else 'danger' }}">{{ 'Activa' if membership.is_active else 'Inactiva' }}</span>
+                                        <span class="badge bg-{{ 'success' if membership.payment_status == 'paid' else 'warning text-dark' }}">{{ membership.payment_status|title }}</span>
                                     </td>
-                                    <td>{{ membership.start_date.strftime('%d/%m/%Y') }}</td>
-                                    <td>{{ membership.end_date.strftime('%d/%m/%Y') }}</td>
-                                    <td>${{ "%.2f"|format(membership.amount) }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ 'success' if membership.is_active else 'danger' }}">
-                                            {{ 'Activa' if membership.is_active else 'Inactiva' }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-{{ 'success' if membership.payment_status == 'paid' else 'warning' }}">
-                                            {{ membership.payment_status.title() }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="alert('Funcionalidad pendiente')">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
+                                    <td class="text-nowrap text-end small text-muted">{{ membership.end_date.strftime('%d/%m/%Y') }}</td>
+                                    <td class="text-nowrap text-end">${{ "%.2f"|format(membership.amount) }}</td>
+                                    <td class="text-nowrap text-end">
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="alert('Funcionalidad pendiente')" title="Editar"><i class="fas fa-edit"></i></button>
                                     </td>
                                 </tr>
+                                {% else %}
+                                <tr><td colspan="7" class="text-muted text-center py-2">Sin membresías</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
+
+                    {% if pagination and pagination.pages > 1 %}
+                    <nav aria-label="Paginación" class="p-2">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if pagination.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin_memberships', page=pagination.prev_num, search=search, type=type_filter, status=status_filter, per_page=request.args.get('per_page', 10)) }}">Anterior</a>
+                            </li>
+                            {% endif %}
+                            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                {% if page_num %}
+                                    {% if page_num == pagination.page %}
+                                    <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('admin_memberships', page=page_num, search=search, type=type_filter, status=status_filter, per_page=request.args.get('per_page', 10)) }}">{{ page_num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if pagination.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin_memberships', page=pagination.next_num, search=search, type=type_filter, status=status_filter, per_page=request.args.get('per_page', 10)) }}">Siguiente</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
-
-
-

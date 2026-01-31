@@ -968,6 +968,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (calendarEl) {
         // Preparar eventos para FullCalendar
         const calendarEvents = [
+            {% if all_public_events %}
             {% for event in all_public_events %}
             {
                 id: {{ event.id }},
@@ -981,10 +982,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 extendedProps: {
                     category: {{ (event.category if event.category else "")|tojson }},
                     location: {{ (event.location if event.location else "")|tojson }},
-                    is_virtual: {{ 'true' if event.is_virtual else 'false' }}
+                    is_virtual: {{ (True if event.is_virtual else False)|tojson }}
                 }
             }{% if not loop.last %},{% endif %}
             {% endfor %}
+            {% endif %}
         ];
 
         const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -1190,6 +1192,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const backdrop = document.getElementById('onboardingBackdrop');
                 if (onboardingModal) onboardingModal.remove();
                 if (backdrop) backdrop.remove();
+            }).catch(err => {
+                console.error('Error marking onboarding as seen:', err);
             });
         });
     }

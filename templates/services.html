@@ -101,7 +101,8 @@
                                 {% endif %}
                             {% endif %}
                             
-                            {# Botones de precio y carrito solo para planes no básicos #}
+                            {# Mostrar información de precio e inclusión, pero sin botón de carrito #}
+                            {# El botón "Agregar al Carrito" solo está disponible dentro del flujo de "Solicitar Cita" #}
                             {% if plan_type != 'basic' %}
                                 {% if service.pricing.is_included and service.pricing.final_price == 0 %}
                                 <span class="badge bg-success">Incluido en tu plan</span>
@@ -115,11 +116,10 @@
                                     </div>
                                 </div>
                                 {% endif %}
-                                <button onclick="addServiceToCart('{{ service.name|replace("'", "\\'") }}', '{{ service.description|replace("'", "\\'") }}', {{ service.id }})" 
-                                        class="btn btn-sm btn-success w-100">
-                                    <i class="fas fa-cart-plus"></i> Agregar al Carrito
-                                    <strong class="ms-1">${{ "%.2f"|format(service.pricing.final_price) }}</strong>
-                                </button>
+                                <div class="text-muted small">
+                                    <strong>${{ "%.2f"|format(service.pricing.final_price) }}</strong>
+                                    <small class="d-block mt-1">Usa "Solicitar Cita" para agregar al carrito</small>
+                                </div>
                                 {% endif %}
                             {% endif %}
                         </div>
@@ -135,7 +135,7 @@
         {# Fallback: Datos hardcodeados #}
         {% set plans = [
             {
-                'name': 'GRATIS / BÁSICO',
+                'name': 'Sin costo / BÁSICO',
                 'price': '$0',
                 'badge': 'Incluido con la membresía gratuita',
                 'color': 'bg-success',
@@ -217,11 +217,11 @@
                                 Ver más <i class="fas fa-arrow-right ms-1"></i>
                             </a>
                             {% endif %}
+                            {# Botón de carrito eliminado - los servicios deben usar el flujo de "Solicitar Cita" #}
                             {% if plan.name != 'GRATIS / BÁSICO' %}
-                            <button onclick="addServiceToCart('{{ service.title|replace("'", "\\'") }}', '{{ service.description|replace("'", "\\'") }}', '{{ plan.name|lower|replace(' ', '_')|replace('/', '_') }}_{{ service.title|lower|replace(' ', '_') }}')" 
-                                    class="btn btn-sm btn-success">
-                                <i class="fas fa-cart-plus"></i> Agregar al Carrito
-                            </button>
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-info-circle me-1"></i>Usa "Solicitar Cita" para agregar al carrito
+                            </small>
                             {% endif %}
                         </div>
                     </div>

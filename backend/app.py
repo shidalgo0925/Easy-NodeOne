@@ -52,6 +52,9 @@ try:
         get_event_update_email,
         get_appointment_confirmation_email,
         get_appointment_reminder_email,
+        get_appointment_created_email,
+        get_appointment_new_advisor_email,
+        get_appointment_new_admin_email,
         get_welcome_email,
         get_password_reset_email,
         get_email_verification_email
@@ -70,6 +73,15 @@ except ImportError:
     PAYMENT_PROCESSORS_AVAILABLE = False
     print("⚠️ Payment processors no disponibles.")
     PAYMENT_METHODS = {}
+
+# OAuth (login social)
+try:
+    from authlib.integrations.flask_client import OAuth
+    OAUTH_AVAILABLE = True
+except ImportError:
+    OAuth = None
+    OAUTH_AVAILABLE = False
+    print("⚠️ Authlib no instalado. Login social no disponible.")
 
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
@@ -146,6 +158,45 @@ def apply_email_config_from_db():
                 email_service = EmailService(mail)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
+
+# OAuth (login social): Google, Facebook, LinkedIn
+oauth = OAuth(app) if OAUTH_AVAILABLE else None
+if oauth:
+    base_url = os.getenv('BASE_URL', '').rstrip('/')  # ej: https://miembros.relatic.org
+    app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '')
+    app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET', '')
+    app.config['FACEBOOK_CLIENT_ID'] = os.getenv('FACEBOOK_CLIENT_ID', '')
+    app.config['FACEBOOK_CLIENT_SECRET'] = os.getenv('FACEBOOK_CLIENT_SECRET', '')
+    app.config['LINKEDIN_CLIENT_ID'] = os.getenv('LINKEDIN_CLIENT_ID', '')
+    app.config['LINKEDIN_CLIENT_SECRET'] = os.getenv('LINKEDIN_CLIENT_SECRET', '')
+    oauth.register(
+        name='google',
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'},
+    )
+    oauth.register(
+        name='facebook',
+        client_kwargs={'scope': 'email public_profile'},
+        authorize_url='https://www.facebook.com/v18.0/dialog/oauth',
+        authorize_params=None,
+        access_token_url='https://graph.facebook.com/v18.0/oauth/access_token',
+        access_token_params=None,
+        userinfo_endpoint='https://graph.facebook.com/v18.0/me?fields=id,name,email,first_name,last_name',
+        userinfo_compliance_fix=lambda client, data: {
+            'sub': str(data.get('id', '')),
+            'name': data.get('name', ''),
+            'given_name': data.get('first_name', ''),
+            'family_name': data.get('last_name', ''),
+            'email': data.get('email', ''),
+        },
+    )
+    oauth.register(
+        name='linkedin',
+        client_kwargs={'scope': 'openid profile email'},
+        authorize_url='https://www.linkedin.com/oauth/v2/authorization',
+        access_token_url='https://www.linkedin.com/oauth/v2/accessToken',
+        userinfo_endpoint='https://api.linkedin.com/v2/userinfo',
+    )
 
 # Inicializar servicio de correo
 if EMAIL_TEMPLATES_AVAILABLE:
@@ -240,7 +291,7 @@ def get_system_logo():
 @app.context_processor
 def inject_logo():
     """Inyectar función para obtener logo en todos los templates"""
-    return dict(get_system_logo=get_system_logo)
+    return dict(get_system_logo=get_system_logo, datetime=datetime)
 
 # Context processor para admin - pasar datos comunes a todas las páginas admin
 @app.context_processor
@@ -482,6 +533,11 @@ class User(UserMixin, db.Model):
     email_verification_token_expires = db.Column(db.DateTime, nullable=True)
     email_verification_sent_at = db.Column(db.DateTime, nullable=True)
     
+    # Recuperación de contraseña
+    password_reset_token = db.Column(db.String(100), unique=True, nullable=True)
+    password_reset_token_expires = db.Column(db.DateTime, nullable=True)
+    password_reset_sent_at = db.Column(db.DateTime, nullable=True)
+    
     # Foto de perfil
     profile_picture = db.Column(db.String(500), nullable=True)  # Ruta a la imagen de perfil
     
@@ -552,6 +608,18 @@ class User(UserMixin, db.Model):
         
         # Fallback al sistema anterior si existe
         return Membership.query.filter_by(user_id=self.id, is_active=True).first()
+
+
+class SocialAuth(db.Model):
+    """Vinculación de usuario con proveedor OAuth (Google, Facebook, LinkedIn)."""
+    __tablename__ = 'social_auth'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    provider = db.Column(db.String(50), nullable=False)  # google, facebook, linkedin
+    provider_user_id = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('provider', 'provider_user_id', name='uq_social_provider_user'),)
+
 
 class Membership(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1597,6 +1665,34 @@ class AdvisorServiceAvailability(db.Model):
     )
 
 
+class DailyServiceAvailability(db.Model):
+    """
+    Disponibilidad específica por día, servicio y asesor.
+    Permite configurar horarios para días específicos en lugar de horarios semanales recurrentes.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False)  # Día específico (ej: 2026-01-15)
+    advisor_id = db.Column(db.Integer, db.ForeignKey('advisor.id'), nullable=False)
+    appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=False)
+    start_time = db.Column(db.Time, nullable=False)  # Hora inicio del bloque (ej: 09:00)
+    end_time = db.Column(db.Time, nullable=False)    # Hora fin del bloque (ej: 12:00)
+    timezone = db.Column(db.String(50), default='America/Panama')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    advisor = db.relationship('Advisor', backref='daily_availabilities')
+    appointment_type = db.relationship('AppointmentType', backref='daily_availabilities')
+    created_by_user = db.relationship('User', backref='daily_availabilities_created', foreign_keys=[created_by])
+    
+    __table_args__ = (
+        db.CheckConstraint('end_time > start_time', name='ck_daily_availability_time_window'),
+        db.Index('idx_daily_availability', 'date', 'advisor_id', 'appointment_type_id'),
+        db.Index('idx_daily_availability_date', 'date'),
+    )
+
+
 class AppointmentPricing(db.Model):
     """Reglas de precio/descuento por tipo de membresía."""
     id = db.Column(db.Integer, primary_key=True)
@@ -2424,8 +2520,10 @@ def delete_all_notifications():
 
 @app.route('/')
 def index():
-    """Página principal"""
-    return render_template('index.html')
+    """Redirige a login (sin landing)."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 
 @app.route('/promocion')
 def promocion():
@@ -2741,6 +2839,106 @@ def login():
     
     return render_template('login.html')
 
+
+@app.route('/auth/<provider>/callback')
+def oauth_callback(provider):
+    """Callback OAuth: intercambia código por token, obtiene userinfo, crea/vincula usuario y hace login."""
+    if not OAUTH_AVAILABLE or provider not in ('google', 'facebook', 'linkedin'):
+        flash('Login social no disponible para este proveedor.', 'error')
+        return redirect(url_for('login'))
+    try:
+        client = getattr(oauth, provider)
+        token = client.authorize_access_token()
+        # Google/OpenID: userinfo suele venir en token['userinfo']; Facebook/LinkedIN a veces hay que pedirlo
+        userinfo = token.get('userinfo')
+        if not userinfo and provider in ('facebook', 'linkedin'):
+            ep = {
+                'facebook': 'https://graph.facebook.com/v18.0/me?fields=id,name,email,first_name,last_name',
+                'linkedin': 'https://api.linkedin.com/v2/userinfo',
+            }
+            resp = client.get(ep[provider], token=token)
+            if resp and getattr(resp, 'status_code', 0) == 200:
+                raw = resp.json()
+                if provider == 'facebook':
+                    userinfo = {
+                        'sub': str(raw.get('id', '')),
+                        'email': raw.get('email', ''),
+                        'name': raw.get('name', ''),
+                        'given_name': raw.get('first_name', ''),
+                        'family_name': raw.get('last_name', ''),
+                    }
+                else:
+                    userinfo = raw
+        if not userinfo:
+            flash('No se pudo obtener la información del perfil.', 'error')
+            return redirect(url_for('login'))
+        # Normalizar campos (OpenID: sub, email, name, given_name, family_name)
+        sub = userinfo.get('sub') or userinfo.get('id') or ''
+        email = (userinfo.get('email') or '').strip().lower()
+        if not email:
+            flash('El proveedor no compartió tu correo. Usa el registro con email.', 'error')
+            return redirect(url_for('login'))
+        name = userinfo.get('name') or ''
+        given_name = userinfo.get('given_name') or name.split(None, 1)[0] if name else ''
+        family_name = userinfo.get('family_name') or (name.split(None, 1)[1] if len(name.split(None, 1)) > 1 else '')
+        provider_user_id = str(sub)
+        # Buscar por SocialAuth o por email
+        social = SocialAuth.query.filter_by(provider=provider, provider_user_id=provider_user_id).first()
+        if social:
+            user = User.query.get(social.user_id)
+        else:
+            user = User.query.filter_by(email=email).first()
+        if not user:
+            user = User(
+                email=email,
+                first_name=given_name or 'Usuario',
+                last_name=family_name or 'Social',
+                phone=None,
+                country=None,
+                cedula_or_passport=None,
+            )
+            user.set_password(secrets.token_urlsafe(32))
+            user.email_verified = True
+            db.session.add(user)
+            db.session.flush()
+            link = SocialAuth(user_id=user.id, provider=provider, provider_user_id=provider_user_id)
+            db.session.add(link)
+            db.session.commit()
+        else:
+            social_existing = SocialAuth.query.filter_by(user_id=user.id, provider=provider).first()
+            if not social_existing:
+                link = SocialAuth(user_id=user.id, provider=provider, provider_user_id=provider_user_id)
+                db.session.add(link)
+                db.session.commit()
+        if not user.is_active:
+            flash('Tu cuenta está desactivada.', 'error')
+            return redirect(url_for('login'))
+        login_user(user)
+        next_page = request.args.get('next') or url_for('dashboard')
+        return redirect(next_page)
+    except Exception as e:
+        print(f"❌ OAuth callback error ({provider}): {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        flash('Error al iniciar sesión con el proveedor. Intenta de nuevo o usa email/contraseña.', 'error')
+        return redirect(url_for('login'))
+
+
+@app.route('/auth/<provider>')
+def oauth_login(provider):
+    """Redirige al proveedor OAuth (Google, Facebook, LinkedIn)."""
+    if not OAUTH_AVAILABLE or provider not in ('google', 'facebook', 'linkedin'):
+        flash('Login social no disponible.', 'error')
+        return redirect(url_for('login'))
+    client = getattr(oauth, provider, None)
+    if not client or not app.config.get(f'{provider.upper()}_CLIENT_ID'):
+        flash(f'Login con {provider.capitalize()} no está configurado.', 'error')
+        return redirect(url_for('login'))
+    redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
+    return client.authorize_redirect(redirect_uri)
+
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -2760,7 +2958,131 @@ def logout():
 
     logout_user()
     flash('Has cerrado sesión exitosamente.', 'info')
-    return redirect(url_for('index'))
+    return redirect('https://relaticpanama.org')
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Solicitar recuperación de contraseña"""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        if not email:
+            flash('Por favor, ingresa tu correo electrónico.', 'error')
+            return render_template('forgot_password.html')
+        
+        # Buscar usuario por email
+        user = User.query.filter_by(email=email).first()
+        
+        # Por seguridad, siempre mostrar mensaje de éxito aunque el email no exista
+        # Esto previene enumeración de usuarios
+        if user and user.is_active:
+            # Generar token de recuperación
+            reset_token = secrets.token_urlsafe(32)
+            expires_at = datetime.utcnow() + timedelta(hours=1)  # Válido por 1 hora
+            
+            # Guardar token en la base de datos
+            user.password_reset_token = reset_token
+            user.password_reset_token_expires = expires_at
+            user.password_reset_sent_at = datetime.utcnow()
+            db.session.commit()
+            
+            # Generar URL de recuperación
+            reset_url = f"{request.url_root.rstrip('/')}/reset-password?token={reset_token}"
+            
+            # Enviar email de recuperación
+            try:
+                if EMAIL_TEMPLATES_AVAILABLE and email_service:
+                    html_content = get_password_reset_email(user, reset_token, reset_url)
+                    email_service.send_email(
+                        to_email=user.email,
+                        subject='Restablecer Contraseña - RelaticPanama',
+                        html_content=html_content,
+                        email_type='password_reset',
+                        recipient_id=user.id,
+                        recipient_email=user.email,
+                        recipient_name=f"{user.first_name} {user.last_name}"
+                    )
+                    flash('Se ha enviado un enlace de recuperación a tu correo electrónico. Revisa tu bandeja de entrada y carpeta de spam.', 'success')
+                else:
+                    flash('Error: El servicio de email no está disponible. Contacta al administrador.', 'error')
+            except Exception as e:
+                print(f"Error enviando email de recuperación: {e}")
+                flash('Error al enviar el email. Por favor, intenta nuevamente o contacta al soporte.', 'error')
+        else:
+            # Mostrar mensaje genérico para no revelar si el email existe
+            flash('Si el correo electrónico existe en nuestro sistema, recibirás un enlace de recuperación.', 'info')
+    
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """Restablecer contraseña con token"""
+    token = request.args.get('token') or request.form.get('token')
+    
+    if not token:
+        flash('Token de recuperación no válido o faltante.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    # Buscar usuario con token válido
+    user = User.query.filter_by(password_reset_token=token).first()
+    
+    if not user:
+        flash('Token de recuperación no válido o expirado.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    # Verificar que el token no haya expirado
+    if user.password_reset_token_expires and user.password_reset_token_expires < datetime.utcnow():
+        flash('El enlace de recuperación ha expirado. Por favor, solicita uno nuevo.', 'error')
+        # Limpiar token expirado
+        user.password_reset_token = None
+        user.password_reset_token_expires = None
+        db.session.commit()
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        new_password = request.form.get('password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        
+        # Validaciones
+        if not new_password:
+            flash('Por favor, ingresa una nueva contraseña.', 'error')
+            return render_template('reset_password.html', token=token, user=user)
+        
+        if len(new_password) < 8:
+            flash('La contraseña debe tener al menos 8 caracteres.', 'error')
+            return render_template('reset_password.html', token=token, user=user)
+        
+        if new_password != confirm_password:
+            flash('Las contraseñas no coinciden.', 'error')
+            return render_template('reset_password.html', token=token, user=user)
+        
+        # Actualizar contraseña
+        user.set_password(new_password)
+        
+        # Limpiar token de recuperación
+        user.password_reset_token = None
+        user.password_reset_token_expires = None
+        user.password_reset_sent_at = None
+        
+        db.session.commit()
+        
+        # Registrar en historial
+        try:
+            from history_module import HistoryLogger
+            HistoryLogger.log_user_action(
+                user_id=user.id,
+                action="Contraseña restablecida",
+                status="success",
+                context={"app": "web", "screen": "reset_password", "module": "auth"},
+                request=request
+            )
+        except Exception as e:
+            pass
+        
+        flash('Tu contraseña ha sido restablecida exitosamente. Puedes iniciar sesión ahora.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', token=token, user=user)
 
 @app.route('/dashboard')
 @login_required
@@ -3901,6 +4223,13 @@ def service_request_appointment(service_id):
     """
     Muestra el formulario para solicitar una cita de un servicio.
     """
+    # Guardar URL de retorno ANTES de iniciar el proceso (punto de retorno seguro)
+    # Prioridad: 1) Parámetro return_url, 2) Referrer, 3) Página de servicios
+    return_url = request.args.get('return_url') or request.referrer or url_for('services')
+    # Solo guardar si es una URL válida del mismo dominio (seguridad)
+    if return_url and (return_url.startswith('/') or return_url.startswith(request.url_root)):
+        session['appointment_return_url'] = return_url
+    
     # Validar servicio
     service = Service.query.get_or_404(service_id)
     if not service.is_active:
@@ -3945,7 +4274,7 @@ def service_request_appointment(service_id):
             advisor = assignment.advisor
             advisor_id = advisor.id
             
-            # Verificar si tiene horarios configurados (específicos o generales)
+            # Verificar si tiene horarios configurados (específicos, generales o diarios)
             has_specific_availability = AdvisorServiceAvailability.query.filter_by(
                 advisor_id=advisor_id,
                 appointment_type_id=service.appointment_type_id,
@@ -3957,8 +4286,38 @@ def service_request_appointment(service_id):
                 is_active=True
             ).first() is not None
             
-            # Solo incluir si tiene algún tipo de disponibilidad
-            if has_specific_availability or has_general_availability:
+            # Verificar disponibilidad diaria (configurada desde el calendario)
+            # También verificar si hay slots generados (que se crean automáticamente desde disponibilidad)
+            today = datetime.utcnow().date()
+            future_date = today + timedelta(days=90)  # Verificar próximos 90 días
+            
+            # Verificar DailyServiceAvailability (disponibilidad diaria configurada)
+            # DailyServiceAvailability está definido en este mismo archivo (app.py)
+            has_daily_availability = False
+            try:
+                has_daily_availability = DailyServiceAvailability.query.filter(
+                    DailyServiceAvailability.advisor_id == advisor_id,
+                    DailyServiceAvailability.appointment_type_id == service.appointment_type_id,
+                    DailyServiceAvailability.date >= today,
+                    DailyServiceAvailability.date <= future_date,
+                    DailyServiceAvailability.is_active == True
+                ).first() is not None
+            except Exception as e:
+                # Si hay error, simplemente no considerar disponibilidad diaria
+                print(f"Error verificando DailyServiceAvailability: {e}")
+                has_daily_availability = False
+            
+            # También verificar si hay slots disponibles (generados desde disponibilidad)
+            has_available_slots = AppointmentSlot.query.filter(
+                AppointmentSlot.advisor_id == advisor_id,
+                AppointmentSlot.appointment_type_id == service.appointment_type_id,
+                AppointmentSlot.start_datetime >= datetime.utcnow(),
+                AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=90),
+                AppointmentSlot.is_available == True
+            ).first() is not None
+            
+            # Solo incluir si tiene algún tipo de disponibilidad o slots disponibles
+            if has_specific_availability or has_general_availability or has_daily_availability or has_available_slots:
                 advisors_list.append({
                     'id': advisor.id,
                     'name': f"{advisor.user.first_name} {advisor.user.last_name}" if advisor.user else 'Asesor',
@@ -3974,9 +4333,10 @@ def service_request_appointment(service_id):
         return redirect(url_for('services'))
     
     # Validar anticipación mínima y máxima (inspirado en Odoo)
+    # Valores por defecto: mínimo 24 horas de anticipación, máximo 90 días
     now = datetime.utcnow()
-    min_schedule_hours = appointment_type.min_schedule_hours or 24
-    max_schedule_days = appointment_type.max_schedule_days or 90
+    min_schedule_hours = 24  # Mínimo 24 horas de anticipación
+    max_schedule_days = 90   # Máximo 90 días hacia adelante
     
     min_datetime = now + timedelta(hours=min_schedule_hours)
     max_datetime = now + timedelta(days=max_schedule_days)
@@ -3984,15 +4344,24 @@ def service_request_appointment(service_id):
     # Obtener TODOS los slots disponibles para este servicio (sin filtrar por asesor)
     # Primero, generar slots para todos los asesores asignados si no hay suficientes
     for advisor_id in advisors_with_schedules:
-        existing_slots_count = AppointmentSlot.query.filter(
-            AppointmentSlot.advisor_id == advisor_id,
-            AppointmentSlot.appointment_type_id == service.appointment_type_id,
-            AppointmentSlot.start_datetime >= datetime.utcnow(),
-            AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30)
-        ).count()
-        
-        if existing_slots_count < 10:
-            generate_slots_from_availability(advisor_id, service.appointment_type_id, days_ahead=30)
+        try:
+            existing_slots_count = AppointmentSlot.query.filter(
+                AppointmentSlot.advisor_id == advisor_id,
+                AppointmentSlot.appointment_type_id == service.appointment_type_id,
+                AppointmentSlot.start_datetime >= datetime.utcnow(),
+                AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30)
+            ).count()
+            
+            if existing_slots_count < 10:
+                try:
+                    generate_slots_from_availability(advisor_id, service.appointment_type_id, days_ahead=30)
+                except Exception as e:
+                    # Si falla la generación de slots, continuar sin generar
+                    print(f"Error generando slots para asesor {advisor_id}: {e}")
+                    pass
+        except Exception as e:
+            print(f"Error verificando slots para asesor {advisor_id}: {e}")
+            continue
     
     # Obtener todos los slots disponibles del servicio (con relaciones cargadas)
     from sqlalchemy.orm import joinedload
@@ -4011,32 +4380,45 @@ def service_request_appointment(service_id):
     # Preparar slots para JSON (con información del asesor)
     slots_data = []
     for slot in available_slots:
-        advisor_name = 'Asesor'
-        if slot.advisor and slot.advisor.user:
-            advisor_name = f"{slot.advisor.user.first_name} {slot.advisor.user.last_name}"
-        
-        slots_data.append({
-            'id': slot.id,
-            'advisor_id': slot.advisor_id,
-            'advisor_name': advisor_name,
-            'start_datetime': slot.start_datetime.isoformat(),
-            'end_datetime': slot.end_datetime.isoformat(),
-            'capacity': slot.capacity,
-            'remaining_seats': slot.remaining_seats()
-        })
+        try:
+            advisor_name = 'Asesor'
+            if slot.advisor:
+                if slot.advisor.user:
+                    advisor_name = f"{slot.advisor.user.first_name} {slot.advisor.user.last_name}"
+                else:
+                    advisor_name = f"Asesor #{slot.advisor.id}"
+            
+            slots_data.append({
+                'id': slot.id,
+                'advisor_id': slot.advisor_id,
+                'advisor_name': advisor_name,
+                'start_datetime': slot.start_datetime.isoformat() if slot.start_datetime else None,
+                'end_datetime': slot.end_datetime.isoformat() if slot.end_datetime else None,
+                'capacity': slot.capacity if slot.capacity else 1,
+                'remaining_seats': slot.remaining_seats() if hasattr(slot, 'remaining_seats') else 1
+            })
+        except Exception as e:
+            print(f"Error procesando slot {slot.id}: {e}")
+            continue
     
     import json
-    return render_template('services/request_appointment.html',
-                         service=service,
-                         appointment_type=appointment_type,
-                         advisors=advisors_list,
-                         selected_advisor_id=selected_advisor_id,
-                         membership=membership,
-                         pricing=pricing,
-                         deposit_info=deposit_info,
-                         available_slots_json=json.dumps(slots_data),
-                         available_slots=available_slots,  # Mantener para compatibilidad
-                         user=current_user)
+    try:
+        return render_template('services/request_appointment.html',
+                             service=service,
+                             appointment_type=appointment_type,
+                             advisors=advisors_list,
+                             selected_advisor_id=selected_advisor_id,
+                             membership=membership,
+                             pricing=pricing,
+                             deposit_info=deposit_info,
+                             available_slots_json=json.dumps(slots_data),
+                             available_slots=available_slots,  # Mantener para compatibilidad
+                             user=current_user)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al cargar la página de solicitud de cita: {str(e)}', 'error')
+        return redirect(url_for('services'))
 
 
 @app.route('/services/<int:service_id>/request-appointment', methods=['POST'])
@@ -4064,8 +4446,8 @@ def service_request_appointment_submit(service_id):
     case_description = request.form.get('case_description', '').strip()
     
     # Validar descripción del caso
-    if not case_description or len(case_description) < 50:
-        flash('La descripción del caso debe tener al menos 50 caracteres.', 'error')
+    if not case_description or len(case_description) < 20:
+        flash('La descripción del caso debe tener al menos 20 caracteres.', 'error')
         return redirect(url_for('service_request_appointment', service_id=service_id))
     
     if len(case_description) > 1000:
@@ -4239,6 +4621,14 @@ def service_payment_success_callback(payment_id):
     )
     
     flash(f'¡Cita agendada exitosamente! Referencia: {appointment.reference}', 'success')
+    
+    # Retornar a la URL guardada antes de iniciar el proceso (si existe)
+    # Si no hay return_url guardado, usar comportamiento por defecto
+    return_url = session.pop('appointment_return_url', None)
+    if return_url and (return_url.startswith('/') or return_url.startswith(request.url_root)):
+        return redirect(return_url)
+    
+    # Fallback seguro: comportamiento original
     return redirect(url_for('appointments.appointments_home'))
 
 
@@ -4413,6 +4803,20 @@ def api_apply_discount_code():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _make_absolute_url(url):
+    """
+    Convierte una URL relativa a absoluta si es necesario.
+    Retorna None si la URL no es válida.
+    """
+    if not url:
+        return None
+    if url.startswith('http://') or url.startswith('https://'):
+        return url
+    if url.startswith('/'):
+        return request.url_root.rstrip('/') + url
+    return None
+
+
 def redirect_to_stripe_checkout(payment, service, slot):
     """
     Crea una sesión de Stripe Checkout y redirige al usuario.
@@ -4438,7 +4842,8 @@ def redirect_to_stripe_checkout(payment, service, slot):
             }],
             mode='payment',
             success_url=url_for('service_payment_success_callback', payment_id=payment.id, _external=True),
-            cancel_url=url_for('service_request_appointment', service_id=service.id, _external=True),
+            # Cancel URL: usar return_url guardado si existe (convertir a absoluto), sino usar la página de solicitud
+            cancel_url=_make_absolute_url(session.get('appointment_return_url')) or url_for('service_request_appointment', service_id=service.id, _external=True),
             metadata={
                 'payment_id': str(payment.id),
                 'service_id': str(service.id),
@@ -5272,10 +5677,32 @@ def process_cart_after_payment(cart, payment):
                             slot.is_available = False
                         
                         db.session.add(appointment)
+                        db.session.flush()  # Para obtener el ID de la cita
                         print(f"✅ Cita creada: {appointment.reference} para servicio {service.name} en slot {slot_id}")
                         
-                        # TODO: Enviar email de confirmación al usuario
-                        # TODO: Enviar notificación al asesor
+                        # Enviar notificaciones
+                        try:
+                            from app import NotificationEngine
+                            # Obtener el usuario del asesor
+                            advisor_user = None
+                            if advisor_id:
+                                advisor_obj = Advisor.query.get(advisor_id)
+                                if advisor_obj and advisor_obj.user:
+                                    advisor_user = advisor_obj.user
+                            
+                            # Notificar al cliente (usuario que compró)
+                            NotificationEngine.notify_appointment_created(appointment, user, advisor_user, service)
+                            
+                            # Notificar al asesor
+                            if advisor_user:
+                                NotificationEngine.notify_appointment_new_to_advisor(appointment, user, advisor_user, service)
+                            
+                            # Notificar a administradores
+                            NotificationEngine.notify_appointment_new_to_admins(appointment, user, advisor_user, service)
+                        except Exception as e:
+                            print(f"⚠️ Error enviando notificaciones de cita: {e}")
+                            import traceback
+                            traceback.print_exc()
                         
                     except Exception as e:
                         print(f"⚠️ Error creando cita para servicio {service_id} con slot {slot_id}: {e}")
@@ -6406,6 +6833,142 @@ class NotificationEngine:
             db.session.rollback()
     
     @staticmethod
+    def notify_appointment_created(appointment, user, advisor, service):
+        """Notificar al cliente que su cita fue creada después del pago"""
+        try:
+            # Crear notificación para el cliente
+            notification = Notification(
+                user_id=user.id,
+                notification_type='appointment_created',
+                title='Cita Agendada - Pendiente de Confirmación',
+                message=f'Tu cita para "{service.name if service else appointment.appointment_type.name}" ha sido agendada para el {appointment.start_datetime.strftime("%d/%m/%Y")} a las {appointment.start_datetime.strftime("%H:%M")}. Está pendiente de confirmación por el asesor.'
+            )
+            db.session.add(notification)
+            db.session.flush()
+            
+            # Enviar email al cliente
+            if EMAIL_TEMPLATES_AVAILABLE and email_service:
+                try:
+                    from email_templates import get_appointment_created_email
+                    html_content = get_appointment_created_email(appointment, user, advisor, service)
+                    email_service.send_email(
+                        to_email=user.email,
+                        subject='Cita Agendada - RelaticPanama',
+                        html_content=html_content,
+                        email_type='appointment_created',
+                        related_entity_type='appointment',
+                        related_entity_id=appointment.id,
+                        recipient_id=user.id,
+                        recipient_email=user.email,
+                        recipient_name=f"{user.first_name} {user.last_name}"
+                    )
+                    notification.email_sent = True
+                    notification.email_sent_at = datetime.utcnow()
+                    print(f"✅ Email de cita creada enviado a cliente {user.email}")
+                except Exception as e:
+                    print(f"⚠️ Error enviando email de cita creada a cliente: {e}")
+            
+            db.session.commit()
+        except Exception as e:
+            print(f"Error en notify_appointment_created: {e}")
+            db.session.rollback()
+    
+    @staticmethod
+    def notify_appointment_new_to_advisor(appointment, user, advisor, service):
+        """Notificar al asesor sobre nueva cita que requiere confirmación"""
+        if not advisor:
+            return
+        
+        try:
+            # Crear notificación para el asesor
+            notification = Notification(
+                user_id=advisor.id,
+                notification_type='appointment_new',
+                title='Nueva Cita Pendiente de Confirmación',
+                message=f'Nueva cita solicitada por {user.first_name} {user.last_name} para "{service.name if service else appointment.appointment_type.name}" el {appointment.start_datetime.strftime("%d/%m/%Y")} a las {appointment.start_datetime.strftime("%H:%M")}. Requiere tu confirmación.'
+            )
+            db.session.add(notification)
+            db.session.flush()
+            
+            # Enviar email al asesor
+            if EMAIL_TEMPLATES_AVAILABLE and email_service:
+                try:
+                    from email_templates import get_appointment_new_advisor_email
+                    html_content = get_appointment_new_advisor_email(appointment, user, advisor, service)
+                    email_service.send_email(
+                        to_email=advisor.email,
+                        subject='Nueva Cita Pendiente de Confirmación - RelaticPanama',
+                        html_content=html_content,
+                        email_type='appointment_new_advisor',
+                        related_entity_type='appointment',
+                        related_entity_id=appointment.id,
+                        recipient_id=advisor.id,
+                        recipient_email=advisor.email,
+                        recipient_name=f"{advisor.first_name} {advisor.last_name}"
+                    )
+                    notification.email_sent = True
+                    notification.email_sent_at = datetime.utcnow()
+                    print(f"✅ Email de nueva cita enviado a asesor {advisor.email}")
+                except Exception as e:
+                    print(f"⚠️ Error enviando email de nueva cita a asesor: {e}")
+            
+            db.session.commit()
+        except Exception as e:
+            print(f"Error en notify_appointment_new_to_advisor: {e}")
+            db.session.rollback()
+    
+    @staticmethod
+    def notify_appointment_new_to_admins(appointment, user, advisor, service):
+        """Notificar a administradores sobre nueva cita creada"""
+        try:
+            # Obtener todos los administradores activos
+            admins = User.query.filter_by(is_admin=True, is_active=True).all()
+            
+            if not admins:
+                print("⚠️ No se encontraron administradores para notificar")
+                return
+            
+            advisor_name = f"{advisor.first_name} {advisor.last_name}" if advisor else "No asignado"
+            
+            for admin in admins:
+                # Crear notificación para cada administrador
+                notification = Notification(
+                    user_id=admin.id,
+                    notification_type='appointment_new_admin',
+                    title='Nueva Cita Creada',
+                    message=f'Nueva cita creada: {user.first_name} {user.last_name} ({user.email}) solicitó "{service.name if service else appointment.appointment_type.name}" con {advisor_name} para el {appointment.start_datetime.strftime("%d/%m/%Y")} a las {appointment.start_datetime.strftime("%H:%M")}.'
+                )
+                db.session.add(notification)
+                db.session.flush()
+                
+                # Enviar email a cada administrador
+                if EMAIL_TEMPLATES_AVAILABLE and email_service:
+                    try:
+                        from email_templates import get_appointment_new_admin_email
+                        html_content = get_appointment_new_admin_email(appointment, user, advisor, service, admin)
+                        email_service.send_email(
+                            to_email=admin.email,
+                            subject='Nueva Cita Creada - RelaticPanama',
+                            html_content=html_content,
+                            email_type='appointment_new_admin',
+                            related_entity_type='appointment',
+                            related_entity_id=appointment.id,
+                            recipient_id=admin.id,
+                            recipient_email=admin.email,
+                            recipient_name=f"{admin.first_name} {admin.last_name}"
+                        )
+                        notification.email_sent = True
+                        notification.email_sent_at = datetime.utcnow()
+                        print(f"✅ Email de nueva cita enviado a administrador {admin.email}")
+                    except Exception as e:
+                        print(f"⚠️ Error enviando email de nueva cita a administrador {admin.email}: {e}")
+            
+            db.session.commit()
+        except Exception as e:
+            print(f"Error en notify_appointment_new_to_admins: {e}")
+            db.session.rollback()
+    
+    @staticmethod
     def notify_welcome(user):
         """Notificar bienvenida a nuevo usuario"""
         # Verificar si la notificación está habilitada
@@ -6792,7 +7355,7 @@ def admin_users():
     group_filter = request.args.get('group', 'all')
     tag_filter = request.args.get('tag', '').strip()
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
     
     # Construir query base
     query = User.query
@@ -7095,18 +7658,11 @@ def admin_delete_user(user_id):
 @app.route('/admin/memberships')
 @admin_required
 def admin_memberships():
-    """Gestión de membresías (incluye Membership y Subscription)"""
+    """Gestión de membresías (incluye Membership y Subscription) con filtros y paginación"""
     # Obtener membresías antiguas (Membership)
     old_memberships = Membership.query.order_by(Membership.created_at.desc()).all()
-    
-    # Obtener suscripciones nuevas (Subscription)
     subscriptions = Subscription.query.order_by(Subscription.created_at.desc()).all()
-    
-    # Combinar ambas listas para mostrar en el template
-    # Convertir Subscription a formato compatible con Membership para el template
     all_memberships = []
-    
-    # Agregar suscripciones (prioridad)
     for sub in subscriptions:
         all_memberships.append({
             'id': sub.id,
@@ -7114,15 +7670,13 @@ def admin_memberships():
             'membership_type': sub.membership_type,
             'start_date': sub.start_date,
             'end_date': sub.end_date,
-            'amount': sub.payment.amount / 100.0 if sub.payment else 0.0,  # Convertir de centavos
+            'amount': sub.payment.amount / 100.0 if sub.payment else 0.0,
             'is_active': sub.is_currently_active(),
             'payment_status': 'paid' if sub.payment and sub.payment.status == 'succeeded' else 'pending',
             'payment_id': sub.payment_id,
             'is_subscription': True,
             'created_at': sub.created_at
         })
-    
-    # Agregar membresías antiguas
     for mem in old_memberships:
         all_memberships.append({
             'id': mem.id,
@@ -7137,14 +7691,49 @@ def admin_memberships():
             'is_subscription': False,
             'created_at': mem.created_at if hasattr(mem, 'created_at') else datetime.utcnow()
         })
-    
-    # Ordenar por fecha de creación (más recientes primero)
     all_memberships.sort(key=lambda x: x['created_at'], reverse=True)
-    
-    return render_template('admin/memberships.html', 
-                         memberships=all_memberships,
+    membership_types = sorted(set(m.get('membership_type') or '' for m in all_memberships if m.get('membership_type')))
+
+    # Filtros
+    search = request.args.get('search', '').strip().lower()
+    type_filter = request.args.get('type', 'all')
+    status_filter = request.args.get('status', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 10, type=int), 100)
+
+    if search:
+        all_memberships = [m for m in all_memberships if m['user'] and (
+            (m['user'].first_name or '').lower().find(search) >= 0 or
+            (m['user'].last_name or '').lower().find(search) >= 0 or
+            (m['user'].email or '').lower().find(search) >= 0
+        )]
+    if type_filter != 'all':
+        all_memberships = [m for m in all_memberships if (m.get('membership_type') or '').lower() == type_filter.lower()]
+    if status_filter == 'active':
+        all_memberships = [m for m in all_memberships if m.get('is_active')]
+    elif status_filter == 'inactive':
+        all_memberships = [m for m in all_memberships if not m.get('is_active')]
+
+    total = len(all_memberships)
+    pages = max(1, (total + per_page - 1) // per_page) if per_page else 1
+    page = min(max(1, page), pages)
+    start = (page - 1) * per_page
+    memberships = all_memberships[start:start + per_page]
+
+    def _iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2):
+        for p in range(1, pages + 1):
+            yield p
+    pagination = type('Pagination', (), {'page': page, 'per_page': per_page, 'total': total, 'pages': pages, 'has_prev': page > 1, 'has_next': page < pages, 'prev_num': page - 1, 'next_num': page + 1, 'iter_pages': lambda le=1, re=1, lc=2, rc=2: _iter_pages(le, re, lc, rc)})()
+
+    return render_template('admin/memberships.html',
+                         memberships=memberships,
                          subscriptions=subscriptions,
-                         old_memberships=old_memberships)
+                         old_memberships=old_memberships,
+                         pagination=pagination,
+                         search=search,
+                         type_filter=type_filter,
+                         status_filter=status_filter,
+                         membership_types=membership_types)
 
 # Rutas administrativas para gestión de mensajería
 @app.route('/admin/messaging')
@@ -7152,10 +7741,7 @@ def admin_memberships():
 def admin_messaging():
     """Lista de todos los emails enviados"""
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 12, type=int)
-    # Limitar máximo a 100 registros por página
-    if per_page > 100:
-        per_page = 100
+    per_page = min(request.args.get('per_page', 10, type=int), 100)
     email_type = request.args.get('type', 'all')
     status = request.args.get('status', 'all')
     search = request.args.get('search', '')
@@ -8813,8 +9399,8 @@ def admin_discount_codes():
     search = request.args.get('search', '').strip()
     status_filter = request.args.get('status', 'all')
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    
+    per_page = min(request.args.get('per_page', 10, type=int), 100)
+
     query = DiscountCode.query
     
     # Filtro de búsqueda
@@ -9104,8 +9690,17 @@ def api_generate_discount_code():
 @admin_required
 def admin_services():
     """Panel de administración de servicios"""
-    services = Service.query.order_by(Service.display_order, Service.name).all()
-    return render_template('admin/services.html', services=services)
+    status = request.args.get('status', 'all')
+    search = request.args.get('search', '').strip()
+    q = Service.query
+    if status == 'active':
+        q = q.filter_by(is_active=True)
+    elif status == 'inactive':
+        q = q.filter_by(is_active=False)
+    if search:
+        q = q.filter(Service.name.ilike(f'%{search}%'))
+    services = q.order_by(Service.display_order, Service.name).all()
+    return render_template('admin/services.html', services=services, current_status=status, search=search)
 
 @app.route('/api/admin/services/create', methods=['POST'])
 @admin_required
@@ -9559,6 +10154,197 @@ def get_advisor_calendar(advisor_id):
             'events': calendar_events,
             'availability': availability_info,
             'timezone': availabilities[0].timezone if availabilities else 'America/Panama'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/services/<int:service_id>/calendar', methods=['GET'])
+@login_required
+def get_service_calendar(service_id):
+    """
+    Obtener calendario unificado de un servicio.
+    Muestra todos los espacios disponibles de todos los asesores que atienden ese servicio.
+    Formato compatible con FullCalendar.
+    """
+    try:
+        start_date = request.args.get('start')  # YYYY-MM-DD
+        end_date = request.args.get('end')  # YYYY-MM-DD
+        advisor_id_filter = request.args.get('advisor_id', type=int)  # Filtro opcional por asesor
+        
+        # 1. Obtener servicio y verificar que requiere cita
+        service = Service.query.get_or_404(service_id)
+        if not service.is_active:
+            return jsonify({'success': False, 'error': 'Este servicio no está disponible'}), 400
+        
+        if not service.requires_appointment():
+            return jsonify({'success': False, 'error': 'Este servicio no requiere cita'}), 400
+        
+        # 2. Obtener appointment_type_id del servicio
+        appointment_type_id = service.appointment_type_id
+        if not appointment_type_id:
+            return jsonify({'success': False, 'error': 'Este servicio no tiene tipo de cita configurado'}), 400
+        
+        appointment_type = AppointmentType.query.get(appointment_type_id)
+        if not appointment_type or not appointment_type.is_active:
+            return jsonify({'success': False, 'error': 'El tipo de cita asociado no está disponible'}), 400
+        
+        # 3. Obtener TODOS los asesores asignados a este servicio
+        advisor_assignments = AppointmentAdvisor.query.filter_by(
+            appointment_type_id=appointment_type_id,
+            is_active=True
+        ).join(Advisor).filter(Advisor.is_active == True).all()
+        
+        if not advisor_assignments:
+            return jsonify({
+                'success': True,
+                'service': {'id': service.id, 'name': service.name},
+                'advisors': [],
+                'events': [],
+                'total_slots': 0,
+                'message': 'No hay asesores asignados a este servicio'
+            })
+        
+        advisor_ids = [aa.advisor_id for aa in advisor_assignments]
+        
+        # Aplicar filtro de asesor si viene
+        if advisor_id_filter:
+            if advisor_id_filter not in advisor_ids:
+                return jsonify({'success': False, 'error': 'Asesor no asignado a este servicio'}), 400
+            advisor_ids = [advisor_id_filter]
+        
+        # 4. Generar slots para todos los asesores si no hay suficientes
+        for advisor_id in advisor_ids:
+            existing_slots_count = AppointmentSlot.query.filter(
+                AppointmentSlot.advisor_id == advisor_id,
+                AppointmentSlot.appointment_type_id == appointment_type_id,
+                AppointmentSlot.start_datetime >= datetime.utcnow(),
+                AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30)
+            ).count()
+            
+            if existing_slots_count < 10:
+                generate_slots_from_availability(advisor_id, appointment_type_id, days_ahead=30)
+        
+        # 5. Parsear fechas
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            except:
+                start_dt = datetime.utcnow()
+        else:
+            start_dt = datetime.utcnow()
+        
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            except:
+                end_dt = start_dt + timedelta(days=30)
+        else:
+            end_dt = start_dt + timedelta(days=30)
+        
+        # 6. Obtener TODOS los slots disponibles de TODOS los asesores
+        from sqlalchemy.orm import joinedload
+        slots = AppointmentSlot.query.options(
+            joinedload(AppointmentSlot.advisor).joinedload(Advisor.user)
+        ).filter(
+            AppointmentSlot.appointment_type_id == appointment_type_id,
+            AppointmentSlot.advisor_id.in_(advisor_ids),
+            AppointmentSlot.start_datetime >= start_dt,
+            AppointmentSlot.start_datetime < end_dt,
+            AppointmentSlot.is_available == True
+        ).order_by(AppointmentSlot.start_datetime.asc()).all()
+        
+        print(f"Servicio {service_id}: Encontrados {len(slots)} slots disponibles entre {start_dt} y {end_dt}")
+        
+        # 7. Formatear para calendario (FullCalendar)
+        calendar_events = []
+        for slot in slots:
+            try:
+                advisor_name = 'Asesor'
+                if slot.advisor:
+                    if slot.advisor.user:
+                        advisor_name = f"{slot.advisor.user.first_name} {slot.advisor.user.last_name}"
+                    else:
+                        advisor_name = f"Asesor #{slot.advisor.id}"
+                
+                # Validar que start_datetime y end_datetime existan
+                if not slot.start_datetime or not slot.end_datetime:
+                    continue
+                
+                remaining_seats = 1
+                if hasattr(slot, 'remaining_seats'):
+                    try:
+                        remaining_seats = slot.remaining_seats()
+                    except:
+                        remaining_seats = slot.capacity if slot.capacity else 1
+                
+                calendar_events.append({
+                    'id': f'slot_{slot.id}',
+                    'title': f'Disponible - {advisor_name}',
+                    'start': slot.start_datetime.isoformat(),
+                    'end': slot.end_datetime.isoformat(),
+                    'backgroundColor': '#28a745',  # Verde para disponible
+                    'borderColor': '#28a745',
+                    'textColor': '#fff',
+                    'extendedProps': {
+                        'type': 'slot',
+                        'slot_id': slot.id,
+                        'advisor_id': slot.advisor_id,
+                        'advisor_name': advisor_name,
+                        'service_id': service_id,
+                        'service_name': service.name,
+                        'remaining_seats': remaining_seats,
+                        'capacity': slot.capacity if slot.capacity else 1,
+                        'available': True
+                    }
+                })
+            except Exception as e:
+                print(f"Error procesando slot {slot.id}: {e}")
+                continue
+        
+        # 8. Información de asesores
+        advisors_info = []
+        for assignment in advisor_assignments:
+            try:
+                advisor = assignment.advisor
+                if advisor_id_filter and advisor.id != advisor_id_filter:
+                    continue
+                
+                advisor_name = 'Asesor'
+                if advisor.user:
+                    advisor_name = f"{advisor.user.first_name} {advisor.user.last_name}"
+                else:
+                    advisor_name = f"Asesor #{advisor.id}"
+                
+                advisors_info.append({
+                    'id': advisor.id,
+                    'name': advisor_name,
+                    'bio': advisor.bio if advisor.bio else '',
+                    'specializations': advisor.specializations if advisor.specializations else '',
+                    'photo_url': advisor.photo_url if advisor.photo_url else ''
+                })
+            except Exception as e:
+                print(f"Error procesando asesor {assignment.advisor_id}: {e}")
+                continue
+        
+        return jsonify({
+            'success': True,
+            'service': {
+                'id': service.id,
+                'name': service.name,
+                'appointment_type_id': appointment_type_id,
+                'appointment_type_name': appointment_type.name,
+                'duration_minutes': appointment_type.duration_minutes
+            },
+            'advisors': advisors_info,
+            'events': calendar_events,
+            'total_slots': len(calendar_events),
+            'date_range': {
+                'start': start_dt.isoformat(),
+                'end': end_dt.isoformat()
+            }
         })
         
     except Exception as e:

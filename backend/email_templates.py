@@ -388,6 +388,119 @@ def get_appointment_reminder_email(appointment, user, advisor, hours_before=24):
     )
 
 
+def get_appointment_created_email(appointment, user, advisor, service):
+    """Template para email al cliente cuando se crea la cita después del pago"""
+    advisor_name = f"{advisor.first_name} {advisor.last_name}" if advisor else "Asesor asignado"
+    service_name = service.name if service else appointment.appointment_type.name if appointment.appointment_type else "Servicio"
+    start_date = appointment.start_datetime.strftime('%d/%m/%Y') if appointment.start_datetime else "Fecha pendiente"
+    start_time = appointment.start_datetime.strftime('%H:%M') if appointment.start_datetime else "Hora pendiente"
+    
+    content = f"""
+        <h2>Cita Agendada Exitosamente</h2>
+        <p>Hola <strong>{user.first_name} {user.last_name}</strong>,</p>
+        <p>Tu cita ha sido agendada exitosamente después del pago. La cita está <strong>pendiente de confirmación</strong> por parte del asesor.</p>
+        
+        <div class="info-box">
+            <h3 style="margin-top: 0;">Detalles de la Cita:</h3>
+            <ul>
+                <li><strong>Servicio:</strong> {service_name}</li>
+                <li><strong>Asesor:</strong> {advisor_name}</li>
+                <li><strong>Fecha:</strong> {start_date}</li>
+                <li><strong>Hora:</strong> {start_time}</li>
+                <li><strong>Estado:</strong> Pendiente de confirmación</li>
+                <li><strong>Referencia:</strong> {appointment.reference if hasattr(appointment, 'reference') else 'N/A'}</li>
+            </ul>
+        </div>
+        
+        <p><strong>Nota importante:</strong> Recibirás una notificación cuando el asesor confirme tu cita. Mientras tanto, puedes revisar el estado en tu panel.</p>
+        
+        <p style="text-align: center;">
+            <a href="https://relaticpanama.org/appointments" class="button">Ver Mis Citas</a>
+        </p>
+    """
+    return get_email_template_base().format(
+        subject="Cita Agendada - RelaticPanama",
+        content=content,
+        year=datetime.now().year
+    )
+
+
+def get_appointment_new_advisor_email(appointment, user, advisor, service):
+    """Template para email al asesor sobre nueva cita pendiente de confirmación"""
+    service_name = service.name if service else appointment.appointment_type.name if appointment.appointment_type else "Servicio"
+    start_date = appointment.start_datetime.strftime('%d/%m/%Y') if appointment.start_datetime else "Fecha pendiente"
+    start_time = appointment.start_datetime.strftime('%H:%M') if appointment.start_datetime else "Hora pendiente"
+    case_description = appointment.user_notes if hasattr(appointment, 'user_notes') and appointment.user_notes else "Sin descripción adicional"
+    
+    content = f"""
+        <h2>Nueva Cita Pendiente de Confirmación</h2>
+        <p>Hola <strong>{advisor.first_name} {advisor.last_name}</strong>,</p>
+        <p>Has recibido una nueva solicitud de cita que requiere tu confirmación.</p>
+        
+        <div class="info-box">
+            <h3 style="margin-top: 0;">Detalles de la Cita:</h3>
+            <ul>
+                <li><strong>Cliente:</strong> {user.first_name} {user.last_name} ({user.email})</li>
+                <li><strong>Servicio:</strong> {service_name}</li>
+                <li><strong>Fecha:</strong> {start_date}</li>
+                <li><strong>Hora:</strong> {start_time}</li>
+                <li><strong>Descripción del caso:</strong> {case_description[:200]}{'...' if len(case_description) > 200 else ''}</li>
+                <li><strong>Referencia:</strong> {appointment.reference if hasattr(appointment, 'reference') else 'N/A'}</li>
+            </ul>
+        </div>
+        
+        <p><strong>Acción requerida:</strong> Por favor, confirma o cancela esta cita desde tu panel de administración.</p>
+        
+        <p style="text-align: center;">
+            <a href="https://relaticpanama.org/admin/appointments" class="button">Gestionar Citas</a>
+        </p>
+    """
+    return get_email_template_base().format(
+        subject="Nueva Cita Pendiente de Confirmación - RelaticPanama",
+        content=content,
+        year=datetime.now().year
+    )
+
+
+def get_appointment_new_admin_email(appointment, user, advisor, service, admin):
+    """Template para email a administradores sobre nueva cita creada"""
+    advisor_name = f"{advisor.first_name} {advisor.last_name}" if advisor else "No asignado"
+    service_name = service.name if service else appointment.appointment_type.name if appointment.appointment_type else "Servicio"
+    start_date = appointment.start_datetime.strftime('%d/%m/%Y') if appointment.start_datetime else "Fecha pendiente"
+    start_time = appointment.start_datetime.strftime('%H:%M') if appointment.start_datetime else "Hora pendiente"
+    
+    content = f"""
+        <h2>Nueva Cita Creada en el Sistema</h2>
+        <p>Hola <strong>{admin.first_name} {admin.last_name}</strong>,</p>
+        <p>Se ha creado una nueva cita en el sistema después de un pago exitoso.</p>
+        
+        <div class="info-box">
+            <h3 style="margin-top: 0;">Detalles de la Cita:</h3>
+            <ul>
+                <li><strong>Cliente:</strong> {user.first_name} {user.last_name} ({user.email})</li>
+                <li><strong>Servicio:</strong> {service_name}</li>
+                <li><strong>Asesor:</strong> {advisor_name}</li>
+                <li><strong>Fecha:</strong> {start_date}</li>
+                <li><strong>Hora:</strong> {start_time}</li>
+                <li><strong>Estado:</strong> Pendiente de confirmación</li>
+                <li><strong>Referencia:</strong> {appointment.reference if hasattr(appointment, 'reference') else 'N/A'}</li>
+                <li><strong>Pago:</strong> Completado</li>
+            </ul>
+        </div>
+        
+        <p>Esta cita está pendiente de confirmación por parte del asesor asignado.</p>
+        
+        <p style="text-align: center;">
+            <a href="https://relaticpanama.org/admin/appointments" class="button">Ver Todas las Citas</a>
+        </p>
+    """
+    return get_email_template_base().format(
+        subject="Nueva Cita Creada - RelaticPanama",
+        content=content,
+        year=datetime.now().year
+    )
+
+
 def get_welcome_email(user):
     """Template para email de bienvenida usando el nuevo template HTML"""
     try:

@@ -1,0 +1,530 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de Email - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6 mb-3">
+                <i class="fas fa-envelope"></i> Configuración de Email
+            </h1>
+            <p class="text-muted">Configura el servidor SMTP y edita los templates de correo</p>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    <div id="alert-container"></div>
+
+    <!-- Sección 0: Gestión de Logo -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-image"></i> Logo para Emails</h5>
+                </div>
+                <div class="card-body">
+                    <form id="logo-form" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="logo_file" class="form-label">Subir Logo</label>
+                                <input type="file" class="form-control" id="logo_file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/svg+xml">
+                                <small class="form-text text-muted">
+                                    Formatos: PNG (recomendado), JPG, SVG. Tamaño recomendado: 90-150px de ancho. Máximo 500KB.
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Logo Actual</label>
+                                <div id="current-logo-container">
+                                    <img id="current-logo" src="/static/public/emails/logos/logo-relatic.png" 
+                                         alt="Logo actual" 
+                                         style="max-width: 150px; max-height: 80px; border: 1px solid #ddd; padding: 5px; border-radius: 4px;"
+                                         onerror="this.style.display='none'; document.getElementById('no-logo-message').style.display='block';">
+                                    <div id="no-logo-message" style="display: none; color: #666; font-style: italic;">
+                                        No hay logo cargado. Sube uno para que aparezca en todos los emails.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-upload"></i> Subir Logo
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" onclick="deleteLogo()" id="delete-logo-btn" style="display: none;">
+                                <i class="fas fa-trash"></i> Eliminar Logo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección 1: Configuración SMTP -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-server"></i> Configuración del Servidor SMTP</h5>
+                </div>
+                <div class="card-body">
+                    <form id="smtp-form">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="mail_server" class="form-label">Servidor SMTP</label>
+                                <input type="text" class="form-control" id="mail_server" name="mail_server" 
+                                       value="{% if email_config %}{{ email_config.mail_server }}{% else %}smtp.gmail.com{% endif %}" required>
+                                <small class="form-text text-muted">Ejemplo: smtp.gmail.com, smtp.outlook.com</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="mail_port" class="form-label">Puerto</label>
+                                <input type="number" class="form-control" id="mail_port" name="mail_port" 
+                                       value="{% if email_config %}{{ email_config.mail_port }}{% else %}587{% endif %}" required>
+                                <small class="form-text text-muted">587 (TLS) o 465 (SSL)</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="mail_use_tls" name="mail_use_tls"
+                                           {% if not email_config or (email_config and email_config.mail_use_tls) %}checked{% endif %}>
+                                    <label class="form-check-label" for="mail_use_tls">Usar TLS</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="mail_use_ssl" name="mail_use_ssl"
+                                           {% if email_config and email_config.mail_use_ssl %}checked{% endif %}>
+                                    <label class="form-check-label" for="mail_use_ssl">Usar SSL</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="mail_username" class="form-label">Usuario/Email</label>
+                                <input type="email" class="form-control" id="mail_username" name="mail_username" 
+                                       value="{% if email_config and not email_config.use_environment_variables %}{{ email_config.mail_username }}{% endif %}">
+                                <small class="form-text text-muted">Dejar vacío si se usa variable de entorno</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="mail_password" class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" id="mail_password" name="mail_password" 
+                                       placeholder="Dejar vacío para no cambiar">
+                                <small class="form-text text-muted">Dejar vacío para no cambiar</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="mail_default_sender" class="form-label">Remitente por Defecto</label>
+                                <input type="email" class="form-control" id="mail_default_sender" name="mail_default_sender" 
+                                       value="{% if email_config %}{{ email_config.mail_default_sender }}{% else %}noreply@relaticpanama.org{% endif %}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mt-4 pt-2">
+                                    <input class="form-check-input" type="checkbox" id="use_environment_variables" name="use_environment_variables"
+                                           {% if not email_config or (email_config and email_config.use_environment_variables) %}checked{% endif %}>
+                                    <label class="form-check-label" for="use_environment_variables">
+                                        Usar Variables de Entorno
+                                    </label>
+                                    <small class="form-text text-muted d-block">Si está activado, se usarán MAIL_USERNAME y MAIL_PASSWORD del sistema</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Guardar Configuración
+                            </button>
+                            <button type="button" class="btn btn-info" onclick="openTestEmailModal()">
+                                <i class="fas fa-paper-plane"></i> Probar Envío
+                            </button>
+                            <a href="/api/admin/email/preview-welcome" target="_blank" class="btn btn-success">
+                                <i class="fas fa-eye"></i> Ver Template Bienvenida
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección 2: Templates de Correo -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-file-alt"></i> Templates de Correo</h5>
+                </div>
+                <div class="card-body">
+                    {% if templates and templates|length > 0 %}
+                        {% for category, templates_list in templates.items() %}
+                        <div class="mb-4">
+                            <h5 class="text-primary mb-3">
+                                <i class="fas fa-{{ 'users' if category == 'membership' else 'calendar' if category == 'event' else 'clock' if category == 'appointment' else 'cog' }}"></i>
+                                {{ category.replace('_', ' ').title() }}
+                            </h5>
+                            <div class="table-responsive">
+                                <table class="table table-hover table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 25%;">Nombre</th>
+                                            <th style="width: 30%;">Asunto</th>
+                                            <th style="width: 15%;">Estado</th>
+                                            <th style="width: 30%;">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for template in templates_list %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ template.name }}</strong><br>
+                                                <small class="text-muted">{{ template.template_key }}</small>
+                                            </td>
+                                            <td>{{ template.subject }}</td>
+                                            <td>
+                                                {% if template.is_custom %}
+                                                    <span class="badge bg-warning">Personalizado</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">Por Defecto</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="/api/admin/email/preview/{{ template.template_key }}" target="_blank" class="btn btn-sm btn-success">
+                                                        <i class="fas fa-eye"></i> Ver
+                                                    </a>
+                                                    <button class="btn btn-sm btn-primary" onclick="editTemplate({{ template.id }})">
+                                                        <i class="fas fa-edit"></i> Editar
+                                                    </button>
+                                                    {% if template.is_custom %}
+                                                    <button class="btn btn-sm btn-secondary" onclick="resetTemplate({{ template.id }})">
+                                                        <i class="fas fa-undo"></i> Resetear
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% if not loop.last %}
+                        <hr class="my-4">
+                        {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> <strong>No se encontraron templates.</strong>
+                            <br><br>
+                            <p>Esto puede deberse a:</p>
+                            <ul>
+                                <li>Los templates no se han inicializado en la base de datos</li>
+                                <li>Hay un problema con la conexión a la base de datos</li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar template -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="template-form">
+                    <input type="hidden" id="template_id" name="template_id">
+                    <div class="mb-3">
+                        <label for="template_subject" class="form-label">Asunto</label>
+                        <input type="text" class="form-control" id="template_subject" name="subject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="template_html" class="form-label">Contenido HTML</label>
+                        <textarea class="form-control" id="template_html" name="html_content" rows="15" required></textarea>
+                        <small class="form-text text-muted">Puedes usar variables como {user.first_name}, {user.email}, etc.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="template_text" class="form-label">Contenido de Texto Plano (Opcional)</label>
+                        <textarea class="form-control" id="template_text" name="text_content" rows="5"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveTemplate()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAlert(message, type = 'success') {
+    const alertContainer = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    alertContainer.appendChild(alert);
+    setTimeout(() => alert.remove(), 5000);
+}
+
+// Guardar configuración SMTP
+document.getElementById('smtp-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        mail_server: document.getElementById('mail_server').value,
+        mail_port: parseInt(document.getElementById('mail_port').value),
+        mail_use_tls: document.getElementById('mail_use_tls').checked,
+        mail_use_ssl: document.getElementById('mail_use_ssl').checked,
+        mail_username: document.getElementById('mail_username').value,
+        mail_password: document.getElementById('mail_password').value,
+        mail_default_sender: document.getElementById('mail_default_sender').value,
+        use_environment_variables: document.getElementById('use_environment_variables').checked
+    };
+    
+    try {
+        const response = await fetch('/api/admin/email/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showAlert(data.message, 'success');
+            document.getElementById('mail_password').value = ''; // Limpiar campo de contraseña
+        } else {
+            showAlert(data.error || 'Error al guardar', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error de conexión', 'danger');
+    }
+});
+
+// Abrir modal para prueba de email
+function openTestEmailModal() {
+    const modal = new bootstrap.Modal(document.getElementById('testEmailModal'));
+    modal.show();
+}
+
+// Enviar correo de prueba
+async function sendTestEmail() {
+    const emailInput = document.getElementById('test_email_input');
+    const email = emailInput.value.trim();
+    
+    if (!email) {
+        showAlert('Por favor ingresa un email de destino', 'warning');
+        return;
+    }
+    
+    // Validar formato básico de email
+    if (!email.includes('@') || !email.includes('.')) {
+        showAlert('Por favor ingresa un email válido', 'warning');
+        return;
+    }
+    
+    // Mostrar indicador de carga
+    const btn = document.querySelector('#testEmailModal .btn-primary');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+    
+    try {
+        const response = await fetch('/api/admin/email/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: email})
+        });
+        
+        const data = await response.json();
+        
+        // Cerrar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('testEmailModal'));
+        modal.hide();
+        
+        if (data.success) {
+            showAlert(data.message || `Correo de prueba enviado exitosamente a ${email}`, 'success');
+        } else {
+            let errorMsg = data.error || 'Error al enviar el correo de prueba';
+            if (data.details && Array.isArray(data.details)) {
+                errorMsg += '<br><small>' + data.details.join('<br>') + '</small>';
+            } else if (data.details) {
+                errorMsg += '<br><small>' + data.details + '</small>';
+            }
+            showAlert(errorMsg, 'danger');
+        }
+    } catch (error) {
+        console.error('Error en sendTestEmail:', error);
+        showAlert('Error de conexión: ' + error.message, 'danger');
+    } finally {
+        // Restaurar botón
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+// Editar template
+async function editTemplate(templateId) {
+    try {
+        const response = await fetch(`/api/admin/email/templates/${templateId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const template = data.template;
+            document.getElementById('template_id').value = template.id;
+            document.getElementById('template_subject').value = template.subject;
+            document.getElementById('template_html').value = template.html_content;
+            document.getElementById('template_text').value = template.text_content || '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('templateModal'));
+            modal.show();
+        }
+    } catch (error) {
+        showAlert('Error al cargar template', 'danger');
+    }
+}
+
+// Guardar template
+async function saveTemplate() {
+    const formData = {
+        subject: document.getElementById('template_subject').value,
+        html_content: document.getElementById('template_html').value,
+        text_content: document.getElementById('template_text').value,
+        is_custom: true
+    };
+    
+    const templateId = document.getElementById('template_id').value;
+    
+    try {
+        const response = await fetch(`/api/admin/email/templates/${templateId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showAlert(data.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('templateModal')).hide();
+            location.reload();
+        } else {
+            showAlert(data.error || 'Error al guardar', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error de conexión', 'danger');
+    }
+}
+
+// Resetear template
+async function resetTemplate(templateId) {
+    if (!confirm('¿Estás seguro de resetear este template a su versión por defecto?')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/email/templates/${templateId}/reset`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showAlert(data.message, 'success');
+            location.reload();
+        } else {
+            showAlert(data.error || 'Error al resetear', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error de conexión', 'danger');
+    }
+}
+
+// Subir logo
+document.getElementById('logo-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    const fileInput = document.getElementById('logo_file');
+    
+    if (!fileInput.files || !fileInput.files[0]) {
+        showAlert('Por favor selecciona un archivo', 'warning');
+        return;
+    }
+    
+    formData.append('logo_file', fileInput.files[0]);
+    
+    try {
+        const response = await fetch('/api/admin/email/upload-logo', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showAlert(data.message, 'success');
+            // Actualizar preview del logo
+            const logoImg = document.getElementById('current-logo');
+            logoImg.src = data.logo_url + '?t=' + new Date().getTime();
+            logoImg.style.display = 'block';
+            document.getElementById('no-logo-message').style.display = 'none';
+            document.getElementById('delete-logo-btn').style.display = 'inline-block';
+            // Limpiar input
+            fileInput.value = '';
+        } else {
+            showAlert(data.error || 'Error al subir logo', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error de conexión', 'danger');
+    }
+});
+
+// Eliminar logo
+async function deleteLogo() {
+    if (!confirm('¿Estás seguro de eliminar el logo? Esto afectará todos los emails.')) return;
+    
+    try {
+        const response = await fetch('/api/admin/email/delete-logo', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showAlert(data.message, 'success');
+            document.getElementById('current-logo').style.display = 'none';
+            document.getElementById('no-logo-message').style.display = 'block';
+            document.getElementById('delete-logo-btn').style.display = 'none';
+        } else {
+            showAlert(data.error || 'Error al eliminar logo', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error de conexión', 'danger');
+    }
+}
+
+// Verificar si existe logo al cargar la página
+window.addEventListener('load', async () => {
+    try {
+        const response = await fetch('/api/admin/email/logo-status');
+        const data = await response.json();
+        if (data.logo_exists) {
+            document.getElementById('delete-logo-btn').style.display = 'inline-block';
+        } else {
+            document.getElementById('current-logo').style.display = 'none';
+            document.getElementById('no-logo-message').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error al verificar logo:', error);
+    }
+});
+</script>
+{% endblock %}

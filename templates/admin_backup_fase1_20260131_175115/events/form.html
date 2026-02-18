@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if action == 'edit' else 'Crear' }} Evento - RelaticPanama{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6">
+                <i class="fas fa-{{ 'edit' if action == 'edit' else 'plus' }}"></i> 
+                {{ 'Editar' if action == 'edit' else 'Crear' }} Evento
+            </h1>
+        </div>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Información Básica -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información Básica</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Título <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control" value="{{ event.title if event else '' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Slug</label>
+                            <input type="text" name="slug" class="form-control" value="{{ event.slug if event else '' }}" placeholder="Se genera automáticamente si se deja vacío">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Resumen</label>
+                            <textarea name="summary" class="form-control" rows="3">{{ event.summary if event else '' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="description" class="form-control" rows="5">{{ event.description if event else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fechas y Ubicación -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-calendar"></i> Fechas y Ubicación</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha Inicio <span class="text-danger">*</span></label>
+                                <input type="datetime-local" name="start_date" class="form-control" 
+                                       value="{{ (event.start_date.strftime('%Y-%m-%dT%H:%M') if event and event.start_date else default_start.strftime('%Y-%m-%dT%H:%M')) if default_start else '' }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha Fin <span class="text-danger">*</span></label>
+                                <input type="datetime-local" name="end_date" class="form-control" 
+                                       value="{{ (event.end_date.strftime('%Y-%m-%dT%H:%M') if event and event.end_date else default_end.strftime('%Y-%m-%dT%H:%M')) if default_end else '' }}" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fecha Límite de Registro</label>
+                            <input type="datetime-local" name="registration_deadline" class="form-control" 
+                                   value="{{ event.registration_deadline.strftime('%Y-%m-%dT%H:%M') if event and event.registration_deadline else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_virtual" class="form-check-input" id="is_virtual" 
+                                       {% if event and event.is_virtual %}checked{% endif %}>
+                                <label class="form-check-label" for="is_virtual">Evento Virtual</label>
+                            </div>
+                        </div>
+                        <div class="row" id="location_fields" {% if event and event.is_virtual %}style="display:none;"{% endif %}>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Ubicación</label>
+                                <input type="text" name="location" class="form-control" value="{{ event.location if event else '' }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">País</label>
+                                <input type="text" name="country" class="form-control" value="{{ event.country if event else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Precios y Descuentos -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-dollar-sign"></i> Precios y Descuentos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Importante:</strong> Todos los usuarios registrados pueden acceder a este evento/servicio. 
+                            El precio base se aplica a todos, pero puedes configurar descuentos específicos por tipo de membresía 
+                            (Básico, Pro, Premium, DeLuxe) desde la sección de descuentos.
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Precio Base</label>
+                                <input type="number" name="base_price" class="form-control" step="0.01" value="{{ event.base_price if event else '0.00' }}" placeholder="0.00">
+                                <small class="form-text text-muted">Precio estándar que se aplica a todos los usuarios. Use 0.00 para eventos gratuitos.</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Moneda</label>
+                                <select name="currency" class="form-select">
+                                    <option value="USD" {% if event and event.currency == 'USD' %}selected{% endif %}>USD</option>
+                                    <option value="PAB" {% if event and event.currency == 'PAB' %}selected{% endif %}>PAB</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descuentos Aplicables por Tipo de Membresía</label>
+                            <select name="discount_ids" class="form-select" multiple size="6">
+                                {% for discount in discounts %}
+                                <option value="{{ discount.id }}" 
+                                        {% if event and discount.id in (event.discounts|map(attribute='discount_id')|list) %}selected{% endif %}>
+                                    {{ discount.name }} 
+                                    {% if discount.membership_tier %}({{ discount.membership_tier|upper }}){% endif %}
+                                    - {{ discount.value }}{{ '%' if discount.discount_type == 'percentage' else ' ' + (event.currency if event else 'USD') }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">
+                                Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples descuentos. 
+                                Los descuentos se aplican automáticamente según el tipo de membresía del usuario. 
+                                <a href="{{ url_for('admin_events.discounts_index') }}" target="_blank">Gestionar descuentos</a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Imágenes -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-images"></i> Imágenes</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Imagen de Portada</label>
+                            {% if event and event.cover_image %}
+                            <div class="mb-2">
+                                <img src="{{ event.cover_image }}" alt="Portada" class="img-thumbnail" style="max-height: 200px;">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="remove_cover" class="form-check-input" id="remove_cover">
+                                    <label class="form-check-label" for="remove_cover">Eliminar imagen actual</label>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <input type="file" name="cover_image" class="form-control" accept="image/*">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Imágenes de Galería</label>
+                            <input type="file" name="gallery_images" class="form-control" accept="image/*" multiple>
+                            {% if event and event.images %}
+                            <div class="mt-3">
+                                <h6>Imágenes Actuales:</h6>
+                                <div class="row">
+                                    {% for image in event.images %}
+                                    <div class="col-md-3 mb-2">
+                                        <img src="{{ image.file_path }}" alt="Galería" class="img-thumbnail" style="max-height: 100px;">
+                                        <div class="form-check">
+                                            <input type="checkbox" name="delete_images" value="{{ image.id }}" class="form-check-input" id="delete_{{ image.id }}">
+                                            <label class="form-check-label" for="delete_{{ image.id }}">Eliminar</label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- Configuración -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-cog"></i> Configuración</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Categoría</label>
+                            <input type="text" name="category" class="form-control" value="{{ event.category if event else 'general' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Formato</label>
+                            <select name="format" class="form-select">
+                                <option value="virtual" {% if event and event.format == 'virtual' %}selected{% endif %}>Virtual</option>
+                                <option value="presencial" {% if event and event.format == 'presencial' %}selected{% endif %}>Presencial</option>
+                                <option value="híbrido" {% if event and event.format == 'híbrido' %}selected{% endif %}>Híbrido</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tags</label>
+                            <input type="text" name="tags" class="form-control" value="{{ event.tags if event else '' }}" placeholder="tag1, tag2, tag3">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Visibilidad</label>
+                            <select name="visibility" class="form-select">
+                                <option value="members" {% if event and event.visibility == 'members' %}selected{% endif %}>Solo Usuarios Registrados</option>
+                                <option value="public" {% if event and event.visibility == 'public' %}selected{% endif %}>Público (sin registro requerido)</option>
+                            </select>
+                            <small class="form-text text-muted">"Solo Usuarios Registrados" permite acceso a todos los usuarios con cuenta, independientemente de su tipo de membresía. Los precios y descuentos se calculan según su membresía.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Estado de Publicación</label>
+                            <select name="publish_status" class="form-select">
+                                <option value="draft" {% if event and event.publish_status == 'draft' %}selected{% endif %}>Borrador</option>
+                                <option value="published" {% if event and event.publish_status == 'published' %}selected{% endif %}>Publicado</option>
+                                <option value="archived" {% if event and event.publish_status == 'archived' %}selected{% endif %}>Archivado</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="featured" class="form-check-input" id="featured" 
+                                       {% if event and event.featured %}checked{% endif %}>
+                                <label class="form-check-label" for="featured">Evento Destacado</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="has_certificate" class="form-check-input" id="has_certificate" 
+                                       {% if event and event.has_certificate %}checked{% endif %}>
+                                <label class="form-check-label" for="has_certificate">Incluye Certificado</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Capacidad</label>
+                            <input type="number" name="capacity" class="form-control" value="{{ event.capacity if event else '0' }}" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Roles del Evento -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-users-cog"></i> Roles del Evento</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <small>Los usuarios asignados a estos roles recibirán notificaciones de todos los movimientos del evento (registros, cancelaciones, confirmaciones).</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Moderador</label>
+                            <select name="moderator_id" class="form-select">
+                                <option value="">Seleccionar moderador...</option>
+                                {% for user in users if users %}
+                                <option value="{{ user.id }}" {% if event and event.moderator_id == user.id %}selected{% endif %}>
+                                    {{ user.first_name }} {{ user.last_name }} ({{ user.email }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Usuario responsable de moderar el evento</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Administrador del Evento</label>
+                            <select name="administrator_id" class="form-select">
+                                <option value="">Seleccionar administrador...</option>
+                                {% for user in users if users %}
+                                <option value="{{ user.id }}" {% if event and event.administrator_id == user.id %}selected{% endif %}>
+                                    {{ user.first_name }} {{ user.last_name }} ({{ user.email }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Usuario responsable de administrar el evento</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Expositor/Conferencista Principal</label>
+                            <select name="speaker_id" class="form-select">
+                                <option value="">Seleccionar expositor...</option>
+                                {% for user in users if users %}
+                                <option value="{{ user.id }}" {% if event and event.speaker_id == user.id %}selected{% endif %}>
+                                    {{ user.first_name }} {{ user.last_name }} ({{ user.email }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Conferencista o expositor principal del evento</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contacto -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-envelope"></i> Contacto</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Email de Contacto</label>
+                            <input type="email" name="contact_email" class="form-control" value="{{ event.contact_email if event else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Teléfono de Contacto</label>
+                            <input type="text" name="contact_phone" class="form-control" value="{{ event.contact_phone if event else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">URL de Registro</label>
+                            <input type="url" name="registration_url" class="form-control" value="{{ event.registration_url if event else '' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Certificado -->
+                {% if event and event.has_certificate %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-certificate"></i> Certificado</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Instrucciones para Certificado</label>
+                            <textarea name="certificate_instructions" class="form-control" rows="4">{{ event.certificate_instructions if event else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {{ 'Actualizar' if action == 'edit' else 'Crear' }} Evento
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('is_virtual').addEventListener('change', function() {
+    const locationFields = document.getElementById('location_fields');
+    if (this.checked) {
+        locationFields.style.display = 'none';
+    } else {
+        locationFields.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}
+
+

@@ -6,7 +6,7 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="h5 mb-2">
+            <h1 class="display-6 mb-3">
                 <i class="fas fa-cog"></i> Panel de Administración
             </h1>
         </div>
@@ -112,11 +112,6 @@
                         <div class="col-6 col-md-3">
                             <a href="{{ url_for('admin_notifications') }}" class="btn btn-sm btn-outline-secondary w-100 py-1"><i class="fas fa-bell"></i> Notificaciones</a>
                         </div>
-                        {% if current_user.has_permission('roles.view') %}
-                        <div class="col-6 col-md-3">
-                            <a href="{{ url_for('admin_roles_list') }}" class="btn btn-sm btn-outline-info w-100 py-1"><i class="fas fa-user-shield"></i> Roles y Permisos</a>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>

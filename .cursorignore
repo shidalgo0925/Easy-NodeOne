@@ -1,0 +1,15 @@
+# Evitar OOM: Cursor no indexa estas carpetas/archivos
+node_modules/
+venv/
+.venv/
+__pycache__/
+.git/
+dist/
+build/
+*.xlsx
+*.xls
+*.pdf
+exports/
+backups/
+*.log
+.cursor/

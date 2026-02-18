@@ -1,0 +1,569 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendario - Administración{% endblock %}
+
+{% block extra_head %}
+<!-- FullCalendar v6 CSS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6 mb-3">
+                <i class="fas fa-calendar-alt"></i> Calendario de Disponibilidad
+            </h1>
+            <p class="text-muted mb-4">
+                Seleccione Servicio y Asesor para ver disponibilidad
+            </p>
+        </div>
+    </div>
+
+    <!-- Selectores: Servicio y Asesor -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <h5 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros de Configuración
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="calendarFilters" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="service_id" class="form-label fw-bold">
+                                <i class="fas fa-briefcase me-2 text-primary"></i>Servicio <span class="text-danger">*</span>
+                            </label>
+                            <select name="service_id" id="service_id" class="form-select form-select-lg" required>
+                                <option value="">Seleccione un servicio...</option>
+                                {% for service in services %}
+                                    <option value="{{ service.id }}" data-appointment-type-id="{{ service.appointment_type_id }}">{{ service.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="advisor_id" class="form-label fw-bold">
+                                <i class="fas fa-user-tie me-2 text-success"></i>Asesor <span class="text-danger">*</span>
+                            </label>
+                            <select name="advisor_id" id="advisor_id" class="form-select form-select-lg" required>
+                                <option value="">Seleccione un asesor...</option>
+                                {% for advisor in advisors %}
+                                    <option value="{{ advisor.id }}">
+                                        {% if advisor.user %}
+                                            {{ advisor.user.first_name }} {{ advisor.user.last_name }}
+                                        {% else %}
+                                            Asesor #{{ advisor.id }}
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendario Visual (FullCalendar) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-check me-2"></i>Calendario
+                    </h5>
+                    <div>
+                        <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-clock me-2"></i>Horarios Semanales
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <div id="adminCalendar"></div>
+                    <div id="calendarMessage" class="alert alert-info text-center mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Seleccione Servicio y Asesor para ver disponibilidad
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Configurar Disponibilidad -->
+<div class="modal fade" id="configureAvailabilityModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-calendar-day me-2"></i>
+                    Configurar Disponibilidad
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="availabilityForm" method="POST">
+                    <input type="hidden" name="date" id="modal_date">
+                    <input type="hidden" name="appointment_type_id" id="modal_appointment_type_id">
+                    <input type="hidden" name="advisor_id" id="modal_advisor_id">
+                    <input type="hidden" name="timezone" value="America/Panama">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Fecha</label>
+                        <input type="text" class="form-control" id="modal_date_display" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Servicio</label>
+                        <input type="text" class="form-control" id="modal_service_display" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Asesor</label>
+                        <input type="text" class="form-control" id="modal_advisor_display" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-clock me-2"></i>
+                            Horarios Disponibles <span class="text-danger">*</span>
+                        </label>
+                        <div id="timeSlotsContainer">
+                            <div class="time-slot-row mb-2 d-flex gap-2 align-items-center">
+                                <input type="time" name="start_time" class="form-control" style="width: 150px;" required>
+                                <span>-</span>
+                                <input type="time" name="end_time" class="form-control" style="width: 150px;" required>
+                                <button type="button" class="btn btn-sm btn-danger remove-time-slot">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="addTimeSlot">
+                            <i class="fas fa-plus me-1"></i>Agregar Horario
+                        </button>
+                    </div>
+                    
+                    <div class="alert alert-warning" id="replaceWarning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta acción reemplazará la disponibilidad existente para este día. ¿Desea continuar?
+                    </div>
+                    
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="confirmSaveBtn">Guardar Disponibilidad</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- FullCalendar v6 JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let calendar = null;
+    let currentServiceId = null;
+    let currentAdvisorId = null;
+    
+    // Inicializar calendario deshabilitado
+    const calendarEl = document.getElementById('adminCalendar');
+    const calendarMessage = document.getElementById('calendarMessage');
+    
+    if (calendarEl) {
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            locale: 'es',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            slotMinTime: '08:00:00',
+            slotMaxTime: '20:00:00',
+            slotDuration: '00:30:00',
+            allDaySlot: false,
+            selectable: false, // Deshabilitado inicialmente
+            selectMirror: true,
+            expandRows: true,
+            nowIndicator: true,
+            height: 'auto',
+            events: [], // Array vacío inicialmente
+            dateClick: function(info) {
+                if (!currentServiceId || !currentAdvisorId) {
+                    alert('Por favor selecciona un servicio y un asesor primero.');
+                    return;
+                }
+                
+                // Validar que no sea fecha pasada
+                const clickedDate = new Date(info.dateStr);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (clickedDate < today) {
+                    alert('No se puede configurar disponibilidad para fechas pasadas.');
+                    return;
+                }
+                
+                const dateStr = info.dateStr.split('T')[0];
+                const timeStr = info.dateStr.split('T')[1] || '';
+                openConfigureModal(dateStr, timeStr);
+            },
+            select: function(info) {
+                if (!currentServiceId || !currentAdvisorId) {
+                    alert('Por favor selecciona un servicio y un asesor primero.');
+                    calendar.unselect();
+                    return;
+                }
+                
+                // Validar que no sea fecha pasada
+                const startDate = new Date(info.start);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (startDate < today) {
+                    alert('No se puede configurar disponibilidad para fechas pasadas.');
+                    calendar.unselect();
+                    return;
+                }
+                
+                const dateStr = startDate.toISOString().split('T')[0];
+                const startTime = startDate.toTimeString().split(' ')[0].substring(0, 5);
+                const endTime = info.end.toTimeString().split(' ')[0].substring(0, 5);
+                openConfigureModalWithTimeRange(dateStr, startTime, endTime);
+                calendar.unselect();
+            }
+        });
+        
+        calendar.render();
+    }
+    
+    // Cargar disponibilidad cuando se seleccionan servicio y asesor
+    function loadAvailability() {
+        const serviceSelect = document.getElementById('service_id');
+        const advisorSelect = document.getElementById('advisor_id');
+        
+        if (!serviceSelect || !serviceSelect.value || !advisorSelect || !advisorSelect.value) {
+            // Deshabilitar calendario
+            if (calendar) {
+                calendar.setOption('selectable', false);
+                calendar.removeAllEvents();
+            }
+            if (calendarMessage) {
+                calendarMessage.style.display = 'block';
+            }
+            currentServiceId = null;
+            currentAdvisorId = null;
+            return;
+        }
+        
+        currentServiceId = serviceSelect.value;
+        currentAdvisorId = advisorSelect.value;
+        
+        // Habilitar calendario
+        if (calendar) {
+            calendar.setOption('selectable', true);
+        }
+        if (calendarMessage) {
+            calendarMessage.style.display = 'none';
+        }
+        
+        // Obtener rango de la semana actual
+        const view = calendar.view;
+        const weekStart = view.activeStart.toISOString().split('T')[0];
+        const weekEnd = view.activeEnd.toISOString().split('T')[0];
+        
+        // Llamar al endpoint
+        const url = '/api/appointments/admin/availability?service_id=' + currentServiceId + 
+                    '&advisor_id=' + currentAdvisorId + 
+                    '&start=' + weekStart + 
+                    '&end=' + weekEnd;
+        
+        fetch(url)
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success && data.availabilities) {
+                    const events = data.availabilities.map(function(av) {
+                        return {
+                            id: 'av_' + av.id,
+                            title: 'Disponible',
+                            start: av.date + 'T' + av.start_time,
+                            end: av.date + 'T' + av.end_time,
+                            display: 'block',
+                            backgroundColor: '#28a745',
+                            borderColor: '#28a745',
+                            extendedProps: {
+                                start_time: av.start_time,
+                                end_time: av.end_time
+                            }
+                        };
+                    });
+                    calendar.removeAllEvents();
+                    calendar.addEventSource(events);
+                } else {
+                    calendar.removeAllEvents();
+                }
+            })
+            .catch(function(error) {
+                console.error('Error cargando disponibilidad:', error);
+                calendar.removeAllEvents();
+            });
+    }
+    
+    // Event listeners para selectores
+    const serviceSelect = document.getElementById('service_id');
+    const advisorSelect = document.getElementById('advisor_id');
+    
+    if (serviceSelect) {
+        serviceSelect.addEventListener('change', loadAvailability);
+    }
+    
+    if (advisorSelect) {
+        advisorSelect.addEventListener('change', loadAvailability);
+    }
+    
+    // Recargar cuando cambie la vista
+    if (calendar) {
+        calendar.on('datesSet', function() {
+            if (currentServiceId && currentAdvisorId) {
+                loadAvailability();
+            }
+        });
+    }
+    
+    // Recargar disponibilidad después de guardar (si hay mensaje de éxito)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('saved') === 'true' && currentServiceId && currentAdvisorId) {
+        setTimeout(function() {
+            loadAvailability();
+        }, 500);
+    }
+    
+    // Funciones del modal
+    function openConfigureModal(dateStr, timeStr) {
+        const serviceSelect = document.getElementById('service_id');
+        const advisorSelect = document.getElementById('advisor_id');
+        
+        if (!serviceSelect || !serviceSelect.value || !advisorSelect || !advisorSelect.value) {
+            alert('Por favor selecciona un servicio y un asesor.');
+            return;
+        }
+        
+        const serviceName = serviceSelect.options[serviceSelect.selectedIndex].text;
+        const advisorName = advisorSelect.options[advisorSelect.selectedIndex].text;
+        const appointmentTypeId = serviceSelect.options[serviceSelect.selectedIndex].dataset.appointmentTypeId;
+        
+        document.getElementById('modal_date').value = dateStr;
+        document.getElementById('modal_date_display').value = new Date(dateStr).toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        document.getElementById('modal_appointment_type_id').value = appointmentTypeId || '';
+        document.getElementById('modal_advisor_id').value = advisorSelect.value;
+        document.getElementById('modal_service_display').value = serviceName;
+        document.getElementById('modal_advisor_display').value = advisorName;
+        
+        if (timeStr) {
+            const hour = timeStr.substring(0, 5);
+            const timeInputs = document.querySelectorAll('#timeSlotsContainer input[name="start_time"]');
+            if (timeInputs.length > 0) {
+                timeInputs[0].value = hour;
+                const parts = hour.split(':').map(Number);
+                const endMinutes = (parts[1] + 30) % 60;
+                const endHours = parts[0] + Math.floor((parts[1] + 30) / 60);
+                const endTime = String(endHours).padStart(2, '0') + ':' + String(endMinutes).padStart(2, '0');
+                const endTimeInputs = document.querySelectorAll('#timeSlotsContainer input[name="end_time"]');
+                if (endTimeInputs.length > 0) {
+                    endTimeInputs[0].value = endTime;
+                }
+            }
+        }
+        
+        const form = document.getElementById('availabilityForm');
+        if (form) {
+            form.action = '{{ url_for("admin_appointments.configure_daily_availability", date="DATE_PLACEHOLDER") }}'.replace('DATE_PLACEHOLDER', dateStr);
+        }
+        
+        const modalEl = document.getElementById('configureAvailabilityModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    }
+    
+    function openConfigureModalWithTimeRange(dateStr, startTime, endTime) {
+        const serviceSelect = document.getElementById('service_id');
+        const advisorSelect = document.getElementById('advisor_id');
+        
+        if (!serviceSelect || !serviceSelect.value || !advisorSelect || !advisorSelect.value) {
+            alert('Por favor selecciona un servicio y un asesor.');
+            return;
+        }
+        
+        const serviceName = serviceSelect.options[serviceSelect.selectedIndex].text;
+        const advisorName = advisorSelect.options[advisorSelect.selectedIndex].text;
+        const appointmentTypeId = serviceSelect.options[serviceSelect.selectedIndex].dataset.appointmentTypeId;
+        
+        document.getElementById('modal_date').value = dateStr;
+        document.getElementById('modal_date_display').value = new Date(dateStr).toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        document.getElementById('modal_appointment_type_id').value = appointmentTypeId || '';
+        document.getElementById('modal_advisor_id').value = advisorSelect.value;
+        document.getElementById('modal_service_display').value = serviceName;
+        document.getElementById('modal_advisor_display').value = advisorName;
+        
+        const timeInputs = document.querySelectorAll('#timeSlotsContainer input[name="start_time"]');
+        const endTimeInputs = document.querySelectorAll('#timeSlotsContainer input[name="end_time"]');
+        if (timeInputs.length > 0 && endTimeInputs.length > 0) {
+            timeInputs[0].value = startTime;
+            endTimeInputs[0].value = endTime;
+        }
+        
+        const form = document.getElementById('availabilityForm');
+        if (form) {
+            form.action = '{{ url_for("admin_appointments.configure_daily_availability", date="DATE_PLACEHOLDER") }}'.replace('DATE_PLACEHOLDER', dateStr);
+        }
+        
+        const modalEl = document.getElementById('configureAvailabilityModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    }
+    
+    // Validaciones estrictas del modal
+    function validateTimeSlots() {
+        const timeInputs = document.querySelectorAll('#timeSlotsContainer input[name="start_time"]');
+        const endInputs = document.querySelectorAll('#timeSlotsContainer input[name="end_time"]');
+        const slots = [];
+        
+        // Recopilar todos los rangos
+        for (let i = 0; i < timeInputs.length; i++) {
+            const start = timeInputs[i].value;
+            const end = endInputs[i].value;
+            
+            if (!start || !end) {
+                return { valid: false, error: 'Todos los rangos deben tener hora de inicio y fin' };
+            }
+            
+            const startTime = timeToMinutes(start);
+            const endTime = timeToMinutes(end);
+            
+            // Validación: Inicio < Fin
+            if (startTime >= endTime) {
+                return { valid: false, error: 'La hora de inicio debe ser menor que la hora de fin' };
+            }
+            
+            // Validación: Duración mínima 30 minutos
+            if (endTime - startTime < 30) {
+                return { valid: false, error: 'La duración mínima debe ser de 30 minutos' };
+            }
+            
+            // Validación: Dentro de 08:00-20:00
+            if (startTime < 480 || endTime > 1200) { // 480 = 8:00, 1200 = 20:00
+                return { valid: false, error: 'Los horarios deben estar entre 08:00 y 20:00' };
+            }
+            
+            slots.push({ start: startTime, end: endTime, startStr: start, endStr: end });
+        }
+        
+        // Validación: Al menos un rango
+        if (slots.length === 0) {
+            return { valid: false, error: 'Debe agregar al menos un rango de horario' };
+        }
+        
+        // Validación: No solapamientos
+        slots.sort((a, b) => a.start - b.start);
+        for (let i = 0; i < slots.length - 1; i++) {
+            if (slots[i].end > slots[i + 1].start) {
+                return { valid: false, error: 'No se permiten solapamientos entre rangos de horario' };
+            }
+        }
+        
+        return { valid: true, slots: slots };
+    }
+    
+    function timeToMinutes(timeStr) {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
+    }
+    
+    // Confirmación y guardado
+    const confirmSaveBtn = document.getElementById('confirmSaveBtn');
+    const availabilityForm = document.getElementById('availabilityForm');
+    const replaceWarning = document.getElementById('replaceWarning');
+    
+    if (confirmSaveBtn && availabilityForm) {
+        confirmSaveBtn.addEventListener('click', function() {
+            // Validar rangos
+            const validation = validateTimeSlots();
+            if (!validation.valid) {
+                alert(validation.error);
+                return;
+            }
+            
+            // Mostrar advertencia de reemplazo
+            if (replaceWarning) {
+                replaceWarning.style.display = 'block';
+            }
+            
+            // Confirmar reemplazo
+            if (!confirm('Esta acción reemplazará la disponibilidad existente para este día. ¿Desea continuar?')) {
+                return;
+            }
+            
+            // Enviar formulario
+            availabilityForm.submit();
+        });
+    }
+    
+    // Agregar horarios en el modal
+    const addTimeSlotBtn = document.getElementById('addTimeSlot');
+    if (addTimeSlotBtn) {
+        addTimeSlotBtn.addEventListener('click', function() {
+            const container = document.getElementById('timeSlotsContainer');
+            if (container) {
+                const newRow = document.createElement('div');
+                newRow.className = 'time-slot-row mb-2 d-flex gap-2 align-items-center';
+                newRow.innerHTML = '<input type="time" name="start_time" class="form-control" style="width: 150px;" required min="08:00" max="20:00"><span>-</span><input type="time" name="end_time" class="form-control" style="width: 150px;" required min="08:00" max="20:00"><button type="button" class="btn btn-sm btn-danger remove-time-slot"><i class="fas fa-times"></i></button>';
+                container.appendChild(newRow);
+                
+                const removeBtn = newRow.querySelector('.remove-time-slot');
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', function() {
+                        newRow.remove();
+                    });
+                }
+            }
+        });
+    }
+    
+    // Delegación de eventos para eliminar
+    const timeSlotsContainer = document.getElementById('timeSlotsContainer');
+    if (timeSlotsContainer) {
+        timeSlotsContainer.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-time-slot')) {
+                e.target.closest('.time-slot-row').remove();
+            }
+        });
+    }
+    
+    // Prevenir submit directo del formulario (solo a través del botón de confirmación)
+    if (availabilityForm) {
+        availabilityForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+        });
+    }
+});
+</script>
+{% endblock %}

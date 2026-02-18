@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Roles y Permisos - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h5 mb-2">
+                <i class="fas fa-user-shield me-2 text-primary"></i>Roles y Permisos
+            </h1>
+            <p class="text-muted mb-0 small">Solo lectura. Solo usuarios con permiso roles.view pueden acceder.</p>
+        </div>
+        <div>
+            {% if current_user.has_permission('reports.export') %}
+            <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm me-1" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
+            <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm me-1" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
+            {% endif %}
+            <a href="{{ url_for('admin_permissions_list') }}" class="btn btn-sm btn-outline-info me-1"><i class="fas fa-key me-1"></i> Permisos del sistema</a>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Panel</a>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-2">
+                    <label class="form-label small mb-1" for="report_title">Nombre del reporte</label>
+                    <input type="text" class="form-control form-control-sm" id="report_title" name="report_title" placeholder="Ej: Listado de miembros activos" maxlength="100" autocomplete="off" style="max-width:320px">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if role_data %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th class="text-center">Permisos</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in role_data %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ item.role.code }}</span></td>
+                            <td>{{ item.role.name }}</td>
+                            <td class="text-center">{{ item.permission_count }}</td>
+                            <td>{% if item.role.code == 'SA' %}<span class="badge bg-warning text-dark">Sistema</span>{% else %}<span class="badge bg-info">Operativo</span>{% endif %}</td>
+                            <td class="text-end">
+                                <a href="{{ url_for('admin_roles_detail', role_id=item.role.id) }}" class="btn btn-sm btn-outline-primary" title="Ver">
+                                    <i class="fas fa-eye"></i> Ver
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center p-5 text-muted">
+                <i class="fas fa-user-shield fa-3x mb-3"></i>
+                <p class="mb-0">No hay roles en el sistema. Ejecuta la migración RBAC.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var reportTitleEl = document.getElementById('report_title');
+    var xlsLink = document.getElementById('exportXls');
+    var pdfLink = document.getElementById('exportPdf');
+    if (xlsLink) {
+        xlsLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            var url = this.getAttribute('href');
+            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
+            window.location.href = url;
+        });
+    }
+    if (pdfLink) {
+        pdfLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            var url = this.getAttribute('href');
+            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
+            window.open(url, '_blank');
+        });
+    }
+});
+</script>
+{% endblock %}

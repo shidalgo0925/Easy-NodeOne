@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import os
 import secrets
 from functools import wraps
+from sqlalchemy import text as sql_text
 
 # Sistema de licencias (módulo independiente)
 try:
@@ -115,6 +116,30 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@re
 
 # Inicialización de extensiones
 db = SQLAlchemy(app)
+
+# Logger: excepciones a archivo (para ver 500 en producción)
+import logging
+_logpath = os.path.join(os.path.dirname(basedir), 'instance', 'app_errors.log')
+os.makedirs(os.path.dirname(_logpath), exist_ok=True)
+_file_handler = logging.FileHandler(_logpath, encoding='utf-8')
+_file_handler.setLevel(logging.ERROR)
+_file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s'))
+app.logger.addHandler(_file_handler)
+
+# Tabla de asociación RBAC user_role (creada por migrate_rbac_tables.py)
+user_role_table = db.Table(
+    'user_role', db.metadata,
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('role_id', db.Integer, db.ForeignKey('role.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('assigned_at', db.DateTime, default=datetime.utcnow),
+    db.Column('assigned_by_id', db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True),
+)
+role_permission_table = db.Table(
+    'role_permission', db.metadata,
+    db.Column('role_id', db.Integer, db.ForeignKey('role.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('permission_id', db.Integer, db.ForeignKey('permission.id', ondelete='CASCADE'), primary_key=True),
+)
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 mail = Mail(app) if Mail else None
@@ -128,20 +153,23 @@ def apply_email_config_from_db():
         email_config = EmailConfig.get_active_config()
         if email_config:
             email_config.apply_to_app(app)
-            # Reinicializar Mail con nueva configuración
-            mail = Mail() if Mail else None
-            mail.init_app(app)  # Inicializar correctamente Flask-Mail
+            # Reinicializar Mail con nueva configuración (solo si Mail está disponible)
+            if Mail:
+                mail = Mail()
+                mail.init_app(app)
+            else:
+                mail = None
             if EMAIL_TEMPLATES_AVAILABLE:
                 email_service = EmailService(mail)
             print("✅ Configuración de email cargada desde base de datos")
         else:
             # Si no hay configuración en BD, usar variables de entorno o valores por defecto
             print("⚠️ No hay configuración de email en BD, usando variables de entorno")
-            # Asegurar que mail esté inicializado
-            if not mail:
+            # Asegurar que mail esté inicializado (solo si Mail está disponible)
+            if not mail and Mail:
                 mail = Mail(app)
                 mail.init_app(app)
-            if EMAIL_TEMPLATES_AVAILABLE:
+            if EMAIL_TEMPLATES_AVAILABLE and mail:
                 if not email_service:
                     email_service = EmailService(mail)
     except Exception as e:
@@ -149,11 +177,11 @@ def apply_email_config_from_db():
         print("   Usando configuración por defecto o variables de entorno")
         import traceback
         traceback.print_exc()
-        # Asegurar que mail esté inicializado incluso si falla
-        if not mail:
+        # Asegurar que mail esté inicializado incluso si falla (solo si Mail está disponible)
+        if not mail and Mail:
             mail = Mail(app)
             mail.init_app(app)
-        if EMAIL_TEMPLATES_AVAILABLE:
+        if EMAIL_TEMPLATES_AVAILABLE and mail:
             if not email_service:
                 email_service = EmailService(mail)
 login_manager.login_view = 'login'
@@ -409,16 +437,46 @@ def validate_email_format(email):
 
 # Decorador para requerir permisos de administrador
 def admin_required(f):
-    """Decorador para requerir permisos de administrador"""
+    """Decorador para requerir permisos de administrador (compatibilidad: is_admin o RBAC)."""
     from functools import wraps
     @wraps(f)
     @login_required
     def decorated_function(*args, **kwargs):
-        if not current_user.is_admin:
+        if not current_user.is_admin and not _user_has_any_admin_permission(current_user):
             flash('No tienes permisos para acceder a esta página.', 'error')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+def _user_has_any_admin_permission(user):
+    """True si el usuario tiene al menos un rol RBAC con algún permiso (para admin_required)."""
+    r = db.session.execute(
+        db.text('SELECT 1 FROM user_role ur JOIN role_permission rp ON rp.role_id = ur.role_id WHERE ur.user_id = :uid LIMIT 1'),
+        {'uid': user.id}
+    ).fetchone()
+    return r is not None
+
+
+def require_permission(perm_code):
+    """
+    Decorador: exige que el usuario tenga el permiso (RBAC).
+    Regla clave: backend valida por permiso, nunca por rol.
+    """
+    from functools import wraps
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def decorated_function(*args, **kwargs):
+            if not current_user.has_permission(perm_code):
+                if request.is_json or request.accept_mimetypes.best == 'application/json':
+                    return jsonify({'error': 'Forbidden', 'message': 'No tienes permiso para esta acción.'}), 403
+                flash('No tienes permiso para esta acción.', 'error')
+                return redirect(url_for('dashboard'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 
 # Lista de países válidos
 VALID_COUNTRIES = [
@@ -608,6 +666,67 @@ class User(UserMixin, db.Model):
         
         # Fallback al sistema anterior si existe
         return Membership.query.filter_by(user_id=self.id, is_active=True).first()
+
+    def has_permission(self, perm_code):
+        """
+        Comprueba si el usuario tiene el permiso (por RBAC o compat is_admin).
+        Regla: backend valida por permiso, nunca por rol.
+        """
+        if not perm_code:
+            return False
+        # Compatibilidad: si tiene is_admin y aún no tiene roles RBAC, se considera con acceso admin (como AD)
+        if getattr(self, 'is_admin', False):
+            ur = db.session.execute(
+                sql_text('SELECT 1 FROM user_role WHERE user_id = :uid LIMIT 1'),
+                {'uid': self.id}
+            ).fetchone()
+            if not ur:
+                return True  # is_admin sin roles RBAC → tratar como todo permitido
+        # RBAC: permisos vía roles del usuario
+        r = db.session.execute(
+            sql_text('''
+                SELECT 1 FROM user_role ur
+                JOIN role_permission rp ON rp.role_id = ur.role_id
+                JOIN permission p ON p.id = rp.permission_id
+                WHERE ur.user_id = :uid AND p.code = :code LIMIT 1
+            '''),
+            {'uid': self.id, 'code': perm_code}
+        ).fetchone()
+        return r is not None
+
+    # RBAC: roles asignados (véase asignación después de class Role)
+
+
+class Role(db.Model):
+    """Rol del sistema (SA, AD, ST, TE, MI, IN)."""
+    __tablename__ = 'role'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    code = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    permissions = db.relationship(
+        'Permission', secondary=role_permission_table,
+        backref=db.backref('roles', lazy='dynamic'), lazy='dynamic'
+    )
+
+
+class Permission(db.Model):
+    """Permiso granular (ej. users.create, payments.manage)."""
+    __tablename__ = 'permission'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    code = db.Column(db.String(80), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# RBAC: relación User.roles (definida aquí para evitar ambigüedad por assigned_by_id en user_role)
+User.roles = db.relationship(
+    Role, secondary=user_role_table, backref='users', lazy='dynamic',
+    primaryjoin=(User.id == user_role_table.c.user_id),
+    secondaryjoin=(user_role_table.c.role_id == Role.id),
+)
 
 
 class SocialAuth(db.Model):
@@ -1851,6 +1970,20 @@ class ActivityLog(db.Model):
         )
         db.session.add(log)
         return log
+
+
+class ExportTemplate(db.Model):
+    """Plantilla de exportación guardada (entidad + campos). visibility: own | shared."""
+    __tablename__ = 'export_template'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(120), nullable=False)
+    entity = db.Column(db.String(50), nullable=False, default='members')
+    fields = db.Column(db.Text, nullable=False)  # JSON array de field keys
+    visibility = db.Column(db.String(20), default='own', nullable=False)  # own | shared
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='export_templates')
 
 # Modelos de Carrito de Compras
 
@@ -4116,6 +4249,29 @@ def remove_profile_photo():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': f'Error al eliminar la foto: {str(e)}'}), 500
+
+@app.route('/api/profile/update', methods=['POST'])
+@login_required
+def api_profile_update():
+    """Actualizar datos del perfil del usuario (first_name, last_name, phone, country, cedula_or_passport)."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Datos no válidos'}), 400
+        first_name = (data.get('first_name') or '').strip()
+        last_name = (data.get('last_name') or '').strip()
+        if not first_name or not last_name:
+            return jsonify({'success': False, 'error': 'Nombre y apellido son requeridos'}), 400
+        current_user.first_name = first_name
+        current_user.last_name = last_name
+        current_user.phone = (data.get('phone') or '').strip() or None
+        current_user.country = (data.get('country') or '').strip() or None
+        current_user.cedula_or_passport = (data.get('cedula_or_passport') or '').strip() or None
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Perfil actualizado correctamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/services')
 @login_required
@@ -7286,6 +7442,7 @@ def api_user_membership():
 
 # Rutas de administración
 @app.route('/admin')
+@app.route('/admin/')
 @admin_required
 def admin_dashboard():
     """Panel de administración principal"""
@@ -7344,9 +7501,9 @@ def admin_dashboard():
         return redirect(url_for('dashboard'))
 
 @app.route('/admin/users')
-@admin_required
+@require_permission('users.view')
 def admin_users():
-    """Gestión de usuarios con filtros"""
+    """Gestión de usuarios con filtros (autorización por permiso users.view)."""
     # Obtener parámetros de filtro
     search = request.args.get('search', '').strip()
     status_filter = request.args.get('status', 'all')
@@ -7451,7 +7608,7 @@ def admin_users():
 
 
 @app.route('/admin/users/<int:user_id>/update', methods=['POST'])
-@admin_required
+@require_permission('users.update')
 def admin_update_user(user_id):
     """Actualizar atributos básicos del usuario (admin, asesor, estado)."""
     user = User.query.get_or_404(user_id)
@@ -7627,7 +7784,7 @@ def admin_create_user():
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
-@admin_required
+@require_permission('users.delete')
 def admin_delete_user(user_id):
     """Eliminar un usuario"""
     user = User.query.get_or_404(user_id)
@@ -7655,8 +7812,386 @@ def admin_delete_user(user_id):
     
     return redirect(url_for('admin_users'))
 
+
+# ---------------------------------------------------------------------------
+# FASE 5: Asignación de roles a usuarios (API + auditoría)
+# ---------------------------------------------------------------------------
+
+@app.route('/api/admin/users')
+@require_permission('users.view')
+def api_admin_users():
+    """API: listado de usuarios (id, email, nombre, estado, roles). Paginado."""
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 25, type=int), 100)
+    search = request.args.get('search', '').strip()
+    query = User.query
+    if search:
+        query = query.filter(
+            db.or_(
+                User.first_name.ilike(f'%{search}%'),
+                User.last_name.ilike(f'%{search}%'),
+                User.email.ilike(f'%{search}%'),
+            )
+        )
+    query = query.order_by(User.created_at.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    users_out = []
+    for u in pagination.items:
+        roles_codes = [r.code for r in u.roles.all()]
+        users_out.append({
+            'id': u.id,
+            'email': u.email,
+            'first_name': u.first_name or '',
+            'last_name': u.last_name or '',
+            'is_active': u.is_active,
+            'roles': roles_codes,
+        })
+    return jsonify({
+        'users': users_out,
+        'total': pagination.total,
+        'page': pagination.page,
+        'per_page': pagination.per_page,
+        'pages': pagination.pages,
+    })
+
+
+def _get_user_role_ids(user_id):
+    """Obtener IDs de roles del usuario vía SQL directo (evita fallos de relación User.roles en prod)."""
+    try:
+        rows = db.session.execute(
+            sql_text('SELECT role_id FROM user_role WHERE user_id = :uid'),
+            {'uid': user_id}
+        ).fetchall()
+        return [r[0] for r in rows]
+    except Exception:
+        db.session.rollback()
+        return []
+
+
+@app.route('/api/admin/users/<int:user_id>/roles')
+@require_permission('roles.assign')
+def api_admin_user_roles(user_id):
+    """API: roles del usuario + roles disponibles para asignar (excl. SA)."""
+    try:
+        user = User.query.get_or_404(user_id)
+        # Roles del usuario vía SQL directo; si falla (ej. tabla distinta en prod), usar vacío
+        try:
+            role_rows = db.session.execute(
+                sql_text('SELECT r.id, r.code, r.name FROM role r INNER JOIN user_role ur ON ur.role_id = r.id WHERE ur.user_id = :uid'),
+                {'uid': user_id}
+            ).fetchall()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.warning('api_admin_user_roles query user_role failed: %s', e)
+            role_rows = []
+        current_roles = [
+            {'id': r[0], 'code': (r[1] or ''), 'name': (r[2] or ''), 'system': (r[1] == 'SA')}
+            for r in role_rows
+        ]
+        user_role_ids = {r[0] for r in role_rows}
+        all_roles = Role.query.filter(Role.code != 'SA').order_by(Role.code).all()
+        available_roles = [
+            {'id': r.id, 'code': getattr(r, 'code', ''), 'name': getattr(r, 'name', '')}
+            for r in all_roles if r.id not in user_role_ids
+        ]
+        return jsonify({
+            'user': {
+                'id': user.id,
+                'email': str(user.email) if user.email else '',
+                'first_name': (user.first_name or '') if user.first_name else '',
+                'last_name': (user.last_name or '') if user.last_name else '',
+                'is_active': bool(user.is_active),
+            },
+            'current_roles': current_roles,
+            'available_roles': available_roles,
+        })
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('api_admin_user_roles error: %s', e)
+        return jsonify({'error': 'Error al cargar roles', 'message': str(e)}), 500
+
+
+@app.route('/api/admin/users/<int:user_id>/roles', methods=['POST'])
+@require_permission('roles.assign')
+def api_admin_user_roles_assign(user_id):
+    """Asignar un rol al usuario. Body: { \"role_id\": N }."""
+    user = User.query.get_or_404(user_id)
+    data = request.get_json() or {}
+    role_id = data.get('role_id')
+    if role_id is None:
+        return jsonify({'success': False, 'error': 'role_id requerido'}), 400
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'success': False, 'error': 'Rol no encontrado'}), 404
+    if role.code == 'SA':
+        return jsonify({'success': False, 'error': 'No se puede asignar el rol SA'}), 403
+    if role_id in _get_user_role_ids(user_id):
+        return jsonify({'success': False, 'error': 'El usuario ya tiene este rol'}), 400
+    try:
+        db.session.execute(
+            insert(user_role_table).values(
+                user_id=user_id,
+                role_id=role_id,
+                assigned_by_id=current_user.id,
+            )
+        )
+        ActivityLog.log_activity(
+            current_user.id, 'ASSIGN_ROLE', 'user_role', user_id,
+            f'role={role.code} user={user_id} assigned', request
+        )
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Rol {role.code} asignado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/users/<int:user_id>/roles/<int:role_id>', methods=['DELETE'])
+@require_permission('roles.assign')
+def api_admin_user_roles_remove(user_id, role_id):
+    """Quitar un rol al usuario."""
+    user = User.query.get_or_404(user_id)
+    role = Role.query.get_or_404(role_id)
+    if role.code == 'SA':
+        return jsonify({'success': False, 'error': 'No se puede modificar el rol SA'}), 403
+    if role_id not in _get_user_role_ids(user_id):
+        return jsonify({'success': False, 'error': 'El usuario no tiene este rol'}), 400
+    try:
+        db.session.execute(
+            user_role_table.delete().where(
+                user_role_table.c.user_id == user_id,
+                user_role_table.c.role_id == role_id,
+            )
+        )
+        ActivityLog.log_activity(
+            current_user.id, 'UNASSIGN_ROLE', 'user_role', user_id,
+            f'role={role.code} user={user_id} removed', request
+        )
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Rol {role.code} quitado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/users/<int:user_id>/roles')
+@require_permission('roles.assign')
+def admin_user_roles_page(user_id):
+    """Pantalla de asignación de roles al usuario (UI)."""
+    try:
+        user = User.query.get_or_404(user_id)
+        # Roles del usuario vía SQL directo; si falla, listas vacías (evita 500 en prod)
+        user_role_ids = _get_user_role_ids(user_id)
+        if user_role_ids:
+            current_roles = Role.query.filter(Role.id.in_(user_role_ids)).all()
+        else:
+            current_roles = []
+        all_roles = Role.query.filter(Role.code != 'SA').order_by(Role.code).all()
+        available_roles = [r for r in all_roles if r.id not in user_role_ids]
+        return render_template(
+            'admin/users/roles.html',
+            user=user,
+            current_roles=current_roles,
+            available_roles=available_roles,
+        )
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('admin_user_roles_page error: %s', e)
+        flash(f'Error al cargar la página de roles: {str(e)}', 'error')
+        return redirect(url_for('admin_users'))
+
+
+# ---------------------------------------------------------------------------
+# FASE 4: Consola de Roles y Permisos (solo lectura)
+# ---------------------------------------------------------------------------
+@app.route('/admin/roles')
+@require_permission('roles.view')
+def admin_roles_list():
+    """Listado de roles (solo lectura)."""
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_ROLES', 'roles', None,
+            'Acceso al listado de roles', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    roles = Role.query.order_by(Role.code).all()
+    role_data = []
+    for r in roles:
+        perm_count = db.session.query(role_permission_table).filter_by(role_id=r.id).count()
+        role_data.append({'role': r, 'permission_count': perm_count})
+    return render_template('admin/roles/list.html', role_data=role_data)
+
+
+@app.route('/admin/roles/<int:role_id>')
+@require_permission('roles.view')
+def admin_roles_detail(role_id):
+    """Detalle de un rol con sus permisos (solo lectura)."""
+    role = Role.query.get_or_404(role_id)
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_ROLES', 'roles', role_id,
+            f'Acceso al detalle del rol {role.code}', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    perms = role.permissions.all()
+    return render_template('admin/roles/detail.html', role=role, permissions=perms)
+
+
+@app.route('/admin/roles/<int:role_id>/users')
+@require_permission('roles.view')
+def admin_roles_users(role_id):
+    """Usuarios que tienen asignado este rol (solo lectura)."""
+    role = Role.query.get_or_404(role_id)
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_ROLE_USERS', 'roles', role_id,
+            f'Acceso a usuarios del rol {role.code}', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    rows = db.session.execute(
+        sql_text('SELECT user_id, assigned_at FROM user_role WHERE role_id = :rid ORDER BY assigned_at DESC'),
+        {'rid': role_id}
+    ).fetchall()
+    users_data = []
+    for user_id, assigned_at in rows:
+        u = User.query.get(user_id)
+        if u:
+            users_data.append({
+                'user': u,
+                'assigned_at': assigned_at,
+            })
+    return render_template('admin/roles/users.html', role=role, users_data=users_data)
+
+
+@app.route('/admin/permissions')
+@require_permission('roles.view')
+def admin_permissions_list():
+    """Listado de permisos del sistema (solo lectura)."""
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_PERMISSIONS', 'permissions', None,
+            'Acceso al listado de permisos', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    perms = Permission.query.order_by(Permission.code).all()
+    # Categoría desde code (primera parte); roles que tienen cada permiso
+    perm_data = []
+    for p in perms:
+        category = p.code.split('.')[0] if '.' in p.code else 'general'
+        roles_with = [r.code for r in p.roles.all()]
+        perm_data.append({'permission': p, 'category': category, 'roles': roles_with})
+    return render_template('admin/permissions/list.html', perm_data=perm_data)
+
+
+@app.route('/api/admin/roles')
+@require_permission('roles.view')
+def api_admin_roles():
+    """API: listado de roles con cantidad de permisos."""
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_ROLES', 'roles', None,
+            'API: listado de roles', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    roles = Role.query.order_by(Role.code).all()
+    out = []
+    for r in roles:
+        perm_count = db.session.query(role_permission_table).filter_by(role_id=r.id).count()
+        out.append({
+            'id': r.id, 'code': r.code, 'name': r.name,
+            'permissions_count': perm_count,
+            'system': (r.code == 'SA'),
+        })
+    return jsonify(out)
+
+
+@app.route('/api/admin/roles/<int:role_id>')
+@require_permission('roles.view')
+def api_admin_roles_detail(role_id):
+    """API: detalle de un rol con lista de permisos (códigos)."""
+    role = Role.query.get_or_404(role_id)
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_ROLE_DETAIL', 'roles', role_id,
+            f'API: detalle rol {role.code}', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    perms = [p.code for p in role.permissions.all()]
+    return jsonify({
+        'id': role.id, 'code': role.code, 'name': role.name,
+        'description': role.description or '',
+        'permissions': perms,
+        'system': (role.code == 'SA'),
+    })
+
+
+@app.route('/api/admin/permissions')
+@require_permission('roles.view')
+def api_admin_permissions():
+    """API: listado de permisos con categoría (desde code) y roles que los tienen."""
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_PERMISSIONS', 'permissions', None,
+            'API: listado de permisos', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    perms = Permission.query.order_by(Permission.code).all()
+    out = []
+    for p in perms:
+        category = p.code.split('.')[0] if '.' in p.code else 'general'
+        roles_with = [r.code for r in p.roles.all()]
+        out.append({'code': p.code, 'category': category, 'roles': roles_with})
+    return jsonify(out)
+
+
+@app.route('/api/admin/roles/<int:role_id>/users')
+@require_permission('roles.view')
+def api_admin_roles_users(role_id):
+    """API: usuarios que tienen asignado este rol (con assigned_at)."""
+    try:
+        ActivityLog.log_activity(
+            current_user.id, 'VIEW_ROLE_USERS', 'roles', role_id,
+            f'API: usuarios por rol', request
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    role = Role.query.get_or_404(role_id)
+    rows = db.session.execute(
+        sql_text('SELECT user_id, assigned_at FROM user_role WHERE role_id = :rid ORDER BY assigned_at DESC'),
+        {'rid': role_id}
+    ).fetchall()
+    users_data = []
+    for user_id, assigned_at in rows:
+        u = User.query.get(user_id)
+        if u:
+            users_data.append({
+                'id': u.id, 'email': u.email, 'first_name': u.first_name, 'last_name': u.last_name,
+                'is_active': u.is_active,
+                'assigned_at': assigned_at.isoformat() if assigned_at else None,
+            })
+    return jsonify({
+        'role': {'id': role.id, 'code': role.code, 'name': role.name},
+        'users': users_data,
+    })
+
+
 @app.route('/admin/memberships')
-@admin_required
+@require_permission('memberships.view')
 def admin_memberships():
     """Gestión de membresías (incluye Membership y Subscription) con filtros y paginación"""
     # Obtener membresías antiguas (Membership)
@@ -9251,6 +9786,362 @@ def restore_backup(filename):
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+# ---------------------------------------------------------------------------
+# Fase 1: Exportación configurable (XLS + PDF)
+# ---------------------------------------------------------------------------
+EXPORT_FIELD_REGISTRY = {
+    'members': [
+        {'key': 'id', 'label': 'ID', 'type': 'integer'},
+        {'key': 'email', 'label': 'Correo electrónico', 'type': 'string'},
+        {'key': 'first_name', 'label': 'Nombre', 'type': 'string'},
+        {'key': 'last_name', 'label': 'Apellido', 'type': 'string'},
+        {'key': 'phone', 'label': 'Teléfono', 'type': 'string'},
+        {'key': 'country', 'label': 'País', 'type': 'string'},
+        {'key': 'cedula_or_passport', 'label': 'Cédula / Pasaporte', 'type': 'string'},
+        {'key': 'user_group', 'label': 'Grupo', 'type': 'string'},
+        {'key': 'created_at', 'label': 'Fecha registro', 'type': 'date'},
+        {'key': 'is_active', 'label': 'Activo', 'type': 'boolean'},
+        {'key': 'is_admin', 'label': 'Admin', 'type': 'boolean'},
+        {'key': 'is_advisor', 'label': 'Asesor', 'type': 'boolean'},
+    ],
+}
+
+
+def _get_export_logo_path():
+    """Ruta absoluta del logo para PDF (solo PNG; ReportLab no soporta SVG). None si no hay logo."""
+    base = os.path.join(os.path.dirname(__file__), '..', 'static')
+    for rel in (
+        os.path.join('public', 'emails', 'logos', 'logo-relatic.png'),
+        os.path.join('images', 'logo-relatic.png'),
+    ):
+        path = os.path.join(base, rel)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def _get_export_fields_allowed(entity):
+    """Campos permitidos para la entidad (según registry)."""
+    return EXPORT_FIELD_REGISTRY.get(entity, [])
+
+
+def _sanitize_report_title(raw):
+    """Sanitiza nombre del reporte: trim, máx 100 caracteres, sin HTML/scripts."""
+    if raw is None:
+        return None
+    s = (raw or '').strip()
+    if not s:
+        return None
+    s = s[:100]
+    s = ''.join(c for c in s if c.isalnum() or c in ' -_.,;:áéíóúñÁÉÍÓÚÑ')
+    return s.strip() or None
+
+
+def _get_report_title(entity):
+    """Nombre del reporte: request (report_title o title), sanitizado; si vacío, default Reporte - <Entidad> - <Fecha>."""
+    raw = request.args.get('report_title') or request.args.get('title')
+    title = _sanitize_report_title(raw)
+    if title:
+        return title
+    ent_label = 'Miembros' if entity == 'members' else entity
+    return f'Reporte - {ent_label} - {datetime.utcnow().strftime("%d/%m/%Y %H:%M")}'
+
+
+def _export_members_data(field_keys, status_filter=None, limit=10000,
+                         search=None, admin_filter=None, advisor_filter=None,
+                         group_filter=None, tag_filter=None):
+    """Datos de usuarios para exportación. field_keys validados contra registry.
+
+    Regla funcional: el export usa la misma lógica que el listado en pantalla
+    (mismos filtros que /admin/users: search, status, admin, advisor, group, tag).
+    El usuario solo elige columnas; los registros los define esta query.
+    Límites: vista previa 50, PDF 1000, XLS 10000 (exportar todos los filtrados hasta ese tope).
+    """
+    allowed_keys = {f['key'] for f in _get_export_fields_allowed('members')}
+    keys = [k for k in field_keys if k in allowed_keys]
+    if not keys:
+        return [], []
+    query = User.query
+    if search:
+        query = query.filter(
+            db.or_(
+                User.first_name.ilike(f'%{search}%'),
+                User.last_name.ilike(f'%{search}%'),
+                User.email.ilike(f'%{search}%'),
+                User.phone.ilike(f'%{search}%')
+            )
+        )
+    if status_filter == 'active':
+        query = query.filter_by(is_active=True)
+    elif status_filter == 'inactive':
+        query = query.filter_by(is_active=False)
+    if admin_filter == 'yes':
+        query = query.filter_by(is_admin=True)
+    elif admin_filter == 'no':
+        query = query.filter_by(is_admin=False)
+    if advisor_filter == 'yes':
+        query = query.filter_by(is_advisor=True)
+    elif advisor_filter == 'no':
+        query = query.filter_by(is_advisor=False)
+    if group_filter and group_filter != 'all':
+        query = query.filter_by(user_group=group_filter)
+    if tag_filter:
+        query = query.filter(User.tags.ilike(f'%{tag_filter}%'))
+    query = query.order_by(User.created_at.desc())
+    rows = query.limit(limit).all()
+    labels = {f['key']: f['label'] for f in _get_export_fields_allowed('members')}
+    headers = [labels.get(k, k) for k in keys]
+    data = []
+    for u in rows:
+        row = {}
+        for k in keys:
+            v = getattr(u, k, None)
+            if v is None:
+                row[k] = ''
+            elif hasattr(v, 'strftime'):
+                row[k] = v.strftime('%d/%m/%Y %H:%M') if v else ''
+            elif isinstance(v, bool):
+                row[k] = 'Sí' if v else 'No'
+            else:
+                row[k] = str(v)
+        data.append([row[k] for k in keys])
+    return headers, data
+
+
+@app.route('/admin/export')
+@require_permission('reports.export')
+def admin_export_page():
+    """Pantalla de exportación: selector de campos, filtros, XLS/PDF."""
+    return render_template('admin/export.html')
+
+
+@app.route('/api/admin/export/fields')
+@require_permission('reports.export')
+def api_export_fields():
+    """Lista de campos permitidos para la entidad."""
+    entity = request.args.get('entity', 'members')
+    fields = _get_export_fields_allowed(entity)
+    return jsonify({'fields': fields})
+
+
+def _export_request_filters():
+    """Extrae filtros de listado (mismos que /admin/users) desde request.args."""
+    return {
+        'status_filter': request.args.get('status', 'all'),
+        'search': (request.args.get('search') or '').strip() or None,
+        'admin_filter': request.args.get('admin') or None,
+        'advisor_filter': request.args.get('advisor') or None,
+        'group_filter': request.args.get('group') or None,
+        'tag_filter': (request.args.get('tag') or '').strip() or None,
+    }
+
+
+@app.route('/api/admin/export/xls')
+@require_permission('reports.export')
+def api_export_xls():
+    """Exportar a Excel (campos y filtros por query). Mismos filtros que listado usuarios."""
+    entity = request.args.get('entity', 'members')
+    fields_param = request.args.get('fields', '')
+    field_keys = [x.strip() for x in fields_param.split(',') if x.strip()]
+    if entity != 'members':
+        return jsonify({'error': 'Entidad no soportada'}), 400
+    if not field_keys:
+        return jsonify({'error': 'Seleccione al menos un campo'}), 400
+    filters = _export_request_filters()
+    report_title = _get_report_title(entity)
+    try:
+        headers, data = _export_members_data(field_keys, limit=10000, **filters)
+        from openpyxl import Workbook
+        from io import BytesIO
+        wb = Workbook()
+        ws = wb.active
+        sheet_name = (report_title or 'Miembros')[:31].replace(':', '-').replace('\\', '-').replace('/', '-').replace('?', '').replace('*', '').replace('[', '').replace(']', '')
+        ws.title = sheet_name or 'Miembros'
+        ws.append(headers)
+        for row in data:
+            ws.append(row)
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        try:
+            ActivityLog.log_activity(
+                current_user.id, 'EXPORT_XLS', 'export', None,
+                f'entity=members fields={len(field_keys)} rows={len(data)}', request
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        download_name = f'miembros_{datetime.utcnow().strftime("%Y%m%d_%H%M")}.xlsx'
+        if report_title:
+            safe = ''.join(c if c.isalnum() or c in ' -_' else '_' for c in report_title)[:80]
+            download_name = f'{safe}_{datetime.utcnow().strftime("%Y%m%d_%H%M")}.xlsx'
+        return send_file(
+            buf,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=download_name
+        )
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('export xls: %s', e)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/export/pdf')
+@require_permission('reports.export')
+def api_export_pdf():
+    """Generar PDF (misma selección que XLS, límite 1000). Mismos filtros que listado usuarios."""
+    entity = request.args.get('entity', 'members')
+    fields_param = request.args.get('fields', '')
+    field_keys = [x.strip() for x in fields_param.split(',') if x.strip()]
+    if entity != 'members':
+        return jsonify({'error': 'Entidad no soportada'}), 400
+    if not field_keys:
+        return jsonify({'error': 'Seleccione al menos un campo'}), 400
+    filters = _export_request_filters()
+    try:
+        headers, data = _export_members_data(field_keys, limit=1000, **filters)
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image as RlImage, Paragraph, Spacer
+        from io import BytesIO
+        buf = BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        story = []
+        logo_path = _get_export_logo_path()
+        if logo_path:
+            try:
+                img = RlImage(logo_path, width=120)
+                story.append(img)
+                story.append(Spacer(1, 12))
+            except Exception:
+                pass
+        report_title = _get_report_title(entity)
+        fecha = datetime.utcnow().strftime('%d/%m/%Y %H:%M')
+        styles = getSampleStyleSheet()
+        story.append(Paragraph(f'<b>{report_title}</b><br/>{fecha}', styles['Heading2']))
+        story.append(Spacer(1, 16))
+        table_data = [headers] + data
+        t = Table(table_data, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+        ]))
+        story.append(t)
+        doc.build(story)
+        buf.seek(0)
+        try:
+            ActivityLog.log_activity(
+                current_user.id, 'EXPORT_PDF', 'export', None,
+                f'entity=members fields={len(field_keys)} rows={len(data)}', request
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        safe_pdf_name = ''.join(c if c.isalnum() or c in ' -_' else '_' for c in (report_title or ''))[:80]
+        pdf_download = f'{safe_pdf_name}_{datetime.utcnow().strftime("%Y%m%d_%H%M")}.pdf' if safe_pdf_name else f'miembros_{datetime.utcnow().strftime("%Y%m%d_%H%M")}.pdf'
+        return send_file(
+            buf,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=pdf_download
+        )
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('export pdf: %s', e)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/export/preview')
+@require_permission('reports.export')
+def api_export_preview():
+    """Vista previa: mismos params que export, límite 50 filas. Mismos filtros que listado."""
+    entity = request.args.get('entity', 'members')
+    fields_param = request.args.get('fields', '')
+    field_keys = [x.strip() for x in fields_param.split(',') if x.strip()]
+    if entity != 'members':
+        return jsonify({'error': 'Entidad no soportada'}), 400
+    if not field_keys:
+        return jsonify({'error': 'Seleccione al menos un campo'}), 400
+    filters = _export_request_filters()
+    try:
+        headers, data = _export_members_data(field_keys, limit=50, **filters)
+        return jsonify({'headers': headers, 'rows': data})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/export/templates', methods=['GET', 'POST'])
+@require_permission('reports.export')
+def api_export_templates():
+    """Listar (propias + compartidas) o crear plantilla de exportación."""
+    if request.method == 'GET':
+        templates = ExportTemplate.query.filter(
+            db.or_(
+                ExportTemplate.user_id == current_user.id,
+                ExportTemplate.visibility == 'shared'
+            )
+        ).order_by(ExportTemplate.created_at.desc()).all()
+        out = []
+        for t in templates:
+            try:
+                fields_list = json.loads(t.fields) if t.fields else []
+            except Exception:
+                fields_list = []
+            is_own = t.user_id == current_user.id
+            out.append({
+                'id': t.id, 'name': t.name, 'entity': t.entity, 'fields': fields_list,
+                'visibility': getattr(t, 'visibility', 'own'),
+                'is_own': is_own,
+                'created_at': t.created_at.isoformat() if t.created_at else None
+            })
+        return jsonify({'templates': out})
+    # POST
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    entity = (data.get('entity') or 'members').strip()
+    fields_list = data.get('fields') or []
+    visibility = (data.get('visibility') or 'own').strip()
+    if visibility not in ('own', 'shared'):
+        visibility = 'own'
+    if not name:
+        return jsonify({'error': 'Nombre requerido'}), 400
+    if not isinstance(fields_list, list):
+        return jsonify({'error': 'fields debe ser una lista'}), 400
+    allowed = {f['key'] for f in _get_export_fields_allowed(entity)}
+    fields_list = [k for k in fields_list if k in allowed]
+    if not fields_list:
+        return jsonify({'error': 'Seleccione al menos un campo permitido'}), 400
+    try:
+        t = ExportTemplate(name=name, entity=entity, fields=json.dumps(fields_list), visibility=visibility, user_id=current_user.id)
+        db.session.add(t)
+        db.session.commit()
+        return jsonify({'success': True, 'id': t.id, 'message': 'Plantilla guardada'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/export/templates/<int:template_id>')
+@require_permission('reports.export')
+def api_export_template_get(template_id):
+    """Obtener una plantilla (propia o compartida)."""
+    t = ExportTemplate.query.filter_by(id=template_id).first_or_404()
+    if t.user_id != current_user.id and getattr(t, 'visibility', 'own') != 'shared':
+        return jsonify({'error': 'No encontrado'}), 404
+    try:
+        fields_list = json.loads(t.fields) if t.fields else []
+    except Exception:
+        fields_list = []
+    return jsonify({'id': t.id, 'name': t.name, 'entity': t.entity, 'fields': fields_list})
+
+
 @app.route('/api/admin/payments/config', methods=['GET', 'POST', 'PUT'])
 @admin_required
 def api_payment_config():
@@ -9687,7 +10578,7 @@ def api_generate_discount_code():
 
 
 @app.route('/admin/services')
-@admin_required
+@require_permission('services.view')
 def admin_services():
     """Panel de administración de servicios"""
     status = request.args.get('status', 'all')
@@ -10927,4 +11818,5 @@ if __name__ == '__main__':
         # Aplicar configuración de email desde BD después de crear tablas
         apply_email_config_from_db()
     
-    app.run(host='0.0.0.0', port=9000, debug=True)
+    port = int(os.environ.get('PORT', 9000))
+    app.run(host='0.0.0.0', port=port, debug=True)

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle de Email - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-6 mb-0">
+                    <i class="fas fa-envelope-open"></i> Detalle de Email
+                </h1>
+                <a href="{{ url_for('admin_messaging') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver a Lista
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Información del Email -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información del Email</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">ID:</dt>
+                        <dd class="col-sm-9">{{ email_log.id }}</dd>
+
+                        <dt class="col-sm-3">Destinatario:</dt>
+                        <dd class="col-sm-9">
+                            <strong>{{ email_log.recipient_name or email_log.recipient_email }}</strong><br>
+                            <small class="text-muted">{{ email_log.recipient_email }}</small>
+                            {% if email_log.recipient_id %}
+                            <br><a href="{{ url_for('admin_users') }}#user-{{ email_log.recipient_id }}" class="text-primary">
+                                Ver usuario #{{ email_log.recipient_id }}
+                            </a>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-3">Asunto:</dt>
+                        <dd class="col-sm-9">{{ email_log.subject }}</dd>
+
+                        <dt class="col-sm-3">Tipo:</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge bg-secondary">
+                                {{ email_log.email_type.replace('_', ' ').title() }}
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-3">Entidad Relacionada:</dt>
+                        <dd class="col-sm-9">
+                            {% if email_log.related_entity_type %}
+                            <span class="badge bg-info">
+                                {{ email_log.related_entity_type.title() }}
+                                {% if email_log.related_entity_id %}
+                                    #{{ email_log.related_entity_id }}
+                                {% endif %}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-3">Estado:</dt>
+                        <dd class="col-sm-9">
+                            {% if email_log.status == 'sent' %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check"></i> Enviado
+                            </span>
+                            {% elif email_log.status == 'failed' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times"></i> Fallido
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning">
+                                <i class="fas fa-clock"></i> Pendiente
+                            </span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-3">Reintentos:</dt>
+                        <dd class="col-sm-9">{{ email_log.retry_count }}</dd>
+
+                        <dt class="col-sm-3">Fecha de Envío:</dt>
+                        <dd class="col-sm-9">
+                            {% if email_log.sent_at %}
+                            {{ email_log.sent_at.strftime('%d/%m/%Y %H:%M:%S') }}
+                            {% else %}
+                            <span class="text-muted">No enviado</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-3">Fecha de Creación:</dt>
+                        <dd class="col-sm-9">{{ email_log.created_at.strftime('%d/%m/%Y %H:%M:%S') }}</dd>
+
+                        {% if email_log.error_message %}
+                        <dt class="col-sm-3">Error:</dt>
+                        <dd class="col-sm-9">
+                            <div class="alert alert-danger mb-0">
+                                <i class="fas fa-exclamation-triangle"></i> {{ email_log.error_message }}
+                            </div>
+                        </dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Contenido del Email -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-file-alt"></i> Contenido del Email</h5>
+                </div>
+                <div class="card-body">
+                    {% if email_log.html_content %}
+                    <div class="mb-3">
+                        <h6>Vista Previa HTML:</h6>
+                        <div class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                            {{ email_log.html_content|safe }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if email_log.text_content %}
+                    <div>
+                        <h6>Contenido de Texto:</h6>
+                        <pre class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap;">{{ email_log.text_content }}</pre>
+                    </div>
+                    {% endif %}
+
+                    {% if not email_log.html_content and not email_log.text_content %}
+                    <p class="text-muted">No hay contenido disponible para este email.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Acciones -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cog"></i> Acciones</h5>
+                </div>
+                <div class="card-body">
+                    {% if email_log.status == 'failed' %}
+                    <form method="POST" action="{{ url_for('admin_messaging_resend', email_id=email_log.id) }}" 
+                          onsubmit="return confirm('¿Reenviar este email?');">
+                        <button type="submit" class="btn btn-success w-100 mb-2">
+                            <i class="fas fa-redo"></i> Reenviar Email
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <form method="POST" action="{{ url_for('admin_messaging_delete', email_id=email_log.id) }}" 
+                          onsubmit="return confirm('¿Eliminar este registro? Esta acción no se puede deshacer.');">
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="fas fa-trash"></i> Eliminar Registro
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Información Adicional -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información Adicional</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        <strong>Nota:</strong> Este registro muestra todos los detalles del email enviado por el sistema.
+                        Los emails fallidos pueden ser reenviados desde aquí.
+                    </p>
+                    
+                    {% if email_log.related_entity_type and email_log.related_entity_id %}
+                    <hr>
+                    <p class="small">
+                        <strong>Entidad Relacionada:</strong><br>
+                        Tipo: {{ email_log.related_entity_type.title() }}<br>
+                        ID: {{ email_log.related_entity_id }}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+

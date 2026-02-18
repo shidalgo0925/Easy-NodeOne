@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Nuevo servicio de citas{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-9 col-xl-8">
+            <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
+                <i class="fas fa-arrow-left me-2"></i>Volver al panel
+            </a>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-1">Crear servicio de citas</h1>
+                    <p class="text-muted small mb-4">Configura la información base, duración, precio y asesores disponibles.</p>
+
+                    <form method="post" class="row g-4">
+                        <div class="col-12">
+                            <label class="form-label">Nombre del servicio</label>
+                            <input type="text" name="name" class="form-control" required placeholder="Ej: Asesoría en revisión de artículos">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="description" class="form-control" rows="3" placeholder="Resume el objetivo de la cita y su alcance."></textarea>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Categoría</label>
+                            <input type="text" name="service_category" class="form-control" placeholder="Investigación, Publicaciones, etc.">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Duración (min)</label>
+                            <input type="number" name="duration_minutes" class="form-control" min="15" step="15" value="60">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Orden</label>
+                            <input type="number" name="display_order" class="form-control" min="1" value="1">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Precio base</label>
+                            <input type="number" name="base_price" step="0.01" class="form-control" value="0.00">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Moneda</label>
+                            <input type="text" name="currency" class="form-control" value="USD">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Color</label>
+                            <input type="color" name="color_tag" class="form-control form-control-color" value="#0d6efd">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Icono (FontAwesome)</label>
+                            <input type="text" name="icon" class="form-control" value="fa-calendar-check">
+                            <small class="text-muted">Ej: fa-user-graduate, fa-pen-ruler.</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Asesores asignados</label>
+                            <select name="advisor_ids" class="form-select" multiple size="5">
+                                {% for advisor in advisors %}
+                                <option value="{{ advisor.id }}">{{ advisor.user.first_name }} {{ advisor.user.last_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Mantén presionado Ctrl / Cmd para seleccionar varios.</small>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">¿Permite grupos?</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_group_allowed" id="groupAllowedSwitch">
+                                <label class="form-check-label" for="groupAllowedSwitch">Sí, permite múltiples participantes</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Máx. participantes</label>
+                            <input type="number" name="max_participants" class="form-control" min="1" value="1">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">¿Requiere confirmación?</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="requires_confirmation" id="confirmationSwitch" checked>
+                                <label class="form-check-label" for="confirmationSwitch">Sí, el asesor confirma</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Modalidad</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="is_virtual" value="1" id="virtualOption" checked>
+                                <label class="form-check-label" for="virtualOption">Virtual</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="is_virtual" value="0" id="inPersonOption">
+                                <label class="form-check-label" for="inPersonOption">Presencial</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 text-end">
+                            <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">Guardar servicio</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

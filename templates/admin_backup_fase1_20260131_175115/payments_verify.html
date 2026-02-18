@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Verificar Pagos Pendientes - Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>🔍 Verificación de Pagos Pendientes</h2>
+            <p class="text-muted">Ejecuta la verificación automática de todos los pagos pendientes usando match por atributos invariantes.</p>
+            
+            <div class="alert alert-info">
+                <strong>ℹ️ Información:</strong> Esta herramienta verifica pagos pendientes de Yappy, PayPal y Stripe/TCR
+                usando match automático por monto, moneda y ventana temporal. No depende del webhook.
+            </div>
+            
+            <!-- Estadísticas -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Pagos Pendientes</h5>
+                            <h2 class="text-warning">{{ total_pending }}</h2>
+                            <small class="text-muted">
+                                Yappy: {{ pending_payments.yappy }} | 
+                                PayPal: {{ pending_payments.paypal }} | 
+                                Stripe: {{ pending_payments.stripe }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Confirmados (24h)</h5>
+                            <h2 class="text-success">{{ recently_confirmed }}</h2>
+                            <small class="text-muted">Últimas 24 horas</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Estado</h5>
+                            <h2 class="text-info">Listo</h2>
+                            <small class="text-muted">Sistema operativo</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón de verificación -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Ejecutar Verificación Manual</h5>
+                    <p class="card-text">
+                        Esta acción verificará todos los pagos pendientes de los últimos 24 horas
+                        usando match automático por atributos invariantes.
+                    </p>
+                    
+                    <form method="POST" id="verifyForm">
+                        <button type="submit" class="btn btn-primary btn-lg" id="verifyBtn">
+                            <i class="fas fa-sync-alt"></i> Ejecutar Verificación
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-lg" onclick="verifyViaAPI()">
+                            <i class="fas fa-code"></i> Verificar vía API (AJAX)
+                        </button>
+                    </form>
+                    
+                    <div id="apiResult" class="mt-3" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <!-- Información técnica -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>📋 Información Técnica</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Lógica de Match Automático:</h6>
+                    <ul>
+                        <li><strong>Canal:</strong> Método de pago (Yappy, PayPal, Stripe)</li>
+                        <li><strong>Monto:</strong> Coincidencia exacta (en centavos)</li>
+                        <li><strong>Moneda:</strong> Coincidencia exacta</li>
+                        <li><strong>Ventana temporal:</strong> ±10 minutos (manual) / ±15 minutos (cron)</li>
+                        <li><strong>Estado:</strong> Transacción debe estar COMPLETED en el proveedor</li>
+                    </ul>
+                    
+                    <h6 class="mt-3">Protecciones:</h6>
+                    <ul>
+                        <li>✅ Anti-duplicados: Verifica que no exista otro pago con el mismo transaction_id</li>
+                        <li>✅ Match único: Solo hace match automático si hay exactamente 1 candidato</li>
+                        <li>✅ Auditoría: Guarda respuesta completa de la API en yappy_raw_response</li>
+                        <li>✅ Inmutable: payment_reference (YAPPY-XXXXXXXX) NUNCA se sobrescribe</li>
+                    </ul>
+                    
+                    <h6 class="mt-3">API Endpoint:</h6>
+                    <code>POST /api/admin/payments/verify-pending</code>
+                    <p class="text-muted mt-2">
+                        Requiere autenticación de administrador. Retorna estadísticas detalladas
+                        de la verificación.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function verifyViaAPI() {
+    const btn = document.getElementById('verifyBtn');
+    const resultDiv = document.getElementById('apiResult');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="alert alert-info">Ejecutando verificación...</div>';
+    
+    fetch('/api/admin/payments/verify-pending', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let html = '<div class="alert alert-success"><h5>✅ Verificación Completada</h5>';
+            html += '<p><strong>Confirmados en esta ejecución:</strong></p>';
+            html += '<ul>';
+            html += `<li>Yappy: ${data.summary.confirmed_in_this_run.yappy}</li>`;
+            html += `<li>PayPal: ${data.summary.confirmed_in_this_run.paypal}</li>`;
+            html += `<li>Stripe: ${data.summary.confirmed_in_this_run.stripe}</li>`;
+            html += `<li><strong>Total: ${data.summary.total_confirmed}</strong></li>`;
+            html += '</ul>';
+            html += '<p><strong>Pendientes después:</strong></p>';
+            html += '<ul>';
+            html += `<li>Yappy: ${data.summary.pending_after.yappy}</li>`;
+            html += `<li>PayPal: ${data.summary.pending_after.paypal}</li>`;
+            html += `<li>Stripe: ${data.summary.pending_after.stripe}</li>`;
+            html += '</ul>';
+            html += '</div>';
+            resultDiv.innerHTML = html;
+            
+            // Recargar página después de 2 segundos para actualizar estadísticas
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger"><strong>Error:</strong> ${data.error}</div>`;
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Ejecutar Verificación';
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `<div class="alert alert-danger"><strong>Error:</strong> ${error.message}</div>`;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Ejecutar Verificación';
+    });
+}
+</script>
+{% endblock %}

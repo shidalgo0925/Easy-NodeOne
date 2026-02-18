@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios con rol {{ role.code }} - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_roles_list') }}">Roles</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_roles_detail', role_id=role.id) }}">{{ role.code }}</a></li>
+                    <li class="breadcrumb-item active">Usuarios</li>
+                </ol>
+            </nav>
+            <h1 class="h5 mb-2">
+                <span class="badge bg-secondary me-2">{{ role.code }}</span> Usuarios con este rol
+            </h1>
+            <p class="text-muted small mb-0">Solo lectura. Sin acciones de edición.</p>
+        </div>
+        <a href="{{ url_for('admin_roles_detail', role_id=role.id) }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Volver al rol</a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if users_data %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Estado</th>
+                            <th>Fecha de asignación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in users_data %}
+                        <tr>
+                            <td>{{ item.user.first_name or '' }} {{ item.user.last_name or '' }}</td>
+                            <td>{{ item.user.email }}</td>
+                            <td>{% if item.user.is_active %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</td>
+                            <td class="text-muted small">{% if item.assigned_at %}{{ item.assigned_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center p-4 text-muted">Ningún usuario tiene asignado este rol.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

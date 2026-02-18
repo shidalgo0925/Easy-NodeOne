@@ -8,17 +8,13 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="h5 mb-2">
+                    <h1 class="display-6 mb-3">
                         <i class="fas fa-envelope"></i> Gestión de Mensajería
                     </h1>
                     <p class="text-muted">Visualiza y gestiona todos los emails enviados por el sistema</p>
                 </div>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    {% if current_user.has_permission('reports.export') %}
-                    <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
-                    <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
-                    {% endif %}
-                    <a href="{{ url_for('admin_email') }}#templates" class="btn btn-sm btn-warning">
+                <div>
+                    <a href="{{ url_for('admin_email') }}#templates" class="btn btn-warning">
                         <i class="fas fa-file-alt"></i> Ver/Editar Templates de Correo
                     </a>
                 </div>
@@ -26,87 +22,92 @@
         </div>
     </div>
 
-    <!-- Estadísticas (tarjetas compactas) -->
+    <!-- Estadísticas -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Total Emails</h6>
-                    <h4 class="mb-0 text-primary">{{ total_emails }}</h4>
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Total Emails</h5>
+                    <h2 class="text-primary">{{ total_emails }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Enviados</h6>
-                    <h4 class="mb-0 text-success">{{ sent_emails }}</h4>
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Enviados</h5>
+                    <h2 class="text-success">{{ sent_emails }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Fallidos</h6>
-                    <h4 class="mb-0 text-danger">{{ failed_emails }}</h4>
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Fallidos</h5>
+                    <h2 class="text-danger">{{ failed_emails }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Tasa de Éxito</h6>
-                    <h4 class="mb-0 text-info">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Tasa de Éxito</h5>
+                    <h2 class="text-info">
                         {% if total_emails > 0 %}
                             {{ "%.1f"|format((sent_emails / total_emails * 100)) }}%
                         {% else %}
                             0%
                         {% endif %}
-                    </h4>
+                    </h2>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Filtros en una línea -->
+    <!-- Filtros -->
     <div class="row mb-3">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-filter"></i> Filtros</h6></div>
-                <div class="card-body py-2">
-                    <form method="GET" action="{{ url_for('admin_messaging') }}" class="d-flex flex-wrap align-items-end gap-2">
-                        <div class="flex-shrink-0">
-                            <label for="type" class="form-label form-label-sm mb-0">Tipo</label>
-                            <select name="type" id="type" class="form-select form-select-sm" style="width:110px">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('admin_messaging') }}" class="row g-3">
+                        <div class="col-md-2">
+                            <label for="type" class="form-label">Tipo de Email</label>
+                            <select name="type" id="type" class="form-select">
                                 <option value="all" {% if current_type == 'all' %}selected{% endif %}>Todos</option>
-                                {% for email_type in email_types %}<option value="{{ email_type }}" {% if current_type == email_type %}selected{% endif %}>{{ email_type.replace('_', ' ').title() }}</option>{% endfor %}
+                                {% for email_type in email_types %}
+                                <option value="{{ email_type }}" {% if current_type == email_type %}selected{% endif %}>
+                                    {{ email_type.replace('_', ' ').title() }}
+                                </option>
+                                {% endfor %}
                             </select>
                         </div>
-                        <div class="flex-shrink-0">
-                            <label for="status" class="form-label form-label-sm mb-0">Estado</label>
-                            <select name="status" id="status" class="form-select form-select-sm" style="width:95px">
+                        <div class="col-md-2">
+                            <label for="status" class="form-label">Estado</label>
+                            <select name="status" id="status" class="form-select">
                                 <option value="all" {% if current_status == 'all' %}selected{% endif %}>Todos</option>
                                 <option value="sent" {% if current_status == 'sent' %}selected{% endif %}>Enviados</option>
                                 <option value="failed" {% if current_status == 'failed' %}selected{% endif %}>Fallidos</option>
                                 <option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pendientes</option>
                             </select>
                         </div>
-                        <div class="flex-shrink-0">
-                            <label for="search" class="form-label form-label-sm mb-0">Buscar</label>
-                            <input type="text" name="search" id="search" class="form-control form-control-sm" placeholder="Email, asunto..." value="{{ search }}" style="width:160px">
+                        <div class="col-md-3">
+                            <label for="search" class="form-label">Buscar</label>
+                            <input type="text" name="search" id="search" class="form-control" 
+                                   placeholder="Email, asunto, nombre..." value="{{ search }}">
                         </div>
-                        <div class="flex-shrink-0 d-flex align-items-center gap-1">
-                            <label for="per_page" class="form-label form-label-sm mb-0 text-nowrap">Pág</label>
-                            <select name="per_page" id="per_page" class="form-select form-select-sm" style="width:60px">
-                                <option value="10" {% if pagination.per_page == 10 %}selected{% endif %}>10</option>
+                        <div class="col-md-2">
+                            <label for="per_page" class="form-label">Registros por página</label>
+                            <select name="per_page" id="per_page" class="form-select">
+                                <option value="12" {% if pagination.per_page == 12 %}selected{% endif %}>12</option>
                                 <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
                                 <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
                                 <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
                             </select>
                         </div>
-                        <div class="flex-shrink-0">
-                            <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filtrar</button>
-                            <a href="{{ url_for('admin_messaging') }}" class="btn btn-sm btn-outline-secondary ms-1"><i class="fas fa-times"></i> Limpiar</a>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Filtrar
+                            </button>
                         </div>
                         <input type="hidden" name="page" value="1">
                     </form>
@@ -115,38 +116,27 @@
         </div>
     </div>
 
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body py-2">
-                    <label class="form-label small mb-1" for="report_title">Nombre del reporte</label>
-                    <input type="text" class="form-control form-control-sm" id="report_title" name="report_title" placeholder="Ej: Listado de miembros activos" maxlength="100" autocomplete="off" style="max-width:320px">
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Tabla de emails -->
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Emails</h5>
                     <span class="badge bg-primary">{{ pagination.total }} emails</span>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover table-sm align-middle mb-0">
-                            <thead class="table-light">
+                        <table class="table table-hover">
+                            <thead>
                                 <tr>
-                                    <th class="text-nowrap">ID</th>
+                                    <th>ID</th>
                                     <th>Destinatario</th>
                                     <th>Asunto</th>
-                                    <th class="text-nowrap">Tipo</th>
-                                    <th class="text-nowrap">Entidad</th>
-                                    <th class="text-nowrap">Estado</th>
-                                    <th class="text-nowrap text-end">Fecha</th>
-                                    <th class="text-end">Acciones</th>
+                                    <th>Tipo</th>
+                                    <th>Entidad</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -316,29 +306,6 @@
         </div>
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var reportTitleEl = document.getElementById('report_title');
-    var xlsLink = document.getElementById('exportXls');
-    var pdfLink = document.getElementById('exportPdf');
-    if (xlsLink) {
-        xlsLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.location.href = url;
-        });
-    }
-    if (pdfLink) {
-        pdfLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.open(url, '_blank');
-        });
-    }
-});
-</script>
 {% endblock %}
 
 

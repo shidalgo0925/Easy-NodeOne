@@ -289,6 +289,14 @@
                                         <span class="menu-title-text">Membresías</span>
                                     </a>
                                 </li>
+                                {% if current_user.has_permission('roles.view') %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Roles y Permisos">
+                                        <i class="menu-icon fa fa-user-shield"></i>
+                                        <span class="menu-title-text">Roles y Permisos</span>
+                                    </a>
+                                </li>
+                                {% endif %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_services' %}active{% endif %}" href="{{ url_for('admin_services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios">
                                         <i class="menu-icon fa fa-th-large"></i>
@@ -331,6 +339,14 @@
                                         <span class="menu-title-text">Respaldos</span>
                                     </a>
                                 </li>
+                                {% if current_user.has_permission('reports.export') %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_export_page' %}active{% endif %}" href="{{ url_for('admin_export_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Exportar datos">
+                                        <i class="menu-icon fa fa-file-export"></i>
+                                        <span class="menu-title-text">Exportar datos</span>
+                                    </a>
+                                </li>
+                                {% endif %}
                             </ul>
                         </li>
                         {% endif %}

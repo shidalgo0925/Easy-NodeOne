@@ -6,23 +6,13 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h1 class="h5 mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-6 mb-3">
                     <i class="fas fa-users"></i> Gestión de Usuarios
                 </h1>
-                <div class="d-flex gap-2 align-items-center">
-                    {% if current_user.has_permission('reports.export') %}
-                    <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status={{ status_filter }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if admin_filter != 'all' %}&admin={{ admin_filter }}{% endif %}{% if advisor_filter != 'all' %}&advisor={{ advisor_filter }}{% endif %}{% if group_filter and group_filter != 'all' %}&group={{ group_filter|urlencode }}{% endif %}{% if tag_filter %}&tag={{ tag_filter|urlencode }}{% endif %}" id="exportXls" class="btn btn-success btn-sm" title="Exportar lista visible a Excel">
-                        <i class="fas fa-file-excel"></i> XLS
-                    </a>
-                    <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status={{ status_filter }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if admin_filter != 'all' %}&admin={{ admin_filter }}{% endif %}{% if advisor_filter != 'all' %}&advisor={{ advisor_filter }}{% endif %}{% if group_filter and group_filter != 'all' %}&group={{ group_filter|urlencode }}{% endif %}{% if tag_filter %}&tag={{ tag_filter|urlencode }}{% endif %}" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar lista visible a PDF">
-                        <i class="fas fa-file-pdf"></i> PDF
-                    </a>
-                    {% endif %}
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
-                        <i class="fas fa-plus"></i> Crear Usuario
-                    </button>
-                </div>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                    <i class="fas fa-plus"></i> Crear Usuario
+                </button>
             </div>
         </div>
     </div>
@@ -97,17 +87,6 @@
         </div>
     </div>
 
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body py-2">
-                    <label class="form-label small mb-1" for="report_title">Nombre del reporte</label>
-                    <input type="text" class="form-control form-control-sm" id="report_title" name="report_title" placeholder="Ej: Listado de miembros activos" maxlength="100" autocomplete="off" style="max-width:320px">
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm">
@@ -131,7 +110,6 @@
                                     <th>Email</th>
                                     <th class="text-nowrap">País</th>
                                     <th class="text-nowrap">Estado</th>
-                                    <th class="text-nowrap">Fecha registro</th>
                                     <th class="text-nowrap text-end">Acciones</th>
                                 </tr>
                             </thead>
@@ -160,12 +138,8 @@
                                         {% if user.is_admin %}<span class="badge bg-warning text-dark">Admin</span>{% endif %}
                                         {% if user.is_advisor %}<span class="badge bg-info">Asesor</span>{% endif %}
                                     </td>
-                                    <td class="text-nowrap">{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '—' }}</td>
                                     <td class="text-nowrap text-end">
                                         <div class="btn-group btn-group-sm">
-                                            {% if current_user.has_permission('roles.assign') %}
-                                            <a href="{{ url_for('admin_user_roles_page', user_id=user.id) }}" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="Gestionar roles"><i class="fas fa-user-shield"></i></a>
-                                            {% endif %}
                                             <button type="button" class="btn btn-outline-primary btn-edit-user" data-bs-toggle="tooltip" title="Ver detalle / Editar"><i class="fas fa-edit"></i></button>
                                             {% if user.id != current_user.id %}
                                             <button type="button" class="btn btn-outline-danger btn-delete-user" data-bs-toggle="tooltip" title="Eliminar"><i class="fas fa-trash"></i></button>
@@ -465,26 +439,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-
-    var reportTitleEl = document.getElementById('report_title');
-    var xlsLink = document.getElementById('exportXls');
-    var pdfLink = document.getElementById('exportPdf');
-    if (xlsLink) {
-        xlsLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.location.href = url;
-        });
-    }
-    if (pdfLink) {
-        pdfLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.open(url, '_blank');
-        });
-    }
 });
 </script>
 {% endblock %}

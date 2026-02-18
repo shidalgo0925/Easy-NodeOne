@@ -6,62 +6,13 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h1 class="h5 mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-6 mb-0">
                     <i class="fas fa-tags"></i> Gestión de Descuentos
                 </h1>
-                <div class="d-flex gap-2 align-items-center">
-                    {% if current_user.has_permission('reports.export') %}
-                    <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
-                    <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
-                    {% endif %}
-                    <a href="{{ url_for('admin_events.create_discount') }}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Nuevo Descuento
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filtros en una línea -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-2">
-            <form method="GET" class="d-flex flex-wrap align-items-end gap-2">
-                <div class="flex-shrink-0">
-                    <label class="form-label form-label-sm mb-0">Estado</label>
-                    <select name="status" class="form-select form-select-sm" style="width:120px">
-                        <option value="all" {% if current_status == 'all' %}selected{% endif %}>Todos</option>
-                        <option value="active" {% if current_status == 'active' %}selected{% endif %}>Activos</option>
-                        <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactivos</option>
-                    </select>
-                </div>
-                <div class="flex-shrink-0">
-                    <label class="form-label form-label-sm mb-0">Tipo</label>
-                    <select name="type" class="form-select form-select-sm" style="width:120px">
-                        <option value="all" {% if current_type == 'all' %}selected{% endif %}>Todos</option>
-                        <option value="percentage" {% if current_type == 'percentage' %}selected{% endif %}>Porcentaje</option>
-                        <option value="fixed" {% if current_type == 'fixed' %}selected{% endif %}>Fijo</option>
-                    </select>
-                </div>
-                <div class="flex-shrink-0">
-                    <label class="form-label form-label-sm mb-0">Buscar</label>
-                    <input type="text" name="search" class="form-control form-control-sm" value="{{ search }}" placeholder="Nombre o código..." style="width:160px">
-                </div>
-                <div class="flex-shrink-0">
-                    <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter me-1"></i> Filtrar</button>
-                    <a href="{{ url_for('admin_events.discounts_index') }}" class="btn btn-sm btn-outline-secondary ms-1"><i class="fas fa-times"></i> Limpiar</a>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body py-2">
-                    <label class="form-label small mb-1" for="report_title">Nombre del reporte</label>
-                    <input type="text" class="form-control form-control-sm" id="report_title" name="report_title" placeholder="Ej: Listado de miembros activos" maxlength="100" autocomplete="off" style="max-width:320px">
-                </div>
+                <a href="{{ url_for('admin_events.create_discount') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Descuento
+                </a>
             </div>
         </div>
     </div>
@@ -172,29 +123,6 @@
         </div>
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var reportTitleEl = document.getElementById('report_title');
-    var xlsLink = document.getElementById('exportXls');
-    var pdfLink = document.getElementById('exportPdf');
-    if (xlsLink) {
-        xlsLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.location.href = url;
-        });
-    }
-    if (pdfLink) {
-        pdfLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.open(url, '_blank');
-        });
-    }
-});
-</script>
 {% endblock %}
 
 

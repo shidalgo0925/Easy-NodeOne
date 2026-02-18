@@ -6,93 +6,78 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h1 class="h5 mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-6 mb-0">
                     <i class="fas fa-calendar-alt"></i> Gestión de Eventos
                 </h1>
-                <div class="d-flex gap-2 align-items-center">
-                    {% if current_user.has_permission('reports.export') %}
-                    <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
-                    <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
-                    {% endif %}
-                    <a href="{{ url_for('admin_events.create_event') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Nuevo Evento</a>
-                </div>
+                <a href="{{ url_for('admin_events.create_event') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Evento
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- Estadísticas (tarjetas compactas) -->
+    <!-- Estadísticas -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Total</h6>
-                    <h4 class="mb-0 text-primary">{{ stats.total }}</h4>
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Total</h5>
+                    <h3 class="mb-0">{{ stats.total }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Publicados</h6>
-                    <h4 class="mb-0 text-success">{{ stats.published }}</h4>
+                <div class="card-body">
+                    <h5 class="card-title text-success">Publicados</h5>
+                    <h3 class="mb-0 text-success">{{ stats.published }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Borradores</h6>
-                    <h4 class="mb-0 text-warning">{{ stats.drafts }}</h4>
+                <div class="card-body">
+                    <h5 class="card-title text-warning">Borradores</h5>
+                    <h3 class="mb-0 text-warning">{{ stats.drafts }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Archivados</h6>
-                    <h4 class="mb-0 text-secondary">{{ stats.archived }}</h4>
+                <div class="card-body">
+                    <h5 class="card-title text-secondary">Archivados</h5>
+                    <h3 class="mb-0 text-secondary">{{ stats.archived }}</h3>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Filtros en una línea -->
+    <!-- Filtros -->
     <div class="row mb-3">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-filter"></i> Filtros</h6></div>
-                <div class="card-body py-2">
-                    <form method="GET" class="d-flex flex-wrap align-items-end gap-2">
-                        <div class="flex-shrink-0">
-                            <label class="form-label form-label-sm mb-0">Estado</label>
-                            <select name="status" class="form-select form-select-sm" style="width:110px">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Estado</label>
+                            <select name="status" class="form-select">
                                 <option value="all" {% if status == 'all' %}selected{% endif %}>Todos</option>
                                 <option value="published" {% if status == 'published' %}selected{% endif %}>Publicados</option>
                                 <option value="draft" {% if status == 'draft' %}selected{% endif %}>Borradores</option>
                                 <option value="archived" {% if status == 'archived' %}selected{% endif %}>Archivados</option>
                             </select>
                         </div>
-                        <div class="flex-shrink-0">
-                            <label class="form-label form-label-sm mb-0">Categoría</label>
-                            <input type="text" name="category" class="form-control form-control-sm" value="{{ category }}" placeholder="Categoría..." style="width:140px">
+                        <div class="col-md-4">
+                            <label class="form-label">Categoría</label>
+                            <input type="text" name="category" class="form-control" value="{{ category }}" placeholder="Filtrar por categoría">
                         </div>
-                        <div class="flex-shrink-0">
-                            <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filtrar</button>
-                            <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-sm btn-outline-secondary ms-1"><i class="fas fa-times"></i> Limpiar</a>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter"></i> Filtrar
+                            </button>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body py-2">
-                    <label class="form-label small mb-1" for="report_title">Nombre del reporte</label>
-                    <input type="text" class="form-control form-control-sm" id="report_title" name="report_title" placeholder="Ej: Listado de miembros activos" maxlength="100" autocomplete="off" style="max-width:320px">
                 </div>
             </div>
         </div>
@@ -101,24 +86,24 @@
     <!-- Lista de Eventos -->
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header py-2">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Eventos</h5>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     {% if events %}
                     <div class="table-responsive">
-                        <table class="table table-hover table-sm align-middle mb-0">
-                            <thead class="table-light">
+                        <table class="table table-hover">
+                            <thead>
                                 <tr>
-                                    <th class="text-nowrap">ID</th>
+                                    <th>ID</th>
                                     <th>Título</th>
-                                    <th class="text-nowrap">Categoría</th>
-                                    <th class="text-nowrap">Inicio</th>
-                                    <th class="text-nowrap">Fin</th>
-                                    <th class="text-nowrap text-end">Precio</th>
-                                    <th class="text-nowrap">Estado</th>
-                                    <th class="text-end">Acciones</th>
+                                    <th>Categoría</th>
+                                    <th>Fecha Inicio</th>
+                                    <th>Fecha Fin</th>
+                                    <th>Precio Base</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -178,35 +163,12 @@
     <!-- Enlace a Descuentos -->
     <div class="row mt-3">
         <div class="col-12">
-            <a href="{{ url_for('admin_events.discounts_index') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ url_for('admin_events.discounts_index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-tags"></i> Gestionar Descuentos
             </a>
         </div>
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var reportTitleEl = document.getElementById('report_title');
-    var xlsLink = document.getElementById('exportXls');
-    var pdfLink = document.getElementById('exportPdf');
-    if (xlsLink) {
-        xlsLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.location.href = url;
-        });
-    }
-    if (pdfLink) {
-        pdfLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
-            window.open(url, '_blank');
-        });
-    }
-});
-</script>
 {% endblock %}
 
 

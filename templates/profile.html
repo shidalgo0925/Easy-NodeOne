@@ -70,7 +70,7 @@
                             <input type="tel" class="form-control" id="phone" name="phone" 
                                    value="{{ current_user.phone or '' }}" 
                                    placeholder="Ej: +507 6123-4567"
-                                   pattern="[+]?[0-9 ()-]+"
+                                   pattern="[+]?[-0-9 ()]+"
                                    maxlength="20">
                             <small class="form-text text-muted">
                                 <i class="fas fa-info-circle"></i> 

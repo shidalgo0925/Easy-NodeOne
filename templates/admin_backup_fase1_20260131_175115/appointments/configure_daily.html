@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurar Disponibilidad - {{ selected_date.strftime('%d/%m/%Y') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <p class="text-uppercase text-muted small mb-1">Panel administrativo</p>
+            <h1 class="h3 mb-0">
+                Configurar Disponibilidad: 
+                <strong>{{ selected_date.strftime('%d de %B de %Y') }}</strong>
+            </h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin_appointments.calendar_view', year=selected_date.year, month=selected_date.month) }}" 
+               class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver al Calendario
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-day me-2"></i>
+                        Nueva Configuración de Disponibilidad
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="availabilityForm">
+                        <input type="hidden" name="timezone" value="America/Panama">
+                        
+                        <!-- Selección de Servicio -->
+                        <div class="mb-4">
+                            <label for="appointment_type_id" class="form-label">
+                                <i class="fas fa-briefcase me-2"></i>
+                                Servicio / Tipo de Cita <span class="text-danger">*</span>
+                            </label>
+                            <select name="appointment_type_id" id="appointment_type_id" class="form-select" required>
+                                <option value="">Seleccione un servicio...</option>
+                                {% for appointment_type in appointment_types %}
+                                    <option value="{{ appointment_type.id }}">{{ appointment_type.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Selección de Asesor -->
+                        <div class="mb-4">
+                            <label for="advisor_id" class="form-label">
+                                <i class="fas fa-user-tie me-2"></i>
+                                Asesor <span class="text-danger">*</span>
+                            </label>
+                            <select name="advisor_id" id="advisor_id" class="form-select" required>
+                                <option value="">Seleccione un asesor...</option>
+                                {% for advisor in advisors %}
+                                    <option value="{{ advisor.id }}">
+                                        {% if advisor.user %}
+                                            {{ advisor.user.first_name }} {{ advisor.user.last_name }}
+                                        {% else %}
+                                            Asesor #{{ advisor.id }}
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Configuración de Horarios -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-clock me-2"></i>
+                                Horarios Disponibles <span class="text-danger">*</span>
+                            </label>
+                            <div id="timeSlotsContainer">
+                                <div class="time-slot-row mb-2 d-flex gap-2 align-items-center">
+                                    <input type="time" 
+                                           name="start_time" 
+                                           class="form-control" 
+                                           style="width: 150px;"
+                                           required>
+                                    <span>-</span>
+                                    <input type="time" 
+                                           name="end_time" 
+                                           class="form-control" 
+                                           style="width: 150px;"
+                                           required>
+                                    <button type="button" class="btn btn-sm btn-danger remove-time-slot">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="addTimeSlot">
+                                <i class="fas fa-plus me-1"></i>Agregar Horario
+                            </button>
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{{ url_for('admin_appointments.calendar_view', year=selected_date.year, month=selected_date.month) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Guardar Disponibilidad
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Disponibilidades Existentes -->
+            {% if availabilities_by_service_advisor %}
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Configuraciones Existentes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for (service_id, advisor_id), availabilities in availabilities_by_service_advisor.items() %}
+                        {% set service = appointment_types | selectattr('id', 'equalto', service_id) | first %}
+                        {% set advisor = advisors | selectattr('id', 'equalto', advisor_id) | first %}
+                        <div class="mb-3 pb-3 border-bottom">
+                            <strong>
+                                {% if service %}
+                                    {{ service.name }}
+                                {% else %}
+                                    Servicio #{{ service_id }}
+                                {% endif %}
+                            </strong>
+                            <br>
+                            <small class="text-muted">
+                                {% if advisor and advisor.user %}
+                                    {{ advisor.user.first_name }} {{ advisor.user.last_name }}
+                                {% else %}
+                                    Asesor #{{ advisor_id }}
+                                {% endif %}
+                            </small>
+                            <div class="mt-2">
+                                {% for av in availabilities %}
+                                    <span class="badge bg-primary me-1 mb-1">
+                                        {{ av.start_time.strftime('%H:%M') }}-{{ av.end_time.strftime('%H:%M') }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Información -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Información
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">
+                        <strong>Fecha:</strong><br>
+                        {{ selected_date.strftime('%A, %d de %B de %Y') }}
+                    </p>
+                    <p class="small mb-2">
+                        <strong>Instrucciones:</strong><br>
+                        1. Selecciona el servicio<br>
+                        2. Selecciona el asesor<br>
+                        3. Configura los horarios disponibles<br>
+                        4. Los slots se generarán automáticamente
+                    </p>
+                    <hr>
+                    <p class="small text-muted mb-0">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        Puedes agregar múltiples bloques de horario para el mismo día, servicio y asesor.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Agregar nuevo horario
+    document.getElementById('addTimeSlot').addEventListener('click', function() {
+        const container = document.getElementById('timeSlotsContainer');
+        const newRow = document.createElement('div');
+        newRow.className = 'time-slot-row mb-2 d-flex gap-2 align-items-center';
+        newRow.innerHTML = `
+            <input type="time" 
+                   name="start_time" 
+                   class="form-control" 
+                   style="width: 150px;"
+                   required>
+            <span>-</span>
+            <input type="time" 
+                   name="end_time" 
+                   class="form-control" 
+                   style="width: 150px;"
+                   required>
+            <button type="button" class="btn btn-sm btn-danger remove-time-slot">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        container.appendChild(newRow);
+        
+        // Agregar listener al botón de eliminar
+        newRow.querySelector('.remove-time-slot').addEventListener('click', function() {
+            newRow.remove();
+        });
+    });
+    
+    // Eliminar horario
+    document.querySelectorAll('.remove-time-slot').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const container = document.getElementById('timeSlotsContainer');
+            if (container.children.length > 1) {
+                this.closest('.time-slot-row').remove();
+            } else {
+                alert('Debe haber al menos un horario configurado.');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

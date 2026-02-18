@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Rol {{ role.code }} - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_roles_list') }}">Roles</a></li>
+                    <li class="breadcrumb-item active">{{ role.code }}</li>
+                </ol>
+            </nav>
+            <h1 class="h5 mb-2">
+                <span class="badge bg-secondary me-2">{{ role.code }}</span> {{ role.name }}
+            </h1>
+            {% if role.description %}<p class="text-muted small mb-0">{{ role.description }}</p>{% endif %}
+        </div>
+        <a href="{{ url_for('admin_roles_list') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header py-2">
+            <h6 class="mb-0"><i class="fas fa-key me-2"></i>Permisos asociados (solo lectura)</h6>
+        </div>
+        <div class="card-body p-0">
+            {% if permissions %}
+            <ul class="list-group list-group-flush">
+                {% for p in permissions %}
+                <li class="list-group-item d-flex justify-content-between align-items-center py-2 flex-wrap gap-1">
+                    <code>{{ p.code }}</code>
+                    <span class="text-muted small">{{ p.name }}</span>
+                    <span>
+                    {% if p.code.startswith('system.') or p.code.startswith('audit.') %}
+                    <span class="badge bg-warning text-dark">Sistema</span>
+                    {% endif %}
+                    {% if 'integrations' in p.code or 'api.keys' in p.code %}
+                    <span class="badge bg-primary">Integración</span>
+                    {% endif %}
+                    {% if 'delete' in p.code or 'revoke' in p.code %}
+                    <span class="badge bg-danger">Crítico</span>
+                    {% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="text-center p-4 text-muted">Este rol no tiene permisos asignados.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header py-2">
+            <h6 class="mb-0"><i class="fas fa-users me-2"></i>Usuarios con este rol</h6>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">Consulta vía API: <code>GET /api/admin/roles/{{ role.id }}/users</code></p>
+            <button type="button" class="btn btn-sm btn-outline-info" id="loadUsersBtn" data-role-id="{{ role.id }}">
+                <i class="fas fa-sync me-1"></i> Cargar usuarios
+            </button>
+            <div id="usersList" class="mt-2 small"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -7,29 +7,26 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import app, db, User, Membership, Subscription, Payment, EventRegistration, EventParticipant, Appointment, Advisor, Notification, EmailLog, ActivityLog, Event
+from app import (
+    app, db, User, Membership, Subscription, Payment, EventRegistration, EventParticipant,
+    Appointment, Advisor, Notification, EmailLog, ActivityLog, Event,
+    Cart, CartItem, SocialAuth, DiscountApplication, HistoryTransaction,
+)
 
-# Emails de usuarios a eliminar
-USERS_TO_DELETE = [
-    'shidalgo0925@gmail.com',
-    'shidalgo@relatic.org',
-    'shidalgo0925@outlook.com'
-]
+# IDs de usuarios a eliminar (Lista de Usuarios: 47, 44, 9, 4)
+USER_IDS_TO_DELETE = [47, 44, 9, 4]
 
-def delete_user_and_transactions(email):
-    """Eliminar un usuario y todas sus transacciones"""
-    user = User.query.filter_by(email=email).first()
-    
-    if not user:
-        print(f"⚠️  Usuario no encontrado: {email}")
-        return False
-    
-    user_name = f"{user.first_name} {user.last_name}"
+# Emails (legacy): si se quieren eliminar por email, añadir aquí
+USERS_TO_DELETE_BY_EMAIL = []
+
+
+def _delete_user_and_related(user):
+    """Elimina un usuario y todas sus relaciones. user ya cargado."""
     user_id = user.id
-    
-    print(f"\n📋 Eliminando usuario: {user_name} ({email})")
-    print(f"   ID: {user_id}")
-    
+    user_name = f"{user.first_name} {user.last_name}"
+    email = user.email
+    print(f"\n📋 Eliminando usuario: {user_name} ({email}) ID: {user_id}")
+
     try:
         # 1. Eliminar membresías
         memberships = Membership.query.filter_by(user_id=user_id).all()
@@ -103,6 +100,19 @@ def delete_user_and_transactions(email):
             print(f"   🗑️  Eliminando {len(activity_logs)} log(s) de actividad...")
             for activity_log in activity_logs:
                 db.session.delete(activity_log)
+
+        # 10b. Carrito y items
+        cart = Cart.query.filter_by(user_id=user_id).first()
+        if cart:
+            CartItem.query.filter_by(cart_id=cart.id).delete()
+            db.session.delete(cart)
+        # 10c. OAuth
+        SocialAuth.query.filter_by(user_id=user_id).delete()
+        # 10d. Aplicaciones de descuento
+        DiscountApplication.query.filter_by(user_id=user_id).delete()
+        # 10e. Historial: anular referencias
+        HistoryTransaction.query.filter_by(owner_user_id=user_id).update({'owner_user_id': None})
+        HistoryTransaction.query.filter(HistoryTransaction.actor_id == user_id).update({'actor_id': None})
         
         # 11. Limpiar referencias en eventos (no eliminar eventos, solo limpiar referencias)
         events_created = Event.query.filter_by(created_by=user_id).all()
@@ -145,55 +155,74 @@ def delete_user_and_transactions(email):
         traceback.print_exc()
         return False
 
+
+def delete_user_by_id(user_id):
+    """Elimina usuario por ID."""
+    user = User.query.get(user_id)
+    if not user:
+        print(f"⚠️  Usuario no encontrado ID: {user_id}")
+        return False
+    return _delete_user_and_related(user)
+
+
+def delete_user_and_transactions(email):
+    """Elimina usuario por email."""
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        print(f"⚠️  Usuario no encontrado: {email}")
+        return False
+    return _delete_user_and_related(user)
+
+
 def main():
     """Función principal"""
     import sys
-    
+
+    to_delete_ids = USER_IDS_TO_DELETE
+    to_delete_emails = USERS_TO_DELETE_BY_EMAIL
+    total = len(to_delete_ids) + len(to_delete_emails)
+    if total == 0:
+        print("No hay usuarios configurados para eliminar (USER_IDS_TO_DELETE / USERS_TO_DELETE_BY_EMAIL).")
+        return
+
     print("="*70)
     print("ELIMINACIÓN DE USUARIOS Y TRANSACCIONES")
     print("="*70)
-    print(f"\n📋 Usuarios a eliminar: {len(USERS_TO_DELETE)}")
-    for email in USERS_TO_DELETE:
+    print(f"\n📋 Usuarios a eliminar: {total}")
+    for uid in to_delete_ids:
+        print(f"   - ID {uid}")
+    for email in to_delete_emails:
         print(f"   - {email}")
-    
-    print("\n⚠️  ADVERTENCIA: Esta acción eliminará permanentemente:")
-    print("   - Los usuarios")
-    print("   - Todas sus membresías")
-    print("   - Todas sus suscripciones")
-    print("   - Todos sus pagos")
-    print("   - Todos sus registros de eventos")
-    print("   - Todas sus citas")
-    print("   - Todos sus logs y notificaciones")
-    print("\n⚠️  Esta acción NO se puede deshacer!")
-    
-    # Verificar si se pasó el parámetro --confirm
+    print("\n⚠️  ADVERTENCIA: Esta acción eliminará permanentemente usuarios y datos relacionados.")
+    print("⚠️  Esta acción NO se puede deshacer!")
+
     if '--confirm' not in sys.argv:
-        print("\n⚠️  Para ejecutar esta eliminación, usa: python3 delete_users.py --confirm")
-        print("   O modifica el script para confirmar manualmente")
+        print("\n⚠️  Para ejecutar: python3 delete_users.py --confirm")
         return
-    
-    print("\n✅ Confirmación recibida. Procediendo con la eliminación...")
-    
+
+    print("\n✅ Confirmación recibida. Procediendo...")
     print("\n" + "="*70)
-    print("INICIANDO ELIMINACIÓN")
-    print("="*70)
-    
+
     with app.app_context():
         deleted_count = 0
         failed_count = 0
-        
-        for email in USERS_TO_DELETE:
+        for uid in to_delete_ids:
+            if delete_user_by_id(uid):
+                deleted_count += 1
+            else:
+                failed_count += 1
+        for email in to_delete_emails:
             if delete_user_and_transactions(email):
                 deleted_count += 1
             else:
                 failed_count += 1
-        
+
         print("\n" + "="*70)
         print("RESUMEN")
         print("="*70)
-        print(f"✅ Usuarios eliminados exitosamente: {deleted_count}")
+        print(f"✅ Eliminados: {deleted_count}")
         if failed_count > 0:
-            print(f"❌ Usuarios con errores: {failed_count}")
+            print(f"❌ Con errores: {failed_count}")
         print("\n✨ Proceso completado")
 
 if __name__ == '__main__':

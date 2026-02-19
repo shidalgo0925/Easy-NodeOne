@@ -329,7 +329,15 @@ def get_event_update_email(event, user, changes=None):
 
 
 def get_appointment_confirmation_email(appointment, user, advisor):
-    """Template para confirmación de cita"""
+    """Template para confirmación de cita (soporta start_datetime o appointment_date/appointment_time)."""
+    if getattr(appointment, 'start_datetime', None):
+        fecha = appointment.start_datetime.strftime('%d/%m/%Y')
+        hora = appointment.start_datetime.strftime('%H:%M')
+    else:
+        fecha = getattr(appointment, 'appointment_date', None)
+        fecha = fecha.strftime('%d/%m/%Y') if fecha else 'Pendiente'
+        hora = getattr(appointment, 'appointment_time', None) or 'Pendiente'
+    tipo = getattr(appointment.appointment_type, 'name', None) if getattr(appointment, 'appointment_type', None) else getattr(appointment, 'appointment_type', 'Cita')
     content = f"""
         <h2>Cita Confirmada</h2>
         <p>Hola <strong>{user.first_name} {user.last_name}</strong>,</p>
@@ -339,11 +347,10 @@ def get_appointment_confirmation_email(appointment, user, advisor):
             <h3 style="margin-top: 0;">Detalles de la Cita:</h3>
             <ul>
                 <li><strong>Asesor:</strong> {advisor.first_name} {advisor.last_name}</li>
-                <li><strong>Fecha:</strong> {appointment.appointment_date.strftime('%d/%m/%Y')}</li>
-                <li><strong>Hora:</strong> {appointment.appointment_time}</li>
-                <li><strong>Duración:</strong> {appointment.duration} minutos</li>
-                <li><strong>Tipo:</strong> {appointment.appointment_type}</li>
-                <li><strong>Estado:</strong> <span class="badge">{appointment.status.title()}</span></li>
+                <li><strong>Fecha:</strong> {fecha}</li>
+                <li><strong>Hora:</strong> {hora}</li>
+                <li><strong>Tipo:</strong> {tipo}</li>
+                <li><strong>Estado:</strong> <span class="badge">Confirmada</span></li>
             </ul>
         </div>
         

@@ -49,6 +49,8 @@
                                             <br><span class="badge bg-success">Evento</span>
                                             {% elif item.product_type == 'service' %}
                                             <br><span class="badge bg-primary">Servicio</span>
+                                            {% elif item.product_type == 'proposal' %}
+                                            <br><span class="badge bg-secondary">Propuesta</span>
                                             {% endif %}
                                             {% if item.item_metadata %}
                                             {% set metadata = item.item_metadata|from_json if item.item_metadata else {} %}

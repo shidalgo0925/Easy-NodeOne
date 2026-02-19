@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitudes pendientes - Asesor{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <a href="{{ url_for('appointments.advisor_dashboard') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
+        <i class="fas fa-arrow-left me-2"></i>Dashboard asesor
+    </a>
+    <h1 class="h4 mb-4"><i class="fas fa-inbox me-2"></i>Solicitudes pendientes</h1>
+    {% if queue_appointments %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Ref.</th>
+                    <th>Cliente</th>
+                    <th>Servicio / Tipo</th>
+                    <th>Fecha/hora propuesta</th>
+                    <th>Comentario</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for apt in queue_appointments %}
+                <tr>
+                    <td><code>{{ apt.reference }}</code></td>
+                    <td>
+                        {% if apt.user %}
+                        {{ apt.user.first_name }} {{ apt.user.last_name }}<br>
+                        <small class="text-muted">{{ apt.user.email }}</small>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if apt.related_service %}{{ apt.related_service.name }}{% elif apt.appointment_type %}{{ apt.appointment_type.name }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if apt.start_datetime %}
+                        {{ apt.start_datetime.strftime('%d/%m/%Y %H:%M') }}
+                        {% else %}Por asignar{% endif %}
+                    </td>
+                    <td><small>{{ (apt.user_notes or '—')[:80] }}{% if apt.user_notes and apt.user_notes|length > 80 %}...{% endif %}</small></td>
+                    <td class="text-end">
+                        <form action="{{ url_for('appointments.confirm_appointment', appointment_id=apt.id) }}" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-success">Confirmar</button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ apt.id }}">Rechazar</button>
+                        <div class="modal fade" id="rejectModal{{ apt.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Rechazar solicitud {{ apt.reference }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <form action="{{ url_for('appointments.reject_appointment', appointment_id=apt.id) }}" method="post">
+                                        <div class="modal-body">
+                                            <label for="notes{{ apt.id }}" class="form-label">Comentario (opcional)</label>
+                                            <textarea class="form-control" id="notes{{ apt.id }}" name="notes" rows="2" placeholder="Motivo o mensaje al cliente..."></textarea>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-danger">Rechazar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted small">También puedes <a href="{{ url_for('appointments.advisor_queue') }}#assign">asignar un slot</a> a una cita en lugar de solo confirmar (si la cita no tiene fecha).</p>
+    {% else %}
+    <p class="text-muted">No hay solicitudes pendientes.</p>
+    {% endif %}
+</div>
+{% endblock %}

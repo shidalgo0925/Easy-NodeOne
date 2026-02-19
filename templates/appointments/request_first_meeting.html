@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitar primera reunión - {{ service.name }}{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <a href="{{ url_for('services') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
+        <i class="fas fa-arrow-left me-2"></i>Volver a servicios
+    </a>
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h5 mb-2"><i class="fas fa-handshake me-2"></i>Solicitar primera reunión</h1>
+                    <p class="text-muted small mb-4">Servicio: <strong>{{ service.name }}</strong>. El asesor confirmará o rechazará tu solicitud.</p>
+                    <form method="post" action="{{ url_for('appointments.request_appointment') }}">
+                        <input type="hidden" name="service_id" value="{{ service.id }}">
+                        {% if advisors_for_service and advisors_for_service|length > 1 %}
+                        <div class="mb-3">
+                            <label for="advisor_id" class="form-label">Elegir asesor</label>
+                            <select class="form-select" id="advisor_id" name="advisor_id" required>
+                                <option value="">Seleccione un asesor...</option>
+                                {% for adv in advisors_for_service %}
+                                <option value="{{ adv.id }}">{{ adv.user.first_name }} {{ adv.user.last_name }}{% if adv.specializations %} — {{ adv.specializations[:50] }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% elif advisors_for_service and advisors_for_service|length == 1 %}
+                        <input type="hidden" name="advisor_id" value="{{ advisors_for_service[0].id }}">
+                        <p class="text-muted small mb-3"><i class="fas fa-user-tie me-1"></i>Asesor: <strong>{{ advisors_for_service[0].user.first_name }} {{ advisors_for_service[0].user.last_name }}</strong></p>
+                        {% elif not advisors_for_service or advisors_for_service|length == 0 %}
+                        <div class="alert alert-warning small mb-3">No hay asesores asignados a este servicio. Contacta al administrador para que asigne asesores al tipo de cita en <strong>Admin → Citas → Servicios de citas</strong>.</div>
+                        {% endif %}
+                        <div class="mb-3">
+                            <label for="proposed_date" class="form-label">Fecha deseada</label>
+                            <input type="date" class="form-control" id="proposed_date" name="proposed_date" required {% if min_date %}min="{{ min_date }}"{% endif %}>
+                        </div>
+                        <div class="mb-3">
+                            <label for="proposed_time" class="form-label">Hora deseada</label>
+                            <input type="time" class="form-control" id="proposed_time" name="proposed_time" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="notes" class="form-label">Comentario (opcional)</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Breve descripción de lo que necesitas..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>Enviar solicitud</button>
+                            <a href="{{ url_for('services') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

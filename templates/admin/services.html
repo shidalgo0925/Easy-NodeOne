@@ -73,8 +73,10 @@
                                     <th>Icono</th>
                                     <th>Nombre</th>
                                     <th>Descripción</th>
-                                    <th>Planes Disponibles</th>
-                                    <th>Precio Base</th>
+                                    <th>Planes</th>
+                                    <th>Precio</th>
+                                    <th>Cita</th>
+                                    <th>Tipo</th>
                                     <th>Estado</th>
                                     <th>Acciones</th>
                                 </tr>
@@ -104,6 +106,13 @@
                                         </span>
                                         {% else %}
                                         <span class="badge bg-secondary">No</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if service.requires_appointment() %}
+                                        <span class="badge {{ 'bg-warning text-dark' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'bg-primary' }}" title="{{ 'Solicitar primera reunión' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'Solicitar cita (calendario)' }}">{{ service.service_type or 'AGENDABLE' }}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">—</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -252,6 +261,14 @@
                         </select>
                         <small class="text-muted">Selecciona el tipo de cita que se requiere para este servicio</small>
                     </div>
+                    <div class="mb-3" id="serviceTypeContainer" style="display: none;">
+                        <label for="serviceType" class="form-label">Tipo de flujo</label>
+                        <select class="form-select" id="serviceType" name="service_type">
+                            <option value="AGENDABLE">AGENDABLE — Solicitar cita (calendario y pago)</option>
+                            <option value="CONSULTIVO">CONSULTIVO — Solicitar primera reunión (propón fecha, asesor confirma)</option>
+                        </select>
+                        <small class="text-muted">CONSULTIVO: el cliente propone fecha y el asesor confirma; luego propuesta y pago. AGENDABLE: el cliente elige horario en calendario y paga.</small>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -324,9 +341,13 @@ function fillForm(service) {
     const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
     
     requiresAppointmentCheckbox.checked = requiresAppointment;
+    const serviceTypeContainer = document.getElementById('serviceTypeContainer');
+    const serviceTypeSelect = document.getElementById('serviceType');
     if (requiresAppointment) {
         appointmentTypeContainer.style.display = 'block';
+        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
         appointmentTypeSelect.required = true;
+        if (serviceTypeSelect) serviceTypeSelect.value = (service.service_type === 'CONSULTIVO' ? 'CONSULTIVO' : 'AGENDABLE');
         // Asegurar que los tipos de cita estén cargados antes de establecer el valor
         if (appointmentTypeSelect.options.length <= 1) {
             loadAppointmentTypes().then(() => {
@@ -337,8 +358,10 @@ function fillForm(service) {
         }
     } else {
         appointmentTypeContainer.style.display = 'none';
+        if (serviceTypeContainer) serviceTypeContainer.style.display = 'none';
         appointmentTypeSelect.required = false;
         appointmentTypeSelect.value = '';
+        if (serviceTypeSelect) serviceTypeSelect.value = 'AGENDABLE';
     }
     
     // Limpiar todos los checkboxes primero
@@ -399,6 +422,8 @@ function saveService() {
         }
     }
     
+    const serviceTypeEl = document.getElementById('serviceType');
+    const serviceType = (serviceTypeEl && serviceTypeEl.value) ? serviceTypeEl.value : 'AGENDABLE';
     const formData = {
         name: document.getElementById('serviceName').value,
         description: document.getElementById('serviceDescription').value,
@@ -408,7 +433,8 @@ function saveService() {
         display_order: parseInt(document.getElementById('serviceDisplayOrder').value),
         external_link: document.getElementById('serviceExternalLink').value,
         is_active: document.getElementById('serviceIsActive').checked,
-        appointment_type_id: appointmentTypeId
+        appointment_type_id: appointmentTypeId,
+        service_type: serviceType
     };
     
     const serviceId = document.getElementById('serviceId').value;
@@ -498,13 +524,16 @@ document.getElementById('createServiceModal').addEventListener('show.bs.modal', 
 // Manejar checkbox "Requiere cita"
 document.getElementById('serviceRequiresAppointment').addEventListener('change', function() {
     const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
+    const serviceTypeContainer = document.getElementById('serviceTypeContainer');
     const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
     
     if (this.checked) {
         appointmentTypeContainer.style.display = 'block';
+        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
         appointmentTypeSelect.required = true;
     } else {
         appointmentTypeContainer.style.display = 'none';
+        if (serviceTypeContainer) serviceTypeContainer.style.display = 'none';
         appointmentTypeSelect.required = false;
         appointmentTypeSelect.value = '';
     }
@@ -573,8 +602,12 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     // Limpiar checkbox y selector de cita
     document.getElementById('serviceRequiresAppointment').checked = false;
     document.getElementById('appointmentTypeContainer').style.display = 'none';
+    const stc = document.getElementById('serviceTypeContainer');
+    if (stc) stc.style.display = 'none';
     document.getElementById('serviceAppointmentType').value = '';
     document.getElementById('serviceAppointmentType').required = false;
+    const st = document.getElementById('serviceType');
+    if (st) st.value = 'AGENDABLE';
 });
 
     var reportTitleEl = document.getElementById('report_title');

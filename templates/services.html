@@ -91,13 +91,22 @@
                             </a>
                             {% endif %}
                             
-                            {# Botón para solicitar cita - se muestra si tiene appointment_type_id y no es gratuito (independiente del plan) #}
+                            {# Asesores asignados a este servicio (tipo de cita) #}
+                            {% if service.advisors is defined and service.advisors %}
+                            <p class="text-muted small mb-2"><i class="fas fa-user-tie me-1"></i>Asesores: {% for a in service.advisors %}{{ a.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+                            {% endif %}
+                            {# Fase 2: Un botón según service_type. CONSULTIVO = primera reunión → propuesta. AGENDABLE = calendario → pago. #}
                             {% if service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
-                                {% if service.pricing.final_price > 0 %}
-                                <a href="{{ url_for('service_request_appointment', service_id=service.id) }}" 
-                                   class="btn btn-sm btn-primary w-100 mb-2">
-                                    <i class="fas fa-calendar-check me-1"></i>Solicitar Cita
+                                {% if service.service_type == 'CONSULTIVO' %}
+                                <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary w-100 mb-2">
+                                    <i class="fas fa-handshake me-1"></i>Solicitar primera reunión
                                 </a>
+                                <small class="d-block text-muted small mb-2">Propones fecha; asesor confirma → luego propuesta y pago</small>
+                                {% else %}
+                                <a href="{{ url_for('service_request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary w-100 mb-2">
+                                    <i class="fas fa-calendar-check me-1"></i>Solicitar cita
+                                </a>
+                                <small class="d-block text-muted small mb-2">Elegir horario en calendario{% if service.pricing.final_price > 0 %} y pagar{% endif %}</small>
                                 {% endif %}
                             {% endif %}
                             

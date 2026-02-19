@@ -202,7 +202,7 @@ def create_diagnostic_appointment_from_payment(service, user, payment):
         Appointment.slot_id.is_(None)
     ).count() + 1
     
-    # Crear la cita en cola (pending, sin slot, sin fecha)
+    # Crear la cita en cola (diagnóstico ya pagado: no es primera reunión gratuita)
     appointment = Appointment(
         appointment_type_id=appointment_type_id,
         advisor_id=advisor_id,
@@ -212,6 +212,7 @@ def create_diagnostic_appointment_from_payment(service, user, payment):
         payment_id=payment.id,
         membership_type=membership_type,
         is_group=False,
+        is_initial_consult=False,
         start_datetime=None,  # Se asignará cuando el asesor confirme
         end_datetime=None,  # Se asignará cuando el asesor confirme
         status='pending',  # En cola, esperando asignación de slot

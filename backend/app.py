@@ -1867,10 +1867,13 @@ class Appointment(db.Model):
     is_group = db.Column(db.Boolean, default=False)
     start_datetime = db.Column(db.DateTime, nullable=True)  # NULL cuando está en cola, se asigna cuando el asesor confirma
     end_datetime = db.Column(db.DateTime, nullable=True)  # NULL cuando está en cola, se asigna cuando el asesor confirma
-    status = db.Column(db.String(20), default='pending')  # pending (en cola), confirmed, cancelled, completed, no_show
+    status = db.Column(db.String(20), default='pending')  # pending, PENDIENTE, confirmed, CONFIRMADA, cancelled, RECHAZADA, completed, no_show
     queue_position = db.Column(db.Integer, nullable=True)  # Posición en la cola (opcional, para ordenar)
     advisor_confirmed = db.Column(db.Boolean, default=False)
     advisor_confirmed_at = db.Column(db.DateTime)
+    is_initial_consult = db.Column(db.Boolean, default=True)  # Primera reunión (solicitud → confirmación)
+    advisor_response_notes = db.Column(db.Text, nullable=True)  # Comentario al confirmar/rechazar
+    confirmed_at = db.Column(db.DateTime, nullable=True)  # Fecha/hora de confirmación por asesor
     cancellation_reason = db.Column(db.Text)
     cancelled_by = db.Column(db.String(20))  # user, advisor, system
     cancelled_at = db.Column(db.DateTime)
@@ -1929,6 +1932,10 @@ class Appointment(db.Model):
             return int(delta.total_seconds() / 60)
         return 0
 
+    def should_invoice(self):
+        """Fase 5: Primera reunión gratuita — no facturar ni exigir pago."""
+        return not getattr(self, 'is_initial_consult', False)
+
 
 class AppointmentParticipant(db.Model):
     """Participantes adicionales (para citas grupales)."""
@@ -1940,6 +1947,21 @@ class AppointmentParticipant(db.Model):
 
     user = db.relationship('User', foreign_keys=[user_id], backref='appointment_participations')
     invited_by = db.relationship('User', foreign_keys=[invited_by_id], backref='appointment_invitations', lazy=True)
+
+
+class Proposal(db.Model):
+    """Fase 6: Propuesta del asesor al cliente tras reunión (solo si cita CONFIRMADA)."""
+    __tablename__ = 'proposal'
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    total_amount = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='ENVIADA')  # ENVIADA, ACEPTADA, RECHAZADA
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    client = db.relationship('User', foreign_keys=[client_id], backref='proposals_received')
+    appointment = db.relationship('Appointment', foreign_keys=[appointment_id], backref='proposals')
 
 
 class ActivityLog(db.Model):
@@ -2294,6 +2316,8 @@ class Service(db.Model):
     base_price = db.Column(db.Float, default=50.0)  # Precio base en USD
     is_active = db.Column(db.Boolean, default=True)
     display_order = db.Column(db.Integer, default=0)  # Orden de visualización
+    # CONSULTIVO = primera reunión → propuesta → pago. AGENDABLE = calendario → pago → confirmado.
+    service_type = db.Column(db.String(20), nullable=False, default='AGENDABLE')  # CONSULTIVO | AGENDABLE
     # Campos para cita de diagnóstico
     requires_diagnostic_appointment = db.Column(db.Boolean, default=False)  # Si requiere cita diagnóstico antes de usar
     diagnostic_appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=True)  # Tipo de cita de diagnóstico
@@ -2448,7 +2472,8 @@ class Service(db.Model):
             'appointment_type_id': self.appointment_type_id,
             'requires_payment_before_appointment': self.requires_payment_before_appointment if self.requires_payment_before_appointment is not None else True,
             'deposit_amount': float(self.deposit_amount) if self.deposit_amount else None,
-            'deposit_percentage': float(self.deposit_percentage) if self.deposit_percentage else None
+            'deposit_percentage': float(self.deposit_percentage) if self.deposit_percentage else None,
+            'service_type': getattr(self, 'service_type', 'AGENDABLE') or 'AGENDABLE'
         }
 
 class ServiceCategory(db.Model):
@@ -3245,7 +3270,7 @@ def dashboard():
     upcoming_appointments = Appointment.query.filter(
         Appointment.user_id == current_user.id,
         Appointment.start_datetime >= now,
-        Appointment.status.in_(['pending', 'confirmed'])
+        Appointment.status.in_(['pending', 'confirmed', 'PENDIENTE', 'CONFIRMADA'])
     ).order_by(Appointment.start_datetime.asc()).limit(5).all()
     
     past_appointments_count = Appointment.query.filter(
@@ -3270,6 +3295,14 @@ def dashboard():
         Event.start_date.isnot(None)
     ).order_by(Event.start_date.asc()).all()
     
+    # Citas confirmadas del usuario para el calendario (confirmadas por asesor)
+    user_confirmed_appointments = Appointment.query.filter(
+        Appointment.user_id == current_user.id,
+        Appointment.status.in_(['CONFIRMADA', 'confirmed']),
+        Appointment.start_datetime.isnot(None),
+        Appointment.start_datetime >= now
+    ).order_by(Appointment.start_datetime.asc()).all()
+    
     # Detectar si es un usuario nuevo (creado en las últimas 24 horas)
     is_new_user = False
     if current_user.created_at:
@@ -3291,6 +3324,7 @@ def dashboard():
                          upcoming_events=upcoming_events,
                          registered_events_count=registered_events_count,
                          all_public_events=all_public_events,
+                         user_confirmed_appointments=user_confirmed_appointments,
                          show_onboarding=show_onboarding,
                          is_new_user=is_new_user,
                          user_status=user_status)  # Pasar estado del usuario al template
@@ -4343,8 +4377,14 @@ def services():
             if plan_type not in services_by_plan:
                 services_by_plan[plan_type] = []
             
+            # Asesores del tipo de cita (para mostrar en catálogo)
+            at_id = service.appointment_type_id or getattr(service, 'diagnostic_appointment_type_id', None)
+            advisors_list = []
+            if at_id:
+                for aa in AppointmentAdvisor.query.filter_by(appointment_type_id=at_id, is_active=True).all():
+                    if aa.advisor and getattr(aa.advisor, 'is_active', True) and aa.advisor.user:
+                        advisors_list.append({'id': aa.advisor.id, 'name': f"{aa.advisor.user.first_name} {aa.advisor.user.last_name}"})
             # Para mostrar en la lista, usar el precio calculado según la membresía del usuario actual
-            # Esto permite que el usuario vea el precio con descuento desde el inicio
             service_data = {
                 'id': service.id,
                 'name': service.name,
@@ -4356,7 +4396,9 @@ def services():
                 'requires_diagnostic_appointment': service.requires_diagnostic_appointment if service.requires_diagnostic_appointment is not None else False,
                 'appointment_type_id': service.appointment_type_id,
                 'requires_appointment': service.requires_appointment(),
-                'is_free': service.is_free_service(membership_type)
+                'is_free': service.is_free_service(membership_type),
+                'service_type': getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE',
+                'advisors': advisors_list,
             }
             
             services_by_plan[plan_type].append(service_data)
@@ -5807,7 +5849,7 @@ def process_cart_after_payment(cart, payment):
                         else:
                             payment_status = 'partial'
                         
-                        # Crear Appointment
+                        # Crear Appointment (flujo agendable: slot + pago → confirmación directa)
                         appointment = Appointment(
                             appointment_type_id=appointment_type_id,
                             advisor_id=advisor_id,
@@ -5818,7 +5860,8 @@ def process_cart_after_payment(cart, payment):
                             membership_type=membership_type,
                             start_datetime=slot.start_datetime,
                             end_datetime=slot.end_datetime,
-                            status='pending',  # Esperando confirmación del asesor
+                            status='CONFIRMADA',
+                            is_initial_consult=False,
                             base_price=pricing['base_price'],
                             final_price=final_price,
                             discount_applied=pricing['base_price'] - pricing['final_price'],
@@ -5884,6 +5927,16 @@ def process_cart_after_payment(cart, payment):
                         traceback.print_exc()
                         # No fallar el pago si falla la creación de la cita
                         # Se puede crear manualmente después
+        
+        elif item.product_type == 'proposal':
+            # Fase 8: Pago de propuesta aceptada (flujo consultivo)
+            metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+            proposal_id = metadata.get('proposal_id') or item.product_id
+            if proposal_id:
+                prop = Proposal.query.get(proposal_id)
+                if prop and prop.client_id == payment.user_id and prop.status == 'ENVIADA':
+                    prop.status = 'ACEPTADA'
+                    db.session.add(prop)
     
     db.session.commit()
 
@@ -6927,7 +6980,7 @@ class NotificationEngine:
                 user_id=user.id,
                 notification_type='appointment_confirmation',
                 title='Cita Confirmada',
-                message=f'Tu cita con {advisor.first_name} {advisor.last_name} ha sido confirmada para el {appointment.appointment_date.strftime("%d/%m/%Y")} a las {appointment.appointment_time}.'
+                message=f'Tu cita con {advisor.first_name} {advisor.last_name} ha sido confirmada para el {(appointment.start_datetime.strftime("%d/%m/%Y %H:%M") if getattr(appointment, "start_datetime", None) else "próximo")}.'
             )
             db.session.add(notification)
             
@@ -7008,14 +7061,13 @@ class NotificationEngine:
                     from email_templates import get_appointment_created_email
                     html_content = get_appointment_created_email(appointment, user, advisor, service)
                     email_service.send_email(
-                        to_email=user.email,
                         subject='Cita Agendada - RelaticPanama',
+                        recipients=[user.email],
                         html_content=html_content,
                         email_type='appointment_created',
                         related_entity_type='appointment',
                         related_entity_id=appointment.id,
                         recipient_id=user.id,
-                        recipient_email=user.email,
                         recipient_name=f"{user.first_name} {user.last_name}"
                     )
                     notification.email_sent = True
@@ -7052,14 +7104,13 @@ class NotificationEngine:
                     from email_templates import get_appointment_new_advisor_email
                     html_content = get_appointment_new_advisor_email(appointment, user, advisor, service)
                     email_service.send_email(
-                        to_email=advisor.email,
                         subject='Nueva Cita Pendiente de Confirmación - RelaticPanama',
+                        recipients=[advisor.email],
                         html_content=html_content,
                         email_type='appointment_new_advisor',
                         related_entity_type='appointment',
                         related_entity_id=appointment.id,
                         recipient_id=advisor.id,
-                        recipient_email=advisor.email,
                         recipient_name=f"{advisor.first_name} {advisor.last_name}"
                     )
                     notification.email_sent = True
@@ -7103,14 +7154,13 @@ class NotificationEngine:
                         from email_templates import get_appointment_new_admin_email
                         html_content = get_appointment_new_admin_email(appointment, user, advisor, service, admin)
                         email_service.send_email(
-                            to_email=admin.email,
                             subject='Nueva Cita Creada - RelaticPanama',
+                            recipients=[admin.email],
                             html_content=html_content,
                             email_type='appointment_new_admin',
                             related_entity_type='appointment',
                             related_entity_id=appointment.id,
                             recipient_id=admin.id,
-                            recipient_email=admin.email,
                             recipient_name=f"{admin.first_name} {admin.last_name}"
                         )
                         notification.email_sent = True
@@ -10612,6 +10662,9 @@ def admin_services_create():
                 if not appointment_type:
                     return jsonify({'success': False, 'error': 'Tipo de cita no encontrado'}), 400
         
+        service_type = (data.get('service_type') or 'AGENDABLE').strip().upper()
+        if service_type not in ('CONSULTIVO', 'AGENDABLE'):
+            service_type = 'AGENDABLE'
         service = Service(
             name=data.get('name'),
             description=data.get('description', ''),
@@ -10621,7 +10674,8 @@ def admin_services_create():
             base_price=float(data.get('base_price', 50.0)),
             is_active=data.get('is_active', True),
             display_order=int(data.get('display_order', 0)),
-            appointment_type_id=appointment_type_id
+            appointment_type_id=appointment_type_id,
+            service_type=service_type
         )
         
         db.session.add(service)
@@ -10675,6 +10729,10 @@ def admin_services_update(service_id):
         service.base_price = float(data.get('base_price', service.base_price))
         service.is_active = data.get('is_active', service.is_active)
         service.display_order = int(data.get('display_order', service.display_order))
+        
+        service_type = (data.get('service_type') or getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE').strip().upper()
+        if service_type in ('CONSULTIVO', 'AGENDABLE'):
+            service.service_type = service_type
         
         # Manejar appointment_type_id
         appointment_type_id = data.get('appointment_type_id')
@@ -10743,7 +10801,8 @@ def admin_services_get(service_id):
             'is_active': service.is_active,
             'display_order': service.display_order or 0,
             'appointment_type_id': service.appointment_type_id,
-            'requires_appointment': service.requires_appointment()
+            'requires_appointment': service.requires_appointment(),
+            'service_type': getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE'
         }
         
         # Incluir reglas de precio
@@ -11017,6 +11076,42 @@ def get_advisor_calendar(advisor_id):
                 }
             })
         
+        # Agregar citas PENDIENTES y CONFIRMADAS del asesor (regla: calendario muestra ambos, visual distinto)
+        appointments_in_range = Appointment.query.filter(
+            Appointment.advisor_id == advisor_id,
+            Appointment.status.in_(['CONFIRMADA', 'PENDIENTE', 'confirmed', 'pending']),
+            Appointment.start_datetime.isnot(None),
+            Appointment.start_datetime >= start_dt,
+            Appointment.start_datetime < end_dt
+        ).all()
+        for apt in appointments_in_range:
+            if not apt.start_datetime or not apt.end_datetime:
+                continue
+            try:
+                client_name = 'Cliente'
+                if apt.user_id:
+                    u = User.query.get(apt.user_id)
+                    if u:
+                        client_name = f"{u.first_name} {u.last_name}"
+                label = 'Confirmada' if apt.status in ('CONFIRMADA', 'confirmed') else 'Pendiente'
+                calendar_events.append({
+                    'id': f'apt_{apt.id}',
+                    'title': f'Cita {label} - {client_name}',
+                    'start': apt.start_datetime.isoformat(),
+                    'end': (apt.end_datetime or apt.start_datetime).isoformat(),
+                    'backgroundColor': '#17a2b8' if apt.status in ('PENDIENTE', 'pending') else '#6f42c1',
+                    'borderColor': '#17a2b8' if apt.status in ('PENDIENTE', 'pending') else '#6f42c1',
+                    'textColor': '#fff',
+                    'extendedProps': {
+                        'type': 'appointment',
+                        'appointment_id': apt.id,
+                        'status': apt.status,
+                    }
+                })
+            except Exception as e:
+                print(f"Error agregando cita {apt.id} al calendario asesor: {e}")
+                continue
+        
         # Agregar disponibilidad base (horarios regulares)
         availability_info = []
         for av in availabilities:
@@ -11193,6 +11288,42 @@ def get_service_calendar(service_id):
                 })
             except Exception as e:
                 print(f"Error procesando slot {slot.id}: {e}")
+                continue
+        
+        # 7b. Agregar citas CONFIRMADAS y PENDIENTES al calendario (no bloquear creación)
+        appointments_in_range = Appointment.query.filter(
+            Appointment.appointment_type_id == appointment_type_id,
+            Appointment.advisor_id.in_(advisor_ids),
+            Appointment.status.in_(['CONFIRMADA', 'PENDIENTE', 'confirmed', 'pending']),
+            Appointment.start_datetime.isnot(None),
+            Appointment.start_datetime >= start_dt,
+            Appointment.start_datetime < end_dt
+        ).all()
+        for apt in appointments_in_range:
+            if not apt.start_datetime or not apt.end_datetime:
+                continue
+            try:
+                advisor_name = 'Asesor'
+                if apt.advisor and apt.advisor.user:
+                    advisor_name = f"{apt.advisor.user.first_name} {apt.advisor.user.last_name}"
+                label = 'Confirmada' if apt.status in ('CONFIRMADA', 'confirmed') else 'Pendiente'
+                calendar_events.append({
+                    'id': f'apt_{apt.id}',
+                    'title': f'Cita ({label}) - {advisor_name}',
+                    'start': apt.start_datetime.isoformat(),
+                    'end': (apt.end_datetime or apt.start_datetime).isoformat(),
+                    'backgroundColor': '#17a2b8' if apt.status in ('PENDIENTE', 'pending') else '#6f42c1',
+                    'borderColor': '#17a2b8' if apt.status in ('PENDIENTE', 'pending') else '#6f42c1',
+                    'textColor': '#fff',
+                    'extendedProps': {
+                        'type': 'appointment',
+                        'appointment_id': apt.id,
+                        'status': apt.status,
+                        'advisor_id': apt.advisor_id,
+                    }
+                })
+            except Exception as e:
+                print(f"Error procesando cita {apt.id}: {e}")
                 continue
         
         # 8. Información de asesores

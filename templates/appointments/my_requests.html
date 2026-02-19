@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Mis solicitudes - Citas{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <a href="{{ url_for('appointments.appointments_home') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
+        <i class="fas fa-arrow-left me-2"></i>Volver a citas
+    </a>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h1 class="h4 mb-0"><i class="fas fa-inbox me-2"></i>Mis solicitudes</h1>
+        <a href="{{ url_for('appointments.my_proposals') }}" class="btn btn-sm btn-outline-primary">Mis propuestas</a>
+    </div>
+    {% if requests_list %}
+    <div class="list-group">
+        {% for apt in requests_list %}
+        <div class="list-group-item d-flex justify-content-between align-items-start">
+            <div>
+                <h6 class="mb-1">{{ apt.related_service.name if apt.related_service else (apt.appointment_type.name if apt.appointment_type else 'Cita') }}</h6>
+                <p class="text-muted small mb-1">
+                    {% if apt.start_datetime %}
+                    <i class="far fa-calendar me-1"></i>{{ apt.start_datetime.strftime('%d/%m/%Y %H:%M') }}
+                    {% else %}
+                    Fecha por confirmar
+                    {% endif %}
+                    {% if apt.advisor_profile and apt.advisor_profile.user %}
+                    &middot; {{ apt.advisor_profile.user.first_name }} {{ apt.advisor_profile.user.last_name }}
+                    {% endif %}
+                </p>
+                <span class="badge
+                    {% if apt.status in ('PENDIENTE','pending') %}bg-warning text-dark
+                    {% elif apt.status in ('CONFIRMADA','confirmed') %}bg-success
+                    {% elif apt.status == 'RECHAZADA' %}bg-danger
+                    {% else %}bg-secondary{% endif %}">{{ apt.status }}</span>
+                {% if apt.advisor_response_notes and apt.status == 'RECHAZADA' %}
+                <p class="small text-muted mt-2 mb-0">Comentario asesor: {{ apt.advisor_response_notes[:150] }}{% if apt.advisor_response_notes|length > 150 %}...{% endif %}</p>
+                {% endif %}
+            </div>
+            <small class="text-muted">Ref: {{ apt.reference }}</small>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No tienes solicitudes. Usa "Solicitar primera reunión" en un servicio para enviar una.</p>
+    {% endif %}
+</div>
+{% endblock %}

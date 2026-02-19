@@ -228,7 +228,7 @@
                         </li>
                         
                         <!-- Miembros - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'services', 'office365'] or request.blueprint in ['events'] %}show{% endif %}">
+                        <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'services', 'office365'] or request.blueprint in ['events', 'appointments'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Miembros">
                                 <i class="menu-icon fa fa-users"></i>
                                 <span class="menu-title-text">Miembros</span>
@@ -241,6 +241,20 @@
                                         <span class="menu-title-text">Beneficios</span>
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Citas y asesorías">
+                                        <i class="menu-icon fa fa-calendar-check"></i>
+                                        <span class="menu-title-text">Citas</span>
+                                    </a>
+                                </li>
+                                {% if current_user.is_advisor %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'appointments.advisor_queue' %}active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Solicitudes pendientes de confirmación">
+                                        <i class="menu-icon fa fa-inbox"></i>
+                                        <span class="menu-title-text">Solicitudes pendientes</span>
+                                    </a>
+                                </li>
+                                {% endif %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'services' %}active{% endif %}" href="{{ url_for('services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios">
                                         <i class="menu-icon fa fa-concierge-bell"></i>

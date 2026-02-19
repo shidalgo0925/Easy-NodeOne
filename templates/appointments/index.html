@@ -18,8 +18,12 @@
                     <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Confirmación y recordatorios automáticos</li>
                     <li><i class="fas fa-check-circle text-success me-2"></i>Descuentos aplicados automáticamente a tu membresía</li>
                 </ul>
+                <p class="mb-3 small text-muted">Para reservar: entra en <strong>Servicios</strong>, elige el que necesites y usa &quot;Solicitar cita&quot; (calendario y pago) o &quot;Solicitar primera reunión&quot; (propón fecha, el asesor confirma).</p>
                 <div class="d-flex gap-3 flex-wrap">
-                    <a href="#appointment-types" class="btn btn-primary btn-lg px-4">Explorar servicios</a>
+                    <a href="{{ url_for('services') }}" class="btn btn-primary btn-lg px-4"><i class="fas fa-calendar-plus me-2"></i>Reservar una cita (ir a Servicios)</a>
+                    <a href="#appointment-types" class="btn btn-outline-primary btn-lg px-4">Explorar tipos de cita</a>
+                    <a href="{{ url_for('appointments.my_requests') }}" class="btn btn-outline-primary btn-lg px-4">Mis solicitudes</a>
+                    <a href="{{ url_for('appointments.my_proposals') }}" class="btn btn-outline-primary btn-lg px-4">Mis propuestas</a>
                     <a href="{{ url_for('events.list_events') }}" class="btn btn-outline-primary btn-lg px-4">Ver eventos y congresos</a>
                 </div>
             </div>
@@ -135,9 +139,13 @@
             <div class="col-lg-7">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <h3 class="h5 mb-0">Mis próximas citas</h3>
-                            <span class="text-muted small">{{ upcoming_appointments|length }} programadas</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="{{ url_for('appointments.my_requests') }}" class="btn btn-sm btn-outline-primary">Mis solicitudes</a>
+                                <a href="{{ url_for('appointments.my_proposals') }}" class="btn btn-sm btn-outline-primary">Mis propuestas</a>
+                                <span class="text-muted small">{{ upcoming_appointments|length }} programadas</span>
+                            </div>
                         </div>
                         {% if upcoming_appointments %}
                         <div class="list-group list-group-flush">

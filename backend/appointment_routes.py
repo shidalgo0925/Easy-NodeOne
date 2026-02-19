@@ -37,6 +37,8 @@ AdvisorAvailability = None
 AdvisorServiceAvailability = None
 ActivityLog = None
 Service = None
+Notification = None
+Proposal = None
 
 
 def init_models():
@@ -55,6 +57,8 @@ def init_models():
     global DailyServiceAvailability
     global ActivityLog
     global Service
+    global Notification
+    global Proposal
 
     if db is not None:
         return
@@ -74,6 +78,8 @@ def init_models():
         DailyServiceAvailability as _DailyServiceAvailability,
         ActivityLog as _ActivityLog,
         Service as _Service,
+        Notification as _Notification,
+        Proposal as _Proposal,
     )
 
     db = _db
@@ -90,6 +96,9 @@ def init_models():
     DailyServiceAvailability = _DailyServiceAvailability
     ActivityLog = _ActivityLog
     Service = _Service
+    Notification = _Notification
+    Proposal = _Proposal
+    globals()['Proposal'] = _Proposal
 
 
 def ensure_models():
@@ -121,6 +130,18 @@ def _active_membership_or_warning():
 def _slot_queryset():
     ensure_models()
     return AppointmentSlot.query.filter(AppointmentSlot.start_datetime >= datetime.utcnow()).order_by(AppointmentSlot.start_datetime.asc())
+
+
+@appointments_bp.route('/my-requests')
+@login_required
+def my_requests():
+    """Fase 8: Mis solicitudes = solo PENDIENTES y RECHAZADAS (confirmadas van en Mis citas)."""
+    ensure_models()
+    requests_list = Appointment.query.filter(
+        Appointment.user_id == current_user.id,
+        Appointment.status.in_(['PENDIENTE', 'RECHAZADA', 'pending'])
+    ).order_by(Appointment.created_at.desc()).limit(50).all()
+    return render_template('appointments/my_requests.html', requests_list=requests_list)
 
 
 @appointments_bp.route('/')
@@ -240,6 +261,426 @@ def book_appointment(slot_id):
     return redirect(url_for('appointments.appointments_home'))
 
 
+@appointments_bp.route('/request', methods=['GET', 'POST'])
+@login_required
+def request_appointment():
+    """
+    Fase 2: Solicitar primera reunión sin validar calendario.
+    GET: formulario (service_id en query). POST: crear cita PENDIENTE.
+    Solicitar primera reunión: no exige membresía activa.
+    """
+    ensure_models()
+    membership = current_user.get_active_membership() if current_user else None
+
+    if request.method == 'GET':
+        service_id = request.args.get('service_id', type=int)
+        if not service_id:
+            flash('Indica el servicio.', 'error')
+            return redirect(url_for('services'))
+        service = Service.query.get(service_id)
+        if not service:
+            flash('Servicio no encontrado.', 'error')
+            return redirect(url_for('services'))
+        if not (service.appointment_type_id or service.diagnostic_appointment_type_id):
+            flash('Este servicio no tiene citas configuradas.', 'error')
+            return redirect(url_for('services'))
+        at_id = service.appointment_type_id or service.diagnostic_appointment_type_id
+        advisors_for_service = [
+            a.advisor for a in AppointmentAdvisor.query.filter_by(
+                appointment_type_id=at_id, is_active=True
+            ).all() if a.advisor and getattr(a.advisor, 'is_active', True) and a.advisor.user
+        ]
+        from datetime import date
+        min_date = date.today().isoformat()
+        return render_template('appointments/request_first_meeting.html', service=service, min_date=min_date, advisors_for_service=advisors_for_service)
+
+    data = request.get_json(silent=True) or request.form
+    service_id = data.get('service_id', type=int)
+    proposed_datetime_str = data.get('proposed_datetime') or (data.get('proposed_date') and data.get('proposed_time') and f"{data.get('proposed_date')}T{data.get('proposed_time')}:00")
+    notes = (data.get('notes') or data.get('user_notes') or '').strip()
+
+    if not service_id:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'service_id requerido.'}), 400
+        flash('Servicio no indicado.', 'error')
+        return redirect(request.referrer or url_for('services'))
+    if not proposed_datetime_str:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'proposed_datetime (o proposed_date + proposed_time) requerido.'}), 400
+        flash('Indica fecha y hora deseadas.', 'error')
+        return redirect(request.referrer or url_for('services'))
+
+    s = (proposed_datetime_str or '').strip().replace('T', ' ')[:19]
+    start_dt = None
+    for fmt, size in (('%Y-%m-%d %H:%M:%S', 19), ('%Y-%m-%d %H:%M', 16), ('%Y-%m-%d', 10)):
+        try:
+            start_dt = datetime.strptime(s[:size], fmt)
+            if fmt == '%Y-%m-%d':
+                start_dt = start_dt.replace(hour=9, minute=0, second=0, microsecond=0)
+            break
+        except (ValueError, TypeError):
+            continue
+    if not start_dt or start_dt <= datetime.utcnow():
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Fecha/hora debe ser futura.'}), 400
+        flash('La fecha y hora deben ser futuras.', 'error')
+        return redirect(request.referrer or url_for('services'))
+
+    service = Service.query.get(service_id)
+    if not service:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Servicio no encontrado.'}), 404
+        flash('Servicio no encontrado.', 'error')
+        return redirect(request.referrer or url_for('services'))
+
+    appointment_type_id = service.appointment_type_id or service.diagnostic_appointment_type_id
+    if not appointment_type_id:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Servicio sin tipo de cita configurado.'}), 400
+        flash('Este servicio no tiene citas configuradas.', 'error')
+        return redirect(request.referrer or url_for('services'))
+
+    appointment_type = AppointmentType.query.get(appointment_type_id)
+    duration = (appointment_type.duration_minutes or 60) if appointment_type else 60
+    end_dt = start_dt + timedelta(minutes=duration)
+
+    advisor_id = data.get('advisor_id', type=int)
+    if advisor_id:
+        assignment = AppointmentAdvisor.query.filter_by(
+            appointment_type_id=appointment_type_id,
+            advisor_id=advisor_id,
+            is_active=True
+        ).first()
+        if not assignment:
+            advisor_id = None
+    if not advisor_id:
+        assignment = AppointmentAdvisor.query.filter_by(
+            appointment_type_id=appointment_type_id,
+            is_active=True
+        ).first()
+        if not assignment:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'No hay asesor disponible para este servicio.'}), 400
+            flash('No hay asesor disponible para este servicio.', 'error')
+            return redirect(request.referrer or url_for('services'))
+        advisor_id = assignment.advisor_id
+    membership_type = membership.membership_type if membership else 'basic'
+    pricing = appointment_type.pricing_for_membership(membership_type)
+    base_price = pricing.get('base_price', 0.0)
+    final_price = pricing.get('final_price', 0.0)
+    discount = max(0.0, base_price - final_price)
+
+    appointment = Appointment(
+        appointment_type_id=appointment_type_id,
+        advisor_id=advisor_id,
+        slot_id=None,
+        user_id=current_user.id,
+        service_id=service.id,
+        membership_type=membership_type,
+        is_group=False,
+        start_datetime=start_dt,
+        end_datetime=end_dt,
+        status='PENDIENTE',
+        is_initial_consult=True,
+        advisor_confirmed=False,
+        advisor_confirmed_at=None,
+        confirmed_at=None,
+        base_price=base_price,
+        final_price=final_price,
+        discount_applied=max(0, discount),
+        user_notes=notes or 'Solicitud de primera reunión.',
+    )
+    db.session.add(appointment)
+    db.session.flush()
+
+    ActivityLog.log_activity(
+        current_user.id,
+        'request_appointment',
+        'appointment',
+        appointment.id,
+        f'Solicitó primera reunión {appointment.reference}',
+        request
+    )
+
+    advisor = Advisor.query.get(advisor_id)
+    advisor_user_id = advisor.user_id if advisor and advisor.user_id else None
+    if advisor_user_id and Notification:
+        notif = Notification(
+            user_id=advisor_user_id,
+            notification_type='appointment_request',
+            title='Nueva solicitud de primera reunión',
+            message=f'{current_user.first_name} {current_user.last_name} solicita una reunión para {start_dt.strftime("%d/%m/%Y %H:%M")}. Servicio: {service.name}.'
+        )
+        db.session.add(notif)
+    db.session.commit()
+
+    # Email al asesor (no bloquea el flujo si falla)
+    try:
+        from app import NotificationEngine
+        advisor_user = User.query.get(advisor_user_id) if advisor_user_id else None
+        if advisor_user:
+            NotificationEngine.notify_appointment_new_to_advisor(appointment, current_user, advisor_user, service)
+    except Exception as e:
+        import traceback
+        print(f"⚠️ Error enviando notificación/email al asesor por nueva solicitud: {e}")
+        traceback.print_exc()
+
+    if request.is_json:
+        return jsonify({
+            'success': True,
+            'appointment_id': appointment.id,
+            'reference': appointment.reference,
+            'status': appointment.status,
+            'message': 'Solicitud enviada. El asesor la confirmará o rechazará.',
+        })
+    flash('Solicitud enviada. Revisa "Mis solicitudes" para ver el estado; el asesor confirmará o rechazará.', 'success')
+    return redirect(url_for('appointments.my_requests'))
+
+
+def _advisor_for_current_user():
+    ensure_models()
+    return Advisor.query.filter_by(user_id=current_user.id).first()
+
+
+@appointments_bp.route('/<int:appointment_id>/confirm', methods=['POST'])
+@login_required
+def confirm_appointment(appointment_id):
+    """
+    Fase 3: Asesor confirma la cita. Valida que no exista otra CONFIRMADA en el mismo horario.
+    """
+    ensure_models()
+    advisor = _advisor_for_current_user()
+    if not advisor or not getattr(current_user, 'is_advisor', False):
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Solo el asesor puede confirmar.'}), 403
+        flash('No tienes permiso para confirmar esta cita.', 'error')
+        return redirect(request.referrer or url_for('appointments.appointments_home'))
+
+    appointment = Appointment.query.get_or_404(appointment_id)
+    if appointment.advisor_id != advisor.id:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Esta cita no te corresponde.'}), 403
+        flash('Esta cita no te corresponde.', 'error')
+        return redirect(request.referrer or url_for('appointments.advisor_queue'))
+    if appointment.status not in ('PENDIENTE', 'pending'):
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'La cita no está pendiente de confirmación.'}), 400
+        flash('La cita no está pendiente.', 'info')
+        return redirect(request.referrer or url_for('appointments.advisor_queue'))
+
+    start = appointment.start_datetime
+    end = appointment.end_datetime
+    if start and end:
+        conflict = Appointment.query.filter(
+            Appointment.id != appointment.id,
+            Appointment.advisor_id == advisor.id,
+            Appointment.status.in_(['CONFIRMADA', 'confirmed']),
+            Appointment.start_datetime.isnot(None),
+            Appointment.end_datetime.isnot(None),
+            Appointment.start_datetime < end,
+            Appointment.end_datetime > start,
+        ).first()
+        if conflict:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Ya tienes otra cita confirmada en ese horario.'}), 409
+            flash('Ya tienes otra cita confirmada en ese horario.', 'error')
+            return redirect(request.referrer or url_for('appointments.advisor_queue'))
+
+    now = datetime.utcnow()
+    appointment.status = 'CONFIRMADA'
+    appointment.advisor_confirmed = True
+    appointment.advisor_confirmed_at = now
+    appointment.confirmed_at = now
+    ActivityLog.log_activity(current_user.id, 'confirm_appointment', 'appointment', appointment.id, f'Confirmó cita {appointment.reference}', request)
+    if Notification and appointment.user_id:
+        n = Notification(
+            user_id=appointment.user_id,
+            notification_type='appointment_confirmation',
+            title='Cita confirmada',
+            message=f'Tu solicitud de reunión ({appointment.reference}) ha sido confirmada por el asesor para el {start.strftime("%d/%m/%Y %H:%M") if start else "próximo"}.'
+        )
+        db.session.add(n)
+    db.session.commit()
+
+    # Email al cliente (no bloquea si falla)
+    try:
+        from app import NotificationEngine
+        client_user = User.query.get(appointment.user_id)
+        if client_user and advisor and advisor.user:
+            NotificationEngine.notify_appointment_confirmation(appointment, client_user, advisor.user)
+    except Exception as e:
+        import traceback
+        print(f"⚠️ Error enviando email de confirmación al cliente: {e}")
+        traceback.print_exc()
+
+    if request.is_json:
+        return jsonify({'success': True, 'status': appointment.status, 'message': 'Cita confirmada.'})
+    flash('Cita confirmada. Se notificó al cliente.', 'success')
+    return redirect(request.referrer or url_for('appointments.advisor_queue'))
+
+
+@appointments_bp.route('/<int:appointment_id>/reject', methods=['POST'])
+@login_required
+def reject_appointment(appointment_id):
+    """
+    Fase 4: Asesor rechaza la cita. Guarda comentario y notifica al cliente.
+    """
+    ensure_models()
+    advisor = _advisor_for_current_user()
+    if not advisor or not getattr(current_user, 'is_advisor', False):
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Solo el asesor puede rechazar.'}), 403
+        flash('No tienes permiso.', 'error')
+        return redirect(request.referrer or url_for('appointments.appointments_home'))
+
+    appointment = Appointment.query.get_or_404(appointment_id)
+    if appointment.advisor_id != advisor.id:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Esta cita no te corresponde.'}), 403
+        flash('Esta cita no te corresponde.', 'error')
+        return redirect(request.referrer or url_for('appointments.advisor_queue'))
+    if appointment.status not in ('PENDIENTE', 'pending'):
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'La cita no está pendiente.'}), 400
+        flash('La cita no está pendiente.', 'info')
+        return redirect(request.referrer or url_for('appointments.advisor_queue'))
+
+    data = request.get_json(silent=True) or request.form
+    notes = (data.get('notes') or data.get('advisor_response_notes') or '').strip()
+    appointment.status = 'RECHAZADA'
+    appointment.advisor_response_notes = notes or 'Rechazada por el asesor.'
+    ActivityLog.log_activity(current_user.id, 'reject_appointment', 'appointment', appointment.id, f'Rechazó cita {appointment.reference}', request)
+    if Notification and appointment.user_id:
+        n = Notification(
+            user_id=appointment.user_id,
+            notification_type='appointment_rejected',
+            title='Solicitud de cita rechazada',
+            message=f'Tu solicitud de reunión ({appointment.reference}) fue rechazada por el asesor.' + (f' Comentario: {notes[:200]}' if notes else '')
+        )
+        db.session.add(n)
+    db.session.commit()
+
+    if request.is_json:
+        return jsonify({'success': True, 'status': appointment.status, 'message': 'Cita rechazada.'})
+    flash('Cita rechazada. Se notificó al cliente.', 'info')
+    return redirect(request.referrer or url_for('appointments.advisor_queue'))
+
+
+@appointments_bp.route('/proposals', methods=['POST'])
+@login_required
+def create_proposal():
+    """
+    Fase 6: Crear propuesta (solo asesor). Solo para cita CONFIRMADA del asesor.
+    """
+    ensure_models()
+    advisor = _advisor_for_current_user()
+    if not advisor or not getattr(current_user, 'is_advisor', False):
+        return jsonify({'success': False, 'error': 'Solo el asesor puede crear propuestas.'}), 403
+
+    data = request.get_json(silent=True) or request.form
+    appointment_id = data.get('appointment_id', type=int)
+    description = (data.get('description') or '').strip()
+    total_amount = data.get('total_amount', type=float)
+    if total_amount is None:
+        total_amount = 0.0
+
+    if not appointment_id:
+        return jsonify({'success': False, 'error': 'appointment_id requerido.'}), 400
+
+    appointment = Appointment.query.get_or_404(appointment_id)
+    if appointment.advisor_id != advisor.id:
+        return jsonify({'success': False, 'error': 'Esta cita no te corresponde.'}), 403
+    if appointment.status not in ('CONFIRMADA', 'confirmed'):
+        return jsonify({'success': False, 'error': 'Solo se puede crear propuesta para una cita confirmada.'}), 400
+
+    proposal = Proposal(
+        client_id=appointment.user_id,
+        appointment_id=appointment.id,
+        description=description or None,
+        total_amount=float(total_amount),
+        status='ENVIADA',
+    )
+    db.session.add(proposal)
+    db.session.commit()
+    ActivityLog.log_activity(current_user.id, 'create_proposal', 'proposal', proposal.id, f'Propuesta para cita {appointment.reference}', request)
+    if Notification and appointment.user_id:
+        n = Notification(
+            user_id=appointment.user_id,
+            notification_type='proposal_sent',
+            title='Nueva propuesta',
+            message=f'El asesor te ha enviado una propuesta para la cita {appointment.reference}.'
+        )
+        db.session.add(n)
+        db.session.commit()
+    return jsonify({'success': True, 'proposal_id': proposal.id, 'status': proposal.status})
+
+
+@appointments_bp.route('/my-proposals')
+@login_required
+def my_proposals():
+    """Fase 8: Mis propuestas (ENVIADA, ACEPTADA, RECHAZADA)."""
+    ensure_models()
+    proposals_list = Proposal.query.filter(
+        Proposal.client_id == current_user.id
+    ).order_by(Proposal.created_at.desc()).limit(50).all()
+    return render_template('appointments/my_proposals.html', proposals_list=proposals_list)
+
+
+@appointments_bp.route('/proposals/<int:proposal_id>/reject', methods=['POST'])
+@login_required
+def reject_proposal(proposal_id):
+    """Cliente rechaza la propuesta."""
+    ensure_models()
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.client_id != current_user.id:
+        flash('No puedes rechazar esta propuesta.', 'error')
+        return redirect(url_for('appointments.my_proposals'))
+    if proposal.status != 'ENVIADA':
+        flash('Esta propuesta ya fue procesada.', 'info')
+        return redirect(url_for('appointments.my_proposals'))
+    proposal.status = 'RECHAZADA'
+    db.session.commit()
+    flash('Propuesta rechazada.', 'info')
+    return redirect(url_for('appointments.my_proposals'))
+
+
+@appointments_bp.route('/proposals/<int:proposal_id>/accept', methods=['POST'])
+@login_required
+def accept_proposal(proposal_id):
+    """Cliente acepta: si tiene monto → carrito y pago; si no → ACEPTADA directo."""
+    ensure_models()
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.client_id != current_user.id:
+        flash('No puedes aceptar esta propuesta.', 'error')
+        return redirect(url_for('appointments.my_proposals'))
+    if proposal.status != 'ENVIADA':
+        flash('Esta propuesta ya fue procesada.', 'info')
+        return redirect(url_for('appointments.my_proposals'))
+
+    total = (proposal.total_amount or 0)
+    if total <= 0:
+        proposal.status = 'ACEPTADA'
+        db.session.commit()
+        flash('Propuesta aceptada.', 'success')
+        return redirect(url_for('appointments.my_proposals'))
+
+    # Monto > 0: agregar al carrito y redirigir a pago
+    from app import add_to_cart
+    import json
+    add_to_cart(
+        user_id=current_user.id,
+        product_type='proposal',
+        product_id=proposal.id,
+        product_name=f"Propuesta - {proposal.appointment.reference if proposal.appointment else 'Cita'}",
+        unit_price=int(round(total * 100)),  # centavos
+        quantity=1,
+        product_description=(proposal.description or '')[:200],
+        metadata={'proposal_id': proposal.id}
+    )
+    flash('Propuesta agregada al carrito. Completa el pago para confirmar.', 'success')
+    return redirect(url_for('cart'))
+
+
 @appointments_bp.route('/cancel/<int:appointment_id>', methods=['POST'])
 @login_required
 def cancel_appointment(appointment_id):
@@ -289,7 +730,7 @@ def admin_appointments_dashboard():
     types = AppointmentType.query.order_by(AppointmentType.display_order.asc()).all()
     advisors = Advisor.query.order_by(Advisor.created_at.desc()).all()
     upcoming = _slot_queryset().limit(15).all()
-    waiting_confirmation = Appointment.query.filter_by(status='pending').order_by(Appointment.start_datetime.asc()).limit(10).all()
+    waiting_confirmation = Appointment.query.filter(Appointment.status.in_(['pending', 'PENDIENTE'])).order_by(Appointment.start_datetime.asc()).limit(10).all()
 
     stats = {
         'active_types': len(types),
@@ -1029,15 +1470,16 @@ def advisor_dashboard():
     # Citas confirmadas próximas
     upcoming_appointments = Appointment.query.filter(
         Appointment.advisor_id == advisor.id,
-        Appointment.status == 'confirmed',
+        Appointment.status.in_(['confirmed', 'CONFIRMADA']),
         Appointment.start_datetime >= datetime.utcnow()
     ).order_by(Appointment.start_datetime.asc()).limit(10).all()
     
-    # Cola de citas pendientes (sin slot asignado)
+    # Cola de solicitudes de primera reunión (consultivo)
     queue_appointments = Appointment.query.filter(
         Appointment.advisor_id == advisor.id,
-        Appointment.status == 'pending',
-        Appointment.slot_id.is_(None)
+        Appointment.status.in_(['pending', 'PENDIENTE']),
+        Appointment.slot_id.is_(None),
+        Appointment.is_initial_consult == True
     ).order_by(Appointment.queue_position.asc(), Appointment.created_at.asc()).all()
     
     # Tipos de cita asignados al asesor
@@ -1046,6 +1488,10 @@ def advisor_dashboard():
         AppointmentAdvisor.is_active == True,
         AppointmentType.is_active == True
     ).all()
+    
+    all_my_slots = AppointmentSlot.query.filter(AppointmentSlot.advisor_id == advisor.id).order_by(AppointmentSlot.start_datetime.desc()).limit(50).all()
+    occupied_slots = []
+    past_slots = AppointmentSlot.query.filter(AppointmentSlot.advisor_id == advisor.id, AppointmentSlot.end_datetime < datetime.utcnow()).order_by(AppointmentSlot.start_datetime.desc()).limit(20).all()
     
     stats = {
         'available_slots': len(my_slots),
@@ -1057,10 +1503,10 @@ def advisor_dashboard():
     return render_template(
         'appointments/advisor_dashboard.html',
         advisor=advisor,
-        slots=my_slots,  # Espacios disponibles futuros
-        all_slots=all_my_slots,  # Todos los slots para ver historial
-        occupied_slots=occupied_slots,  # Slots ocupados futuros
-        past_slots=past_slots,  # Slots pasados
+        slots=my_slots,
+        all_slots=all_my_slots,
+        occupied_slots=occupied_slots,
+        past_slots=past_slots,
         upcoming_appointments=upcoming_appointments,
         queue_appointments=queue_appointments,
         appointment_types=appointment_types,
@@ -1164,10 +1610,12 @@ def advisor_queue():
     ensure_models()
     advisor = Advisor.query.filter_by(user_id=current_user.id).first()
     
+    # Fase 7: Solo solicitudes de primera reunión (consultivo)
     queue_appointments = Appointment.query.filter(
         Appointment.advisor_id == advisor.id,
-        Appointment.status == 'pending',
-        Appointment.slot_id.is_(None)
+        Appointment.status.in_(['pending', 'PENDIENTE']),
+        Appointment.slot_id.is_(None),
+        Appointment.is_initial_consult == True
     ).order_by(Appointment.queue_position.asc(), Appointment.created_at.asc()).all()
     
     # Slots disponibles del asesor para asignar
@@ -1183,7 +1631,7 @@ def advisor_queue():
         advisor=advisor,
         queue_appointments=queue_appointments,
         available_slots=available_slots,
-        partially_available_slots=partially_available
+        partially_available_slots=[]
     )
 
 
@@ -1201,7 +1649,7 @@ def advisor_assign_slot_to_appointment(appointment_id):
         flash('Esta cita no te corresponde.', 'error')
         return redirect(url_for('appointments.advisor_queue'))
     
-    if appointment.status != 'pending' or appointment.slot_id is not None:
+    if appointment.status not in ('pending', 'PENDIENTE') or appointment.slot_id is not None:
         flash('Esta cita ya tiene un slot asignado o no está en cola.', 'error')
         return redirect(url_for('appointments.advisor_queue'))
     

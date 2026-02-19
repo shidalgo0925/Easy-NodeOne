@@ -161,7 +161,7 @@ class UserStatusChecker:
             
             upcoming_appointments = Appointment.query.filter(
                 Appointment.user_id == user_id,
-                Appointment.status.in_(['confirmed', 'pending']),
+                Appointment.status.in_(['confirmed', 'pending', 'CONFIRMADA', 'PENDIENTE']),
                 Appointment.start_datetime >= datetime.utcnow(),
                 Appointment.start_datetime <= next_48h
             ).order_by(Appointment.start_datetime.asc()).limit(10).all()

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Mis propuestas - Citas{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <a href="{{ url_for('appointments.appointments_home') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
+        <i class="fas fa-arrow-left me-2"></i>Volver a citas
+    </a>
+    <h1 class="h4 mb-4"><i class="fas fa-file-invoice-dollar me-2"></i>Mis propuestas</h1>
+    {% if proposals_list %}
+    <div class="list-group">
+        {% for p in proposals_list %}
+        <div class="list-group-item d-flex justify-content-between align-items-start flex-wrap">
+            <div class="mb-2">
+                <h6 class="mb-1">{{ p.appointment.reference if p.appointment else 'Cita' }}</h6>
+                {% if p.description %}
+                <p class="text-muted small mb-1">{{ p.description[:200] }}{% if p.description|length > 200 %}...{% endif %}</p>
+                {% endif %}
+                <p class="mb-1"><strong>Monto: ${{ "%.2f"|format(p.total_amount or 0) }}</strong></p>
+                <span class="badge
+                    {% if p.status == 'ENVIADA' %}bg-warning text-dark
+                    {% elif p.status == 'ACEPTADA' %}bg-success
+                    {% elif p.status == 'RECHAZADA' %}bg-danger
+                    {% else %}bg-secondary{% endif %}">{{ p.status }}</span>
+                <small class="d-block text-muted mt-1">{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small>
+            </div>
+            <div class="d-flex gap-2">
+                {% if p.status == 'ENVIADA' %}
+                <form action="{{ url_for('appointments.accept_proposal', proposal_id=p.id) }}" method="post" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-success">Aceptar</button>
+                </form>
+                <form action="{{ url_for('appointments.reject_proposal', proposal_id=p.id) }}" method="post" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Rechazar</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No tienes propuestas. Tras una primera reunión confirmada, el asesor puede enviarte una.</p>
+    {% endif %}
+</div>
+{% endblock %}

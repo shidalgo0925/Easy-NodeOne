@@ -84,16 +84,22 @@
                             <h6 class="mb-0 fw-bold">{{ service.name }}</h6>
                         </div>
                         <p class="text-muted mb-3 small">{{ service.description }}</p>
+                        {# Asesores asignados a este servicio (tipo de cita) — visible si tiene tipo de cita principal o de diagnóstico #}
+                        {% if (service.appointment_type_id is defined and service.appointment_type_id) or (service.diagnostic_appointment_type_id is defined and service.diagnostic_appointment_type_id) %}
+                        <p class="text-muted small mb-2">
+                            <i class="fas fa-user-tie me-1"></i><strong>Asesores:</strong>
+                            {% if service.advisors is defined and service.advisors %}
+                            {% for a in service.advisors %}{{ a.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% else %}
+                            <span class="fst-italic">Por asignar</span>
+                            {% endif %}
+                        </p>
+                        {% endif %}
                         <div class="d-flex gap-2 flex-wrap">
                             {% if service.external_link %}
                             <a href="{{ service.external_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
                                 Ver más <i class="fas fa-arrow-right ms-1"></i>
                             </a>
-                            {% endif %}
-                            
-                            {# Asesores asignados a este servicio (tipo de cita) #}
-                            {% if service.advisors is defined and service.advisors %}
-                            <p class="text-muted small mb-2"><i class="fas fa-user-tie me-1"></i>Asesores: {% for a in service.advisors %}{{ a.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
                             {% endif %}
                             {# Fase 2: Un botón según service_type. CONSULTIVO = primera reunión → propuesta. AGENDABLE = calendario → pago. #}
                             {% if service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}

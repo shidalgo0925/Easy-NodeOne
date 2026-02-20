@@ -41,10 +41,12 @@
                     </td>
                     <td><small>{{ (apt.user_notes or '—')[:80] }}{% if apt.user_notes and apt.user_notes|length > 80 %}...{% endif %}</small></td>
                     <td class="text-end">
-                        <form action="{{ url_for('appointments.confirm_appointment', appointment_id=apt.id) }}" method="post" class="d-inline">
-                            <button type="submit" class="btn btn-sm btn-success">Confirmar</button>
-                        </form>
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ apt.id }}">Rechazar</button>
+                        <div class="d-flex align-items-center justify-content-end gap-1 flex-nowrap">
+                            <form action="{{ url_for('appointments.confirm_appointment', appointment_id=apt.id) }}" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success">Confirmar</button>
+                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ apt.id }}">Rechazar</button>
+                        </div>
                         <div class="modal fade" id="rejectModal{{ apt.id }}" tabindex="-1">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">

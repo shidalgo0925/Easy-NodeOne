@@ -4399,6 +4399,7 @@ def services():
                 'is_free': service.is_free_service(membership_type),
                 'service_type': getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE',
                 'advisors': advisors_list,
+                'diagnostic_appointment_type_id': getattr(service, 'diagnostic_appointment_type_id', None),
             }
             
             services_by_plan[plan_type].append(service_data)
@@ -7550,10 +7551,23 @@ def admin_dashboard():
         flash(f'Error al cargar el panel de administración: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
 
+def apply_operator_filter(query, model, field_name, value):
+    """Aplica filtro con soporte para negación usando '!' al inicio. group=relatic -> == ; group=!relatic -> != ."""
+    if not value:
+        return query
+    column = getattr(model, field_name)
+    if isinstance(value, str) and value.startswith("!"):
+        return query.filter(column != value[1:])
+    return query.filter(column == value)
+
+
+_apply_operator_filter = apply_operator_filter  # alias por si algo lo referencia
+
+
 @app.route('/admin/users')
 @require_permission('users.view')
 def admin_users():
-    """Gestión de usuarios con filtros (autorización por permiso users.view)."""
+    """Gestión de usuarios con filtros (autorización por permiso users.view). Soporta ! para negación."""
     # Obtener parámetros de filtro
     search = request.args.get('search', '').strip()
     status_filter = request.args.get('status', 'all')
@@ -7578,27 +7592,39 @@ def admin_users():
             )
         )
     
-    # Filtro de estado
-    if status_filter == 'active':
-        query = query.filter_by(is_active=True)
-    elif status_filter == 'inactive':
-        query = query.filter_by(is_active=False)
+    # Filtro de estado (soporta !active / !inactive)
+    if status_filter and status_filter != 'all':
+        negate = status_filter.startswith("!")
+        raw = status_filter[1:].strip() if negate else status_filter
+        is_active_val = (raw == 'active')
+        if negate:
+            query = query.filter(User.is_active != is_active_val)
+        else:
+            query = query.filter(User.is_active == is_active_val)
     
-    # Filtro de admin
-    if admin_filter == 'yes':
-        query = query.filter_by(is_admin=True)
-    elif admin_filter == 'no':
-        query = query.filter_by(is_admin=False)
+    # Filtro de admin (boolean: 1/yes/true -> True; soporta !)
+    if admin_filter and admin_filter not in ('all', ''):
+        negate = admin_filter.startswith("!")
+        raw = (admin_filter[1:].strip() if negate else admin_filter).lower()
+        bool_val = raw in ('1', 'true', 'yes')
+        if negate:
+            query = query.filter(User.is_admin != bool_val)
+        else:
+            query = query.filter(User.is_admin == bool_val)
     
-    # Filtro de asesor
-    if advisor_filter == 'yes':
-        query = query.filter_by(is_advisor=True)
-    elif advisor_filter == 'no':
-        query = query.filter_by(is_advisor=False)
+    # Filtro de asesor (boolean; soporta !)
+    if advisor_filter and advisor_filter not in ('all', ''):
+        negate = advisor_filter.startswith("!")
+        raw = (advisor_filter[1:].strip() if negate else advisor_filter).lower()
+        bool_val = raw in ('1', 'true', 'yes')
+        if negate:
+            query = query.filter(User.is_advisor != bool_val)
+        else:
+            query = query.filter(User.is_advisor == bool_val)
     
-    # Filtro de grupo
-    if group_filter != 'all' and group_filter:
-        query = query.filter_by(user_group=group_filter)
+    # Filtro de grupo (soporta !relatic)
+    if group_filter and group_filter != 'all':
+        query = apply_operator_filter(query, User, 'user_group', group_filter)
     
     # Filtro de etiqueta
     if tag_filter:

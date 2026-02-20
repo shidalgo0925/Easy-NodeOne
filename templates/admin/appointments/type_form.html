@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Nuevo servicio de citas{% endblock %}
+{% block title %}{{ 'Editar servicio de citas' if appointment_type else 'Nuevo servicio de citas' }}{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -11,83 +11,90 @@
             </a>
             <div class="card border-0 shadow-sm">
                 <div class="card-body p-4">
-                    <h1 class="h4 mb-1">Crear servicio de citas</h1>
-                    <p class="text-muted small mb-4">Configura la información base, duración, precio y asesores disponibles.</p>
+                    <h1 class="h4 mb-1">{{ 'Editar servicio de citas' if appointment_type else 'Crear servicio de citas' }}</h1>
+                    <p class="text-muted small mb-4">Configura la información base, duración, precio y asesores disponibles. Los asesores que asignes aquí se muestran en el catálogo de servicios.</p>
 
-                    <form method="post" class="row g-4">
+                    <form method="post" action="{{ url_for('admin_appointments.edit_appointment_type', type_id=appointment_type.id) if appointment_type else url_for('admin_appointments.create_appointment_type') }}" class="row g-4">
                         <div class="col-12">
                             <label class="form-label">Nombre del servicio</label>
-                            <input type="text" name="name" class="form-control" required placeholder="Ej: Asesoría en revisión de artículos">
+                            <input type="text" name="name" class="form-control" required placeholder="Ej: Asesoría en revisión de artículos" value="{{ appointment_type.name if appointment_type else '' }}">
                         </div>
 
                         <div class="col-12">
                             <label class="form-label">Descripción</label>
-                            <textarea name="description" class="form-control" rows="3" placeholder="Resume el objetivo de la cita y su alcance."></textarea>
+                            <textarea name="description" class="form-control" rows="3" placeholder="Resume el objetivo de la cita y su alcance.">{{ appointment_type.description if appointment_type else '' }}</textarea>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Categoría</label>
-                            <input type="text" name="service_category" class="form-control" placeholder="Investigación, Publicaciones, etc.">
+                            <input type="text" name="service_category" class="form-control" placeholder="Investigación, Publicaciones, etc." value="{{ appointment_type.service_category if appointment_type else '' }}">
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Duración (min)</label>
-                            <input type="number" name="duration_minutes" class="form-control" min="15" step="15" value="60">
+                            <input type="number" name="duration_minutes" class="form-control" min="15" step="15" value="{{ appointment_type.duration_minutes if appointment_type else 60 }}">
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Orden</label>
-                            <input type="number" name="display_order" class="form-control" min="1" value="1">
+                            <input type="number" name="display_order" class="form-control" min="1" value="{{ appointment_type.display_order if appointment_type else 1 }}">
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label">Precio base</label>
-                            <input type="number" name="base_price" step="0.01" class="form-control" value="0.00">
+                            <input type="number" name="base_price" step="0.01" class="form-control" value="{{ appointment_type.base_price if appointment_type else 0.00 }}">
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label">Moneda</label>
-                            <input type="text" name="currency" class="form-control" value="USD">
+                            <input type="text" name="currency" class="form-control" value="{{ appointment_type.currency if appointment_type else 'USD' }}">
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label">Color</label>
-                            <input type="color" name="color_tag" class="form-control form-control-color" value="#0d6efd">
+                            <input type="color" name="color_tag" class="form-control form-control-color" value="{{ appointment_type.color_tag if appointment_type else '#0d6efd' }}">
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Icono (FontAwesome)</label>
-                            <input type="text" name="icon" class="form-control" value="fa-calendar-check">
+                            <input type="text" name="icon" class="form-control" value="{{ appointment_type.icon if appointment_type else 'fa-calendar-check' }}">
                             <small class="text-muted">Ej: fa-user-graduate, fa-pen-ruler.</small>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Asesores asignados</label>
-                            <select name="advisor_ids" class="form-select" multiple size="5">
+                            {% if appointment_type %}
+                            <form action="{{ url_for('admin_appointments.assign_all_advisors_to_type', type_id=appointment_type.id) }}" method="post" class="mb-2">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-users-cog me-1"></i>Asignar todos los asesores activos
+                                </button>
+                            </form>
+                            {% endif %}
+                            <select name="advisor_ids" class="form-select" multiple size="6">
                                 {% for advisor in advisors %}
-                                <option value="{{ advisor.id }}">{{ advisor.user.first_name }} {{ advisor.user.last_name }}</option>
+                                <option value="{{ advisor.id }}" {% if advisor.id in assigned_advisor_ids %}selected{% endif %}>{{ advisor.user.first_name if advisor.user else 'Sin usuario' }} {{ advisor.user.last_name if advisor.user else '' }}{% if not (advisor.is_active | default(true)) %} (inactivo){% endif %}</option>
                                 {% endfor %}
                             </select>
-                            <small class="text-muted">Mantén presionado Ctrl / Cmd para seleccionar varios.</small>
+                            <small class="text-muted">Mantén Ctrl / Cmd para seleccionar varios. {% if appointment_type %}Usa el botón de arriba para asignar todos de una vez.{% endif %}</small>
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label">¿Permite grupos?</label>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="is_group_allowed" id="groupAllowedSwitch">
+                                <input class="form-check-input" type="checkbox" name="is_group_allowed" id="groupAllowedSwitch" {{ 'checked' if appointment_type and appointment_type.is_group_allowed else '' }}>
                                 <label class="form-check-label" for="groupAllowedSwitch">Sí, permite múltiples participantes</label>
                             </div>
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label">Máx. participantes</label>
-                            <input type="number" name="max_participants" class="form-control" min="1" value="1">
+                            <input type="number" name="max_participants" class="form-control" min="1" value="{{ appointment_type.max_participants if appointment_type else 1 }}">
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label">¿Requiere confirmación?</label>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="requires_confirmation" id="confirmationSwitch" checked>
+                                <input class="form-check-input" type="checkbox" name="requires_confirmation" id="confirmationSwitch" {{ 'checked' if not appointment_type or appointment_type.requires_confirmation else '' }}>
                                 <label class="form-check-label" for="confirmationSwitch">Sí, el asesor confirma</label>
                             </div>
                         </div>
@@ -95,18 +102,18 @@
                         <div class="col-md-6">
                             <label class="form-label">Modalidad</label>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="is_virtual" value="1" id="virtualOption" checked>
+                                <input class="form-check-input" type="radio" name="is_virtual" value="1" id="virtualOption" {{ 'checked' if not appointment_type or appointment_type.is_virtual else '' }}>
                                 <label class="form-check-label" for="virtualOption">Virtual</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="is_virtual" value="0" id="inPersonOption">
+                                <input class="form-check-input" type="radio" name="is_virtual" value="0" id="inPersonOption" {{ 'checked' if appointment_type and not appointment_type.is_virtual else '' }}>
                                 <label class="form-check-label" for="inPersonOption">Presencial</label>
                             </div>
                         </div>
 
                         <div class="col-12 text-end">
                             <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" class="btn btn-outline-secondary">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">Guardar servicio</button>
+                            <button type="submit" class="btn btn-primary">{{ 'Guardar cambios' if appointment_type else 'Guardar servicio' }}</button>
                         </div>
                     </form>
                 </div>

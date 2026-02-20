@@ -35,43 +35,71 @@
                     <h6 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h6>
                 </div>
                 <div class="card-body py-2">
-                    <form method="GET" action="{{ url_for('admin_users') }}" class="d-flex flex-wrap align-items-end gap-2">
+                    <form method="GET" action="{{ url_for('admin_users') }}" class="d-flex flex-wrap align-items-end gap-2" id="adminUsersFilterForm">
+                        <input type="hidden" name="status" id="status_value" value="{{ status_filter or 'all' }}">
+                        <input type="hidden" name="admin" id="admin_value" value="{{ admin_filter or 'all' }}">
+                        <input type="hidden" name="advisor" id="advisor_value" value="{{ advisor_filter or 'all' }}">
+                        <input type="hidden" name="group" id="group_value" value="{{ group_filter or 'all' }}">
                         <div class="flex-shrink-0">
                             <label for="search" class="form-label form-label-sm mb-0">Buscar</label>
                             <input type="text" class="form-control form-control-sm" id="search" name="search" placeholder="Nombre, email, teléfono..." value="{{ search }}" style="width:160px">
                         </div>
-                        <div class="flex-shrink-0">
-                            <label for="status" class="form-label form-label-sm mb-0">Estado</label>
-                            <select class="form-select form-select-sm" id="status" name="status" style="width:90px">
-                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
-                                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Activos</option>
-                                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactivos</option>
-                            </select>
+                        <div class="flex-shrink-0 d-flex align-items-end gap-1">
+                            <div>
+                                <label for="status" class="form-label form-label-sm mb-0">Estado</label>
+                                <select class="form-select form-select-sm" id="status" style="width:90px">
+                                    <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>Todos</option>
+                                    <option value="active" {% if status_filter in ('active', '!active') %}selected{% endif %}>Activos</option>
+                                    <option value="inactive" {% if status_filter in ('inactive', '!inactive') %}selected{% endif %}>Inactivos</option>
+                                </select>
+                            </div>
+                            <label class="form-label form-label-sm mb-0 d-flex align-items-center gap-1" style="padding-bottom:6px">
+                                <input type="checkbox" id="status_exclude" {% if status_filter and status_filter.startswith('!') %}checked{% endif %} title="Excluir este valor">
+                                <span class="small">Excluir</span>
+                            </label>
                         </div>
-                        <div class="flex-shrink-0">
-                            <label for="admin" class="form-label form-label-sm mb-0">Admin</label>
-                            <select class="form-select form-select-sm" id="admin" name="admin" style="width:80px">
-                                <option value="all" {% if admin_filter == 'all' %}selected{% endif %}>Todos</option>
-                                <option value="yes" {% if admin_filter == 'yes' %}selected{% endif %}>Sí</option>
-                                <option value="no" {% if admin_filter == 'no' %}selected{% endif %}>No</option>
-                            </select>
+                        <div class="flex-shrink-0 d-flex align-items-end gap-1">
+                            <div>
+                                <label for="admin" class="form-label form-label-sm mb-0">Admin</label>
+                                <select class="form-select form-select-sm" id="admin" style="width:80px">
+                                    <option value="all" {% if admin_filter == 'all' or not admin_filter %}selected{% endif %}>Todos</option>
+                                    <option value="yes" {% if admin_filter in ('yes', '!yes') %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if admin_filter in ('no', '!no') %}selected{% endif %}>No</option>
+                                </select>
+                            </div>
+                            <label class="form-label form-label-sm mb-0 d-flex align-items-center gap-1" style="padding-bottom:6px">
+                                <input type="checkbox" id="admin_exclude" {% if admin_filter and admin_filter.startswith('!') %}checked{% endif %} title="Excluir este valor">
+                                <span class="small">Excluir</span>
+                            </label>
                         </div>
-                        <div class="flex-shrink-0">
-                            <label for="advisor" class="form-label form-label-sm mb-0">Asesor</label>
-                            <select class="form-select form-select-sm" id="advisor" name="advisor" style="width:80px">
-                                <option value="all" {% if advisor_filter == 'all' %}selected{% endif %}>Todos</option>
-                                <option value="yes" {% if advisor_filter == 'yes' %}selected{% endif %}>Sí</option>
-                                <option value="no" {% if advisor_filter == 'no' %}selected{% endif %}>No</option>
-                            </select>
+                        <div class="flex-shrink-0 d-flex align-items-end gap-1">
+                            <div>
+                                <label for="advisor" class="form-label form-label-sm mb-0">Asesor</label>
+                                <select class="form-select form-select-sm" id="advisor" style="width:80px">
+                                    <option value="all" {% if advisor_filter == 'all' or not advisor_filter %}selected{% endif %}>Todos</option>
+                                    <option value="yes" {% if advisor_filter in ('yes', '!yes') %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if advisor_filter in ('no', '!no') %}selected{% endif %}>No</option>
+                                </select>
+                            </div>
+                            <label class="form-label form-label-sm mb-0 d-flex align-items-center gap-1" style="padding-bottom:6px">
+                                <input type="checkbox" id="advisor_exclude" {% if advisor_filter and advisor_filter.startswith('!') %}checked{% endif %} title="Excluir este valor">
+                                <span class="small">Excluir</span>
+                            </label>
                         </div>
-                        <div class="flex-shrink-0">
-                            <label for="group" class="form-label form-label-sm mb-0">Grupo</label>
-                            <select class="form-select form-select-sm" id="group" name="group" style="width:110px">
-                                <option value="all" {% if group_filter == 'all' %}selected{% endif %}>Todos</option>
-                                {% for group in groups %}
-                                <option value="{{ group }}" {% if group_filter == group %}selected{% endif %}>{{ group }}</option>
-                                {% endfor %}
-                            </select>
+                        <div class="flex-shrink-0 d-flex align-items-end gap-1">
+                            <div>
+                                <label for="group" class="form-label form-label-sm mb-0">Grupo</label>
+                                <select class="form-select form-select-sm" id="group" style="width:110px">
+                                    <option value="all" {% if group_filter == 'all' or not group_filter %}selected{% endif %}>Todos</option>
+                                    {% for group in groups %}
+                                    <option value="{{ group }}" {% if group_filter == group or group_filter == ('!' ~ group) %}selected{% endif %}>{{ group }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <label class="form-label form-label-sm mb-0 d-flex align-items-center gap-1" style="padding-bottom:6px">
+                                <input type="checkbox" id="group_exclude" {% if group_filter and group_filter.startswith('!') %}checked{% endif %} title="Excluir este valor">
+                                <span class="small">Excluir</span>
+                            </label>
                         </div>
                         <div class="flex-shrink-0 d-flex align-items-center gap-1">
                             <label for="per_page" class="form-label form-label-sm mb-0 text-nowrap">Pág</label>
@@ -92,6 +120,38 @@
                             <a href="{{ url_for('admin_users') }}" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i> Limpiar</a>
                         </div>
                     </form>
+                    <script>
+                    (function(){
+                        var form = document.getElementById('adminUsersFilterForm');
+                        if (!form) return;
+                        var pairs = [
+                            ['status', 'status_exclude', 'status_value'],
+                            ['admin', 'admin_exclude', 'admin_value'],
+                            ['advisor', 'advisor_exclude', 'advisor_value'],
+                            ['group', 'group_exclude', 'group_value']
+                        ];
+                        function syncFilterHiddens() {
+                            pairs.forEach(function(p) {
+                                var sel = document.getElementById(p[0]);
+                                var chk = document.getElementById(p[1]);
+                                var hid = document.getElementById(p[2]);
+                                if (!sel || !hid) return;
+                                var val = (sel.value || 'all').trim();
+                                if (chk && chk.checked && val && val.toLowerCase() !== 'all') val = '!' + val;
+                                hid.value = val;
+                            });
+                        }
+                        pairs.forEach(function(p) {
+                            var sel = document.getElementById(p[0]);
+                            var chk = document.getElementById(p[1]);
+                            if (sel) sel.addEventListener('change', syncFilterHiddens);
+                            if (chk) chk.addEventListener('change', syncFilterHiddens);
+                        });
+                        form.addEventListener('submit', function() {
+                            syncFilterHiddens();
+                        });
+                    })();
+                    </script>
                 </div>
             </div>
         </div>

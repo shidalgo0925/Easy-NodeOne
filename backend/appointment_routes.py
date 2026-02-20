@@ -811,7 +811,7 @@ def admin_cancel_appointment(appointment_id):
 @admin_required
 def create_appointment_type():
     ensure_models()
-    advisors = Advisor.query.filter_by(is_active=True).order_by(Advisor.created_at.asc()).all()
+    advisors = Advisor.query.order_by(Advisor.created_at.asc()).all()
 
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -869,7 +869,136 @@ def create_appointment_type():
         'admin/appointments/type_form.html',
         appointment_type=None,
         advisors=advisors,
+        assigned_advisor_ids=[],
     )
+
+
+@admin_appointments_bp.route('/types/<int:type_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def edit_appointment_type(type_id):
+    """Editar tipo de cita (nombre, duración, precio, asesores asignados)."""
+    ensure_models()
+    appointment_type = AppointmentType.query.get_or_404(type_id)
+    advisors = Advisor.query.order_by(Advisor.created_at.asc()).all()
+
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        duration = request.form.get('duration_minutes', type=int) or 60
+        base_price = request.form.get('base_price', type=float) or 0.0
+
+        if not name:
+            flash('El nombre del servicio es obligatorio.', 'error')
+            return redirect(request.url)
+
+        appointment_type.name = name
+        appointment_type.description = request.form.get('description', '').strip()
+        appointment_type.service_category = request.form.get('service_category', '').strip() or 'general'
+        appointment_type.duration_minutes = duration
+        appointment_type.is_group_allowed = bool(request.form.get('is_group_allowed'))
+        appointment_type.max_participants = request.form.get('max_participants', type=int) or 1
+        appointment_type.base_price = base_price
+        appointment_type.currency = request.form.get('currency', 'USD')
+        appointment_type.is_virtual = bool(request.form.get('is_virtual', True))
+        appointment_type.requires_confirmation = bool(request.form.get('requires_confirmation', True))
+        appointment_type.color_tag = request.form.get('color_tag', '#0d6efd')
+        appointment_type.icon = request.form.get('icon', 'fa-calendar-check')
+        appointment_type.display_order = request.form.get('display_order', type=int) or 1
+
+        # Reemplazar asesores asignados
+        AppointmentAdvisor.query.filter_by(appointment_type_id=appointment_type.id).delete()
+        advisor_ids = request.form.getlist('advisor_ids')
+        for idx, advisor_id in enumerate(advisor_ids, start=1):
+            advisor = Advisor.query.get(int(advisor_id))
+            if advisor:
+                db.session.add(AppointmentAdvisor(
+                    appointment_type_id=appointment_type.id,
+                    advisor_id=advisor.id,
+                    priority=idx,
+                    is_active=True,
+                ))
+
+        db.session.commit()
+
+        ActivityLog.log_activity(
+            current_user.id,
+            'edit_appointment_type',
+            'appointment_type',
+            appointment_type.id,
+            f'Actualizó el servicio de citas {appointment_type.name}',
+            request
+        )
+
+        flash('Servicio de citas actualizado. Los asesores asignados se reflejan en el catálogo.', 'success')
+        return redirect(url_for('admin_appointments.admin_appointments_dashboard'))
+
+    assigned_advisor_ids = [a.advisor_id for a in appointment_type.advisor_assignments if getattr(a, 'is_active', True)]
+    return render_template(
+        'admin/appointments/type_form.html',
+        appointment_type=appointment_type,
+        advisors=advisors,
+        assigned_advisor_ids=assigned_advisor_ids,
+    )
+
+
+@admin_appointments_bp.route('/types/<int:type_id>/assign-all-advisors', methods=['POST'])
+@admin_required
+def assign_all_advisors_to_type(type_id):
+    """Asigna todos los asesores activos a este tipo de cita (desde la interfaz)."""
+    ensure_models()
+    appointment_type = AppointmentType.query.get_or_404(type_id)
+    advisors = Advisor.query.filter_by(is_active=True).all()
+    added = 0
+    for advisor in advisors:
+        existing = AppointmentAdvisor.query.filter_by(
+            appointment_type_id=appointment_type.id,
+            advisor_id=advisor.id,
+        ).first()
+        if not existing:
+            db.session.add(AppointmentAdvisor(
+                appointment_type_id=appointment_type.id,
+                advisor_id=advisor.id,
+                priority=1,
+                is_active=True,
+            ))
+            added += 1
+        elif not getattr(existing, 'is_active', True):
+            existing.is_active = True
+            added += 1
+    db.session.commit()
+    if added:
+        ActivityLog.log_activity(
+            current_user.id,
+            'assign_all_advisors_to_type',
+            'appointment_type',
+            appointment_type.id,
+            f'Asignó todos los asesores activos ({added} añadidos/reactivados) a {appointment_type.name}',
+            request
+        )
+        flash(f'Se asignaron todos los asesores activos a este servicio ({added} añadidos).', 'success')
+    else:
+        flash('Todos los asesores activos ya estaban asignados.', 'info')
+    return redirect(url_for('admin_appointments.edit_appointment_type', type_id=type_id))
+
+
+@admin_appointments_bp.route('/types/<int:type_id>/toggle-active', methods=['POST'])
+@admin_required
+def toggle_appointment_type_active(type_id):
+    """Activar o desactivar un tipo de cita (no se elimina)."""
+    ensure_models()
+    appointment_type = AppointmentType.query.get_or_404(type_id)
+    appointment_type.is_active = not getattr(appointment_type, 'is_active', True)
+    db.session.commit()
+    status = 'activado' if appointment_type.is_active else 'desactivado'
+    ActivityLog.log_activity(
+        current_user.id,
+        'toggle_appointment_type',
+        'appointment_type',
+        appointment_type.id,
+        f'{status.capitalize()} el servicio de citas {appointment_type.name}',
+        request
+    )
+    flash(f'Servicio de citas {status}. Ya no aparecerá en opciones mientras esté desactivado.', 'success')
+    return redirect(url_for('admin_appointments.admin_appointments_dashboard'))
 
 
 @admin_appointments_bp.route('/slots/create', methods=['POST'])

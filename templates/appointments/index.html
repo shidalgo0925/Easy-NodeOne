@@ -150,22 +150,22 @@
                         {% if upcoming_appointments %}
                         <div class="list-group list-group-flush">
                             {% for appointment in upcoming_appointments %}
-                            <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">{{ appointment.appointment_type.name }}</h6>
-                                    <p class="text-muted small mb-1">
-                                        <i class="far fa-calendar me-1"></i>{{ appointment.start_datetime.strftime('%d %b %Y %H:%M') }}
-                                        &middot; {{ appointment.advisor_profile.user.first_name if appointment.advisor_profile }} {{ appointment.advisor_profile.user.last_name if appointment.advisor_profile }}
-                                    </p>
+                            <div class="list-group-item px-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <strong class="text-nowrap">{{ appointment.appointment_type.name }}</strong>
+                                    <span class="text-muted small text-nowrap"><i class="far fa-calendar me-1"></i>{{ appointment.start_datetime.strftime('%d %b %Y %H:%M') }}</span>
+                                    {% if appointment.advisor_profile and appointment.advisor_profile.user %}
+                                    <span class="text-muted small text-nowrap">{{ appointment.advisor_profile.user.first_name }} {{ appointment.advisor_profile.user.last_name }}</span>
+                                    {% endif %}
                                     <span class="badge bg-light text-dark text-uppercase">{{ appointment.status }}</span>
                                 </div>
-                                <div class="text-end">
+                                <div class="d-flex align-items-center gap-1 flex-nowrap">
                                     {% if appointment.can_user_cancel() %}
                                     <form action="{{ url_for('appointments.cancel_appointment', appointment_id=appointment.id) }}" method="post" class="d-inline">
                                         <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('¿Cancelar esta cita?');">Cancelar</button>
                                     </form>
                                     {% endif %}
-                                    <a href="{{ url_for('appointments.appointment_type_detail', type_id=appointment.appointment_type_id) }}" class="btn btn-sm btn-primary mt-2">Ver detalles</a>
+                                    <a href="{{ url_for('appointments.appointment_type_detail', type_id=appointment.appointment_type_id) }}" class="btn btn-sm btn-primary">Ver detalles</a>
                                 </div>
                             </div>
                             {% endfor %}
@@ -183,14 +183,10 @@
                         {% if past_appointments %}
                         <ul class="list-unstyled mb-0">
                             {% for appointment in past_appointments %}
-                            <li class="mb-3 pb-3 border-bottom">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <strong>{{ appointment.appointment_type.name }}</strong>
-                                        <p class="text-muted small mb-0">{{ appointment.start_datetime.strftime('%d %b %Y %H:%M') }}</p>
-                                    </div>
-                                    <span class="badge bg-secondary text-uppercase">{{ appointment.status }}</span>
-                                </div>
+                            <li class="d-flex justify-content-between align-items-center gap-2 py-2 border-bottom">
+                                <span class="text-nowrap"><strong>{{ appointment.appointment_type.name }}</strong></span>
+                                <span class="text-muted small text-nowrap">{{ appointment.start_datetime.strftime('%d %b %Y %H:%M') }}</span>
+                                <span class="badge bg-secondary text-uppercase">{{ appointment.status }}</span>
                             </li>
                             {% endfor %}
                         </ul>

@@ -59,6 +59,7 @@
     <!-- Lista de Servicios -->
     <div class="row">
         <div class="col-12">
+            <p class="text-muted small mb-2">Servicios que requieren cita tienen tipo de cita. Para que los usuarios puedan elegir asesor al solicitar cita, usa la columna <strong>Asesores → Gestionar</strong> o <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Citas → Servicios configurados</a>.</p>
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="fas fa-list"></i> Servicios del Catálogo</h5>
@@ -77,6 +78,7 @@
                                     <th>Precio</th>
                                     <th>Cita</th>
                                     <th>Tipo</th>
+                                    <th>Asesores</th>
                                     <th>Estado</th>
                                     <th>Acciones</th>
                                 </tr>
@@ -92,7 +94,7 @@
                                         {% set pricing_rules = service.pricing_rules|selectattr("is_active")|list %}
                                         {% if pricing_rules %}
                                             {% for rule in pricing_rules %}
-                                                <span class="badge bg-info me-1">{{ rule.membership_type|upper }}</span>
+                                            <span class="badge bg-info me-1">{{ rule.membership_type|upper }}</span>
                                             {% endfor %}
                                         {% else %}
                                             <span class="badge bg-secondary">{{ service.membership_type|upper }}</span>
@@ -113,6 +115,15 @@
                                         <span class="badge {{ 'bg-warning text-dark' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'bg-primary' }}" title="{{ 'Solicitar primera reunión' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'Solicitar cita (calendario)' }}">{{ service.service_type or 'AGENDABLE' }}</span>
                                         {% else %}
                                         <span class="badge bg-secondary">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if service.appointment_type_id %}
+                                        <a href="{{ url_for('admin_appointments.edit_appointment_type', type_id=service.appointment_type_id) }}" class="btn btn-sm btn-outline-secondary" title="Asignar o quitar asesores para este servicio de cita">
+                                            <i class="fas fa-user-tie me-1"></i>Gestionar
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted small">—</span>
                                         {% endif %}
                                     </td>
                                     <td>

@@ -76,11 +76,12 @@
                                     <th>Duración</th>
                                     <th>Precio base</th>
                                     <th>Asesores</th>
+                                    <th class="text-end">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for appointment_type in types %}
-                                <tr>
+                                <tr class="{{ 'table-secondary' if not (appointment_type.is_active | default(true)) else '' }}">
                                     <td>
                                         <strong>{{ appointment_type.name }}</strong>
                                         <p class="text-muted small mb-0">{{ appointment_type.service_category }}</p>
@@ -88,14 +89,22 @@
                                     <td>{{ appointment_type.duration_minutes }} min</td>
                                     <td>{{ appointment_type.base_price|round(2) }} {{ appointment_type.currency }}</td>
                                     <td>
-                                        <span class="badge bg-light text-dark">
-                                            {{ appointment_type.advisor_assignments|length }} asignados
-                                        </span>
+                                        <span class="badge bg-light text-dark">{{ appointment_type.advisor_assignments|length }} asignados</span>
+                                        {% if not (appointment_type.is_active | default(true)) %}<span class="badge bg-secondary ms-1">Inactivo</span>{% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('admin_appointments.edit_appointment_type', type_id=appointment_type.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                        <form action="{{ url_for('admin_appointments.assign_all_advisors_to_type', type_id=appointment_type.id) }}" method="post" class="d-inline ms-1">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Asignar todos los asesores activos a este servicio">Asignar todos</button>
+                                        </form>
+                                        <form action="{{ url_for('admin_appointments.toggle_appointment_type_active', type_id=appointment_type.id) }}" method="post" class="d-inline ms-1">
+                                            <button type="submit" class="btn btn-sm {{ 'btn-outline-success' if not (appointment_type.is_active | default(true)) else 'btn-outline-warning' }}">{{ 'Activar' if not (appointment_type.is_active | default(true)) else 'Desactivar' }}</button>
+                                        </form>
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-center py-4 text-muted">Aún no hay servicios configurados.</td>
+                                    <td colspan="5" class="text-center py-4 text-muted">Aún no hay servicios configurados. Usa &quot;Nuevo servicio&quot; para crear uno.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

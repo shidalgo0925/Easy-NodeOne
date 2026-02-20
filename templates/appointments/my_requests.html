@@ -14,29 +14,19 @@
     {% if requests_list %}
     <div class="list-group">
         {% for apt in requests_list %}
-        <div class="list-group-item d-flex justify-content-between align-items-start">
-            <div>
-                <h6 class="mb-1">{{ apt.related_service.name if apt.related_service else (apt.appointment_type.name if apt.appointment_type else 'Cita') }}</h6>
-                <p class="text-muted small mb-1">
-                    {% if apt.start_datetime %}
-                    <i class="far fa-calendar me-1"></i>{{ apt.start_datetime.strftime('%d/%m/%Y %H:%M') }}
-                    {% else %}
-                    Fecha por confirmar
-                    {% endif %}
-                    {% if apt.advisor_profile and apt.advisor_profile.user %}
-                    &middot; {{ apt.advisor_profile.user.first_name }} {{ apt.advisor_profile.user.last_name }}
-                    {% endif %}
-                </p>
-                <span class="badge
-                    {% if apt.status in ('PENDIENTE','pending') %}bg-warning text-dark
-                    {% elif apt.status in ('CONFIRMADA','confirmed') %}bg-success
-                    {% elif apt.status == 'RECHAZADA' %}bg-danger
-                    {% else %}bg-secondary{% endif %}">{{ apt.status }}</span>
+        <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <strong class="text-nowrap">{{ apt.related_service.name if apt.related_service else (apt.appointment_type.name if apt.appointment_type else 'Cita') }}</strong>
+                <span class="text-muted small text-nowrap">{% if apt.start_datetime %}<i class="far fa-calendar me-1"></i>{{ apt.start_datetime.strftime('%d/%m/%Y %H:%M') }}{% else %}Fecha por confirmar{% endif %}</span>
+                {% if apt.advisor_profile and apt.advisor_profile.user %}
+                <span class="text-muted small text-nowrap">{{ apt.advisor_profile.user.first_name }} {{ apt.advisor_profile.user.last_name }}</span>
+                {% endif %}
+                <span class="badge {% if apt.status in ('PENDIENTE','pending') %}bg-warning text-dark{% elif apt.status in ('CONFIRMADA','confirmed') %}bg-success{% elif apt.status == 'RECHAZADA' %}bg-danger{% else %}bg-secondary{% endif %}">{{ apt.status }}</span>
+                <code class="small">{{ apt.reference }}</code>
                 {% if apt.advisor_response_notes and apt.status == 'RECHAZADA' %}
-                <p class="small text-muted mt-2 mb-0">Comentario asesor: {{ apt.advisor_response_notes[:150] }}{% if apt.advisor_response_notes|length > 150 %}...{% endif %}</p>
+                <span class="small text-muted">Comentario: {{ apt.advisor_response_notes[:80] }}{% if apt.advisor_response_notes|length > 80 %}...{% endif %}</span>
                 {% endif %}
             </div>
-            <small class="text-muted">Ref: {{ apt.reference }}</small>
         </div>
         {% endfor %}
     </div>

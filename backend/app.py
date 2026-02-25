@@ -6,6 +6,7 @@ Backend Flask para gestión de usuarios y membresías
 
 import sys
 import re
+import html as html_module
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -58,7 +59,8 @@ try:
         get_appointment_new_admin_email,
         get_welcome_email,
         get_password_reset_email,
-        get_email_verification_email
+        get_email_verification_email,
+        get_office365_request_email,
     )
     EMAIL_TEMPLATES_AVAILABLE = True
 except ImportError as e:
@@ -244,6 +246,8 @@ def initialize_email_config():
     if not _email_config_initialized:
         try:
             apply_email_config_from_db()
+            ensure_office365_discount_code_id()
+            ensure_discount_code_valid_for_office365()
             _email_config_initialized = True
         except Exception as e:
             print(f"⚠️ No se pudo inicializar configuración de email: {e}")
@@ -1052,6 +1056,9 @@ class DiscountCode(db.Model):
     applies_to = db.Column(db.String(50), default='all')  # all, events, memberships, appointments
     event_ids = db.Column(db.Text)  # JSON array de event IDs (opcional)
     
+    # Válido para solicitud de correo Office 365 (sin hardcodear nombre)
+    valid_for_office365 = db.Column(db.Boolean, default=False)
+    
     # Vigencia
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
@@ -1362,6 +1369,16 @@ class EmailConfig(db.Model):
             app_instance.config['MAIL_USERNAME'] = self.mail_username
             app_instance.config['MAIL_PASSWORD'] = self.mail_password
             app_instance.config['MAIL_DEFAULT_SENDER'] = self.mail_default_sender
+        # Evitar [SSL: WRONG_VERSION_NUMBER]: 587 = STARTTLS (no SSL directo), 465 = SSL directo
+        port = int(app_instance.config.get('MAIL_PORT', 587))
+        if port == 587:
+            app_instance.config['MAIL_USE_SSL'] = False
+            app_instance.config['MAIL_USE_TLS'] = True
+        elif port == 465:
+            app_instance.config['MAIL_USE_SSL'] = True
+            app_instance.config['MAIL_USE_TLS'] = False
+        # Timeout para no colgar (Flask-Mail usa MAIL_TIMEOUT si existe)
+        app_instance.config['MAIL_TIMEOUT'] = 25
 
 class PaymentConfig(db.Model):
     """Configuración de métodos de pago"""
@@ -1595,6 +1612,34 @@ class NotificationSettings(db.Model):
                 result[setting.category] = []
             result[setting.category].append(setting.to_dict())
         return result
+
+
+# Planes considerados Pro o superior para solicitud de correo Office 365
+OFFICE365_PRO_OR_ABOVE = ('admin', 'pro', 'premium', 'deluxe', 'corporativo')
+
+
+class Office365Request(db.Model):
+    """Solicitudes de acceso a Office 365 (estado: pending, approved, rejected)."""
+    __tablename__ = 'office365_request'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    purpose = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
+    admin_notes = db.Column(db.Text, nullable=True)
+    discount_code_id = db.Column(db.Integer, db.ForeignKey('discount_code.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('office365_requests', lazy=True))
+    discount_code = db.relationship('DiscountCode', foreign_keys=[discount_code_id], backref='office365_requests')
+
+    __table_args__ = (
+        db.Index('idx_office365_status', 'status'),
+        db.Index('idx_office365_created', 'created_at'),
+        db.Index('idx_office365_user', 'user_id'),
+    )
 
 
 class EventRegistration(db.Model):
@@ -4834,9 +4879,209 @@ def service_payment_success_callback(payment_id):
 @app.route('/office365')
 @login_required
 def office365():
-    """Módulo de Office 365"""
+    """Módulo de Office 365. Pro+ puede solicitar sin código; el resto debe ingresar código de autorización."""
     active_membership = current_user.get_active_membership()
-    return render_template('office365.html', membership=active_membership)
+    is_pro_or_above = _user_has_pro_or_above()
+    return render_template('office365.html', membership=active_membership, is_pro_or_above=is_pro_or_above)
+
+
+def _user_has_pro_or_above():
+    """True si el usuario tiene membresía Pro o superior activa."""
+    m = current_user.get_active_membership()
+    if not m or not getattr(m, 'is_currently_active', lambda: False)():
+        return False
+    mt = (getattr(m, 'membership_type', '') or '').strip().lower()
+    return mt in OFFICE365_PRO_OR_ABOVE
+
+
+@app.route('/api/office365/request', methods=['POST'])
+@login_required
+def api_office365_request():
+    """Recibe solicitud Office 365; exige Pro+ o código válido. Guarda en BD, envía correo a admins y copia al usuario."""
+    if not request.is_json:
+        return jsonify({'success': False, 'error': 'Content-Type debe ser application/json'}), 400
+    data = request.get_json()
+    email = (data.get('email') or '').strip()
+    purpose = (data.get('purpose') or '').strip()
+    description = (data.get('description') or '').strip()
+    authorization_code = (data.get('authorization_code') or data.get('code') or '').strip()
+    if not email:
+        return jsonify({'success': False, 'error': 'El correo es obligatorio.'}), 400
+    if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        return jsonify({'success': False, 'error': 'Formato de correo no válido.'}), 400
+    if not purpose:
+        return jsonify({'success': False, 'error': 'El propósito es obligatorio.'}), 400
+    if len(description) < 10:
+        return jsonify({'success': False, 'error': 'La descripción debe tener al menos 10 caracteres.'}), 400
+
+    # Regla de negocio: Pro+ o código válido
+    discount_code_id = None
+    if _user_has_pro_or_above():
+        pass
+    else:
+        if not authorization_code:
+            return jsonify({
+                'success': False,
+                'error': 'Necesitas una membresía Pro o superior, o un código de autorización válido para solicitar correo.',
+                'code_required': True,
+            }), 403
+        dc = DiscountCode.query.filter(DiscountCode.code == authorization_code.strip().upper()).first()
+        if not dc:
+            return jsonify({'success': False, 'error': 'Código de autorización no encontrado o incorrecto.'}), 400
+        if not getattr(dc, 'valid_for_office365', False):
+            return jsonify({'success': False, 'error': 'Este código no es válido para solicitud de correo Office 365.'}), 400
+        ok, msg = dc.can_use(current_user.id)
+        if not ok:
+            if 'límite de usos' in msg or 'máximo' in msg:
+                return jsonify({'success': False, 'error': msg}), 409
+            return jsonify({'success': False, 'error': msg}), 400
+        discount_code_id = dc.id
+
+    purpose_max = purpose[:255]
+    description_safe = description[:2000]
+    user_id = current_user.id
+    user_name = f'{getattr(current_user, "first_name", "") or ""} {getattr(current_user, "last_name", "") or ""}'.strip() or current_user.email
+    try:
+        req = Office365Request(
+            user_id=user_id,
+            email=email,
+            purpose=purpose_max,
+            description=description_safe,
+            status='pending',
+            discount_code_id=discount_code_id,
+        )
+        db.session.add(req)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('Office365Request create failed')
+        return jsonify({'success': False, 'error': 'Error al registrar la solicitud.'}), 500
+    admins = User.query.filter_by(is_admin=True).filter(User.email.isnot(None)).filter(User.email != '').all()
+    admin_emails = list({a.email for a in admins if a.email})
+    recipients = list(admin_emails)
+    if email not in recipients:
+        recipients.append(email)
+    # Usar template de correo si existe (Admin → Email)
+    t = EmailTemplate.query.filter_by(template_key='office365_request').first()
+    sub = {
+        'user_name': html_module.escape(user_name),
+        'email': html_module.escape(email),
+        'purpose': html_module.escape(purpose_max),
+        'description': html_module.escape(description_safe).replace(chr(10), '<br>'),
+        'request_id': req.id,
+    }
+    if t:
+        subject = t.subject.replace('{user_name}', sub['user_name']).replace('{email}', sub['email']).replace('{purpose}', sub['purpose']).replace('{description}', sub['description']).replace('{request_id}', str(req.id))
+        if t.is_custom and t.html_content:
+            body_html = t.html_content
+            for k, v in sub.items():
+                body_html = body_html.replace('{' + k + '}', v)
+        else:
+            body_html = get_office365_request_email(user_name, email, purpose_max, description_safe, req.id)
+    else:
+        subject = f'Nueva solicitud Office 365 – {email}'
+        body_html = get_office365_request_email(user_name, email, purpose_max, description_safe, req.id)
+    if admin_emails:
+        try:
+            if mail and Message:
+                msg = Message(subject=subject, recipients=recipients, html=body_html)
+                mail.send(msg)
+            else:
+                app.logger.warning('Office365: Flask-Mail no disponible, correo no enviado')
+        except Exception as e:
+            app.logger.exception('Office365 email send failed')
+            err_msg = str(e)[:500]
+            for admin in User.query.filter_by(is_admin=True).all():
+                try:
+                    n = Notification(
+                        user_id=admin.id,
+                        notification_type='email_error',
+                        title='Error al enviar correo (solicitud Office 365)',
+                        message=f'Solicitud #{req.id}. No se pudo enviar el correo a los admins. Error: {err_msg}',
+                    )
+                    db.session.add(n)
+                except Exception:
+                    pass
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+    else:
+        app.logger.error('Office365 request id=%s: no hay admins con email configurado', req.id)
+    app.logger.info('Office365 request id=%s user_id=%s email=%s ip=%s', req.id, user_id, email, request.remote_addr)
+    resp = {'success': True, 'message': 'Solicitud enviada. Recibirás una respuesta en 2-3 días hábiles.', 'request_id': req.id}
+    if not admin_emails:
+        resp['warning'] = 'Solicitud registrada pero no hay destinatarios configurados; contacta al soporte.'
+    return jsonify(resp)
+
+
+@app.route('/admin/office365/requests')
+@login_required
+def admin_office365_requests():
+    """Listado de solicitudes Office 365 (solo admin)."""
+    if not getattr(current_user, 'is_admin', False) and not (hasattr(current_user, 'has_permission') and current_user.has_permission('users.view')):
+        flash('No tienes permiso para ver esta sección.', 'error')
+        return redirect(url_for('dashboard'))
+    status_filter = request.args.get('status', 'all')
+    query = Office365Request.query.order_by(Office365Request.created_at.desc())
+    if status_filter and status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    requests_list = query.limit(200).all()
+    pending_count = Office365Request.query.filter_by(status='pending').count()
+    return render_template(
+        'admin/office365_requests.html',
+        requests=requests_list,
+        status_filter=status_filter,
+        pending_count=pending_count,
+    )
+
+
+@app.route('/admin/office365/requests/<int:request_id>/update', methods=['POST'])
+@login_required
+def admin_update_office365_request(request_id):
+    """Aprobar o rechazar solicitud Office 365 y notificar al usuario por correo. Al aprobar, consume código si aplica."""
+    if not getattr(current_user, 'is_admin', False) and not (hasattr(current_user, 'has_permission') and current_user.has_permission('users.view')):
+        return jsonify({'error': 'No autorizado'}), 403
+    data = request.get_json(silent=True) or request.form
+    new_status = (data.get('status') or '').strip().lower()
+    admin_notes = (data.get('admin_notes') or '').strip()
+    if new_status not in ('approved', 'rejected'):
+        return jsonify({'error': 'Estado inválido. Use approved o rejected.'}), 400
+    req = Office365Request.query.get_or_404(request_id)
+    try:
+        if new_status == 'approved' and req.discount_code_id:
+            dc = DiscountCode.query.get(req.discount_code_id)
+            if dc:
+                dc.current_uses = (dc.current_uses or 0) + 1
+                app_use = DiscountApplication(
+                    discount_code_id=dc.id,
+                    user_id=req.user_id,
+                    payment_id=None,
+                    cart_id=None,
+                    original_amount=0.0,
+                    discount_amount=0.0,
+                    final_amount=0.0,
+                )
+                db.session.add(app_use)
+        req.status = new_status
+        req.admin_notes = admin_notes or None
+        req.updated_at = datetime.utcnow()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('Office365 request update failed: %s', e)
+        return jsonify({'error': 'Error al actualizar la solicitud.'}), 500
+    user_email = req.user.email if req.user else req.email
+    if user_email and mail and Message:
+        subject = f'Solicitud Office 365 – {new_status.upper()}'
+        body_text = f"""Tu solicitud de acceso Office 365 (ID {req.id}) ha sido {new_status}.\n\nNotas del administrador:\n{admin_notes or 'Sin observaciones.'}\n\n— RelaticPanama"""
+        try:
+            msg = Message(subject=subject, recipients=[user_email], body=body_text)
+            mail.send(msg)
+        except Exception as e:
+            app.logger.exception('Office365 notification mail failed for request %s: %s', req.id, e)
+    return jsonify({'success': True})
+
 
 @app.route('/foros')
 @login_required
@@ -8602,7 +8847,11 @@ def api_email_config():
     
     elif request.method in ['POST', 'PUT']:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'success': False, 'error': 'No se recibieron datos. Revisa que el formulario envíe JSON.'}), 400
+        server = (data.get('mail_server') or '').strip()
+        if 'brevo' in server.lower() or 'resend' in server.lower():
+            data['use_environment_variables'] = False
         # Desactivar todas las configuraciones anteriores
         EmailConfig.query.update({'is_active': False})
         
@@ -8655,6 +8904,7 @@ def api_email_config():
             })
         except Exception as e:
             db.session.rollback()
+            app.logger.exception('Email config save failed')
             return jsonify({
                 'success': False,
                 'error': str(e)
@@ -8664,8 +8914,11 @@ def api_email_config():
 @admin_required
 def api_email_test():
     """API para probar la configuración de email enviando un correo de prueba"""
-    data = request.get_json()
-    test_email = data.get('email', current_user.email)
+    try:
+        data = request.get_json(silent=True) or {}
+        test_email = (data.get('email') or (current_user.email if current_user.is_authenticated else '')).strip()
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
     
     # Validar email de destino
     if not test_email or '@' not in test_email:
@@ -8698,12 +8951,16 @@ def api_email_test():
     if not email_config.mail_username:
         validation_errors.append('Usuario/Email SMTP no configurado')
     elif '@' not in email_config.mail_username:
-        validation_errors.append('Usuario SMTP no parece ser un email válido')
+        # Resend y otros usan usuario "resend" sin @
+        if not email_config.mail_server or 'resend' not in email_config.mail_server.lower():
+            validation_errors.append('Usuario SMTP no parece ser un email válido')
     
     if not email_config.mail_password:
         validation_errors.append('Contraseña SMTP no configurada')
     elif len(email_config.mail_password) < 8:
-        validation_errors.append('Contraseña SMTP muy corta (mínimo 8 caracteres)')
+        # Resend usa API key larga (re_...); Gmail 16
+        if not email_config.mail_server or 'resend' not in email_config.mail_server.lower():
+            validation_errors.append('Contraseña SMTP muy corta (mínimo 8 caracteres)')
     
     if not email_config.mail_default_sender:
         validation_errors.append('Remitente por defecto no configurado')
@@ -8744,6 +9001,22 @@ def api_email_test():
             }
         }), 400
     
+    # Brevo: el remitente no debe ser el login SMTP
+    if email_config.mail_server and 'brevo' in email_config.mail_server.lower():
+        if (email_config.mail_default_sender or '').strip().lower() == (email_config.mail_username or '').strip().lower():
+            return jsonify({
+                'success': False,
+                'error': 'Con Brevo, el "Remitente por defecto" debe ser un email verificado en tu cuenta Brevo, no el usuario SMTP.',
+                'details': [
+                    'En Brevo: Remitentes y dominios → crea/verifica un remitente (ej: noreply@tudominio.com).',
+                    'Usa ese email en "Remitente por defecto" y el usuario SMTP solo para autenticación.'
+                ]
+            }), 400
+        email_config.use_environment_variables = False
+    # Resend: usar siempre config de la BD
+    if email_config.mail_server and 'resend' in email_config.mail_server.lower():
+        email_config.use_environment_variables = False
+    
     # Aplicar configuración antes de enviar
     try:
         email_config.apply_to_app(app)
@@ -8751,10 +9024,18 @@ def api_email_test():
         global mail
         mail = Mail(app)
     except Exception as e:
+        app.logger.exception('Email config apply failed')
         return jsonify({
             'success': False,
             'error': f'Error al aplicar configuración: {str(e)}'
         }), 500
+    
+    app.logger.info(
+        'Test email: server=%s port=%s ssl=%s tls=%s sender=%s to=%s',
+        email_config.mail_server, email_config.mail_port, email_config.mail_use_ssl, email_config.mail_use_tls,
+        email_config.mail_default_sender, test_email
+    )
+    app.config['MAIL_TIMEOUT'] = 25
     
     # Intentar enviar el correo
     try:
@@ -8763,6 +9044,7 @@ def api_email_test():
         msg = Message(
             subject='[Prueba] Configuración de Email - RelaticPanama',
             recipients=[test_email],
+            sender=email_config.mail_default_sender,
             html=f"""
             <h2>Correo de Prueba</h2>
             <p>Este es un correo de prueba para verificar que la configuración SMTP está funcionando correctamente.</p>
@@ -8774,10 +9056,16 @@ def api_email_test():
             """
         )
         mail.send(msg)
+        app.logger.info('Test email sent OK to %s', test_email)
         
+        message = f'Correo de prueba enviado exitosamente a {test_email}.'
+        if email_config.mail_server and 'brevo' in email_config.mail_server.lower():
+            message += ' Si no lo ves, revisa carpeta de spam y que el remitente esté verificado en Brevo.'
+        if email_config.mail_server and 'resend' in email_config.mail_server.lower():
+            message += ' Si no llega, revisa spam y que el dominio del remitente esté verificado en Resend.'
         return jsonify({
             'success': True,
-            'message': f'Correo de prueba enviado exitosamente a {test_email}',
+            'message': message,
             'config_used': {
                 'server': email_config.mail_server,
                 'sender': email_config.mail_default_sender
@@ -8786,6 +9074,23 @@ def api_email_test():
     except Exception as e:
         error_msg = str(e)
         error_details = []
+        app.logger.exception('Test email send failed: %s', error_msg)
+        
+        # Brevo: errores frecuentes
+        if email_config.mail_server and 'brevo' in email_config.mail_server.lower():
+            if '535' in error_msg or 'auth' in error_msg.lower() or 'credential' in error_msg.lower():
+                error_details.append('Usa la clave SMTP de Brevo (no la API key). En Brevo: Configuración → SMTP y API → Clave SMTP.')
+            if 'sender' in error_msg.lower() or 'invalid' in error_msg.lower() or '550' in error_msg:
+                error_details.append('El remitente debe estar verificado en Brevo (Remitentes y dominios). No uses el usuario SMTP como remitente.')
+            if '450' in error_msg or 'not yet activated' in error_msg.lower():
+                error_details.append('Correos transaccionales pueden no estar activados. Contacta a Brevo o activa en tu cuenta.')
+        if email_config.mail_server and 'resend' in email_config.mail_server.lower():
+            if '535' in error_msg or 'auth' in error_msg.lower() or 'credential' in error_msg.lower():
+                error_details.append('Resend: usa la API key como contraseña SMTP. Usuario debe ser "resend". Puerto 465 con SSL.')
+            if 'timeout' in error_msg.lower() or 'timed out' in error_msg.lower() or 'connection' in error_msg.lower():
+                error_details.append('Conexión lenta o bloqueada. Prueba con Puerto 587, TLS marcado y SSL desmarcado (Resend soporta ambos).')
+            if 'sender' in error_msg.lower() or 'domain' in error_msg.lower() or 'verified' in error_msg.lower():
+                error_details.append('El remitente (From) debe usar un dominio verificado en Resend (Dashboard → Domains).')
         
         # Analizar el error y dar recomendaciones específicas
         if 'application-specific password' in error_msg.lower() or '5.7.9' in error_msg or 'invalidsecondfactor' in error_msg.lower():
@@ -8849,6 +9154,22 @@ def api_email_test():
         elif 'tls' in error_msg.lower() or 'ssl' in error_msg.lower():
             error_details.append('Error de seguridad: Problema con TLS/SSL')
             error_details.append('Verifica que TLS esté habilitado para este servidor')
+        elif '550' in error_msg or 'sending limit' in error_msg.lower() or 'daily' in error_msg.lower():
+            error_details.append('Límite diario de envío alcanzado (Gmail/Google).')
+            error_details.append('Espera a que se reinicie el límite o usa otro servidor SMTP.')
+        
+        # Notificación in-app para que el admin vea el error
+        try:
+            n = Notification(
+                user_id=current_user.id,
+                notification_type='email_error',
+                title='Error al enviar correo de prueba',
+                message=error_msg[:400] + ('…' if len(error_msg) > 400 else ''),
+            )
+            db.session.add(n)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         
         # Mensaje específico para SMTP AUTH deshabilitado
         if 'smtp_auth_disabled' in error_msg.lower() or '5.7.139' in error_msg:
@@ -9115,6 +9436,14 @@ def api_email_preview_template(template_key):
             reset_token = "abc123xyz"
             reset_url = f"{request.url_root.rstrip('/')}/reset-password?token={reset_token}"
             html_content = get_password_reset_email(user, reset_token, reset_url)
+        elif template_key == 'office365_request':
+            html_content = get_office365_request_email(
+                user_name=f"{user.first_name} {user.last_name}",
+                email=user.email,
+                purpose="Trabajo profesional / comunicación institucional",
+                description="Solicito correo corporativo para uso en proyectos y contacto con miembros.",
+                request_id=999,
+            )
         else:
             return jsonify({
                 'success': False,
@@ -10331,6 +10660,7 @@ def api_email_template_reset(template_id):
                 'event_update': get_event_update_email,
                 'appointment_confirmation': get_appointment_confirmation_email,
                 'appointment_reminder': get_appointment_reminder_email,
+                'office365_request': get_office365_request_email,
             }
             
             if template.template_key in template_func_map:
@@ -10455,6 +10785,7 @@ def admin_discount_code_create():
         # Límites
         max_uses_total = int(data.get('max_uses_total', 0)) if data.get('max_uses_total') else None
         max_uses_per_user = int(data.get('max_uses_per_user', 1))
+        valid_for_office365 = data.get('valid_for_office365') in (True, 'true', '1', 1)
         
         # Event IDs (JSON)
         event_ids_json = None
@@ -10476,7 +10807,8 @@ def admin_discount_code_create():
             max_uses_total=max_uses_total,
             max_uses_per_user=max_uses_per_user,
             created_by=current_user.id,
-            is_active=True
+            is_active=True,
+            valid_for_office365=valid_for_office365,
         )
         
         db.session.add(discount_code)
@@ -10531,7 +10863,8 @@ def admin_discount_code_get(code_id):
                 'max_uses_total': code.max_uses_total,
                 'max_uses_per_user': code.max_uses_per_user,
                 'is_active': code.is_active,
-                'current_uses': code.current_uses
+                'current_uses': code.current_uses,
+                'valid_for_office365': getattr(code, 'valid_for_office365', False),
             }
         })
     except Exception as e:
@@ -10562,6 +10895,8 @@ def admin_discount_code_update(code_id):
             code.value = value
         if 'applies_to' in data:
             code.applies_to = data.get('applies_to')
+        if 'valid_for_office365' in data:
+            code.valid_for_office365 = data.get('valid_for_office365') in (True, 'true', '1', 1)
         if 'event_ids' in data:
             event_ids = data.get('event_ids', [])
             import json
@@ -11967,10 +12302,47 @@ def ensure_email_log_columns():
         traceback.print_exc()
         # No lanzar excepción para no bloquear el inicio de la app
 
+
+def ensure_office365_discount_code_id():
+    """Añadir columna discount_code_id a office365_request si no existe."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'office365_request' not in inspector.get_table_names():
+            return
+        columns = [col['name'] for col in inspector.get_columns('office365_request')]
+        if 'discount_code_id' in columns:
+            return
+        db.session.execute(text('ALTER TABLE office365_request ADD COLUMN discount_code_id INTEGER'))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        pass
+
+
+def ensure_discount_code_valid_for_office365():
+    """Añadir columna valid_for_office365 a discount_code si no existe."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'discount_code' not in inspector.get_table_names():
+            return
+        columns = [col['name'] for col in inspector.get_columns('discount_code')]
+        if 'valid_for_office365' in columns:
+            return
+        db.session.execute(text('ALTER TABLE discount_code ADD COLUMN valid_for_office365 BOOLEAN DEFAULT 0'))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        pass
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra
+        ensure_office365_discount_code_id()
+        ensure_discount_code_valid_for_office365()
         create_sample_data()
         # Aplicar configuración de email desde BD después de crear tablas
         apply_email_config_from_db()

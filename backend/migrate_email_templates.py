@@ -91,6 +91,13 @@ EMAIL_TEMPLATES = [
         'subject': 'Restablecer Contraseña - RelaticPanama',
         'category': 'system',
         'variables': '{"user": ["first_name", "last_name", "email"], "reset_token": "string", "reset_url": "string"}'
+    },
+    {
+        'template_key': 'office365_request',
+        'name': 'Solicitud de correo electrónico (Office 365)',
+        'subject': 'Nueva solicitud Office 365 – {email}',
+        'category': 'system',
+        'variables': '{"user_name": "string", "email": "string", "purpose": "string", "description": "string", "request_id": "number"}'
     }
 ]
 

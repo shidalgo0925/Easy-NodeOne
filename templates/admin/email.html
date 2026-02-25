@@ -74,13 +74,13 @@
                                 <label for="mail_server" class="form-label">Servidor SMTP</label>
                                 <input type="text" class="form-control" id="mail_server" name="mail_server" 
                                        value="{% if email_config %}{{ email_config.mail_server }}{% else %}smtp.gmail.com{% endif %}" required>
-                                <small class="form-text text-muted">Ejemplo: smtp.gmail.com, smtp.outlook.com</small>
+                                <small class="form-text text-muted">Ejemplo: smtp.gmail.com, smtp.resend.com, smtp-relay.brevo.com</small>
                             </div>
                             <div class="col-md-6">
                                 <label for="mail_port" class="form-label">Puerto</label>
                                 <input type="number" class="form-control" id="mail_port" name="mail_port" 
                                        value="{% if email_config %}{{ email_config.mail_port }}{% else %}587{% endif %}" required>
-                                <small class="form-text text-muted">587 (TLS) o 465 (SSL)</small>
+                                <small class="form-text text-muted">587 (TLS) o 465 (SSL). Resend: si se cuelga la prueba, usa 587 + TLS (SSL desmarcado).</small>
                             </div>
                         </div>
 
@@ -103,9 +103,10 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label for="mail_username" class="form-label">Usuario/Email</label>
-                                <input type="email" class="form-control" id="mail_username" name="mail_username" 
-                                       value="{% if email_config and not email_config.use_environment_variables %}{{ email_config.mail_username }}{% endif %}">
+                                <label for="mail_username" class="form-label">Usuario SMTP / Email</label>
+                                <input type="text" class="form-control" id="mail_username" name="mail_username" 
+                                       value="{% if email_config %}{{ email_config.mail_username or '' }}{% endif %}"
+                                       placeholder="Ej: usuario@smtp-brevo.com">
                                 <small class="form-text text-muted">Dejar vacío si se usa variable de entorno</small>
                             </div>
                             <div class="col-md-6">
@@ -129,7 +130,7 @@
                                     <label class="form-check-label" for="use_environment_variables">
                                         Usar Variables de Entorno
                                     </label>
-                                    <small class="form-text text-muted d-block">Si está activado, se usarán MAIL_USERNAME y MAIL_PASSWORD del sistema</small>
+                                    <small class="form-text text-muted d-block">Si está activado, se usarán MAIL_* del sistema. Para Brevo u otro SMTP propio, desmarca esta opción al guardar.</small>
                                 </div>
                             </div>
                         </div>
@@ -233,6 +234,26 @@
     </div>
 </div>
 
+<!-- Modal para probar envío de email -->
+<div class="modal fade" id="testEmailModal" tabindex="-1" aria-labelledby="testEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="testEmailModalLabel">Probar envío de correo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <label for="test_email_input" class="form-label">Email de destino</label>
+                <input type="email" class="form-control" id="test_email_input" placeholder="ejemplo@correo.com">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="sendTestEmail()">Enviar prueba</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal para editar template -->
 <div class="modal fade" id="templateModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -295,28 +316,40 @@ document.getElementById('smtp-form').addEventListener('submit', async (e) => {
         use_environment_variables: document.getElementById('use_environment_variables').checked
     };
     
+    const btn = e.target.querySelector('button[type="submit"]');
+    const origText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
     try {
         const response = await fetch('/api/admin/email/config', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(formData)
         });
-        
-        const data = await response.json();
+        let data;
+        try { data = await response.json(); } catch (_) { data = { success: false, error: response.statusText || 'Respuesta no válida' }; }
         if (data.success) {
             showAlert(data.message, 'success');
-            document.getElementById('mail_password').value = ''; // Limpiar campo de contraseña
+            document.getElementById('mail_password').value = '';
+            if ((formData.mail_server || '').toLowerCase().includes('brevo') || (formData.mail_server || '').toLowerCase().includes('resend')) {
+                document.getElementById('use_environment_variables').checked = false;
+            }
         } else {
             showAlert(data.error || 'Error al guardar', 'danger');
         }
-    } catch (error) {
-        showAlert('Error de conexión', 'danger');
+    } catch (err) {
+        showAlert('Error de conexión: ' + (err.message || 'revisa consola'), 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
     }
 });
 
 // Abrir modal para prueba de email
 function openTestEmailModal() {
-    const modal = new bootstrap.Modal(document.getElementById('testEmailModal'));
+    const el = document.getElementById('testEmailModal');
+    if (!el) return;
+    const modal = new bootstrap.Modal(el);
     modal.show();
 }
 
@@ -349,11 +382,20 @@ async function sendTestEmail() {
             body: JSON.stringify({email: email})
         });
         
-        const data = await response.json();
+        let data;
+        const text = await response.text();
+        try {
+            data = (response.headers.get('Content-Type') || '').includes('application/json') ? JSON.parse(text) : { success: false, error: 'Servidor respondió con ' + response.status + (response.status === 401 ? ' (inicia sesión de nuevo)' : '') };
+        } catch (_) {
+            data = { success: false, error: 'Respuesta no válida (código ' + response.status + '). ' + (response.status === 500 ? 'Error interno del servidor.' : response.status === 401 ? 'Inicia sesión de nuevo.' : (text.slice(0, 100).replace(/<[^>]+>/g, ' ').trim() || response.statusText)) };
+        }
         
         // Cerrar modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('testEmailModal'));
-        modal.hide();
+        const modalEl = document.getElementById('testEmailModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
         
         if (data.success) {
             showAlert(data.message || `Correo de prueba enviado exitosamente a ${email}`, 'success');

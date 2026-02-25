@@ -226,6 +226,7 @@
     border-bottom: 1px solid #e2e8f0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     padding: 0.5rem 0;
+    min-height: 56px;
     z-index: 1030;
 }
 
@@ -245,9 +246,9 @@
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(51, 65, 85, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
-/* Contenedor del navbar */
+/* Contenedor del navbar: padding contenido, sin exceso */
 .navbar .navbar-wrap {
-    padding-left: 3rem;
+    padding-left: 1.5rem;
     padding-right: 1.5rem;
 }
 
@@ -258,7 +259,7 @@
     transition: color 0.3s ease;
     display: flex;
     align-items: center;
-    margin-left: 1.5rem;
+    margin-right: 1.5rem;
 }
 
 .navbar-landing .navbar-brand:hover {
@@ -274,28 +275,31 @@
     display: block;
 }
 
-/* Tres zonas: marca | navegación centrada | auth */
+/* Tres zonas: marca | navegación principal (compacta a la izquierda) | iconos y perfil (derecha) */
 .navbar-collapse-three {
     display: flex;
     flex-grow: 1;
     align-items: center;
 }
 
+/* Menú principal: bloque compacto a la izquierda, gap fijo (no crece) */
 .navbar-nav-center {
-    flex: 1 1 auto;
-    justify-content: center;
-    gap: 0.5rem;
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    gap: 1.25rem;
 }
 
-.navbar-nav-center .nav-link {
-    padding-left: 1.25rem !important;
-    padding-right: 1.25rem !important;
+.navbar-landing .navbar-nav-center .nav-link {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
 }
 
+/* Iconos y perfil: agrupados a la derecha con gap consistente */
 .navbar-nav-right,
 .navbar-collapse-three .navbar-nav:last-of-type {
     margin-left: auto;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 .navbar-nav-right .nav-link,

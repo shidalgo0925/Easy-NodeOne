@@ -278,7 +278,7 @@
                         
                         {% if current_user.is_admin %}
                         <!-- Administración - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['admin_dashboard', 'admin_users', 'admin_memberships', 'admin_messaging', 'admin_messaging_detail', 'admin_email', 'admin_notifications', 'admin_payments', 'admin_media', 'admin_services', 'admin_backup'] or request.blueprint == 'admin_events' or request.endpoint == 'admin_events.discounts_index' or request.blueprint == 'admin_appointments' %}show{% endif %}">
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_dashboard', 'admin_users', 'admin_memberships', 'admin_messaging', 'admin_messaging_detail', 'admin_email', 'admin_notifications', 'admin_payments', 'admin_media', 'admin_services', 'admin_backup', 'admin_office365_requests'] or request.blueprint == 'admin_events' or request.endpoint == 'admin_events.discounts_index' or request.blueprint == 'admin_appointments' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Administración">
                                 <i class="menu-icon fa fa-cog"></i>
                                 <span class="menu-title-text">Administración</span>
@@ -345,6 +345,12 @@
                                     <a class="nav-link {% if request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' %}active{% endif %}" href="{{ url_for('admin_messaging') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Historial de Emails">
                                         <i class="menu-icon fa fa-list"></i>
                                         <span class="menu-title-text">Historial de Emails</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_office365_requests' %}active{% endif %}" href="{{ url_for('admin_office365_requests') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Solicitudes Office 365">
+                                        <i class="menu-icon fab fa-microsoft"></i>
+                                        <span class="menu-title-text">Office 365</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">

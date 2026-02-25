@@ -21,18 +21,24 @@
                         <i class="fab fa-microsoft fa-4x text-primary mb-3"></i>
                         <h3>Solicitud de Acceso a Office 365</h3>
                         <p class="text-muted">
-                            Como miembro activo de RELATIC PANAMÁ, puedes solicitar acceso a Office 365 
-                            para uso académico y profesional.
+                            Puedes solicitar acceso a Office 365 para uso académico y profesional con membresía Pro o superior, o mediante código de autorización.
                         </p>
                     </div>
 
-                    {% if membership and membership.is_currently_active() %}
                     <form id="office365Form">
                         <div class="mb-3">
                             <label for="email" class="form-label">Correo Electrónico</label>
                             <input type="email" class="form-control" id="email" value="{{ current_user.email }}" required>
                             <small class="text-muted">Este será el correo asociado a tu cuenta de Office 365</small>
                         </div>
+
+                        {% if not is_pro_or_above %}
+                        <div class="mb-3">
+                            <label for="authorization_code" class="form-label">Código de autorización <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="authorization_code" placeholder="Ingresa el código para solicitar correo" autocomplete="off" required>
+                            <small class="text-muted">Requerido si no tienes membresía Pro o superior.</small>
+                        </div>
+                        {% endif %}
 
                         <div class="mb-3">
                             <label for="purpose" class="form-label">Propósito del Uso</label>
@@ -51,6 +57,8 @@
                             <textarea class="form-control" id="description" rows="4" placeholder="Describe cómo planeas usar Office 365..." required></textarea>
                         </div>
 
+                        <div id="office365Feedback" class="alert d-none" role="alert"></div>
+
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
                             <strong>Nota:</strong> La solicitud será revisada por nuestro equipo. 
@@ -58,21 +66,11 @@
                         </div>
 
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg">
+                            <button type="submit" id="office365SubmitBtn" class="btn btn-primary btn-lg">
                                 <i class="fas fa-paper-plane"></i> Enviar Solicitud
                             </button>
                         </div>
                     </form>
-                    {% else %}
-                    <div class="alert alert-warning text-center">
-                        <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                        <h5>Membresía Requerida</h5>
-                        <p>Necesitas tener una membresía activa para solicitar acceso a Office 365.</p>
-                        <a href="{{ url_for('membership') }}" class="btn btn-primary">
-                            <i class="fas fa-crown"></i> Adquirir Membresía
-                        </a>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
 
@@ -129,13 +127,64 @@
 
 {% block scripts %}
 <script>
-document.getElementById('office365Form')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    // Simular envío (aquí iría la llamada AJAX real)
-    alert('Solicitud enviada exitosamente. Recibirás una respuesta en 2-3 días hábiles.');
-    this.reset();
-});
+(function() {
+    var form = document.getElementById('office365Form');
+    var btn = document.getElementById('office365SubmitBtn');
+    var feedback = document.getElementById('office365Feedback');
+    if (!form || !btn) return;
+
+    function showFeedback(msg, isError) {
+        if (!feedback) return;
+        feedback.className = 'alert ' + (isError ? 'alert-danger' : 'alert-success') + ' d-block';
+        feedback.innerHTML = (isError ? '<i class="fas fa-exclamation-circle me-2"></i>' : '<i class="fas fa-check-circle me-2"></i>') + (msg || '');
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var email = document.getElementById('email').value.trim();
+        var purpose = document.getElementById('purpose').value.trim();
+        var description = document.getElementById('description').value.trim();
+        var codeEl = document.getElementById('authorization_code');
+        var authorizationCode = codeEl ? codeEl.value.trim() : '';
+        if (!email || !purpose || !description) {
+            showFeedback('Completa todos los campos.', true);
+            return;
+        }
+        if (description.length < 10) {
+            showFeedback('La descripción debe tener al menos 10 caracteres.', true);
+            return;
+        }
+        if (codeEl && codeEl.required && !authorizationCode) {
+            showFeedback('El código de autorización es obligatorio para tu plan.', true);
+            return;
+        }
+        btn.disabled = true;
+        showFeedback('Enviando...', false);
+
+        var payload = { email: email, purpose: purpose, description: description };
+        if (authorizationCode) payload.authorization_code = authorizationCode;
+
+        fetch('{{ url_for("api_office365_request") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify(payload)
+        })
+        .then(function(r) { return r.json().then(function(data) { return { status: r.status, data: data }; }); })
+        .then(function(result) {
+            if (result.status === 200 && result.data.success) {
+                showFeedback(result.data.message || 'Solicitud enviada. Recibirás una respuesta en 2-3 días hábiles.', false);
+                form.reset();
+                document.getElementById('email').value = '{{ current_user.email }}';
+            } else {
+                showFeedback(result.data.error || 'Error al enviar. Intenta de nuevo.', true);
+            }
+        })
+        .catch(function() {
+            showFeedback('Error de conexión. Revisa tu red e intenta de nuevo.', true);
+        })
+        .finally(function() { btn.disabled = false; });
+    });
+})();
 </script>
 {% endblock %}
 

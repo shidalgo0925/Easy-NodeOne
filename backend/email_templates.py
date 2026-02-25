@@ -692,3 +692,24 @@ def get_email_verification_email(user, verification_url):
             year=datetime.now().year
         )
 
+
+def get_office365_request_email(user_name, email, purpose, description, request_id):
+    """Template por defecto para notificación de solicitud de correo Office 365.
+    Variables: user_name, email, purpose, description, request_id.
+    """
+    import html as html_module
+    content = f"""
+        <h2>Solicitud de correo electrónico Office 365</h2>
+        <p><strong>Usuario solicitante:</strong> {html_module.escape(str(user_name))}</p>
+        <p><strong>Email solicitado:</strong> {html_module.escape(str(email))}</p>
+        <p><strong>Motivo:</strong> {html_module.escape(str(purpose))}</p>
+        <p><strong>Descripción:</strong></p>
+        <p>{html_module.escape(str(description)).replace(chr(10), '<br>')}</p>
+        <p><em>ID solicitud: {request_id}. Revisar en panel de administración.</em></p>
+    """
+    return get_email_template_base().format(
+        subject="Nueva solicitud Office 365 – RelaticPanama",
+        content=content,
+        year=datetime.now().year
+    )
+

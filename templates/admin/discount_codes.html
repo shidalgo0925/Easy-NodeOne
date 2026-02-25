@@ -72,6 +72,7 @@
                                     <th class="text-nowrap">Tipo</th>
                                     <th class="text-nowrap">Valor</th>
                                     <th class="text-nowrap">Aplica</th>
+                                    <th class="text-nowrap">Office 365</th>
                                     <th class="text-nowrap">Usos</th>
                                     <th class="text-nowrap">Vigencia</th>
                                     <th class="text-nowrap">Estado</th>
@@ -99,6 +100,13 @@
                                         <span class="badge bg-secondary">
                                             {{ code.applies_to.replace('_', ' ').title() }}
                                         </span>
+                                    </td>
+                                    <td>
+                                        {% if code.valid_for_office365 %}
+                                            <span class="badge bg-info" title="Válido para solicitud de correo">Sí</span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         {{ code.current_uses }}
@@ -291,6 +299,15 @@
                                    value="1" min="1">
                         </div>
                     </div>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="valid_for_office365" name="valid_for_office365" value="1">
+                                <label class="form-check-label" for="valid_for_office365">Válido para solicitud de correo Office 365</label>
+                            </div>
+                            <small class="text-muted">Si está marcado, los usuarios podrán usar este código para solicitar correo (sin membresía Pro).</small>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -373,6 +390,7 @@ function editCode(codeId) {
             document.getElementById('applies_to').value = code.applies_to;
             document.getElementById('max_uses_total').value = code.max_uses_total || '';
             document.getElementById('max_uses_per_user').value = code.max_uses_per_user || 1;
+            document.getElementById('valid_for_office365').checked = code.valid_for_office365 || false;
             
             if (code.start_date) {
                 document.getElementById('start_date').value = code.start_date.split('T')[0];
@@ -444,6 +462,7 @@ document.getElementById('codeForm').addEventListener('submit', function(e) {
     formData.forEach((value, key) => {
         data[key] = value;
     });
+    data.valid_for_office365 = document.getElementById('valid_for_office365').checked;
     
     const codeId = document.getElementById('code_id').value;
     const url = codeId 

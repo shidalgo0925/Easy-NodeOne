@@ -76,6 +76,17 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 text-center hover-shadow" style="cursor: pointer;" onclick="document.getElementById('admin16').scrollIntoView({behavior: 'smooth'}); setTimeout(function(){ var el = document.getElementById('admin16'); if(el) { var c = new bootstrap.Collapse(el, {toggle: true}); } }, 500);">
+                <div class="card-body">
+                    <div class="rounded-circle p-3 d-inline-block mb-3" style="background: #0d6efd;">
+                        <i class="fas fa-bullhorn fa-2x text-white"></i>
+                    </div>
+                    <h5>Email Marketing</h5>
+                    <p class="text-muted small">Campañas, segmentos y filtros (administradores)</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Guía Visual Interactiva -->
@@ -178,6 +189,18 @@
                                     <h6>Config. Videos y Audios</h6>
                                     <p class="small text-muted mb-2">Guía para administradores</p>
                                     <span class="badge bg-primary"><i class="fas fa-cog"></i> Configuración</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card border h-100" style="cursor: pointer;" onclick="document.getElementById('admin16').scrollIntoView({behavior: 'smooth'}); setTimeout(function(){ var el = document.getElementById('admin16'); if(el) { new bootstrap.Collapse(el, {toggle: true}); } }, 500);">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-bullhorn fa-3x text-info"></i>
+                                    </div>
+                                    <h6>Email Marketing</h6>
+                                    <p class="small text-muted mb-2">Campañas, segmentos y filtros</p>
+                                    <span class="badge bg-info"><i class="fas fa-envelope-open-text"></i> Administradores</span>
                                 </div>
                             </div>
                         </div>
@@ -409,6 +432,18 @@
                                         <li>Ingresa tu contraseña actual y la nueva</li>
                                         <li>Confirma el cambio</li>
                                     </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq12">
+                                    ¿Cómo uso el módulo de Email Marketing? (administradores)
+                                </button>
+                            </h2>
+                            <div id="faq12" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Ve a <strong>Comunicaciones → Marketing</strong>. Ahí puedes crear campañas (con editor de plantillas y bloques), definir segmentos con filtros (país, tipo de membresía, etiquetas, etc.), programar envíos, enviar pruebas y ver estadísticas. Para la guía completa, haz clic en la tarjeta <strong>Email Marketing</strong> en las categorías de arriba o busca en la sección de procedimientos para administradores: <em>Email Marketing: Campañas, Segmentos y Filtros</em>.
                                 </div>
                             </div>
                         </div>
@@ -1830,6 +1865,56 @@ export LINKEDIN_CLIENT_SECRET="tu-client-secret"</code></pre>
                                         No necesitas reiniciar la aplicación. Los usuarios verán los videos y audios actualizados 
                                         la próxima vez que abran la guía visual.
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email Marketing -->
+                        <div class="accordion-item" id="help-email-marketing">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#admin16">
+                                    <i class="fas fa-bullhorn me-2"></i> Email Marketing: Campañas, Segmentos y Filtros
+                                </button>
+                            </h2>
+                            <div id="admin16" class="accordion-collapse collapse" data-bs-parent="#adminProcedures">
+                                <div class="accordion-body">
+                                    <h6>Dónde está</h6>
+                                    <p>Menú <strong>Comunicaciones → Marketing</strong> (o en el panel de administración: <strong>Acciones rápidas → Campañas Marketing</strong>). Solo visible para administradores.</p>
+                                    
+                                    <h6 class="mt-3">Crear una campaña</h6>
+                                    <ol>
+                                        <li><strong>Opción rápida:</strong> En el bloque "Nueva campaña" rellena nombre, asunto, elige segmento y plantilla, y pulsa "Crear y enviar".</li>
+                                        <li><strong>Editor completo:</strong> Pulsa <strong>"Editor (plantillas + bloques)"</strong>. Ahí puedes:
+                                            <ul>
+                                                <li>Elegir una plantilla como base (galería de tarjetas) o añadir bloques (encabezado, título, texto, imagen, botón, columnas, etc.).</li>
+                                                <li>Ver la vista previa en vivo.</li>
+                                                <li>Guardar borrador y luego enviar, programar o enviar prueba.</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Segmentos y filtros (constructor de dominios)</h6>
+                                    <ol>
+                                        <li>En la sección <strong>Segmentos</strong> crea uno con "Nuevo segmento" (nombre).</li>
+                                        <li>Pulsa <strong>"Editar filtros"</strong> en el segmento.</li>
+                                        <li>Añade condiciones: <strong>Campo</strong> (País, Email, Empresa/Grupo, Etiquetas, Tipo de membresía, etc.) + <strong>Operador</strong> (es igual a, contiene, está definido, etc.) + <strong>Valor</strong>.</li>
+                                        <li>Las condiciones se cumplen todas (AND). Verás "→ N registro(s)" en tiempo real.</li>
+                                        <li>Guarda el segmento. Las campañas que usen ese segmento enviarán solo a quienes cumplan los filtros (y estén suscritos a marketing).</li>
+                                    </ol>
+                                    
+                                    <h6 class="mt-3">Otras funciones</h6>
+                                    <ul>
+                                        <li><strong>Lista de exclusión:</strong> En el editor de campaña puedes indicar emails a excluir (uno por línea o separados por coma).</li>
+                                        <li><strong>Programar envío:</strong> Botón "Programar", elige fecha y hora, "Guardar y programar". Para que se envíe automáticamente, ejecuta periódicamente <code>python backend/process_scheduled_campaigns.py</code> (cron) o usa el enlace "Procesar programadas" en el panel.</li>
+                                        <li><strong>Prueba:</strong> Botón "Prueba", introduce un email y se envía un correo con el contenido actual.</li>
+                                        <li><strong>Prueba A/B (asunto):</strong> En la pestaña Ajustes puedes definir un "Asunto variante B". Al enviar, la mitad recibe el asunto principal y la otra mitad el B; en el listado verás estadísticas por variante.</li>
+                                        <li><strong>Agregar a plantillas:</strong> Guarda el cuerpo actual de la campaña como nueva plantilla reutilizable.</li>
+                                        <li><strong>Ajustes:</strong> Remitente (from name) y Responder a (reply-to) opcionales.</li>
+                                        <li><strong>PERSONALIZAR:</strong> En el editor puedes usar en el contenido las variables <code>{{ nombre }}</code>, <code>{{ email }}</code>, <code>{{ empresa }}</code>, <code>{{ unsubscribe_url }}</code>.</li>
+                                    </ul>
+                                    
+                                    <h6 class="mt-3">Plantillas y envío</h6>
+                                    <p>Si no hay plantillas o segmentos, créalos primero en el mismo panel (Nueva plantilla / Nuevo segmento). El worker que envía los correos en cola es <code>python backend/worker_marketing_email.py</code>; debe ejecutarse de forma periódica para procesar la cola.</p>
                                 </div>
                             </div>
                         </div>

@@ -1,0 +1,47 @@
+# Despliegue del landing (easynodeone.com) — Checklist
+
+Diagnóstico: Si localhost:5173 muestra los 3 botones y easynodeone.com no, NO es problema de código. Es despliegue o caché.
+
+---
+
+Paso 1 — Confirmar qué sirve Nginx (en el servidor)
+  sudo nginx -T | grep -A 20 "easynodeone.com"
+
+  Debe aparecer: root /var/www/easynodeone;
+  Nginx NO apunta a .../NodeOne/landing/dist sino a /var/www/easynodeone.
+
+---
+
+Paso 2 — Verificar que dist tiene los cambios (en el servidor)
+  cd /home/relaticpanama2025/workspace/NodeOne/landing
+  npm run build
+  ls dist
+  grep -o "Iniciar sesión\|Registrarse" dist/assets/*.js | head -5
+
+  Si el build está reciente y los textos aparecen, el build es correcto.
+
+---
+
+Paso 3 — Copiar el build al root de Nginx (en el servidor)
+  sudo rm -rf /var/www/easynodeone/*
+  sudo cp -r /home/relaticpanama2025/workspace/NodeOne/landing/dist/* /var/www/easynodeone/
+
+  Si tienes /logos/ u otros assets fuera de dist, restáuralos o copia también:
+  sudo cp -r /home/relaticpanama2025/workspace/NodeOne/landing/public/logos /var/www/easynodeone/  # si aplica
+
+  sudo nginx -t && sudo systemctl reload nginx
+
+---
+
+Paso 4 — Si sigue sin verse: caché
+  - Probar en ventana incógnito.
+  - Recarga forzada: Ctrl+Shift+R (o Cmd+Shift+R).
+  - Cloudflare: Caching → Purge Everything.
+
+  Verificar headers:
+  curl -I https://easynodeone.com
+  Si cf-cache-status: HIT → Cloudflare está sirviendo caché viejo; purgar.
+
+---
+
+Resumen: Nginx sirve desde /var/www/easynodeone. Tras cada cambio en el landing hay que hacer build y copiar dist/* a esa carpeta, luego recargar nginx y purgar caché si usas Cloudflare.

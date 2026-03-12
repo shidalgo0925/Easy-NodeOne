@@ -276,14 +276,14 @@ def request_appointment():
         service_id = request.args.get('service_id', type=int)
         if not service_id:
             flash('Indica el servicio.', 'error')
-            return redirect(url_for('services'))
+            return redirect(url_for('services.list'))
         service = Service.query.get(service_id)
         if not service:
             flash('Servicio no encontrado.', 'error')
-            return redirect(url_for('services'))
+            return redirect(url_for('services.list'))
         if not (service.appointment_type_id or service.diagnostic_appointment_type_id):
             flash('Este servicio no tiene citas configuradas.', 'error')
-            return redirect(url_for('services'))
+            return redirect(url_for('services.list'))
         at_id = service.appointment_type_id or service.diagnostic_appointment_type_id
         advisors_for_service = [
             a.advisor for a in AppointmentAdvisor.query.filter_by(
@@ -303,12 +303,12 @@ def request_appointment():
         if request.is_json:
             return jsonify({'success': False, 'error': 'service_id requerido.'}), 400
         flash('Servicio no indicado.', 'error')
-        return redirect(request.referrer or url_for('services'))
+        return redirect(request.referrer or url_for('services.list'))
     if not proposed_datetime_str:
         if request.is_json:
             return jsonify({'success': False, 'error': 'proposed_datetime (o proposed_date + proposed_time) requerido.'}), 400
         flash('Indica fecha y hora deseadas.', 'error')
-        return redirect(request.referrer or url_for('services'))
+        return redirect(request.referrer or url_for('services.list'))
 
     s = (proposed_datetime_str or '').strip().replace('T', ' ')[:19]
     start_dt = None
@@ -324,21 +324,21 @@ def request_appointment():
         if request.is_json:
             return jsonify({'success': False, 'error': 'Fecha/hora debe ser futura.'}), 400
         flash('La fecha y hora deben ser futuras.', 'error')
-        return redirect(request.referrer or url_for('services'))
+        return redirect(request.referrer or url_for('services.list'))
 
     service = Service.query.get(service_id)
     if not service:
         if request.is_json:
             return jsonify({'success': False, 'error': 'Servicio no encontrado.'}), 404
         flash('Servicio no encontrado.', 'error')
-        return redirect(request.referrer or url_for('services'))
+        return redirect(request.referrer or url_for('services.list'))
 
     appointment_type_id = service.appointment_type_id or service.diagnostic_appointment_type_id
     if not appointment_type_id:
         if request.is_json:
             return jsonify({'success': False, 'error': 'Servicio sin tipo de cita configurado.'}), 400
         flash('Este servicio no tiene citas configuradas.', 'error')
-        return redirect(request.referrer or url_for('services'))
+        return redirect(request.referrer or url_for('services.list'))
 
     appointment_type = AppointmentType.query.get(appointment_type_id)
     duration = (appointment_type.duration_minutes or 60) if appointment_type else 60
@@ -362,7 +362,7 @@ def request_appointment():
             if request.is_json:
                 return jsonify({'success': False, 'error': 'No hay asesor disponible para este servicio.'}), 400
             flash('No hay asesor disponible para este servicio.', 'error')
-            return redirect(request.referrer or url_for('services'))
+            return redirect(request.referrer or url_for('services.list'))
         advisor_id = assignment.advisor_id
     membership_type = membership.membership_type if membership else 'basic'
     pricing = appointment_type.pricing_for_membership(membership_type)
@@ -678,7 +678,7 @@ def accept_proposal(proposal_id):
         metadata={'proposal_id': proposal.id}
     )
     flash('Propuesta agregada al carrito. Completa el pago para confirmar.', 'success')
-    return redirect(url_for('cart'))
+    return redirect(url_for('payments.cart'))
 
 
 @appointments_bp.route('/cancel/<int:appointment_id>', methods=['POST'])

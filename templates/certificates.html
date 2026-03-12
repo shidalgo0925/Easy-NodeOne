@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Certificados{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-4" style="background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); color: white; border-radius: 10px;">
+                    <h1 class="h3 mb-2">
+                        <i class="fas fa-certificate"></i> Mis Certificados
+                    </h1>
+                    <p class="mb-0 small opacity-90">
+                        Lista de eventos con certificado. Solicita o descarga tu certificado cuando cumples el requisito indicado.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="certificates-loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Cargando certificados...</p>
+    </div>
+    <div id="certificates-error" class="alert alert-danger d-none" role="alert"></div>
+    <div id="certificates-list" class="row g-3 d-none"></div>
+    <div id="certificates-empty" class="alert alert-info d-none">
+        <i class="fas fa-info-circle me-2"></i>
+        No hay eventos de certificado configurados. Un administrador puede crearlos en el panel de certificados.
+    </div>
+</div>
+
+<script>
+(function() {
+    const loading = document.getElementById('certificates-loading');
+    const errEl = document.getElementById('certificates-error');
+    const listEl = document.getElementById('certificates-list');
+    const emptyEl = document.getElementById('certificates-empty');
+
+    function showErr(msg) {
+        loading.classList.add('d-none');
+        listEl.classList.add('d-none');
+        emptyEl.classList.add('d-none');
+        errEl.classList.remove('d-none');
+        errEl.textContent = msg || 'Error al cargar. Intenta de nuevo.';
+    }
+
+    function requestCertificate(eventId, btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generando...';
+        fetch('/api/request-certificate/' + eventId, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+            .then(function(o) {
+                if (o.ok) {
+                    if (o.data.download_url) window.location.href = o.data.download_url;
+                    loadCertificates();
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-file-pdf me-1"></i> Solicitar certificado';
+                    alert(o.data.error || 'No se pudo generar el certificado.');
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-pdf me-1"></i> Solicitar certificado';
+                showErr('Error de conexión.');
+            });
+    }
+
+    function loadCertificates() {
+        fetch('/api/my-certificates', { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                loading.classList.add('d-none');
+                errEl.classList.add('d-none');
+                var items = data.available || [];
+                if (items.length === 0) {
+                    emptyEl.classList.remove('d-none');
+                    listEl.classList.add('d-none');
+                    return;
+                }
+                emptyEl.classList.add('d-none');
+                listEl.classList.remove('d-none');
+                listEl.innerHTML = items.map(function(item) {
+                    var card = '<div class="col-md-6 col-lg-4"><div class="card border-0 shadow-sm h-100">';
+                    card += '<div class="card-body">';
+                    card += '<h6 class="card-title"><i class="fas fa-certificate text-primary me-2"></i>' + (item.name || 'Certificado') + '</h6>';
+                    card += '<p class="text-muted small mb-2"><i class="fas fa-info-circle me-1"></i> ' + (item.requirement_text || 'Requisito') + '</p>';
+                    if (item.institution) card += '<p class="text-muted small mb-2">' + item.institution + '</p>';
+                    if (item.start_date) card += '<p class="small mb-2">' + item.start_date + '</p>';
+                    if (item.already_issued) {
+                        card += '<p class="small text-success mb-2"><i class="fas fa-check-circle me-1"></i> Emitido: ' + (item.certificate_code || '') + '</p>';
+                        card += '<a href="' + (item.download_url || '#') + '" class="btn btn-primary btn-sm" target="_blank"><i class="fas fa-download me-1"></i> Descargar PDF</a>';
+                    } else if (item.qualified) {
+                        card += '<button type="button" class="btn btn-primary btn-sm btn-request" data-event-id="' + item.certificate_event_id + '"><i class="fas fa-file-pdf me-1"></i> Solicitar certificado</button>';
+                    } else {
+                        card += '<span class="badge bg-secondary"><i class="fas fa-lock me-1"></i> No cumples requisitos</span>';
+                    }
+                    card += '</div></div></div>';
+                    return card;
+                }).join('');
+                listEl.querySelectorAll('.btn-request').forEach(function(btn) {
+                    btn.addEventListener('click', function() { requestCertificate(this.getAttribute('data-event-id'), this); });
+                });
+            })
+            .catch(function() { showErr(); });
+    }
+
+    loadCertificates();
+})();
+</script>
+{% endblock %}

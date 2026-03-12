@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Crear segmento - Marketing{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1 class="h5 d-inline ms-2">Crear segmento</h1>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show">{{ msg }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Definir filtros → El sistema calcula los miembros al enviar la campaña</strong></div>
+        <div class="card-body">
+            <form method="post" id="form-segment" action="{{ url_for('admin_marketing_segments_create') }}">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="mb-3">
+                    <label class="form-label">Nombre del segmento</label>
+                    <input type="text" name="name" class="form-control" required placeholder="Ej. Miembros Panamá">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" name="description" class="form-control" placeholder="Opcional">
+                </div>
+                <input type="hidden" name="query_rules" id="query_rules" value="">
+                <div class="mb-3">
+                    <label class="form-label">Combinar condiciones</label>
+                    <select id="logic-operator" class="form-select form-select-sm" style="max-width: 200px;">
+                        <option value="and">Todas (AND)</option>
+                        <option value="or">Al menos una (OR)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Filtros</label>
+                    <p class="small text-muted">Sin filtros = todos los miembros. Al enviar solo reciben quienes estén suscritos a marketing.</p>
+                    <div id="filter-rows"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="btn-add-filter"><i class="fas fa-plus"></i> Añadir filtro</button>
+                </div>
+                <p class="small text-muted mb-2">→ <strong id="recipient-count">0</strong> miembros coinciden con estos filtros</p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Seleccionar segmento</button>
+                    <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var segmentFields = {{ segment_fields | tojson }};
+    var segmentOperators = {{ segment_operators | tojson }};
+    var conditions = {{ (rules.get('conditions') or []) | tojson }};
+    var container = document.getElementById('filter-rows');
+    var hiddenInput = document.getElementById('query_rules');
+
+    function renderRow(i, cond) {
+        cond = cond || { field: '', op: '=', value: '' };
+        var row = document.createElement('div');
+        row.className = 'row g-2 mb-2 align-items-center filter-row';
+        row.dataset.index = i;
+        var fieldOptions = segmentFields.map(function(f) {
+            return '<option value="' + f.id + '"' + (cond.field === f.id ? ' selected' : '') + '>' + f.label + '</option>';
+        }).join('');
+        var opOptions = segmentOperators.map(function(o) {
+            return '<option value="' + o.id + '"' + (cond.op === o.id ? ' selected' : '') + '>' + o.label + '</option>';
+        }).join('');
+        var valDisplay = (cond.op === 'is_set' || cond.op === 'is_not_set') ? ' style="display:none"' : '';
+        var safeVal = (cond.value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        row.innerHTML =
+            '<div class="col-md-4"><select class="form-select form-select-sm filter-field">' + '<option value="">— Campo —</option>' + fieldOptions + '</select></div>' +
+            '<div class="col-md-3"><select class="form-select form-select-sm filter-op">' + opOptions + '</select></div>' +
+            '<div class="col-md-4 filter-value-wrap"' + valDisplay + '><input type="text" class="form-control form-control-sm filter-value" placeholder="Valor" value="' + safeVal + '"></div>' +
+            '<div class="col-md-1"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-filter" title="Quitar"><i class="fas fa-times"></i></button></div>';
+        container.appendChild(row);
+        var opSel = row.querySelector('.filter-op');
+        var valWrap = row.querySelector('.filter-value-wrap');
+        opSel.addEventListener('change', function() {
+            valWrap.style.display = (opSel.value === 'is_set' || opSel.value === 'is_not_set') ? 'none' : '';
+            updateHidden();
+        });
+        row.querySelector('.filter-field').addEventListener('change', updateHidden);
+        row.querySelector('.filter-value').addEventListener('input', updateHidden);
+        var logicOp = document.getElementById('logic-operator');
+        if (logicOp) logicOp.addEventListener('change', updateHidden);
+        row.querySelector('.btn-remove-filter').addEventListener('click', function() {
+            row.remove();
+            updateHidden();
+            updateCount();
+        });
+    }
+
+    function updateHidden() {
+        var rows = container.querySelectorAll('.filter-row');
+        var conds = [];
+        var logicEl = document.getElementById('logic-operator');
+        var logic = (logicEl && logicEl.value) ? logicEl.value : 'and';
+        rows.forEach(function(r) {
+            var field = r.querySelector('.filter-field').value;
+            var op = r.querySelector('.filter-op').value;
+            var value = r.querySelector('.filter-value').value;
+            if (field && op) conds.push({ field: field, op: op, value: value });
+        });
+        hiddenInput.value = JSON.stringify({ logic: logic, conditions: conds });
+        updateCount();
+    }
+
+    function updateCount() {
+        var rules = hiddenInput.value;
+        var payload = {};
+        try {
+            if (rules && rules !== '{}') payload = JSON.parse(rules);
+        } catch (e) { return; }
+        var url = '{{ request.url_root.rstrip("/") }}/admin/marketing/segments/preview';
+        fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ filters: payload })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success && document.getElementById('recipient-count')) document.getElementById('recipient-count').textContent = d.total_members != null ? d.total_members : d.count;
+        }).catch(function() {});
+    }
+
+    document.getElementById('btn-add-filter').addEventListener('click', function() {
+        renderRow(container.children.length, {});
+        updateHidden();
+    });
+
+    conditions.forEach(function(c, i) { renderRow(i, c); });
+    if (conditions.length === 0) renderRow(0, {});
+
+    updateHidden();
+})();
+</script>
+{% endblock %}

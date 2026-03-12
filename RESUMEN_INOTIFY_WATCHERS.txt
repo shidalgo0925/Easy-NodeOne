@@ -1,0 +1,46 @@
+================================================================================
+RESUMEN: Corrección "Unable to watch for file changes" (inotify)
+================================================================================
+
+CAUSA
+-----
+Flask + React + node_modules + .venv disparan muchos file watchers.
+El límite por defecto del sistema (inotify) se queda corto.
+
+LO QUE YA ESTÁ HECHO EN EL REPO
+-------------------------------
+1. .vscode/settings.json (NodeOne y raíz)
+   - files.watcherExclude: .git/objects, node_modules, .venv, venv, dist, __pycache__, .cursor
+
+2. Vite
+   - workspace/NodeOne/landing/vite.config.js  → server.watch.usePolling: false
+   - projects/relatic-frontend/vite.config.js → server.watch.usePolling: false
+
+3. Script para el servidor
+   - workspace/NodeOne/scripts/fix-inotify.sh
+
+PASOS OBLIGATORIOS EN EL SERVIDOR (SSH)
+---------------------------------------
+1. Ver límite actual:
+   cat /proc/sys/fs/inotify/max_user_watches
+
+2. Ejecutar el script:
+   bash /ruta/a/workspace/NodeOne/scripts/fix-inotify.sh
+
+3. Verificar:
+   cat /proc/sys/fs/inotify/max_user_watches
+   Debe mostrar: 524288
+
+PASOS RECOMENDADOS EN CURSOR
+----------------------------
+1. Cerrar Cursor y la conexión SSH.
+2. Volver a abrir el proyecto.
+3. Abrir solo la carpeta del proyecto (ej. .../NodeOne), NO toda /workspace.
+
+SI SIGUE FALLANDO
+-----------------
+- Ver cuántos file descriptors: lsof | wc -l
+- Cerrar procesos innecesarios.
+- Asegurar que el script de inotify se ejecutó y el límite es 524288.
+
+================================================================================

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script rápido para actualizar credenciales de Odoo
 
-SERVICE_FILE="/etc/systemd/system/membresia-relatic.service"
+SERVICE_FILE="/etc/systemd/system/nodeone.service"
 
 echo "🔐 Actualizar credenciales de Odoo"
 echo ""
@@ -57,7 +57,7 @@ sudo systemctl daemon-reload
 
 echo ""
 echo "⚠️  Reiniciar el servicio para aplicar cambios:"
-echo "   sudo systemctl restart membresia-relatic.service"
+echo "   sudo systemctl restart nodeone.service"
 echo ""
 echo "🧪 Probar conexión:"
 echo "   python3 test_odoo_connection.py"

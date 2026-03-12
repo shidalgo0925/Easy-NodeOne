@@ -1,223 +1,57 @@
 {% extends "base.html" %}
 
-{% block title %}Beneficios - RelaticPanama{% endblock %}
+{% block title %}Beneficios{% endblock %}
 
 {% block page_content %}
 <div class="container py-4">
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body text-center py-5" style="background: linear-gradient(135deg, var(--primary-blue) 0%, var(--dark-blue) 100%); color: white; border-radius: 10px;">
-                    <h1 class="display-5 mb-3">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body text-center py-3" style="background: linear-gradient(135deg, var(--primary-blue) 0%, var(--dark-blue) 100%); color: white; border-radius: 10px;">
+                    <h1 class="h3 mb-2">
                         <i class="fas fa-star"></i> Beneficios de tu Membresía
                     </h1>
-                    <p class="lead mb-0">
-                        Ser integrante de la Red Latinoamericana de Investigaciones Cualitativas (RELATIC PANAMÁ) 
-                        constituye no solo una membresía, sino también un vínculo con una red activa de investigadores 
-                        comprometidos orientados con la excelencia y la innovación. La afiliación a RELATIC PANAMÁ 
-                        otorga beneficios que fortalecen el desarrollo tanto profesional como académico de sus miembros.
-                    </p>
-                    <p class="mt-3 mb-0">
-                        <strong>Los miembros activos acceden a múltiples beneficios, entre los cuales destacan:</strong>
+                    <p class="mb-0 small">
+                        Tu membresía incluye acceso a una serie de beneficios según tu plan. A continuación se detallan los beneficios asociados a tu membresía actual.
                     </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Lista de Beneficios -->
-    <div class="row g-4">
-        <!-- Beneficio 1: Materiales y Recursos -->
+    <!-- Lista de Beneficios (desde BD, filtrados por tipo de membresía) -->
+    <div class="row g-3">
+        {% for benefit in benefits %}
         <div class="col-md-6 col-lg-4">
             <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-primary rounded p-3 me-3">
-                            <i class="fas fa-folder-open fa-2x text-white"></i>
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="rounded p-2 me-2 bg-{{ benefit.color or 'primary' }}">
+                            <i class="{{ benefit.icon or 'fas fa-gift' }} fa-lg text-white"></i>
                         </div>
-                        <h5 class="mb-0">Materiales y Recursos Exclusivos</h5>
+                        <h6 class="mb-0">{{ benefit.name }}</h6>
                     </div>
-                    <p class="text-muted mb-0">
-                        Acceso a materiales y recursos exclusivos difundidos por la red RELATIC, incluyendo 
-                        publicaciones, investigaciones y herramientas académicas de alto valor.
-                    </p>
+                    {% if benefit.description %}
+                    <p class="text-muted mb-0 small">{{ benefit.description }}</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
-
-        <!-- Beneficio 2: Participación como Ponente -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-success rounded p-3 me-3">
-                            <i class="fas fa-microphone fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Participación como Ponente</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Participación como ponente en eventos y cursos organizados por RELATIC, con apoyo completo 
-                        en el diseño del banner, difusión, uso de sala Zoom para hasta 100 personas y gestión integral 
-                        del evento, <strong>sin costo alguno</strong>.
-                    </p>
-                </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                No hay beneficios configurados para tu plan en este momento. Contacta al administrador si tienes dudas.
             </div>
         </div>
-
-        <!-- Beneficio 3: Publicación de Artículos -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-info rounded p-3 me-3">
-                            <i class="fas fa-file-alt fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Publicación de Artículos</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Posibilidad de proponer artículos científicos u opiniones para su publicación y difusión 
-                        en las plataformas de RELATIC, ampliando el alcance y visibilidad de tu trabajo académico.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Beneficio 4: Certificación Gratuita -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-warning rounded p-3 me-3">
-                            <i class="fas fa-certificate fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Certificación Gratuita</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        <strong>Certificación gratuita</strong> por participación en eventos auspiciados por RELATIC, 
-                        validando tu contribución académica y profesional.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Beneficio 5: Enlace de Revista Científica -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-danger rounded p-3 me-3">
-                            <i class="fas fa-link fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Enlace de Revista Científica</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Inclusión del enlace en el portal de RELATIC de una revista científica en la que el miembro 
-                        forme parte del comité editorial, aumentando la visibilidad y credibilidad de la publicación.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Beneficio 6: Aulas Virtuales -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-primary rounded p-3 me-3">
-                            <i class="fas fa-chalkboard-teacher fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Aulas Virtuales</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Uso de aulas virtuales en el Campus Virtual RELATIC para actividades académicas, 
-                        con una duración de hasta <strong>ocho semanas</strong>, facilitando la enseñanza y 
-                        el aprendizaje en línea.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Beneficio 7: Propuesta de Cursos y Talleres -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-success rounded p-3 me-3">
-                            <i class="fas fa-graduation-cap fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Propuesta de Cursos y Talleres</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Propuesta y ejecución de cursos, talleres o webinars <strong>gratuitos</strong> auspiciados 
-                        por RELATIC, con apoyo completo en la organización: diseño gráfico, difusión, plataforma 
-                        virtual y asesoría especializada.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Beneficio 8: Difusión de Enlaces -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-info rounded p-3 me-3">
-                            <i class="fas fa-share-alt fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Difusión de Enlaces</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Difusión de enlaces a libros, artículos, investigaciones, grupos de investigación o 
-                        revistas científicas en las que el miembro participe, ampliando el alcance de tu trabajo 
-                        académico a través de la red RELATIC.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Beneficio 9: Oportunidad como Ponente -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-warning rounded p-3 me-3">
-                            <i class="fas fa-user-tie fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Oportunidad como Ponente</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Oportunidad de ser propuesto como ponente en eventos respaldados por RELATIC, 
-                        según tu especialidad, permitiéndote compartir tu conocimiento y experiencia con 
-                        la comunidad académica.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Beneficio 10: Acceso a Convocatorias -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card benefit-card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-danger rounded p-3 me-3">
-                            <i class="fas fa-bullhorn fa-2x text-white"></i>
-                        </div>
-                        <h5 class="mb-0">Acceso a Convocatorias</h5>
-                    </div>
-                    <p class="text-muted mb-0">
-                        Acceso exclusivo a convocatorias para publicación de artículos y revisiones en revistas 
-                        científicas, facilitando la difusión de tu investigación en publicaciones de alto impacto.
-                    </p>
-                </div>
-            </div>
-        </div>
+        {% endfor %}
     </div>
 
     <!-- Información Adicional -->
-    <div class="row mt-5">
+    <div class="row mt-4">
         <div class="col-12">
             <div class="card bg-light border-0 shadow-sm">
-                <div class="card-body">
+                <div class="card-body p-3">
                     <div class="row align-items-center">
                         <div class="col-md-8">
                             <h5 class="mb-2">
@@ -249,12 +83,12 @@
     <div class="row mt-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-body text-center py-4">
-                    <h5 class="mb-3">
+                <div class="card-body text-center py-3">
+                    <h5 class="h6 mb-2">
                         <i class="fas fa-headset text-primary"></i> ¿Necesitas ayuda con tus beneficios?
                     </h5>
-                    <p class="text-muted mb-4">Nuestro equipo de soporte está aquí para ayudarte</p>
-                    <a href="mailto:info@relaticpanama.org" class="btn btn-primary me-2">
+                    <p class="text-muted mb-3 small">Nuestro equipo de soporte está aquí para ayudarte</p>
+                    <a href="mailto:info@easynodeone.com" class="btn btn-primary me-2">
                         <i class="fas fa-envelope"></i> Contactar Soporte
                     </a>
                     <a href="{{ url_for('help') }}" class="btn btn-outline-primary">

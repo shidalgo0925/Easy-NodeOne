@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Cola de envío - Marketing{% endblock %}
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1 class="h5 d-inline ms-2">Cola de envío</h1>
+        </div>
+        <a href="{{ url_for('admin_marketing_process_queue') }}" class="btn btn-primary btn-sm">Procesar cola</a>
+    </div>
+    <p class="text-muted small">Pendientes: {{ pending|length }}. Recientes (sent/failed): {{ recent|length }}.</p>
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">Pendientes</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>ID</th><th>Campaña</th><th>Estado</th><th>Intentos</th><th>Creación</th></tr></thead>
+                <tbody>
+                    {% for i in pending %}
+                    <tr><td>{{ i.id }}</td><td>{{ i.campaign_id or '-' }}</td><td><span class="badge bg-warning">{{ i.status }}</span></td><td>{{ i.attempts or 0 }}</td><td>{{ i.created_at.strftime('%Y-%m-%d %H:%M') if i.created_at else '-' }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-muted">Sin pendientes.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card shadow-sm mt-3">
+        <div class="card-header bg-light">Recientes (enviados / fallidos)</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>ID</th><th>Campaña</th><th>Estado</th><th>Error</th><th>Creación</th></tr></thead>
+                <tbody>
+                    {% for i in recent %}
+                    <tr><td>{{ i.id }}</td><td>{{ i.campaign_id or '-' }}</td><td><span class="badge bg-{{ 'success' if i.status == 'sent' else 'danger' }}">{{ i.status }}</span></td><td class="small">{{ (i.error_message or '-')[:80] }}</td><td>{{ i.created_at.strftime('%Y-%m-%d %H:%M') if i.created_at else '-' }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-muted">Ninguno.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,40 +1,33 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Content Security Policy para permitir métodos de pago (Stripe, PayPal, Yappy, Banco General) -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.stripe.com https://merchant-ui-api.stripe.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://www.paypal.com https://www.sandbox.paypal.com https://api.cybersource.com https://api.yappy.im https://cdn.jsdelivr.net; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://www.sandbox.paypal.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com;">
-    <title>{% block title %}RelaticPanama - Sistema de Membresía{% endblock %}</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo-relatic.png') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo-relatic.png') }}">
+    <title>{% block title %}Easy NodeOne{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename=get_system_logo()) }}?v={{ get_logo_cache_key() }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_system_logo()) }}?v={{ get_logo_cache_key() }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <style>
-        /* Paleta de colores RELATIC - Basada en las imágenes proporcionadas */
+        /* Design tokens: identidad por cliente (organization_settings). No hardcodear colores de marca. */
         :root {
-            /* Gradiente Amarillo/Naranja */
-            --yellow-top: #FFD700;      /* Amarillo brillante */
-            --orange-bottom: #FF8C00;    /* Naranja rico */
-            
-            /* Gradiente Cyan/Azul claro */
-            --cyan-top: #00CED1;        /* Cyan vibrante */
-            --turquoise-bottom: #40E0D0; /* Turquesa/Aqua */
-            
-            /* Azul Real */
-            --royal-blue: #4169E1;      /* Azul real sólido */
-            
-            /* Negro */
-            --black: #000000;            /* Negro sólido */
-            
-            /* Colores derivados para uso en la aplicación */
-            --primary: var(--royal-blue);
-            --secondary: var(--cyan-top);
-            --accent: var(--orange-bottom);
-            --dark: var(--black);
+            --color-primary: {{ theme_primary }};
+            --color-primary-dark: {{ theme_primary_dark }};
+            --color-accent: {{ theme_accent }};
+            /* Neutros fijos (no editables) */
+            --color-background: #F1F5F9;
+            --color-text: #0F172A;
+            --color-border: #e2e8f0;
+            /* Alias para compatibilidad con clases .bg-primary / .text-primary */
+            --primary: var(--color-primary);
+            --secondary: var(--color-accent);
+            --accent: var(--color-accent);
+            --dark: #000000;
             --light: #f8f9fa;
             --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
@@ -42,48 +35,71 @@
             --gray-800: #1f2937;
             --gray-900: #111827;
         }
-        
-        /* Gradientes */
-        .gradient-yellow-orange {
-            background: linear-gradient(180deg, var(--yellow-top) 0%, var(--orange-bottom) 100%);
+        .text-primary { color: var(--color-primary) !important; }
+        .bg-primary { background-color: var(--color-primary) !important; }
+        .bg-dark { background-color: var(--dark) !important; }
+        .bg-accent { background-color: var(--color-accent) !important; }
+        /* Apariencia: tema oscuro */
+        html[data-theme="dark"] body,
+        html[data-theme="auto"] body { background-color: #1a1d23; color: #e4e6eb; }
+        html[data-theme="dark"] .card,
+        html[data-theme="auto"] .card { background-color: #252830; border-color: #3a3f4b; color: #e4e6eb; }
+        html[data-theme="dark"] .card-header,
+        html[data-theme="auto"] .card-header { background-color: #2d3139 !important; border-color: #3a3f4b; color: #e4e6eb; }
+        html[data-theme="dark"] .navbar-landing,
+        html[data-theme="auto"] .navbar-landing { background: #252830 !important; }
+        html[data-theme="dark"] .table,
+        html[data-theme="auto"] .table { color: #e4e6eb; }
+        html[data-theme="dark"] .table-light,
+        html[data-theme="auto"] .table-light { background-color: #2d3139; color: #e4e6eb; }
+        html[data-theme="dark"] .form-control,
+        html[data-theme="dark"] .form-select,
+        html[data-theme="auto"] .form-control,
+        html[data-theme="auto"] .form-select { background-color: #2d3139; border-color: #3a3f4b; color: #e4e6eb; }
+        html[data-theme="dark"] .text-muted,
+        html[data-theme="auto"] .text-muted { color: #b0b3b8 !important; }
+        @media (prefers-color-scheme: light) {
+            html[data-theme="auto"] body { background-color: var(--color-background); color: var(--color-text); }
+            html[data-theme="auto"] .card { background-color: #fff; border-color: var(--color-border); color: var(--color-text); }
+            html[data-theme="auto"] .card-header { background-color: rgba(0,0,0,.03) !important; border-color: var(--color-border); color: var(--color-text); }
+            html[data-theme="auto"] .navbar-landing { background: var(--color-primary) !important; }
+            html[data-theme="auto"] .table { color: inherit; }
+            html[data-theme="auto"] .table-light { background-color: #f8f9fa; color: inherit; }
+            html[data-theme="auto"] .form-control, html[data-theme="auto"] .form-select { background-color: #fff; border-color: #ced4da; color: #212529; }
+            html[data-theme="auto"] .text-muted { color: #6c757d !important; }
         }
-        
-        .gradient-cyan-turquoise {
-            background: linear-gradient(180deg, var(--cyan-top) 0%, var(--turquoise-bottom) 100%);
-        }
-        
-        .text-primary {
-            color: var(--primary) !important;
-        }
-        
-        .bg-primary {
-            background-color: var(--primary) !important;
-        }
-        
-        .bg-dark {
-            background-color: var(--dark) !important;
-        }
-        
-        .bg-accent {
-            background-color: var(--accent) !important;
-        }
+        /* Apariencia: tamaño de fuente */
+        html[data-font-size="small"] { font-size: 14px; }
+        html[data-font-size="medium"] { font-size: 16px; }
+        html[data-font-size="large"] { font-size: 18px; }
     </style>
 </head>
 <body>
-    <!-- Navbar: estilo landing (fondo claro, igual que relatic-frontend) -->
+    <!-- Topbar única: logo + nombre + menú + usuario -->
     <nav class="navbar navbar-expand-lg navbar-landing fixed-top">
         <div class="container-fluid navbar-wrap">
-            <a class="navbar-brand d-flex align-items-center" href="https://relaticpanama.org">
-                <img src="{{ url_for('static', filename='images/logo-relatic.png') }}" alt="RELATIC PANAMÁ" class="navbar-logo me-2" height="40">
-                <span>RELATIC PANAMÁ</span>
+            {% if current_user.is_authenticated and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'index', 'login', 'register'] %}
+            <button type="button" class="btn btn-link text-dark p-2 me-1 d-none d-lg-inline-block topbar-sidebar-toggle" id="topbarSidebarToggle" aria-label="Abrir o cerrar menú" title="Menú">
+                <i class="fas fa-bars"></i>
+            </button>
+            {% endif %}
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('index') }}">
+                <img src="{{ url_for('static', filename=get_system_logo()) }}?v={{ get_logo_cache_key() }}" alt="Easy NodeOne" class="navbar-logo me-2" height="40">
+                <span>Easy NodeOne</span>
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            {% if not current_user.is_authenticated %}
+            <div class="d-flex align-items-center gap-2 order-lg-3 ms-auto me-2 me-lg-0">
+                <a class="nav-link nav-btn-landing nav-btn-register text-nowrap btn btn-sm py-2" href="{{ url_for('register') }}">Registrarse</a>
+                <a class="nav-link nav-btn-landing nav-btn-login text-nowrap btn btn-sm py-2" href="{{ url_for('auth.login') }}">Iniciar sesión</a>
+            </div>
+            {% endif %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Abrir menú">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse navbar-collapse-three" id="navbarNav">
+            <div class="collapse navbar-collapse navbar-collapse-three order-lg-2" id="navbarNav">
                 <ul class="navbar-nav navbar-nav-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="https://relaticpanama.org">Inicio</a>
+                        <a class="nav-link" href="{{ url_for('index') }}">Inicio</a>
                     </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
@@ -97,7 +113,7 @@
                 <ul class="navbar-nav navbar-nav-right">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item me-1 d-flex align-items-center">
-                        <a class="nav-link nav-icon-link position-relative" href="{{ url_for('cart') }}" title="Carrito de Compras">
+                        <a class="nav-link nav-icon-link position-relative" href="{{ url_for('payments.cart') }}" title="Carrito de Compras">
                             <i class="fas fa-shopping-cart"></i>
                             <span id="cart-count-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem; display: none;">
                                 0
@@ -105,7 +121,7 @@
                         </a>
                     </li>
                     <li class="nav-item me-1 d-flex align-items-center">
-                        <a class="nav-link nav-icon-link position-relative" href="{{ url_for('notifications') if url_for('notifications') else '#' }}" title="Notificaciones">
+                        <a class="nav-link nav-icon-link position-relative" href="{{ url_for('communications.notifications_page') }}" title="Notificaciones">
                             <i class="fas fa-bell"></i>
                             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge" style="font-size: 0.6rem; display: none;">
                                 0
@@ -133,6 +149,7 @@
                             {% if current_user.is_admin %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_notifications') }}"><i class="fas fa-bell me-2"></i> Notificaciones</a></li>
                             <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_identity') }}"><i class="fas fa-palette me-2"></i> Identidad visual</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_email') }}"><i class="fas fa-envelope me-2"></i> Configuración de Email</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_media') }}"><i class="fas fa-video me-2"></i> Configuración de Multimedia</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_payments') }}"><i class="fas fa-credit-card me-2"></i> Configuración de Pagos</a></li>
@@ -149,7 +166,7 @@
                             {{ current_user.first_name }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('profile') }}">Perfil</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('members.profile') }}">Perfil</a></li>
                             {# <li><a class="dropdown-item" href="{{ url_for('wallet') }}"><i class="fas fa-wallet"></i> Wallet</a></li> #}
                             <li><a class="dropdown-item" href="{{ url_for('payments_history') }}"><i class="fas fa-history"></i> Historial de Pagos</a></li>
                             {# <li><a class="dropdown-item" href="{{ url_for('invoices') }}"><i class="fas fa-file-invoice"></i> Facturas</a></li> #}
@@ -157,13 +174,6 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('logout') }}">Cerrar Sesión</a></li>
                         </ul>
-                    </li>
-                    {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link nav-btn-landing nav-btn-register text-nowrap" href="{{ url_for('register') }}">Registrarse</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link nav-btn-landing nav-btn-login text-nowrap" href="{{ url_for('login') }}">Iniciar Sesión</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -193,178 +203,222 @@
             <i class="fas fa-bars"></i>
         </button>
         
-        <!-- Left Panel - Estilo CoreUI -->
+        <!-- Sidebar: solo navegación (sin branding duplicado) -->
         <aside id="left-panel" class="left-panel">
             <nav class="navbar navbar-expand-sm navbar-default">
-                <!-- Logo/Brand -->
-                <div class="sidebar-brand">
-                    <a href="{{ url_for('dashboard') }}" class="sidebar-brand-full d-flex align-items-center text-decoration-none">
-                        <div class="sidebar-brand-icon me-2">
-                            <img src="{{ url_for('static', filename='images/logo-relatic.png') }}" alt="RELATIC" height="32" style="max-width: 32px; object-fit: contain;">
-                            <i class="fas fa-globe-americas" style="font-size: 24px; color: #FFD700; display: none;"></i>
-                        </div>
-                        <div>
-                            <div class="sidebar-brand-text fw-bold" style="color: #2d3b45; font-size: 18px;">RELATIC</div>
-                            <div class="sidebar-brand-text-small" style="color: #8b969e; font-size: 12px;">PANAMÁ</div>
-                        </div>
-                    </a>
-                    <a href="{{ url_for('dashboard') }}" class="sidebar-brand-narrow text-decoration-none">
-                        <img src="{{ url_for('static', filename='images/logo-relatic.png') }}" alt="RELATIC" height="24" style="max-width: 24px; object-fit: contain;">
-                        <i class="fas fa-globe-americas" style="display: none;"></i>
-                    </a>
-                    <button class="menu-hamburger-btn" aria-label="Menu">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                </div>
-
                 <div id="main-menu" class="main-menu navbar-collapse">
                     <ul class="nav navbar-nav">
-                        <!-- Getting Started -->
+                        <!-- 1. Dashboard -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
                                 <i class="menu-icon fa fa-tachometer-alt"></i>
                                 <span class="menu-title-text">Dashboard</span>
                             </a>
                         </li>
-                        
-                        <!-- Miembros - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'services', 'office365'] or request.blueprint in ['events', 'appointments'] %}show{% endif %}">
-                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Miembros">
-                                <i class="menu-icon fa fa-users"></i>
-                                <span class="menu-title-text">Miembros</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
-                            </a>
-                            <ul class="nav-group-items">
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'wallet.benefits' or request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Beneficios">
-                                        <i class="menu-icon fa fa-gift"></i>
-                                        <span class="menu-title-text">Beneficios</span>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Citas y asesorías">
-                                        <i class="menu-icon fa fa-calendar-check"></i>
-                                        <span class="menu-title-text">Citas</span>
-                                    </a>
-                                </li>
-                                {% if current_user.is_advisor %}
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'appointments.advisor_queue' %}active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Solicitudes pendientes de confirmación">
-                                        <i class="menu-icon fa fa-inbox"></i>
-                                        <span class="menu-title-text">Solicitudes pendientes</span>
-                                    </a>
-                                </li>
-                                {% endif %}
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'services' %}active{% endif %}" href="{{ url_for('services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios">
-                                        <i class="menu-icon fa fa-concierge-bell"></i>
-                                        <span class="menu-title-text">Servicios</span>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'office365' %}active{% endif %}" href="{{ url_for('office365') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Office 365">
-                                        <i class="menu-icon fa fa-microsoft"></i>
-                                        <span class="menu-title-text">Office 365</span>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Eventos">
-                                        <i class="menu-icon fa fa-calendar"></i>
-                                        <span class="menu-title-text">Eventos</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                        
+
                         {% if current_user.is_admin %}
-                        <!-- Administración - Sección Expandible -->
-                        <li class="nav-item nav-group {% if request.endpoint in ['admin_dashboard', 'admin_users', 'admin_memberships', 'admin_messaging', 'admin_messaging_detail', 'admin_email', 'admin_notifications', 'admin_payments', 'admin_media', 'admin_services', 'admin_backup', 'admin_office365_requests'] or request.blueprint == 'admin_events' or request.endpoint == 'admin_events.discounts_index' or request.blueprint == 'admin_appointments' %}show{% endif %}">
-                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Administración">
-                                <i class="menu-icon fa fa-cog"></i>
-                                <span class="menu-title-text">Administración</span>
+                        <!-- 2. Gestión (admin) -->
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_users', 'admin_memberships', 'admin_plans', 'admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Gestión">
+                                <i class="menu-icon fa fa-users-cog"></i>
+                                <span class="menu-title-text">Gestión</span>
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}" href="{{ url_for('admin_dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Panel Admin">
-                                        <i class="menu-icon fa fa-tachometer-alt"></i>
-                                        <span class="menu-title-text">Panel Admin</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_memberships' %}active{% endif %}" href="{{ url_for('admin_memberships') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Miembros">Miembros</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Usuarios">
-                                        <i class="menu-icon fa fa-users"></i>
-                                        <span class="menu-title-text">Usuarios</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Usuarios">Usuarios</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_memberships' %}active{% endif %}" href="{{ url_for('admin_memberships') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresías">
-                                        <i class="menu-icon fa fa-crown"></i>
-                                        <span class="menu-title-text">Membresías</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_plans' %}active{% endif %}" href="{{ url_for('admin_plans') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Planes">Planes</a>
                                 </li>
                                 {% if current_user.has_permission('roles.view') %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Roles y Permisos">
-                                        <i class="menu-icon fa fa-user-shield"></i>
-                                        <span class="menu-title-text">Roles y Permisos</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Roles y permisos">Roles y permisos</a>
                                 </li>
                                 {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- 3. Servicios -->
+                        <li class="nav-item nav-group {% if request.blueprint == 'services' or request.blueprint == 'appointments' or request.endpoint == 'admin_services' or request.blueprint == 'admin_appointments' %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios">
+                                <i class="menu-icon fa fa-concierge-bell"></i>
+                                <span class="menu-title-text">Servicios</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_services' %}active{% endif %}" href="{{ url_for('admin_services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios">
-                                        <i class="menu-icon fa fa-th-large"></i>
-                                        <span class="menu-title-text">Servicios</span>
-                                    </a>
+                                    <a class="nav-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de servicios">Catálogo de servicios</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.discounts_index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Descuentos">
-                                        <i class="menu-icon fa fa-tag"></i>
-                                        <span class="menu-title-text">Descuentos</span>
-                                    </a>
+                                    <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Citas">Citas</a>
+                                </li>
+                                {% if current_user.is_advisor %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'appointments.advisor_queue' %}active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Solicitudes pendientes">Solicitudes pendientes</a>
+                                </li>
+                                {% endif %}
+                                {% if current_user.is_admin %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_services' %}active{% endif %}" href="{{ url_for('admin_services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Gestionar catálogo">Gestionar catálogo</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_discount_codes' %}active{% endif %}" href="{{ url_for('admin_discount_codes') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Códigos de Descuento">
-                                        <i class="menu-icon fa fa-ticket-alt"></i>
-                                        <span class="menu-title-text">Códigos de Descuento</span>
-                                    </a>
+                                    <a class="nav-link {% if request.blueprint == 'admin_appointments' %}active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Disponibilidad y calendario">Disponibilidad</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        <!-- 4. Comunicaciones -->
+                        <li class="nav-item nav-group {% if request.blueprint == 'integrations' or request.endpoint == 'admin_office365_requests' or request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' or request.endpoint == 'admin_email' or request.endpoint == 'admin_marketing' or request.endpoint == 'admin_notifications' %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Comunicaciones">
+                                <i class="menu-icon fa fa-envelope-open-text"></i>
+                                <span class="menu-title-text">Comunicaciones</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.blueprint == 'integrations' %}active{% endif %}" href="{{ url_for('integrations.office365_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Correo institucional">Correo institucional</a>
+                                </li>
+                                {% if current_user.is_admin %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_office365_requests' %}active{% endif %}" href="{{ url_for('admin_office365_requests') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Solicitudes de correo">Solicitudes de correo</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'admin_appointments' and (request.endpoint == 'admin_appointments.admin_appointments_dashboard' or request.endpoint == 'admin_appointments.calendar_view') %}active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Calendario">
-                                        <i class="menu-icon fa fa-calendar"></i>
-                                        <span class="menu-title-text">Calendario</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_email' %}active{% endif %}" href="{{ url_for('admin_email') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Correo / SMTP">SMTP</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'admin_events' and request.endpoint != 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.admin_events_index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Gestión de Eventos">
-                                        <i class="menu-icon fa fa-calendar"></i>
-                                        <span class="menu-title-text">Gestión de Eventos</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' %}active{% endif %}" href="{{ url_for('admin_messaging') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Historial de emails">Historial de emails</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' %}active{% endif %}" href="{{ url_for('admin_messaging') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Historial de Emails">
-                                        <i class="menu-icon fa fa-list"></i>
-                                        <span class="menu-title-text">Historial de Emails</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_marketing' %}active{% endif %}" href="{{ url_for('admin_marketing') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Email Marketing">Marketing</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_office365_requests' %}active{% endif %}" href="{{ url_for('admin_office365_requests') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Solicitudes Office 365">
-                                        <i class="menu-icon fab fa-microsoft"></i>
-                                        <span class="menu-title-text">Office 365</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_notifications' %}active{% endif %}" href="{{ url_for('admin_notifications') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Notificaciones">Notificaciones</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        <!-- 5. Eventos -->
+                        <li class="nav-item nav-group {% if request.blueprint == 'events' or request.blueprint == 'admin_events' %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Eventos">
+                                <i class="menu-icon fa fa-calendar-alt"></i>
+                                <span class="menu-title-text">Eventos</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Eventos">Eventos</a>
+                                </li>
+                                {% if current_user.is_admin %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.blueprint == 'admin_events' and request.endpoint != 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.admin_events_index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Gestión de eventos">Gestión / Inscripciones</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_backup' %}active{% endif %}" href="{{ url_for('admin_backup') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Respaldos">
-                                        <i class="menu-icon fa fa-database"></i>
-                                        <span class="menu-title-text">Respaldos</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.discounts_index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Descuentos eventos">Descuentos</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        <!-- 6. Beneficios -->
+                        <li class="nav-item nav-group {% if request.endpoint == 'benefits' or request.endpoint == 'admin_benefits' %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Beneficios">
+                                <i class="menu-icon fa fa-star"></i>
+                                <span class="menu-title-text">Beneficios</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Ver tus beneficios">Ver beneficios</a>
+                                </li>
+                                {% if current_user.is_admin %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_benefits' %}active{% endif %}" href="{{ url_for('admin_benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Administrar catálogo de beneficios">Gestionar beneficios</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for('benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Convenios">Convenios</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        <!-- 6b. Certificados -->
+                        <li class="nav-item nav-group {% if request.endpoint == 'certificates_page.certificates_page' or request.endpoint == 'admin_certificate_events' or request.endpoint == 'admin_certificate_templates' or request.endpoint == 'admin_certificate_template_editor' %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Certificados">
+                                <i class="menu-icon fa fa-certificate"></i>
+                                <span class="menu-title-text">Certificados</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'certificates_page.certificates_page' %}active{% endif %}" href="{{ url_for('certificates_page.certificates_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Ver y solicitar">Ver certificados</a>
+                                </li>
+                                {% if current_user.is_admin %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_certificate_events' %}active{% endif %}" href="{{ url_for('admin_certificate_events') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Formatos, fondo y datos del certificado">Gestionar certificados</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_certificate_templates' or request.endpoint == 'admin_certificate_template_editor' %}active{% endif %}" href="{{ url_for('admin_certificate_templates') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Editor visual tipo Canva">Plantillas visuales</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        <!-- 7. Normativas -->
+                        <li class="nav-item nav-group {% if request.blueprint == 'policies' or request.endpoint == 'admin_policies' %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Normativas">
+                                <i class="menu-icon fa fa-file-contract"></i>
+                                <span class="menu-title-text">Normativas</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.blueprint == 'policies' %}active{% endif %}" href="{{ url_for('policies.index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Ver normativas">Ver normativas</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.blueprint == 'policies' %}active{% endif %}" href="{{ url_for('policies.view', slug='politica-uso-correo-institucional') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Política de uso de correo">Política de uso de correo</a>
+                                </li>
+                                {% if current_user.is_admin %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_policies' %}active{% endif %}" href="{{ url_for('admin_policies') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Gestionar políticas">Gestionar políticas</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        {% if current_user.is_admin %}
+                        <!-- 8. Configuración (admin) -->
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_identity', 'admin_email', 'admin_payments', 'admin_export_page', 'admin_discount_codes', 'admin_backup', 'admin_media'] %}show{% endif %}">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Configuración">
+                                <i class="menu-icon fa fa-cog"></i>
+                                <span class="menu-title-text">Configuración</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_identity' %}active{% endif %}" href="{{ url_for('admin_identity') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Colores y marca">Identidad visual</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_payments' %}active{% endif %}" href="{{ url_for('admin_payments') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Pagos e integraciones">Pagos / API</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_discount_codes' %}active{% endif %}" href="{{ url_for('admin_discount_codes') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Códigos de descuento">Códigos de descuento</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_media' %}active{% endif %}" href="{{ url_for('admin_media') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Media">Media</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_backup' %}active{% endif %}" href="{{ url_for('admin_backup') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Respaldos">Respaldos</a>
                                 </li>
                                 {% if current_user.has_permission('reports.export') %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_export_page' %}active{% endif %}" href="{{ url_for('admin_export_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Exportar datos">
-                                        <i class="menu-icon fa fa-file-export"></i>
-                                        <span class="menu-title-text">Exportar datos</span>
-                                    </a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_export_page' %}active{% endif %}" href="{{ url_for('admin_export_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Exportar datos">Exportar datos</a>
                                 </li>
                                 {% endif %}
                             </ul>
@@ -405,14 +459,13 @@
                 <div class="container">
                     <div class="row gy-4">
                         <div class="col-lg-5 col-md-6">
-                            <h5 class="text-uppercase mb-2">RELATIC PANAMÁ</h5>
+                            <h5 class="text-uppercase mb-2">Easy NodeOne</h5>
                             <p class="text-light mb-3">
-                                Red Latinoamericana de Investigaciones Cualitativas. Impulsamos la investigación,
-                                la colaboración y la difusión científica en toda la región.
+                                Plataforma modular: miembros, servicios, pagos e integraciones en un solo ecosistema.
                             </p>
                             <div class="d-flex flex-column gap-2">
-                                <a href="mailto:info@relaticpanama.org" class="text-light text-decoration-none">
-                                    <i class="fas fa-envelope me-2"></i> info@relaticpanama.org
+                                <a href="mailto:info@easynodeone.com" class="text-light text-decoration-none">
+                                    <i class="fas fa-envelope me-2"></i> info@easynodeone.com
                                 </a>
                             </div>
                         </div>
@@ -430,7 +483,7 @@
                                     </a>
                                 </li>
                                 <li class="mb-2">
-                                    <a href="{{ url_for('services') }}" class="text-light text-decoration-none">
+                                    <a href="{{ url_for('services.list') }}" class="text-light text-decoration-none">
                                         <i class="fas fa-th-large me-2"></i>Servicios disponibles
                                     </a>
                                 </li>
@@ -455,7 +508,7 @@
                         <div class="row">
                             <div class="col-md-8 text-center text-md-start">
                                 <p class="text-muted small mb-2">
-                                    &copy; 2024 RelaticPanama. Todos los derechos reservados.
+                                    &copy; 2025 Easy NodeOne. Todos los derechos reservados.
                                 </p>
                             </div>
                             <div class="col-md-4 text-center text-md-end">
@@ -483,14 +536,13 @@
             <div class="container">
                 <div class="row gy-4">
                     <div class="col-lg-5 col-md-6">
-                        <h5 class="text-uppercase mb-2">RELATIC PANAMÁ</h5>
+                        <h5 class="text-uppercase mb-2">Easy NodeOne</h5>
                         <p class="text-light mb-3">
-                            Red Latinoamericana de Investigaciones Cualitativas. Impulsamos la investigación,
-                            la colaboración y la difusión científica en toda la región.
+                            Plataforma modular: miembros, servicios, pagos e integraciones en un solo ecosistema.
                         </p>
                         <div class="d-flex flex-column gap-2">
-                            <a href="mailto:info@relaticpanama.org" class="text-light text-decoration-none">
-                                <i class="fas fa-envelope me-2"></i> info@relaticpanama.org
+                            <a href="mailto:info@easynodeone.com" class="text-light text-decoration-none">
+                                <i class="fas fa-envelope me-2"></i> info@easynodeone.com
                             </a>
                         </div>
                     </div>
@@ -508,7 +560,7 @@
                                 </a>
                             </li>
                             <li class="mb-2">
-                                <a href="{{ url_for('services') }}" class="text-light text-decoration-none">
+                                <a href="{{ url_for('services.list') }}" class="text-light text-decoration-none">
                                     <i class="fas fa-th-large me-2"></i>Servicios disponibles
                                 </a>
                             </li>
@@ -533,7 +585,7 @@
                     <div class="row">
                         <div class="col-md-8 text-center text-md-start">
                             <p class="text-muted small mb-2">
-                                &copy; 2024 RelaticPanama. Todos los derechos reservados.
+                                &copy; 2025 Easy NodeOne. Todos los derechos reservados.
                             </p>
                         </div>
                         <div class="col-md-4 text-center text-md-end">
@@ -566,72 +618,36 @@
         {% endif %}
     {% endif %}
     <script>
-        // Sidebar Toggle Functionality (usando el botón dentro del menú y el botón de expandir)
+        // Sidebar Toggle: topbar hamburger + botón flotante para expandir
         document.addEventListener('DOMContentLoaded', function() {
-            const menuHamburgerBtn = document.querySelector('.menu-hamburger-btn');
+            const topbarToggle = document.getElementById('topbarSidebarToggle');
             const expandSidebarBtn = document.getElementById('expandSidebarBtn');
             const leftPanel = document.getElementById('left-panel');
-            const rightPanel = document.getElementById('right-panel');
             
             function toggleSidebar() {
                 document.body.classList.toggle('sidebar-collapsed');
                 const isCollapsed = document.body.classList.contains('sidebar-collapsed');
                 localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
-                
-                // Mostrar/ocultar botón de expandir según el estado
                 if (expandSidebarBtn) {
-                    if (isCollapsed) {
-                        expandSidebarBtn.style.display = 'flex';
-                    } else {
-                        expandSidebarBtn.style.display = 'none';
-                    }
+                    expandSidebarBtn.style.display = isCollapsed ? 'flex' : 'none';
                 }
             }
             
-            // Función de emergencia: expandir sidebar si está bloqueando
-            function ensureSidebarAccessible() {
-                if (leftPanel && document.body.classList.contains('sidebar-collapsed')) {
-                    // Verificar si el botón hamburguesa es clickeable
-                    const hamburgerBtn = document.querySelector('.menu-hamburger-btn');
-                    if (hamburgerBtn) {
-                        const rect = hamburgerBtn.getBoundingClientRect();
-                        const isVisible = rect.width > 0 && rect.height > 0 && 
-                                         window.getComputedStyle(hamburgerBtn).display !== 'none';
-                        if (!isVisible && expandSidebarBtn) {
-                            expandSidebarBtn.style.display = 'flex';
-                            console.log('Botón de expandir activado automáticamente');
-                        }
-                    }
-                }
-            }
-            
-            // Verificar si existe leftPanel (menú lateral)
             if (leftPanel) {
-                // Check localStorage for saved state
                 const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
                 if (isCollapsed) {
                     document.body.classList.add('sidebar-collapsed');
-                    // Mostrar botón de expandir si está colapsado
-                    if (expandSidebarBtn) {
-                        expandSidebarBtn.style.display = 'flex';
-                    }
+                    if (expandSidebarBtn) expandSidebarBtn.style.display = 'flex';
                 } else {
-                    // Ocultar botón de expandir si está expandido
-                    if (expandSidebarBtn) {
-                        expandSidebarBtn.style.display = 'none';
-                    }
+                    if (expandSidebarBtn) expandSidebarBtn.style.display = 'none';
                 }
-                
-                // Botón hamburguesa dentro del menú
-                if (menuHamburgerBtn) {
-                    menuHamburgerBtn.addEventListener('click', function(e) {
+                if (topbarToggle) {
+                    topbarToggle.addEventListener('click', function(e) {
                         e.preventDefault();
                         e.stopPropagation();
                         toggleSidebar();
                     });
                 }
-                
-                // Botón para expandir cuando está colapsado
                 if (expandSidebarBtn) {
                     expandSidebarBtn.addEventListener('click', function(e) {
                         e.preventDefault();
@@ -639,42 +655,16 @@
                         toggleSidebar();
                     });
                 }
-                
-                // Verificar accesibilidad después de un breve delay
-                setTimeout(ensureSidebarAccessible, 500);
             }
             
-            // Solución de emergencia: Si el sidebar está colapsado al cargar, asegurar que el botón sea visible
             window.addEventListener('load', function() {
                 if (document.body.classList.contains('sidebar-collapsed') && expandSidebarBtn) {
                     expandSidebarBtn.style.display = 'flex';
-                    console.log('Botón de expandir activado al cargar página');
                 }
             });
-            
-            // También verificar cuando se hace clic fuera del sidebar (si está colapsado y bloqueando)
-            document.addEventListener('click', function(e) {
-                if (document.body.classList.contains('sidebar-collapsed')) {
-                    const clickedElement = e.target;
-                    const isClickOnSidebar = leftPanel && leftPanel.contains(clickedElement);
-                    const isClickOnExpandBtn = expandSidebarBtn && expandSidebarBtn.contains(clickedElement);
-                    
-                    // Si se hace clic fuera del sidebar y no es en el botón de expandir, asegurar que el botón sea visible
-                    if (!isClickOnSidebar && !isClickOnExpandBtn && expandSidebarBtn) {
-                        const computedStyle = window.getComputedStyle(expandSidebarBtn);
-                        if (computedStyle.display === 'none') {
-                            expandSidebarBtn.style.display = 'flex';
-                            console.log('Botón de expandir activado por clic fuera del sidebar');
-                        }
-                    }
-                }
-            });
-            
-            // Atajo de teclado: Presionar Escape para expandir sidebar si está colapsado
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' && document.body.classList.contains('sidebar-collapsed')) {
                     toggleSidebar();
-                    console.log('Sidebar expandido con tecla Escape');
                 }
             });
             
@@ -764,7 +754,7 @@
                 </div>
                 <div class="modal-body">
                     <h6>1. Aceptación de los Términos</h6>
-                    <p>Al acceder y utilizar los servicios de RELATIC Panamá, usted acepta estar sujeto a estos términos y condiciones.</p>
+                    <p>Al acceder y utilizar los servicios de Easy NodeOne, usted acepta estar sujeto a estos términos y condiciones.</p>
                     
                     <h6 class="mt-4">2. Membresías</h6>
                     <p>Las membresías son anuales y se renuevan automáticamente a menos que se cancele antes de la fecha de vencimiento.</p>
@@ -776,7 +766,7 @@
                     <p>Puede cancelar su membresía en cualquier momento desde su panel de usuario. La cancelación no implica reembolso de pagos ya realizados.</p>
                     
                     <h6 class="mt-4">5. Modificaciones</h6>
-                    <p>RELATIC Panamá se reserva el derecho de modificar estos términos en cualquier momento. Los cambios serán notificados a los miembros activos.</p>
+                    <p>Easy NodeOne se reserva el derecho de modificar estos términos en cualquier momento. Los cambios serán notificados a los miembros activos.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

@@ -4,7 +4,7 @@
 
 {% block page_content %}
 <div class="container py-4">
-    <a href="{{ url_for('services') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
+    <a href="{{ url_for('services.list') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
         <i class="fas fa-arrow-left me-2"></i>Volver a servicios
     </a>
     <div class="row justify-content-center">
@@ -45,7 +45,7 @@
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>Enviar solicitud</button>
-                            <a href="{{ url_for('services') }}" class="btn btn-outline-secondary">Cancelar</a>
+                            <a href="{{ url_for('services.list') }}" class="btn btn-outline-secondary">Cancelar</a>
                         </div>
                     </form>
                 </div>

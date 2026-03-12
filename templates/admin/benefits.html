@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Beneficios{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid px-0">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h1 class="h5 mb-2">
+                    <i class="fas fa-star"></i> Gestión de Beneficios
+                </h1>
+                <button class="btn btn-sm btn-primary" onclick="openCreateBenefit()" data-bs-toggle="modal" data-bs-target="#benefitModal"><i class="fas fa-plus"></i> Crear Beneficio</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-2">
+            <form method="GET" class="d-flex flex-wrap align-items-end gap-2">
+                <div class="flex-shrink-0">
+                    <label class="form-label form-label-sm mb-0">Estado</label>
+                    <select name="status" class="form-select form-select-sm" style="width:120px">
+                        <option value="all" {% if current_status == 'all' %}selected{% endif %}>Todos</option>
+                        <option value="active" {% if current_status == 'active' %}selected{% endif %}>Activos</option>
+                        <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactivos</option>
+                    </select>
+                </div>
+                <div class="flex-shrink-0">
+                    <label class="form-label form-label-sm mb-0">Plan</label>
+                    <select name="plan" class="form-select form-select-sm" style="width:140px">
+                        <option value="">Todos</option>
+                        <option value="basic" {% if current_plan == 'basic' %}selected{% endif %}>Basic</option>
+                        <option value="pro" {% if current_plan == 'pro' %}selected{% endif %}>Pro</option>
+                        <option value="premium" {% if current_plan == 'premium' %}selected{% endif %}>Premium</option>
+                        <option value="deluxe" {% if current_plan == 'deluxe' %}selected{% endif %}>Deluxe</option>
+                        <option value="corporativo" {% if current_plan == 'corporativo' %}selected{% endif %}>Corporativo</option>
+                        <option value="admin" {% if current_plan == 'admin' %}selected{% endif %}>Admin</option>
+                    </select>
+                </div>
+                <div class="flex-shrink-0">
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter me-1"></i> Filtrar</button>
+                    <a href="{{ url_for('admin_benefits') }}" class="btn btn-sm btn-outline-secondary ms-1"><i class="fas fa-times"></i> Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Beneficios por plan de membresía</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">Los usuarios ven en <a href="{{ url_for('benefits') }}" target="_blank">/benefits</a> solo los beneficios del plan de su membresía activa.</p>
+            {% if benefits %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Icono</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Plan</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in benefits %}
+                        <tr>
+                            <td><span class="rounded p-2 bg-{{ b.color or 'primary' }}"><i class="{{ b.icon or 'fas fa-gift' }} text-white"></i></span></td>
+                            <td><strong>{{ b.name }}</strong></td>
+                            <td>{{ (b.description or '')[:60] }}{% if (b.description or '')|length > 60 %}...{% endif %}</td>
+                            <td><span class="badge bg-secondary text-uppercase">{{ b.membership_type }}</span></td>
+                            <td>
+                                {% if b.is_active %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-outline-primary btn-sm" onclick="editBenefit({{ b.id }})" title="Editar"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteBenefit({{ b.id }}, '{{ b.name|e }}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">No hay beneficios con los filtros aplicados. Crea uno con el botón &quot;Crear Beneficio&quot;.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear/Editar Beneficio -->
+<div class="modal fade" id="benefitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="benefitModalTitle">Crear Beneficio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="benefitForm">
+                    <input type="hidden" id="benefitId" name="benefit_id">
+                    <div class="mb-3">
+                        <label for="benefitName" class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" id="benefitName" name="name" required maxlength="100">
+                    </div>
+                    <div class="mb-3">
+                        <label for="benefitDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="benefitDescription" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="benefitPlan" class="form-label">Plan de membresía *</label>
+                        <select class="form-select" id="benefitPlan" name="membership_type" required>
+                            <option value="basic">Basic</option>
+                            <option value="pro">Pro</option>
+                            <option value="premium">Premium</option>
+                            <option value="deluxe">Deluxe</option>
+                            <option value="corporativo">Corporativo</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label for="benefitIcon" class="form-label">Icono (FontAwesome)</label>
+                            <input type="text" class="form-control" id="benefitIcon" name="icon" placeholder="fas fa-gift">
+                            <small class="text-muted">Ej: fas fa-star, fas fa-gift</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label for="benefitColor" class="form-label">Color</label>
+                            <select class="form-select" id="benefitColor" name="color">
+                                <option value="">primary</option>
+                                <option value="primary">primary</option>
+                                <option value="success">success</option>
+                                <option value="info">info</option>
+                                <option value="warning">warning</option>
+                                <option value="danger">danger</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="benefitIsActive" name="is_active" checked>
+                            <label class="form-check-label" for="benefitIsActive">Activo (visible para el plan)</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveBenefit()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCreateBenefit() {
+    document.getElementById('benefitModalTitle').textContent = 'Crear Beneficio';
+    document.getElementById('benefitId').value = '';
+    document.getElementById('benefitForm').reset();
+    document.getElementById('benefitIsActive').checked = true;
+}
+
+function editBenefit(id) {
+    fetch(`/api/admin/benefits/${id}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const b = data.benefit;
+                document.getElementById('benefitModalTitle').textContent = 'Editar Beneficio';
+                document.getElementById('benefitId').value = b.id;
+                document.getElementById('benefitName').value = b.name || '';
+                document.getElementById('benefitDescription').value = b.description || '';
+                document.getElementById('benefitPlan').value = b.membership_type || 'basic';
+                document.getElementById('benefitIcon').value = b.icon || '';
+                document.getElementById('benefitColor').value = b.color || '';
+                document.getElementById('benefitIsActive').checked = b.is_active !== false;
+                new bootstrap.Modal(document.getElementById('benefitModal')).show();
+            } else {
+                alert('Error al cargar el beneficio');
+            }
+        })
+        .catch(() => alert('Error al cargar el beneficio'));
+}
+
+function saveBenefit() {
+    const id = document.getElementById('benefitId').value;
+    const name = document.getElementById('benefitName').value.trim();
+    if (!name) {
+        alert('El nombre es obligatorio');
+        return;
+    }
+    const payload = {
+        name: name,
+        description: document.getElementById('benefitDescription').value.trim() || null,
+        membership_type: document.getElementById('benefitPlan').value,
+        icon: document.getElementById('benefitIcon').value.trim() || null,
+        color: document.getElementById('benefitColor').value || null,
+        is_active: document.getElementById('benefitIsActive').checked
+    };
+    const url = id ? `/api/admin/benefits/update/${id}` : '/api/admin/benefits/create';
+    const method = id ? 'PUT' : 'POST';
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Guardado');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo guardar'));
+        }
+    })
+    .catch(() => alert('Error al guardar'));
+}
+
+function deleteBenefit(id, name) {
+    if (!confirm('¿Eliminar el beneficio "' + name + '"?')) return;
+    fetch(`/api/admin/benefits/delete/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || 'Eliminado');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo eliminar'));
+            }
+        })
+        .catch(() => alert('Error al eliminar'));
+}
+
+document.getElementById('benefitModal').addEventListener('show.bs.modal', function(e) {
+    if (!document.getElementById('benefitId').value) openCreateBenefit();
+});
+</script>
+{% endblock %}

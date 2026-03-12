@@ -9,7 +9,7 @@
             <!-- Breadcrumb -->
             <nav aria-label="breadcrumb" class="mb-4">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('services') }}">Servicios</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('services.list') }}">Servicios</a></li>
                     <li class="breadcrumb-item active" aria-current="page">Estado de Pago</li>
                 </ol>
             </nav>
@@ -141,7 +141,7 @@
                     
                     <!-- Botones de acción -->
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                        <a href="{{ url_for('services') }}" class="btn btn-secondary">
+                        <a href="{{ url_for('services.list') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Volver a Servicios
                         </a>
                         {% if appointment %}

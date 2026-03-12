@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Crear plantilla - Marketing{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1 class="h5 d-inline ms-2">Crear plantilla de email</h1>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show">{{ msg }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post" id="form-template-create">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="mb-3">
+                    <label class="form-label">Nombre de la plantilla</label>
+                    <input type="text" name="name" class="form-control" required placeholder="Ej. Newsletter mensual">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Plantilla base</label>
+                    <select id="template-model" class="form-select">
+                        {% for m in template_models %}
+                        <option value="{{ m.id }}">{{ m.name }} — {{ m.description }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="small text-muted mt-1">Elige un modelo para cargar el HTML inicial; luego puedes editarlo abajo.</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">HTML</label>
+                    <textarea name="html" id="template-html" class="form-control font-monospace small" rows="16" placeholder="Variables: {{ nombre }}, {{ email }}, {{ unsubscribe_url }}, {{ base_url }}, {{ reunion_url }}"></textarea>
+                </div>
+                <div class="collapse mt-2 mb-3" id="template-preview-box">
+                    <p class="small text-muted">Así se verá el correo (con datos de ejemplo).</p>
+                    <iframe id="template-preview-iframe" title="Vista previa plantilla" style="width:100%; max-width: 620px; height: 480px; border: 1px solid #dee2e6; border-radius: 6px;"></iframe>
+                    <p class="small text-muted mt-2">Si la imagen no se ve en el recuadro: <a href="{{ request.url_root.rstrip('/') }}/static/public/emails/imagenes/capacitacion-mar26-o365.png" target="_blank" rel="noopener">abrir imagen del flyer en nueva pestaña</a>.</p>
+                </div>
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <button type="button" class="btn btn-outline-secondary" id="btn-preview-template" data-bs-toggle="collapse" data-bs-target="#template-preview-box"><i class="fas fa-eye"></i> Ver vista previa</button>
+                    <button type="submit" class="btn btn-primary">Crear plantilla</button>
+                    <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var templateModels = {{ template_models | tojson }};
+    var modelSelect = document.getElementById('template-model');
+    var htmlTextarea = document.getElementById('template-html');
+    if (!modelSelect || !htmlTextarea || !templateModels || !templateModels.length) return;
+
+    function setHtmlFromModel() {
+        var id = modelSelect.value;
+        var m = templateModels.find(function(x) { return x.id === id; });
+        htmlTextarea.value = (m && m.html) ? m.html : '';
+    }
+
+    modelSelect.addEventListener('change', setHtmlFromModel);
+    setHtmlFromModel();
+
+    var btnPreview = document.getElementById('btn-preview-template');
+    var boxPreview = document.getElementById('template-preview-box');
+    var iframePreview = document.getElementById('template-preview-iframe');
+    if (btnPreview && iframePreview && htmlTextarea) {
+        function doPreview() {
+            var html = htmlTextarea.value;
+            if (!html.trim()) { iframePreview.srcdoc = '<p class="p-3 text-muted">Elige un modelo o escribe HTML y haz clic en Ver vista previa.</p>'; return; }
+            fetch('{{ url_for("admin_marketing_template_preview") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: 'html=' + encodeURIComponent(html)
+            }).then(function(r) { return r.json(); }).then(function(d) {
+                iframePreview.srcdoc = d.html || '';
+            }).catch(function() { iframePreview.srcdoc = '<p class="p-3 text-danger">Error al generar vista previa.</p>'; });
+        }
+        btnPreview.addEventListener('click', function() { doPreview(); });
+        if (boxPreview) boxPreview.addEventListener('show.bs.collapse', function() { doPreview(); });
+    }
+})();
+</script>
+{% endblock %}

@@ -4,21 +4,25 @@
 
 {% block page_content %}
 <!-- Encabezado del Dashboard -->
-<div class="dashboard-header bg-white border-bottom mb-4">
-    <div class="container-fluid py-3">
+<div class="dashboard-header bg-white border-bottom mb-2">
+    <div class="container-fluid py-2">
         <div class="row align-items-center">
             <div class="col-md-6">
                 <div class="d-flex align-items-center">
-                    <img src="{{ url_for('static', filename=get_system_logo()) }}" alt="RELATIC" height="32" class="me-3" onerror="this.src='{{ url_for('static', filename='images/logo-relatic.svg') }}';">
+                    <img src="{{ url_for('static', filename=get_system_logo()) }}?v={{ get_logo_cache_key() }}" alt="RELATIC" height="32" class="me-3" onerror="this.src='{{ url_for('static', filename='images/logo-relatic.svg') }}?v={{ get_logo_cache_key() }}';">
                     <nav class="dashboard-nav">
                         <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link active">Inicio</a>
-                        <a href="{{ url_for('services') }}" class="dashboard-nav-link">Contenido</a>
+                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Contenido</a>
                         <a href="{{ url_for('foros') }}" class="dashboard-nav-link">Comunidad</a>
-                        <a href="{{ url_for('profile') }}" class="dashboard-nav-link">Perfil</a>
+                        <a href="{{ url_for('members.profile') }}" class="dashboard-nav-link">Perfil</a>
                     </nav>
                 </div>
             </div>
-            <div class="col-md-6 text-end">
+            <div class="col-md-6 text-end d-flex flex-column align-items-md-end justify-content-center">
+                <div class="mb-1">
+                    <span class="fw-bold">Bienvenido de vuelta, {{ current_user.first_name }}</span>
+                    <span class="text-muted small d-none d-md-inline ms-1">· Aquí está lo nuevo para ti hoy</span>
+                </div>
                 {% if membership %}
                 <span class="badge bg-primary px-3 py-2">
                     <i class="fas fa-crown me-1"></i>Plan {{ membership.membership_type|upper }}
@@ -33,7 +37,7 @@
             </div>
                 </div>
 
-<div class="container-fluid py-4">
+<div class="container-fluid py-2">
     <!-- Advertencia de Email No Verificado -->
     {% if not current_user.email_verified %}
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
@@ -48,12 +52,6 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
-    
-    <!-- Mensaje de Bienvenida -->
-    <div class="welcome-section mb-5">
-        <h1 class="h2 mb-2">Bienvenido de vuelta, {{ current_user.first_name }}</h1>
-        <p class="text-muted lead">Aquí está lo nuevo para ti hoy</p>
-    </div>
     
     <!-- Panel de Acciones Pendientes -->
     {% if user_status and user_status.action_required %}
@@ -93,45 +91,6 @@
     </div>
     {% endif %}
     
-    <!-- Resumen Rápido de Estado -->
-    {% if user_status %}
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body">
-                    <h3 class="text-primary mb-0">{{ user_status.pending_payments|length }}</h3>
-                    <small class="text-muted">Pagos Pendientes</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body">
-                    <h3 class="text-success mb-0">{{ user_status.upcoming_events|length }}</h3>
-                    <small class="text-muted">Eventos Próximos</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body">
-                    <h3 class="text-info mb-0">{{ user_status.upcoming_appointments|length }}</h3>
-                    <small class="text-muted">Citas Próximas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body">
-                    <h3 class="text-warning mb-0">{{ user_status.pending_notifications|length }}</h3>
-                    <small class="text-muted">Notificaciones</small>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-
     <div class="row g-4">
         <!-- Columna Principal -->
         <div class="col-lg-8">
@@ -158,7 +117,7 @@
                         <h5 class="card-title mb-0">
                             <i class="fas fa-history me-2 text-info"></i>Mis Recursos Recientes
                         </h5>
-                        <a href="{{ url_for('services') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+                        <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
                     </div>
                     <div class="recent-resources-list">
                         <div class="resource-item d-flex align-items-center mb-3 p-2 border rounded">
@@ -259,6 +218,30 @@
 
         <!-- Sidebar Derecho -->
         <div class="col-lg-4">
+            <!-- Resumen rápido (compacto en columna derecha) -->
+            {% if user_status %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted small">Pagos pend.</span>
+                        <span class="fw-bold text-primary">{{ user_status.pending_payments|length }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted small">Eventos próximos</span>
+                        <span class="fw-bold text-success">{{ user_status.upcoming_events|length }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted small">Citas próximas</span>
+                        <span class="fw-bold text-info">{{ user_status.upcoming_appointments|length }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">Notificaciones</span>
+                        <span class="fw-bold text-warning">{{ user_status.pending_notifications|length }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Anuncios de Administradores (Imágenes) -->
             {% if active_announcements %}
             <div class="card border-0 shadow-sm mb-4">
@@ -467,7 +450,7 @@
                     <a href="{{ url_for('settings') }}" class="footer-link me-3">
                         <i class="fas fa-cog me-1"></i>Configuración de cuenta
                     </a>
-                    <a href="{{ url_for('notifications') if url_for('notifications') else '#' }}" class="footer-link me-3">
+                    <a href="{{ url_for('communications.notifications_page') }}" class="footer-link me-3">
                         <i class="fas fa-bell me-1"></i>Preferencias de notificación
                     </a>
                 </div>

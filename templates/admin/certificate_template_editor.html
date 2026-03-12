@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Editor de plantilla de certificado{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h5 mb-0"><i class="fas fa-palette"></i> Editor de plantilla</h1>
+        <div>
+            <a href="{{ url_for('admin_certificate_templates') }}" class="btn btn-outline-secondary btn-sm me-2">Volver</a>
+            <input type="text" id="templateName" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Nombre de la plantilla" value="">
+            <button type="button" id="btnSave" class="btn btn-primary btn-sm">Guardar</button>
+        </div>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <div class="row">
+        <div class="col-md-2 border-end">
+            <p class="small fw-bold mb-2">Objetos</p>
+            <button type="button" id="btnAddText" class="btn btn-outline-secondary btn-sm w-100 mb-1">Texto</button>
+            <button type="button" id="btnAddImage" class="btn btn-outline-secondary btn-sm w-100 mb-1">Imagen</button>
+            <select id="selVariable" class="form-select form-select-sm mb-1">
+                <option value="">Variable...</option>
+                <option value="participant_name">Nombre participante</option>
+                <option value="program_name">Programa / Evento</option>
+                <option value="hours">Horas</option>
+                <option value="issue_date">Fecha emisión</option>
+                <option value="certificate_code">Código</option>
+                <option value="institution">Institución</option>
+            </select>
+            <button type="button" id="btnAddVariable" class="btn btn-outline-secondary btn-sm w-100 mb-1">Añadir variable</button>
+            <button type="button" id="btnAddQR" class="btn btn-outline-secondary btn-sm w-100 mb-1">QR verificación</button>
+            <input type="file" id="fileImage" accept="image/*" class="d-none">
+        </div>
+        <div class="col-md-10">
+            <p class="small text-muted mb-1">Haz clic en un botón de la izquierda para añadir un objeto; luego arrástralo en el recuadro blanco.</p>
+            <div id="canvas-wrapper" class="border rounded overflow-auto bg-secondary bg-opacity-10" style="min-height: 400px; max-height: 85vh;">
+                <canvas id="editor" width="1200" height="900"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#canvas-wrapper .canvas-container { margin: 0 auto; }
+#canvas-wrapper canvas { display: block; background: #fff !important; box-shadow: 0 0 0 1px #dee2e6; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script>
+(function() {
+    const templateId = {{ template_id|default('null') }};
+    const alertEl = document.getElementById('alert-container');
+    const canvasEl = document.getElementById('editor');
+    const templateNameEl = document.getElementById('templateName');
+    const btnSave = document.getElementById('btnSave');
+    const btnAddText = document.getElementById('btnAddText');
+    const btnAddImage = document.getElementById('btnAddImage');
+    const btnAddVariable = document.getElementById('btnAddVariable');
+    const btnAddQR = document.getElementById('btnAddQR');
+    const selVariable = document.getElementById('selVariable');
+    const fileImage = document.getElementById('fileImage');
+
+    let canvas = null;
+
+    function showAlert(msg, type) {
+        alertEl.innerHTML = '<div class="alert alert-' + (type || 'info') + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function initCanvas(w, h) {
+        if (typeof fabric === 'undefined') {
+            showAlert('No se pudo cargar Fabric.js. Comprueba la conexión o permisos del navegador.', 'danger');
+            return;
+        }
+        w = w || 1200;
+        h = h || 900;
+        if (canvas) {
+            canvas.dispose();
+            canvas = null;
+        }
+        var el = document.getElementById('editor');
+        if (!el) { showAlert('Canvas no encontrado.', 'danger'); return; }
+        el.width = w;
+        el.height = h;
+        canvas = new fabric.Canvas('editor', {
+            width: w,
+            height: h,
+            backgroundColor: '#ffffff',
+            selection: true
+        });
+        canvas.renderAll();
+    }
+
+    function addText() {
+        if (!canvas) return;
+        const text = new fabric.Textbox('Texto', { left: 200, top: 200, width: 300, fontSize: 40, fontFamily: 'Times New Roman', fill: '#000' });
+        canvas.add(text);
+        canvas.setActiveObject(text);
+        canvas.renderAll();
+    }
+
+    function addImage(src) {
+        if (!canvas) return;
+        fabric.Image.fromURL(src, function(img) {
+            const scale = Math.min(200 / (img.width || 1), 200 / (img.height || 1), 1);
+            img.set({ left: 100, top: 100, scaleX: scale, scaleY: scale });
+            img.dataSrc = src;
+            canvas.add(img);
+            canvas.setActiveObject(img);
+            canvas.renderAll();
+        });
+    }
+
+    function addVariable(name) {
+        if (!canvas || !name) return;
+        const label = { participant_name: '{{nombre}}', program_name: '{{programa}}', hours: '{{horas}}', issue_date: '{{fecha}}', certificate_code: '{{código}}', institution: '{{institución}}' }[name] || '{{' + name + '}}';
+        const text = new fabric.Textbox(label, { left: 200, top: 300, width: 400, fontSize: 36, fontFamily: 'Times New Roman' });
+        text.dataType = 'variable';
+        text.dataVariable = name;
+        canvas.add(text);
+        canvas.setActiveObject(text);
+        canvas.renderAll();
+    }
+
+    function addQR() {
+        if (!canvas) return;
+        const rect = new fabric.Rect({ left: 950, top: 650, width: 120, height: 120, fill: '#e0e0e0', stroke: '#999' });
+        rect.dataType = 'qr';
+        rect.dataSize = 120;
+        canvas.add(rect);
+        canvas.setActiveObject(rect);
+        canvas.renderAll();
+    }
+
+    function buildLayout() {
+        const w = canvas.getWidth();
+        const h = canvas.getHeight();
+        const elements = [];
+        canvas.getObjects().forEach(function(obj, i) {
+            const left = obj.left || 0;
+            const top = obj.top || 0;
+            if (obj.dataType === 'variable') {
+                elements.push({ id: 'var_' + i, type: 'variable', name: obj.dataVariable, x: left, y: top, fontSize: obj.fontSize || 24, fontFamily: obj.fontFamily || 'Times New Roman', align: obj.textAlign || 'left' });
+            } else if (obj.dataType === 'qr') {
+                elements.push({ id: 'qr_' + i, type: 'qr', variable: 'verification_url', x: left, y: top, size: obj.dataSize || 120 });
+            } else if (obj.type === 'textbox' || obj.type === 'text') {
+                elements.push({ id: 'text_' + i, type: 'text', value: obj.text || '', x: left, y: top, fontSize: obj.fontSize || 24, fontFamily: obj.fontFamily || 'Times New Roman', align: obj.textAlign || 'left' });
+            } else if (obj.type === 'image' && obj.dataSrc) {
+                const sw = obj.getScaledWidth();
+                const sh = obj.getScaledHeight();
+                elements.push({ id: 'img_' + i, type: 'image', src: obj.dataSrc, x: left, y: top, width: Math.round(sw), height: Math.round(sh) });
+            }
+        });
+        return { canvas: { width: w, height: h }, elements: elements };
+    }
+
+    function saveTemplate() {
+        const name = (templateNameEl.value || '').trim();
+        if (!name) { showAlert('Escribe el nombre de la plantilla.', 'warning'); return; }
+        const json_layout = buildLayout();
+        const payload = { name: name, width: canvas.getWidth(), height: canvas.getHeight(), json_layout: json_layout };
+        const url = templateId ? '/api/templates/' + templateId : '/api/templates';
+        const method = templateId ? 'PUT' : 'POST';
+        fetch(url, {
+            method: method,
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(r => r.json()).then(data => {
+            if (data.success || data.item) { showAlert('Guardado correctamente.', 'success'); if (data.item && !templateId) window.location.href = '/admin/certificate-templates/editor/' + data.item.id; }
+            else showAlert(data.error || 'Error al guardar', 'danger');
+        }).catch(e => showAlert('Error: ' + e.message, 'danger'));
+    }
+
+    function loadTemplate(id) {
+        fetch('/api/templates/' + id, { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const item = data.item;
+                if (!item) return;
+                templateNameEl.value = item.name || '';
+                const w = item.width || 1200;
+                const h = item.height || 900;
+                initCanvas(w, h);
+                let layout = item.json_layout;
+                if (typeof layout === 'string') try { layout = JSON.parse(layout); } catch(e) {}
+                if (layout && layout.elements && layout.elements.length) {
+                    layout.elements.forEach(function(el) {
+                        if (el.type === 'text') {
+                            const t = new fabric.Textbox(el.value || 'Texto', { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', width: 400 });
+                            if (el.align) t.set('textAlign', el.align);
+                            canvas.add(t);
+                        } else if (el.type === 'variable') {
+                            const label = '{{' + (el.name || '') + '}}';
+                            const t = new fabric.Textbox(label, { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', width: 400 });
+                            t.dataType = 'variable';
+                            t.dataVariable = el.name;
+                            if (el.align) t.set('textAlign', el.align);
+                            canvas.add(t);
+                        } else if (el.type === 'image' && el.src) {
+                            fabric.Image.fromURL(el.src, function(img) {
+                                const scaleX = (el.width || 100) / (img.width || 1);
+                                const scaleY = (el.height || 100) / (img.height || 1);
+                                img.set({ left: el.x, top: el.y, scaleX: scaleX, scaleY: scaleY });
+                                img.dataSrc = el.src;
+                                canvas.add(img);
+                            });
+                        } else if (el.type === 'qr') {
+                            const r = new fabric.Rect({ left: el.x, top: el.y, width: el.size || 120, height: el.size || 120, fill: '#e0e0e0', stroke: '#999' });
+                            r.dataType = 'qr';
+                            r.dataSize = el.size || 120;
+                            canvas.add(r);
+                        }
+                    });
+                }
+                canvas.renderAll();
+            })
+            .catch(e => { showAlert('Error al cargar: ' + e.message, 'danger'); initCanvas(1200, 900); });
+    }
+
+    btnAddText.addEventListener('click', addText);
+    btnAddVariable.addEventListener('click', function() { addVariable(selVariable.value); });
+    btnAddQR.addEventListener('click', addQR);
+    btnSave.addEventListener('click', saveTemplate);
+
+    btnAddImage.addEventListener('click', function() { fileImage.click(); });
+    fileImage.addEventListener('change', function() {
+        const f = this.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = function() { addImage(reader.result); };
+        reader.readAsDataURL(f);
+        this.value = '';
+    });
+
+    if (templateId) {
+        loadTemplate(templateId);
+    } else {
+        initCanvas(1200, 900);
+        showAlert('Pulsa "Texto", "Imagen", "Añadir variable" o "QR verificación" para añadir elementos; luego arrástralos en el recuadro blanco.', 'info');
+    }
+})();
+</script>
+{% endblock %}

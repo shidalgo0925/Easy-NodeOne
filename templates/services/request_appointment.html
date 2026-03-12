@@ -12,7 +12,7 @@
             <!-- Breadcrumb -->
             <nav aria-label="breadcrumb" class="mb-4">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('services') }}">Servicios</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('services.list') }}">Servicios</a></li>
                     <li class="breadcrumb-item active" aria-current="page">Solicitar Cita</li>
                 </ol>
             </nav>
@@ -25,7 +25,7 @@
                     </h4>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" action="{{ url_for('service_request_appointment_submit', service_id=service.id) }}" id="appointmentForm">
+                    <form method="POST" action="{{ url_for('services.request_appointment_submit', service_id=service.id) }}" id="appointmentForm">
                         
                         <!-- Datos del Miembro (Solo Lectura) -->
                         <div class="mb-4">
@@ -242,7 +242,7 @@
                         
                         <!-- Botones -->
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ url_for('services') }}" class="btn btn-secondary">
+                            <a href="{{ url_for('services.list') }}" class="btn btn-secondary">
                                 <i class="fas fa-times me-2"></i>Cancelar
                             </a>
                             <button type="submit" class="btn btn-secondary" id="submitBtn" disabled title="Completa la descripción (mínimo 50 caracteres) y selecciona un horario">

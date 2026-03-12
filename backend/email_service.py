@@ -31,7 +31,7 @@ class EmailService:
         self.max_retries = max_retries
         self.retry_delay = retry_delay
     
-    def send_email(self, subject, recipients, html_content, text_content=None, sender=None, 
+    def send_email(self, subject, recipients, html_content, text_content=None, sender=None, reply_to=None,
                    email_type=None, related_entity_type=None, related_entity_id=None, 
                    recipient_id=None, recipient_name=None):
         """
@@ -78,7 +78,8 @@ class EmailService:
                     recipients=recipients,
                     html=html_content,
                     body=text_content,
-                    sender=sender
+                    sender=sender,
+                    reply_to=reply_to if isinstance(reply_to, list) else ([reply_to] if reply_to else None)
                 )
                 
                 self.mail.send(msg)

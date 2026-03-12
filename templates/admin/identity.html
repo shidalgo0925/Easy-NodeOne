@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Identidad visual - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h5 mb-2">
+                <i class="fas fa-palette"></i> Identidad visual
+            </h1>
+            <p class="text-muted small">Colores de marca por cliente. Solo se editan 2–3 colores principales; fondo, tipografía y espaciado se mantienen.</p>
+        </div>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-swatchbook"></i> Modo identidad</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Elige un preset o define colores personalizados (HEX #RRGGBB). Afecta botones primarios, enlaces activos, barra lateral activa e iconos destacados.</p>
+
+            <div class="row mb-4">
+                <div class="col-12">
+                    <label class="form-label">Preset de paleta</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="azul" title="Azul (default)"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#2563EB;"></span> Azul</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="verde" title="Verde"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#059669;"></span> Verde</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="rojo" title="Rojo"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#DC2626;"></span> Rojo</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="violeta" title="Violeta"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#7C3AED;"></span> Violeta</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="indigo" title="Índigo"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#4F46E5;"></span> Índigo</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="teal" title="Teal"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#0D9488;"></span> Teal</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="cyan" title="Cyan"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#0891B2;"></span> Cyan</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="naranja" title="Naranja"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#EA580C;"></span> Naranja</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="ambar" title="Ámbar"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#D97706;"></span> Ámbar</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="rosa" title="Rosa"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#DB2777;"></span> Rosa</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="slate" title="Slate"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#475569;"></span> Slate</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="esmeralda" title="Esmeralda"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#10B981;"></span> Esmeralda</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="coral" title="Coral"><span class="d-inline-block rounded me-2" style="width:18px;height:18px;background:#E11D48;"></span> Coral</button>
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="custom" title="Personalizado HEX"><i class="fas fa-palette me-2"></i> Personalizado</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="custom-fields" class="row g-3 mb-3" style="display: none;">
+                <div class="col-md-4">
+                    <label for="primary_color" class="form-label">Primario</label>
+                    <input type="text" class="form-control" id="primary_color" placeholder="#2563EB" maxlength="7">
+                </div>
+                <div class="col-md-4">
+                    <label for="primary_color_dark" class="form-label">Primario oscuro (hover)</label>
+                    <input type="text" class="form-control" id="primary_color_dark" placeholder="#1E3A8A" maxlength="7">
+                </div>
+                <div class="col-md-4">
+                    <label for="accent_color" class="form-label">Acento</label>
+                    <input type="text" class="form-control" id="accent_color" placeholder="#06B6D4" maxlength="7">
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-primary" id="btn-save">
+                <i class="fas fa-save me-1"></i> Guardar
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+            <h6 class="text-muted">Vista previa</h6>
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+                <button type="button" class="btn btn-primary">Botón primario</button>
+                <a href="#" class="text-primary">Enlace</a>
+                <span class="badge bg-primary">Badge</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const alertContainer = document.getElementById('alert-container');
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    const customFields = document.getElementById('custom-fields');
+    const btnSave = document.getElementById('btn-save');
+
+    function showAlert(msg, type) {
+        alertContainer.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function setPresetActive(preset) {
+        presetBtns.forEach(function(btn) {
+            const p = btn.getAttribute('data-preset');
+            btn.classList.remove('btn-primary', 'btn-outline-primary');
+            btn.classList.add(p === preset ? 'btn-primary' : 'btn-outline-secondary');
+        });
+        customFields.style.display = preset === 'custom' ? 'flex' : 'none';
+    }
+
+    function loadSettings() {
+        fetch('/api/admin/identity')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                const s = data.settings;
+                setPresetActive(s.preset || 'azul');
+                document.getElementById('primary_color').value = s.primary_color || '#2563EB';
+                document.getElementById('primary_color_dark').value = s.primary_color_dark || '#1E3A8A';
+                document.getElementById('accent_color').value = s.accent_color || '#06B6D4';
+            })
+            .catch(function() { showAlert('Error al cargar configuración.', 'danger'); });
+    }
+
+    presetBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setPresetActive(btn.getAttribute('data-preset'));
+        });
+    });
+
+    btnSave.addEventListener('click', function() {
+        const preset = Array.from(presetBtns).find(function(b) { return b.classList.contains('btn-primary'); });
+        const presetVal = preset ? preset.getAttribute('data-preset') : 'azul';
+        let payload = { preset: presetVal };
+        if (presetVal === 'custom') {
+            payload.primary_color = document.getElementById('primary_color').value.trim();
+            payload.primary_color_dark = document.getElementById('primary_color_dark').value.trim();
+            payload.accent_color = document.getElementById('accent_color').value.trim();
+        }
+        fetch('/api/admin/identity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+        .then(function({ ok, j }) {
+            if (ok && j.success) {
+                showAlert('Identidad guardada. Recarga la página para ver los cambios en toda la app.', 'success');
+                loadSettings();
+            } else {
+                showAlert(j.error || 'Error al guardar.', 'danger');
+            }
+        })
+        .catch(function() { showAlert('Error de conexión.', 'danger'); });
+    });
+
+    loadSettings();
+})();
+</script>
+{% endblock %}

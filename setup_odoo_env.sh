@@ -1,10 +1,10 @@
 #!/bin/bash
 # Script para configurar variables de entorno de Odoo en el servicio systemd
 
-SERVICE_FILE="/etc/systemd/system/membresia-relatic.service"
-BACKUP_FILE="/etc/systemd/system/membresia-relatic.service.backup.$(date +%Y%m%d_%H%M%S)"
+SERVICE_FILE="/etc/systemd/system/nodeone.service"
+BACKUP_FILE="/etc/systemd/system/nodeone.service.backup.$(date +%Y%m%d_%H%M%S)"
 
-echo "🔧 Configurando integración con Odoo en membresia-relatic"
+echo "🔧 Configurando integración con Odoo en Easy NodeOne"
 echo ""
 
 # Verificar que el archivo existe
@@ -100,8 +100,8 @@ echo ""
 echo "⚠️  IMPORTANTE:"
 echo "   1. Edita este script (líneas 18-22) y cambia ODOO_API_KEY y ODOO_HMAC_SECRET"
 echo "   2. O edita directamente: sudo nano $SERVICE_FILE"
-echo "   3. Reinicia el servicio: sudo systemctl restart membresia-relatic.service"
+echo "   3. Reinicia el servicio: sudo systemctl restart nodeone.service"
 echo ""
 echo "📝 Para verificar la configuración:"
-echo "   sudo systemctl show membresia-relatic.service | grep ODOO"
+echo "   sudo systemctl show nodeone.service | grep ODOO"
 echo ""

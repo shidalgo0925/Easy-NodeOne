@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Planes de membresía{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid px-0">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h1 class="h5 mb-2">
+                    <i class="fas fa-crown"></i> Planes de membresía
+                </h1>
+                <button class="btn btn-sm btn-primary" onclick="openCreatePlan()" data-bs-toggle="modal" data-bs-target="#planModal"><i class="fas fa-plus"></i> Crear plan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Catálogo de planes</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">El <strong>slug</strong> es el identificador interno (basic, pro, premium…). Se usa en suscripciones, beneficios y servicios. <strong>Nivel</strong> define la jerarquía para herencia de servicios (0 = base).</p>
+            {% if plans %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Slug</th>
+                            <th>Nombre</th>
+                            <th>Precio año/mes</th>
+                            <th>Orden</th>
+                            <th>Nivel</th>
+                            <th>Badge</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in plans %}
+                        <tr>
+                            <td><code>{{ p.slug }}</code></td>
+                            <td><strong>{{ p.name }}</strong></td>
+                            <td>${{ "%.0f"|format(p.price_yearly) }}/año {% if p.price_monthly %}(${{ "%.0f"|format(p.price_monthly) }}/mes){% endif %}</td>
+                            <td>{{ p.display_order }}</td>
+                            <td>{{ p.level }}</td>
+                            <td><span class="badge {{ p.color or 'bg-secondary' }}">{{ p.badge or '—' }}</span></td>
+                            <td>{% if p.is_active %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</td>
+                            <td>
+                                <button class="btn btn-outline-primary btn-sm" onclick="editPlan({{ p.id }})" title="Editar"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deletePlan({{ p.id }}, '{{ p.slug|e }}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">No hay planes. Usa &quot;Crear plan&quot; o ejecuta el seed (reiniciar app) para cargar los por defecto.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear/Editar -->
+<div class="modal fade" id="planModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="planModalTitle">Crear plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="planForm">
+                    <input type="hidden" id="planId" name="plan_id">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="planSlug" class="form-label">Slug *</label>
+                            <input type="text" class="form-control" id="planSlug" name="slug" required maxlength="50" placeholder="ej: basic, pro">
+                            <small class="text-muted">Solo al crear. Minúsculas, sin espacios (ej: premium, corporativo).</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="planName" class="form-label">Nombre para mostrar *</label>
+                            <input type="text" class="form-control" id="planName" name="name" required maxlength="100" placeholder="Básico, Pro, Premium">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="planDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="planDescription" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="planPriceYearly" class="form-label">Precio anual (USD)</label>
+                            <input type="number" class="form-control" id="planPriceYearly" name="price_yearly" step="0.01" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="planPriceMonthly" class="form-label">Precio mensual (USD)</label>
+                            <input type="number" class="form-control" id="planPriceMonthly" name="price_monthly" step="0.01" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="planDisplayOrder" class="form-label">Orden</label>
+                            <input type="number" class="form-control" id="planDisplayOrder" name="display_order" value="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="planLevel" class="form-label">Nivel (jerarquía)</label>
+                            <input type="number" class="form-control" id="planLevel" name="level" value="0">
+                            <small class="text-muted">0 = base; mayor = nivel superior (herencia servicios).</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="planColor" class="form-label">Color (clase Bootstrap)</label>
+                            <select class="form-select" id="planColor" name="color">
+                                <option value="bg-secondary">bg-secondary</option>
+                                <option value="bg-success">bg-success</option>
+                                <option value="bg-info">bg-info</option>
+                                <option value="bg-primary">bg-primary</option>
+                                <option value="bg-warning text-dark">bg-warning</option>
+                                <option value="bg-dark text-white">bg-dark</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="planBadge" class="form-label">Badge / etiqueta</label>
+                        <input type="text" class="form-control" id="planBadge" name="badge" maxlength="100" placeholder="Ej: Plan recomendado">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="planIsActive" name="is_active" checked>
+                            <label class="form-check-label" for="planIsActive">Activo (visible en la app)</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="savePlan()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCreatePlan() {
+    document.getElementById('planModalTitle').textContent = 'Crear plan';
+    document.getElementById('planId').value = '';
+    document.getElementById('planForm').reset();
+    document.getElementById('planSlug').readOnly = false;
+    document.getElementById('planIsActive').checked = true;
+}
+
+function editPlan(id) {
+    fetch('/api/admin/plans/' + id)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                var p = data.plan;
+                document.getElementById('planModalTitle').textContent = 'Editar plan';
+                document.getElementById('planId').value = p.id;
+                document.getElementById('planSlug').value = p.slug;
+                document.getElementById('planSlug').readOnly = true;
+                document.getElementById('planName').value = p.name || '';
+                document.getElementById('planDescription').value = p.description || '';
+                document.getElementById('planPriceYearly').value = p.price_yearly ?? 0;
+                document.getElementById('planPriceMonthly').value = p.price_monthly ?? 0;
+                document.getElementById('planDisplayOrder').value = p.display_order ?? 0;
+                document.getElementById('planLevel').value = p.level ?? 0;
+                document.getElementById('planBadge').value = p.badge || '';
+                document.getElementById('planColor').value = p.color || 'bg-secondary';
+                document.getElementById('planIsActive').checked = p.is_active !== false;
+                new bootstrap.Modal(document.getElementById('planModal')).show();
+            } else {
+                alert('Error al cargar el plan');
+            }
+        })
+        .catch(function() { alert('Error al cargar el plan'); });
+}
+
+function savePlan() {
+    var id = document.getElementById('planId').value;
+    var slug = document.getElementById('planSlug').value.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!slug) {
+        alert('El slug es obligatorio');
+        return;
+    }
+    var payload = {
+        slug: slug,
+        name: document.getElementById('planName').value.trim(),
+        description: document.getElementById('planDescription').value.trim() || null,
+        price_yearly: parseFloat(document.getElementById('planPriceYearly').value) || 0,
+        price_monthly: parseFloat(document.getElementById('planPriceMonthly').value) || 0,
+        display_order: parseInt(document.getElementById('planDisplayOrder').value) || 0,
+        level: parseInt(document.getElementById('planLevel').value) || 0,
+        badge: document.getElementById('planBadge').value.trim() || null,
+        color: document.getElementById('planColor').value || 'bg-secondary',
+        is_active: document.getElementById('planIsActive').checked
+    };
+    var url = id ? '/api/admin/plans/update/' + id : '/api/admin/plans/create';
+    var method = id ? 'PUT' : 'POST';
+    if (id) delete payload.slug;
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Guardado');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo guardar'));
+        }
+    })
+    .catch(function() { alert('Error al guardar'); });
+}
+
+function deletePlan(id, slug) {
+    if (!confirm('¿Eliminar el plan "' + slug + '"? Si hay suscripciones o beneficios con este plan, pueden quedar huérfanos.')) return;
+    fetch('/api/admin/plans/delete/' + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || 'Eliminado');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo eliminar'));
+            }
+        })
+        .catch(function() { alert('Error al eliminar'); });
+}
+
+document.getElementById('planModal').addEventListener('show.bs.modal', function() {
+    if (!document.getElementById('planId').value) openCreatePlan();
+});
+</script>
+{% endblock %}

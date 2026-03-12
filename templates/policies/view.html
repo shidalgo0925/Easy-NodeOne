@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ policy.title }}{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('policies.index') }}">Normativas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ policy.title }}</li>
+        </ol>
+    </nav>
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-2">{{ policy.title }}</h1>
+                    <p class="text-muted small mb-4">Versión {{ policy.version }}</p>
+                    <div class="policy-content">
+                        {% if policy.content %}
+                        {{ policy.content | safe }}
+                        {% else %}
+                        <p class="text-muted">Sin contenido.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

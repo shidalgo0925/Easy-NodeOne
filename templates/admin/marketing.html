@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Email Marketing - RelaticPanama{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3">
+    <!-- Barra superior: título + KPIs en una sola línea -->
+    <div class="d-flex flex-wrap align-items-center gap-3 gap-md-4 mb-3 py-2 px-2 rounded bg-light border-bottom">
+        <div class="d-flex align-items-baseline flex-shrink-0">
+            <h1 class="h5 mb-0 me-2"><i class="fas fa-bullhorn"></i> Email Marketing</h1>
+            <span class="text-muted small d-none d-md-inline">Resumen, configuración y envío</span>
+        </div>
+        <div class="d-flex flex-grow-1 flex-wrap justify-content-start justify-content-md-end gap-2 gap-md-3">
+            <div class="d-flex align-items-center gap-1 px-2 py-1 rounded bg-white border">
+                <span class="text-muted small">Suscritos</span>
+                <strong class="ms-1">{{ stats.subscribed_count }}</strong>
+            </div>
+            <div class="d-flex align-items-center gap-1 px-2 py-1 rounded bg-white border">
+                <span class="text-muted small">Enviados</span>
+                <strong class="ms-1">{{ stats.emails_sent }}</strong>
+            </div>
+            <div class="d-flex align-items-center gap-1 px-2 py-1 rounded bg-white border">
+                <span class="text-muted small">Apertura</span>
+                <strong class="ms-1">{{ "%.1f"|format(stats.open_rate) }}%</strong>
+            </div>
+            <div class="d-flex align-items-center gap-1 px-2 py-1 rounded bg-white border">
+                <span class="text-muted small">Clics</span>
+                <strong class="ms-1">{{ "%.1f"|format(stats.click_rate) }}%</strong>
+            </div>
+            <div class="d-flex align-items-center gap-1 px-2 py-1 rounded bg-white border">
+                <span class="text-muted small">Bajas</span>
+                <strong class="ms-1">{{ stats.unsubscribe_count }}</strong>
+            </div>
+            <div class="d-flex align-items-center gap-1 px-2 py-1 rounded bg-white border">
+                <span class="text-muted small">Segmentos</span>
+                <strong class="ms-1">{{ stats.segments_count }}</strong>
+            </div>
+            <a href="{{ url_for('admin_marketing_email_settings') }}" class="btn btn-sm btn-outline-secondary">Config. correo</a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">{{ msg }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 2. Configuración: Segmentos y Plantillas (primero) -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <strong><i class="fas fa-users"></i> 1. Segmentos</strong>
+                    <span class="badge bg-secondary">A quién enviar</span>
+                </div>
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <span></span>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{{ url_for('admin_marketing_segments_create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Crear segmento</a>
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#form-segment">Rápido (sin filtros)</button>
+                    </div>
+                </div>
+                <div class="card-body py-2 collapse" id="form-segment">
+                    <form action="{{ url_for('admin_marketing_create_segment') }}" method="post" class="row g-2">
+                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                        <div class="col"><input type="text" name="name" class="form-control form-control-sm" placeholder="Nombre (ej. Todos suscritos)" required></div>
+                        <div class="col-auto"><button type="submit" class="btn btn-sm btn-success">Crear</button></div>
+                    </form>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for s in segments %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>{{ s.name }}</span>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('admin_marketing_segment_edit', segment_id=s.id) }}" class="btn btn-outline-primary">Editar</a>
+                                <form action="{{ url_for('admin_marketing_segment_delete', segment_id=s.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este segmento?');">
+                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                    <button type="submit" class="btn btn-outline-danger">Eliminar</button>
+                                </form>
+                            </div>
+                        </li>
+                    {% else %}
+                        <li class="list-group-item text-muted py-2">Crea un segmento para elegir destinatarios.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <strong><i class="fas fa-file-alt"></i> 2. Plantillas</strong>
+                    <span class="badge bg-secondary">Contenido del correo</span>
+                </div>
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <span></span>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{{ url_for('admin_marketing_templates_create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Crear plantilla</a>
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#form-template">Rápido (sin modelo)</button>
+                    </div>
+                </div>
+                <div class="card-body py-2 collapse" id="form-template">
+                    <form action="{{ url_for('admin_marketing_create_template') }}" method="post">
+                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                        <input type="text" name="name" class="form-control form-control-sm mb-2" placeholder="Nombre (ej. Newsletter básica)" required>
+                        <textarea name="html" class="form-control form-control-sm mb-2" rows="3" placeholder="HTML. Variables: {{ nombre }}, {{ email }}, {{ unsubscribe_url }}"></textarea>
+                        <button type="submit" class="btn btn-sm btn-success">Crear plantilla</button>
+                    </form>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for t in templates %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>{{ t.name }}</span>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('admin_marketing_template_edit', template_id=t.id) }}" class="btn btn-outline-primary">Editar</a>
+                                <form action="{{ url_for('admin_marketing_template_delete', template_id=t.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Eliminar esta plantilla?');">
+                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                    <button type="submit" class="btn btn-outline-danger">Eliminar</button>
+                                </form>
+                            </div>
+                        </li>
+                    {% else %}
+                        <li class="list-group-item text-muted py-2">Crea una plantilla para el contenido del email.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Crear y enviar campaña -->
+    <div class="card shadow-sm mb-4 border-primary">
+        <div class="card-header bg-primary text-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <strong><i class="fas fa-paper-plane"></i> 3. Crear y enviar campaña</strong>
+            <a href="{{ url_for('admin_marketing_campaign_new') }}" class="btn btn-light btn-sm">Editor visual (diseño completo)</a>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('admin_marketing_send') }}" method="post" class="row g-3">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="col-md-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" name="name" class="form-control" required placeholder="Ej. Newsletter marzo">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Asunto del email</label>
+                    <input type="text" name="subject" class="form-control" required placeholder="Asunto">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Segmento</label>
+                    <select name="segment_id" class="form-select" required>
+                        <option value="">Elegir…</option>
+                        {% for s in segments %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Plantilla</label>
+                    <select name="template_id" class="form-select" required>
+                        <option value="">Elegir…</option>
+                        {% for t in templates %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success w-100"><i class="fas fa-paper-plane"></i> Enviar</button>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">URL de reunión / Meet <span class="text-muted">(opcional)</span></label>
+                    <input type="url" name="meeting_url" class="form-control" placeholder="Ej. https://meet.google.com/zac-wmmg-hgb" value="">
+                    <p class="small text-muted mb-0">Enlace al que irán la imagen y el botón de la plantilla (variable <code>{{ "{{ reunion_url }}" }}</code>). Si no lo pones, se usará el enlace por defecto de la capacitación.</p>
+                </div>
+            </form>
+            <p class="text-muted small mb-0 mt-2">Primero configura segmentos y plantillas arriba si no aparecen en la lista.</p>
+        </div>
+    </div>
+
+    <!-- 4. Historial de campañas -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <strong><i class="fas fa-list"></i> 4. Campañas enviadas</strong>
+            <a href="{{ url_for('admin_marketing_process_scheduled') }}" class="btn btn-sm btn-outline-secondary">Procesar programadas</a>
+            <a href="{{ url_for('admin_marketing_process_queue') }}" class="btn btn-sm btn-outline-primary">Procesar cola</a>
+            <a href="{{ url_for('admin_marketing_queue') }}" class="btn btn-sm btn-outline-secondary">Ver cola</a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Asunto</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                            <th>Enviados</th>
+                            <th>Apertura %</th>
+                            <th>Clics %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in campaigns %}
+                            <tr>
+                                <td>
+                                    {{ c.name }}
+                                    {% if c.status in ('draft', 'scheduled') %}
+                                    <a href="{{ url_for('admin_marketing_campaign_edit', campaign_id=c.id) }}" class="btn btn-sm btn-outline-primary ms-1">Editar</a>
+                                    {% endif %}
+                                </td>
+                                <td>{{ c.subject }}</td>
+                                <td><span class="badge bg-{{ 'warning' if c.status == 'draft' else 'info' if c.status == 'scheduled' else 'secondary' }}">{{ c.status }}</span></td>
+                                <td>{{ c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else '-' }}</td>
+                                <td>{{ c.sent }} / {{ c.total }}{% if c.subject_b %} <span class="badge bg-info" title="A/B">A/B</span>{% endif %}</td>
+                                <td>{{ "%.1f"|format(c.open_rate) }}%{% if c.subject_b and c.sent_a is defined %}<br><small class="text-muted">A: {{ "%.1f"|format(c.open_rate_a) }}% | B: {{ "%.1f"|format(c.open_rate_b) }}%</small>{% endif %}</td>
+                                <td>{{ "%.1f"|format(c.click_rate) }}%{% if c.subject_b and c.sent_a is defined %}<br><small class="text-muted">A: {{ "%.1f"|format(c.click_rate_a) }}% | B: {{ "%.1f"|format(c.click_rate_b) }}%</small>{% endif %}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="7" class="text-muted">No hay campañas.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

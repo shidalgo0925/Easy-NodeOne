@@ -1,0 +1,59 @@
+NodeOne — Funcionalidades activas por módulo (Prioridad 1 - Congelado)
+
+Auth
+  - Registro, login, logout
+  - Verificación email, resend
+  - Forgot/reset password
+  - OAuth (provider callback)
+  - Rutas: /register, /login, /logout, /verify-email, /resend-verification, /forgot-password, /reset-password, /auth/<provider>, /auth/<provider>/callback
+
+Members (usuarios y membresías)
+  - Dashboard, perfil, upload/remove photo
+  - Membership, benefits
+  - User status, onboarding
+  - Admin: users CRUD, roles, permissions, roles por user
+  - Rutas: /dashboard, /profile, /membership, /benefits, /api/user/*, /admin/users, /admin/roles, /admin/permissions
+
+Services
+  - Servicios públicos, request-appointment
+  - Admin: services CRUD, service-categories, appointment-types
+  - Calendario por servicio/advisor
+  - Rutas: /services, /services/<id>/request-appointment, /api/services/<id>/calendar, /admin/services, /admin/service-categories, /api/admin/services/*, /api/admin/appointment-types
+
+Payments
+  - Cart, checkout, discount codes
+  - Stripe (payment intent, webhook), PayPal return/cancel
+  - Payment success/cancel
+  - Admin: payments config, review/approve/reject
+  - Discount codes admin, membership-discounts, master-discount
+  - Rutas: /cart, /checkout, /create-payment-intent*, /payment*, /stripe-webhook, /api/cart/*, /api/admin/payments/*, /admin/discount-codes, /admin/membership-discounts, /admin/master-discount
+
+Communications
+  - Notificaciones (user + admin)
+  - Email config, test, templates, logo
+  - Messaging admin
+  - Rutas: /notifications, /api/notifications*, /admin/notifications, /admin/email, /api/admin/email/*, /admin/messaging*
+
+Integrations
+  - Office365 request, admin requests
+  - Stripe webhook, PayPal
+  - Rutas: /office365, /api/office365/request, /admin/office365/*
+
+Events (blueprint)
+  - Listado, slug, register, cancel-registration
+  - Admin: CRUD eventos, registrations, discounts
+  - API: GET list, GET slug
+  - Archivo: event_routes.py
+
+Appointments (blueprint)
+  - My requests, book, request, confirm, reject, proposals
+  - Advisor dashboard, slots, queue
+  - Admin: types, slots, advisors, availability, calendar
+  - API: slots, admin/availability
+  - Archivos: appointment_routes.py, api_advisor_slots.py
+
+Otros
+  - History (user + admin), export
+  - Backup admin
+  - Media config
+  - Foros, grupos, settings, help

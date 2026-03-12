@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}{% if campaign %}Editar campaña{% else %}Nueva campaña{% endif %} - Marketing{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1 class="h5 d-inline ms-2">{% if campaign %}Editar: {{ campaign.name }}{% else %}Nueva campaña{% endif %}</h1>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button type="submit" form="form-campaign" name="action" value="save" class="btn btn-outline-primary"><i class="fas fa-save"></i> Guardar borrador</button>
+            {% if campaign and campaign.status in ('draft', 'scheduled') %}
+            <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#modal-programar"><i class="fas fa-clock"></i> Programar</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modal-prueba"><i class="fas fa-vial"></i> Prueba</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modal-save-template"><i class="fas fa-plus-square"></i> Agregar a plantillas</button>
+            <form action="{{ url_for('admin_marketing_campaign_send', campaign_id=campaign.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Enviar esta campaña ahora?');">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+            {% elif not campaign %}
+            <span class="text-muted small">Guarda el borrador para poder enviar.</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show">{{ msg }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form id="form-campaign" action="{{ url_for('admin_marketing_campaign_save') }}" method="post">
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        {% if campaign %}<input type="hidden" name="campaign_id" value="{{ campaign.id }}">{% endif %}
+        <input type="hidden" name="template_id" id="template_id" value="{{ (campaign and campaign.template_id) or (default_template and default_template.id) or '' }}">
+        <input type="hidden" name="scheduled_at" id="scheduled_at" value="">
+        <textarea name="body_html" id="body_html" class="d-none">{{ (campaign and campaign.body_html) or (default_template and default_template.html) or '' }}</textarea>
+
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <label class="form-label">Nombre de la campaña</label>
+                <input type="text" name="name" class="form-control" required placeholder="Ej. Newsletter marzo" value="{{ campaign.name if campaign else '' }}">
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Segmento</label>
+                <select name="segment_id" id="segment_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for s in segments %}
+                        <option value="{{ s.id }}" {% if campaign and campaign.segment_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="small text-muted mb-0 mt-1">→ <strong id="recipient-count">-</strong> registro(s)</p>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Plantilla</label>
+                <select name="template_id" id="template_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for t in templates %}
+                        <option value="{{ t.id }}" {% if (campaign and campaign.template_id == t.id) or (default_template and default_template.id == t.id) %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Asunto del correo</label>
+                <input type="text" name="subject" class="form-control" required placeholder="Asunto del email" value="{{ campaign.subject if campaign else '' }}">
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Lista de exclusión</label>
+                <textarea name="exclusion_emails" id="exclusion_emails" class="form-control form-control-sm" rows="2" placeholder="Emails a excluir (uno por línea o separados por coma)">{{ (campaign and campaign.exclusion_emails) or '' }}</textarea>
+            </div>
+            {% if campaign and campaign.scheduled_at %}
+            <div class="col-md-6">
+                <label class="form-label">Programado para</label>
+                <p class="form-control-plaintext small">{{ campaign.scheduled_at.strftime('%d/%m/%Y %H:%M') }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <ul class="nav nav-tabs mb-2">
+            <li class="nav-item"><a class="nav-link active" href="#cuerpo" data-bs-toggle="tab">Cuerpo del correo</a></li>
+            <li class="nav-item"><a class="nav-link" href="#ajustes" data-bs-toggle="tab">Ajustes</a></li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane active" id="cuerpo">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <p class="text-muted small">Elige una plantilla como base o añade bloques.</p>
+                        <div class="mb-3">
+                            <label class="form-label">Plantillas</label>
+                            <div class="d-flex gap-2 overflow-auto pb-2" style="min-height: 100px;">
+                                {% for t in templates %}
+                                <div class="card border template-card" style="min-width: 140px; cursor: pointer;" data-template-id="{{ t.id }}" title="{{ t.name }}">
+                                    <div class="card-body p-2 text-center">
+                                        <i class="fas fa-file-alt fa-2x text-muted"></i>
+                                        <div class="small text-truncate mt-1">{{ t.name }}</div>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <p class="text-muted small">No hay plantillas. Crea una en el panel Marketing.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <label class="form-label">Vista previa</label>
+                        <div class="border rounded bg-white" style="min-height: 320px;">
+                            <iframe id="preview-frame" title="Vista previa" style="width:100%; height: 420px; border: 0;"></iframe>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header py-2"><strong><i class="fas fa-th-large"></i> BLOQUES</strong></div>
+                            <div class="card-body p-2">
+                                <p class="small text-muted mb-2">Haz clic para añadir al final del contenido.</p>
+                                <div class="d-grid gap-2" id="blocks-list">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary text-start btn-block-add" data-html='<div style="padding:16px;text-align:center;background:#f0f0f0;"><h2 style="margin:0;font-size:20px;">Encabezado / Logo</h2></div>'><i class="fas fa-heading"></i> Encabezado</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary text-start btn-block-add" data-html='<div style="padding:12px 16px;"><h1 style="margin:0;font-size:24px;">Título</h1></div>'><i class="fas fa-heading"></i> Título</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary text-start btn-block-add" data-html='<div style="padding:12px 16px;"><p style="margin:0 0 12px;">Párrafo de texto. Usa {{ nombre }}, {{ email }}, {{ unsubscribe_url }}.</p></div>'><i class="fas fa-align-left"></i> Texto</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary text-start btn-block-add" data-html='<div style="padding:16px;text-align:center;"><img src="https://via.placeholder.com/600x200" alt="Imagen" style="max-width:100%;height:auto;" /></div>'><i class="fas fa-image"></i> Imagen</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary text-start btn-block-add" data-html='<div style="padding:16px;text-align:center;"><a href="#" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Botón</a></div>'><i class="fas fa-mouse-pointer"></i> Botón</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary text-start btn-block-add" data-html='<hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />'><i class="fas fa-minus"></i> Separador</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary text-start btn-block-add" data-html='<table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;"><tr><td width="50%" style="padding:8px;vertical-align:top;">Columna 1</td><td width="50%" style="padding:8px;vertical-align:top;">Columna 2</td></tr></table>'><i class="fas fa-columns"></i> Dos columnas</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card mt-2">
+                            <div class="card-header py-2"><strong><i class="fas fa-user-edit"></i> PERSONALIZAR</strong></div>
+                            <div class="card-body p-2">
+                                <p class="small text-muted mb-1">Variables para el contenido (copia en el texto):</p>
+                                <ul class="small mb-0 list-unstyled">
+                                    <li><code>{{ "{{ nombre }}" }}</code> — Nombre del destinatario</li>
+                                    <li><code>{{ "{{ email }}" }}</code> — Email</li>
+                                    <li><code>{{ "{{ empresa }}" }}</code> — Empresa / grupo</li>
+                                    <li><code>{{ "{{ unsubscribe_url }}" }}</code> — Enlace darse de baja</li>
+                                    <li><code>{{ "{{ reunion_url }}" }}</code> — URL de reunión (configurable en Ajustes)</li>
+                                    <li><code>{{ "{{ base_url }}" }}</code> — URL del sitio (para imágenes)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane" id="ajustes">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label">Remitente (from name)</label>
+                        <input type="text" name="from_name" class="form-control" placeholder="Ej. Relatic Panamá o Nombre &lt;email@dominio.com&gt;" value="{{ (campaign and campaign.from_name) or '' }}">
+                        <p class="small text-muted">Opcional. Si está vacío se usa el configurado en SMTP.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Responder a (reply-to)</label>
+                        <input type="email" name="reply_to" class="form-control" placeholder="respuestas@dominio.com" value="{{ (campaign and campaign.reply_to) or '' }}">
+                    </div>
+                </div>
+                <hr>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">URL de reunión / Meet</label>
+                        <input type="url" name="meeting_url" class="form-control" placeholder="Ej. https://meet.google.com/xxx-xxxx-xxx" value="{{ (campaign and campaign.meeting_url) or '' }}">
+                        <p class="small text-muted mb-0">Opcional. Usa en la plantilla <code>{{ "{{ reunion_url }}" }}</code> en un enlace o botón para que el destinatario abra la videollamada.</p>
+                    </div>
+                </div>
+                <hr>
+                <h6 class="text-muted"><i class="fas fa-chart-line"></i> Prueba A/B (asunto)</h6>
+                <p class="small text-muted">Si rellenas "Asunto variante B", al enviar la mitad de destinatarios recibirán el asunto principal y la otra mitad el B. Luego podrás ver aperturas y clics por variante en el listado.</p>
+                <div class="row">
+                    <div class="col-md-12">
+                        <label class="form-label">Asunto variante B</label>
+                        <input type="text" name="subject_b" class="form-control" placeholder="Opcional: asunto alternativo para prueba A/B" value="{{ (campaign and campaign.subject_b) or '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Modal Programar -->
+    <div class="modal fade" id="modal-programar" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-clock"></i> Programar envío</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Guarda la campaña con fecha y hora. Un proceso (cron) enviará la campaña a esa hora.</p>
+                    <label class="form-label">Fecha y hora</label>
+                    <input type="datetime-local" id="scheduled_at_input" class="form-control" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-guardar-programar"><i class="fas fa-save"></i> Guardar y programar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Agregar a plantillas -->
+    {% if campaign %}
+    <div class="modal fade" id="modal-save-template" tabindex="-1">
+        <div class="modal-dialog">
+            <form action="{{ url_for('admin_marketing_save_as_template', campaign_id=campaign.id) }}" method="post">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-plus-square"></i> Agregar a plantillas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small">Se guardará el contenido actual del correo como nueva plantilla reutilizable.</p>
+                        <label class="form-label">Nombre de la plantilla</label>
+                        <input type="text" name="template_name" class="form-control" placeholder="Ej. Newsletter marzo 2025" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar plantilla</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal Prueba -->
+    {% if campaign %}
+    <div class="modal fade" id="modal-prueba" tabindex="-1">
+        <div class="modal-dialog">
+            <form action="{{ url_for('admin_marketing_campaign_test', campaign_id=campaign.id) }}" method="post">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-vial"></i> Envío de prueba</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small">Se enviará un correo con el contenido actual a la dirección que indiques.</p>
+                        <label class="form-label">Email</label>
+                        <input type="email" name="test_email" class="form-control" placeholder="ejemplo@correo.com" required value="{{ current_user.email if current_user else '' }}">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Enviar prueba</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    var bodyEl = document.getElementById('body_html');
+    var templateIdEl = document.getElementById('template_id');
+    var previewFrame = document.getElementById('preview-frame');
+    var baseUrl = '{{ request.url_root.rstrip("/") }}';
+
+    function updatePreview() {
+        var html = bodyEl.value;
+        if (!html) html = '<p class="text-muted p-3">Sin contenido. Elige una plantilla o añade bloques.</p>';
+        var doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+        doc.open();
+        doc.write('<meta charset="utf-8"><style>body{font-family:sans-serif;margin:0;padding:8px;}</style>' + html);
+        doc.close();
+    }
+
+    function loadTemplateById(id) {
+        if (!id) return;
+        fetch(baseUrl + '/marketing/template/' + id)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success && data.html) {
+                    bodyEl.value = data.html;
+                    templateIdEl.value = data.id;
+                    updatePreview();
+                    document.querySelectorAll('.template-card').forEach(function(c) {
+                        c.classList.toggle('border-primary', c.getAttribute('data-template-id') === String(data.id));
+                    });
+                }
+            });
+    }
+    templateIdEl.addEventListener('change', function() { loadTemplateById(this.value); });
+    document.querySelectorAll('.template-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+            var id = this.getAttribute('data-template-id');
+            templateIdEl.value = id;
+            loadTemplateById(id);
+        });
+    });
+
+    document.querySelectorAll('.btn-block-add').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var html = this.getAttribute('data-html') || '';
+            bodyEl.value = bodyEl.value + html;
+            updatePreview();
+        });
+    });
+
+    function updateRecipientCount() {
+        var segEl = document.getElementById('segment_id');
+        var excEl = document.getElementById('exclusion_emails');
+        var countEl = document.getElementById('recipient-count');
+        if (!segEl || !countEl) return;
+        var segId = segEl.value;
+        if (!segId) { countEl.textContent = '-'; return; }
+        var exclusion = (excEl && excEl.value) ? excEl.value.trim().replace(/\s+/g, ',').replace(/,+/g, ',') : '';
+        var url = baseUrl + '/marketing/segment/' + segId + '/count';
+        if (exclusion) url += '?exclusion=' + encodeURIComponent(exclusion);
+        fetch(url, { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) { if (data.success) countEl.textContent = data.count; })
+            .catch(function() { countEl.textContent = '?'; });
+    }
+    var segEl = document.getElementById('segment_id');
+    var excEl = document.getElementById('exclusion_emails');
+    if (segEl) segEl.addEventListener('change', updateRecipientCount);
+    if (excEl) excEl.addEventListener('input', updateRecipientCount);
+    updateRecipientCount();
+
+    var formCampaign = document.getElementById('form-campaign');
+    var btnGuardarProgramar = document.getElementById('btn-guardar-programar');
+    if (btnGuardarProgramar) {
+        btnGuardarProgramar.addEventListener('click', function() {
+            var dt = document.getElementById('scheduled_at_input');
+            if (!dt || !dt.value) { alert('Elige fecha y hora'); return; }
+            document.getElementById('scheduled_at').value = dt.value;
+            var actionInput = formCampaign.querySelector('input[name="action"]');
+            if (!actionInput) { actionInput = document.createElement('input'); actionInput.type = 'hidden'; actionInput.name = 'action'; formCampaign.appendChild(actionInput); }
+            actionInput.value = 'schedule';
+            formCampaign.submit();
+        });
+    }
+
+    if (bodyEl.value) updatePreview();
+    else if (document.getElementById('template_id').value) {
+        var tid = document.getElementById('template_id').value;
+        if (tid) {
+            fetch(baseUrl + '/marketing/template/' + tid)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success && data.html) {
+                        bodyEl.value = data.html;
+                        updatePreview();
+                        var card = document.querySelector('.template-card[data-template-id="' + data.id + '"]');
+                        if (card) card.classList.add('border-primary');
+                    }
+                });
+        } else { updatePreview(); }
+    } else { updatePreview(); }
+
+})();
+</script>
+{% endblock %}

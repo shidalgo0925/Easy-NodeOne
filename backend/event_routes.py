@@ -334,6 +334,14 @@ def register_to_event(slug):
         )
         
         db.session.commit()
+
+        # Automatización marketing: event_registered
+        try:
+            from _app.modules.marketing.service import trigger_automation
+            base_url = request.host_url.rstrip('/') if request else None
+            trigger_automation('event_registered', current_user.id, base_url=base_url, event_id=event.id)
+        except Exception:
+            pass
         
         # Notificar al responsable del evento
         if NotificationEngine:
@@ -360,7 +368,7 @@ def register_to_event(slug):
         
         if existing_cart_item:
             flash('Este evento ya está en tu carrito de compras.', 'info')
-            return redirect(url_for('cart'))
+            return redirect(url_for('payments.cart'))
         
         # Agregar evento al carrito
         metadata = {
@@ -394,7 +402,7 @@ def register_to_event(slug):
         )
         
         flash('Evento agregado al carrito. Completa el pago para confirmar tu registro.', 'success')
-        return redirect(url_for('cart'))
+        return redirect(url_for('payments.cart'))
 
 
 @events_bp.route('/<string:slug>/cancel-registration', methods=['POST'])

@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Servicios - RelaticPanama{% endblock %}
+{% block title %}Servicios - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12 text-center">
             <h1 class="display-6 mb-3">
-                <i class="fas fa-th-large"></i> Catálogo de Servicios RELATIC
+                <i class="fas fa-th-large"></i> Catálogo de Servicios
             </h1>
             <p class="lead text-muted">Cada plan desbloquea herramientas especializadas para impulsar tus investigaciones.</p>
         </div>
     </div>
 
-    <!-- Buscador y Filtros -->
+    {# Buscador y Filtros: solo si hay servicios en BD #}
+    {% if services_by_plan and plans_info %}
     <div class="row mb-4">
         <div class="col-md-8 mx-auto">
             <div class="card border-0 shadow-sm">
@@ -55,8 +56,9 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
-    {# Usar datos de BD si están disponibles, sino usar datos hardcodeados como fallback #}
+    {# Contenido: desde BD o estado vacío #}
     {% if services_by_plan and plans_info %}
         {# Datos desde BD #}
         {% set plan_types = ['basic', 'pro', 'premium', 'deluxe', 'corporativo'] %}
@@ -109,7 +111,7 @@
                                 </a>
                                 <small class="d-block text-muted small mb-2">Propones fecha; asesor confirma → luego propuesta y pago</small>
                                 {% else %}
-                                <a href="{{ url_for('service_request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary w-100 mb-2">
+                                <a href="{{ url_for('services.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary w-100 mb-2">
                                     <i class="fas fa-calendar-check me-1"></i>Solicitar cita
                                 </a>
                                 <small class="d-block text-muted small mb-2">Elegir horario en calendario{% if service.pricing.final_price > 0 %} y pagar{% endif %}</small>
@@ -147,105 +149,21 @@
             {% endif %}
         {% endfor %}
     {% else %}
-        {# Fallback: Datos hardcodeados #}
-        {% set plans = [
-            {
-                'name': 'Sin costo / BÁSICO',
-                'price': '$0',
-                'badge': 'Incluido con la membresía gratuita',
-                'color': 'bg-success',
-                'services': [
-                    {'icon': 'fas fa-newspaper', 'title': 'Revistas', 'description': 'Acceso a material y boletines abiertos difundidos por RELATIC.', 'link': 'https://relaticpanama.org/_journals/'},
-                    {'icon': 'fas fa-image', 'title': 'Carteles', 'description': 'Exhibe carteles en los portales públicos de la red.', 'link': 'https://relaticpanama.org/_posters/'},
-                    {'icon': 'fas fa-book', 'title': 'Libros digitales', 'description': 'Consulta y comparte libros digitales alojados en RELATIC.', 'link': 'https://relaticpanama.org/_books/index.php/edrp/catalog'}
-                ]
-            },
-            {
-                'name': 'PRO',
-                'price': '$60/año',
-                'badge': 'Plan recomendado',
-                'color': 'bg-info',
-                'services': [
-                    {'icon': 'fas fa-graduation-cap', 'title': 'Aprendizaje continuo', 'description': 'Cursos y talleres con apoyo integral del equipo RELATIC.', 'link': 'https://relaticpanama.org/_classroom/'},
-                    {'icon': 'fas fa-shield-alt', 'title': 'Propiedad Intelectual', 'description': 'Guía para registro y protección de derechos de autor.', 'link': 'https://dev.relatic.org/detalles-propiedad-intelectual'},
-                    {'icon': 'fas fa-pen-fancy', 'title': 'Formateo rápido', 'description': 'Formateo gratuito para artículos y manuscritos.', 'link': 'https://dev.relatic.org/detalles-formateo-rapido'},
-                    {'icon': 'fas fa-envelope', 'title': 'Correo y suites colaborativas', 'description': 'Correo institucional, programas de apoyo y plataformas de comunicación.', 'link': None},
-                    {'icon': 'fas fa-users', 'title': 'Apoyo colaborativo', 'description': 'Feedback directo de colegas y expertos de la red.', 'link': None},
-                    {'icon': 'fas fa-bullhorn', 'title': 'Difusión inmediata', 'description': 'Publicación y difusión sin costo en portales científicos RELATIC.', 'link': None},
-                    {'icon': 'fas fa-tools', 'title': 'Herramientas adicionales', 'description': 'Alertas personalizadas, métricas de impacto y gestores bibliográficos.', 'link': None}
-                ]
-            },
-            {
-                'name': 'PREMIUM',
-                'price': '$120/año',
-                'badge': 'Más beneficios',
-                'color': 'bg-primary',
-                'services': [
-                    {'icon': 'fas fa-database', 'title': 'Bases suscritas', 'description': 'Acceso a bases y revistas de alto impacto no disponibles de forma gratuita.', 'link': None},
-                    {'icon': 'fas fa-ticket-alt', 'title': 'Eventos con descuento', 'description': 'Participa con tarifas preferenciales en congresos y seminarios.', 'link': None},
-                    {'icon': 'fas fa-file-signature', 'title': 'Publicación con descuento', 'description': 'Servicios con descuento para edición, revisión y difusión.', 'link': None},
-                    {'icon': 'fas fa-user-tie', 'title': 'Consultorías especializadas', 'description': 'Asesorías personalizadas para proyectos y convocatorias.', 'link': None},
-                    {'icon': 'fas fa-certificate', 'title': 'Certificaciones', 'description': 'Certificados oficiales con tarifas reducidas.', 'link': None},
-                    {'icon': 'fas fa-laptop-code', 'title': 'Plataformas avanzadas', 'description': 'Herramientas tecnológicas para análisis y visualización de datos.', 'link': None}
-                ]
-            },
-            {
-                'name': 'DE LUXE',
-                'price': '$200/año',
-                'badge': 'Experiencia completa',
-                'color': 'bg-warning text-dark',
-                'services': [
-                    {'icon': 'fas fa-hand-holding-usd', 'title': 'Financiamiento prioritario', 'description': 'Acceso exclusivo a becas, fondos y convocatorias globales.', 'link': None},
-                    {'icon': 'fas fa-medal', 'title': 'Visibilidad y prestigio', 'description': 'Promoción preferente en eventos internacionales y plataformas digitales.', 'link': None},
-                    {'icon': 'fas fa-network-wired', 'title': 'Networking internacional', 'description': 'Invitaciones VIP a conferencias y programas avanzados.', 'link': None},
-                    {'icon': 'fas fa-project-diagram', 'title': 'Colaboraciones estratégicas', 'description': 'Acceso facilitado a consorcios y proyectos multidisciplinarios.', 'link': None},
-                    {'icon': 'fas fa-users-cog', 'title': 'Comités científicos', 'description': 'Participa en grupos que definen agendas de investigación.', 'link': None},
-                    {'icon': 'fas fa-balance-scale', 'title': 'Gestión de PI y transferencia', 'description': 'Acompañamiento en propiedad intelectual, transferencia y divulgación.', 'link': None}
-                ]
-            }
-        ] %}
-
-        {% for plan in plans %}
-    <div class="plan-section mb-5" data-plan="{{ plan.name|lower|replace(' ', '')|replace('/', '') }}">
-        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3">
-            <div>
-                <h2 class="h4 mb-1">{{ plan.name }}</h2>
-                <small class="text-muted">{{ plan.badge }}</small>
-            </div>
-            <span class="badge {{ plan.color }} px-3 py-2 mt-3 mt-md-0">{{ plan.price }}</span>
-        </div>
-        <div class="row g-4">
-            {% for service in plan.services %}
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm service-detail-card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="service-icon-circle bg-blue me-3">
-                                <i class="{{ service.icon }}"></i>
-                            </div>
-                            <h6 class="mb-0 fw-bold">{{ service.title }}</h6>
-                        </div>
-                        <p class="text-muted mb-3 small">{{ service.description }}</p>
-                        <div class="d-flex gap-2 flex-wrap">
-                            {% if service.link %}
-                            <a href="{{ service.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
-                                Ver más <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            {% endif %}
-                            {# Botón de carrito eliminado - los servicios deben usar el flujo de "Solicitar Cita" #}
-                            {% if plan.name != 'GRATIS / BÁSICO' %}
-                            <small class="text-muted d-block mt-2">
-                                <i class="fas fa-info-circle me-1"></i>Usa "Solicitar Cita" para agregar al carrito
-                            </small>
-                            {% endif %}
-                        </div>
+        {# No hay servicios en la BD: mostrar estado vacío, sin datos inventados #}
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-th-large fa-3x text-muted mb-3"></i>
+                        <h5 class="mb-2">No hay servicios en el catálogo</h5>
+                        <p class="text-muted mb-4">Cuando se agreguen servicios a la base de datos, aparecerán aquí agrupados por plan.</p>
+                        {% if current_user.is_authenticated and current_user.is_admin %}
+                        <a href="{{ url_for('admin_services') }}" class="btn btn-primary"><i class="fas fa-cog me-2"></i>Gestionar servicios (Admin)</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
-    </div>
-        {% endfor %}
     {% endif %}
 </div>
 

@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #1E3A8A;
+  --secondary: #2563EB;
+  --cyan: #06B6D4;
+  --accent: #14B8A6;
+  --gray-dark: #0F172A;
+  --gray-mid: #334155;
+  --gray-light: #F1F5F9;
+  --gradient-official: linear-gradient(135deg, #2563EB 0%, #06B6D4 100%);
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply font-sans text-gray-mid antialiased; }
+  h1 { @apply font-bold text-gray-dark; }
+  h2 { @apply font-semibold text-gray-dark; }
+}

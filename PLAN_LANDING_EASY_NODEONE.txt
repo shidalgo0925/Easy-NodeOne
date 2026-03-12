@@ -1,0 +1,109 @@
+# PLAN LANDING EASY NODEONE – Especificación para desarrollo
+
+## 1. IDENTIDAD VISUAL (tokens)
+
+### Colores
+- Primario: #1E3A8A (botones principales, logo texto, encabezados)
+- Secundario: #2563EB (hover, enlaces, activos)
+- Gradiente oficial: linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)
+- Acento: #14B8A6 (indicadores, highlights)
+- Gris oscuro: #0F172A (sidebar, texto fuerte)
+- Gris medio: #334155 (texto secundario)
+- Gris claro: #F1F5F9 (fondos, tarjetas)
+
+### Tipografía
+- Familia: Inter o Poppins
+- H1: Bold | H2: SemiBold | Body: Regular | Buttons: Medium
+
+### Componentes
+- Botón primario: gradiente oficial, texto blanco, border-radius 12px, sombra suave
+- Botón secundario: borde azul, fondo blanco, hover azul claro
+- Cards: fondo blanco, border-radius 16px, sombra suave, padding amplio
+- Íconos: lineales, minimalistas (Lucide/Heroicons style)
+
+### Estilo general
+- Minimal SaaS, modular, limpio. NO recargado, infantil ni corporativo antiguo.
+
+---
+
+## 2. ESTRUCTURA DEL LANDING (secciones en orden)
+
+### HEADER (sticky)
+- Logo Easy NodeOne (izq)
+- Menú: Plataforma | Módulos | Planes | Seguridad | Contacto
+- CTA: "Solicitar Demo" (gradiente)
+- Fondo blanco, sombra ligera
+
+### HERO
+- 2 columnas.
+- Izq: H1 "Centraliza toda tu operación digital en un solo nodo." | Subtítulo "Easy NodeOne es la plataforma modular que gestiona miembros, servicios, pagos e integraciones desde un único ecosistema." | Botones "Solicitar Demo" (primario), "Ver Plataforma" (secundario)
+- Der: Mockup dashboard + elementos nodos conectados
+- Fondo blanco o gris claro, gradiente sutil
+
+### SECCIÓN PROBLEMA
+- Título: "Las organizaciones modernas enfrentan sistemas fragmentados."
+- 3 columnas con íconos: Gestión dispersa | Integraciones complejas | Procesos manuales
+- Cierre: "NodeOne unifica todo en una sola infraestructura modular."
+
+### SECCIÓN SOLUCIÓN
+- Título: "Una plataforma modular, escalable y segura."
+- Grid 6 módulos (ícono + descripción + "Ver más"):
+  - Core: Usuarios, roles, permisos
+  - Members: Gestión de miembros
+  - Services: Citas y servicios
+  - Payments: Stripe, PayPal, Yappy
+  - Communications: Correo y WhatsApp
+  - Integrations: APIs y Odoo
+
+### SECCIÓN CÓMO FUNCIONA
+- Título: "Cómo funciona Easy NodeOne"
+- 3 pasos: Configuración inicial | Activación de módulos | Escalabilidad por organización
+- Visual: línea conectando nodos
+
+### SECCIÓN MULTI-TENANT
+- Título: "Diseñado para escalar."
+- Puntos: Multi-organización, Marca blanca, API-first, Infraestructura cloud-ready
+- Diagrama: múltiples organizaciones → núcleo
+
+### SECCIÓN SEGURIDAD
+- Título: "Seguridad de nivel empresarial."
+- Puntos: Autenticación segura, Control de roles, Cifrado SSL, Registro de actividad, Arquitectura modular
+- Fondo oscuro (#0F172A o similar)
+
+### SECCIÓN PLANES
+- 3 columnas: Basic (Core + Members) | Professional (Services + Payments) | Enterprise (Communications + Integrations + Marca blanca)
+- Botón por plan: "Solicitar información"
+
+### CTA FINAL
+- Fondo gradiente oficial
+- Texto: "Construye tu infraestructura digital con Easy NodeOne."
+- Botón: Solicitar Demo
+
+### FOOTER
+- Producto: Plataforma, Módulos, Seguridad
+- Empresa: Easy Tech, Contacto
+- Legal: Términos, Privacidad
+- Redes sociales (iconos minimalistas)
+
+---
+
+## 3. TECNOLOGÍA Y REQUERIMIENTOS
+
+- Stack: Next.js o React + TailwindCSS; animaciones opcionales (Framer Motion)
+- Responsive: mobile first, tablet, desktop
+- Performance: Lighthouse 90+, lazy loading imágenes, WebP, compresión CSS/JS
+- SEO: title "Easy NodeOne | Plataforma Modular de Gestión Institucional" | meta description "Plataforma SaaS para gestión de miembros, servicios, pagos e integraciones en un solo ecosistema digital."
+- Dominios: easynodeone.com = landing | easynodeone.app = plataforma
+
+---
+
+## 4. CONVERSIÓN (formulario Demo)
+
+Campos: Nombre, Organización, Email, Teléfono, Tamaño organización, Mensaje.
+Destino: CRM o correo soporte.
+
+---
+
+## 5. REFERENCIA DE ESTILO
+
+Objetivo visual: SaaS profesional tipo Notion, Stripe, HubSpot, Odoo SaaS. Minimalista, moderno, estructurado.

@@ -1,0 +1,1 @@
+# Seguridad, auth helpers (futuro)

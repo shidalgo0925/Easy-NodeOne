@@ -13,7 +13,7 @@
                 <div class="d-flex gap-3 flex-wrap">
                     {% if not current_user.is_authenticated %}
                     <a href="{{ url_for('register') }}" class="btn btn-light btn-lg">Registrarse</a>
-                    <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg">Iniciar Sesión</a>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg">Iniciar Sesión</a>
                     {% endif %}
                     <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-lg">
                         <i class="fas fa-tachometer-alt"></i> Ir al Dashboard

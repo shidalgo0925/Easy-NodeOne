@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Normativas (Políticas){% endblock %}
+
+{% block page_content %}
+<div class="container-fluid px-0">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h1 class="h5 mb-2">
+                    <i class="fas fa-file-contract"></i> Normativas (Políticas institucionales)
+                </h1>
+                <button class="btn btn-sm btn-primary" onclick="openCreate()" data-bs-toggle="modal" data-bs-target="#policyModal"><i class="fas fa-plus"></i> Crear política</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-2">
+            <form method="GET" class="d-flex flex-wrap align-items-end gap-2">
+                <div class="flex-shrink-0">
+                    <label class="form-label form-label-sm mb-0">Estado</label>
+                    <select name="status" class="form-select form-select-sm" style="width:120px">
+                        <option value="all" {% if current_status == 'all' %}selected{% endif %}>Todos</option>
+                        <option value="active" {% if current_status == 'active' %}selected{% endif %}>Activos</option>
+                        <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactivos</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+                <a href="{{ url_for('admin_policies') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Políticas</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">Vista pública: <a href="{{ url_for('policies.index') }}" target="_blank">/normativas</a>. La política <code>politica-uso-correo-institucional</code> se exige al solicitar correo Office 365.</p>
+            {% if policies %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Slug</th>
+                            <th>Título</th>
+                            <th>Versión</th>
+                            <th>Estado</th>
+                            <th>Aceptaciones</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in policies %}
+                        <tr>
+                            <td><code>{{ p.slug }}</code></td>
+                            <td><strong>{{ p.title }}</strong></td>
+                            <td>{{ p.version }}</td>
+                            <td>{% if p.is_active %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</td>
+                            <td><button type="button" class="btn btn-sm btn-outline-info" onclick="showAcceptances({{ p.id }}, '{{ p.title|e }}')">{{ p.acceptances|length }}</button></td>
+                            <td>
+                                <a href="{{ url_for('policies.view', slug=p.slug) }}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Ver">Ver</a>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="editPolicy({{ p.id }})" title="Editar">Editar</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePolicy({{ p.id }}, '{{ p.slug|e }}')" title="Eliminar">Eliminar</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">No hay políticas con los filtros aplicados.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear/Editar -->
+<div class="modal fade" id="policyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="policyModalTitle">Crear política</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="policyForm">
+                    <input type="hidden" id="policyId" name="policy_id">
+                    <div class="mb-3">
+                        <label for="policyTitle" class="form-label">Título *</label>
+                        <input type="text" class="form-control" id="policyTitle" name="title" required maxlength="200">
+                    </div>
+                    <div class="mb-3" id="policySlugRow">
+                        <label for="policySlug" class="form-label">Slug *</label>
+                        <input type="text" class="form-control" id="policySlug" name="slug" maxlength="100" placeholder="ej: politica-uso-correo-institucional">
+                        <small class="text-muted">Solo al crear. Minúsculas, guiones. No editable después.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="policyVersion" class="form-label">Versión</label>
+                        <input type="text" class="form-control" id="policyVersion" name="version" maxlength="20" value="1.0">
+                    </div>
+                    <div class="mb-3">
+                        <label for="policyContent" class="form-label">Contenido (HTML)</label>
+                        <textarea class="form-control font-monospace small" id="policyContent" name="content" rows="12"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="policyIsActive" name="is_active" checked>
+                            <label class="form-check-label" for="policyIsActive">Activa (visible en /normativas)</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="savePolicy()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aceptaciones -->
+<div class="modal fade" id="acceptancesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Aceptaciones — <span id="acceptancesPolicyTitle"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="acceptancesList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCreate() {
+    document.getElementById('policyModalTitle').textContent = 'Crear política';
+    document.getElementById('policyId').value = '';
+    document.getElementById('policyForm').reset();
+    document.getElementById('policyVersion').value = '1.0';
+    document.getElementById('policySlug').readOnly = false;
+    document.getElementById('policySlugRow').style.display = 'block';
+    document.getElementById('policyIsActive').checked = true;
+}
+
+function editPolicy(id) {
+    fetch('/api/admin/policies/' + id)
+        .then(r => r.json())
+        .then(function(data) {
+            if (data.success) {
+                var p = data.policy;
+                document.getElementById('policyModalTitle').textContent = 'Editar política';
+                document.getElementById('policyId').value = p.id;
+                document.getElementById('policyTitle').value = p.title || '';
+                document.getElementById('policySlug').value = p.slug || '';
+                document.getElementById('policySlug').readOnly = true;
+                document.getElementById('policySlugRow').style.display = 'block';
+                document.getElementById('policyVersion').value = p.version || '1.0';
+                document.getElementById('policyContent').value = p.content || '';
+                document.getElementById('policyIsActive').checked = p.is_active !== false;
+                new bootstrap.Modal(document.getElementById('policyModal')).show();
+            } else alert('Error al cargar');
+        })
+        .catch(function() { alert('Error al cargar'); });
+}
+
+function savePolicy() {
+    var id = document.getElementById('policyId').value;
+    var title = document.getElementById('policyTitle').value.trim();
+    if (!title) { alert('Título obligatorio'); return; }
+    var payload = {
+        title: title,
+        slug: document.getElementById('policySlug').value.trim().toLowerCase().replace(/\s+/g, '-'),
+        version: document.getElementById('policyVersion').value.trim() || '1.0',
+        content: document.getElementById('policyContent').value.trim() || null,
+        is_active: document.getElementById('policyIsActive').checked
+    };
+    var url = id ? '/api/admin/policies/update/' + id : '/api/admin/policies/create';
+    var method = id ? 'PUT' : 'POST';
+    if (id) delete payload.slug;
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(function(data) {
+        if (data.success) { alert(data.message || 'Guardado'); window.location.reload(); }
+        else alert('Error: ' + (data.error || ''));
+    })
+    .catch(function() { alert('Error al guardar'); });
+}
+
+function deletePolicy(id, slug) {
+    if (!confirm('¿Eliminar la política "' + slug + '"? Se borrarán también los registros de aceptación.')) return;
+    fetch('/api/admin/policies/delete/' + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(function(data) {
+            if (data.success) { alert(data.message); window.location.reload(); }
+            else alert('Error: ' + (data.error || ''));
+        })
+        .catch(function() { alert('Error'); });
+}
+
+function showAcceptances(policyId, title) {
+    document.getElementById('acceptancesPolicyTitle').textContent = title;
+    document.getElementById('acceptancesList').innerHTML = '<p class="text-muted">Cargando...</p>';
+    new bootstrap.Modal(document.getElementById('acceptancesModal')).show();
+    fetch('/api/admin/policies/' + policyId + '/acceptances')
+        .then(r => r.json())
+        .then(function(data) {
+            var list = document.getElementById('acceptancesList');
+            if (!data.success || !data.acceptances || data.acceptances.length === 0) {
+                list.innerHTML = '<p class="text-muted mb-0">Ninguna aceptación registrada.</p>';
+                return;
+            }
+            var html = '<table class="table table-sm"><thead><tr><th>Usuario</th><th>Email</th><th>Fecha</th><th>Versión</th><th>IP</th></tr></thead><tbody>';
+            data.acceptances.forEach(function(a) {
+                html += '<tr><td>' + (a.user_name || '—') + '</td><td>' + (a.user_email || '—') + '</td><td>' + (a.accepted_at || '—') + '</td><td>' + (a.version || '—') + '</td><td>' + (a.ip_address || '—') + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            list.innerHTML = html;
+        })
+        .catch(function() {
+            document.getElementById('acceptancesList').innerHTML = '<p class="text-danger">Error al cargar.</p>';
+        });
+}
+
+document.getElementById('policyModal').addEventListener('show.bs.modal', function() {
+    if (!document.getElementById('policyId').value) openCreate();
+});
+</script>
+{% endblock %}

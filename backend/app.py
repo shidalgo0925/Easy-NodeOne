@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Sistema de Membresía RelaticPanama
-Backend Flask para gestión de usuarios y membresías
+Easy NodeOne - Backend Flask para gestión modular
 """
 
 import sys
@@ -11,6 +10,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timedelta
 import os
 import secrets
@@ -21,7 +21,7 @@ from sqlalchemy import text as sql_text
 try:
     sys.path.insert(0, '/home/relaticpanama2025/.shh/license-system')
     from license_validator import LicenseValidator
-    LICENSE_VALIDATOR = LicenseValidator('membresia-relatic')
+    LICENSE_VALIDATOR = LicenseValidator('nodeone')
 except Exception as e:
     LICENSE_VALIDATOR = None
     print(f"⚠️ Error inicializando sistema de licencias: {e}")
@@ -88,13 +88,15 @@ except ImportError:
 
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
+# Detrás de Nginx/Cloudflare: confiar en X-Forwarded-Proto y X-Forwarded-For
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1)
 
 # Ensure module alias 'app' points to this instance even when running as __main__
 sys.modules.setdefault('app', sys.modules[__name__])
 app.config['SECRET_KEY'] = secrets.token_hex(16)
 # Usar ruta absoluta para la base de datos para evitar confusiones
 basedir = os.path.abspath(os.path.dirname(__file__))
-db_path = os.path.join(os.path.dirname(basedir), 'instance', 'relaticpanama.db')
+db_path = os.path.join(os.path.dirname(basedir), 'instance', 'nodeone.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)  # Crear directorio instance/ si no existe
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -186,7 +188,7 @@ def apply_email_config_from_db():
         if EMAIL_TEMPLATES_AVAILABLE and mail:
             if not email_service:
                 email_service = EmailService(mail)
-login_manager.login_view = 'login'
+login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
 
 # OAuth (login social): Google, Facebook, LinkedIn
@@ -245,6 +247,7 @@ def initialize_email_config():
     global _email_config_initialized
     if not _email_config_initialized:
         try:
+            ensure_organization_settings()
             apply_email_config_from_db()
             ensure_office365_discount_code_id()
             ensure_discount_code_valid_for_office365()
@@ -319,11 +322,76 @@ def get_system_logo():
     # Si no existe ninguno, retornar la ruta por defecto
     return 'images/logo-relatic.svg'
 
+def get_logo_cache_key():
+    """Mtime del logo para cache-busting: al subir uno nuevo, la URL cambia."""
+    logo_dir_public = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos')
+    logo_dir_old = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
+    for path in (
+        os.path.join(logo_dir_public, 'logo-relatic.png'),
+        os.path.join(logo_dir_public, 'logo-relatic.svg'),
+        os.path.join(logo_dir_old, 'logo-relatic.png'),
+        os.path.join(logo_dir_old, 'logo-relatic.svg'),
+    ):
+        if os.path.exists(path):
+            try:
+                return int(os.path.getmtime(path))
+            except Exception:
+                pass
+    return 0
+
 # Context processor para hacer get_system_logo disponible en todos los templates
 @app.context_processor
 def inject_logo():
-    """Inyectar función para obtener logo en todos los templates"""
-    return dict(get_system_logo=get_system_logo, datetime=datetime)
+    """Inyectar función para obtener logo en todos los templates y clave de caché."""
+    return dict(get_system_logo=get_system_logo, get_logo_cache_key=get_logo_cache_key, datetime=datetime)
+
+# Context processor: design tokens de identidad por cliente (organization_settings)
+@app.context_processor
+def inject_theme():
+    """Inyectar colores y URLs de identidad para :root CSS y logo/favicon."""
+    try:
+        s = OrganizationSettings.get_settings()
+        return {
+            'theme_primary': s.primary_color or '#2563EB',
+            'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
+            'theme_accent': s.accent_color or '#06B6D4',
+            'theme_logo_url': s.logo_url or '',   # vacío = usar get_system_logo()
+            'theme_favicon_url': s.favicon_url or '',
+        }
+    except Exception:
+        return {
+            'theme_primary': '#2563EB',
+            'theme_primary_dark': '#1E3A8A',
+            'theme_accent': '#06B6D4',
+            'theme_logo_url': '',
+            'theme_favicon_url': '',
+        }
+
+# Context processor: planes de membresía configurables (para dropdowns y listas)
+@app.context_processor
+def inject_membership_plans():
+    try:
+        return {'membership_plans': MembershipPlan.get_active_ordered()}
+    except Exception:
+        return {'membership_plans': []}
+
+
+# Context processor: apariencia del usuario (tema y tamaño de fuente) para aplicar en <html>
+@app.context_processor
+def inject_user_appearance():
+    out = {'user_theme': 'light', 'user_font_size': 'medium'}
+    if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+        try:
+            row = UserSettings.query.filter_by(user_id=current_user.id).first()
+            if row and row.preferences:
+                prefs = json.loads(row.preferences)
+                if prefs.get('theme') in ('light', 'dark', 'auto'):
+                    out['user_theme'] = prefs['theme']
+                if prefs.get('font_size') in ('small', 'medium', 'large'):
+                    out['user_font_size'] = prefs['font_size']
+        except Exception:
+            pass
+    return out
 
 # Context processor para admin - pasar datos comunes a todas las páginas admin
 @app.context_processor
@@ -446,6 +514,9 @@ def admin_required(f):
     @wraps(f)
     @login_required
     def decorated_function(*args, **kwargs):
+        if bool(getattr(current_user, 'must_change_password', False)):
+            flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
+            return redirect(url_for('auth.change_password'))
         if not current_user.is_admin and not _user_has_any_admin_permission(current_user):
             flash('No tienes permisos para acceder a esta página.', 'error')
             return redirect(url_for('dashboard'))
@@ -472,6 +543,9 @@ def require_permission(perm_code):
         @wraps(f)
         @login_required
         def decorated_function(*args, **kwargs):
+            if bool(getattr(current_user, 'must_change_password', False)):
+                flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
+                return redirect(url_for('auth.change_password'))
             if not current_user.has_permission(perm_code):
                 if request.is_json or request.accept_mimetypes.best == 'application/json':
                     return jsonify({'error': 'Forbidden', 'message': 'No tienes permiso para esta acción.'}), 403
@@ -602,6 +676,12 @@ class User(UserMixin, db.Model):
     
     # Foto de perfil
     profile_picture = db.Column(db.String(500), nullable=True)  # Ruta a la imagen de perfil
+    
+    # Obligar cambio de contraseña en primer login (seed admin)
+    must_change_password = db.Column(db.Boolean, default=False, nullable=False)
+    
+    # Email marketing: subscribed, unsubscribed, bounced
+    email_marketing_status = db.Column(db.String(20), default='subscribed', nullable=False)
     
     # Relación con membresías
     memberships = db.relationship('Membership', backref='user', lazy=True)
@@ -744,6 +824,16 @@ class SocialAuth(db.Model):
     __table_args__ = (db.UniqueConstraint('provider', 'provider_user_id', name='uq_social_provider_user'),)
 
 
+class UserSettings(db.Model):
+    """Preferencias de configuración por usuario (notificaciones, privacidad, idioma, apariencia)."""
+    __tablename__ = 'user_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, unique=True)
+    preferences = db.Column(db.Text)  # JSON
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user = db.relationship('User', backref=db.backref('user_settings', uselist=False))
+
+
 class Membership(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -765,6 +855,60 @@ class Benefit(db.Model):
     description = db.Column(db.Text)
     membership_type = db.Column(db.String(50), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    icon = db.Column(db.String(80))   # e.g. "fas fa-gift", "fas fa-star"
+    color = db.Column(db.String(20))  # Bootstrap: primary, success, info, warning, danger
+
+class MembershipPlan(db.Model):
+    """Planes de membresía configurables (sustituye lista fija basic/pro/premium/...)."""
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(50), unique=True, nullable=False)  # basic, pro, premium, ...
+    name = db.Column(db.String(100), nullable=False)  # Nombre para mostrar
+    description = db.Column(db.Text)
+    price_yearly = db.Column(db.Float, default=0.0)
+    price_monthly = db.Column(db.Float, default=0.0)
+    display_order = db.Column(db.Integer, default=0)
+    level = db.Column(db.Integer, default=0)  # Jerarquía: 0=menor, mayor=nivel superior (para herencia de servicios)
+    badge = db.Column(db.String(100))  # Ej: "Incluido con la membresía gratuita"
+    color = db.Column(db.String(50), default='bg-secondary')  # Clase Bootstrap para badges
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'slug': self.slug, 'name': self.name, 'description': self.description,
+            'price_yearly': self.price_yearly, 'price_monthly': self.price_monthly,
+            'display_order': self.display_order, 'level': self.level, 'badge': self.badge,
+            'color': self.color, 'is_active': self.is_active,
+        }
+
+    @staticmethod
+    def get_active_ordered():
+        """Lista de planes activos ordenados por display_order, luego level."""
+        return MembershipPlan.query.filter_by(is_active=True).order_by(
+            MembershipPlan.display_order, MembershipPlan.level
+        ).all()
+
+    @staticmethod
+    def get_hierarchy():
+        """Dict slug -> level para compatibilidad con lógica de jerarquía."""
+        return {p.slug: p.level for p in MembershipPlan.query.filter_by(is_active=True).order_by(MembershipPlan.level).all()}
+
+    @staticmethod
+    def get_plans_info():
+        """Dict slug -> {name, price, badge, color} para templates (compat PLANS_INFO)."""
+        out = {}
+        for p in MembershipPlan.get_active_ordered():
+            price_str = f'${p.price_yearly:.0f}/año' if p.price_yearly else '$0'
+            if p.price_monthly and p.price_monthly > 0:
+                price_str += f' (${p.price_monthly:.0f}/mes)'
+            out[p.slug] = {
+                'name': p.name.upper(),
+                'price': price_str,
+                'badge': p.badge or '',
+                'color': p.color or 'bg-secondary',
+            }
+        return out
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1326,14 +1470,21 @@ class EmailConfig(db.Model):
     mail_default_sender = db.Column(db.String(200), nullable=False, default='noreply@relaticpanama.org')
     use_environment_variables = db.Column(db.Boolean, default=True)  # Si usa vars de entorno o BD
     is_active = db.Column(db.Boolean, default=True)
+    use_for_marketing = db.Column(db.Boolean, default=False)  # Usar esta config para envíos masivos (campañas)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     @staticmethod
     def get_active_config():
-        """Obtener la configuración activa de email"""
+        """Obtener la configuración activa de email (institucional: bienvenida, etc.)."""
         return EmailConfig.query.filter_by(is_active=True).first()
-    
+
+    @staticmethod
+    def get_marketing_config():
+        """Obtener la configuración designada para envíos masivos (campañas). Si no hay, fallback a activa."""
+        cfg = EmailConfig.query.filter_by(use_for_marketing=True).first()
+        return cfg or EmailConfig.get_active_config()
+
     def to_dict(self):
         """Convertir a diccionario para JSON (sin password)"""
         return {
@@ -1346,6 +1497,7 @@ class EmailConfig(db.Model):
             'mail_default_sender': self.mail_default_sender,
             'use_environment_variables': self.use_environment_variables,
             'is_active': self.is_active,
+            'use_for_marketing': getattr(self, 'use_for_marketing', False),
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
     
@@ -1379,6 +1531,124 @@ class EmailConfig(db.Model):
             app_instance.config['MAIL_USE_TLS'] = False
         # Timeout para no colgar (Flask-Mail usa MAIL_TIMEOUT si existe)
         app_instance.config['MAIL_TIMEOUT'] = 25
+
+
+# --- Marketing (Email Marketing) ---
+class MarketingSegment(db.Model):
+    __tablename__ = 'marketing_segment'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    query_rules = db.Column(db.Text)  # JSON: {"logic":"and"|"or","conditions":[{"field","op","value"}]}
+    exclusion_user_ids = db.Column(db.Text)  # JSON: [1,2,3] opcional; fase 2
+    is_dynamic = db.Column(db.Boolean, default=True)  # true = recalcular miembros al enviar
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class MarketingTemplate(db.Model):
+    __tablename__ = 'marketing_email_templates'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    html = db.Column(db.Text, nullable=False)
+    variables = db.Column(db.Text)  # JSON array: ["nombre","empresa"]
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class MarketingCampaign(db.Model):
+    __tablename__ = 'marketing_campaigns'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    subject = db.Column(db.String(500), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('marketing_email_templates.id'), nullable=False)
+    segment_id = db.Column(db.Integer, db.ForeignKey('marketing_segment.id'), nullable=False)
+    status = db.Column(db.String(20), default='draft')  # draft, scheduled, sending, sent
+    scheduled_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    body_html = db.Column(db.Text, nullable=True)  # override: si está definido se usa en lugar de template.html
+    exclusion_emails = db.Column(db.Text, nullable=True)  # JSON array de emails a excluir
+    from_name = db.Column(db.String(200), nullable=True)   # ej. "Relatic Panamá" o "Nombre <email@x.com>"
+    reply_to = db.Column(db.String(200), nullable=True)   # email de respuesta
+    subject_b = db.Column(db.String(500), nullable=True)  # variante B para prueba A/B de asunto
+    meeting_url = db.Column(db.String(500), nullable=True)  # URL reunión / Meet; en plantilla {{ reunion_url }}
+    template = db.relationship('MarketingTemplate', backref='campaigns')
+    segment = db.relationship('MarketingSegment', backref='campaigns')
+
+
+class CampaignRecipient(db.Model):
+    __tablename__ = 'campaign_recipients'
+    id = db.Column(db.Integer, primary_key=True)
+    campaign_id = db.Column(db.Integer, db.ForeignKey('marketing_campaigns.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    tracking_id = db.Column(db.String(64), unique=True, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, sent, opened, clicked, bounced
+    sent_at = db.Column(db.DateTime)
+    opened_at = db.Column(db.DateTime)
+    clicked_at = db.Column(db.DateTime)
+    variant = db.Column(db.String(1), nullable=True)  # 'A' o 'B' para prueba A/B
+    campaign = db.relationship('MarketingCampaign', backref='recipients')
+    user = db.relationship('User', backref='campaign_recipients')
+
+
+class AutomationFlow(db.Model):
+    __tablename__ = 'automation_flows'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    trigger_event = db.Column(db.String(50), nullable=False)  # member_created, membership_renewed, event_registered
+    template_id = db.Column(db.Integer, db.ForeignKey('marketing_email_templates.id'), nullable=False)
+    delay_hours = db.Column(db.Integer, default=0)
+    active = db.Column(db.Boolean, default=True)
+    template = db.relationship('MarketingTemplate', backref='automation_flows')
+
+
+class EmailQueueItem(db.Model):
+    __tablename__ = 'email_queue'
+    id = db.Column(db.Integer, primary_key=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('campaign_recipients.id'), nullable=True)
+    campaign_id = db.Column(db.Integer, db.ForeignKey('marketing_campaigns.id'), nullable=True)
+    payload = db.Column(db.Text)  # JSON: subject, html, to_email, tracking_id, etc.
+    status = db.Column(db.String(20), default='pending')  # pending, processing, sent, failed
+    send_after = db.Column(db.DateTime, nullable=True)  # enviar a partir de; NULL = ya
+    attempts = db.Column(db.Integer, default=0)
+    error_message = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class OrganizationSettings(db.Model):
+    """Identidad visual por cliente (design tokens). Una fila por instalación."""
+    __tablename__ = 'organization_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    primary_color = db.Column(db.String(7), nullable=False, default='#2563EB')
+    primary_color_dark = db.Column(db.String(7), nullable=False, default='#1E3A8A')
+    accent_color = db.Column(db.String(7), nullable=False, default='#06B6D4')
+    logo_url = db.Column(db.String(500))   # ruta relativa o vacío = usar get_system_logo()
+    favicon_url = db.Column(db.String(500))  # ruta relativa o vacío = usar logo
+    preset = db.Column(db.String(50), default='azul')  # azul | verde | rojo | custom
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @staticmethod
+    def get_settings():
+        """Obtener la configuración activa (una fila; crea con defaults si no existe)."""
+        s = OrganizationSettings.query.first()
+        if s is None:
+            s = OrganizationSettings()
+            db.session.add(s)
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+        return s
+
+    def to_dict(self):
+        return {
+            'primary_color': self.primary_color or '#2563EB',
+            'primary_color_dark': self.primary_color_dark or '#1E3A8A',
+            'accent_color': self.accent_color or '#06B6D4',
+            'logo_url': self.logo_url or '',
+            'favicon_url': self.favicon_url or '',
+            'preset': self.preset or 'azul',
+        }
+
 
 class PaymentConfig(db.Model):
     """Configuración de métodos de pago"""
@@ -1614,10 +1884,6 @@ class NotificationSettings(db.Model):
         return result
 
 
-# Planes considerados Pro o superior para solicitud de correo Office 365
-OFFICE365_PRO_OR_ABOVE = ('admin', 'pro', 'premium', 'deluxe', 'corporativo')
-
-
 class Office365Request(db.Model):
     """Solicitudes de acceso a Office 365 (estado: pending, approved, rejected)."""
     __tablename__ = 'office365_request'
@@ -1640,6 +1906,44 @@ class Office365Request(db.Model):
         db.Index('idx_office365_created', 'created_at'),
         db.Index('idx_office365_user', 'user_id'),
     )
+
+
+class Policy(db.Model):
+    """Políticas institucionales (correo, términos, privacidad, etc.)."""
+    __tablename__ = 'policy'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    slug = db.Column(db.String(100), unique=True, nullable=False)
+    content = db.Column(db.Text, nullable=True)  # HTML
+    version = db.Column(db.String(20), default='1.0')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    acceptances = db.relationship('PolicyAcceptance', backref='policy', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'title': self.title, 'slug': self.slug, 'content': self.content,
+            'version': self.version, 'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PolicyAcceptance(db.Model):
+    """Registro de aceptación de políticas por usuario (respaldo legal)."""
+    __tablename__ = 'policy_acceptance'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    policy_id = db.Column(db.Integer, db.ForeignKey('policy.id', ondelete='CASCADE'), nullable=False)
+    accepted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ip_address = db.Column(db.String(45), nullable=True)
+    version = db.Column(db.String(20), nullable=True)  # versión aceptada
+
+    user = db.relationship('User', backref=db.backref('policy_acceptances', lazy=True))
+
+    __table_args__ = (db.Index('idx_policy_acceptance_user_policy', 'user_id', 'policy_id'),)
 
 
 class EventRegistration(db.Model):
@@ -1682,6 +1986,70 @@ class EventRegistration(db.Model):
     __table_args__ = (
         db.UniqueConstraint('event_id', 'user_id', name='uq_event_registration'),
     )
+
+
+# ---------------------------------------------------------------------------
+# Módulo Certificados (certificate_events + certificates)
+# ---------------------------------------------------------------------------
+class CertificateEvent(db.Model):
+    """Evento que genera certificados (código de evento)."""
+    __tablename__ = 'certificate_events'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    start_date = db.Column(db.DateTime, nullable=True)
+    end_date = db.Column(db.DateTime, nullable=True)
+    duration_hours = db.Column(db.Float, nullable=True)
+    institution = db.Column(db.String(200))
+    convenio = db.Column(db.String(200))
+    rector_name = db.Column(db.String(200))
+    academic_director_name = db.Column(db.String(200))
+    partner_organization = db.Column(db.String(200))  # Ej. Relatic Panamá (pie derecho)
+    logo_left_url = db.Column(db.String(500))
+    logo_right_url = db.Column(db.String(500))
+    seal_url = db.Column(db.String(500))
+    background_url = db.Column(db.String(500))  # Fondo del certificado
+    membership_required_id = db.Column(db.Integer, db.ForeignKey('membership_plan.id', ondelete='SET NULL'), nullable=True)
+    event_required_id = db.Column(db.Integer, db.ForeignKey('event.id', ondelete='SET NULL'), nullable=True)
+    template_html = db.Column(db.Text)
+    template_id = db.Column(db.Integer, db.ForeignKey('certificate_templates.id', ondelete='SET NULL'), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    verification_enabled = db.Column(db.Boolean, default=True)
+    code_prefix = db.Column(db.String(20), default='REL')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    membership_plan = db.relationship('MembershipPlan', backref='certificate_events')
+    event_required = db.relationship('Event', foreign_keys=[event_required_id])
+    certificate_template = db.relationship('CertificateTemplate', backref='certificate_events', foreign_keys=[template_id])
+    certificates = db.relationship('Certificate', backref='certificate_event', lazy=True)
+
+
+class Certificate(db.Model):
+    """Certificado generado para un usuario y un certificate_event."""
+    __tablename__ = 'certificates'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    certificate_event_id = db.Column(db.Integer, db.ForeignKey('certificate_events.id', ondelete='CASCADE'), nullable=False)
+    certificate_code = db.Column(db.String(80), unique=True, nullable=False)
+    verification_hash = db.Column(db.String(64), nullable=True)
+    pdf_path = db.Column(db.String(500), nullable=True)
+    generated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='generated')
+
+    user = db.relationship('User', backref='certificates')
+    __table_args__ = (db.UniqueConstraint('user_id', 'certificate_event_id', name='uq_certificate_user_event'),)
+
+
+class CertificateTemplate(db.Model):
+    """Plantilla visual tipo Canva: layout JSON (Fabric.js) para generar certificados PDF."""
+    __tablename__ = 'certificate_templates'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    width = db.Column(db.Integer, default=1200)
+    height = db.Column(db.Integer, default=900)
+    background_image = db.Column(db.String(500), nullable=True)
+    json_layout = db.Column(db.Text, nullable=True)  # JSON: canvas + elements (text, image, variable, qr)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 # ---------------------------------------------------------------------------
@@ -2626,107 +2994,12 @@ def load_user(user_id):
 
 # Rutas principales
 
-@app.route('/api/notifications/<int:notification_id>/toggle-read', methods=['POST'])
-@login_required
-def toggle_notification_read(notification_id):
-    """Toggle estado de lectura de notificación (leída <-> no leída)"""
-    try:
-        notification = Notification.query.filter_by(
-            id=notification_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not notification:
-            return jsonify({
-                'success': False,
-                'error': 'Notificación no encontrada'
-            }), 404
-        
-        # Toggle estado
-        notification.is_read = not notification.is_read
-        db.session.commit()
-        
-        action = 'leída' if notification.is_read else 'no leída'
-        print(f"✅ Notificación {notification_id} marcada como {action} por usuario {current_user.id}")
-        return jsonify({
-            'success': True,
-            'message': f'Notificación marcada como {action}',
-            'notification': {
-                'id': notification.id,
-                'is_read': notification.is_read
-            }
-        })
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error cambiando estado de notificación {notification_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/notifications/delete-read', methods=['DELETE'])
-@login_required
-def delete_read_notifications():
-    """Eliminar todas las notificaciones leídas del usuario"""
-    try:
-        deleted_count = Notification.query.filter_by(
-            user_id=current_user.id,
-            is_read=True
-        ).delete()
-        
-        db.session.commit()
-        
-        print(f"✅ {deleted_count} notificaciones leídas eliminadas por usuario {current_user.id}")
-        return jsonify({
-            'success': True,
-            'message': f'{deleted_count} notificación(es) leída(s) eliminada(s)',
-            'deleted_count': deleted_count
-        })
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error eliminando notificaciones leídas: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/notifications/delete-all', methods=['DELETE'])
-@login_required
-def delete_all_notifications():
-    """Eliminar todas las notificaciones del usuario"""
-    try:
-        deleted_count = Notification.query.filter_by(
-            user_id=current_user.id
-        ).delete()
-        
-        db.session.commit()
-        
-        print(f"✅ {deleted_count} notificaciones eliminadas por usuario {current_user.id}")
-        return jsonify({
-            'success': True,
-            'message': f'{deleted_count} notificación(es) eliminada(s)',
-            'deleted_count': deleted_count
-        })
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error eliminando todas las notificaciones: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
 @app.route('/')
 def index():
     """Redirige a login (sin landing)."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    return redirect(url_for('auth.login'))
 
 @app.route('/promocion')
 def promocion():
@@ -2753,11 +3026,11 @@ def email_verified_required(f):
     return decorated_function
 
 def send_verification_email(user):
-    """Enviar email de verificación al usuario"""
+    """Enviar email de verificación al usuario. Retorna (éxito: bool, detalle_error: str|None)."""
     try:
         if not EMAIL_TEMPLATES_AVAILABLE or not email_service:
             print(f"⚠️ Email service no disponible. No se enviará email de verificación a {user.email}")
-            return False
+            return False, "Servicio de email no configurado. El administrador debe configurar SMTP en Configuración → Email."
         
         # Refrescar usuario desde BD para asegurar que tenemos la versión más reciente
         db.session.refresh(user)
@@ -2802,18 +3075,18 @@ def send_verification_email(user):
         
         if success:
             print(f"✅ Email de verificación enviado exitosamente a {user.email}")
-            return True
+            return True, None
         else:
             print(f"❌ Error al enviar email de verificación a {user.email}")
-            # El token ya está guardado, así que el usuario puede intentar reenviar
-            return False
+            return False, "El servidor de correo rechazó el envío. Revisa la configuración SMTP en Configuración → Email (usuario y contraseña)."
             
     except Exception as e:
+        err = str(e).strip()[:300]
         print(f"❌ Error enviando email de verificación: {e}")
         import traceback
         traceback.print_exc()
         db.session.rollback()
-        return False
+        return False, err if err else "Error desconocido al enviar el correo."
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -2872,6 +3145,24 @@ def register():
         db.session.add(user)
         db.session.commit()  # Commit inicial para obtener el ID del usuario
 
+        # Asignar membresía básica al registrarse para que pueda emitir certificado de membresía desde el primer día
+        try:
+            end_date = datetime.utcnow() + timedelta(days=365)
+            free_membership = Membership(
+                user_id=user.id,
+                membership_type='basic',
+                start_date=datetime.utcnow(),
+                end_date=end_date,
+                is_active=True,
+                payment_status='paid',
+                amount=0.0
+            )
+            db.session.add(free_membership)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            pass  # No romper el registro si falla (ej. tabla Membership no existe aún)
+
         # Registrar registro de usuario en historial
         try:
             from history_module import HistoryLogger
@@ -2886,11 +3177,21 @@ def register():
             )
         except Exception as e:
             pass  # No romper el flujo si falla el historial
-        
+
+        # Automatización marketing: member_created
+        try:
+            from _app.modules.marketing.service import trigger_automation
+            base_url = request.host_url.rstrip('/') if request else None
+            trigger_automation('member_created', user.id, base_url=base_url)
+        except Exception:
+            pass
+
         # Enviar email de verificación (genera el token y hace commit)
         try:
             apply_email_config_from_db()
-            send_verification_email(user)
+            ok, err_detail = send_verification_email(user)
+            if not ok and err_detail:
+                print(f"❌ Verificación no enviada: {err_detail}")
         except Exception as e:
             print(f"❌ Error enviando email de verificación: {e}")
             import traceback
@@ -2903,7 +3204,7 @@ def register():
             print(f"❌ Error enviando notificación de bienvenida: {e}")
         
         flash('Registro exitoso. Por favor, verifica tu email para acceder a todas las funciones. Revisa tu bandeja de entrada (y spam).', 'success')
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
     
     return render_template('register.html', valid_countries=VALID_COUNTRIES)
 
@@ -2917,7 +3218,7 @@ def verify_email(token):
         if not user:
             print(f"❌ Token de verificación no encontrado: {token[:20]}...")
             flash('El enlace de verificación no es válido. Por favor, solicita uno nuevo.', 'error')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         
         print(f"🔍 Verificando email para usuario: {user.email} (ID: {user.id})")
         print(f"   Token expira: {user.email_verification_token_expires}")
@@ -2929,7 +3230,7 @@ def verify_email(token):
             flash('Tu email ya está verificado. Puedes iniciar sesión normalmente.', 'info')
             if current_user.is_authenticated and current_user.id == user.id:
                 return redirect(url_for('dashboard'))
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         
         # Verificar si el token expiró
         if user.email_verification_token_expires:
@@ -2952,13 +3253,13 @@ def verify_email(token):
         
         # Si el usuario no está logueado, redirigir al login con mensaje claro
         if not current_user.is_authenticated:
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         
         # Si está logueado pero es otro usuario, cerrar sesión y redirigir
         if current_user.id != user.id:
             logout_user()
             flash('Por favor, inicia sesión con tu cuenta.', 'info')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         
         return redirect(url_for('dashboard'))
         
@@ -2968,7 +3269,7 @@ def verify_email(token):
         traceback.print_exc()
         db.session.rollback()
         flash('Ocurrió un error al verificar tu email. Por favor, intenta nuevamente o solicita un nuevo enlace.', 'error')
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
 
 @app.route('/resend-verification', methods=['GET', 'POST'])
 @login_required
@@ -2981,12 +3282,16 @@ def resend_verification():
         
         try:
             apply_email_config_from_db()
-            if send_verification_email(current_user):
+            ok, err_detail = send_verification_email(current_user)
+            if ok:
                 flash('Email de verificación reenviado. Revisa tu bandeja de entrada (y spam).', 'success')
             else:
-                flash('Error al enviar el email de verificación. Por favor, intenta más tarde.', 'error')
+                msg = 'Error al enviar el email de verificación. Por favor, intenta más tarde.'
+                if err_detail:
+                    msg += ' ' + (err_detail[:250] + '…' if len(err_detail) > 250 else err_detail)
+                flash(msg, 'error')
         except Exception as e:
-            flash('Error al reenviar el email de verificación.', 'error')
+            flash('Error al reenviar el email de verificación: ' + str(e)[:200], 'error')
             print(f"❌ Error reenviando verificación: {e}")
         
         return redirect(url_for('dashboard'))
@@ -2997,58 +3302,12 @@ def resend_verification():
     
     return render_template('resend_verification.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    """Inicio de sesión"""
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        
-        user = User.query.filter_by(email=email).first()
-        
-        if user and user.check_password(password) and user.is_active:
-            login_user(user)
-            # Registrar en historial
-            try:
-                from history_module import HistoryLogger
-                HistoryLogger.log_user_action(
-                    user_id=user.id,
-                    action="Login exitoso",
-                    status="success",
-                    context={"app": "web", "screen": "login", "module": "auth"},
-                    request=request
-                )
-            except Exception as e:
-                pass  # No romper el flujo si falla el historial
-            
-            # Verificar estado del usuario al iniciar sesión
-            try:
-                from user_status_checker import UserStatusChecker
-                user_status = UserStatusChecker.check_user_status(user.id, db.session)
-                if user_status.get('summary', {}).get('total_pending_actions', 0) > 0:
-                    urgent_count = user_status['summary'].get('urgent_actions', 0)
-                    if urgent_count > 0:
-                        flash(f'Tienes {urgent_count} acción(es) urgente(s) pendiente(s). Revisa tu panel.', 'warning')
-                    else:
-                        flash(f'Tienes {user_status["summary"]["total_pending_actions"]} acción(es) pendiente(s).', 'info')
-                session['user_status_checked'] = True
-            except Exception as e:
-                print(f"⚠️ Error verificando estado del usuario al iniciar sesión: {e}")
-            
-            next_page = request.args.get('next')
-            return redirect(next_page) if next_page else redirect(url_for('dashboard'))
-        else:
-            flash('Credenciales inválidas.', 'error')
-    
-    return render_template('login.html')
-
-
 @app.route('/auth/<provider>/callback')
 def oauth_callback(provider):
     """Callback OAuth: intercambia código por token, obtiene userinfo, crea/vincula usuario y hace login."""
     if not OAUTH_AVAILABLE or provider not in ('google', 'facebook', 'linkedin'):
         flash('Login social no disponible para este proveedor.', 'error')
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
     try:
         client = getattr(oauth, provider)
         token = client.authorize_access_token()
@@ -3074,13 +3333,13 @@ def oauth_callback(provider):
                     userinfo = raw
         if not userinfo:
             flash('No se pudo obtener la información del perfil.', 'error')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         # Normalizar campos (OpenID: sub, email, name, given_name, family_name)
         sub = userinfo.get('sub') or userinfo.get('id') or ''
         email = (userinfo.get('email') or '').strip().lower()
         if not email:
             flash('El proveedor no compartió tu correo. Usa el registro con email.', 'error')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         name = userinfo.get('name') or ''
         given_name = userinfo.get('given_name') or name.split(None, 1)[0] if name else ''
         family_name = userinfo.get('family_name') or (name.split(None, 1)[1] if len(name.split(None, 1)) > 1 else '')
@@ -3115,8 +3374,11 @@ def oauth_callback(provider):
                 db.session.commit()
         if not user.is_active:
             flash('Tu cuenta está desactivada.', 'error')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         login_user(user)
+        if bool(getattr(user, 'must_change_password', False)):
+            flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
+            return redirect(url_for('auth.change_password'))
         next_page = request.args.get('next') or url_for('dashboard')
         return redirect(next_page)
     except Exception as e:
@@ -3125,7 +3387,7 @@ def oauth_callback(provider):
         traceback.print_exc()
         db.session.rollback()
         flash('Error al iniciar sesión con el proveedor. Intenta de nuevo o usa email/contraseña.', 'error')
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
 
 
 @app.route('/auth/<provider>')
@@ -3133,11 +3395,11 @@ def oauth_login(provider):
     """Redirige al proveedor OAuth (Google, Facebook, LinkedIn)."""
     if not OAUTH_AVAILABLE or provider not in ('google', 'facebook', 'linkedin'):
         flash('Login social no disponible.', 'error')
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
     client = getattr(oauth, provider, None)
     if not client or not app.config.get(f'{provider.upper()}_CLIENT_ID'):
         flash(f'Login con {provider.capitalize()} no está configurado.', 'error')
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
     redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
     return client.authorize_redirect(redirect_uri)
 
@@ -3161,7 +3423,7 @@ def logout():
 
     logout_user()
     flash('Has cerrado sesión exitosamente.', 'info')
-    return redirect('https://relaticpanama.org')
+    return redirect(url_for('index'))
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
@@ -3283,7 +3545,7 @@ def reset_password():
             pass
         
         flash('Tu contraseña ha sido restablecida exitosamente. Puedes iniciar sesión ahora.', 'success')
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
     
     return render_template('reset_password.html', token=token, user=user)
 
@@ -3291,6 +3553,9 @@ def reset_password():
 @login_required
 def dashboard():
     """Panel de control del usuario con verificación completa de estado"""
+    if bool(getattr(current_user, 'must_change_password', False)):
+        flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
+        return redirect(url_for('auth.change_password'))
     from app import Appointment, EventRegistration, Event
     from user_status_checker import UserStatusChecker
     
@@ -3409,34 +3674,25 @@ def membership():
     """Página de membresía"""
     active_membership = current_user.get_active_membership()
     
-    # Precios de membresías (en dólares)
-    pricing_monthly = {
-        'basic': 0,
-        'pro': 5,  # $5/mes = $60/año
-        'premium': 10,  # $10/mes = $120/año
-        'deluxe': 15,  # $15/mes = $180/año
-        'corporativo': 25  # $25/mes = $300/año
-    }
-    
-    pricing_yearly = {
-        'basic': 0,
-        'pro': 60,  # $60/año
-        'premium': 120,  # $120/año
-        'deluxe': 200,  # $200/año
-        'corporativo': 300  # $300/año
-    }
+    # Planes desde BD (para que se vean los planes de membresía)
+    plans = MembershipPlan.get_active_ordered()
+    pricing_monthly = {p.slug: float(p.price_monthly or 0) for p in plans}
+    pricing_yearly = {p.slug: float(p.price_yearly or 0) for p in plans}
+    if not pricing_monthly:
+        pricing_monthly = {'basic': 0, 'pro': 5, 'premium': 10, 'deluxe': 15, 'corporativo': 25}
+    if not pricing_yearly:
+        pricing_yearly = {'basic': 0, 'pro': 60, 'premium': 120, 'deluxe': 200, 'corporativo': 300}
     
     # Obtener todos los servicios activos de la base de datos
     all_services = Service.query.filter_by(is_active=True).order_by(Service.display_order, Service.name).all()
     
-    # Jerarquía de membresías
-    membership_hierarchy = {
-        'basic': 0,
-        'pro': 1,
-        'premium': 2,
-        'deluxe': 3,
-        'corporativo': 4
-    }
+    # Jerarquía de membresías (desde BD; fallback a dict por si no hay tabla aún)
+    try:
+        membership_hierarchy = MembershipPlan.get_hierarchy()
+        if not membership_hierarchy:
+            membership_hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4}
+    except Exception:
+        membership_hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4}
     
     # Para cada servicio, determinar en qué planes está disponible
     # Esto se usará en el template para mostrar checkmarks
@@ -3479,12 +3735,60 @@ def membership():
             'available_plans': available_plans
         })
     
+    plans_display = [p for p in plans if (p.slug or '') != 'admin']
+    # Certificado de membresía: evento activo "Certificado de Membresía" o code_prefix MEM (emitir desde esta página)
+    membership_cert_event_id = None
+    membership_cert_issued = False
+    membership_cert_download_url = None
+    if active_membership:
+        try:
+            CertificateEvent.__table__.create(db.engine, checkfirst=True)
+            Certificate.__table__.create(db.engine, checkfirst=True)
+            if not CertificateEvent.query.filter(
+                db.or_(
+                    CertificateEvent.name == 'Certificado de Membresía',
+                    CertificateEvent.code_prefix == 'MEM'
+                )
+            ).first():
+                ev_default = CertificateEvent(
+                    name='Certificado de Membresía',
+                    is_active=True,
+                    verification_enabled=True,
+                    code_prefix='MEM',
+                    membership_required_id=None,
+                    event_required_id=None,
+                )
+                db.session.add(ev_default)
+                db.session.commit()
+            cert_ev = CertificateEvent.query.filter(
+                CertificateEvent.is_active == True,
+                db.or_(
+                    CertificateEvent.name == 'Certificado de Membresía',
+                    CertificateEvent.code_prefix == 'MEM'
+                )
+            ).first()
+            if cert_ev:
+                membership_cert_event_id = cert_ev.id
+                existing = Certificate.query.filter_by(
+                    user_id=current_user.id,
+                    certificate_event_id=cert_ev.id
+                ).first()
+                if existing:
+                    membership_cert_issued = True
+                    membership_cert_download_url = url_for('certificates_api.download_certificate', certificate_code=existing.certificate_code)
+        except Exception:
+            pass
     return render_template('membership.html', 
                          membership=active_membership,
+                         plans=plans,
+                         plans_display=plans_display,
                          pricing_monthly=pricing_monthly,
                          pricing_yearly=pricing_yearly,
                          services_with_plans=services_with_plans,
-                         membership_hierarchy=membership_hierarchy)
+                         membership_hierarchy=membership_hierarchy,
+                         membership_cert_event_id=membership_cert_event_id,
+                         membership_cert_issued=membership_cert_issued,
+                         membership_cert_download_url=membership_cert_download_url)
 
 
 
@@ -4225,535 +4529,27 @@ def payments_history():
 @app.route('/benefits')
 @login_required
 def benefits():
-    """Página de beneficios"""
+    """Página de beneficios: muestra los de tu plan y planes inferiores (según jerarquía)."""
     active_membership = current_user.get_active_membership()
     if not active_membership:
         flash('Necesitas una membresía activa para acceder a los beneficios.', 'warning')
         return redirect(url_for('membership'))
-    
-    benefits = Benefit.query.filter_by(
-        membership_type=active_membership.membership_type,
-        is_active=True
-    ).all()
-    
-    return render_template('benefits.html', benefits=benefits)
-
-@app.route('/profile')
-@login_required
-def profile():
-    """Perfil del usuario"""
-    return render_template('profile.html')
-
-@app.route('/profile/upload-photo', methods=['POST'])
-@login_required
-def upload_profile_photo():
-    """Subir foto de perfil del usuario"""
+    mt = (active_membership.membership_type or '').strip().lower()
     try:
-        if 'photo' not in request.files:
-            return jsonify({'success': False, 'error': 'No se proporcionó ninguna imagen'}), 400
-        
-        file = request.files['photo']
-        
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No se seleccionó ningún archivo'}), 400
-        
-        if file and allowed_file(file.filename):
-            # Validar que sea una imagen
-            if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-                return jsonify({'success': False, 'error': 'Formato de archivo no válido. Solo se permiten imágenes (PNG, JPG, JPEG, GIF, WEBP)'}), 400
-            
-            # Crear directorio si no existe
-            upload_dir = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'profiles')
-            os.makedirs(upload_dir, exist_ok=True)
-            
-            # Generar nombre único para el archivo
-            file_ext = os.path.splitext(file.filename)[1]
-            filename = f"{current_user.id}_{int(datetime.utcnow().timestamp())}{file_ext}"
-            filepath = os.path.join(upload_dir, filename)
-            
-            # Guardar el archivo
-            file.save(filepath)
-            
-            # Eliminar foto anterior si existe
-            if current_user.profile_picture:
-                old_filepath = os.path.join(upload_dir, current_user.profile_picture)
-                if os.path.exists(old_filepath):
-                    try:
-                        os.remove(old_filepath)
-                    except:
-                        pass  # Ignorar errores al eliminar archivo antiguo
-            
-            # Actualizar en la base de datos
-            current_user.profile_picture = filename
-            db.session.commit()
-            
-            return jsonify({
-                'success': True, 
-                'message': 'Foto de perfil actualizada correctamente',
-                'photo_url': current_user.get_profile_picture_url()
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Formato de archivo no permitido'}), 400
-            
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': f'Error al subir la foto: {str(e)}'}), 500
-
-@app.route('/profile/remove-photo', methods=['POST'])
-@login_required
-def remove_profile_photo():
-    """Eliminar foto de perfil del usuario"""
-    try:
-        if current_user.profile_picture:
-            # Eliminar archivo físico
-            upload_dir = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'profiles')
-            filepath = os.path.join(upload_dir, current_user.profile_picture)
-            if os.path.exists(filepath):
-                try:
-                    os.remove(filepath)
-                except:
-                    pass
-            
-            # Actualizar en la base de datos
-            current_user.profile_picture = None
-            db.session.commit()
-            
-            return jsonify({
-                'success': True, 
-                'message': 'Foto de perfil eliminada correctamente'
-            })
-        else:
-            return jsonify({'success': False, 'error': 'No hay foto de perfil para eliminar'}), 400
-            
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': f'Error al eliminar la foto: {str(e)}'}), 500
-
-@app.route('/api/profile/update', methods=['POST'])
-@login_required
-def api_profile_update():
-    """Actualizar datos del perfil del usuario (first_name, last_name, phone, country, cedula_or_passport)."""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'Datos no válidos'}), 400
-        first_name = (data.get('first_name') or '').strip()
-        last_name = (data.get('last_name') or '').strip()
-        if not first_name or not last_name:
-            return jsonify({'success': False, 'error': 'Nombre y apellido son requeridos'}), 400
-        current_user.first_name = first_name
-        current_user.last_name = last_name
-        current_user.phone = (data.get('phone') or '').strip() or None
-        current_user.country = (data.get('country') or '').strip() or None
-        current_user.cedula_or_passport = (data.get('cedula_or_passport') or '').strip() or None
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'Perfil actualizado correctamente'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/services')
-@login_required
-def services():
-    """Módulo de Servicios"""
-    active_membership = current_user.get_active_membership()
-    membership_type = active_membership.membership_type if active_membership else 'basic'
-    
-    # Obtener servicios desde BD agrupados por plan
-    services_by_plan = {}
-    plans_info = {
-        'basic': {'name': 'GRATIS / BÁSICO', 'price': '$0', 'badge': 'Incluido con la membresía gratuita', 'color': 'bg-success'},
-        'pro': {'name': 'PRO', 'price': '$60/año', 'badge': 'Plan recomendado', 'color': 'bg-info'},
-        'premium': {'name': 'PREMIUM', 'price': '$120/año', 'badge': 'Más beneficios', 'color': 'bg-primary'},
-        'deluxe': {'name': 'DE LUXE', 'price': '$200/año', 'badge': 'Experiencia completa', 'color': 'bg-warning text-dark'},
-        'corporativo': {'name': 'CORPORATIVO', 'price': '$300/año', 'badge': 'Para empresas', 'color': 'bg-dark text-white'}
-    }
-    
-    # Obtener todas las categorías activas
-    categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order, ServiceCategory.name).all()
-    
-    # Obtener todos los servicios activos ordenados
-    all_services = Service.query.filter_by(is_active=True).order_by(Service.display_order, Service.name).all()
-    
-    # Agrupar servicios por categoría primero, luego por plan
-    services_by_category = {}
-    services_without_category = []
-    
-    for service in all_services:
-        if service.category_id and service.category:
-            cat_id = service.category_id
-            if cat_id not in services_by_category:
-                services_by_category[cat_id] = {
-                    'category': service.category,
-                    'services_by_plan': {}
-                }
-            # Agregar servicio al plan correspondiente dentro de la categoría
-            # (lógica similar a la anterior)
-        else:
-            services_without_category.append(service)
-    
-    # Agrupar servicios por plan (para compatibilidad con template actual)
-    # Un servicio puede aparecer en múltiples planes si tiene reglas de precio para cada uno
-    for service in all_services:
-        # Obtener todas las reglas de precio activas para este servicio
-        pricing_rules = ServicePricingRule.query.filter_by(
-            service_id=service.id,
-            is_active=True
-        ).all()
-        
-        # Planes donde este servicio está disponible
-        available_plans = set()
-        
-        # SIEMPRE incluir el membership_type base del servicio
-        if service.membership_type:
-            available_plans.add(service.membership_type)
-        
-        # Si tiene reglas de precio, agregar también esos planes
-        if pricing_rules:
-            for rule in pricing_rules:
-                available_plans.add(rule.membership_type)
-        
-        # Calcular precio para el usuario actual (con descuento según su membresía)
-        user_pricing = service.pricing_for_membership(membership_type)
-        
-        # Agregar el servicio a todos los planes donde está disponible
-        # IMPORTANTE: Mostrar el precio con descuento según la membresía del usuario actual
-        for plan_type in available_plans:
-            if plan_type not in services_by_plan:
-                services_by_plan[plan_type] = []
-            
-            # Asesores del tipo de cita (para mostrar en catálogo)
-            at_id = service.appointment_type_id or getattr(service, 'diagnostic_appointment_type_id', None)
-            advisors_list = []
-            if at_id:
-                for aa in AppointmentAdvisor.query.filter_by(appointment_type_id=at_id, is_active=True).all():
-                    if aa.advisor and getattr(aa.advisor, 'is_active', True) and aa.advisor.user:
-                        advisors_list.append({'id': aa.advisor.id, 'name': f"{aa.advisor.user.first_name} {aa.advisor.user.last_name}"})
-            # Para mostrar en la lista, usar el precio calculado según la membresía del usuario actual
-            service_data = {
-                'id': service.id,
-                'name': service.name,
-                'description': service.description,
-                'icon': service.icon or 'fas fa-cog',
-                'external_link': service.external_link,
-                'base_price': service.base_price,
-                'pricing': user_pricing,  # Precio con descuento según membresía del usuario actual
-                'requires_diagnostic_appointment': service.requires_diagnostic_appointment if service.requires_diagnostic_appointment is not None else False,
-                'appointment_type_id': service.appointment_type_id,
-                'requires_appointment': service.requires_appointment(),
-                'is_free': service.is_free_service(membership_type),
-                'service_type': getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE',
-                'advisors': advisors_list,
-                'diagnostic_appointment_type_id': getattr(service, 'diagnostic_appointment_type_id', None),
-            }
-            
-            services_by_plan[plan_type].append(service_data)
-    
-    # Obtener todas las categorías activas para filtros
-    categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order, ServiceCategory.name).all()
-    
-    return render_template('services.html', 
-                         membership=active_membership,
-                         services_by_plan=services_by_plan,
-                         plans_info=plans_info,
-                         categories=categories,
-                         user_membership_type=membership_type,
-                         membership_type=membership_type)  # Para usar en el template
-
-
-@app.route('/services/<int:service_id>/request-appointment')
-@login_required
-def service_request_appointment(service_id):
-    """
-    Muestra el formulario para solicitar una cita de un servicio.
-    """
-    # Guardar URL de retorno ANTES de iniciar el proceso (punto de retorno seguro)
-    # Prioridad: 1) Parámetro return_url, 2) Referrer, 3) Página de servicios
-    return_url = request.args.get('return_url') or request.referrer or url_for('services')
-    # Solo guardar si es una URL válida del mismo dominio (seguridad)
-    if return_url and (return_url.startswith('/') or return_url.startswith(request.url_root)):
-        session['appointment_return_url'] = return_url
-    
-    # Validar servicio
-    service = Service.query.get_or_404(service_id)
-    if not service.is_active:
-        flash('Este servicio no está disponible.', 'error')
-        return redirect(url_for('services'))
-    
-    # Verificar que el servicio requiere cita
-    if not service.requires_appointment():
-        flash('Este servicio no requiere cita.', 'info')
-        return redirect(url_for('services'))
-    
-    # Verificar membresía activa
-    membership = current_user.get_active_membership()
-    if not membership:
-        flash('Necesitas una membresía activa para solicitar citas.', 'warning')
-        return redirect(url_for('services'))
-    
-    membership_type = membership.membership_type
-    
-    # Verificar si el servicio es gratuito
-    if service.is_free_service(membership_type):
-        flash('Este servicio es gratuito y no requiere cita con pago.', 'info')
-        return redirect(url_for('services'))
-    
-    # Obtener tipo de cita asociado
-    appointment_type = AppointmentType.query.get(service.appointment_type_id)
-    if not appointment_type or not appointment_type.is_active:
-        flash('El tipo de cita asociado no está disponible.', 'error')
-        return redirect(url_for('services'))
-    
-    # Calcular precios y abono
-    pricing = service.pricing_for_membership(membership_type)
-    deposit_info = service.calculate_deposit(membership_type)
-    
-    # Obtener asesores asignados con información completa
-    # Solo incluir asesores que tengan horarios configurados
-    advisors_list = []
-    advisors_with_schedules = set()
-    
-    for assignment in appointment_type.advisor_assignments:
-        if assignment.is_active and assignment.advisor.is_active:
-            advisor = assignment.advisor
-            advisor_id = advisor.id
-            
-            # Verificar si tiene horarios configurados (específicos, generales o diarios)
-            has_specific_availability = AdvisorServiceAvailability.query.filter_by(
-                advisor_id=advisor_id,
-                appointment_type_id=service.appointment_type_id,
-                is_active=True
-            ).first() is not None
-            
-            has_general_availability = AdvisorAvailability.query.filter_by(
-                advisor_id=advisor_id,
-                is_active=True
-            ).first() is not None
-            
-            # Verificar disponibilidad diaria (configurada desde el calendario)
-            # También verificar si hay slots generados (que se crean automáticamente desde disponibilidad)
-            today = datetime.utcnow().date()
-            future_date = today + timedelta(days=90)  # Verificar próximos 90 días
-            
-            # Verificar DailyServiceAvailability (disponibilidad diaria configurada)
-            # DailyServiceAvailability está definido en este mismo archivo (app.py)
-            has_daily_availability = False
-            try:
-                has_daily_availability = DailyServiceAvailability.query.filter(
-                    DailyServiceAvailability.advisor_id == advisor_id,
-                    DailyServiceAvailability.appointment_type_id == service.appointment_type_id,
-                    DailyServiceAvailability.date >= today,
-                    DailyServiceAvailability.date <= future_date,
-                    DailyServiceAvailability.is_active == True
-                ).first() is not None
-            except Exception as e:
-                # Si hay error, simplemente no considerar disponibilidad diaria
-                print(f"Error verificando DailyServiceAvailability: {e}")
-                has_daily_availability = False
-            
-            # También verificar si hay slots disponibles (generados desde disponibilidad)
-            has_available_slots = AppointmentSlot.query.filter(
-                AppointmentSlot.advisor_id == advisor_id,
-                AppointmentSlot.appointment_type_id == service.appointment_type_id,
-                AppointmentSlot.start_datetime >= datetime.utcnow(),
-                AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=90),
-                AppointmentSlot.is_available == True
-            ).first() is not None
-            
-            # Solo incluir si tiene algún tipo de disponibilidad o slots disponibles
-            if has_specific_availability or has_general_availability or has_daily_availability or has_available_slots:
-                advisors_list.append({
-                    'id': advisor.id,
-                    'name': f"{advisor.user.first_name} {advisor.user.last_name}" if advisor.user else 'Asesor',
-                    'bio': advisor.bio,
-                    'specializations': advisor.specializations,
-                    'photo_url': advisor.photo_url
-                })
-                advisors_with_schedules.add(advisor_id)
-    
-    # Si no hay asesores con horarios, mostrar error
-    if not advisors_list:
-        flash('Este servicio no tiene asesores con horarios configurados. Por favor, contacta al administrador.', 'error')
-        return redirect(url_for('services'))
-    
-    # Validar anticipación mínima y máxima (inspirado en Odoo)
-    # Valores por defecto: mínimo 24 horas de anticipación, máximo 90 días
-    now = datetime.utcnow()
-    min_schedule_hours = 24  # Mínimo 24 horas de anticipación
-    max_schedule_days = 90   # Máximo 90 días hacia adelante
-    
-    min_datetime = now + timedelta(hours=min_schedule_hours)
-    max_datetime = now + timedelta(days=max_schedule_days)
-    
-    # Obtener TODOS los slots disponibles para este servicio (sin filtrar por asesor)
-    # Primero, generar slots para todos los asesores asignados si no hay suficientes
-    for advisor_id in advisors_with_schedules:
-        try:
-            existing_slots_count = AppointmentSlot.query.filter(
-                AppointmentSlot.advisor_id == advisor_id,
-                AppointmentSlot.appointment_type_id == service.appointment_type_id,
-                AppointmentSlot.start_datetime >= datetime.utcnow(),
-                AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30)
-            ).count()
-            
-            if existing_slots_count < 10:
-                try:
-                    generate_slots_from_availability(advisor_id, service.appointment_type_id, days_ahead=30)
-                except Exception as e:
-                    # Si falla la generación de slots, continuar sin generar
-                    print(f"Error generando slots para asesor {advisor_id}: {e}")
-                    pass
-        except Exception as e:
-            print(f"Error verificando slots para asesor {advisor_id}: {e}")
-            continue
-    
-    # Obtener todos los slots disponibles del servicio (con relaciones cargadas)
-    from sqlalchemy.orm import joinedload
-    available_slots = AppointmentSlot.query.options(
-        joinedload(AppointmentSlot.advisor).joinedload(Advisor.user)
-    ).filter(
-        AppointmentSlot.appointment_type_id == service.appointment_type_id,
-        AppointmentSlot.start_datetime >= datetime.utcnow(),
-        AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30),
-        AppointmentSlot.is_available == True
-    ).order_by(AppointmentSlot.start_datetime.asc()).limit(200).all()
-    
-    # Obtener asesor seleccionado (si viene en query param para filtrar)
-    selected_advisor_id = request.args.get('advisor_id', type=int)
-    
-    # Preparar slots para JSON (con información del asesor)
-    slots_data = []
-    for slot in available_slots:
-        try:
-            advisor_name = 'Asesor'
-            if slot.advisor:
-                if slot.advisor.user:
-                    advisor_name = f"{slot.advisor.user.first_name} {slot.advisor.user.last_name}"
-                else:
-                    advisor_name = f"Asesor #{slot.advisor.id}"
-            
-            slots_data.append({
-                'id': slot.id,
-                'advisor_id': slot.advisor_id,
-                'advisor_name': advisor_name,
-                'start_datetime': slot.start_datetime.isoformat() if slot.start_datetime else None,
-                'end_datetime': slot.end_datetime.isoformat() if slot.end_datetime else None,
-                'capacity': slot.capacity if slot.capacity else 1,
-                'remaining_seats': slot.remaining_seats() if hasattr(slot, 'remaining_seats') else 1
-            })
-        except Exception as e:
-            print(f"Error procesando slot {slot.id}: {e}")
-            continue
-    
-    import json
-    try:
-        return render_template('services/request_appointment.html',
-                             service=service,
-                             appointment_type=appointment_type,
-                             advisors=advisors_list,
-                             selected_advisor_id=selected_advisor_id,
-                             membership=membership,
-                             pricing=pricing,
-                             deposit_info=deposit_info,
-                             available_slots_json=json.dumps(slots_data),
-                             available_slots=available_slots,  # Mantener para compatibilidad
-                             user=current_user)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        flash(f'Error al cargar la página de solicitud de cita: {str(e)}', 'error')
-        return redirect(url_for('services'))
-
-
-@app.route('/services/<int:service_id>/request-appointment', methods=['POST'])
-@login_required
-def service_request_appointment_submit(service_id):
-    """
-    Agrega el servicio con cita al carrito en lugar de procesar el pago directamente.
-    """
-    import json
-    
-    # Validar servicio
-    service = Service.query.get_or_404(service_id)
-    if not service.is_active or not service.requires_appointment():
-        flash('Este servicio no está disponible para citas.', 'error')
-        return redirect(url_for('services'))
-    
-    # Verificar membresía
-    membership = current_user.get_active_membership()
-    if not membership:
-        flash('Necesitas una membresía activa.', 'warning')
-        return redirect(url_for('services'))
-    
-    # Validar datos del formulario
-    slot_id = request.form.get('slot_id', type=int)
-    case_description = request.form.get('case_description', '').strip()
-    
-    # Validar descripción del caso
-    if not case_description or len(case_description) < 20:
-        flash('La descripción del caso debe tener al menos 20 caracteres.', 'error')
-        return redirect(url_for('service_request_appointment', service_id=service_id))
-    
-    if len(case_description) > 1000:
-        flash('La descripción del caso no puede exceder 1000 caracteres.', 'error')
-        return redirect(url_for('service_request_appointment', service_id=service_id))
-    
-    # Validar slot
-    if not slot_id:
-        flash('Debes seleccionar un horario disponible.', 'error')
-        return redirect(url_for('service_request_appointment', service_id=service_id))
-    
-    slot = AppointmentSlot.query.get_or_404(slot_id)
-    
-    # Verificar que el slot pertenece al tipo de cita del servicio
-    if slot.appointment_type_id != service.appointment_type_id:
-        flash('El horario seleccionado no corresponde a este servicio.', 'error')
-        return redirect(url_for('service_request_appointment', service_id=service_id))
-    
-    # Verificar disponibilidad del slot
-    if not slot.is_available or slot.remaining_seats() <= 0:
-        flash('Este horario ya no está disponible. Por favor selecciona otro.', 'warning')
-        return redirect(url_for('service_request_appointment', service_id=service_id))
-    
-    # Calcular precios
-    membership_type = membership.membership_type
-    pricing = service.pricing_for_membership(membership_type)
-    final_price = pricing['final_price']
-    
-    # Preparar metadata para el carrito
-    cart_metadata = {
-        'service_id': service.id,
-        'service_name': service.name,
-        'slot_id': slot.id,
-        'slot_datetime': slot.start_datetime.isoformat(),
-        'case_description': case_description,
-        'final_price': final_price,
-        'appointment_type_id': service.appointment_type_id,
-        'advisor_id': slot.advisor_id,
-        'requires_appointment': True,
-        'slot_end_datetime': slot.end_datetime.isoformat() if slot.end_datetime else None
-    }
-    
-    # Agregar al carrito
-    try:
-        cart = add_to_cart(
-            user_id=current_user.id,
-            product_type='service',
-            product_id=service.id,
-            product_name=f"{service.name} - Cita",
-            unit_price=int(final_price * 100),  # Convertir a centavos
-            quantity=1,
-            product_description=f"Servicio con cita agendada: {case_description[:100]}...",
-            metadata=cart_metadata
-        )
-        
-        flash('Servicio agregado al carrito exitosamente. Puedes continuar con el proceso de pago desde tu carrito.', 'success')
-        return redirect(url_for('cart'))
-    
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error al agregar al carrito: {str(e)}', 'error')
-        return redirect(url_for('service_request_appointment', service_id=service_id))
+        hierarchy = MembershipPlan.get_hierarchy()
+        if not hierarchy:
+            hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4, 'admin': 5}
+    except Exception:
+        hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4, 'admin': 5}
+    user_level = hierarchy.get(mt, 0)
+    allowed_types = [p for p, level in hierarchy.items() if level <= user_level]
+    if not allowed_types:
+        allowed_types = [mt] if mt else []
+    benefits = Benefit.query.filter(
+        Benefit.membership_type.in_(allowed_types),
+        Benefit.is_active == True
+    ).order_by(Benefit.membership_type, Benefit.name).all()
+    return render_template('benefits.html', benefits=benefits, membership=active_membership)
 
 
 @app.route('/api/payments/<int:payment_id>/success')
@@ -4769,7 +4565,7 @@ def service_payment_success_callback(payment_id):
     # Verificar que el pago pertenece al usuario
     if payment.user_id != current_user.id:
         flash('No tienes permiso para acceder a este pago.', 'error')
-        return redirect(url_for('services'))
+        return redirect(url_for('services.list'))
     
     # Solo procesar si es un pago de servicio (service_appointment)
     if payment.membership_type != 'service_appointment':
@@ -4792,7 +4588,7 @@ def service_payment_success_callback(payment_id):
         metadata = json.loads(payment.payment_metadata)
     except:
         flash('Error al procesar los datos del pago.', 'error')
-        return redirect(url_for('services'))
+        return redirect(url_for('services.list'))
     
     service_id = metadata.get('service_id')
     slot_id = metadata.get('slot_id')
@@ -4806,12 +4602,12 @@ def service_payment_success_callback(payment_id):
     
     if not service or not slot:
         flash('Error: El servicio o horario seleccionado ya no está disponible.', 'error')
-        return redirect(url_for('services'))
+        return redirect(url_for('services.list'))
     
     # Verificar disponibilidad del slot
     if not slot.is_available or slot.remaining_seats() <= 0:
         flash('El horario seleccionado ya no está disponible. Contacta a soporte.', 'error')
-        return redirect(url_for('services'))
+        return redirect(url_for('services.list'))
     
     # Determinar estado de pago
     if deposit_amount >= final_price:
@@ -4874,145 +4670,6 @@ def service_payment_success_callback(payment_id):
     
     # Fallback seguro: comportamiento original
     return redirect(url_for('appointments.appointments_home'))
-
-
-@app.route('/office365')
-@login_required
-def office365():
-    """Módulo de Office 365. Pro+ puede solicitar sin código; el resto debe ingresar código de autorización."""
-    active_membership = current_user.get_active_membership()
-    is_pro_or_above = _user_has_pro_or_above()
-    return render_template('office365.html', membership=active_membership, is_pro_or_above=is_pro_or_above)
-
-
-def _user_has_pro_or_above():
-    """True si el usuario tiene membresía Pro o superior activa."""
-    m = current_user.get_active_membership()
-    if not m or not getattr(m, 'is_currently_active', lambda: False)():
-        return False
-    mt = (getattr(m, 'membership_type', '') or '').strip().lower()
-    return mt in OFFICE365_PRO_OR_ABOVE
-
-
-@app.route('/api/office365/request', methods=['POST'])
-@login_required
-def api_office365_request():
-    """Recibe solicitud Office 365; exige Pro+ o código válido. Guarda en BD, envía correo a admins y copia al usuario."""
-    if not request.is_json:
-        return jsonify({'success': False, 'error': 'Content-Type debe ser application/json'}), 400
-    data = request.get_json()
-    email = (data.get('email') or '').strip()
-    purpose = (data.get('purpose') or '').strip()
-    description = (data.get('description') or '').strip()
-    authorization_code = (data.get('authorization_code') or data.get('code') or '').strip()
-    if not email:
-        return jsonify({'success': False, 'error': 'El correo es obligatorio.'}), 400
-    if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
-        return jsonify({'success': False, 'error': 'Formato de correo no válido.'}), 400
-    if not purpose:
-        return jsonify({'success': False, 'error': 'El propósito es obligatorio.'}), 400
-    if len(description) < 10:
-        return jsonify({'success': False, 'error': 'La descripción debe tener al menos 10 caracteres.'}), 400
-
-    # Regla de negocio: Pro+ o código válido
-    discount_code_id = None
-    if _user_has_pro_or_above():
-        pass
-    else:
-        if not authorization_code:
-            return jsonify({
-                'success': False,
-                'error': 'Necesitas una membresía Pro o superior, o un código de autorización válido para solicitar correo.',
-                'code_required': True,
-            }), 403
-        dc = DiscountCode.query.filter(DiscountCode.code == authorization_code.strip().upper()).first()
-        if not dc:
-            return jsonify({'success': False, 'error': 'Código de autorización no encontrado o incorrecto.'}), 400
-        if not getattr(dc, 'valid_for_office365', False):
-            return jsonify({'success': False, 'error': 'Este código no es válido para solicitud de correo Office 365.'}), 400
-        ok, msg = dc.can_use(current_user.id)
-        if not ok:
-            if 'límite de usos' in msg or 'máximo' in msg:
-                return jsonify({'success': False, 'error': msg}), 409
-            return jsonify({'success': False, 'error': msg}), 400
-        discount_code_id = dc.id
-
-    purpose_max = purpose[:255]
-    description_safe = description[:2000]
-    user_id = current_user.id
-    user_name = f'{getattr(current_user, "first_name", "") or ""} {getattr(current_user, "last_name", "") or ""}'.strip() or current_user.email
-    try:
-        req = Office365Request(
-            user_id=user_id,
-            email=email,
-            purpose=purpose_max,
-            description=description_safe,
-            status='pending',
-            discount_code_id=discount_code_id,
-        )
-        db.session.add(req)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        app.logger.exception('Office365Request create failed')
-        return jsonify({'success': False, 'error': 'Error al registrar la solicitud.'}), 500
-    admins = User.query.filter_by(is_admin=True).filter(User.email.isnot(None)).filter(User.email != '').all()
-    admin_emails = list({a.email for a in admins if a.email})
-    recipients = list(admin_emails)
-    if email not in recipients:
-        recipients.append(email)
-    # Usar template de correo si existe (Admin → Email)
-    t = EmailTemplate.query.filter_by(template_key='office365_request').first()
-    sub = {
-        'user_name': html_module.escape(user_name),
-        'email': html_module.escape(email),
-        'purpose': html_module.escape(purpose_max),
-        'description': html_module.escape(description_safe).replace(chr(10), '<br>'),
-        'request_id': req.id,
-    }
-    if t:
-        subject = t.subject.replace('{user_name}', sub['user_name']).replace('{email}', sub['email']).replace('{purpose}', sub['purpose']).replace('{description}', sub['description']).replace('{request_id}', str(req.id))
-        if t.is_custom and t.html_content:
-            body_html = t.html_content
-            for k, v in sub.items():
-                body_html = body_html.replace('{' + k + '}', v)
-        else:
-            body_html = get_office365_request_email(user_name, email, purpose_max, description_safe, req.id)
-    else:
-        subject = f'Nueva solicitud Office 365 – {email}'
-        body_html = get_office365_request_email(user_name, email, purpose_max, description_safe, req.id)
-    if admin_emails:
-        try:
-            if mail and Message:
-                msg = Message(subject=subject, recipients=recipients, html=body_html)
-                mail.send(msg)
-            else:
-                app.logger.warning('Office365: Flask-Mail no disponible, correo no enviado')
-        except Exception as e:
-            app.logger.exception('Office365 email send failed')
-            err_msg = str(e)[:500]
-            for admin in User.query.filter_by(is_admin=True).all():
-                try:
-                    n = Notification(
-                        user_id=admin.id,
-                        notification_type='email_error',
-                        title='Error al enviar correo (solicitud Office 365)',
-                        message=f'Solicitud #{req.id}. No se pudo enviar el correo a los admins. Error: {err_msg}',
-                    )
-                    db.session.add(n)
-                except Exception:
-                    pass
-            try:
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
-    else:
-        app.logger.error('Office365 request id=%s: no hay admins con email configurado', req.id)
-    app.logger.info('Office365 request id=%s user_id=%s email=%s ip=%s', req.id, user_id, email, request.remote_addr)
-    resp = {'success': True, 'message': 'Solicitud enviada. Recibirás una respuesta en 2-3 días hábiles.', 'request_id': req.id}
-    if not admin_emails:
-        resp['warning'] = 'Solicitud registrada pero no hay destinatarios configurados; contacta al soporte.'
-    return jsonify(resp)
 
 
 @app.route('/admin/office365/requests')
@@ -5109,143 +4766,11 @@ def settings():
     """Módulo de Configuración"""
     return render_template('settings.html')
 
-@app.route('/notifications')
-@app.route('/notifications')
-@login_required
-def notifications():
-    """Módulo de Notificaciones"""
-    try:
-        # Obtener todas las notificaciones del usuario
-        user_notifications = Notification.query.filter_by(
-            user_id=current_user.id
-        ).order_by(Notification.created_at.desc()).all()
-        
-        # Contar no leídas
-        unread_count = Notification.query.filter_by(
-            user_id=current_user.id,
-            is_read=False
-        ).count()
-        
-        # Logging para debug
-        print(f"📬 Usuario {current_user.id} ({current_user.email}):")
-        print(f"   Total notificaciones: {len(user_notifications)}")
-        print(f"   No leídas: {unread_count}")
-        if user_notifications:
-            for n in user_notifications[:5]:  # Mostrar primeras 5
-                print(f"   - ID {n.id}: {n.title} (leída: {n.is_read})")
-        
-        return render_template('notifications.html', 
-                             notifications=user_notifications,
-                             unread_count=unread_count)
-    except Exception as e:
-        print(f"❌ Error en endpoint /notifications: {e}")
-        import traceback
-        traceback.print_exc()
-        # Retornar página vacía en caso de error
-        return render_template('notifications.html', 
-                             notifications=[],
-                             unread_count=0)
-
 @app.route('/help')
 @login_required
 def help():
     """Módulo de Ayuda"""
     return render_template('help.html')
-
-# Rutas de pago
-@app.route('/checkout')
-@login_required
-@email_verified_required
-def checkout():
-    """Página de checkout para pagos desde el carrito"""
-    cart = get_or_create_cart(current_user.id)
-    
-    if cart.get_items_count() == 0:
-        flash('Tu carrito está vacío. Agrega productos antes de proceder al pago.', 'warning')
-        return redirect(url_for('cart'))
-    
-    # Obtener desglose de descuentos
-    discount_breakdown = cart.get_discount_breakdown()
-    total_amount = discount_breakdown['final_total']
-    
-    # Obtener métodos de pago disponibles
-    payment_methods = PAYMENT_METHODS if PAYMENT_PROCESSORS_AVAILABLE else {'stripe': 'Stripe (Tarjeta de Crédito)'}
-    
-    return render_template('checkout.html', 
-                         cart=cart,
-                         total_amount=total_amount,
-                         discount_breakdown=discount_breakdown,
-                         stripe_publishable_key=STRIPE_PUBLISHABLE_KEY if stripe else None,
-                         payment_methods=payment_methods)
-
-@app.route('/checkout/<membership_type>')
-@login_required
-def checkout_membership(membership_type):
-    """Página de checkout directo para membresía (compatibilidad con sistema anterior)"""
-    if membership_type not in ['basic', 'pro', 'premium', 'deluxe', 'corporativo']:
-        flash('Tipo de membresía inválido.', 'error')
-        return redirect(url_for('membership'))
-    
-    # Agregar al carrito automáticamente
-    prices = {
-        'basic': 0,
-        'pro': 6000,
-        'premium': 12000,
-        'deluxe': 20000
-    }
-    
-    # Generar ID único basado en el tipo de membresía
-    import hashlib
-    product_id = int(hashlib.md5(membership_type.encode()).hexdigest()[:8], 16) % 1000000
-    
-    add_to_cart(
-        current_user.id,
-        'membership',
-        product_id,
-        f"Membresía {membership_type.title()}",
-        prices[membership_type],
-        1,
-        f"Plan de membresía {membership_type.title()} - 1 año",
-        {'membership_type': membership_type}
-    )
-    
-    # Redirigir al checkout del carrito
-    return redirect(url_for('checkout'))
-
-@app.route('/api/cart/apply-discount-code', methods=['POST'])
-@login_required
-def api_apply_discount_code():
-    """API para aplicar código de descuento al carrito"""
-    try:
-        data = request.get_json()
-        code = data.get('code', '').strip().upper()
-        
-        if not code:
-            return jsonify({'success': False, 'error': 'El código es requerido'}), 400
-        
-        cart = get_or_create_cart(current_user.id)
-        success, message = cart.apply_discount_code(code)
-        
-        if success:
-            # Recalcular desglose
-            breakdown = cart.get_discount_breakdown()
-            return jsonify({
-                'success': True,
-                'message': message,
-                'breakdown': {
-                    'subtotal': breakdown['subtotal'],
-                    'master_discount_amount': breakdown['master_discount']['amount'] if breakdown['master_discount'] else 0,
-                    'code_discount_amount': breakdown['code_discount']['amount'] if breakdown['code_discount'] else 0,
-                    'total_discount': breakdown['total_discount'],
-                    'final_total': breakdown['final_total']
-                }
-            })
-        else:
-            return jsonify({'success': False, 'error': message}), 400
-    
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 
 def _make_absolute_url(url):
     """
@@ -5267,7 +4792,7 @@ def redirect_to_stripe_checkout(payment, service, slot):
     """
     if not STRIPE_AVAILABLE or not stripe:
         flash('El método de pago con tarjeta no está disponible.', 'error')
-        return redirect(url_for('service_request_appointment', service_id=service.id))
+        return redirect(url_for('services.request_appointment', service_id=service.id))
     
     try:
         # Crear sesión de checkout
@@ -5287,7 +4812,7 @@ def redirect_to_stripe_checkout(payment, service, slot):
             mode='payment',
             success_url=url_for('service_payment_success_callback', payment_id=payment.id, _external=True),
             # Cancel URL: usar return_url guardado si existe (convertir a absoluto), sino usar la página de solicitud
-            cancel_url=_make_absolute_url(session.get('appointment_return_url')) or url_for('service_request_appointment', service_id=service.id, _external=True),
+            cancel_url=_make_absolute_url(session.get('appointment_return_url')) or url_for('services.request_appointment', service_id=service.id, _external=True),
             metadata={
                 'payment_id': str(payment.id),
                 'service_id': str(service.id),
@@ -5305,7 +4830,7 @@ def redirect_to_stripe_checkout(payment, service, slot):
     except Exception as e:
         db.session.rollback()
         flash(f'Error al crear la sesión de pago: {str(e)}', 'error')
-        return redirect(url_for('service_request_appointment', service_id=service.id))
+        return redirect(url_for('services.request_appointment', service_id=service.id))
 
 
 def generate_external_payment_url(payment, payment_method):
@@ -5317,7 +4842,7 @@ def generate_external_payment_url(payment, payment_method):
     
     # URL de callback
     callback_url = url_for('payment_success_callback', payment_id=payment.id, _external=True)
-    cancel_url = url_for('services', _external=True)
+    cancel_url = url_for('services.list', _external=True)
     
     # Generar URL según el método
     if payment_method == 'banco_general':
@@ -5331,32 +4856,6 @@ def generate_external_payment_url(payment, payment_method):
         return url_for('payment_status', payment_id=payment.id, _external=True)
     
     return callback_url
-
-
-@app.route('/api/cart/remove-discount-code', methods=['POST'])
-@login_required
-def api_remove_discount_code():
-    """API para remover código de descuento del carrito"""
-    try:
-        cart = get_or_create_cart(current_user.id)
-        cart.remove_discount_code()
-        
-        # Recalcular desglose
-        breakdown = cart.get_discount_breakdown()
-        return jsonify({
-            'success': True,
-            'message': 'Código de descuento removido',
-            'breakdown': {
-                'subtotal': breakdown['subtotal'],
-                'master_discount_amount': breakdown['master_discount']['amount'] if breakdown['master_discount'] else 0,
-                'code_discount_amount': 0,
-                'total_discount': breakdown['total_discount'],
-                'final_total': breakdown['final_total']
-            }
-        })
-    
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/create-payment-intent', methods=['POST'])
@@ -5826,12 +5325,12 @@ def paypal_return():
     
     if not token or not payment_id:
         flash('Error en el proceso de pago de PayPal.', 'error')
-        return redirect(url_for('checkout'))
+        return redirect(url_for('payments.checkout'))
     
     payment = Payment.query.get(payment_id)
     if not payment or payment.user_id != current_user.id:
         flash('Pago no encontrado.', 'error')
-        return redirect(url_for('checkout'))
+        return redirect(url_for('payments.checkout'))
     
     # Capturar el pago de PayPal
     if PAYMENT_PROCESSORS_AVAILABLE:
@@ -5892,7 +5391,7 @@ def paypal_return():
             print(f"Error procesando retorno de PayPal: {e}")
             flash('Error procesando el pago.', 'error')
     
-    return redirect(url_for('checkout'))
+    return redirect(url_for('payments.checkout'))
 
 @app.route('/payment/paypal/cancel', methods=['GET'])
 @login_required
@@ -5907,7 +5406,7 @@ def paypal_cancel():
             db.session.commit()
     
     flash('Pago cancelado.', 'warning')
-    return redirect(url_for('checkout'))
+    return redirect(url_for('payments.checkout'))
 
 def send_payment_to_odoo(payment, user, cart=None):
     """
@@ -6231,7 +5730,23 @@ def process_cart_after_payment(cart, payment):
                 'final_price': event_reg.final_price
             }
             events_info.append(event_info)
-        
+
+        # Automatización marketing
+        try:
+            from _app.modules.marketing.service import trigger_automation
+            base_url = None
+            try:
+                from flask import request as req
+                base_url = req.host_url.rstrip('/') if req else None
+            except Exception:
+                pass
+            if subscriptions_created:
+                trigger_automation('membership_renewed', payment.user_id, base_url=base_url)
+            for event_reg in events_registered:
+                trigger_automation('event_registered', event_reg.user_id, base_url=base_url, event_id=event_reg.event_id)
+        except Exception as e:
+            print(f"Marketing automation error: {e}")
+
         HistoryLogger.log_user_action(
             user_id=payment.user_id,
             action=f"Compra realizada - {len(purchased_items)} item(s) - ${final_amount/100:.2f}",
@@ -6321,268 +5836,16 @@ def generate_discount_code(prefix="DSC", length=8, custom_part=None):
 
 
 def get_or_create_cart(user_id):
-    """Obtener o crear carrito para el usuario"""
-    cart = Cart.query.filter_by(user_id=user_id).first()
-    if not cart:
-        cart = Cart(user_id=user_id)
-        db.session.add(cart)
-        db.session.commit()
-    return cart
+    """Wrapper: delegar al módulo payments (compatibilidad para event_routes, appointment_routes, services, etc.)."""
+    from _app.modules.payments.service import get_or_create_cart as _get
+    return _get(user_id)
+
 
 def add_to_cart(user_id, product_type, product_id, product_name, unit_price, quantity=1, product_description=None, metadata=None):
-    """Agregar producto al carrito"""
-    cart = get_or_create_cart(user_id)
-    
-    # Verificar si el producto ya está en el carrito
-    existing_item = CartItem.query.filter_by(
-        cart_id=cart.id,
-        product_type=product_type,
-        product_id=product_id
-    ).first()
-    
-    if existing_item:
-        # Actualizar cantidad
-        existing_item.quantity += quantity
-        existing_item.updated_at = datetime.utcnow()
-    else:
-        # Crear nuevo item
-        import json
-        metadata_json = json.dumps(metadata) if metadata else None
-        
-        new_item = CartItem(
-            cart_id=cart.id,
-            product_type=product_type,
-            product_id=product_id,
-            product_name=product_name,
-            product_description=product_description,
-            unit_price=unit_price,
-            quantity=quantity,
-            item_metadata=metadata_json
-        )
-        db.session.add(new_item)
-    
-    cart.updated_at = datetime.utcnow()
-    db.session.commit()
-    return cart
+    """Wrapper: delegar al módulo payments (compatibilidad para event_routes, appointment_routes, services, etc.)."""
+    from _app.modules.payments.service import add_to_cart as _add
+    return _add(user_id, product_type, product_id, product_name, unit_price, quantity, product_description, metadata)
 
-# Rutas del Carrito de Compras
-@app.route('/cart')
-@login_required
-def cart():
-    """Ver carrito de compras"""
-    cart = get_or_create_cart(current_user.id)
-    return render_template('cart.html', cart=cart)
-
-@app.route('/cart/add', methods=['POST'])
-@login_required
-@email_verified_required
-def cart_add():
-    """Agregar producto al carrito"""
-    try:
-        data = request.get_json() if request.is_json else request.form
-        product_type = data.get('product_type')
-        quantity = int(data.get('quantity', 1))
-        
-        # Validar tipo de producto
-        if product_type not in ['membership', 'event', 'service']:
-            return jsonify({'success': False, 'error': 'Tipo de producto inválido'}), 400
-        
-        # Si el usuario ya tiene membresía activa, verificar que no intente comprar otra membresía del mismo tipo
-        if product_type == 'membership':
-            active_membership = current_user.get_active_membership()
-            if active_membership:
-                membership_type_requested = data.get('membership_type')
-                if membership_type_requested == active_membership.membership_type:
-                    return jsonify({
-                        'success': False, 
-                        'error': f'Ya tienes una membresía {membership_type_requested.title()} activa'
-                    }), 400
-        
-        # Obtener información del producto según su tipo
-        product_name = ""
-        product_description = ""
-        unit_price = 0
-        metadata = {}
-        product_id = 0  # Inicializar product_id
-        
-        if product_type == 'membership':
-            membership_type = data.get('membership_type')
-            if not membership_type:
-                return jsonify({'success': False, 'error': 'Tipo de membresía no especificado'}), 400
-            
-            prices = {
-                'basic': 0,
-                'pro': 6000,
-                'premium': 12000,
-                'deluxe': 20000
-            }
-            unit_price = prices.get(membership_type, 0)
-            product_name = f"Membresía {membership_type.title()}"
-            product_description = f"Plan de membresía {membership_type.title()} - 1 año"
-            metadata = {'membership_type': membership_type}
-            # Generar ID único basado en el tipo de membresía
-            import hashlib
-            product_id = int(hashlib.md5(membership_type.encode()).hexdigest()[:8], 16) % 1000000
-            
-            
-        elif product_type == 'event':
-            product_id = int(data.get('product_id', 0))
-            if product_id == 0:
-                return jsonify({'success': False, 'error': 'ID de evento no especificado'}), 400
-            event = Event.query.get(product_id)
-            if not event:
-                return jsonify({'success': False, 'error': 'Evento no encontrado'}), 404
-            
-            # Calcular precio según membresía del usuario
-            active_membership = current_user.get_active_membership()
-            membership_type = active_membership.membership_type if active_membership else 'basic'
-            pricing = event.pricing_for_membership(membership_type)
-            
-            unit_price = int(pricing['final_price'] * 100)  # Convertir a centavos
-            product_name = event.title
-            product_description = event.summary or event.description[:200] if event.description else ""
-            metadata = {
-                'event_id': event.id,
-                'event_slug': event.slug,
-                'base_price': pricing['base_price'],
-                'final_price': pricing['final_price'],
-                'discount_applied': pricing['discount'] is not None
-            }
-        
-        elif product_type == 'service':
-            # Obtener información del servicio
-            product_id = int(data.get('product_id', 0))
-            if product_id == 0:
-                return jsonify({'success': False, 'error': 'ID de servicio no especificado'}), 400
-            
-            service = Service.query.get(product_id)
-            if not service:
-                return jsonify({'success': False, 'error': 'Servicio no encontrado'}), 404
-            
-            # Para servicios con diagnóstico: NO se requiere slot, va a cola
-            # El slot se asignará después por el asesor
-            
-            # Calcular precio usando el método del servicio (respeta reglas y descuentos)
-            active_membership = current_user.get_active_membership()
-            membership_type = active_membership.membership_type if active_membership else 'basic'
-            
-            # Usar pricing_for_membership() que respeta ServicePricingRule y MembershipDiscount
-            pricing = service.pricing_for_membership(membership_type)
-            final_price = pricing['final_price']
-            
-            # Convertir a centavos para almacenar en CartItem
-            unit_price = int(final_price * 100)
-            
-            product_name = service.name
-            product_description = service.description or 'Servicio de RELATIC'
-            metadata = {
-                'service_id': service.id,
-                'base_price': pricing['base_price'],
-                'final_price': pricing['final_price'],
-                'discount_percentage': pricing['discount_percentage'],
-                'is_included': pricing['is_included'],
-                'membership_type': membership_type,
-                'discount_applied': pricing['discount_percentage'] > 0,
-                'requires_diagnostic': service.requires_diagnostic_appointment
-            }
-        
-        # Agregar al carrito
-        cart = add_to_cart(
-            current_user.id,
-            product_type,
-            product_id,
-            product_name,
-            unit_price,
-            quantity,
-            product_description,
-            metadata
-        )
-        
-        return jsonify({
-            'success': True,
-            'message': 'Producto agregado al carrito',
-            'cart_items_count': cart.get_items_count(),
-            'cart_total': cart.get_total()
-        })
-        
-    except ValueError as e:
-        # Error de conversión de tipos
-        print(f"Error de validación agregando al carrito: {e}")
-        return jsonify({'success': False, 'error': f'Error de validación: {str(e)}'}), 400
-    except Exception as e:
-        print(f"Error agregando al carrito: {e}")
-        import traceback
-        traceback.print_exc()
-        # Asegurar que siempre devolvemos JSON
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/cart/remove/<int:item_id>', methods=['POST'])
-@login_required
-def cart_remove(item_id):
-    """Eliminar item del carrito"""
-    try:
-        cart = get_or_create_cart(current_user.id)
-        item = CartItem.query.filter_by(id=item_id, cart_id=cart.id).first()
-        
-        if not item:
-            return jsonify({'success': False, 'error': 'Item no encontrado'}), 404
-        
-        db.session.delete(item)
-        cart.updated_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Producto eliminado del carrito',
-            'cart_items_count': cart.get_items_count(),
-            'cart_total': cart.get_total()
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/cart/update/<int:item_id>', methods=['POST'])
-@login_required
-def cart_update(item_id):
-    """Actualizar cantidad de un item en el carrito"""
-    try:
-        data = request.get_json() if request.is_json else request.form
-        quantity = int(data.get('quantity', 1))
-        
-        if quantity < 1:
-            return jsonify({'success': False, 'error': 'La cantidad debe ser al menos 1'}), 400
-        
-        cart = get_or_create_cart(current_user.id)
-        item = CartItem.query.filter_by(id=item_id, cart_id=cart.id).first()
-        
-        if not item:
-            return jsonify({'success': False, 'error': 'Item no encontrado'}), 404
-        
-        item.quantity = quantity
-        item.updated_at = datetime.utcnow()
-        cart.updated_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Cantidad actualizada',
-            'cart_items_count': cart.get_items_count(),
-            'cart_total': cart.get_total(),
-            'item_subtotal': item.get_subtotal()
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/cart/count', methods=['GET'])
-@login_required
-def cart_count():
-    """Obtener cantidad de items en el carrito (API)"""
-    cart = get_or_create_cart(current_user.id)
-    return jsonify({
-        'count': cart.get_items_count(),
-        'total': cart.get_total()
-    })
 
 @app.route('/stripe-webhook', methods=['POST'])
 def stripe_webhook():
@@ -7736,6 +6999,60 @@ def api_user_membership():
         })
     return jsonify({'error': 'No active membership found'}), 404
 
+
+def _default_user_preferences():
+    """Valores por defecto para configuración de usuario."""
+    return {
+        'notif_email': True,
+        'notif_events': True,
+        'notif_publications': False,
+        'notif_newsletter': True,
+        'privacy_profile': False,
+        'privacy_email': False,
+        'privacy_activity': True,
+        'language': 'es',
+        'timezone': 'America/Panama',
+        'theme': 'light',
+        'font_size': 'medium',
+    }
+
+
+@app.route('/api/user/settings', methods=['GET'])
+@login_required
+def api_user_settings_get():
+    """Obtener preferencias de configuración del usuario."""
+    try:
+        row = UserSettings.query.filter_by(user_id=current_user.id).first()
+        prefs = _default_user_preferences()
+        if row and row.preferences:
+            prefs.update(json.loads(row.preferences))
+        return jsonify({'success': True, 'preferences': prefs})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user/settings', methods=['POST'])
+@login_required
+def api_user_settings_post():
+    """Guardar preferencias de configuración del usuario."""
+    data = request.get_json()
+    if not data or not isinstance(data.get('preferences'), dict):
+        return jsonify({'success': False, 'error': 'Datos no válidos'}), 400
+    try:
+        prefs = {k: v for k, v in data['preferences'].items() if k in _default_user_preferences()}
+        row = UserSettings.query.filter_by(user_id=current_user.id).first()
+        if not row:
+            row = UserSettings(user_id=current_user.id, preferences=json.dumps(prefs))
+            db.session.add(row)
+        else:
+            row.preferences = json.dumps(prefs)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Configuración guardada'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Rutas de administración
 @app.route('/admin')
 @app.route('/admin/')
@@ -8815,6 +8132,72 @@ def api_notifications_bulk_update():
         'updated': updated_count
     })
 
+# Identidad visual (design tokens por cliente)
+IDENTITY_PRESETS = {
+    'azul': {'primary_color': '#2563EB', 'primary_color_dark': '#1E3A8A', 'accent_color': '#06B6D4'},
+    'verde': {'primary_color': '#059669', 'primary_color_dark': '#047857', 'accent_color': '#10B981'},
+    'rojo': {'primary_color': '#DC2626', 'primary_color_dark': '#B91C1C', 'accent_color': '#EF4444'},
+    'violeta': {'primary_color': '#7C3AED', 'primary_color_dark': '#5B21B6', 'accent_color': '#A78BFA'},
+    'indigo': {'primary_color': '#4F46E5', 'primary_color_dark': '#3730A3', 'accent_color': '#818CF8'},
+    'teal': {'primary_color': '#0D9488', 'primary_color_dark': '#0F766E', 'accent_color': '#2DD4BF'},
+    'cyan': {'primary_color': '#0891B2', 'primary_color_dark': '#0E7490', 'accent_color': '#22D3EE'},
+    'naranja': {'primary_color': '#EA580C', 'primary_color_dark': '#C2410C', 'accent_color': '#FB923C'},
+    'ambar': {'primary_color': '#D97706', 'primary_color_dark': '#B45309', 'accent_color': '#FBBF24'},
+    'rosa': {'primary_color': '#DB2777', 'primary_color_dark': '#BE185D', 'accent_color': '#F472B6'},
+    'slate': {'primary_color': '#475569', 'primary_color_dark': '#334155', 'accent_color': '#94A3B8'},
+    'esmeralda': {'primary_color': '#10B981', 'primary_color_dark': '#059669', 'accent_color': '#34D399'},
+    'coral': {'primary_color': '#E11D48', 'primary_color_dark': '#BE123C', 'accent_color': '#FB7185'},
+}
+
+def _validate_hex(value):
+    if not value or not isinstance(value, str):
+        return False
+    v = value.strip()
+    return len(v) == 7 and v[0] == '#' and all(c in '0123456789AaBbCcDdEeFf' for c in v[1:])
+
+@app.route('/admin/identity')
+@admin_required
+def admin_identity():
+    """Panel de identidad visual (colores y logo por cliente)"""
+    s = OrganizationSettings.get_settings()
+    return render_template('admin/identity.html', settings=s.to_dict())
+
+@app.route('/api/admin/identity', methods=['GET', 'POST'])
+@admin_required
+def api_admin_identity():
+    """GET: devolver configuración. POST: guardar (validar HEX y presets)."""
+    if request.method == 'GET':
+        s = OrganizationSettings.get_settings()
+        return jsonify({'success': True, 'settings': s.to_dict()})
+    data = request.get_json(silent=True) or {}
+    preset = (data.get('preset') or 'azul').strip().lower()
+    if preset in IDENTITY_PRESETS:
+        p = IDENTITY_PRESETS[preset]
+        s = OrganizationSettings.get_settings()
+        s.primary_color = p['primary_color']
+        s.primary_color_dark = p['primary_color_dark']
+        s.accent_color = p['accent_color']
+        s.preset = preset
+    elif preset == 'custom':
+        primary = (data.get('primary_color') or '').strip()
+        primary_dark = (data.get('primary_color_dark') or '').strip()
+        accent = (data.get('accent_color') or '').strip()
+        if not all((_validate_hex(primary), _validate_hex(primary_dark), _validate_hex(accent))):
+            return jsonify({'success': False, 'error': 'Colores personalizados deben ser HEX válidos (#RRGGBB).'}), 400
+        s = OrganizationSettings.get_settings()
+        s.primary_color = primary
+        s.primary_color_dark = primary_dark
+        s.accent_color = accent
+        s.preset = 'custom'
+    else:
+        return jsonify({'success': False, 'error': 'Preset no válido. Elige un preset de la lista o custom.'}), 400
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'settings': s.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # Rutas de administración para configuración de email
 @app.route('/admin/email')
 @admin_required
@@ -8833,6 +8216,743 @@ def admin_email():
     return render_template('admin/email.html', 
                          email_config=email_config.to_dict() if email_config else None,
                          templates=templates_by_category)
+
+
+@app.route('/admin/marketing/email-settings')
+@admin_required
+def admin_marketing_email_settings():
+    """Configuración de correo para envíos masivos: listar cuentas y designar cuál usar en campañas."""
+    configs = [c.to_dict() for c in EmailConfig.query.order_by(EmailConfig.id).all()]
+    return render_template('admin/marketing_email_settings.html', configs=configs)
+
+
+@app.route('/api/admin/marketing/email-config/set-marketing', methods=['POST'])
+@admin_required
+def api_marketing_email_config_set_marketing():
+    """Designar una configuración como la que se usa para envíos masivos (campañas)."""
+    data = request.get_json() or {}
+    config_id = data.get('config_id')
+    if config_id is None:
+        return jsonify({'success': False, 'error': 'Falta config_id'}), 400
+    cfg = EmailConfig.query.get(config_id)
+    if not cfg:
+        return jsonify({'success': False, 'error': 'Configuración no encontrada'}), 404
+    try:
+        for c in EmailConfig.query.all():
+            c.use_for_marketing = (c.id == cfg.id)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Configuración designada para correos masivos.', 'config': cfg.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/marketing/email-config/create', methods=['POST'])
+@admin_required
+def api_marketing_email_config_create():
+    """Crear una nueva configuración SMTP (para poder usarla en marketing sin tocar la institucional)."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No se recibieron datos JSON'}), 400
+    try:
+        config = EmailConfig(
+            mail_server=(data.get('mail_server') or 'smtp.gmail.com').strip(),
+            mail_port=int(data.get('mail_port', 587)),
+            mail_use_tls=bool(data.get('mail_use_tls', True)),
+            mail_use_ssl=bool(data.get('mail_use_ssl', False)),
+            mail_username=(data.get('mail_username') or '').strip(),
+            mail_password=(data.get('mail_password') or '').strip() or None,
+            mail_default_sender=(data.get('mail_default_sender') or 'noreply@relaticpanama.org').strip(),
+            use_environment_variables=bool(data.get('use_environment_variables', False)),
+            is_active=False,
+            use_for_marketing=False,
+        )
+        db.session.add(config)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Configuración creada. Puedes designarla para marketing.', 'config': config.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/marketing')
+@admin_required
+def admin_marketing():
+    """Panel de Email Marketing: campañas, segmentos, plantillas y estadísticas."""
+    from sqlalchemy import func
+    campaigns = MarketingCampaign.query.order_by(MarketingCampaign.created_at.desc()).limit(100).all()
+    campaign_list = []
+    for c in campaigns:
+        recs = CampaignRecipient.query.filter_by(campaign_id=c.id).all()
+        sent = sum(1 for r in recs if r.sent_at)
+        opened = sum(1 for r in recs if r.opened_at)
+        clicked = sum(1 for r in recs if r.clicked_at)
+        item = {
+            'id': c.id, 'name': c.name, 'subject': c.subject, 'status': c.status,
+            'created_at': c.created_at,
+            'total': len(recs), 'sent': sent,
+            'open_rate': (opened / sent * 100) if sent else 0,
+            'click_rate': (clicked / sent * 100) if sent else 0,
+            'subject_b': getattr(c, 'subject_b', None) or None
+        }
+        if item['subject_b']:
+            recs_a = [r for r in recs if r.variant == 'A']
+            recs_b = [r for r in recs if r.variant == 'B']
+            sent_a = sum(1 for r in recs_a if r.sent_at)
+            sent_b = sum(1 for r in recs_b if r.sent_at)
+            opened_a = sum(1 for r in recs_a if r.opened_at)
+            opened_b = sum(1 for r in recs_b if r.opened_at)
+            clicked_a = sum(1 for r in recs_a if r.clicked_at)
+            clicked_b = sum(1 for r in recs_b if r.clicked_at)
+            item['open_rate_a'] = (opened_a / sent_a * 100) if sent_a else 0
+            item['click_rate_a'] = (clicked_a / sent_a * 100) if sent_a else 0
+            item['open_rate_b'] = (opened_b / sent_b * 100) if sent_b else 0
+            item['click_rate_b'] = (clicked_b / sent_b * 100) if sent_b else 0
+            item['sent_a'] = sent_a
+            item['sent_b'] = sent_b
+        campaign_list.append(item)
+    segments = MarketingSegment.query.order_by(MarketingSegment.id).all()
+    templates = MarketingTemplate.query.order_by(MarketingTemplate.id).all()
+    total_sent = db.session.query(func.count(CampaignRecipient.id)).filter(CampaignRecipient.sent_at.isnot(None)).scalar() or 0
+    total_opened = db.session.query(func.count(CampaignRecipient.id)).filter(CampaignRecipient.opened_at.isnot(None)).scalar() or 0
+    total_clicked = db.session.query(func.count(CampaignRecipient.id)).filter(CampaignRecipient.clicked_at.isnot(None)).scalar() or 0
+    unsub_count = db.session.query(func.count(User.id)).filter(User.email_marketing_status == 'unsubscribed').scalar() or 0
+    sub_count = db.session.query(func.count(User.id)).filter(User.email_marketing_status == 'subscribed').scalar() or 0
+    stats = {
+        'emails_sent': total_sent,
+        'open_rate': (total_opened / total_sent * 100) if total_sent else 0,
+        'click_rate': (total_clicked / total_sent * 100) if total_sent else 0,
+        'unsubscribe_count': unsub_count,
+        'subscribed_count': sub_count,
+        'segments_count': len(segments)
+    }
+    from _app.modules.marketing.service import SEGMENT_FIELDS, SEGMENT_OPERATORS
+    return render_template('admin/marketing.html',
+                         campaigns=campaign_list,
+                         segments=segments,
+                         templates=templates,
+                         stats=stats,
+                         segment_fields=SEGMENT_FIELDS,
+                         segment_operators=SEGMENT_OPERATORS)
+
+
+@app.route('/admin/marketing/campaign/new')
+@admin_required
+def admin_marketing_campaign_new():
+    """Editor de campaña: galería de plantillas + bloques."""
+    segments = MarketingSegment.query.order_by(MarketingSegment.id).all()
+    templates = MarketingTemplate.query.order_by(MarketingTemplate.id).all()
+    if not templates:
+        flash('Crea al menos una plantilla (abajo) antes de usar el editor.', 'warning')
+        return redirect(url_for('admin_marketing'))
+    if not segments:
+        flash('Crea al menos un segmento (abajo) antes de crear una campaña.', 'warning')
+        return redirect(url_for('admin_marketing'))
+    default_template = templates[0]
+    return render_template('admin/marketing_editor.html',
+                         campaign=None,
+                         segments=segments,
+                         templates=templates,
+                         default_template=default_template)
+
+
+@app.route('/admin/marketing/campaign/<int:campaign_id>/edit')
+@admin_required
+def admin_marketing_campaign_edit(campaign_id):
+    """Editar campaña en borrador."""
+    c = MarketingCampaign.query.get_or_404(campaign_id)
+    if c.status not in ('draft', 'scheduled'):
+        flash('Solo se pueden editar campañas en borrador o programadas.', 'warning')
+        return redirect(url_for('admin_marketing'))
+    segments = MarketingSegment.query.order_by(MarketingSegment.id).all()
+    templates = MarketingTemplate.query.order_by(MarketingTemplate.id).all()
+    return render_template('admin/marketing_editor.html',
+                         campaign=c,
+                         segments=segments,
+                         templates=templates,
+                         default_template=c.template)
+
+
+@app.route('/admin/marketing/campaign/save', methods=['POST'])
+@admin_required
+def admin_marketing_campaign_save():
+    """Guardar borrador (crear o actualizar). Acepta action=schedule y scheduled_at para programar."""
+    from _app.modules.marketing.service import create_campaign
+    from datetime import datetime as dt
+    campaign_id = request.form.get('campaign_id', type=int)
+    name = (request.form.get('name') or '').strip()
+    subject = (request.form.get('subject') or '').strip()
+    segment_id = request.form.get('segment_id', type=int)
+    template_id = request.form.get('template_id', type=int)
+    body_html = request.form.get('body_html') or ''
+    exclusion_emails = (request.form.get('exclusion_emails') or '').strip() or None
+    from_name = (request.form.get('from_name') or '').strip() or None
+    reply_to = (request.form.get('reply_to') or '').strip() or None
+    subject_b = (request.form.get('subject_b') or '').strip() or None
+    meeting_url = (request.form.get('meeting_url') or '').strip() or None
+    action = request.form.get('action', 'save')
+    scheduled_at_raw = (request.form.get('scheduled_at') or '').strip()
+    if not name or not subject or not segment_id or not template_id:
+        flash('Faltan nombre, asunto, segmento o plantilla.', 'warning')
+        return redirect(url_for('admin_marketing_campaign_new')) if not campaign_id else redirect(url_for('admin_marketing_campaign_edit', campaign_id=campaign_id))
+    scheduled_at = None
+    if action == 'schedule' and scheduled_at_raw:
+        try:
+            scheduled_at = dt.fromisoformat(scheduled_at_raw.replace('Z', '+00:00'))
+            if scheduled_at.tzinfo:
+                scheduled_at = scheduled_at.replace(tzinfo=None)
+        except Exception:
+            flash('Fecha/hora de programación no válida.', 'warning')
+    if campaign_id:
+        c = MarketingCampaign.query.get_or_404(campaign_id)
+        if c.status not in ('draft', 'scheduled'):
+            flash('Campaña no editable.', 'danger')
+            return redirect(url_for('admin_marketing'))
+        c.name = name
+        c.subject = subject
+        c.segment_id = segment_id
+        c.template_id = template_id
+        c.body_html = body_html.strip() or None
+        c.exclusion_emails = exclusion_emails
+        c.from_name = from_name
+        c.reply_to = reply_to
+        c.subject_b = subject_b
+        if hasattr(c, 'meeting_url'):
+            c.meeting_url = meeting_url
+        if action == 'schedule' and scheduled_at:
+            c.status = 'scheduled'
+            c.scheduled_at = scheduled_at
+            flash(f'Campaña programada para {scheduled_at.strftime("%d/%m/%Y %H:%M")}.', 'success')
+        else:
+            flash('Borrador actualizado.', 'success')
+        db.session.commit()
+        return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
+    c = create_campaign(name, subject, template_id, segment_id)
+    c.body_html = body_html.strip() or None
+    c.exclusion_emails = exclusion_emails
+    c.from_name = from_name
+    c.reply_to = reply_to
+    c.subject_b = subject_b
+    if hasattr(c, 'meeting_url'):
+        c.meeting_url = meeting_url
+    if action == 'schedule' and scheduled_at:
+        c.status = 'scheduled'
+        c.scheduled_at = scheduled_at
+        db.session.commit()
+        flash(f'Campaña programada para {scheduled_at.strftime("%d/%m/%Y %H:%M")}.', 'success')
+    else:
+        db.session.commit()
+        flash('Campaña creada en borrador.', 'success')
+    return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
+
+
+@app.route('/admin/marketing/campaign/<int:campaign_id>/send', methods=['POST'])
+@admin_required
+def admin_marketing_campaign_send(campaign_id):
+    """Enviar campaña."""
+    from _app.modules.marketing.service import start_campaign
+    c, err = start_campaign(campaign_id)
+    if err:
+        flash(err, 'danger')
+    else:
+        flash('Campaña enviada.', 'success')
+    return redirect(url_for('admin_marketing'))
+
+
+@app.route('/admin/marketing/campaign/<int:campaign_id>/save-as-template', methods=['POST'])
+@admin_required
+def admin_marketing_save_as_template(campaign_id):
+    """Guarda el cuerpo actual de la campaña como nueva plantilla."""
+    c = MarketingCampaign.query.get_or_404(campaign_id)
+    name = (request.form.get('template_name') or request.form.get('name') or '').strip()
+    if not name:
+        flash('Indica el nombre de la plantilla.', 'warning')
+        return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
+    body = (getattr(c, 'body_html', None) or '').strip()
+    if not body and c.template_id:
+        t = MarketingTemplate.query.get(c.template_id)
+        body = (t.html or '') if t else ''
+    if not body:
+        flash('No hay contenido para guardar como plantilla.', 'warning')
+        return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
+    t = MarketingTemplate(name=name, html=body, variables='[]')
+    db.session.add(t)
+    db.session.commit()
+    flash(f'Plantilla "{name}" creada. Ya puedes usarla en nuevas campañas.', 'success')
+    return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
+
+
+@app.route('/admin/marketing/campaign/<int:campaign_id>/test', methods=['POST'])
+@admin_required
+def admin_marketing_campaign_test(campaign_id):
+    """Enviar correo de prueba al email indicado."""
+    c = MarketingCampaign.query.get_or_404(campaign_id)
+    test_email = (request.form.get('test_email') or request.form.get('email') or '').strip().lower()
+    if not test_email or '@' not in test_email:
+        flash('Indica un email válido para la prueba.', 'warning')
+        return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
+    from _app.modules.marketing.service import render_template_html
+    template = MarketingTemplate.query.get(c.template_id)
+    body_source = (getattr(c, 'body_html', None) or '').strip() or (template.html if template else '')
+    base_url = request.host_url.rstrip('/') if request else ''
+    ctx = {'nombre': 'Prueba', 'email': test_email, 'user_id': None}
+    html = render_template_html(body_source, getattr(template, 'variables', '[]') if template else '[]', ctx, base_url=base_url)
+    try:
+        if not email_service:
+            flash('Servicio de email no configurado.', 'danger')
+        else:
+            ok = email_service.send_email(
+                subject=c.subject,
+                recipients=[test_email],
+                html_content=html,
+                email_type='marketing_test',
+            )
+            if ok:
+                flash(f'Prueba enviada a {test_email}.', 'success')
+            else:
+                flash('El envío falló. Revisa la configuración SMTP.', 'danger')
+    except Exception as e:
+        flash(f'Error: {e}', 'danger')
+    return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
+
+
+@app.route('/admin/marketing/process-scheduled')
+@admin_required
+def admin_marketing_process_scheduled():
+    """Ejecuta el envío de campañas programadas cuya fecha ya pasó. Llamar por cron o manualmente."""
+    from datetime import datetime
+    from _app.modules.marketing.service import start_campaign
+    now = datetime.utcnow()
+    pending = MarketingCampaign.query.filter(
+        MarketingCampaign.status == 'scheduled',
+        MarketingCampaign.scheduled_at.isnot(None),
+        MarketingCampaign.scheduled_at <= now
+    ).all()
+    sent = 0
+    for c in pending:
+        _, err = start_campaign(c.id)
+        if not err:
+            sent += 1
+    flash(f'Procesadas {len(pending)} campañas programadas; enviadas: {sent}.', 'info')
+    return redirect(url_for('admin_marketing'))
+
+
+@app.route('/admin/marketing/process-queue', methods=['GET', 'POST'])
+@admin_required
+def admin_marketing_process_queue():
+    """Procesa la cola email_queue: envía hasta 50 pendientes (send_after <= now). Usa config de marketing si existe."""
+    from datetime import datetime as dt
+    global mail, email_service
+    initialize_email_config()
+    # Usar configuración designada para marketing (o fallback a institucional)
+    marketing_cfg = EmailConfig.get_marketing_config() or EmailConfig.get_active_config()
+    if marketing_cfg:
+        marketing_cfg.apply_to_app(app)
+        if Mail:
+            mail = Mail()
+            mail.init_app(app)
+        if EMAIL_TEMPLATES_AVAILABLE:
+            email_service = EmailService(mail)
+    if not email_service:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in (request.headers.get('Accept') or ''):
+            return jsonify({'success': False, 'error': 'EmailService no disponible', 'processed': 0}), 503
+        flash('Servicio de email no disponible.', 'danger')
+        return redirect(url_for('admin_marketing'))
+    now = dt.utcnow()
+    q = EmailQueueItem.query.filter(
+        EmailQueueItem.status == 'pending',
+        db.or_(
+            EmailQueueItem.send_after.is_(None),
+            EmailQueueItem.send_after <= now
+        )
+    ).order_by(EmailQueueItem.id).limit(50)
+    items = q.all()
+    sent, failed = 0, 0
+    for item in items:
+        item.status = 'processing'
+        if getattr(item, 'attempts', None) is not None:
+            item.attempts = (item.attempts or 0) + 1
+        db.session.commit()
+        try:
+            payload = json.loads(item.payload) if item.payload else {}
+            subject = payload.get('subject', '')
+            html = payload.get('html', '')
+            to_email = payload.get('to_email', '')
+            if not to_email:
+                item.status = 'failed'
+                if getattr(item, 'error_message', None) is not None:
+                    item.error_message = 'to_email vacío'
+                db.session.commit()
+                failed += 1
+                continue
+            ok = email_service.send_email(
+                subject=subject,
+                recipients=[to_email],
+                html_content=html,
+                sender=payload.get('from_name') or None,
+                reply_to=payload.get('reply_to') or None,
+                email_type='marketing_campaign',
+                related_entity_type='campaign',
+                related_entity_id=item.campaign_id,
+            )
+            if ok:
+                item.status = 'sent'
+                if item.recipient_id:
+                    rec = CampaignRecipient.query.get(item.recipient_id)
+                    if rec:
+                        rec.sent_at = now
+                        rec.status = 'sent'
+                sent += 1
+            else:
+                item.status = 'failed'
+                if getattr(item, 'error_message', None) is not None:
+                    item.error_message = 'send_email devolvió False'
+                failed += 1
+            db.session.commit()
+        except Exception as e:
+            item.status = 'failed'
+            if getattr(item, 'error_message', None) is not None:
+                item.error_message = str(e)[:500]
+            db.session.rollback()
+            db.session.commit()
+            failed += 1
+    # Restaurar configuración institucional para el resto de la app
+    apply_email_config_from_db()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in (request.headers.get('Accept') or ''):
+        return jsonify({'success': True, 'processed': len(items), 'sent': sent, 'failed': failed})
+    flash(f'Cola: {len(items)} procesados ({sent} enviados, {failed} fallos).', 'info')
+    return redirect(url_for('admin_marketing'))
+
+
+@app.route('/admin/marketing/queue')
+@admin_required
+def admin_marketing_queue():
+    """Lista cola de envío (pendientes y recientes)."""
+    pending = EmailQueueItem.query.filter_by(status='pending').order_by(EmailQueueItem.id.desc()).limit(200).all()
+    recent = EmailQueueItem.query.filter(EmailQueueItem.status.in_(['sent', 'failed'])).order_by(EmailQueueItem.id.desc()).limit(100).all()
+    return render_template('admin/marketing_queue.html', pending=pending, recent=recent)
+
+
+@app.route('/admin/marketing/send', methods=['POST'])
+@admin_required
+def admin_marketing_send():
+    """Crea una campaña y la envía (form POST desde el panel)."""
+    from _app.modules.marketing.service import create_campaign, start_campaign
+    name = (request.form.get('name') or '').strip()
+    subject = (request.form.get('subject') or '').strip()
+    template_id = request.form.get('template_id', type=int)
+    segment_id = request.form.get('segment_id', type=int)
+    meeting_url = (request.form.get('meeting_url') or '').strip() or None
+    if not name or not subject or not template_id or not segment_id:
+        flash('Faltan nombre, asunto, plantilla o segmento.', 'warning')
+        return redirect(url_for('admin_marketing'))
+    try:
+        c = create_campaign(name, subject, template_id, segment_id)
+        if hasattr(c, 'meeting_url') and meeting_url:
+            c.meeting_url = meeting_url
+            db.session.commit()
+        _, err = start_campaign(c.id)
+        if err:
+            flash(f'Campaña creada pero error al enviar: {err}', 'warning')
+        else:
+            flash('Campaña creada y envío iniciado.', 'success')
+    except Exception as e:
+        flash(f'Error: {e}', 'danger')
+    return redirect(url_for('admin_marketing'))
+
+
+@app.route('/admin/marketing/segments/preview', methods=['POST'])
+@admin_required
+def admin_marketing_segments_preview():
+    """Vista previa: cuenta miembros que cumplen los filtros. Body: {"filters": {"conditions": [...]}}."""
+    from _app.modules.marketing.service import _get_members_with_domain
+    data = request.get_json() or {}
+    filters = data.get('filters') or data.get('rules') or {}
+    if not isinstance(filters, dict):
+        filters = {}
+    conditions = filters.get('conditions') or []
+    if not isinstance(conditions, list):
+        conditions = []
+    logic = (filters.get('logic') or 'and').strip().lower()
+    if logic not in ('and', 'or'):
+        logic = 'and'
+    rules = {'logic': logic, 'conditions': conditions}
+    users = _get_members_with_domain(rules, subscribed_only=False) or []
+    return jsonify({'success': True, 'total_members': len(users)})
+
+
+@app.route('/admin/marketing/segments/create', methods=['GET', 'POST'])
+@admin_required
+def admin_marketing_segments_create():
+    """Crear segmento: definir filtros → previsualizar cantidad → Guardar segmento (no se guardan miembros)."""
+    from _app.modules.marketing.service import SEGMENT_FIELDS, SEGMENT_OPERATORS, _get_members_with_domain
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('Escribe el nombre del segmento.', 'warning')
+            return redirect(url_for('admin_marketing_segments_create'))
+        query_rules_raw = (request.form.get('query_rules') or '').strip()
+        query_rules = '{}'
+        if query_rules_raw:
+            try:
+                data = json.loads(query_rules_raw)
+                if isinstance(data, dict) and data.get('conditions') is not None:
+                    query_rules = json.dumps(data)
+            except Exception:
+                pass
+        description = (request.form.get('description') or '').strip() or None
+        try:
+            s = MarketingSegment(name=name, description=description, query_rules=query_rules, is_dynamic=True)
+            db.session.add(s)
+            db.session.commit()
+            flash(f'Segmento "{name}" creado. Los destinatarios se calculan al enviar la campaña.', 'success')
+            return redirect(url_for('admin_marketing'))
+        except Exception as e:
+            flash(f'Error al crear segmento: {e}', 'danger')
+            return redirect(url_for('admin_marketing_segments_create'))
+    rules = {'logic': 'and', 'conditions': []}
+    count = 0
+    if request.args.get('preview'):
+        try:
+            qr = request.args.get('query_rules', '{}')
+            r = json.loads(qr) if isinstance(qr, str) else qr
+            if isinstance(r, dict) and r.get('conditions'):
+                users = _get_members_with_domain(r, subscribed_only=False) or []
+                count = len(users)
+        except Exception:
+            pass
+    return render_template('admin/marketing_segment_create.html',
+                         segment_fields=SEGMENT_FIELDS,
+                         segment_operators=SEGMENT_OPERATORS,
+                         rules=rules,
+                         recipient_count=count)
+
+
+@app.route('/admin/marketing/segment', methods=['POST'])
+@admin_required
+def admin_marketing_create_segment():
+    """Crear segmento desde el panel (form POST). Acepta query_rules JSON para filtros."""
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        flash('Escribe el nombre del segmento.', 'warning')
+        return redirect(url_for('admin_marketing'))
+    query_rules_raw = (request.form.get('query_rules') or '').strip()
+    query_rules = '{}'
+    if query_rules_raw:
+        try:
+            data = json.loads(query_rules_raw)
+            if isinstance(data, dict) and data.get('conditions'):
+                query_rules = json.dumps(data)
+        except Exception:
+            pass
+    try:
+        s = MarketingSegment(name=name, query_rules=query_rules, is_dynamic=True)
+        db.session.add(s)
+        db.session.commit()
+        flash(f'Segmento "{name}" creado.', 'success')
+    except Exception as e:
+        flash(f'Error al crear segmento: {e}', 'danger')
+    return redirect(url_for('admin_marketing'))
+
+
+@app.route('/admin/marketing/segment/<int:segment_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_marketing_segment_edit(segment_id):
+    """Editar segmento: nombre y filtros (constructor de dominios)."""
+    from _app.modules.marketing.service import SEGMENT_FIELDS, SEGMENT_OPERATORS, get_recipient_count, get_members_from_segment_simple
+    s = MarketingSegment.query.get_or_404(segment_id)
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('El nombre es obligatorio.', 'warning')
+            return redirect(url_for('admin_marketing_segment_edit', segment_id=s.id))
+        query_rules_raw = (request.form.get('query_rules') or '').strip()
+        query_rules = '{}'
+        if query_rules_raw:
+            try:
+                data = json.loads(query_rules_raw)
+                if isinstance(data, dict) and data.get('conditions') is not None:
+                    query_rules = json.dumps(data)
+            except Exception:
+                pass
+        preview_ids_raw = (request.form.get('preview_member_ids') or '').strip()
+        include_ids = request.form.getlist('include_user_ids')
+        try:
+            preview_ids = set(int(x) for x in preview_ids_raw.split(',') if str(x).strip().isdigit())
+            include_set = set(int(x) for x in include_ids if str(x).strip().isdigit())
+            exclusion_user_ids = json.dumps(list(preview_ids - include_set))
+        except Exception:
+            exclusion_user_ids = '[]'
+        s.name = name
+        s.description = (request.form.get('description') or '').strip() or None
+        s.query_rules = query_rules
+        if hasattr(s, 'exclusion_user_ids'):
+            s.exclusion_user_ids = exclusion_user_ids
+        db.session.commit()
+        flash('Segmento actualizado.', 'success')
+        return redirect(url_for('admin_marketing'))
+    rules = {}
+    try:
+        rules = json.loads(s.query_rules) if s.query_rules else {}
+    except Exception:
+        pass
+    if not isinstance(rules, dict):
+        rules = {}
+    if 'conditions' not in rules and (rules.get('pais') or rules.get('tipo_membresia')):
+        conditions = []
+        if rules.get('pais'):
+            conditions.append({'field': 'country', 'op': '=', 'value': rules['pais']})
+        if rules.get('tipo_membresia'):
+            conditions.append({'field': 'tipo_membresia', 'op': '=', 'value': rules['tipo_membresia']})
+        rules = {'logic': 'and', 'conditions': conditions}
+    count = get_recipient_count(s.id, None, for_editor=True) if s.id else 0
+    members_preview = get_members_from_segment_simple(s.id, subscribed_only=False, apply_exclusion=False)[:200] if s.id else []
+    exclusion_ids = set()
+    if getattr(s, 'exclusion_user_ids', None):
+        try:
+            exclusion_ids = set(json.loads(s.exclusion_user_ids)) if isinstance(s.exclusion_user_ids, str) else set(s.exclusion_user_ids or [])
+        except Exception:
+            pass
+    return render_template('admin/marketing_segment_edit.html',
+                         segment=s,
+                         rules=rules,
+                         segment_fields=SEGMENT_FIELDS,
+                         segment_operators=SEGMENT_OPERATORS,
+                         recipient_count=count,
+                         members_preview=members_preview,
+                         exclusion_ids=exclusion_ids)
+
+
+@app.route('/admin/marketing/segment/<int:segment_id>/delete', methods=['POST'])
+@admin_required
+def admin_marketing_segment_delete(segment_id):
+    """Eliminar segmento si no está en uso por ninguna campaña."""
+    s = MarketingSegment.query.get_or_404(segment_id)
+    used = MarketingCampaign.query.filter_by(segment_id=segment_id).limit(1).first()
+    if used:
+        flash('No se puede eliminar: hay campañas que usan este segmento.', 'danger')
+        return redirect(url_for('admin_marketing'))
+    db.session.delete(s)
+    db.session.commit()
+    flash('Segmento eliminado.', 'success')
+    return redirect(url_for('admin_marketing'))
+
+
+@app.route('/admin/marketing/templates/create', methods=['GET', 'POST'])
+@admin_required
+def admin_marketing_templates_create():
+    """Crear plantilla: pantalla con selector de modelo (plantillas base)."""
+    from _app.modules.marketing.template_models import TEMPLATE_MODELS
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        html = request.form.get('html') or ''
+        if not name:
+            flash('Escribe el nombre de la plantilla.', 'warning')
+            return redirect(url_for('admin_marketing_templates_create'))
+        if not html.strip():
+            flash('El contenido HTML no puede estar vacío.', 'warning')
+            return redirect(url_for('admin_marketing_templates_create'))
+        try:
+            t = MarketingTemplate(name=name, html=html, variables='[]')
+            db.session.add(t)
+            db.session.commit()
+            flash(f'Plantilla "{name}" creada.', 'success')
+            return redirect(url_for('admin_marketing'))
+        except Exception as e:
+            flash(f'Error al crear plantilla: {e}', 'danger')
+            return redirect(url_for('admin_marketing_templates_create'))
+    return render_template('admin/marketing_template_create.html', template_models=TEMPLATE_MODELS)
+
+
+@app.route('/admin/marketing/template', methods=['POST'])
+@admin_required
+def admin_marketing_create_template():
+    """Crear plantilla desde el panel (form POST, creación rápida)."""
+    name = (request.form.get('name') or '').strip()
+    html = request.form.get('html') or ''
+    if not name:
+        flash('Escribe el nombre de la plantilla.', 'warning')
+        return redirect(url_for('admin_marketing'))
+    if not html.strip():
+        flash('El contenido HTML no puede estar vacío.', 'warning')
+        return redirect(url_for('admin_marketing'))
+    try:
+        t = MarketingTemplate(name=name, html=html, variables='[]')
+        db.session.add(t)
+        db.session.commit()
+        flash(f'Plantilla "{name}" creada.', 'success')
+    except Exception as e:
+        flash(f'Error al crear plantilla: {e}', 'danger')
+    return redirect(url_for('admin_marketing'))
+
+
+@app.route('/admin/marketing/template/preview', methods=['POST'])
+@admin_required
+def admin_marketing_template_preview():
+    """Vista previa de plantilla: reemplaza variables con datos de ejemplo y devuelve HTML."""
+    html = request.form.get('html') or (request.get_json(silent=True) or {}).get('html') or ''
+    # URL base absoluta para que las imágenes (ej. flyer) carguen en el iframe
+    if request:
+        base_url = (request.host_url or request.url_root or '').rstrip('/')
+        if not base_url and request.url:
+            from urllib.parse import urlparse
+            p = urlparse(request.url)
+            base_url = f"{p.scheme}://{p.netloc}"
+    else:
+        base_url = ''
+    from _app.modules.marketing.service import render_template_html
+    ctx = {
+        'nombre': 'Usuario de ejemplo',
+        'email': 'ejemplo@email.com',
+        'user_id': 0,
+        'reunion_url': 'https://meet.google.com/zac-wmmg-hgb',
+    }
+    rendered = render_template_html(html, '[]', ctx, base_url=base_url)
+    # Inyectar <base href="..."> para que /static/... resuelva bien en el iframe
+    if base_url and '<head>' in rendered.lower():
+        import re
+        rendered = re.sub(r'(<head[^>]*>)', r'\1<base href="' + base_url + '/">', rendered, count=1, flags=re.I)
+    elif base_url and '<html' in rendered.lower() and '<head>' not in rendered.lower():
+        rendered = rendered.replace('<html', '<html><head><base href="' + base_url + '/"></head>', 1)
+    return jsonify({'html': rendered})
+
+
+@app.route('/admin/marketing/template/<int:template_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_marketing_template_edit(template_id):
+    """Editar plantilla: nombre y HTML."""
+    t = MarketingTemplate.query.get_or_404(template_id)
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        html = request.form.get('html') or ''
+        if not name:
+            flash('El nombre es obligatorio.', 'warning')
+            return redirect(url_for('admin_marketing_template_edit', template_id=t.id))
+        if not html.strip():
+            flash('El contenido HTML no puede estar vacío.', 'warning')
+            return redirect(url_for('admin_marketing_template_edit', template_id=t.id))
+        t.name = name
+        t.html = html
+        db.session.commit()
+        flash('Plantilla actualizada.', 'success')
+        return redirect(url_for('admin_marketing'))
+    return render_template('admin/marketing_template_edit.html', template=t)
+
+
+@app.route('/admin/marketing/template/<int:template_id>/delete', methods=['POST'])
+@admin_required
+def admin_marketing_template_delete(template_id):
+    """Eliminar plantilla si no está en uso por ninguna campaña."""
+    t = MarketingTemplate.query.get_or_404(template_id)
+    used = MarketingCampaign.query.filter_by(template_id=template_id).limit(1).first()
+    if used:
+        flash('No se puede eliminar: hay campañas que usan esta plantilla.', 'danger')
+        return redirect(url_for('admin_marketing'))
+    db.session.delete(t)
+    db.session.commit()
+    flash('Plantilla eliminada.', 'success')
+    return redirect(url_for('admin_marketing'))
+
 
 @app.route('/api/admin/email/config', methods=['GET', 'POST', 'PUT'])
 @admin_required
@@ -8909,6 +9029,54 @@ def api_email_config():
                 'success': False,
                 'error': str(e)
             }), 500
+
+@app.route('/api/admin/email/diagnostic', methods=['GET'])
+@admin_required
+def api_email_diagnostic():
+    """Estado actual de la configuración de email (sin exponer contraseñas) para diagnosticar por qué no llegan correos."""
+    try:
+        config = EmailConfig.get_active_config()
+        if not config:
+            return jsonify({
+                'has_config': False,
+                'message': 'No hay configuración de email activa. Guarda el formulario de esta página con servidor, usuario y contraseña.',
+                'username_configured': False,
+                'password_configured': False,
+            })
+        use_env = bool(config.use_environment_variables)
+        if use_env:
+            username_configured = bool(os.getenv('MAIL_USERNAME') or (config.mail_username or '').strip())
+            password_configured = bool(os.getenv('MAIL_PASSWORD') or (config.mail_password or '').strip())
+        else:
+            username_configured = bool((config.mail_username or '').strip())
+            password_configured = bool((config.mail_password or '').strip())
+        issues = []
+        if not config.mail_server:
+            issues.append('Falta servidor SMTP')
+        if not config.mail_port or config.mail_port <= 0:
+            issues.append('Puerto no configurado')
+        if not username_configured:
+            issues.append('Usuario/email SMTP no configurado' + (' (ni en BD ni en variable MAIL_USERNAME)' if use_env else ''))
+        if not password_configured:
+            issues.append('Contraseña SMTP no configurada' + (' (ni en BD ni en variable MAIL_PASSWORD)' if use_env else ''))
+        if not (config.mail_default_sender or '').strip() or '@' not in (config.mail_default_sender or ''):
+            issues.append('Remitente por defecto inválido o vacío')
+        message = 'Configuración OK; puedes enviar correo de prueba.' if not issues else '; '.join(issues)
+        return jsonify({
+            'has_config': True,
+            'is_active': config.is_active,
+            'use_environment_variables': use_env,
+            'server': config.mail_server or '',
+            'port': config.mail_port or 0,
+            'sender': (config.mail_default_sender or '').strip(),
+            'username_configured': username_configured,
+            'password_configured': password_configured,
+            'issues': issues,
+            'message': message,
+        })
+    except Exception as e:
+        app.logger.exception('Email diagnostic failed')
+        return jsonify({'has_config': False, 'message': str(e), 'username_configured': False, 'password_configured': False}), 500
 
 @app.route('/api/admin/email/test', methods=['POST'])
 @admin_required
@@ -9516,7 +9684,7 @@ def api_upload_logo():
         if ext == 'svg':
             logo_path = os.path.join(logo_dir, 'logo-relatic.svg')
             file.save(logo_path)
-            logo_url = get_public_image_url('emails/logos/logo-relatic.svg', absolute=True)
+            logo_url = url_for('static', filename='public/emails/logos/logo-relatic.svg')
             # También copiar a ubicación antigua para compatibilidad
             old_logo_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'logo-relatic.svg')
             try:
@@ -9529,7 +9697,7 @@ def api_upload_logo():
             # Para PNG, JPG, etc., guardar como PNG
             logo_path = os.path.join(logo_dir, 'logo-relatic.png')
             file.save(logo_path)
-            logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
+            logo_url = url_for('static', filename='public/emails/logos/logo-relatic.png')
             # También copiar a ubicación antigua para compatibilidad
             old_logo_dir = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
             os.makedirs(old_logo_dir, exist_ok=True)
@@ -11066,12 +11234,11 @@ def admin_services_update(service_id):
         if not membership_plans:
             return jsonify({'success': False, 'error': 'Debe seleccionar al menos un plan de membresía'}), 400
         
-        # Jerarquía para determinar el plan base
-        membership_hierarchy = {
-            'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4
-        }
-        
-        # El plan base será el más bajo en jerarquía
+        # Jerarquía desde BD para determinar el plan base
+        try:
+            membership_hierarchy = MembershipPlan.get_hierarchy()
+        except Exception:
+            membership_hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4}
         base_plan = min(membership_plans, key=lambda p: membership_hierarchy.get(p, 999))
         
         category_id = data.get('category_id')
@@ -11508,233 +11675,6 @@ def get_advisor_calendar(advisor_id):
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
-@app.route('/api/services/<int:service_id>/calendar', methods=['GET'])
-@login_required
-def get_service_calendar(service_id):
-    """
-    Obtener calendario unificado de un servicio.
-    Muestra todos los espacios disponibles de todos los asesores que atienden ese servicio.
-    Formato compatible con FullCalendar.
-    """
-    try:
-        start_date = request.args.get('start')  # YYYY-MM-DD
-        end_date = request.args.get('end')  # YYYY-MM-DD
-        advisor_id_filter = request.args.get('advisor_id', type=int)  # Filtro opcional por asesor
-        
-        # 1. Obtener servicio y verificar que requiere cita
-        service = Service.query.get_or_404(service_id)
-        if not service.is_active:
-            return jsonify({'success': False, 'error': 'Este servicio no está disponible'}), 400
-        
-        if not service.requires_appointment():
-            return jsonify({'success': False, 'error': 'Este servicio no requiere cita'}), 400
-        
-        # 2. Obtener appointment_type_id del servicio
-        appointment_type_id = service.appointment_type_id
-        if not appointment_type_id:
-            return jsonify({'success': False, 'error': 'Este servicio no tiene tipo de cita configurado'}), 400
-        
-        appointment_type = AppointmentType.query.get(appointment_type_id)
-        if not appointment_type or not appointment_type.is_active:
-            return jsonify({'success': False, 'error': 'El tipo de cita asociado no está disponible'}), 400
-        
-        # 3. Obtener TODOS los asesores asignados a este servicio
-        advisor_assignments = AppointmentAdvisor.query.filter_by(
-            appointment_type_id=appointment_type_id,
-            is_active=True
-        ).join(Advisor).filter(Advisor.is_active == True).all()
-        
-        if not advisor_assignments:
-            return jsonify({
-                'success': True,
-                'service': {'id': service.id, 'name': service.name},
-                'advisors': [],
-                'events': [],
-                'total_slots': 0,
-                'message': 'No hay asesores asignados a este servicio'
-            })
-        
-        advisor_ids = [aa.advisor_id for aa in advisor_assignments]
-        
-        # Aplicar filtro de asesor si viene
-        if advisor_id_filter:
-            if advisor_id_filter not in advisor_ids:
-                return jsonify({'success': False, 'error': 'Asesor no asignado a este servicio'}), 400
-            advisor_ids = [advisor_id_filter]
-        
-        # 4. Generar slots para todos los asesores si no hay suficientes
-        for advisor_id in advisor_ids:
-            existing_slots_count = AppointmentSlot.query.filter(
-                AppointmentSlot.advisor_id == advisor_id,
-                AppointmentSlot.appointment_type_id == appointment_type_id,
-                AppointmentSlot.start_datetime >= datetime.utcnow(),
-                AppointmentSlot.start_datetime <= datetime.utcnow() + timedelta(days=30)
-            ).count()
-            
-            if existing_slots_count < 10:
-                generate_slots_from_availability(advisor_id, appointment_type_id, days_ahead=30)
-        
-        # 5. Parsear fechas
-        if start_date:
-            try:
-                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-            except:
-                start_dt = datetime.utcnow()
-        else:
-            start_dt = datetime.utcnow()
-        
-        if end_date:
-            try:
-                end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
-            except:
-                end_dt = start_dt + timedelta(days=30)
-        else:
-            end_dt = start_dt + timedelta(days=30)
-        
-        # 6. Obtener TODOS los slots disponibles de TODOS los asesores
-        from sqlalchemy.orm import joinedload
-        slots = AppointmentSlot.query.options(
-            joinedload(AppointmentSlot.advisor).joinedload(Advisor.user)
-        ).filter(
-            AppointmentSlot.appointment_type_id == appointment_type_id,
-            AppointmentSlot.advisor_id.in_(advisor_ids),
-            AppointmentSlot.start_datetime >= start_dt,
-            AppointmentSlot.start_datetime < end_dt,
-            AppointmentSlot.is_available == True
-        ).order_by(AppointmentSlot.start_datetime.asc()).all()
-        
-        print(f"Servicio {service_id}: Encontrados {len(slots)} slots disponibles entre {start_dt} y {end_dt}")
-        
-        # 7. Formatear para calendario (FullCalendar)
-        calendar_events = []
-        for slot in slots:
-            try:
-                advisor_name = 'Asesor'
-                if slot.advisor:
-                    if slot.advisor.user:
-                        advisor_name = f"{slot.advisor.user.first_name} {slot.advisor.user.last_name}"
-                    else:
-                        advisor_name = f"Asesor #{slot.advisor.id}"
-                
-                # Validar que start_datetime y end_datetime existan
-                if not slot.start_datetime or not slot.end_datetime:
-                    continue
-                
-                remaining_seats = 1
-                if hasattr(slot, 'remaining_seats'):
-                    try:
-                        remaining_seats = slot.remaining_seats()
-                    except:
-                        remaining_seats = slot.capacity if slot.capacity else 1
-                
-                calendar_events.append({
-                    'id': f'slot_{slot.id}',
-                    'title': f'Disponible - {advisor_name}',
-                    'start': slot.start_datetime.isoformat(),
-                    'end': slot.end_datetime.isoformat(),
-                    'backgroundColor': '#28a745',  # Verde para disponible
-                    'borderColor': '#28a745',
-                    'textColor': '#fff',
-                    'extendedProps': {
-                        'type': 'slot',
-                        'slot_id': slot.id,
-                        'advisor_id': slot.advisor_id,
-                        'advisor_name': advisor_name,
-                        'service_id': service_id,
-                        'service_name': service.name,
-                        'remaining_seats': remaining_seats,
-                        'capacity': slot.capacity if slot.capacity else 1,
-                        'available': True
-                    }
-                })
-            except Exception as e:
-                print(f"Error procesando slot {slot.id}: {e}")
-                continue
-        
-        # 7b. Agregar citas CONFIRMADAS y PENDIENTES al calendario (no bloquear creación)
-        appointments_in_range = Appointment.query.filter(
-            Appointment.appointment_type_id == appointment_type_id,
-            Appointment.advisor_id.in_(advisor_ids),
-            Appointment.status.in_(['CONFIRMADA', 'PENDIENTE', 'confirmed', 'pending']),
-            Appointment.start_datetime.isnot(None),
-            Appointment.start_datetime >= start_dt,
-            Appointment.start_datetime < end_dt
-        ).all()
-        for apt in appointments_in_range:
-            if not apt.start_datetime or not apt.end_datetime:
-                continue
-            try:
-                advisor_name = 'Asesor'
-                if apt.advisor and apt.advisor.user:
-                    advisor_name = f"{apt.advisor.user.first_name} {apt.advisor.user.last_name}"
-                label = 'Confirmada' if apt.status in ('CONFIRMADA', 'confirmed') else 'Pendiente'
-                calendar_events.append({
-                    'id': f'apt_{apt.id}',
-                    'title': f'Cita ({label}) - {advisor_name}',
-                    'start': apt.start_datetime.isoformat(),
-                    'end': (apt.end_datetime or apt.start_datetime).isoformat(),
-                    'backgroundColor': '#17a2b8' if apt.status in ('PENDIENTE', 'pending') else '#6f42c1',
-                    'borderColor': '#17a2b8' if apt.status in ('PENDIENTE', 'pending') else '#6f42c1',
-                    'textColor': '#fff',
-                    'extendedProps': {
-                        'type': 'appointment',
-                        'appointment_id': apt.id,
-                        'status': apt.status,
-                        'advisor_id': apt.advisor_id,
-                    }
-                })
-            except Exception as e:
-                print(f"Error procesando cita {apt.id}: {e}")
-                continue
-        
-        # 8. Información de asesores
-        advisors_info = []
-        for assignment in advisor_assignments:
-            try:
-                advisor = assignment.advisor
-                if advisor_id_filter and advisor.id != advisor_id_filter:
-                    continue
-                
-                advisor_name = 'Asesor'
-                if advisor.user:
-                    advisor_name = f"{advisor.user.first_name} {advisor.user.last_name}"
-                else:
-                    advisor_name = f"Asesor #{advisor.id}"
-                
-                advisors_info.append({
-                    'id': advisor.id,
-                    'name': advisor_name,
-                    'bio': advisor.bio if advisor.bio else '',
-                    'specializations': advisor.specializations if advisor.specializations else '',
-                    'photo_url': advisor.photo_url if advisor.photo_url else ''
-                })
-            except Exception as e:
-                print(f"Error procesando asesor {assignment.advisor_id}: {e}")
-                continue
-        
-        return jsonify({
-            'success': True,
-            'service': {
-                'id': service.id,
-                'name': service.name,
-                'appointment_type_id': appointment_type_id,
-                'appointment_type_name': appointment_type.name,
-                'duration_minutes': appointment_type.duration_minutes
-            },
-            'advisors': advisors_info,
-            'events': calendar_events,
-            'total_slots': len(calendar_events),
-            'date_range': {
-                'start': start_dt.isoformat(),
-                'end': end_dt.isoformat()
-            }
-        })
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 400
-
 @app.route('/api/admin/services/delete/<int:service_id>', methods=['DELETE'])
 @admin_required
 def admin_services_delete(service_id):
@@ -11745,6 +11685,302 @@ def admin_services_delete(service_id):
         db.session.commit()
         
         return jsonify({'success': True, 'message': 'Servicio eliminado exitosamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+# ==================== RUTAS ADMIN PARA BENEFICIOS ====================
+
+@app.route('/admin/benefits')
+@admin_required
+def admin_benefits():
+    """Panel de administración de beneficios por membresía"""
+    status = request.args.get('status', 'all')
+    plan = request.args.get('plan', '')
+    q = Benefit.query
+    if status == 'active':
+        q = q.filter_by(is_active=True)
+    elif status == 'inactive':
+        q = q.filter_by(is_active=False)
+    if plan:
+        q = q.filter_by(membership_type=plan)
+    benefits = q.order_by(Benefit.membership_type, Benefit.name).all()
+    return render_template('admin/benefits.html', benefits=benefits, current_status=status, current_plan=plan)
+
+@app.route('/api/admin/benefits', methods=['GET'])
+@admin_required
+def admin_benefits_list():
+    """Listar beneficios (API)"""
+    benefits = Benefit.query.order_by(Benefit.membership_type, Benefit.name).all()
+    return jsonify({'success': True, 'benefits': [{'id': b.id, 'name': b.name, 'description': b.description, 'membership_type': b.membership_type, 'is_active': b.is_active, 'icon': b.icon, 'color': b.color} for b in benefits]})
+
+@app.route('/api/admin/benefits/create', methods=['POST'])
+@admin_required
+def admin_benefits_create():
+    """Crear beneficio"""
+    try:
+        data = request.get_json()
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({'success': False, 'error': 'Nombre obligatorio'}), 400
+        membership_type = (data.get('membership_type') or 'basic').strip().lower()
+        b = Benefit(
+            name=name,
+            description=(data.get('description') or '').strip() or None,
+            membership_type=membership_type,
+            is_active=data.get('is_active', True),
+            icon=(data.get('icon') or '').strip() or None,
+            color=(data.get('color') or '').strip() or None
+        )
+        db.session.add(b)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Beneficio creado', 'benefit': {'id': b.id, 'name': b.name, 'description': b.description, 'membership_type': b.membership_type, 'is_active': b.is_active, 'icon': b.icon, 'color': b.color}})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/benefits/update/<int:benefit_id>', methods=['PUT'])
+@admin_required
+def admin_benefits_update(benefit_id):
+    """Actualizar beneficio"""
+    try:
+        b = Benefit.query.get_or_404(benefit_id)
+        data = request.get_json()
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({'success': False, 'error': 'Nombre obligatorio'}), 400
+        b.name = name
+        b.description = (data.get('description') or '').strip() or None
+        b.membership_type = (data.get('membership_type') or b.membership_type).strip().lower()
+        b.is_active = data.get('is_active', b.is_active)
+        b.icon = (data.get('icon') or '').strip() or None
+        b.color = (data.get('color') or '').strip() or None
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Beneficio actualizado', 'benefit': {'id': b.id, 'name': b.name, 'description': b.description, 'membership_type': b.membership_type, 'is_active': b.is_active, 'icon': b.icon, 'color': b.color}})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/benefits/<int:benefit_id>', methods=['GET'])
+@admin_required
+def admin_benefits_get(benefit_id):
+    """Obtener un beneficio"""
+    b = Benefit.query.get_or_404(benefit_id)
+    return jsonify({'success': True, 'benefit': {'id': b.id, 'name': b.name, 'description': b.description, 'membership_type': b.membership_type, 'is_active': b.is_active, 'icon': b.icon, 'color': b.color}})
+
+@app.route('/api/admin/benefits/delete/<int:benefit_id>', methods=['DELETE'])
+@admin_required
+def admin_benefits_delete(benefit_id):
+    """Eliminar beneficio"""
+    try:
+        b = Benefit.query.get_or_404(benefit_id)
+        db.session.delete(b)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Beneficio eliminado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+# ==================== RUTAS ADMIN PARA PLANES DE MEMBRESÍA ====================
+
+@app.route('/admin/plans')
+@admin_required
+def admin_plans():
+    """Panel de administración de planes de membresía"""
+    plans = MembershipPlan.query.order_by(MembershipPlan.display_order, MembershipPlan.level).all()
+    return render_template('admin/plans.html', plans=plans)
+
+@app.route('/api/admin/plans/create', methods=['POST'])
+@admin_required
+def admin_plans_create():
+    """Crear plan"""
+    try:
+        data = request.get_json()
+        slug = (data.get('slug') or '').strip().lower().replace(' ', '_')
+        if not slug:
+            return jsonify({'success': False, 'error': 'Slug obligatorio'}), 400
+        if MembershipPlan.query.filter_by(slug=slug).first():
+            return jsonify({'success': False, 'error': 'Ya existe un plan con ese slug'}), 400
+        p = MembershipPlan(
+            slug=slug,
+            name=(data.get('name') or slug).strip(),
+            description=(data.get('description') or '').strip() or None,
+            price_yearly=float(data.get('price_yearly', 0)),
+            price_monthly=float(data.get('price_monthly', 0)),
+            display_order=int(data.get('display_order', 0)),
+            level=int(data.get('level', 0)),
+            badge=(data.get('badge') or '').strip() or None,
+            color=(data.get('color') or 'bg-secondary').strip(),
+            is_active=data.get('is_active', True),
+        )
+        db.session.add(p)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Plan creado', 'plan': p.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/plans/update/<int:plan_id>', methods=['PUT'])
+@admin_required
+def admin_plans_update(plan_id):
+    """Actualizar plan"""
+    try:
+        p = MembershipPlan.query.get_or_404(plan_id)
+        data = request.get_json()
+        p.name = (data.get('name') or p.name).strip()
+        p.description = (data.get('description') or '').strip() or None
+        p.price_yearly = float(data.get('price_yearly', p.price_yearly))
+        p.price_monthly = float(data.get('price_monthly', p.price_monthly))
+        p.display_order = int(data.get('display_order', p.display_order))
+        p.level = int(data.get('level', p.level))
+        p.badge = (data.get('badge') or '').strip() or None
+        p.color = (data.get('color') or p.color).strip()
+        p.is_active = data.get('is_active', p.is_active)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Plan actualizado', 'plan': p.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/plans/<int:plan_id>', methods=['GET'])
+@admin_required
+def admin_plans_get(plan_id):
+    """Obtener un plan"""
+    p = MembershipPlan.query.get_or_404(plan_id)
+    return jsonify({'success': True, 'plan': p.to_dict()})
+
+@app.route('/api/admin/plans/delete/<int:plan_id>', methods=['DELETE'])
+@admin_required
+def admin_plans_delete(plan_id):
+    """Eliminar plan (cuidado: suscripciones/beneficios pueden seguir referenciando el slug)"""
+    try:
+        p = MembershipPlan.query.get_or_404(plan_id)
+        db.session.delete(p)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Plan eliminado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+# ==================== RUTAS ADMIN PARA CERTIFICADOS (EVENTOS) ====================
+
+@app.route('/admin/certificate-events')
+@admin_required
+def admin_certificate_events():
+    """CRUD de eventos de certificado (fondos, logos, datos)."""
+    plans = MembershipPlan.get_active_ordered()
+    return render_template('admin/certificate_events.html', plans=plans or [])
+
+
+@app.route('/admin/certificate-templates')
+@admin_required
+def admin_certificate_templates():
+    """Lista de plantillas visuales de certificado (tipo Canva)."""
+    return render_template('admin/certificate_templates.html')
+
+
+@app.route('/admin/certificate-templates/editor')
+@app.route('/admin/certificate-templates/editor/<int:template_id>')
+@admin_required
+def admin_certificate_template_editor(template_id=None):
+    """Editor drag & drop (Fabric.js) para crear/editar plantilla de certificado."""
+    return render_template('admin/certificate_template_editor.html', template_id=template_id)
+
+
+# ==================== RUTAS ADMIN PARA NORMATIVAS (POLÍTICAS) ====================
+
+@app.route('/admin/policies')
+@admin_required
+def admin_policies():
+    """Panel de administración de políticas institucionales"""
+    status = request.args.get('status', 'all')
+    q = Policy.query.order_by(Policy.title)
+    if status == 'active':
+        q = q.filter_by(is_active=True)
+    elif status == 'inactive':
+        q = q.filter_by(is_active=False)
+    policies = q.all()
+    return render_template('admin/policies.html', policies=policies, current_status=status)
+
+@app.route('/api/admin/policies/create', methods=['POST'])
+@admin_required
+def admin_policies_create():
+    """Crear política"""
+    try:
+        data = request.get_json()
+        slug = (data.get('slug') or '').strip().lower().replace(' ', '-')
+        if not slug:
+            return jsonify({'success': False, 'error': 'Slug obligatorio'}), 400
+        if Policy.query.filter_by(slug=slug).first():
+            return jsonify({'success': False, 'error': 'Ya existe una política con ese slug'}), 400
+        p = Policy(
+            title=(data.get('title') or slug).strip(),
+            slug=slug,
+            content=(data.get('content') or '').strip() or None,
+            version=(data.get('version') or '1.0').strip(),
+            is_active=data.get('is_active', True),
+        )
+        db.session.add(p)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Política creada', 'policy': p.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/policies/update/<int:policy_id>', methods=['PUT'])
+@admin_required
+def admin_policies_update(policy_id):
+    """Actualizar política (permite cambiar versión y contenido)"""
+    try:
+        p = Policy.query.get_or_404(policy_id)
+        data = request.get_json()
+        p.title = (data.get('title') or p.title).strip()
+        p.content = (data.get('content') or p.content or '').strip() or None
+        p.version = (data.get('version') or p.version or '1.0').strip()
+        p.is_active = data.get('is_active', p.is_active)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Política actualizada', 'policy': p.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/admin/policies/<int:policy_id>', methods=['GET'])
+@admin_required
+def admin_policies_get(policy_id):
+    """Obtener una política"""
+    p = Policy.query.get_or_404(policy_id)
+    return jsonify({'success': True, 'policy': p.to_dict()})
+
+@app.route('/api/admin/policies/<int:policy_id>/acceptances', methods=['GET'])
+@admin_required
+def admin_policies_acceptances(policy_id):
+    """Listar aceptaciones de una política"""
+    Policy.query.get_or_404(policy_id)
+    from _app.modules.policies.repository import get_acceptances_for_policy
+    acceptances = get_acceptances_for_policy(policy_id)
+    out = []
+    for a in acceptances:
+        u = a.user
+        out.append({
+            'id': a.id,
+            'user_id': u.id if u else None,
+            'user_email': u.email if u else None,
+            'user_name': f'{getattr(u, "first_name", "") or ""} {getattr(u, "last_name", "") or ""}'.strip() if u else '',
+            'accepted_at': a.accepted_at.isoformat() if a.accepted_at else None,
+            'version': a.version,
+            'ip_address': a.ip_address,
+        })
+    return jsonify({'success': True, 'acceptances': out})
+
+@app.route('/api/admin/policies/delete/<int:policy_id>', methods=['DELETE'])
+@admin_required
+def admin_policies_delete(policy_id):
+    """Eliminar política (y sus aceptaciones por CASCADE)"""
+    try:
+        p = Policy.query.get_or_404(policy_id)
+        db.session.delete(p)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Política eliminada'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -12058,6 +12294,33 @@ def admin_master_discount():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# Registrar blueprint de auth (Prioridad 3 - módulo auth)
+try:
+    from _app.modules.auth.routes import auth_bp
+    app.register_blueprint(auth_bp)
+except ImportError as e:
+    print(f"Warning: No se pudo registrar el blueprint de auth: {e}")
+
+# Registrar blueprint de members (perfil)
+try:
+    from _app.modules.members.routes import members_bp
+    app.register_blueprint(members_bp)
+    from _app.modules.communications.routes import communications_bp
+    app.register_blueprint(communications_bp)
+    from _app.modules.services.routes import services_bp
+    app.register_blueprint(services_bp)
+    from _app.modules.integrations.routes import integrations_bp
+    app.register_blueprint(integrations_bp)
+except ImportError:
+    pass
+try:
+    from _app.modules.policies.routes import policies_bp
+    app.register_blueprint(policies_bp)
+    from _app.modules.payments.routes import payments_bp
+    app.register_blueprint(payments_bp)
+except ImportError as e:
+    print(f"Warning: No se pudo registrar el blueprint de members: {e}")
+
 # Registrar blueprints de eventos
 try:
     from event_routes import events_bp, admin_events_bp, events_api_bp
@@ -12083,6 +12346,24 @@ try:
 except ImportError as e:
     print(f"Warning: No se pudieron registrar los blueprints de citas: {e}")
 
+# Registrar blueprints del módulo certificados
+try:
+    from certificate_routes import certificates_api_bp, certificates_public_bp, certificates_page_bp
+    app.register_blueprint(certificates_api_bp)
+    app.register_blueprint(certificates_public_bp)
+    app.register_blueprint(certificates_page_bp)
+    from certificate_template_routes import certificate_templates_bp
+    app.register_blueprint(certificate_templates_bp)
+except ImportError as e:
+    print(f"Warning: No se pudieron registrar los blueprints de certificados: {e}")
+
+# Registrar blueprints de marketing (API + tracking público)
+try:
+    from _app.modules.marketing.routes import marketing_bp
+    app.register_blueprint(marketing_bp)
+except ImportError as e:
+    print(f"Warning: No se pudieron registrar los blueprints de marketing: {e}")
+
 # Funciones de utilidad
 def create_sample_data():
     """Crear datos de ejemplo"""
@@ -12100,146 +12381,147 @@ def create_sample_data():
     
     db.session.commit()
 
-# Ruta para obtener notificaciones del usuario
-@app.route('/api/notifications')
-@login_required
-def api_notifications():
-    """API para obtener notificaciones del usuario"""
-    # Obtener filtros de query params
-    notification_type = request.args.get('type', 'all')
-    status = request.args.get('status', 'all')  # all, read, unread
-    limit = int(request.args.get('limit', 50))
-    
-    # Construir query
-    query = Notification.query.filter_by(user_id=current_user.id)
-    
-    # Filtrar por tipo
-    if notification_type != 'all':
-        query = query.filter_by(notification_type=notification_type)
-    
-    # Filtrar por estado
-    if status == 'read':
-        query = query.filter_by(is_read=True)
-    elif status == 'unread':
-        query = query.filter_by(is_read=False)
-    
-    # Obtener conteos
-    unread_count = Notification.query.filter_by(
-        user_id=current_user.id,
-        is_read=False
-    ).count()
-    
-    # Obtener notificaciones
-    notifications = query.order_by(Notification.created_at.desc()).limit(limit).all()
-    
-    return jsonify({
-        'unread_count': unread_count,
-        'total': len(notifications),
-        'notifications': [{
-            'id': n.id,
-            'title': n.title,
-            'message': n.message,
-            'type': n.notification_type,
-            'is_read': n.is_read,
-            'event_id': n.event_id,
-            'created_at': n.created_at.isoformat() if n.created_at else None,
-            'email_sent': n.email_sent,
-            'email_sent_at': n.email_sent_at.isoformat() if n.email_sent_at else None
-        } for n in notifications]
-    })
-
-@app.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
-@login_required
-def mark_notification_read(notification_id):
-    """Marcar notificación como leída"""
+def ensure_must_change_password_column():
+    """Añadir columna must_change_password a user si no existe (compatibilidad con DB existente)."""
     try:
-        notification = Notification.query.filter_by(
-            id=notification_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not notification:
-            return jsonify({
-                'success': False,
-                'error': 'Notificación no encontrada'
-            }), 404
-        
-        if notification.is_read:
-            return jsonify({
-                'success': True,
-                'message': 'Notificación ya estaba marcada como leída'
-            })
-        
-        notification.mark_as_read()
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'user' not in inspector.get_table_names():
+            return
+        columns = [col['name'] for col in inspector.get_columns('user')]
+        if 'must_change_password' in columns:
+            return
+        db.session.execute(text('ALTER TABLE user ADD COLUMN must_change_password BOOLEAN DEFAULT 0'))
         db.session.commit()
-        
-        print(f"✅ Notificación {notification_id} marcada como leída por usuario {current_user.id}")
-        return jsonify({
-            'success': True,
-            'message': 'Notificación marcada como leída',
-            'notification': {
-                'id': notification.id,
-                'is_read': notification.is_read
-            }
-        })
+        print('✅ Columna user.must_change_password añadida.')
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error marcando notificación {notification_id} como leída: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        print(f'⚠️ ensure_must_change_password_column: {e}')
 
-@app.route('/api/notifications/read-all', methods=['POST'])
-@login_required
-def mark_all_notifications_read():
-    """Marcar todas las notificaciones como leídas"""
+
+def ensure_benefit_icon_color_columns():
+    """Añadir columnas icon y color a benefit si no existen."""
     try:
-        Notification.query.filter_by(
-            user_id=current_user.id,
-            is_read=False
-        ).update({'is_read': True})
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'Todas las notificaciones han sido marcadas como leídas'})
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'benefit' not in inspector.get_table_names():
+            return
+        columns = [col['name'] for col in inspector.get_columns('benefit')]
+        if 'icon' not in columns:
+            db.session.execute(text('ALTER TABLE benefit ADD COLUMN icon VARCHAR(80)'))
+            db.session.commit()
+            print('✅ Columna benefit.icon añadida.')
+        if 'color' not in columns:
+            db.session.execute(text('ALTER TABLE benefit ADD COLUMN color VARCHAR(20)'))
+            db.session.commit()
+            print('✅ Columna benefit.color añadida.')
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f'⚠️ ensure_benefit_icon_color_columns: {e}')
 
-@app.route('/api/notifications/<int:notification_id>', methods=['DELETE'])
-@login_required
-def delete_notification(notification_id):
-    """Eliminar notificación"""
+
+def ensure_membership_plan_table():
+    """Crear tabla membership_plan si no existe y sembrar planes por defecto."""
     try:
-        notification = Notification.query.filter_by(
-            id=notification_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not notification:
-            return jsonify({
-                'success': False, 
-                'error': 'Notificación no encontrada o no tienes permisos para eliminarla'
-            }), 404
-        
-        db.session.delete(notification)
-        db.session.commit()
-        
-        print(f"✅ Notificación {notification_id} eliminada por usuario {current_user.id}")
-        return jsonify({
-            'success': True, 
-            'message': 'Notificación eliminada exitosamente'
-        })
+        MembershipPlan.__table__.create(db.engine, checkfirst=True)
+        if MembershipPlan.query.count() == 0:
+            defaults = [
+                {'slug': 'basic', 'name': 'Básico', 'price_yearly': 0, 'price_monthly': 0, 'display_order': 0, 'level': 0, 'badge': 'Incluido con la membresía gratuita', 'color': 'bg-success'},
+                {'slug': 'pro', 'name': 'Pro', 'price_yearly': 60, 'price_monthly': 5, 'display_order': 1, 'level': 1, 'badge': 'Plan recomendado', 'color': 'bg-info'},
+                {'slug': 'premium', 'name': 'Premium', 'price_yearly': 120, 'price_monthly': 10, 'display_order': 2, 'level': 2, 'badge': 'Más beneficios', 'color': 'bg-primary'},
+                {'slug': 'deluxe', 'name': 'De Luxe', 'price_yearly': 200, 'price_monthly': 17, 'display_order': 3, 'level': 3, 'badge': 'Experiencia completa', 'color': 'bg-warning text-dark'},
+                {'slug': 'corporativo', 'name': 'Corporativo', 'price_yearly': 300, 'price_monthly': 25, 'display_order': 4, 'level': 4, 'badge': 'Para empresas', 'color': 'bg-dark text-white'},
+                {'slug': 'admin', 'name': 'Admin', 'price_yearly': 0, 'price_monthly': 0, 'display_order': 99, 'level': 99, 'badge': 'Acceso administrador', 'color': 'bg-secondary'},
+            ]
+            for d in defaults:
+                db.session.add(MembershipPlan(**d))
+            db.session.commit()
+            print('✅ Tabla membership_plan creada y planes por defecto insertados.')
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error eliminando notificación {notification_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False, 
-            'error': f'Error al eliminar notificación: {str(e)}'
-        }), 500
+        print(f'⚠️ ensure_membership_plan_table: {e}')
+
+
+def _politica_correo_institucional_html():
+    """Contenido HTML de la Política de Uso de Correo Institucional (versión 1.0)."""
+    return """
+<p><strong>Relatic Panamá</strong><br>Versión 1.0</p>
+
+<h2>1. Naturaleza del Servicio</h2>
+<p>El correo institucional @relaticpanama.org es un beneficio otorgado por Relatic Panamá a sus miembros activos como parte de su ecosistema digital institucional.</p>
+<p>La asignación de la cuenta está sujeta a las condiciones establecidas en la presente política y podrá estar subsidiada total o parcialmente según campañas vigentes.</p>
+
+<h2>2. Vigencia</h2>
+<p>La cuenta de correo institucional permanecerá activa únicamente mientras el miembro mantenga su condición de miembro activo.</p>
+<p>En caso de pérdida de membresía por:</p>
+<ul>
+<li>No renovación</li>
+<li>Suspensión</li>
+<li>Retiro voluntario</li>
+<li>Incumplimiento de normas institucionales</li>
+</ul>
+<p>La cuenta podrá ser suspendida o eliminada conforme a los plazos establecidos.</p>
+
+<h2>3. Suspensión y Eliminación</h2>
+<p>En caso de pérdida de estatus activo:</p>
+<ul>
+<li>Se otorgará un período de gracia de hasta <strong>15 días calendario</strong>.</li>
+<li>Posteriormente, la cuenta será suspendida.</li>
+<li>Transcurridos hasta <strong>60 días adicionales</strong>, la cuenta podrá ser eliminada definitivamente.</li>
+</ul>
+<p>Relatic Panamá no garantiza la recuperación de información una vez eliminada la cuenta.</p>
+
+<h2>4. Uso Adecuado</h2>
+<p>El correo institucional debe utilizarse exclusivamente para fines académicos, institucionales o profesionales relacionados con la organización.</p>
+<p>Queda prohibido:</p>
+<ul>
+<li>Envío de spam.</li>
+<li>Actividades ilícitas.</li>
+<li>Uso para fraudes o suplantación de identidad.</li>
+<li>Compartir credenciales con terceros.</li>
+<li>Uso que afecte la reputación institucional.</li>
+</ul>
+<p>Relatic Panamá se reserva el derecho de suspender cuentas que incumplan estas disposiciones.</p>
+
+<h2>5. Seguridad</h2>
+<p>El usuario es responsable de:</p>
+<ul>
+<li>Mantener confidencial su contraseña.</li>
+<li>Activar y mantener el doble factor de autenticación.</li>
+<li>Notificar cualquier acceso sospechoso.</li>
+</ul>
+<p>Relatic Panamá no se hace responsable por negligencia en la protección de credenciales.</p>
+
+<h2>6. Costos y Renovación</h2>
+<p>El otorgamiento inicial del correo puede estar subsidiado como parte de campañas institucionales.</p>
+<p>Relatic Panamá podrá establecer en el futuro un cargo por gestión administrativa o mantenimiento del servicio, el cual será comunicado previamente.</p>
+
+<h2>7. Modificaciones</h2>
+<p>Relatic Panamá podrá actualizar esta política cuando lo considere necesario. Las modificaciones serán publicadas en el portal institucional.</p>
+<p>El uso continuo del correo implica aceptación de las condiciones vigentes.</p>
+"""
+
+
+def ensure_policies_table():
+    """Crear tablas policy y policy_acceptance si no existen y sembrar política de correo."""
+    try:
+        Policy.__table__.create(db.engine, checkfirst=True)
+        PolicyAcceptance.__table__.create(db.engine, checkfirst=True)
+        if Policy.query.filter_by(slug='politica-uso-correo-institucional').first() is None:
+            p = Policy(
+                title='Política de Uso de Correo Institucional',
+                slug='politica-uso-correo-institucional',
+                content=_politica_correo_institucional_html(),
+                version='1.0',
+                is_active=True,
+            )
+            db.session.add(p)
+            db.session.commit()
+            print('✅ Política de Uso de Correo Institucional insertada (v1.0).')
+    except Exception as e:
+        db.session.rollback()
+        print(f'⚠️ ensure_policies_table: {e}')
+
 
 def ensure_email_log_columns():
     """Asegurar que todas las columnas necesarias existan en la tabla email_log"""
@@ -12337,15 +12619,74 @@ def ensure_discount_code_valid_for_office365():
         pass
 
 
+def ensure_organization_settings():
+    """Asegurar que exista la tabla organization_settings y al menos una fila con valores por defecto."""
+    try:
+        OrganizationSettings.__table__.create(db.engine, checkfirst=True)
+        OrganizationSettings.get_settings()
+    except Exception as e:
+        print(f'⚠️ ensure_organization_settings: {e}')
+        db.session.rollback()
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        ensure_must_change_password_column()
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra
+        ensure_benefit_icon_color_columns()
+        ensure_membership_plan_table()
+        ensure_policies_table()
+        ensure_organization_settings()
+        try:
+            CertificateEvent.__table__.create(db.engine, checkfirst=True)
+            Certificate.__table__.create(db.engine, checkfirst=True)
+            try:
+                db.session.execute(sql_text('ALTER TABLE certificate_events ADD COLUMN background_url VARCHAR(500)'))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            if not CertificateEvent.query.filter(
+                db.or_(
+                    CertificateEvent.name == 'Certificado de Membresía',
+                    CertificateEvent.code_prefix == 'MEM'
+                )
+            ).first():
+                ev = CertificateEvent(
+                    name='Certificado de Membresía',
+                    is_active=True,
+                    verification_enabled=True,
+                    code_prefix='MEM',
+                    membership_required_id=None,
+                    event_required_id=None,
+                )
+                db.session.add(ev)
+                db.session.commit()
+                print('OK: evento Certificado de Membresía creado')
+            if not CertificateEvent.query.filter(
+                db.or_(
+                    CertificateEvent.name == 'Certificado por Registro',
+                    CertificateEvent.code_prefix == 'REG'
+                )
+            ).first():
+                ev = CertificateEvent(
+                    name='Certificado por Registro',
+                    is_active=True,
+                    verification_enabled=True,
+                    code_prefix='REG',
+                    membership_required_id=None,
+                    event_required_id=None,
+                )
+                db.session.add(ev)
+                db.session.commit()
+                print('OK: evento Certificado por Registro creado')
+        except Exception as e:
+            print(f'⚠️ ensure_certificate_events: {e}')
         ensure_office365_discount_code_id()
         ensure_discount_code_valid_for_office365()
         create_sample_data()
         # Aplicar configuración de email desde BD después de crear tablas
         apply_email_config_from_db()
     
-    port = int(os.environ.get('PORT', 9000))
+    port = int(os.environ.get('PORT', 9001))
     app.run(host='0.0.0.0', port=port, debug=True)

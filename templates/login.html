@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Iniciar Sesión - RelaticPanama{% endblock %}
+{% block title %}Iniciar Sesión - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 <div class="container pt-3 pb-2">
@@ -60,7 +60,8 @@
                         <p class="mb-2">
                             <a href="{{ url_for('forgot_password') }}">¿Olvidaste tu contraseña?</a>
                         </p>
-                        <p class="mb-0">¿No tienes una cuenta? <a href="{{ url_for('register') }}">Regístrate aquí</a></p>
+                        <p class="mb-2 text-muted">¿No tienes cuenta? Regístrate para acceder a los beneficios.</p>
+                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary">Crear cuenta</a>
                     </div>
                 </div>
             </div>

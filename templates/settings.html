@@ -126,9 +126,12 @@
                 </div>
             </div>
 
+            <!-- Mensaje de estado -->
+            <div id="settings-message" class="alert d-none" role="alert"></div>
+
             <!-- Botones de Acción -->
             <div class="d-grid gap-2">
-                <button type="button" class="btn btn-primary btn-lg" onclick="saveSettings()">
+                <button type="button" class="btn btn-primary btn-lg" id="btn-save-settings" onclick="saveSettings()">
                     <i class="fas fa-save"></i> Guardar Cambios
                 </button>
                 <button type="button" class="btn btn-outline-secondary" onclick="resetSettings()">
@@ -142,28 +145,101 @@
 
 {% block scripts %}
 <script>
+function showSettingsMessage(text, type) {
+    var el = document.getElementById('settings-message');
+    el.className = 'alert alert-' + (type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info') + (text ? '' : ' d-none');
+    el.textContent = text || '';
+}
+
+function getPreferencesFromForm() {
+    return {
+        notif_email: document.getElementById('notifEmail').checked,
+        notif_events: document.getElementById('notifEvents').checked,
+        notif_publications: document.getElementById('notifPublications').checked,
+        notif_newsletter: document.getElementById('notifNewsletter').checked,
+        privacy_profile: document.getElementById('privacyProfile').checked,
+        privacy_email: document.getElementById('privacyEmail').checked,
+        privacy_activity: document.getElementById('privacyActivity').checked,
+        language: document.getElementById('language').value,
+        timezone: document.getElementById('timezone').value,
+        theme: document.getElementById('theme').value,
+        font_size: document.getElementById('fontSize').value
+    };
+}
+
+function applyPreferencesToForm(prefs) {
+    if (!prefs) return;
+    if (typeof prefs.notif_email !== 'undefined') document.getElementById('notifEmail').checked = !!prefs.notif_email;
+    if (typeof prefs.notif_events !== 'undefined') document.getElementById('notifEvents').checked = !!prefs.notif_events;
+    if (typeof prefs.notif_publications !== 'undefined') document.getElementById('notifPublications').checked = !!prefs.notif_publications;
+    if (typeof prefs.notif_newsletter !== 'undefined') document.getElementById('notifNewsletter').checked = !!prefs.notif_newsletter;
+    if (typeof prefs.privacy_profile !== 'undefined') document.getElementById('privacyProfile').checked = !!prefs.privacy_profile;
+    if (typeof prefs.privacy_email !== 'undefined') document.getElementById('privacyEmail').checked = !!prefs.privacy_email;
+    if (typeof prefs.privacy_activity !== 'undefined') document.getElementById('privacyActivity').checked = !!prefs.privacy_activity;
+    if (prefs.language) document.getElementById('language').value = prefs.language;
+    if (prefs.timezone) document.getElementById('timezone').value = prefs.timezone;
+    if (prefs.theme) document.getElementById('theme').value = prefs.theme;
+    if (prefs.font_size) document.getElementById('fontSize').value = prefs.font_size;
+    applyAppearanceToDocument(prefs.theme, prefs.font_size);
+}
+
+function applyAppearanceToDocument(theme, fontSize) {
+    var html = document.documentElement;
+    if (theme) html.setAttribute('data-theme', theme);
+    if (fontSize) html.setAttribute('data-font-size', fontSize);
+}
+
+function loadSettings() {
+    fetch('/api/user/settings', { method: 'GET', headers: { 'Accept': 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success && data.preferences) applyPreferencesToForm(data.preferences);
+        })
+        .catch(function() { showSettingsMessage('No se pudieron cargar las preferencias.', 'error'); });
+}
+
 function saveSettings() {
-    // Aquí iría la lógica para guardar las configuraciones
-    alert('Configuraciones guardadas exitosamente');
+    var btn = document.getElementById('btn-save-settings');
+    btn.disabled = true;
+    showSettingsMessage('');
+    fetch('/api/user/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ preferences: getPreferencesFromForm() })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showSettingsMessage('Configuración guardada correctamente.', 'success');
+            var prefs = getPreferencesFromForm();
+            applyAppearanceToDocument(prefs.theme, prefs.font_size);
+        } else {
+            showSettingsMessage(data.error || 'Error al guardar.', 'error');
+        }
+    })
+    .catch(function() { showSettingsMessage('Error de conexión al guardar.', 'error'); })
+    .finally(function() { btn.disabled = false; });
 }
 
 function resetSettings() {
-    if (confirm('¿Estás seguro de que deseas restaurar los valores por defecto?')) {
-        // Restaurar valores por defecto
-        document.getElementById('notifEmail').checked = true;
-        document.getElementById('notifEvents').checked = true;
-        document.getElementById('notifPublications').checked = false;
-        document.getElementById('notifNewsletter').checked = true;
-        document.getElementById('privacyProfile').checked = false;
-        document.getElementById('privacyEmail').checked = false;
-        document.getElementById('privacyActivity').checked = true;
-        document.getElementById('language').value = 'es';
-        document.getElementById('timezone').value = 'America/Panama';
-        document.getElementById('theme').value = 'light';
-        document.getElementById('fontSize').value = 'medium';
-        alert('Valores restaurados');
-    }
+    if (!confirm('¿Restaurar valores por defecto? Se guardarán en tu cuenta.')) return;
+    applyPreferencesToForm({
+        notif_email: true, notif_events: true, notif_publications: false, notif_newsletter: true,
+        privacy_profile: false, privacy_email: false, privacy_activity: true,
+        language: 'es', timezone: 'America/Panama', theme: 'light', font_size: 'medium'
+    });
+    saveSettings();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadSettings();
+    document.getElementById('theme').addEventListener('change', function() {
+        applyAppearanceToDocument(this.value, document.getElementById('fontSize').value);
+    });
+    document.getElementById('fontSize').addEventListener('change', function() {
+        applyAppearanceToDocument(document.getElementById('theme').value, this.value);
+    });
+});
 </script>
 {% endblock %}
 

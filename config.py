@@ -1,12 +1,12 @@
 """
-Configuración para RelaticPanama
+Configuración para Easy NodeOne
 """
 import os
 
 class Config:
     """Configuración base"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///relaticpanama.db'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///nodeone.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Configuración de Stripe
@@ -20,7 +20,7 @@ class Config:
     MAIL_USE_TLS = True
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME') or 'your_email@gmail.com'
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD') or 'your_app_password'
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or 'noreply@relaticpanama.org'
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or 'noreply@easynodeone.com'
 
 class DevelopmentConfig(Config):
     """Configuración de desarrollo"""

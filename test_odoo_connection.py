@@ -48,13 +48,13 @@ def test_odoo_connection():
     test_payload = {
         'meta': {
             'version': '1.0',
-            'source': 'membresia-relatic',
+            'source': 'nodeone',
             'environment': 'test',
             'timestamp': datetime.utcnow().isoformat() + 'Z'
         },
         'order_id': 'TEST-ORDER-001',
         'member': {
-            'email': 'test@relatic.test',
+            'email': 'test@easynodeone.com',
             'name': 'Usuario de Prueba',
             'vat': '',
             'phone': ''
@@ -156,7 +156,7 @@ if __name__ == '__main__':
     try:
         import subprocess
         result = subprocess.run(
-            ['systemctl', 'show', 'membresia-relatic.service'],
+            ['systemctl', 'show', 'nodeone.service'],
             capture_output=True,
             text=True
         )

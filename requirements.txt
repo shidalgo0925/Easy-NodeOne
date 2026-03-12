@@ -17,3 +17,7 @@ openpyxl>=3.1.0
 
 # Para exportación a PDF:
 reportlab>=4.0.0
+
+# Módulo certificados (PDF + QR):
+weasyprint>=60.0
+qrcode[pil]>=7.4

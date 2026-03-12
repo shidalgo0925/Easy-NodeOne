@@ -1,0 +1,19 @@
+[Unit]
+Description=Easy NodeOne (Flask backend - puerto 9001)
+After=network.target
+
+[Service]
+Type=simple
+User=relaticpanama2025
+WorkingDirectory=/home/relaticpanama2025/workspace/NodeOne/backend
+Environment="PATH=/home/relaticpanama2025/workspace/NodeOne/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PORT=9001"
+ExecStart=/home/relaticpanama2025/workspace/NodeOne/venv/bin/python3 app.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

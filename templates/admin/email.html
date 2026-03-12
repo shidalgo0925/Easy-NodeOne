@@ -16,6 +16,21 @@
     <!-- Alertas -->
     <div id="alert-container"></div>
 
+    <!-- Estado de la configuración (diagnóstico de por qué no llegan correos) -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div id="email-diagnostic-card" class="card shadow-sm border-info">
+                <div class="card-header py-2 bg-light">
+                    <span class="fw-bold"><i class="fas fa-stethoscope"></i> Estado de la configuración</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary float-end" id="refresh-diagnostic" title="Actualizar"> <i class="fas fa-sync-alt"></i> </button>
+                </div>
+                <div class="card-body py-2" id="email-diagnostic-body">
+                    <span class="text-muted">Cargando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Sección 0: Gestión de Logo -->
     <div class="row mb-4">
         <div class="col-12">
@@ -36,7 +51,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Logo Actual</label>
                                 <div id="current-logo-container">
-                                    <img id="current-logo" src="/static/public/emails/logos/logo-relatic.png" 
+                                    <img id="current-logo" src="{{ url_for('static', filename='public/emails/logos/logo-relatic.png') }}?v={{ get_logo_cache_key() }}"
                                          alt="Logo actual" 
                                          style="max-width: 150px; max-height: 80px; border: 1px solid #ddd; padding: 5px; border-radius: 4px;"
                                          onerror="this.style.display='none'; document.getElementById('no-logo-message').style.display='block';">
@@ -121,7 +136,7 @@
                             <div class="col-md-6">
                                 <label for="mail_default_sender" class="form-label">Remitente por Defecto</label>
                                 <input type="email" class="form-control" id="mail_default_sender" name="mail_default_sender" 
-                                       value="{% if email_config %}{{ email_config.mail_default_sender }}{% else %}noreply@relaticpanama.org{% endif %}" required>
+                                       value="{% if email_config %}{{ email_config.mail_default_sender }}{% else %}noreply@easynodeone.com{% endif %}" required>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-check form-switch mt-4 pt-2">
@@ -301,6 +316,45 @@ function showAlert(message, type = 'success') {
     setTimeout(() => alert.remove(), 5000);
 }
 
+async function loadEmailDiagnostic() {
+    const body = document.getElementById('email-diagnostic-body');
+    const btn = document.getElementById('refresh-diagnostic');
+    if (!body) return;
+    body.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin"></i> Comprobando...</span>';
+    if (btn) btn.disabled = true;
+    try {
+        const r = await fetch('/api/admin/email/diagnostic');
+        const d = await r.json().catch(() => ({}));
+        if (!d.has_config) {
+            body.innerHTML = '<span class="text-warning">' + (d.message || 'Sin configuración. Guarda el formulario SMTP.') + '</span>';
+            return;
+        }
+        const ok = !(d.issues && d.issues.length);
+        let html = '<div class="small">';
+        html += '<strong>Servidor:</strong> ' + (d.server || '—') + ':' + (d.port || '—') + ' &nbsp; <strong>Remitente:</strong> ' + (d.sender || '—') + '<br>';
+        html += 'Usuario SMTP: ' + (d.username_configured ? '<span class="text-success">✓ configurado</span>' : '<span class="text-danger">✗ no configurado</span>');
+        html += ' &nbsp; Contraseña: ' + (d.password_configured ? '<span class="text-success">✓ configurada</span>' : '<span class="text-danger">✗ no configurada</span>');
+        if (d.use_environment_variables) html += ' &nbsp; <em>(usando variables de entorno)</em>';
+        html += '</div>';
+        if (d.issues && d.issues.length) {
+            html += '<div class="mt-1 text-danger small">' + d.issues.join(' · ') + '</div>';
+        } else {
+            html += '<div class="mt-1 text-success small">' + (d.message || 'Configuración OK. Usa "Enviar correo de prueba" para comprobar envío.') + '</div>';
+        }
+        body.innerHTML = html;
+    } catch (e) {
+        body.innerHTML = '<span class="text-danger">Error al comprobar: ' + (e.message || 'desconocido') + '</span>';
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadEmailDiagnostic();
+    const refreshDiag = document.getElementById('refresh-diagnostic');
+    if (refreshDiag) refreshDiag.addEventListener('click', loadEmailDiagnostic);
+});
+
 // Guardar configuración SMTP
 document.getElementById('smtp-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -331,6 +385,7 @@ document.getElementById('smtp-form').addEventListener('submit', async (e) => {
         if (data.success) {
             showAlert(data.message, 'success');
             document.getElementById('mail_password').value = '';
+            if (typeof loadEmailDiagnostic === 'function') loadEmailDiagnostic();
             if ((formData.mail_server || '').toLowerCase().includes('brevo') || (formData.mail_server || '').toLowerCase().includes('resend')) {
                 document.getElementById('use_environment_variables').checked = false;
             }
@@ -553,14 +608,18 @@ async function deleteLogo() {
     }
 }
 
-// Verificar si existe logo al cargar la página
+// Verificar si existe logo al cargar la página y forzar URL con cache-bust para evitar logo viejo en caché
 window.addEventListener('load', async () => {
     try {
         const response = await fetch('/api/admin/email/logo-status');
         const data = await response.json();
-        if (data.logo_exists) {
+        if (data.logo_exists && data.logo_url) {
             document.getElementById('delete-logo-btn').style.display = 'inline-block';
-        } else {
+            var logoImg = document.getElementById('current-logo');
+            logoImg.src = data.logo_url + (data.logo_url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
+            logoImg.style.display = 'block';
+            document.getElementById('no-logo-message').style.display = 'none';
+        } else if (!data.logo_exists) {
             document.getElementById('current-logo').style.display = 'none';
             document.getElementById('no-logo-message').style.display = 'block';
         }

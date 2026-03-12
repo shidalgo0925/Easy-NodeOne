@@ -1,0 +1,248 @@
+# NodeOne Backend — Endpoints actuales (Prioridad 1 - Congelado)
+# Puerto: 9001 | Base: nodeone.db | Fecha inventario: refactor P1
+
+=== APP.PY (rutas directas) ===
+
+-- Raíz y promoción
+/ GET
+/promocion GET
+
+-- Auth
+/register GET,POST
+/verify-email/<token> GET
+/resend-verification GET,POST
+/login GET,POST
+/auth/<provider> GET
+/auth/<provider>/callback GET
+/logout GET
+/forgot-password GET,POST
+/reset-password GET,POST
+
+-- Dashboard y usuario
+/dashboard GET
+/api/onboarding/seen POST
+/api/user/status GET
+/api/user/dashboard GET
+/api/user/membership GET
+
+-- Membership y beneficios
+/membership GET
+/benefits GET
+
+-- Perfil
+/profile GET
+/profile/upload-photo POST
+/profile/remove-photo POST
+/api/profile/update POST
+
+-- Servicios (páginas)
+/services GET
+/services/<id>/request-appointment GET,POST
+
+-- Office365
+/office365 GET
+/api/office365/request POST
+/admin/office365/requests GET
+/admin/office365/requests/<id>/update POST
+
+-- Foros, grupos, settings, notificaciones, help
+/foros GET
+/grupos GET
+/settings GET
+/notifications GET
+/help GET
+
+-- Checkout y pagos
+/checkout GET
+/checkout/<membership_type> GET
+/api/cart/apply-discount-code POST
+/api/cart/remove-discount-code POST
+/create-payment-intent POST
+/create-payment-intent-legacy POST
+/payment-success GET
+/payment/paypal/return GET
+/payment/paypal/cancel GET
+/payment-cancel GET
+/api/payments/<id>/success GET
+
+-- Carrito
+/cart GET
+/cart/add POST
+/cart/remove/<item_id> POST
+/cart/update/<item_id> POST
+/cart/count GET
+/stripe-webhook POST
+
+-- Historial y pagos usuario
+/payments/history GET
+/api/history GET
+/api/history/<id> GET
+/api/history/stats GET
+/api/admin/history GET
+/api/admin/history/<id> GET
+/api/admin/history/stats GET
+/api/admin/history/export GET
+
+-- Notificaciones API
+/api/notifications GET
+/api/notifications/<id>/read POST
+/api/notifications/read-all POST
+/api/notifications/<id> DELETE
+/api/notifications/<id>/toggle-read POST
+/api/notifications/delete-read DELETE
+/api/notifications/delete-all DELETE
+
+-- Admin
+/admin GET
+/admin/ GET
+/admin/users GET
+/admin/users/<id>/update POST
+/admin/users/create POST
+/admin/users/<id>/delete POST
+/admin/users/<id>/roles GET
+/api/admin/users GET
+/api/admin/users/<id>/roles GET,POST
+/api/admin/users/<id>/roles/<role_id> DELETE
+/admin/roles GET
+/admin/roles/<id> GET
+/admin/roles/<id>/users GET
+/admin/permissions GET
+/api/admin/roles GET
+/api/admin/roles/<id> GET
+/api/admin/permissions GET
+/api/admin/roles/<id>/users GET
+
+-- Admin memberships, messaging, email, media
+/admin/memberships GET
+/admin/messaging GET
+/admin/messaging/<id> GET
+/admin/messaging/<id>/resend POST
+/admin/messaging/<id>/delete POST
+/api/admin/messaging/stats GET
+/admin/notifications GET
+/api/admin/notifications GET
+/api/admin/notifications/<id> PUT
+/api/admin/notifications/bulk-update POST
+/admin/email GET
+/api/admin/email/config GET,POST,PUT
+/api/admin/email/test POST
+/api/admin/email/test-welcome POST
+/api/admin/email/preview/<key> GET
+/api/admin/email/preview-welcome GET
+/api/admin/email/upload-logo POST
+/api/admin/email/delete-logo POST
+/api/admin/email/logo-status GET
+/api/admin/email/templates GET
+/api/admin/email/templates/<id> GET,PUT
+/api/admin/email/templates/<id>/reset POST
+/admin/media GET
+/api/admin/media/config GET,POST,PUT,DELETE
+/api/media/config/<key> GET
+
+-- Admin payments, backup, export
+/admin/payments GET
+/admin/payments/review/<id> GET
+/api/admin/payments/<id>/approve POST
+/api/admin/payments/<id>/reject POST
+/api/admin/payments/config GET,POST,PUT
+/admin/backup GET
+/admin/backup/create POST
+/admin/backup/download/<filename> GET
+/admin/backup/delete/<filename> POST
+/admin/backup/restore/<filename> POST
+/admin/export GET
+/api/admin/export/fields GET
+/api/admin/export/xls GET
+/api/admin/export/pdf GET
+/api/admin/export/preview GET
+/api/admin/export/templates GET,POST
+/api/admin/export/templates/<id> GET
+
+-- Admin discount codes
+/admin/discount-codes GET
+/admin/discount-codes/create POST
+/admin/discount-codes/<id> GET
+/admin/discount-codes/<id>/update POST
+/admin/discount-codes/<id>/delete POST
+/api/admin/discount-codes/generate POST
+
+-- Admin services y citas (app.py)
+/admin/services GET
+/api/admin/services/create POST
+/api/admin/services/update/<id> PUT
+/api/admin/services/<id> GET
+/api/admin/services/delete/<id> DELETE
+/api/admin/appointment-types GET
+/api/appointments/calendar/<advisor_id> GET
+/api/services/<id>/calendar GET
+/admin/service-categories GET
+/api/admin/service-categories GET,POST
+/api/admin/service-categories/<id> GET,PUT,DELETE
+/admin/membership-discounts GET
+/api/admin/membership-discounts/create POST
+/api/admin/membership-discounts/update/<id> PUT
+/api/admin/membership-discounts/<id> GET
+/api/admin/membership-discounts/delete/<id> DELETE
+/admin/master-discount GET,POST
+
+=== BLUEPRINTS ===
+
+-- event_routes.py
+/events/ GET
+/events/<slug> GET
+/events/<slug>/register POST
+/events/<slug>/cancel-registration POST
+/admin/events/ GET
+/admin/events/create GET,POST
+/admin/events/<id>/edit GET,POST
+/admin/events/<id>/duplicate POST
+/admin/events/<id>/delete POST
+/admin/events/<id>/registrations GET
+/admin/events/<id>/registrations/<reg_id>/confirm POST
+/admin/events/<id>/registrations/<reg_id>/delete POST
+/admin/events/discounts GET
+/admin/events/discounts/create GET,POST
+/admin/events/discounts/<id>/edit GET,POST
+/admin/events/discounts/<id>/delete POST
+/api/events/ GET
+/api/events/<slug> GET
+
+-- appointment_routes.py
+/appointments/ GET
+/appointments/my-requests GET
+/appointments/type/<id> GET
+/appointments/book/<slot_id> POST
+/appointments/request GET,POST
+/appointments/<id>/confirm POST
+/appointments/<id>/reject POST
+/appointments/proposals POST
+/appointments/my-proposals GET
+/appointments/proposals/<id>/reject POST
+/appointments/proposals/<id>/accept POST
+/appointments/cancel/<id> POST
+/appointments/advisor/dashboard GET
+/appointments/advisor/slots/create GET,POST
+/appointments/advisor/queue GET
+/appointments/advisor/queue/<id>/assign-slot POST
+/admin/appointments/ GET
+/admin/appointments/<id>/confirm POST
+/admin/appointments/<id>/cancel POST
+/admin/appointments/types/create GET,POST
+/admin/appointments/types/<id>/edit GET,POST
+/admin/appointments/types/<id>/assign-all-advisors POST
+/admin/appointments/types/<id>/toggle-active POST
+/admin/appointments/slots/create POST
+/admin/appointments/advisors GET
+/admin/appointments/advisors/create POST
+/admin/appointments/availability GET
+/admin/appointments/availability/manage/<advisor_id>/<type_id> GET,POST
+/admin/appointments/availability/delete/<id> POST
+/admin/appointments/availability/generate-slots/... POST
+/admin/appointments/calendar GET
+/admin/appointments/calendar/configure/<date> GET,POST
+/api/appointments/slots GET
+/api/appointments/admin/availability GET
+
+-- api_advisor_slots.py
+/api/advisor/slots/ GET
+/api/advisor/slots/create POST

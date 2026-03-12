@@ -57,6 +57,20 @@
                             <textarea class="form-control" id="description" rows="4" placeholder="Describe cómo planeas usar Office 365..." required></textarea>
                         </div>
 
+                        {% if must_accept_email_policy and policy_correo %}
+                        <div class="mb-4 p-3 border rounded bg-light">
+                            <h6 class="mb-2"><i class="fas fa-file-contract text-primary"></i> Política de Uso del Correo Institucional</h6>
+                            <div class="small text-muted mb-3" style="max-height: 200px; overflow-y: auto;">
+                                {{ policy_correo.content | safe }}
+                            </div>
+                            <a href="{{ url_for('policies.view', slug=policy_correo.slug) }}" target="_blank" class="small">Ver política completa</a>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" id="policyAccepted" name="policy_accepted" required>
+                                <label class="form-check-label" for="policyAccepted">{{ checkbox_politica_correo }}</label>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <div id="office365Feedback" class="alert d-none" role="alert"></div>
 
                         <div class="alert alert-info">
@@ -158,13 +172,19 @@
             showFeedback('El código de autorización es obligatorio para tu plan.', true);
             return;
         }
+        var policyCheck = document.getElementById('policyAccepted');
+        if (policyCheck && policyCheck.required && !policyCheck.checked) {
+            showFeedback('Debes aceptar la Política de Uso del Correo Institucional para continuar.', true);
+            return;
+        }
         btn.disabled = true;
         showFeedback('Enviando...', false);
 
         var payload = { email: email, purpose: purpose, description: description };
         if (authorizationCode) payload.authorization_code = authorizationCode;
+        if (policyCheck && policyCheck.checked) payload.policy_accepted = true;
 
-        fetch('{{ url_for("api_office365_request") }}', {
+        fetch('{{ url_for("integrations.api_office365_request") }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify(payload)

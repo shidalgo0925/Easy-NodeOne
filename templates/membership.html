@@ -95,13 +95,24 @@
                     <!-- Acciones de membresía -->
                     {% if membership.__class__.__name__ == 'Subscription' %}
                     <div class="mt-3">
-                        <div class="btn-group" role="group">
+                        <div class="btn-group flex-wrap" role="group">
                             <a href="{{ url_for('benefits') }}" class="btn btn-primary">
                                 <i class="fas fa-star"></i> Ver Beneficios
                             </a>
-                            <a href="{{ url_for('services') }}" class="btn btn-outline-primary">
+                            <a href="{{ url_for('services.list') }}" class="btn btn-outline-primary">
                                 <i class="fas fa-th-large"></i> Ver Servicios
                             </a>
+                            {% if membership_cert_event_id %}
+                            {% if membership_cert_issued %}
+                            <a href="{{ membership_cert_download_url }}" class="btn btn-outline-success" target="_blank">
+                                <i class="fas fa-certificate"></i> Descargar certificado de membresía
+                            </a>
+                            {% else %}
+                            <button type="button" class="btn btn-outline-success" id="btn-emit-membership-cert" data-event-id="{{ membership_cert_event_id }}">
+                                <i class="fas fa-certificate"></i> Emitir certificado de membresía
+                            </button>
+                            {% endif %}
+                            {% endif %}
                         </div>
                         
                         <!-- Botones de gestión -->
@@ -140,12 +151,25 @@
                     </div>
                     {% else %}
                     <div class="mt-3">
-                        <a href="{{ url_for('benefits') }}" class="btn btn-primary">
-                            <i class="fas fa-star"></i> Ver Beneficios
-                        </a>
-                        <a href="{{ url_for('services') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-th-large"></i> Ver Servicios
-                        </a>
+                        <div class="btn-group flex-wrap" role="group">
+                            <a href="{{ url_for('benefits') }}" class="btn btn-primary">
+                                <i class="fas fa-star"></i> Ver Beneficios
+                            </a>
+                            <a href="{{ url_for('services.list') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-th-large"></i> Ver Servicios
+                            </a>
+                            {% if membership_cert_event_id %}
+                            {% if membership_cert_issued %}
+                            <a href="{{ membership_cert_download_url }}" class="btn btn-outline-success" target="_blank">
+                                <i class="fas fa-certificate"></i> Descargar certificado de membresía
+                            </a>
+                            {% else %}
+                            <button type="button" class="btn btn-outline-success" id="btn-emit-membership-cert" data-event-id="{{ membership_cert_event_id }}">
+                                <i class="fas fa-certificate"></i> Emitir certificado de membresía
+                            </button>
+                            {% endif %}
+                            {% endif %}
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -273,7 +297,7 @@
     </div>
     {% endif %}
 
-    <!-- Tabla Comparativa de Planes -->
+    <!-- Tabla comparativa de planes (única lista de planes en la página) -->
     <div class="row mb-5">
         <div class="col-12">
             <h3 class="text-center mb-4">Compara nuestros planes</h3>
@@ -298,50 +322,17 @@
                     <thead class="table-light">
                         <tr>
                             <th style="width: 25%; padding: 0.5rem;">Servicios</th>
+                            {% for p in plans_display %}
                             <th class="text-center" style="width: 15%; padding: 0.5rem;">
-                                <div class="plan-header">
-                                    <strong style="font-size: 0.9rem;">Básico</strong>
-                                    <div class="plan-price" data-monthly="${{ "%.2f"|format(pricing_monthly.get('basic', 0)) }}/mes" data-yearly="${{ "%.2f"|format(pricing_yearly.get('basic', 0)) }}/año" style="font-size: 0.8rem;">
-                                        ${{ "%.2f"|format(pricing_yearly.get('basic', 0)) }}/año
+                                <div class="plan-header {{ p.color or 'bg-secondary' }} text-white" style="padding: 0.4rem;">
+                                    <strong style="font-size: 0.9rem;">{{ p.name }}</strong>
+                                    <div class="plan-price" data-monthly="${{ "%.2f"|format(pricing_monthly.get(p.slug, 0)) }}/mes" data-yearly="${{ "%.2f"|format(pricing_yearly.get(p.slug, 0)) }}/año" style="font-size: 0.8rem;">
+                                        ${{ "%.2f"|format(pricing_yearly.get(p.slug, 0)) }}/año
                                     </div>
+                                    {% if p.badge %}<small style="font-size: 0.65rem; opacity: 0.9;">{{ p.badge }}</small>{% endif %}
                                 </div>
                             </th>
-                            <th class="text-center" style="width: 15%; padding: 0.5rem;">
-                                <div class="plan-header bg-info text-white" style="padding: 0.4rem;">
-                                    <strong style="font-size: 0.9rem;">Pro</strong>
-                                    <div class="plan-price" data-monthly="${{ "%.2f"|format(pricing_monthly.get('pro', 0)) }}/mes" data-yearly="${{ "%.2f"|format(pricing_yearly.get('pro', 0)) }}/año" style="font-size: 0.8rem;">
-                                        ${{ "%.2f"|format(pricing_yearly.get('pro', 0)) }}/año
-                                    </div>
-                                    <small style="font-size: 0.65rem; opacity: 0.9;">10% desc.</small>
-                                </div>
-                            </th>
-                            <th class="text-center" style="width: 15%; padding: 0.5rem;">
-                                <div class="plan-header bg-success text-white" style="padding: 0.4rem;">
-                                    <strong style="font-size: 0.9rem;">Premium</strong>
-                                    <div class="plan-price" data-monthly="${{ "%.2f"|format(pricing_monthly.get('premium', 0)) }}/mes" data-yearly="${{ "%.2f"|format(pricing_yearly.get('premium', 0)) }}/año" style="font-size: 0.8rem;">
-                                        ${{ "%.2f"|format(pricing_yearly.get('premium', 0)) }}/año
-                                    </div>
-                                    <small style="font-size: 0.65rem; opacity: 0.9;">20% desc.</small>
-                                </div>
-                            </th>
-                            <th class="text-center" style="width: 15%; padding: 0.5rem;">
-                                <div class="plan-header bg-warning text-dark" style="padding: 0.4rem;">
-                                    <strong style="font-size: 0.9rem;">DeLuxe</strong>
-                                    <div class="plan-price" data-monthly="${{ "%.2f"|format(pricing_monthly.get('deluxe', 0)) }}/mes" data-yearly="${{ "%.2f"|format(pricing_yearly.get('deluxe', 0)) }}/año" style="font-size: 0.8rem;">
-                                        ${{ "%.2f"|format(pricing_yearly.get('deluxe', 0)) }}/año
-                                    </div>
-                                    <small style="font-size: 0.65rem; opacity: 0.9;">30% desc.</small>
-                                </div>
-                            </th>
-                            <th class="text-center" style="width: 15%; padding: 0.5rem;">
-                                <div class="plan-header bg-dark text-white" style="padding: 0.4rem;">
-                                    <strong style="font-size: 0.9rem;">Corporativo</strong>
-                                    <div class="plan-price" data-monthly="${{ "%.2f"|format(pricing_monthly.get('corporativo', 0)) }}/mes" data-yearly="${{ "%.2f"|format(pricing_yearly.get('corporativo', 0)) }}/año" style="font-size: 0.8rem;">
-                                        ${{ "%.2f"|format(pricing_yearly.get('corporativo', 0)) }}/año
-                                    </div>
-                                    <small style="font-size: 0.65rem; opacity: 0.9;">40% desc.</small>
-                                </div>
-                            </th>
+                            {% endfor %}
                         </tr>
                     </thead>
                     <tbody>
@@ -361,57 +352,21 @@
                                         {% endif %}
                                     </div>
                                 </td>
-                                
-                                {# Básico #}
+                                {% for p in plans_display %}
                                 <td class="text-center" style="padding: 0.5rem;">
-                                    {% if 'basic' in available_plans %}
+                                    {% if p.slug in available_plans %}
                                         <i class="fas fa-check text-success" style="font-size: 1rem;" title="Disponible"></i>
                                     {% else %}
                                         <i class="fas fa-times text-danger" style="font-size: 0.9rem;" title="No disponible"></i>
                                     {% endif %}
                                 </td>
-                                
-                                {# Pro #}
-                                <td class="text-center" style="padding: 0.5rem;">
-                                    {% if 'pro' in available_plans %}
-                                        <i class="fas fa-check text-success" style="font-size: 1rem;" title="Disponible"></i>
-                                    {% else %}
-                                        <i class="fas fa-times text-danger" style="font-size: 0.9rem;" title="No disponible"></i>
-                                    {% endif %}
-                                </td>
-                                
-                                {# Premium #}
-                                <td class="text-center" style="padding: 0.5rem;">
-                                    {% if 'premium' in available_plans %}
-                                        <i class="fas fa-check text-success" style="font-size: 1rem;" title="Disponible"></i>
-                                    {% else %}
-                                        <i class="fas fa-times text-danger" style="font-size: 0.9rem;" title="No disponible"></i>
-                                    {% endif %}
-                                </td>
-                                
-                                {# DeLuxe #}
-                                <td class="text-center" style="padding: 0.5rem;">
-                                    {% if 'deluxe' in available_plans %}
-                                        <i class="fas fa-check text-success" style="font-size: 1rem;" title="Disponible"></i>
-                                    {% else %}
-                                        <i class="fas fa-times text-danger" style="font-size: 0.9rem;" title="No disponible"></i>
-                                    {% endif %}
-                                </td>
-                                
-                                {# Corporativo #}
-                                <td class="text-center" style="padding: 0.5rem;">
-                                    {% if 'corporativo' in available_plans %}
-                                        <i class="fas fa-check text-success" style="font-size: 1rem;" title="Disponible"></i>
-                                    {% else %}
-                                        <i class="fas fa-times text-danger" style="font-size: 0.9rem;" title="No disponible"></i>
-                                    {% endif %}
-                                </td>
+                                {% endfor %}
                             </tr>
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">
-                                    <i class="fas fa-info-circle"></i> No hay servicios configurados. 
+                                <td colspan="{{ 1 + plans_display|length }}" class="text-center text-muted py-4">
+                                    <i class="fas fa-info-circle"></i> No hay servicios configurados.
                                     {% if current_user.is_admin %}
                                     <a href="{{ url_for('admin_services') }}">Configura servicios desde el panel de administración</a>
                                     {% else %}
@@ -422,61 +377,19 @@
                         {% endif %}
                         <tr class="table-light">
                             <td style="padding: 0.5rem;"><strong style="font-size: 0.9rem;">Acción</strong></td>
+                            {% for p in plans_display %}
                             <td class="text-center" style="padding: 0.5rem;">
                                 {% if not membership %}
-                                <button onclick="addToCart('membership', 'basic', 'Membresía Básico', 0)" class="btn btn-sm btn-outline-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                                <button onclick="addToCart('membership', '{{ p.slug }}', 'Membresía {{ p.name }}', {{ (p.price_yearly or 0) * 100 }})" class="btn btn-sm btn-outline-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
                                     <i class="fas fa-cart-plus"></i> Agregar
                                 </button>
-                                {% elif membership.membership_type == 'basic' %}
+                                {% elif membership.membership_type == p.slug %}
                                 <span class="badge bg-secondary" style="font-size: 0.75rem;">Tu plan</span>
                                 {% else %}
                                 <span class="badge bg-light text-muted" style="font-size: 0.75rem;">-</span>
                                 {% endif %}
                             </td>
-                            <td class="text-center" style="padding: 0.5rem;">
-                                {% if not membership %}
-                                <button onclick="addToCart('membership', 'pro', 'Membresía Pro', 6000)" class="btn btn-sm btn-info text-white" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                                    <i class="fas fa-cart-plus"></i> Agregar
-                                </button>
-                                {% elif membership.membership_type == 'pro' %}
-                                <span class="badge bg-secondary" style="font-size: 0.75rem;">Tu plan</span>
-                                {% else %}
-                                <span class="badge bg-light text-muted" style="font-size: 0.75rem;">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center" style="padding: 0.5rem;">
-                                {% if not membership %}
-                                <button onclick="addToCart('membership', 'premium', 'Membresía Premium', 12000)" class="btn btn-sm btn-success" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                                    <i class="fas fa-cart-plus"></i> Agregar
-                                </button>
-                                {% elif membership.membership_type == 'premium' %}
-                                <span class="badge bg-secondary" style="font-size: 0.75rem;">Tu plan</span>
-                                {% else %}
-                                <span class="badge bg-light text-muted" style="font-size: 0.75rem;">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center" style="padding: 0.5rem;">
-                                {% if not membership %}
-                                <button onclick="addToCart('membership', 'deluxe', 'Membresía DeLuxe', 20000)" class="btn btn-sm btn-warning" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                                    <i class="fas fa-cart-plus"></i> Agregar
-                                </button>
-                                {% elif membership.membership_type == 'deluxe' %}
-                                <span class="badge bg-secondary" style="font-size: 0.75rem;">Tu plan</span>
-                                {% else %}
-                                <span class="badge bg-light text-muted" style="font-size: 0.75rem;">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center" style="padding: 0.5rem;">
-                                {% if not membership %}
-                                <button onclick="addToCart('membership', 'corporativo', 'Membresía Corporativo', 30000)" class="btn btn-sm btn-dark text-white" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                                    <i class="fas fa-cart-plus"></i> Agregar
-                                </button>
-                                {% elif membership.membership_type == 'corporativo' %}
-                                <span class="badge bg-secondary" style="font-size: 0.75rem;">Tu plan</span>
-                                {% else %}
-                                <span class="badge bg-light text-muted" style="font-size: 0.75rem;">-</span>
-                                {% endif %}
-                            </td>
+                            {% endfor %}
                         </tr>
                     </tbody>
                 </table>
@@ -493,7 +406,7 @@
                     <li>Los planes de membresía tienen validez anual y se renuevan automáticamente.</li>
                     <li>Los descuentos en servicios y eventos se aplican automáticamente según tu plan de membresía.</li>
                     <li>Puedes agregar múltiples productos al carrito y pagarlos todos juntos.</li>
-                    <li>Para ver todos los servicios disponibles, visita la <a href="{{ url_for('services') }}" class="alert-link">página de servicios</a>.</li>
+                    <li>Para ver todos los servicios disponibles, visita la <a href="{{ url_for('services.list') }}" class="alert-link">página de servicios</a>.</li>
                 </ul>
             </div>
         </div>
@@ -599,6 +512,36 @@ function showNotification(message, type = 'info') {
         notification.remove();
     }, 3000);
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var btnEmit = document.getElementById('btn-emit-membership-cert');
+    if (btnEmit) {
+        btnEmit.addEventListener('click', function() {
+            var eventId = this.getAttribute('data-event-id');
+            if (!eventId) return;
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generando...';
+            fetch('/api/request-certificate/' + eventId, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+                .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+                .then(function(o) {
+                    if (o.ok && o.data.download_url) {
+                        window.location.href = o.data.download_url;
+                    } else if (o.ok) {
+                        window.location.reload();
+                    } else {
+                        btnEmit.disabled = false;
+                        btnEmit.innerHTML = '<i class="fas fa-certificate"></i> Emitir certificado de membresía';
+                        showNotification(o.data.error || 'No se pudo generar el certificado.', 'error');
+                    }
+                })
+                .catch(function() {
+                    btnEmit.disabled = false;
+                    btnEmit.innerHTML = '<i class="fas fa-certificate"></i> Emitir certificado de membresía';
+                    showNotification('Error de conexión.', 'error');
+                });
+        });
+    }
+});
 
 function hash(str) {
     // Generar hash MD5-like para coincidir con Python

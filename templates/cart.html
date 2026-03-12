@@ -135,7 +135,7 @@
                         <strong class="text-success" id="cart-total">${{ "%.2f"|format(cart.get_total() / 100) }}</strong>
                     </div>
                     
-                    <a href="{{ url_for('checkout') }}" class="btn btn-primary btn-lg w-100 mb-2">
+                    <a href="{{ url_for('payments.checkout') }}" class="btn btn-primary btn-lg w-100 mb-2">
                         <i class="fas fa-credit-card"></i> Proceder al Pago
                     </a>
                     

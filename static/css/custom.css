@@ -1,36 +1,18 @@
-/* Paleta de colores RELATIC - Basada en las imágenes proporcionadas */
+/* Design tokens: primarios inyectados en base.html desde organization_settings. Neutros fijos. */
 :root {
-    /* Gradiente Amarillo/Naranja */
-    --yellow-top: #FFD700;          /* Amarillo brillante */
-    --orange-bottom: #FF8C00;      /* Naranja rico */
-    
-    /* Gradiente Cyan/Azul claro */
-    --cyan-top: #00CED1;            /* Cyan vibrante */
-    --turquoise-bottom: #40E0D0;    /* Turquesa/Aqua */
-    
-    /* Azul Real */
-    --royal-blue: #4169E1;          /* Azul real sólido */
-    
-    /* Negro */
-    --black: #000000;               /* Negro sólido */
-    
-    /* Colores derivados para uso en la aplicación */
-    --primary-blue: var(--royal-blue);
-    --secondary-blue: var(--cyan-top);
-    --light-blue: #E0F7FA;          /* Cyan muy claro */
-    --dark-blue: #1E3A8A;           /* Azul oscuro derivado */
-    --accent-orange: var(--orange-bottom);
-    --success-green: #10b981;       /* Verde éxito (mantener) */
-    --gray-50: #f9fafb;             /* Gris muy claro */
-    --gray-100: #f3f4f6;            /* Gris claro */
-    --gray-600: #4b5563;            /* Gris medio */
-    --gray-800: #1f2937;            /* Gris oscuro */
-    --gray-900: #111827;            /* Gris muy oscuro */
+    --light-blue: #E8F4F8;          /* Tinte claro fijo (no editable) */
+    --secondary-blue: #E0F7FA;     /* Tinte secundario fijo */
+    --success-green: #10b981;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-600: #4b5563;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
 }
 
 /* Mejoras adicionales para la aplicación */
 .hero-section {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--dark-blue) 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
     color: white;
     padding: 100px 0;
     position: relative;
@@ -56,29 +38,29 @@
 
 /* Botones personalizados */
 .btn-primary {
-    background-color: var(--primary-blue);
-    border-color: var(--primary-blue);
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
     transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
-    background-color: var(--dark-blue);
-    border-color: var(--dark-blue);
+    background-color: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 }
 
 .btn-outline-primary {
-    color: var(--primary-blue);
-    border-color: var(--primary-blue);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
     transition: all 0.3s ease;
 }
 
 .btn-outline-primary:hover {
-    background-color: var(--primary-blue);
-    border-color: var(--primary-blue);
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 }
 
 /* Tarjetas de beneficios mejoradas */
@@ -93,8 +75,8 @@
 
 .benefit-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 12px 30px rgba(30, 58, 138, 0.15);
-    border-left-color: var(--primary-blue);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    border-left-color: var(--color-primary);
 }
 
 .benefit-card .card-body {
@@ -111,28 +93,28 @@
 }
 
 .membership-card:hover {
-    border-color: var(--primary-blue);
-    box-shadow: 0 15px 35px rgba(30, 58, 138, 0.1);
+    border-color: var(--color-primary);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.06);
     transform: translateY(-5px);
 }
 
 .membership-card.premium {
-    border-color: var(--accent-orange);
+    border-color: var(--color-accent);
     background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
 }
 
     .membership-card.premium:hover {
-        border-color: var(--primary-blue);
+        border-color: var(--color-primary);
         box-shadow: 0 15px 35px rgba(249, 115, 22, 0.2);
     }
 
     .membership-card.deluxe {
-        border-color: var(--accent-orange);
+        border-color: var(--color-accent);
         background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
     }
 
     .membership-card.deluxe:hover {
-        border-color: var(--primary-blue);
+        border-color: var(--color-primary);
         box-shadow: 0 15px 35px rgba(249, 115, 22, 0.3);
     }
 
@@ -154,7 +136,7 @@
 .price-tag {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--primary-blue);
+    color: var(--color-primary);
 }
 
 .method-card {
@@ -164,8 +146,8 @@
 }
 
 .method-card.active {
-    border-color: var(--primary-blue);
-    box-shadow: 0 6px 20px rgba(0, 142, 226, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 .method-card:hover {
@@ -213,7 +195,7 @@
 
 /* Badges personalizados */
 .badge.bg-primary {
-    background-color: var(--primary-blue) !important;
+    background-color: var(--color-primary) !important;
 }
 
 .badge.bg-success {
@@ -263,7 +245,7 @@
 }
 
 .navbar-landing .navbar-brand:hover {
-    color: #2563eb !important;
+    color: var(--color-primary) !important;
 }
 
 .navbar-brand img,
@@ -317,11 +299,11 @@
 }
 
 .navbar-landing .nav-link:hover {
-    color: #2563eb !important;
+    color: var(--color-primary) !important;
 }
 
 .navbar-landing .nav-link.active {
-    color: #2563eb !important;
+    color: var(--color-primary) !important;
 }
 
 .navbar-landing .nav-icon-link {
@@ -331,7 +313,7 @@
 }
 .navbar-landing .nav-icon-link:hover,
 .navbar-landing .nav-icon-link:hover i {
-    color: #2563eb !important;
+    color: var(--color-primary) !important;
 }
 
 /* Botones auth igual que landing: Registrarse (slate), Iniciar Sesión (azul), texto blanco */
@@ -352,12 +334,12 @@
 }
 .navbar-landing .nav-btn-login,
 .nav-btn-login {
-    background-color: #2563eb !important;
+    background-color: var(--color-primary) !important;
     color: #ffffff !important;
 }
 .navbar-landing .nav-btn-login:hover,
 .nav-btn-login:hover {
-    background-color: #1d4ed8 !important;
+    background-color: var(--color-primary-dark) !important;
     color: #ffffff !important;
 }
 
@@ -384,7 +366,7 @@
 }
 .navbar-landing .dropdown-item:hover {
     background-color: #f8fafc;
-    color: #2563eb;
+    color: var(--color-primary);
 }
 .navbar-landing .dropdown-divider {
     border-color: #e2e8f0;
@@ -556,12 +538,13 @@ body {
     display: none;
 }
 
-/* Left Panel - Estilo CoreUI */
+/* Left Panel - solo navegación (sin branding duplicado) */
 aside.left-panel {
     background: #ffffff;
     height: calc(100vh - 56px);
     min-height: calc(100vh - 56px);
     padding: 0;
+    padding-top: 12px;
     width: 240px;
     transition: transform 0.3s ease, width 0.3s ease;
     position: fixed;
@@ -825,13 +808,13 @@ body.sidebar-collapsed .navbar .navbar-nav li > a:hover .menu-icon {
 /* Active state en iconos colapsados */
 body.sidebar-collapsed .navbar .navbar-nav > .active > a,
 body.sidebar-collapsed .navbar .navbar-nav .nav-link.active {
-    background: rgba(0, 142, 226, 0.15) !important;
-    border-left: 3px solid #008ee2 !important;
+    background: rgba(0, 0, 0, 0.08) !important;
+    border-left: 3px solid var(--color-primary) !important;
 }
 
 body.sidebar-collapsed .navbar .navbar-nav > .active > a .menu-icon,
 body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon {
-    color: #008ee2 !important;
+    color: var(--color-primary) !important;
     transform: translate(-50%, -50%);
 }
 
@@ -889,8 +872,8 @@ body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon {
 }
 
 .nav-group-items .nav-link.active {
-    background: #e8f4f8;
-    color: #008ee2;
+    background: var(--light-blue);
+    color: var(--color-primary);
     font-weight: 500;
 }
 
@@ -901,7 +884,7 @@ body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon {
     top: 0;
     bottom: 0;
     width: 3px;
-    background: #008ee2;
+    background: var(--color-primary);
 }
 
 /* Ocultar submenús cuando está colapsado */
@@ -965,16 +948,16 @@ body.sidebar-collapsed .navbar .navbar-nav .nav-link[data-bs-toggle="tooltip"] {
 }
 
 .submenu li a:hover {
-    background: #e8f4f8;
-    color: #008ee2;
+    background: var(--light-blue);
+    color: var(--color-primary);
     padding-left: 55px;
 }
 
 .submenu li.active a {
-    background: #e8f4f8;
-    color: #008ee2;
+    background: var(--light-blue);
+    color: var(--color-primary);
     font-weight: 500;
-    border-left: 3px solid #008ee2;
+    border-left: 3px solid var(--color-primary);
 }
 
 /* Ocultar submenús cuando está colapsado */
@@ -1059,9 +1042,9 @@ body.sidebar-collapsed .menu-item-has-children:hover .submenu-dropdown {
 }
 
 .submenu-dropdown a.active {
-    background: rgba(0, 142, 226, 0.2);
-    color: #008ee2;
-    border-left: 3px solid #008ee2;
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--color-primary);
+    border-left: 3px solid var(--color-primary);
 }
 
 aside.left-panel .navbar {
@@ -1071,6 +1054,15 @@ aside.left-panel .navbar {
     display: block;
     margin: 0;
     padding: 8px 0;
+}
+
+/* Hamburguesa en topbar (único control de menú) */
+.topbar-sidebar-toggle {
+    text-decoration: none !important;
+    font-size: 1.1rem;
+}
+.topbar-sidebar-toggle:hover {
+    opacity: 0.8;
 }
 
 /* Botón hamburguesa dentro del menú - Estilo Canvas */
@@ -1119,7 +1111,7 @@ body.sidebar-collapsed .menu-hamburger-btn {
     top: 70px;
     left: 10px;
     z-index: 9999 !important; /* Asegurar que esté por encima de todo */
-    background: var(--royal-blue);
+    background: var(--color-primary);
     color: #ffffff;
     border: none;
     border-radius: 50%;
@@ -1135,7 +1127,7 @@ body.sidebar-collapsed .menu-hamburger-btn {
 }
 
 .expand-sidebar-btn:hover {
-    background: var(--dark-blue);
+    background: var(--color-primary-dark);
     transform: scale(1.1);
     box-shadow: 0 4px 12px rgba(65, 105, 225, 0.4);
 }
@@ -1223,7 +1215,7 @@ aside.left-panel .navbar .menu-title {
 
 .navbar .navbar-nav li.active .menu-icon,
 .navbar .navbar-nav li:hover .menu-icon {
-    color: #008ee2 !important;
+    color: var(--color-primary) !important;
 }
 
 aside.left-panel .navbar .navbar-nav li > a,
@@ -1250,7 +1242,7 @@ aside.left-panel .navbar .navbar-nav .nav-link:hover,
 aside.left-panel .navbar .navbar-nav .nav-link:hover .menu-icon {
     color: #2d3b45 !important;
     background-color: #f5f5f5;
-    border-left-color: #008ee2;
+    border-left-color: var(--color-primary);
 }
 
 aside.left-panel .navbar .navbar-nav li > a .menu-icon {
@@ -1286,15 +1278,15 @@ aside.left-panel .navbar .navbar-nav > .active > a,
 aside.left-panel .navbar .navbar-nav > .active > a:focus,
 aside.left-panel .navbar .navbar-nav > .active > a:hover,
 aside.left-panel .navbar .navbar-nav .nav-link.active {
-    color: #008ee2 !important;
-    background-color: #e8f4f8;
-    border-left-color: #008ee2;
+    color: var(--color-primary) !important;
+    background-color: var(--light-blue);
+    border-left-color: var(--color-primary);
     font-weight: 500;
 }
 
 aside.left-panel .navbar .navbar-nav > .active > a .menu-icon,
 aside.left-panel .navbar .navbar-nav .nav-link.active .menu-icon {
-    color: #008ee2 !important;
+    color: var(--color-primary) !important;
 }
 
 /* Ajustes cuando el sidebar está colapsado */
@@ -1389,7 +1381,7 @@ body.open #right-panel {
 }
 
 .sidebar-header h5 {
-    color: var(--primary-blue);
+    color: var(--color-primary);
     font-weight: 600;
     margin: 0;
 }
@@ -1417,14 +1409,14 @@ body.open #right-panel {
 
 .sidebar-item:hover {
     background-color: var(--light-blue);
-    color: var(--primary-blue);
-    border-left-color: var(--primary-blue);
+    color: var(--color-primary);
+    border-left-color: var(--color-primary);
 }
 
 .sidebar-item.active {
     background-color: var(--light-blue);
-    color: var(--primary-blue);
-    border-left-color: var(--primary-blue);
+    color: var(--color-primary);
+    border-left-color: var(--color-primary);
     font-weight: 600;
 }
 
@@ -1634,7 +1626,7 @@ body.open #right-panel {
 .bg-teal { background: #14b8a6; }
 .bg-green { background: #10b981; }
 .bg-blue { background: #3b82f6; }
-.bg-dark-blue { background: #1e3a8a; }
+.bg-dark-blue { background: var(--color-primary-dark); }
 .bg-brown { background: #d97706; }
 
 /* Recent Section */
@@ -1913,7 +1905,7 @@ body:not(:has(.left-panel)) main {
 /* Testimonios */
 .testimonial-card {
     transition: all 0.3s ease;
-    border-left: 4px solid var(--primary-blue);
+    border-left: 4px solid var(--color-primary);
 }
 
 .testimonial-card:hover {
@@ -1932,23 +1924,23 @@ body:not(:has(.left-panel)) main {
 
 /* Buscador de Servicios */
 #serviceSearch:focus {
-    border-color: var(--primary-blue);
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 0.2rem rgba(65, 105, 225, 0.25);
 }
 
 .filter-btn.active {
-    background-color: var(--primary-blue);
+    background-color: var(--color-primary);
     color: white;
-    border-color: var(--primary-blue);
+    border-color: var(--color-primary);
 }
 
 .filter-btn:hover {
     background-color: var(--light-blue);
-    border-color: var(--primary-blue);
+    border-color: var(--color-primary);
 }
 
 .filter-btn.active:hover {
-    background-color: var(--dark-blue);
+    background-color: var(--color-primary-dark);
 }
 
 /* Mejoras de Tipografía */

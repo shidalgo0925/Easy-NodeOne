@@ -5,10 +5,10 @@
 ### Archivos Creados
 
 1. ✅ `backend/odoo_integration_service.py` - Servicio de integración
-2. ✅ `INTEGRACION_ODOO.md` - Documentación completa
-3. ✅ `QUICK_START_ODOO.md` - Guía rápida
-4. ✅ `configure_odoo_integration.sh` - Script interactivo
-5. ✅ `setup_odoo_env.sh` - Script de configuración automática
+2. ✅ `docs/root/INTEGRACION_ODOO.md` - Documentación completa
+3. ✅ `docs/root/QUICK_START_ODOO.md` - Guía rápida
+4. ✅ `scripts/root/configure_odoo_integration.sh` - Script interactivo
+5. ✅ `scripts/root/setup_odoo_env.sh` - Script de configuración automática
 
 ### Integraciones Realizadas
 
@@ -40,9 +40,9 @@ sudo nano /etc/systemd/system/membresia-relatic.service
 O editar el script y ejecutarlo de nuevo:
 
 ```bash
-nano setup_odoo_env.sh
+nano scripts/root/setup_odoo_env.sh
 # Cambiar líneas 18-22 con los valores reales
-./setup_odoo_env.sh
+./scripts/root/setup_odoo_env.sh
 ```
 
 **Valores necesarios:**

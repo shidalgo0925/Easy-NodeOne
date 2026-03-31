@@ -12,25 +12,25 @@ Estado: ✅ INSTALACIÓN COMPLETADA - PENDIENTE CREDENCIALES
 ✅ backend/odoo_integration_service.py
    Servicio de integración con Odoo (envío de webhooks)
 
-✅ INTEGRACION_ODOO.md
+✅ docs/root/INTEGRACION_ODOO.md
    Documentación completa de la integración
 
-✅ QUICK_START_ODOO.md
+✅ docs/root/QUICK_START_ODOO.md
    Guía rápida de inicio
 
-✅ RESUMEN_INSTALACION_ODOO.md
+✅ docs/root/RESUMEN_INSTALACION_ODOO.md
    Resumen detallado de la instalación
 
-✅ configure_odoo_integration.sh
+✅ scripts/root/configure_odoo_integration.sh
    Script interactivo de configuración
 
-✅ setup_odoo_env.sh
+✅ scripts/root/setup_odoo_env.sh
    Script automático de configuración
 
 ✅ test_odoo_connection.py
    Script de prueba de conexión
 
-✅ update_odoo_credentials.sh
+✅ scripts/root/update_odoo_credentials.sh
    Script rápido para actualizar credenciales
 
 ═══════════════════════════════════════════════════════════════
@@ -63,7 +63,7 @@ Estado: ✅ INSTALACIÓN COMPLETADA - PENDIENTE CREDENCIALES
 ⚠️  CONFIGURAR CREDENCIALES REALES
 
 Opción 1: Usar script rápido
-   ./update_odoo_credentials.sh "API_KEY" "HMAC_SECRET"
+   ./scripts/root/update_odoo_credentials.sh "API_KEY" "HMAC_SECRET"
 
 Opción 2: Editar manualmente
    sudo nano /etc/systemd/system/membresia-relatic.service

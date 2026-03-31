@@ -72,11 +72,11 @@ Verificar en Odoo:
   ARCHIVOS DE REFERENCIA
 ═══════════════════════════════════════════════════════════════
 
-📄 INTEGRACION_ODOO.md - Documentación completa
-📄 QUICK_START_ODOO.md - Guía rápida
-📄 CREDENCIALES_CONFIGURADAS.md - Estado de credenciales
+📄 docs/root/INTEGRACION_ODOO.md - Documentación completa
+📄 docs/root/QUICK_START_ODOO.md - Guía rápida
+📄 docs/root/CREDENCIALES_CONFIGURADAS.md - Estado de credenciales
 📄 test_odoo_connection.py - Script de prueba
-📄 update_odoo_credentials.sh - Actualizar credenciales
+📄 scripts/root/update_odoo_credentials.sh - Actualizar credenciales
 
 ═══════════════════════════════════════════════════════════════
   CARACTERÍSTICAS

@@ -8,7 +8,7 @@ El sistema de verificación automática de pagos Yappy está implementado y list
 
 ```bash
 cd /home/relaticpanama2025/projects/membresia-relatic/backend
-./setup_yappy_cron.sh
+./scripts/backend/setup_yappy_cron.sh
 ```
 
 ## 🔧 Opción 2: Configuración Manual

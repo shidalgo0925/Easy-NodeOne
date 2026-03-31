@@ -43,7 +43,7 @@ Se ha mejorado completamente el sistema de confirmación de pagos Yappy para que
 ---
 
 ### 3. **Mejora de Página de Historial**
-**Archivos:** `templates/payments_history.html`, `backend/app.py`
+**Archivos:** `templates/payments_history.html`, vista `payments_checkout.payments_history` en `backend/nodeone/modules/payments_checkout/routes.py`
 
 **Cambios:**
 - ⏱️ Tiempo de verificación manual: 30 min → **5 minutos**
@@ -59,7 +59,7 @@ Se ha mejorado completamente el sistema de confirmación de pagos Yappy para que
 **Archivos:** 
 - `backend/yappy-verification.service`
 - `backend/yappy-verification.timer`
-- `backend/setup_yappy_systemd.sh`
+- `scripts/backend/setup_yappy_systemd.sh`
 
 **Configuración:**
 - ✅ Timer systemd configurado y activo
@@ -71,7 +71,7 @@ Se ha mejorado completamente el sistema de confirmación de pagos Yappy para que
 ---
 
 ### 5. **Procesamiento Completo de Carritos y Notificaciones**
-**Archivo:** `backend/app.py` (función `process_cart_after_payment`)
+**Archivo:** `backend/nodeone/services/payment_post_process.py` (`process_cart_after_payment`; usado desde `app.py` y blueprints de pagos)
 
 **Mejoras:**
 - ✅ Procesa **membresías** → Crea suscripción + envía correo de confirmación

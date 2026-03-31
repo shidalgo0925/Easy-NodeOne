@@ -143,7 +143,7 @@ curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify" \
 **Opción 2: Usar el script de prueba**
 ```bash
 cd /home/relaticpanama2025/projects/membresia-relatic
-./backend/test_yappy_verification.sh EBOWR-38807178
+./scripts/backend/test_yappy_verification.sh EBOWR-38807178
 ```
 
 **Opción 3: Esperar al cron job**

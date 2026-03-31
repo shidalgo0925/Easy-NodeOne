@@ -103,9 +103,9 @@ WHERE payment_method = 'yappy'
     -d '{"reference": "EBOWR-38807178"}'
   ```
 - **Opción B**: Usar el endpoint `/api/payments/yappy/verify-by-code` con el código (requiere login)
-- **Opción C**: Usar el script `test_yappy_verification.sh`
+- **Opción C**: Usar el script `scripts/backend/test_yappy_verification.sh`
   ```bash
-  ./backend/test_yappy_verification.sh EBOWR-38807178
+  ./scripts/backend/test_yappy_verification.sh EBOWR-38807178
   ```
 
 ### Paso 4: Verificar webhook

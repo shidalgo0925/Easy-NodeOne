@@ -29,7 +29,7 @@
 - **Estado**: ✅ Creado
 
 ### 5. ✅ Scripts de Configuración Creados
-- **`backend/setup_notification_cron.sh`**: Configuración automática de cron job
+- **`scripts/backend/setup_notification_cron.sh`**: Configuración automática de cron job
 - **`backend/retry_pending_notifications.py`**: Reenvío de notificaciones pendientes
 - **Estado**: ✅ Creados y con permisos de ejecución
 
@@ -65,7 +65,7 @@
 
 ### Tareas Programadas
 - ✅ Script `notification_scheduler.py` implementado
-- ⚠️ **Pendiente**: Configurar cron job (usar `setup_notification_cron.sh`)
+- ⚠️ **Pendiente**: Configurar cron job (usar `scripts/backend/setup_notification_cron.sh`)
 
 ### Notificaciones Pendientes
 - ⚠️ 18 notificaciones sin enviar
@@ -95,7 +95,7 @@
 2. **Configurar Cron Job**
    ```bash
    cd /home/relaticpanama2025/projects/membresia-relatic/backend
-   ./setup_notification_cron.sh
+   ./scripts/backend/setup_notification_cron.sh
    ```
 
 3. **Procesar Notificaciones Pendientes**
@@ -110,7 +110,7 @@
 ## 📁 ARCHIVOS CREADOS/MODIFICADOS
 
 ### Scripts Nuevos
-- `backend/setup_notification_cron.sh`
+- `scripts/backend/setup_notification_cron.sh`
 - `backend/retry_pending_notifications.py`
 - `backend/verify_notifications_system.py` (mejorado)
 

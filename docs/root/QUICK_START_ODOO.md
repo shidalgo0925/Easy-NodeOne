@@ -6,7 +6,7 @@
 
 ```bash
 cd /home/relaticpanama2025/projects/membresia-relatic
-./configure_odoo_integration.sh
+./scripts/root/configure_odoo_integration.sh
 ```
 
 El script te pedirá:

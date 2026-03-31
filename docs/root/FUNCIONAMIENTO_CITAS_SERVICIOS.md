@@ -180,9 +180,11 @@ def is_free_service(self, user_membership_type=None):
 
 ## 3. RUTAS Y ENDPOINTS
 
+**Nota:** Las rutas de pago para citas (Stripe, estado de pago, callback `/api/payments/<id>/success`, historial, webhook) están en el blueprint **`payments_checkout`**: `backend/nodeone/modules/payments_checkout/routes.py`. Los fragmentos de abajo describen el comportamiento; los decoradores reales usan `@payments_checkout_bp.route(...)`.
+
 ### 3.1 Ruta: Mostrar Formulario de Solicitud
 
-**Archivo:** `backend/app.py` (agregar después de la ruta `/services`)
+**Archivo:** `backend/app.py` o módulo de servicios (según despliegue; agregar después de la ruta `/services`)
 
 ```python
 @app.route('/services/<int:service_id>/request-appointment')
@@ -386,7 +388,7 @@ def service_request_appointment_submit(service_id):
             db.session.commit()
             
             flash('Tu solicitud ha sido registrada. Un administrador verificará el pago en efectivo y confirmará tu cita.', 'info')
-            return redirect(url_for('payment_status', payment_id=payment.id))
+            return redirect(url_for('payments_checkout.payment_status', payment_id=payment.id))
         
         else:
             raise ValueError(f'Método de pago no soportado: {payment_method}')
@@ -400,9 +402,9 @@ def service_request_appointment_submit(service_id):
 ### 3.3 Ruta: Callback de Pago Exitoso
 
 ```python
-@app.route('/api/payments/<int:payment_id>/success')
+@payments_checkout_bp.route('/api/payments/<int:payment_id>/success')
 @login_required
-def payment_success_callback(payment_id):
+def service_payment_success_callback(payment_id):
     """
     Callback cuando un pago es exitoso. Crea el appointment.
     """
@@ -419,7 +421,7 @@ def payment_success_callback(payment_id):
     # Verificar que el pago fue exitoso
     if payment.status not in ['succeeded', 'awaiting_confirmation']:
         flash('El pago no se ha completado aún.', 'warning')
-        return redirect(url_for('payment_status', payment_id=payment_id))
+        return redirect(url_for('payments_checkout.payment_status', payment_id=payment_id))
     
     # Verificar que no se haya creado ya el appointment
     existing_appointment = Appointment.query.filter_by(payment_id=payment_id).first()
@@ -514,7 +516,7 @@ def payment_success_callback(payment_id):
 ### 3.4 Ruta: Ver Estado de Pago
 
 ```python
-@app.route('/payments/<int:payment_id>/status')
+@payments_checkout_bp.route('/payments/status/<int:payment_id>')
 @login_required
 def payment_status(payment_id):
     """
@@ -543,7 +545,7 @@ def payment_status(payment_id):
     
     # Si el pago fue exitoso y no hay appointment, redirigir a crear
     if payment.status == 'succeeded' and not appointment:
-        return redirect(url_for('payment_success_callback', payment_id=payment_id))
+        return redirect(url_for('payments_checkout.service_payment_success_callback', payment_id=payment_id))
     
     service = None
     if metadata.get('service_id'):
@@ -590,7 +592,7 @@ def redirect_to_stripe_checkout(payment, service, slot):
                 'quantity': 1,
             }],
             mode='payment',
-            success_url=url_for('payment_success_callback', payment_id=payment.id, _external=True),
+            success_url=url_for('payments_checkout.service_payment_success_callback', payment_id=payment.id, _external=True),
             cancel_url=url_for('service_request_appointment', service_id=service.id, _external=True),
             metadata={
                 'payment_id': payment.id,
@@ -625,27 +627,29 @@ def generate_external_payment_url(payment, payment_method):
     base_url = request.url_root.rstrip('/')
     
     # URL de callback
-    callback_url = url_for('payment_success_callback', payment_id=payment.id, _external=True)
+    callback_url = url_for('payments_checkout.service_payment_success_callback', payment_id=payment.id, _external=True)
     cancel_url = url_for('services', _external=True)
     
     # Generar URL según el método
     if payment_method == 'banco_general':
         # TODO: Integrar con API de Banco General
         # Por ahora, retornar URL de confirmación manual
-        return url_for('payment_status', payment_id=payment.id, _external=True)
+        return url_for('payments_checkout.payment_status', payment_id=payment.id, _external=True)
     
     elif payment_method == 'yappy':
         # TODO: Integrar con API de Yappy
         # Por ahora, retornar URL de confirmación manual
-        return url_for('payment_status', payment_id=payment.id, _external=True)
+        return url_for('payments_checkout.payment_status', payment_id=payment.id, _external=True)
     
     return callback_url
 ```
 
 ### 4.3 Webhook de Stripe
 
+**Ruta real:** `POST /stripe-webhook` (blueprint `payments_checkout`, sin prefijo).
+
 ```python
-@app.route('/api/webhooks/stripe', methods=['POST'])
+@payments_checkout_bp.route('/stripe-webhook', methods=['POST'])
 def stripe_webhook():
     """
     Webhook de Stripe para actualizar el estado del pago.
@@ -935,7 +939,7 @@ document.getElementById('case_description').addEventListener('input', function()
                         <!-- Si el pago fue exitoso pero no hay appointment, crear -->
                         <div class="alert alert-info">
                             <p>Procesando tu cita...</p>
-                            <a href="{{ url_for('payment_success_callback', payment_id=payment.id) }}" class="btn btn-primary">
+                            <a href="{{ url_for('payments_checkout.service_payment_success_callback', payment_id=payment.id) }}" class="btn btn-primary">
                                 Completar Proceso
                             </a>
                         </div>
@@ -1136,8 +1140,8 @@ En `templates/services.html`, agregar botón "Solicitar Cita" para servicios que
 ## 9. RESUMEN DE ARCHIVOS A CREAR/MODIFICAR
 
 ### Archivos a Modificar:
-1. `backend/app.py` - Agregar campos al modelo Service y métodos helper
-2. `backend/app.py` - Agregar rutas nuevas
+1. `backend/app.py` (o modelos en módulos) - Campos al modelo Service y métodos helper
+2. `backend/nodeone/modules/payments_checkout/routes.py` - Checkout, callbacks de pago, estado, webhook Stripe
 3. `templates/services.html` - Agregar botón "Solicitar Cita"
 
 ### Archivos a Crear:
@@ -1145,10 +1149,10 @@ En `templates/services.html`, agregar botón "Solicitar Cita" para servicios que
 2. `templates/payments/payment_status.html` - Estado de pago
 3. `backend/migrate_service_appointment_fields.py` - Script de migración
 
-### Funciones Auxiliares a Crear:
-1. `redirect_to_stripe_checkout()` - En `app.py`
-2. `generate_external_payment_url()` - En `app.py`
-3. Webhook de Stripe - En `app.py`
+### Funciones auxiliares (implementadas en `payments_checkout`):
+1. `redirect_to_stripe_checkout()` — `nodeone/modules/payments_checkout/routes.py`
+2. `generate_external_payment_url()` — mismo archivo
+3. `stripe_webhook()` — mismo archivo (`/stripe-webhook`)
 
 ---
 

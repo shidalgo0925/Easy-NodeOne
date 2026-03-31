@@ -6,7 +6,7 @@ echo "🔧 Configurando systemd timer para verificación automática de pagos Ya
 # Verificar si estamos como root o tenemos permisos sudo
 if [ "$EUID" -ne 0 ]; then 
     echo "⚠️ Este script requiere permisos de administrador"
-    echo "   Ejecuta con: sudo ./setup_yappy_systemd.sh"
+    echo "   Ejecuta con: sudo ./scripts/backend/setup_yappy_systemd.sh"
     exit 1
 fi
 

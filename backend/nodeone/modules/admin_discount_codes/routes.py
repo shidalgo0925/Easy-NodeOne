@@ -17,8 +17,10 @@ def _scope_user_ids_query(M):
     helper = getattr(M, '_admin_scope_user_ids_only', None)
     if callable(helper):
         return helper()
+    from nodeone.services.user_organization import user_ids_query_in_organization
+
     scope_oid = M.admin_data_scope_organization_id()
-    q = M.db.session.query(M.User.id).filter(M.User.organization_id == scope_oid)
+    q = user_ids_query_in_organization(scope_oid)
     try:
         can_view_users = bool(getattr(current_user, 'is_admin', False) or current_user.has_permission('users.view'))
     except Exception:

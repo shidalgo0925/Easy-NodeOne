@@ -27,12 +27,10 @@ def _coerce_default_tax_id(data, oid):
 
 
 def _admin_catalog_org_id():
-    """Organización activa en sesión (selector Empresa)."""
-    oid = M.get_current_organization_id()
-    if oid is None:
-        from app import default_organization_id
-        return int(default_organization_id())
-    return int(oid)
+    """Organización activa en sesión (selector Empresa); mismo criterio que tipos de cita admin."""
+    from utils.organization import get_admin_effective_organization_id
+
+    return int(get_admin_effective_organization_id())
 
 
 @admin_services_catalog_bp.route('/admin/services')

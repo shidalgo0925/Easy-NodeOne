@@ -12,6 +12,12 @@
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" id="registerForm">
+                        {% if invite_token %}
+                        <input type="hidden" name="invite_token" value="{{ invite_token }}">
+                        <div class="alert alert-info py-2 mb-3" role="alert">
+                            <small>Te han invitado a una organización. Usa el <strong>mismo correo</strong> al que se envió la invitación.</small>
+                        </div>
+                        {% endif %}
                         <div class="mb-3">
                             <label for="first_name" class="form-label">Nombre <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="first_name" name="first_name" required>

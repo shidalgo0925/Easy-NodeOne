@@ -5,9 +5,11 @@ from .benefits import *  # noqa: F403
 from .payments import *  # noqa: F403
 from .events import *  # noqa: F403
 from .communications import *  # noqa: F403
+from .organization_invite import *  # noqa: F403
 from .saas import *  # noqa: F403
 from .email_notifications import *  # noqa: F403
 from .policies import *  # noqa: F403
 from .certificates import *  # noqa: F403
 from .appointments import *  # noqa: F403
 from .catalog import *  # noqa: F403
+from .communication_rules import *  # noqa: F403

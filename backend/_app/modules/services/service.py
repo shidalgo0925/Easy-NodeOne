@@ -25,24 +25,47 @@ PLANS_INFO_FALLBACK = {
 }
 
 
-def _get_plans_info(user=None):
-    """Obtener plans_info desde BD (MembershipPlan) o fallback estático."""
+def _get_plans_info(user=None, organization_id=None):
+    """Etiquetas de planes para /services: BD (MembershipPlan) + fallback para slugs sin fila en BD."""
+    fb = PLANS_INFO_FALLBACK.copy()
     try:
         from app import MembershipPlan, _enable_multi_tenant_catalog
+
         oid = None
-        if user is not None and _enable_multi_tenant_catalog():
+        if organization_id is not None:
+            try:
+                oid = int(organization_id)
+            except (TypeError, ValueError):
+                oid = None
+        elif user is not None and _enable_multi_tenant_catalog():
             oid = int(getattr(user, 'organization_id', None) or 1)
-        return MembershipPlan.get_plans_info(organization_id=oid)
+        out = MembershipPlan.get_plans_info(organization_id=oid)
+        if not out:
+            return fb
+        merged = dict(fb)
+        merged.update(out)
+        return merged
     except Exception:
-        return PLANS_INFO_FALLBACK.copy()
+        return fb
 
 
-def get_services_page_data(user):
-    """Datos para la página /services."""
-    active_membership = user.get_active_membership()
+def get_services_page_data(user=None, organization_id=None):
+    """
+    Datos para la página /services.
+    organization_id: si se pasa (p. ej. visitante anónimo en subdominio tenant), filtra catálogo por esa org.
+    """
+    if user is not None and getattr(user, 'is_authenticated', False):
+        active_membership = user.get_active_membership()
+    else:
+        active_membership = None
     membership_type = active_membership.membership_type if active_membership else 'basic'
-    categories = repository.get_active_categories()
-    all_services = repository.get_active_services()
+
+    org_kw = {}
+    if organization_id is not None:
+        org_kw['organization_id'] = int(organization_id)
+
+    categories = repository.get_active_categories(**org_kw)
+    all_services = repository.get_active_services(**org_kw)
     services_by_plan = {}
     for service in all_services:
         pricing_rules = ServicePricingRule.query.filter_by(
@@ -53,6 +76,11 @@ def get_services_page_data(user):
             available_plans.add(service.membership_type)
         for rule in pricing_rules:
             available_plans.add(rule.membership_type)
+        if not available_plans:
+            mt = (getattr(service, 'membership_type', None) or 'basic')
+            if isinstance(mt, str):
+                mt = mt.strip()
+            available_plans.add(mt if mt else 'basic')
         user_pricing = service.pricing_for_membership(membership_type)
         at_id = service.appointment_type_id or getattr(service, 'diagnostic_appointment_type_id', None)
         advisors_list = []
@@ -83,10 +111,14 @@ def get_services_page_data(user):
             if plan_type not in services_by_plan:
                 services_by_plan[plan_type] = []
             services_by_plan[plan_type].append(service_data)
+    oid_plans = organization_id
+    if oid_plans is None and user is not None and getattr(user, 'is_authenticated', False):
+        oid_plans = getattr(user, 'organization_id', None)
+
     return {
         'membership': active_membership,
         'services_by_plan': services_by_plan,
-        'plans_info': _get_plans_info(user),
+        'plans_info': _get_plans_info(user, organization_id=oid_plans),
         'categories': categories,
         'user_membership_type': membership_type,
         'membership_type': membership_type,

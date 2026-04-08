@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Reglas de comunicación - Admin{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h1 class="h5 mb-1"><i class="fas fa-sliders-h"></i> Reglas de comunicación</h1>
+            <p class="text-muted small mb-0">Motor unificado: reglas por evento y canal (email, in-app, SMS). Convive con <a href="{{ url_for('admin_notifications') }}">Configuración de notificaciones</a> hasta migración completa.</p>
+        </div>
+    </div>
+
+    <div id="alert-comm" class="mb-3"></div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-semibold">Nueva regla</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadAll()"><i class="fas fa-sync"></i> Recargar</button>
+        </div>
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small">Evento</label>
+                    <select id="nr-event" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Canal</label>
+                    <select id="nr-channel" class="form-select form-select-sm">
+                        <option value="email">email</option>
+                        <option value="in_app">in_app</option>
+                        <option value="sms">sms</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Prioridad</label>
+                    <input type="number" id="nr-priority" class="form-control form-control-sm" value="10">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Delay (min)</label>
+                    <input type="number" id="nr-delay" class="form-control form-control-sm" value="0" min="0">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Plantilla marketing (opcional)</label>
+                    <select id="nr-template" class="form-select form-select-sm"><option value="">—</option></select>
+                </div>
+                <div class="col-12 d-flex flex-wrap gap-3 mt-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="nr-enabled" checked>
+                        <label class="form-check-label small" for="nr-enabled">Activa</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="nr-marketing">
+                        <label class="form-check-label small" for="nr-marketing">Marketing</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="nr-respect" checked>
+                        <label class="form-check-label small" for="nr-respect">Respetar preferencias usuario</label>
+                    </div>
+                    {% if show_global_rule %}
+                    <div class="form-check" id="nr-global-wrap">
+                        <input class="form-check-input" type="checkbox" id="nr-global">
+                        <label class="form-check-label small" for="nr-global">Regla global (todos los tenants)</label>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-12 mt-2">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="createRule()"><i class="fas fa-plus"></i> Crear regla</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header fw-semibold">Reglas activas (ámbito de tu organización + globales)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Evento</th>
+                            <th>Canal</th>
+                            <th>Ámbito</th>
+                            <th>Activa</th>
+                            <th>Delay</th>
+                            <th>Prio</th>
+                            <th>Mkt</th>
+                            <th>Resp. prefs</th>
+                            <th>Tpl</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="rules-body">
+                        <tr><td colspan="10" class="text-muted text-center py-3">Cargando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAlert(msg, ok) {
+    const el = document.getElementById('alert-comm');
+    el.innerHTML = '<div class="alert alert-' + (ok ? 'success' : 'danger') + ' alert-dismissible fade show">' + msg +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+}
+async function loadEvents() {
+    const r = await fetch('/api/admin/communications/events');
+    const d = await r.json();
+    const sel = document.getElementById('nr-event');
+    sel.innerHTML = d.events.map(e => '<option value="' + e.id + '">' + e.code + ' — ' + e.name + '</option>').join('');
+}
+async function loadTemplates() {
+    const r = await fetch('/api/admin/communications/marketing-templates');
+    const d = await r.json();
+    const sel = document.getElementById('nr-template');
+    const rest = d.templates.map(t => '<option value="' + t.id + '">' + t.id + ': ' + t.name + '</option>').join('');
+    sel.innerHTML = '<option value="">—</option>' + rest;
+}
+async function loadRules() {
+    const r = await fetch('/api/admin/communications/rules');
+    const d = await r.json();
+    const tb = document.getElementById('rules-body');
+    if (!d.rules.length) {
+        tb.innerHTML = '<tr><td colspan="10" class="text-muted text-center py-3">Sin reglas. Crea una arriba.</td></tr>';
+        return;
+    }
+    tb.innerHTML = d.rules.map(function (x) {
+        const scope = x.organization_id == null ? '<span class="badge bg-info">Global</span>' : '<span class="badge bg-secondary">Org ' + x.organization_id + '</span>';
+        const edit = x.can_edit;
+        return '<tr data-id="' + x.id + '">' +
+            '<td><code>' + x.event_code + '</code><br><small class="text-muted">' + (x.event_name || '') + '</small></td>' +
+            '<td>' + x.channel + '</td>' +
+            '<td>' + scope + '</td>' +
+            '<td><input type="checkbox" class="form-check-input rule-enabled" data-id="' + x.id + '" ' + (x.enabled ? 'checked' : '') + (edit ? '' : ' disabled') + '></td>' +
+            '<td>' + (edit ? '<input type="number" class="form-control form-control-sm rule-delay" style="width:4rem" data-id="' + x.id + '" value="' + x.delay_minutes + '" min="0">' : x.delay_minutes) + '</td>' +
+            '<td>' + (edit ? '<input type="number" class="form-control form-control-sm rule-prio" style="width:4rem" data-id="' + x.id + '" value="' + x.priority + '">' : x.priority) + '</td>' +
+            '<td><input type="checkbox" class="form-check-input rule-mkt" data-id="' + x.id + '" ' + (x.is_marketing ? 'checked' : '') + (edit ? '' : ' disabled') + '></td>' +
+            '<td><input type="checkbox" class="form-check-input rule-resp" data-id="' + x.id + '" ' + (x.respect_user_prefs ? 'checked' : '') + (edit ? '' : ' disabled') + '></td>' +
+            '<td><small>' + (x.marketing_template_id || '—') + '</small></td>' +
+            '<td class="text-nowrap">' +
+            (edit ? '<button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="saveRule(' + x.id + ')">Guardar</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRule(' + x.id + ')">Eliminar</button>' : '<span class="text-muted small">Solo lectura</span>') +
+            '</td></tr>';
+    }).join('');
+    document.querySelectorAll('.rule-enabled').forEach(function (cb) {
+        cb.addEventListener('change', function () { saveRule(parseInt(cb.dataset.id, 10), true); });
+    });
+}
+async function loadAll() {
+    try {
+        await loadEvents();
+        await loadTemplates();
+        await loadRules();
+    } catch (e) {
+        showAlert('Error cargando datos: ' + e, false);
+    }
+}
+async function createRule() {
+    const body = {
+        event_id: parseInt(document.getElementById('nr-event').value, 10),
+        channel: document.getElementById('nr-channel').value,
+        priority: parseInt(document.getElementById('nr-priority').value, 10) || 10,
+        delay_minutes: parseInt(document.getElementById('nr-delay').value, 10) || 0,
+        enabled: document.getElementById('nr-enabled').checked,
+        is_marketing: document.getElementById('nr-marketing').checked,
+        respect_user_prefs: document.getElementById('nr-respect').checked,
+        marketing_template_id: document.getElementById('nr-template').value || null
+    };
+    const g = document.getElementById('nr-global');
+    if (g && g.checked) {
+        body.organization_id = null;
+    }
+    const r = await fetch('/api/admin/communications/rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) { showAlert(d.error || 'Error', false); return; }
+    showAlert('Regla creada', true);
+    loadRules();
+}
+async function saveRule(id, silent) {
+    const row = document.querySelector('tr[data-id="' + id + '"]');
+    if (!row) return;
+    const body = {
+        enabled: row.querySelector('.rule-enabled') && row.querySelector('.rule-enabled').checked,
+        delay_minutes: row.querySelector('.rule-delay') ? parseInt(row.querySelector('.rule-delay').value, 10) : undefined,
+        priority: row.querySelector('.rule-prio') ? parseInt(row.querySelector('.rule-prio').value, 10) : undefined,
+        is_marketing: row.querySelector('.rule-mkt') && row.querySelector('.rule-mkt').checked,
+        respect_user_prefs: row.querySelector('.rule-resp') && row.querySelector('.rule-resp').checked
+    };
+    const r = await fetch('/api/admin/communications/rules/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) { showAlert(d.error || 'Error', false); return; }
+    if (!silent) showAlert('Guardado', true);
+}
+async function deleteRule(id) {
+    if (!confirm('¿Eliminar esta regla?')) return;
+    const r = await fetch('/api/admin/communications/rules/' + id, { method: 'DELETE' });
+    const d = await r.json();
+    if (!r.ok) { showAlert(d.error || 'Error', false); return; }
+    showAlert('Eliminada', true);
+    loadRules();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    loadAll();
+});
+</script>
+{% endblock %}

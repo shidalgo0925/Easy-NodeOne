@@ -3,7 +3,7 @@ from . import repository
 
 
 def get_page_data(user_id):
-    """Datos para la página /notifications (lista + unread_count)."""
+    """Datos para la bandeja /communications/inbox (lista + unread_count)."""
     notifications = repository.get_user_notifications(user_id, 'all', 'all', limit=500)
     unread = repository.unread_count(user_id)
     return notifications, unread

@@ -24,13 +24,40 @@
     <!-- Filtros: Servicio y Asesor en una línea compacta -->
     <div class="row mb-3">
         <div class="col-12">
+            {% if not services %}
+            <div class="alert alert-warning mb-3" role="alert">
+                <strong>No hay servicios en el selector.</strong>
+                El calendario solo lista <strong>servicios activos con tipo de cita</strong> vinculado.
+                {% if services_missing_appointment_type %}
+                <p class="mb-2 mt-2"><strong>Servicios activos sin tipo de cita (asigna uno en el catálogo):</strong></p>
+                <ul class="mb-2 small">
+                    {% for s in services_missing_appointment_type %}
+                    <li>{{ s.name }} <span class="text-muted">(id {{ s.id }})</span></li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                <p class="mb-0 small">
+                    Edita en <a href="{{ url_for('admin_services_catalog.admin_services') }}">Servicios (catálogo)</a>
+                    o crea tipos en <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Tipos de cita</a>.
+                    Si administras varias empresas, revisa el <strong>selector de organización</strong>.
+                </p>
+            </div>
+            {% elif services_missing_appointment_type %}
+            <div class="alert alert-light border mb-3 py-2" role="status">
+                <small class="text-muted">
+                    <strong>Otros servicios activos</strong> sin tipo de cita no aparecen aquí:
+                    {% for s in services_missing_appointment_type %}{{ s.name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+                    <a href="{{ url_for('admin_services_catalog.admin_services') }}">Catálogo</a>
+                </small>
+            </div>
+            {% endif %}
             <div class="card border-0 shadow-sm">
                 <div class="card-body py-2">
                     <div class="w-100 mobile-scroll-x pb-1">
                     <form id="calendarFilters" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                         <div class="flex-shrink-0">
                             <label for="service_id" class="form-label form-label-sm mb-0">Servicio <span class="text-danger">*</span></label>
-                            <select name="service_id" id="service_id" class="form-select form-select-sm" style="min-width:180px" required>
+                            <select name="service_id" id="service_id" class="form-select form-select-sm" style="min-width:180px" required {% if not services %}disabled{% endif %}>
                                 <option value="">Seleccione un servicio...</option>
                                 {% for service in services %}
                                     <option value="{{ service.id }}" data-appointment-type-id="{{ service.appointment_type_id }}">{{ service.name }}</option>

@@ -35,6 +35,12 @@ def register_admin_users_roles_routes(app):
     from flask import flash, jsonify, redirect, render_template, request, url_for
     from flask_login import current_user
 
+    from nodeone.services.user_organization import ensure_membership, user_has_active_membership, user_in_org_clause
+
+    def _user_in_scope_or_404(uid):
+        scope = admin_data_scope_organization_id()
+        return User.query.filter(User.id == uid).filter(user_in_org_clause(User, scope)).first_or_404()
+
     @app.route('/admin/users')
     @require_permission('users.view')
     def admin_users():
@@ -51,7 +57,7 @@ def register_admin_users_roles_routes(app):
     
         # Construir query base: solo usuarios de la empresa activa (sesión / selector)
         scope_oid = admin_data_scope_organization_id()
-        query = User.query.filter_by(organization_id=scope_oid)
+        query = User.query.filter(user_in_org_clause(User, scope_oid))
 
         # Filtro de búsqueda (nombre, email, teléfono)
         if search:
@@ -110,14 +116,14 @@ def register_admin_users_roles_routes(app):
         # Obtener grupos únicos para el filtro (misma empresa)
         groups = db.session.query(User.user_group).distinct().filter(
             User.user_group.isnot(None),
-            User.organization_id == scope_oid,
+            user_in_org_clause(User, scope_oid),
         ).all()
         groups = [g[0] for g in groups if g[0]]
     
         # Obtener etiquetas únicas para el filtro (extraer de todos los tags)
         all_tags = db.session.query(User.tags).filter(
             User.tags.isnot(None),
-            User.organization_id == scope_oid,
+            user_in_org_clause(User, scope_oid),
         ).all()
         unique_tags = set()
         for tag_str in all_tags:
@@ -165,9 +171,7 @@ def register_admin_users_roles_routes(app):
     @require_permission('users.update')
     def admin_update_user(user_id):
         """Actualizar atributos básicos del usuario (admin, asesor, estado)."""
-        user = User.query.filter_by(
-            id=user_id, organization_id=admin_data_scope_organization_id()
-        ).first_or_404()
+        user = _user_in_scope_or_404(user_id)
         first_name = request.form.get('first_name', '').strip()
         last_name = request.form.get('last_name', '').strip()
         phone = request.form.get('phone', '').strip()
@@ -320,6 +324,8 @@ def register_admin_users_roles_routes(app):
                 organization_id=admin_data_scope_organization_id(),
             )
             db.session.add(new_user)
+            db.session.flush()
+            ensure_membership(new_user.id, int(admin_data_scope_organization_id()))
             db.session.commit()
         
             # Si es asesor, crear perfil
@@ -344,9 +350,7 @@ def register_admin_users_roles_routes(app):
     @require_permission('users.delete')
     def admin_delete_user(user_id):
         """Eliminar un usuario"""
-        user = User.query.filter_by(
-            id=user_id, organization_id=admin_data_scope_organization_id()
-        ).first_or_404()
+        user = _user_in_scope_or_404(user_id)
     
         # No permitir eliminar al usuario actual
         if user.id == current_user.id:
@@ -383,7 +387,8 @@ def register_admin_users_roles_routes(app):
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 25, type=int), 100)
         search = request.args.get('search', '').strip()
-        query = User.query.filter_by(organization_id=admin_data_scope_organization_id())
+        scope = admin_data_scope_organization_id()
+        query = User.query.filter(user_in_org_clause(User, scope))
         if search:
             query = query.filter(
                 db.or_(
@@ -432,9 +437,7 @@ def register_admin_users_roles_routes(app):
     def api_admin_user_roles(user_id):
         """API: roles del usuario + roles disponibles para asignar (excl. SA)."""
         try:
-            user = User.query.filter_by(
-                id=user_id, organization_id=admin_data_scope_organization_id()
-            ).first_or_404()
+            user = _user_in_scope_or_404(user_id)
             # Roles del usuario vía SQL directo; si falla (ej. tabla distinta en prod), usar vacío
             try:
                 role_rows = db.session.execute(
@@ -476,9 +479,7 @@ def register_admin_users_roles_routes(app):
     @require_permission('roles.assign')
     def api_admin_user_roles_assign(user_id):
         """Asignar un rol al usuario. Body: { \"role_id\": N }."""
-        user = User.query.filter_by(
-            id=user_id, organization_id=admin_data_scope_organization_id()
-        ).first_or_404()
+        _user_in_scope_or_404(user_id)
         data = request.get_json() or {}
         role_id = data.get('role_id')
         if role_id is None:
@@ -513,9 +514,7 @@ def register_admin_users_roles_routes(app):
     @require_permission('roles.assign')
     def api_admin_user_roles_remove(user_id, role_id):
         """Quitar un rol al usuario."""
-        user = User.query.filter_by(
-            id=user_id, organization_id=admin_data_scope_organization_id()
-        ).first_or_404()
+        _user_in_scope_or_404(user_id)
         role = Role.query.get_or_404(role_id)
         if role.code == 'SA':
             return jsonify({'success': False, 'error': 'No se puede modificar el rol SA'}), 403
@@ -544,9 +543,7 @@ def register_admin_users_roles_routes(app):
     def admin_user_roles_page(user_id):
         """Pantalla de asignación de roles al usuario (UI)."""
         try:
-            user = User.query.filter_by(
-                id=user_id, organization_id=admin_data_scope_organization_id()
-            ).first_or_404()
+            user = _user_in_scope_or_404(user_id)
             # Roles del usuario vía SQL directo; si falla, listas vacías (evita 500 en prod)
             user_role_ids = _get_user_role_ids(user_id)
             if user_role_ids:
@@ -629,7 +626,7 @@ def register_admin_users_roles_routes(app):
         scope_oid = admin_data_scope_organization_id()
         for user_id, assigned_at in rows:
             u = User.query.get(user_id)
-            if u and int(getattr(u, 'organization_id', None) or 1) == int(scope_oid):
+            if u and user_has_active_membership(u, int(scope_oid)):
                 users_data.append({
                     'user': u,
                     'assigned_at': assigned_at,

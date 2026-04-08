@@ -3,18 +3,13 @@
 
 def org_id_for_module_visibility():
     """
-    Solo para flags de módulo en plantillas y guards públicos (¿módulo encendido?).
-    No usar para queries de datos: ahí va get_current_organization_id() (anónimo = None).
+    Flags de módulo en plantillas y guards públicos (¿módulo encendido?).
+    Misma resolución que tenant_data / SaaS guards (host, sesión, membresía).
+    No usar para queries de datos filtradas por sesión: ahí va get_current_organization_id().
     """
-    import app as M
+    from utils.organization import resolve_current_organization
 
-    try:
-        oid = M.get_current_organization_id()
-    except RuntimeError:
-        oid = None
-    if oid is not None:
-        return oid
-    return M.default_organization_id()
+    return int(resolve_current_organization())
 
 
 def has_saas_module_enabled(organization_id, module_code):
@@ -95,8 +90,10 @@ def admin_scope_user_ids_only():
     """
     import app as M
 
+    from nodeone.services.user_organization import user_ids_query_in_organization
+
     scope_oid = int(M.admin_data_scope_organization_id())
-    q = M.db.session.query(M.User.id).filter(M.User.organization_id == scope_oid)
+    q = user_ids_query_in_organization(scope_oid)
     if not current_user_can_view_org_users():
         q = q.filter(M.User.id == int(getattr(M.current_user, 'id', 0) or 0))
     return q

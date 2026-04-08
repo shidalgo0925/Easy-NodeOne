@@ -11,6 +11,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from nodeone.core.db import db
 
+from .payments import MembershipDiscount
+
 # Modelos de Carrito de Compras
 
 class HistoryTransaction(db.Model):
@@ -394,8 +396,6 @@ class Service(db.Model):
         
         # Si no hay regla explícita o no se aplicó descuento, aplicar descuento automático por membresía
         if not is_included and user_membership_type and discount_percentage == 0.0:
-            # Obtener descuento automático desde MembershipDiscount
-            # MembershipDiscount ya está definido en este mismo archivo, no necesita import
             discount_percentage = MembershipDiscount.get_discount(user_membership_type, product_type='service')
             if discount_percentage > 0:
                 final_price = max(0.0, base_price * (1 - discount_percentage / 100))

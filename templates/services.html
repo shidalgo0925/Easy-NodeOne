@@ -107,6 +107,7 @@
                             {% endif %}
                             {# Fase 2: Un botón según service_type. CONSULTIVO = primera reunión → propuesta. AGENDABLE = calendario → pago. #}
                             {% if service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
+                                {% if current_user.is_authenticated %}
                                 {% if service.service_type == 'CONSULTIVO' %}
                                 <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary w-100 mb-2">
                                     <i class="fas fa-handshake me-1"></i>Solicitar primera reunión
@@ -117,6 +118,12 @@
                                     <i class="fas fa-calendar-check me-1"></i>Solicitar cita
                                 </a>
                                 <small class="d-block text-muted small mb-2">Elegir horario en calendario{% if service.pricing.final_price > 0 %} y pagar{% endif %}</small>
+                                {% endif %}
+                                {% else %}
+                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary w-100 mb-2">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Inicia sesión para reservar
+                                </a>
+                                <small class="d-block text-muted small mb-2">Necesitas una cuenta para solicitar cita o primera reunión.</small>
                                 {% endif %}
                             {% endif %}
                             

@@ -328,6 +328,10 @@
                             <option value="">Selecciona un tipo de cita</option>
                         </select>
                         <small class="text-muted">Selecciona el tipo de cita que se requiere para este servicio</small>
+                        <div id="appointmentTypesEmptyHelp" class="alert alert-warning d-none mt-2 mb-0 py-2 small" role="alert">
+                            No hay tipos de cita <strong>activos</strong> para la organización actual (misma que el selector de empresa).
+                            Créalos en <a href="{{ url_for('admin_appointments.create_appointment_type') }}" target="_blank" rel="noopener">Citas → Nuevo servicio</a>, luego vuelve aquí y abre de nuevo el modal.
+                        </div>
                     </div>
                     <div class="mb-3" id="serviceTypeContainer" style="display: none;">
                         <label for="serviceType" class="form-label">Tipo de flujo</label>
@@ -636,6 +640,14 @@ function loadAppointmentTypes() {
                 });
                 if (currentValue) {
                     select.value = currentValue;
+                }
+                const help = document.getElementById('appointmentTypesEmptyHelp');
+                if (help) {
+                    if (data.appointment_types && data.appointment_types.length === 0) {
+                        help.classList.remove('d-none');
+                    } else {
+                        help.classList.add('d-none');
+                    }
                 }
             }
             return data;

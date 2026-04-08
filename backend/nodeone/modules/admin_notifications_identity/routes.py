@@ -56,6 +56,16 @@ def register_admin_notifications_identity_routes(app):
             setting.enabled = bool(data['enabled'])
             setting.updated_at = datetime.utcnow()
             db.session.commit()
+            try:
+                from nodeone.services.notification_settings_sync import (
+                    sync_notification_type_to_communication_rules,
+                )
+
+                sync_notification_type_to_communication_rules(
+                    setting.notification_type, setting.enabled
+                )
+            except Exception:
+                pass
             return jsonify(
                 {
                     'success': True,
@@ -74,6 +84,7 @@ def register_admin_notifications_identity_routes(app):
         updates = data.get('updates', [])
 
         updated_count = 0
+        sync_pairs = []
         for update in updates:
             setting_id = update.get('id')
             enabled = update.get('enabled')
@@ -84,8 +95,19 @@ def register_admin_notifications_identity_routes(app):
                     setting.enabled = bool(enabled)
                     setting.updated_at = datetime.utcnow()
                     updated_count += 1
+                    sync_pairs.append((setting.notification_type, setting.enabled))
 
         db.session.commit()
+
+        try:
+            from nodeone.services.notification_settings_sync import (
+                sync_notification_type_to_communication_rules,
+            )
+
+            for nt, en in sync_pairs:
+                sync_notification_type_to_communication_rules(nt, en)
+        except Exception:
+            pass
 
         return jsonify(
             {

@@ -30,6 +30,11 @@
         border-color: #0dcaf0;
         box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.2);
     }
+    /* Avisos de error (flash) encima de la tarjeta: navbar fija no los tape */
+    body .container.mt-3 .alert {
+        position: relative;
+        z-index: 2;
+    }
 </style>
 <div class="container login-page-wrap">
     <div class="row justify-content-center">

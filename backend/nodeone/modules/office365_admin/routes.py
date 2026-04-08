@@ -21,10 +21,12 @@ def admin_office365_requests():
         return redirect(url_for('dashboard'))
     status_filter = request.args.get('status', 'all')
     scope_oid = M.admin_data_scope_organization_id()
+    from nodeone.services.user_organization import user_in_org_clause
+
     query = (
         M.Office365Request.query
         .join(M.User, M.Office365Request.user_id == M.User.id)
-        .filter(M.User.organization_id == scope_oid)
+        .filter(user_in_org_clause(M.User, scope_oid))
         .order_by(M.Office365Request.created_at.desc())
     )
     if status_filter and status_filter != 'all':
@@ -33,7 +35,7 @@ def admin_office365_requests():
     pending_count = (
         M.Office365Request.query
         .join(M.User, M.Office365Request.user_id == M.User.id)
-        .filter(M.User.organization_id == scope_oid, M.Office365Request.status == 'pending')
+        .filter(user_in_org_clause(M.User, scope_oid), M.Office365Request.status == 'pending')
         .count()
     )
     return render_template(
@@ -60,10 +62,12 @@ def admin_update_office365_request(request_id):
     if new_status not in ('approved', 'rejected'):
         return jsonify({'error': 'Estado inválido. Use approved o rejected.'}), 400
     scope_oid = M.admin_data_scope_organization_id()
+    from nodeone.services.user_organization import user_in_org_clause
+
     req = (
         M.Office365Request.query
         .join(M.User, M.Office365Request.user_id == M.User.id)
-        .filter(M.Office365Request.id == request_id, M.User.organization_id == scope_oid)
+        .filter(M.Office365Request.id == request_id, user_in_org_clause(M.User, scope_oid))
         .first()
     )
     if not req:

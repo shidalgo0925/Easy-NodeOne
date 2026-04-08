@@ -7,7 +7,7 @@ from __future__ import annotations
 def organizations_for_session_after_login(user):
     """
     Organizaciones activas entre las que el usuario puede operar.
-    - Miembro: solo su organization_id si está activa.
+    - Miembro: membresías activas (user_organization) o compat organization_id.
     - Admin plataforma: todas las activas, filtradas por EASYNODEONE_PLATFORM_VISIBLE_ORG_IDS si aplica.
     """
     import app as M
@@ -15,19 +15,24 @@ def organizations_for_session_after_login(user):
     if user is None or not getattr(user, 'is_authenticated', False):
         return []
 
+    from nodeone.services.user_organization import active_organization_ids_for_user
     from utils.organization import platform_visible_organization_ids
 
     allow = platform_visible_organization_ids()
 
     if not getattr(user, 'is_admin', False):
-        try:
-            oid = int(getattr(user, 'organization_id', 0) or 0)
-        except (TypeError, ValueError):
-            oid = 0
-        if oid < 1:
+        ids = active_organization_ids_for_user(user)
+        if not ids:
             return []
-        org = M.SaasOrganization.query.filter_by(id=oid, is_active=True).first()
-        return [org] if org is not None else []
+        rows = (
+            M.SaasOrganization.query.filter(
+                M.SaasOrganization.id.in_(list(ids)),
+                M.SaasOrganization.is_active == True,  # noqa: E712
+            )
+            .order_by(M.SaasOrganization.name.asc(), M.SaasOrganization.id.asc())
+            .all()
+        )
+        return rows
 
     rows = (
         M.SaasOrganization.query.filter_by(is_active=True)
@@ -40,7 +45,7 @@ def organizations_for_session_after_login(user):
 
 
 def save_last_selected_organization(user, org_id: int) -> None:
-    """Persiste última empresa elegida (admin multi-tenant)."""
+    """Persiste última empresa elegida (admin y miembros con varias organizaciones)."""
     import app as M
 
     try:
@@ -52,7 +57,7 @@ def save_last_selected_organization(user, org_id: int) -> None:
     u = M.User.query.get(getattr(user, 'id', None))
     if u is None:
         return
-    if not getattr(u, 'is_admin', False):
+    if not hasattr(u, 'last_selected_organization_id'):
         return
     if getattr(u, 'last_selected_organization_id', None) == oid:
         return
@@ -105,24 +110,32 @@ def finalize_post_login_organization(user, req):
     """
     import app as M
 
+    from nodeone.services.user_organization import active_organization_ids_for_user
+
     if M.single_tenant_default_only():
         M.ensure_canonical_saas_organization_usable()
 
     host_org_id = M._organization_id_from_request_host(req)
-    user_org_raw = getattr(user, 'organization_id', None)
     try:
-        user_org_id = int(user_org_raw) if user_org_raw is not None else 0
+        host_int = int(host_org_id) if host_org_id is not None else None
     except (TypeError, ValueError):
-        user_org_id = 0
+        host_int = None
 
     if not getattr(user, 'is_admin', False):
-        if user_org_id < 1:
+        mids = active_organization_ids_for_user(user)
+        if not mids:
             return 'error', 'Tu usuario no tiene organización asignada.'
-        user_org = M.SaasOrganization.query.get(user_org_id)
-        if user_org is None or not getattr(user_org, 'is_active', True):
+        active_orgs = M.SaasOrganization.query.filter(
+            M.SaasOrganization.id.in_(list(mids)),
+            M.SaasOrganization.is_active == True,  # noqa: E712
+        ).all()
+        if not active_orgs:
             return 'error', 'La organización asignada a tu usuario no está disponible.'
-        if host_org_id is not None and host_org_id != user_org_id:
-            return 'error', 'No tienes acceso a esta organización.'
+        mids_active = {int(o.id) for o in active_orgs}
+        # Si el host (subdominio) no coincide con ninguna membresía, no bloquear el login:
+        # se trata como acceso "genérico" y se usa última org / selector (evita quedar en /login sin entrar).
+        if host_int is not None and host_int not in mids_active:
+            host_int = None
 
     orgs = organizations_for_session_after_login(user)
     if not orgs:
@@ -154,10 +167,40 @@ def finalize_post_login_organization(user, req):
         return 'ok', None
 
     if not getattr(user, 'is_admin', False):
-        oid = int(orgs[0].id)
-        M.session['organization_id'] = oid
-        M.session.pop('require_org_selection', None)
-        return 'ok', None
+        # Varias empresas (len>1 ya garantizado aquí): anclar al subdominio/host si aplica;
+        # si no hay tenant en el host (login genérico), pantalla de selección.
+        if host_int is not None and any(int(o.id) == host_int for o in orgs):
+            oid = host_int
+            M.session['organization_id'] = oid
+            M.session.pop('require_org_selection', None)
+            save_last_selected_organization(user, oid)
+            return 'ok', None
+        if host_int is None:
+            try:
+                last_id = int(getattr(user, 'last_selected_organization_id', None) or 0)
+            except (TypeError, ValueError):
+                last_id = 0
+            if last_id > 0 and any(int(o.id) == last_id for o in orgs):
+                M.session['organization_id'] = last_id
+                M.session.pop('require_org_selection', None)
+                save_last_selected_organization(user, last_id)
+                return 'ok', None
+            try:
+                primary = int(getattr(user, 'organization_id', None) or 0)
+            except (TypeError, ValueError):
+                primary = 0
+            if primary > 0 and any(int(o.id) == primary for o in orgs):
+                M.session['organization_id'] = primary
+                M.session.pop('require_org_selection', None)
+                save_last_selected_organization(user, primary)
+                return 'ok', None
+            M.session['require_org_selection'] = True
+            M.session.pop('organization_id', None)
+            return 'pick', None
+        # Host distinto a las empresas elegibles: mismo criterio que arriba — elegir en pantalla.
+        M.session['require_org_selection'] = True
+        M.session.pop('organization_id', None)
+        return 'pick', None
 
     last_raw = getattr(user, 'last_selected_organization_id', None)
     try:

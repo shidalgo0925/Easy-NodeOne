@@ -239,7 +239,7 @@
                         <span class="fw-bold text-info">{{ user_status.upcoming_appointments|length }}</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-muted small">Notificaciones</span>
+                        <span class="text-muted small">Bandeja (pendientes)</span>
                         <span class="fw-bold text-warning">{{ user_status.pending_notifications|length }}</span>
                     </div>
                 </div>
@@ -457,8 +457,8 @@
                     <a href="{{ url_for('member_pages.settings') }}" class="footer-link me-3">
                         <i class="fas fa-cog me-1"></i>Configuración de cuenta
                     </a>
-                    <a href="{{ url_for('communications.notifications_page') }}" class="footer-link me-3">
-                        <i class="fas fa-bell me-1"></i>Preferencias de notificación
+                    <a href="{{ url_for('communications.communications_inbox') }}" class="footer-link me-3">
+                        <i class="fas fa-inbox me-1"></i>Bandeja
                     </a>
                 </div>
             </div>

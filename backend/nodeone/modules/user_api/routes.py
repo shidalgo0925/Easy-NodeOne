@@ -90,3 +90,79 @@ def api_user_settings_post():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@user_api_bp.route('/communication-preferences', methods=['GET'])
+@login_required
+def api_user_communication_preferences_get():
+    """Preferencias por evento y canal (ausencia de fila = canal permitido)."""
+    try:
+        from models.communication_rules import CommunicationEvent, UserCommunicationPreference
+
+        events = CommunicationEvent.query.order_by(CommunicationEvent.code.asc()).all()
+        events = [e for e in events if not (e.code or '').startswith('__')]
+
+        rows = UserCommunicationPreference.query.filter_by(user_id=current_user.id).all()
+        by_key = {(p.event_id, p.channel): bool(p.enabled) for p in rows}
+
+        items = []
+        for ev in events:
+            for ch in ('email', 'in_app'):
+                items.append(
+                    {
+                        'event_id': ev.id,
+                        'event_code': ev.code,
+                        'event_name': ev.name,
+                        'category': ev.category,
+                        'channel': ch,
+                        'enabled': by_key.get((ev.id, ch), True),
+                    }
+                )
+        return jsonify({'success': True, 'items': items})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@user_api_bp.route('/communication-preferences', methods=['PUT'])
+@login_required
+def api_user_communication_preferences_put():
+    """Body: {\"items\": [{\"event_code\", \"channel\", \"enabled\"}]}."""
+    from app import db
+    from models.communication_rules import CommunicationEvent, UserCommunicationPreference
+
+    data = request.get_json() or {}
+    raw_items = data.get('items')
+    if not isinstance(raw_items, list):
+        return jsonify({'success': False, 'error': 'items debe ser una lista'}), 400
+
+    try:
+        for it in raw_items:
+            code = (it.get('event_code') or '').strip()
+            channel = (it.get('channel') or '').strip().lower()
+            if channel not in ('email', 'in_app', 'sms'):
+                continue
+            ev = CommunicationEvent.query.filter_by(code=code).first()
+            if not ev or (ev.code or '').startswith('__'):
+                continue
+            enabled = bool(it.get('enabled', True))
+            row = UserCommunicationPreference.query.filter_by(
+                user_id=current_user.id,
+                event_id=ev.id,
+                channel=channel,
+            ).first()
+            if row:
+                row.enabled = enabled
+            else:
+                db.session.add(
+                    UserCommunicationPreference(
+                        user_id=current_user.id,
+                        event_id=ev.id,
+                        channel=channel,
+                        enabled=enabled,
+                    )
+                )
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Preferencias de comunicación guardadas'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500

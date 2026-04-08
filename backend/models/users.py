@@ -204,6 +204,24 @@ class SocialAuth(db.Model):
     __table_args__ = (db.UniqueConstraint('provider', 'provider_user_id', name='uq_social_provider_user'),)
 
 
+class UserOrganization(db.Model):
+    """Miembro de una empresa (varias organizaciones por usuario; email único global en User)."""
+    __tablename__ = 'user_organization'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False)
+    role = db.Column(db.String(50), nullable=False, default='user')
+    status = db.Column(db.String(20), nullable=False, default='active')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship(
+        'User',
+        backref=db.backref('user_org_links', lazy='dynamic', cascade='all, delete-orphan'),
+    )
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'organization_id', name='uq_user_organization_membership'),
+    )
+
+
 class UserSettings(db.Model):
     """Preferencias de configuración por usuario (notificaciones, privacidad, idioma, apariencia)."""
     __tablename__ = 'user_settings'

@@ -162,13 +162,15 @@ def require_appointment_by_id(appt_id, Appointment):
 
 
 def advisors_scoped_query(Advisor, User):
+    from nodeone.services.user_organization import user_in_org_clause
+
     query = Advisor.query.join(User, Advisor.user_id == User.id)
     if not appt_platform_admin():
-        query = query.filter(User.organization_id == tenant_org_appt())
+        query = query.filter(user_in_org_clause(User, tenant_org_appt()))
     else:
         scope = org_filter_appt_optional()
         if scope is not None:
-            query = query.filter(User.organization_id == scope)
+            query = query.filter(user_in_org_clause(User, scope))
     return query
 
 

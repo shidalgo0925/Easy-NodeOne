@@ -21,25 +21,20 @@ def enforce_saas_module_or_response(module_code):
     if getattr(current_user, 'is_admin', False):
         return None
 
-    from app import get_current_organization_id, has_saas_module_enabled
+    # Misma org que beneficios / catálogo / tenant_data (sesión, última elegida, etc.).
+    from app import (
+        default_organization_id,
+        has_saas_module_enabled,
+        tenant_data_organization_id,
+    )
 
+    org_id = None
     try:
-        org_id = get_current_organization_id()
-    except RuntimeError:
-        # Sesión autenticada sin organization_id (race u org corrupta): reparar y seguir.
+        org_id = int(tenant_data_organization_id())
+    except Exception:
+        # Degradación segura (evita 500 si algo falla en tenant_data en before_request).
         try:
-            from flask import session as _sess
-            from app import (
-                _usable_session_organization_id_for_user,
-                default_organization_id,
-                single_tenant_default_only,
-            )
-
-            if single_tenant_default_only():
-                _sess['organization_id'] = default_organization_id()
-            else:
-                _sess['organization_id'] = _usable_session_organization_id_for_user(current_user)
-            org_id = get_current_organization_id()
+            org_id = int(getattr(current_user, 'organization_id', None) or default_organization_id())
         except Exception:
             flash('Tu sesión perdió el contexto de organización. Inicia sesión de nuevo.', 'error')
             return redirect(url_for('auth.login'))
@@ -98,6 +93,33 @@ def register_services_saas_guards(services_bp):
 
     @services_bp.before_request
     def _guard_services_catalog():
+        from flask import flash, jsonify, redirect, request, url_for
+        from flask_login import current_user
+
+        # Admin plataforma: sin bloqueo por módulo tenant (igual que enforce_saas_module_or_response).
+        if current_user.is_authenticated and getattr(current_user, 'is_admin', False):
+            return None
+
+        # Anónimo: org por host (subdominio) para coherencia con catálogo público /services.
+        if not current_user.is_authenticated:
+            from app import (
+                _organization_id_from_request_host,
+                default_organization_id,
+                has_saas_module_enabled,
+            )
+
+            oid_h = _organization_id_from_request_host(request)
+            org_id = int(oid_h) if oid_h is not None else int(default_organization_id())
+            if not has_saas_module_enabled(org_id, 'appointments'):
+                path = request.path or ''
+                bp = getattr(request, 'blueprint', '') or ''
+                is_api = path.startswith('/api/') or bp.endswith('_api') or 'api' in bp
+                if is_api or request.is_json:
+                    return jsonify({'error': 'Módulo no habilitado', 'module': 'appointments'}), 403
+                flash('Esta función no está habilitada para su organización.', 'error')
+                return redirect(url_for('auth.login'))
+            return None
+
         return enforce_saas_module_or_response('appointments')
 
 

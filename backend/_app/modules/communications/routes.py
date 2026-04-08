@@ -1,5 +1,5 @@
-# Rutas de notificaciones (usuario): página + API.
-from flask import Blueprint, request, jsonify, render_template
+# Rutas de notificaciones (usuario): bandeja + API (URLs API sin cambio).
+from flask import Blueprint, redirect, request, jsonify, render_template, url_for
 from flask_login import login_required, current_user
 
 from . import service
@@ -7,14 +7,26 @@ from . import service
 communications_bp = Blueprint('communications', __name__, url_prefix='')
 
 
-@communications_bp.route('/notifications')
-@login_required
-def notifications_page():
+def _render_notifications_inbox():
     try:
         notifications, unread_count = service.get_page_data(current_user.id)
         return render_template('notifications.html', notifications=notifications, unread_count=unread_count)
-    except Exception as e:
+    except Exception:
         return render_template('notifications.html', notifications=[], unread_count=0)
+
+
+@communications_bp.route('/communications/inbox')
+@login_required
+def communications_inbox():
+    """Bandeja in-app (URL canónica)."""
+    return _render_notifications_inbox()
+
+
+@communications_bp.route('/notifications')
+@login_required
+def notifications_page():
+    """Compatibilidad: redirige a la bandeja unificada."""
+    return redirect(url_for('communications.communications_inbox'), code=302)
 
 
 @communications_bp.route('/api/notifications')

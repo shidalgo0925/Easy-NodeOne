@@ -88,13 +88,15 @@ def _export_members_data(
 ):
     import app as M
 
+    from nodeone.services.user_organization import user_in_org_clause
+
     allowed_keys = {f['key'] for f in _get_export_fields_allowed('members')}
     keys = [k for k in field_keys if k in allowed_keys]
     if not keys:
         return [], []
     query = M.User.query
     if organization_id_scope is not None:
-        query = query.filter(M.User.organization_id == organization_id_scope)
+        query = query.filter(user_in_org_clause(M.User, organization_id_scope))
     elif not M._admin_can_view_all_organizations():
         from sqlalchemy import false as sql_false
         query = query.filter(sql_false())

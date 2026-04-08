@@ -23,46 +23,79 @@ def register_admin_dashboard_memberships_routes(app):
     def admin_dashboard():
         """Panel de administración principal"""
         try:
+            from nodeone.services.user_organization import user_in_org_clause
+
             scope_oid = admin_data_scope_organization_id()
             try:
                 pending_payments_count = (
                     db.session.query(Payment)
                     .join(User, Payment.user_id == User.id)
-                    .filter(User.organization_id == scope_oid, Payment.ocr_status.in_(['pending', 'needs_review']), Payment.status == 'pending')
+                    .filter(user_in_org_clause(User, scope_oid), Payment.ocr_status.in_(['pending', 'needs_review']), Payment.status == 'pending')
                     .count()
                 )
             except AttributeError:
                 pending_payments_count = (
-                    db.session.query(Payment).join(User, Payment.user_id == User.id).filter(User.organization_id == scope_oid, Payment.status == 'pending').count()
+                    db.session.query(Payment)
+                    .join(User, Payment.user_id == User.id)
+                    .filter(user_in_org_clause(User, scope_oid), Payment.status == 'pending')
+                    .count()
                 )
 
-            total_users = User.query.filter_by(organization_id=scope_oid).count()
+            total_users = User.query.filter(user_in_org_clause(User, scope_oid)).count()
 
             try:
-                total_memberships = db.session.query(Membership).join(User, Membership.user_id == User.id).filter(User.organization_id == scope_oid).count()
+                total_memberships = db.session.query(Membership).join(User, Membership.user_id == User.id).filter(user_in_org_clause(User, scope_oid)).count()
                 active_memberships = (
-                    db.session.query(Membership).join(User, Membership.user_id == User.id).filter(User.organization_id == scope_oid, Membership.is_active.is_(True)).count()
+                    db.session.query(Membership)
+                    .join(User, Membership.user_id == User.id)
+                    .filter(user_in_org_clause(User, scope_oid), Membership.is_active.is_(True))
+                    .count()
                 )
                 recent_memberships = (
-                    db.session.query(Membership).join(User, Membership.user_id == User.id).filter(User.organization_id == scope_oid).order_by(Membership.created_at.desc()).limit(5).all()
+                    db.session.query(Membership)
+                    .join(User, Membership.user_id == User.id)
+                    .filter(user_in_org_clause(User, scope_oid))
+                    .order_by(Membership.created_at.desc())
+                    .limit(5)
+                    .all()
                 )
             except (AttributeError, Exception):
                 total_memberships = (
-                    db.session.query(Subscription).join(User, Subscription.user_id == User.id).filter(User.organization_id == scope_oid, Subscription.status == 'active').count()
+                    db.session.query(Subscription)
+                    .join(User, Subscription.user_id == User.id)
+                    .filter(user_in_org_clause(User, scope_oid), Subscription.status == 'active')
+                    .count()
                 )
                 active_memberships = total_memberships
                 recent_memberships = (
-                    db.session.query(Subscription).join(User, Subscription.user_id == User.id).filter(User.organization_id == scope_oid).order_by(Subscription.created_at.desc()).limit(5).all()
+                    db.session.query(Subscription)
+                    .join(User, Subscription.user_id == User.id)
+                    .filter(user_in_org_clause(User, scope_oid))
+                    .order_by(Subscription.created_at.desc())
+                    .limit(5)
+                    .all()
                 )
 
-            total_payments = db.session.query(Payment).join(User, Payment.user_id == User.id).filter(User.organization_id == scope_oid, Payment.status == 'succeeded').count()
+            total_payments = (
+                db.session.query(Payment)
+                .join(User, Payment.user_id == User.id)
+                .filter(user_in_org_clause(User, scope_oid), Payment.status == 'succeeded')
+                .count()
+            )
             try:
-                succeeded_payments = db.session.query(Payment).join(User, Payment.user_id == User.id).filter(User.organization_id == scope_oid, Payment.status == 'succeeded').all()
+                succeeded_payments = (
+                    db.session.query(Payment)
+                    .join(User, Payment.user_id == User.id)
+                    .filter(user_in_org_clause(User, scope_oid), Payment.status == 'succeeded')
+                    .all()
+                )
                 total_revenue = sum([p.amount for p in succeeded_payments]) / 100.0
             except Exception:
                 total_revenue = 0.0
 
-            recent_users = User.query.filter_by(organization_id=scope_oid).order_by(User.created_at.desc()).limit(5).all()
+            recent_users = (
+                User.query.filter(user_in_org_clause(User, scope_oid)).order_by(User.created_at.desc()).limit(5).all()
+            )
             return render_template(
                 'admin/dashboard.html',
                 total_users=total_users,
@@ -82,18 +115,20 @@ def register_admin_dashboard_memberships_routes(app):
     @require_permission('memberships.view')
     def admin_memberships():
         """Gestión de membresías (incluye Membership y Subscription) con filtros y paginación"""
+        from nodeone.services.user_organization import user_in_org_clause
+
         scope_oid = admin_data_scope_organization_id()
         old_memberships = (
             db.session.query(Membership)
             .join(User, Membership.user_id == User.id)
-            .filter(User.organization_id == scope_oid)
+            .filter(user_in_org_clause(User, scope_oid))
             .order_by(Membership.created_at.desc())
             .all()
         )
         subscriptions = (
             db.session.query(Subscription)
             .join(User, Subscription.user_id == User.id)
-            .filter(User.organization_id == scope_oid)
+            .filter(user_in_org_clause(User, scope_oid))
             .order_by(Subscription.created_at.desc())
             .all()
         )

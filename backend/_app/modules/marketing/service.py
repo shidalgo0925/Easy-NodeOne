@@ -296,12 +296,9 @@ def start_campaign(campaign_id):
         users = [u for u in users if (u.email or '').strip().lower() not in exclude]
     c.status = 'sending'
     db.session.commit()
-    base_url = None
-    try:
-        from flask import request
-        base_url = request.host_url.rstrip('/') if request else None
-    except Exception:
-        pass
+    from nodeone.services.communication_dispatch import request_base_url_optional
+
+    base_url = request_base_url_optional()
     body_source = (getattr(c, 'body_html', None) or '').strip()
     if not body_source:
         body_source = template.html
@@ -388,12 +385,34 @@ def unsubscribe_user(user_id):
 def trigger_automation(trigger_event, user_id, base_url=None, **extra_context):
     """Encola emails de automatización para trigger_event y user_id. No bloquea si falla."""
     try:
+        import os
+
         from app import default_organization_id
 
         u = User.query.get(user_id)
         if not u or getattr(u, 'email_marketing_status', 'subscribed') != 'subscribed':
             return
         oid_queue = int(getattr(u, 'organization_id', None) or default_organization_id())
+
+        defer = os.environ.get('NODEONE_AUTOMATION_DEFER_TO_COMM_ENGINE', '').strip().lower() in (
+            '1',
+            'true',
+            'yes',
+        )
+        if defer:
+            try:
+                from nodeone.services.communication_dispatch import (
+                    communication_engine_enabled,
+                    communication_rules_exist,
+                )
+
+                if communication_engine_enabled() and communication_rules_exist(
+                    trigger_event, oid_queue
+                ):
+                    return
+            except Exception:
+                pass
+
         flows = repository.get_active_automation_flows_by_trigger(trigger_event)
         for flow in flows:
             template = repository.get_template_by_id(flow.template_id)

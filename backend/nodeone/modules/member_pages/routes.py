@@ -13,6 +13,13 @@ def settings():
     return render_template('settings.html')
 
 
+@member_pages_bp.route('/settings/communications')
+@login_required
+def settings_communications():
+    """Preferencias del motor unificado (evento × canal)."""
+    return render_template('settings_communications.html')
+
+
 @member_pages_bp.route('/help')
 @login_required
 def help_page():

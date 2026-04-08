@@ -27,6 +27,8 @@ from werkzeug.utils import secure_filename
 
 from functools import wraps
 
+from nodeone.services.communication_dispatch import request_base_url_optional
+
 # Decorador admin_required
 def admin_required(f):
     """Decorador para requerir permisos de administrador"""
@@ -141,10 +143,12 @@ def _users_for_event_admin_pickers():
     """Staff/moderador/admin de evento: solo miembros de la empresa activa (admin)."""
     from app import admin_data_scope_organization_id
 
+    from nodeone.services.user_organization import user_in_org_clause
+
     ensure_models()
     oid = admin_data_scope_organization_id()
     return (
-        User.query.filter_by(organization_id=oid)
+        User.query.filter(user_in_org_clause(User, oid))
         .order_by(User.first_name, User.last_name)
         .all()
     )
@@ -166,9 +170,11 @@ def _current_org_id_for_events():
 
 
 def _scoped_events_query():
+    from nodeone.services.user_organization import user_in_org_clause
+
     ensure_models()
     oid = _current_org_id_for_events()
-    return Event.query.join(User, Event.created_by == User.id).filter(User.organization_id == oid)
+    return Event.query.join(User, Event.created_by == User.id).filter(user_in_org_clause(User, oid))
 
 
 def _save_file(storage, prefix='event'):
@@ -374,15 +380,36 @@ def register_to_event(slug):
         # Automatización marketing: event_registered
         try:
             from _app.modules.marketing.service import trigger_automation
-            base_url = request.host_url.rstrip('/') if request else None
+            base_url = request_base_url_optional()
             trigger_automation('event_registered', current_user.id, base_url=base_url, event_id=event.id)
         except Exception:
             pass
-        
+
+        try:
+            from nodeone.services.communication_dispatch import dispatch_event_registered
+
+            bu = request_base_url_optional()
+            dispatch_event_registered(
+                current_user.id,
+                getattr(current_user, 'organization_id', None),
+                event.id,
+                event.title,
+                bu,
+            )
+        except Exception:
+            pass
+
         # Notificar al responsable del evento
         if NotificationEngine:
             NotificationEngine.notify_event_registration(event, current_user, registration)
-        
+        try:
+            from nodeone.services.communication_dispatch import dispatch_event_registration_staff
+
+            bu = request_base_url_optional()
+            dispatch_event_registration_staff(event, current_user, registration, bu)
+        except Exception:
+            pass
+
         flash('Te has registrado exitosamente al evento. Recibirás un email de confirmación.', 'success')
         return redirect(url_for('events.event_detail', slug=slug))
     
@@ -477,7 +504,18 @@ def cancel_event_registration(slug):
     # Notificar al responsable del evento
     if NotificationEngine:
         NotificationEngine.notify_event_cancellation(event, current_user, registration)
-    
+    try:
+        from nodeone.services.communication_dispatch import (
+            dispatch_event_cancellation_staff,
+            dispatch_event_cancellation_user_side,
+        )
+
+        bu = request_base_url_optional()
+        dispatch_event_cancellation_staff(event, current_user, bu)
+        dispatch_event_cancellation_user_side(event, current_user, bu)
+    except Exception:
+        pass
+
     flash('Tu registro al evento ha sido cancelado.', 'info')
     return redirect(url_for('events.event_detail', slug=slug))
 
@@ -601,7 +639,14 @@ def confirm_event_registration(event_id, registration_id):
             NotificationEngine.notify_event_confirmation(event, user, registration)
         except Exception as e:
             print(f"⚠️ Error en notificaciones (no afecta la confirmación): {e}")
-    
+        try:
+            from nodeone.services.communication_dispatch import dispatch_event_confirmation_staff
+
+            bu = request_base_url_optional()
+            dispatch_event_confirmation_staff(event, user, registration, bu)
+        except Exception:
+            pass
+
     flash(f'Registro de {user.first_name} {user.last_name} confirmado exitosamente.', 'success')
     return redirect(request.referrer or url_for('admin_events.admin_events_index'))
 
@@ -972,7 +1017,14 @@ def edit_event(event_id):
         # Notificar sobre la actualización del evento
         if NotificationEngine:
             NotificationEngine.notify_event_update(event)
-        
+        try:
+            from nodeone.services.communication_dispatch import dispatch_event_update_recipients
+
+            bu = request_base_url_optional()
+            dispatch_event_update_recipients(event, bu)
+        except Exception:
+            pass
+
         flash('Evento actualizado correctamente.', 'success')
         return redirect(url_for('admin_events.admin_events_index'))
 

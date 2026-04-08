@@ -374,7 +374,7 @@ def ensure_session_organization():
 
     try:
         if getattr(current_user, 'is_authenticated', False):
-            _skip_org_coerce = session.get('require_org_selection') and getattr(current_user, 'is_admin', False)
+            _skip_org_coerce = bool(session.get('require_org_selection'))
             if _skip_org_coerce:
                 pass
             elif single_tenant_default_only():
@@ -420,7 +420,7 @@ def ensure_session_organization():
         app.logger.warning('ensure_session_organization (session): %s', e)
         try:
             if getattr(current_user, 'is_authenticated', False):
-                if session.get('require_org_selection') and getattr(current_user, 'is_admin', False):
+                if session.get('require_org_selection'):
                     pass
                 elif single_tenant_default_only():
                     if getattr(current_user, 'is_admin', False):
@@ -777,9 +777,11 @@ from utils.organization import (  # noqa: E402 — tras modelos SaaS
     ORG_HOME,
     ORG_NONE,
     default_organization_id,
+    get_admin_effective_organization_id,
     get_current_organization_id,
     get_user_home_organization_id,
     platform_visible_organization_ids,
+    resolve_current_organization,
     scoped_query,
     single_tenant_default_only,
     user_has_access_to_organization,
@@ -1133,11 +1135,12 @@ def _admin_scope_user_ids_only():
 
 
 def _catalog_org_for_member_and_theme():
-    return get_current_organization_id()
+    """Catálogo /services, tema y carrito: org del miembro (user.organization_id) o sesión si es admin."""
+    return tenant_data_organization_id()
 
 
 def _catalog_org_for_admin_catalog_routes():
-    return get_current_organization_id()
+    return get_admin_effective_organization_id()
 
 
 def admin_data_scope_organization_id():
@@ -1149,18 +1152,10 @@ def admin_data_scope_organization_id():
 
 def tenant_data_organization_id():
     """
-    Datos de negocio por empresa (beneficios, planes en vista miembro).
-    - is_admin: sesión (selector).
-    - resto: user.organization_id (evita mezclar con org canónica de sesión en single-tenant).
+    Datos de negocio por empresa (beneficios, planes en vista miembro, catálogo /services).
+    Delega en resolve_current_organization() (misma fuente que guards SaaS y /services).
     """
-    if not has_request_context():
-        return int(default_organization_id())
-    if not getattr(current_user, 'is_authenticated', False):
-        return int(default_organization_id())
-    if getattr(current_user, 'is_admin', False):
-        oid = get_current_organization_id()
-        return int(oid) if oid is not None else int(default_organization_id())
-    return int(getattr(current_user, 'organization_id', None) or default_organization_id())
+    return int(resolve_current_organization())
 
 
 def _platform_nav_logo_relpath():
@@ -1266,7 +1261,7 @@ def get_platform_logo():
 
 
 def saas_module_enabled(module_code):
-    """Para plantillas: {% if saas_module_enabled('appointments') %}. Incluye anónimos (org por defecto solo para el flag)."""
+    """Para plantillas: {% if saas_module_enabled('appointments') %}. Anónimos: org vía host/subdominio alineada con resolve."""
     return has_saas_module_enabled(_org_id_for_module_visibility(), module_code)
 
 
@@ -1289,6 +1284,8 @@ def inject_admin_nav_context():
         'catalog_admin_context_org_name': None,
         'effective_org_nav': None,
         'show_org_switcher_link': False,
+        'show_member_organization_switcher': False,
+        'member_organizations_nav': [],
     }
     if not has_request_context():
         return out
@@ -1301,6 +1298,8 @@ def inject_admin_nav_context():
             out['saas_organizations_nav'] = []
             out['effective_org_nav'] = None
             out['catalog_admin_context_org_name'] = None
+            out['show_member_organization_switcher'] = False
+            out['member_organizations_nav'] = []
             return out
         is_flag_admin = bool(getattr(current_user, 'is_admin', False))
         rbac_admin = False
@@ -1317,24 +1316,28 @@ def inject_admin_nav_context():
         if show_org_switcher:
             out['show_platform_admin_nav'] = True
             try:
-                q = SaasOrganization.query.filter_by(is_active=True).order_by(
-                    SaasOrganization.name.asc(), SaasOrganization.id.asc()
-                )
-                rows = q.all()
-                allow = platform_visible_organization_ids()
-                if allow is not None:
-                    rows = [o for o in rows if int(o.id) in allow]
-                if single_tenant_default_only() and not is_flag_admin:
-                    def_oid = default_organization_id()
-                    out['saas_organizations_nav'] = [o for o in rows if int(o.id) == int(def_oid)]
-                else:
+                if is_flag_admin:
+                    q = SaasOrganization.query.filter_by(is_active=True).order_by(
+                        SaasOrganization.name.asc(), SaasOrganization.id.asc()
+                    )
+                    rows = q.all()
+                    allow = platform_visible_organization_ids()
+                    if allow is not None:
+                        rows = [o for o in rows if int(o.id) in allow]
                     out['saas_organizations_nav'] = rows
+                else:
+                    # Admin RBAC (tenant): mismas empresas que puede usar el usuario (no forzar solo default en single-tenant).
+                    from nodeone.services.post_login_organization import organizations_for_session_after_login
+
+                    out['saas_organizations_nav'] = organizations_for_session_after_login(current_user)
             except Exception:
                 out['saas_organizations_nav'] = []
-        if single_tenant_default_only() and not is_flag_admin:
-            oid = default_organization_id()
-        else:
+        try:
             oid = get_current_organization_id()
+        except RuntimeError:
+            oid = None
+        if oid is None:
+            oid = default_organization_id()
         if oid is not None:
             try:
                 out['effective_org_nav'] = int(oid)
@@ -1347,11 +1350,17 @@ def inject_admin_nav_context():
             except Exception:
                 pass
         try:
-            if is_flag_admin:
-                from nodeone.services.post_login_organization import organizations_for_session_after_login
+            from nodeone.services.post_login_organization import organizations_for_session_after_login
 
-                if len(organizations_for_session_after_login(current_user)) > 1:
-                    out['show_org_switcher_link'] = True
+            _picker_orgs = organizations_for_session_after_login(current_user)
+            if len(_picker_orgs) > 1:
+                out['show_org_switcher_link'] = True
+                has_admin_org_sidebar = bool(
+                    out.get('show_platform_admin_nav') and out.get('saas_organizations_nav')
+                )
+                if not has_admin_org_sidebar:
+                    out['show_member_organization_switcher'] = True
+                    out['member_organizations_nav'] = _picker_orgs
         except Exception:
             pass
     except Exception:
@@ -1747,6 +1756,13 @@ def process_cart_after_payment(cart, payment):
                             
                             # Notificar a administradores
                             NotificationEngine.notify_appointment_new_to_admins(appointment, user, advisor_user, service)
+                            from nodeone.services.communication_dispatch import (
+                                dispatch_appointment_slot_payment_communication_engine,
+                            )
+
+                            dispatch_appointment_slot_payment_communication_engine(
+                                appointment, user, advisor_user, service
+                            )
                         except Exception as e:
                             print(f"⚠️ Error enviando notificaciones de cita: {e}")
                             import traceback
@@ -1835,21 +1851,30 @@ def process_cart_after_payment(cart, payment):
             }
             events_info.append(event_info)
 
+        from nodeone.services.communication_dispatch import (
+            dispatch_cart_checkout_communication_engine,
+            request_base_url_optional,
+        )
+
+        base_url = request_base_url_optional()
+
         # Automatización marketing
         try:
             from _app.modules.marketing.service import trigger_automation
-            base_url = None
-            try:
-                from flask import request as req
-                base_url = req.host_url.rstrip('/') if req else None
-            except Exception:
-                pass
+
             if subscriptions_created:
                 trigger_automation('membership_renewed', payment.user_id, base_url=base_url)
             for event_reg in events_registered:
                 trigger_automation('event_registered', event_reg.user_id, base_url=base_url, event_id=event_reg.event_id)
         except Exception as e:
             print(f"Marketing automation error: {e}")
+
+        dispatch_cart_checkout_communication_engine(
+            payment.user_id,
+            subscriptions_created,
+            events_registered,
+            base_url,
+        )
 
         HistoryLogger.log_user_action(
             user_id=payment.user_id,

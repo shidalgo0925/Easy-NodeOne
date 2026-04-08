@@ -241,6 +241,13 @@ def process_cart_after_payment(cart, payment):
                             
                             # Notificar a administradores
                             NotificationEngine.notify_appointment_new_to_admins(appointment, user, advisor_user, service)
+                            from nodeone.services.communication_dispatch import (
+                                dispatch_appointment_slot_payment_communication_engine,
+                            )
+
+                            dispatch_appointment_slot_payment_communication_engine(
+                                appointment, user, advisor_user, service
+                            )
                         except Exception as e:
                             print(f"⚠️ Error enviando notificaciones de cita: {e}")
                             import traceback
@@ -329,21 +336,30 @@ def process_cart_after_payment(cart, payment):
             }
             events_info.append(event_info)
 
+        from nodeone.services.communication_dispatch import (
+            dispatch_cart_checkout_communication_engine,
+            request_base_url_optional,
+        )
+
+        base_url = request_base_url_optional()
+
         # Automatización marketing
         try:
             from _app.modules.marketing.service import trigger_automation
-            base_url = None
-            try:
-                from flask import request as req
-                base_url = req.host_url.rstrip('/') if req else None
-            except Exception:
-                pass
+
             if subscriptions_created:
                 trigger_automation('membership_renewed', payment.user_id, base_url=base_url)
             for event_reg in events_registered:
                 trigger_automation('event_registered', event_reg.user_id, base_url=base_url, event_id=event_reg.event_id)
         except Exception as e:
             print(f"Marketing automation error: {e}")
+
+        dispatch_cart_checkout_communication_engine(
+            payment.user_id,
+            subscriptions_created,
+            events_registered,
+            base_url,
+        )
 
         HistoryLogger.log_user_action(
             user_id=payment.user_id,

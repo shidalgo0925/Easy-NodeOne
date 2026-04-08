@@ -58,8 +58,10 @@ def register_admin_platform_org_routes(app):
         step_modules = False
         step_users = False
         if tid:
+            from nodeone.services.user_organization import user_ids_query_in_organization
+
             step_modules = SaasOrgModule.query.filter_by(organization_id=tid, enabled=True).count() > 0
-            step_users = User.query.filter_by(organization_id=tid).count() >= 1
+            step_users = user_ids_query_in_organization(int(tid)).limit(1).count() >= 1
         step_review = bool(step_tenant and step_subdomain_strict and step_modules and step_users)
         if not step_tenant:
             current_step = 1

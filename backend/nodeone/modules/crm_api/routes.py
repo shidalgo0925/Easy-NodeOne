@@ -142,7 +142,9 @@ def _activity_query_in_scope(org_id):
 def _assign_round_robin(org_id):
     from app import User
 
-    candidates = User.query.filter_by(organization_id=org_id, is_active=True).all()
+    from nodeone.services.user_organization import user_in_org_clause
+
+    candidates = User.query.filter(user_in_org_clause(User, org_id), User.is_active.is_(True)).all()
     if not candidates:
         return int(getattr(current_user, 'id', 0) or 0)
     scored = []

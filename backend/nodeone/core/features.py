@@ -35,6 +35,9 @@ import os
 # NODEONE_SKIP_CRM_API_BLUEPRINT=1 — no registrar /crm/* (leads, stages, activities, reportes).
 # NODEONE_SKIP_ADMIN_SALES_ACCOUNTING_ROUTES=1 — no registrar /admin/sales/quotations ni /admin/accounting/invoices.
 # NODEONE_SKIP_WORKSHOP_MODULE=1 — no registrar /api/workshop ni /admin/workshop (taller / recepción).
+# NODEONE_SKIP_ADMIN_COMMUNICATIONS_BLUEPRINT=1 — no registrar /admin/communications ni /api/admin/communications/*.
+# NODEONE_SKIP_COMMUNICATION_ENGINE=1 — no ejecutar motor en registro/pagos/eventos (communication_dispatch).
+# NODEONE_AUTOMATION_DEFER_TO_COMM_ENGINE=1 — trigger_automation no encola si hay communication_rule para ese evento y org.
 
 
 def register_media_admin_blueprint(app):
@@ -228,6 +231,18 @@ def register_admin_notifications_identity_routes(app):
         print(f'Warning: No se pudieron registrar rutas admin notifications/identity: {e}')
 
 
+def register_admin_communications_blueprint(app):
+    if os.environ.get('NODEONE_SKIP_ADMIN_COMMUNICATIONS_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.admin_communications.routes import admin_communications_bp
+
+        if 'admin_communications' not in app.blueprints:
+            app.register_blueprint(admin_communications_bp)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar admin_communications_bp: {e}')
+
+
 def register_admin_users_roles_routes(app):
     """Rutas /admin/users*, /admin/roles* y APIs de roles/permisos (legacy)."""
     if 'admin_users' in getattr(app, 'view_functions', {}):
@@ -238,6 +253,18 @@ def register_admin_users_roles_routes(app):
         _register(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar rutas admin users/roles: {e}')
+
+
+def register_org_invite_routes(app):
+    """GET/POST /api/admin/organization-invites, DELETE revocar, GET /accept-invite/<token>."""
+    if 'accept_invite' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.org_invites.routes import register_org_invite_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas org invites: {e}')
 
 
 def register_admin_messaging_routes(app):
@@ -724,7 +751,9 @@ def register_modules(app):
     register_admin_sales_accounting_routes(app)
     register_admin_workshop_pages(app)
     register_admin_notifications_identity_routes(app)
+    register_admin_communications_blueprint(app)
     register_admin_users_roles_routes(app)
+    register_org_invite_routes(app)
     register_admin_messaging_routes(app)
     register_admin_platform_org_routes(app)
     register_admin_dashboard_memberships_routes(app)

@@ -11,6 +11,7 @@ from nodeone.modules.accounting.models import Invoice, InvoiceLine, Tax
 from nodeone.modules.notifications.email import send_quotation_email
 from nodeone.modules.sales.models import Quotation, QuotationLine
 from nodeone.services.tax_calculation import compute_line_amounts
+from nodeone.services.user_organization import user_in_org_clause
 
 sales_bp = Blueprint('sales', __name__, url_prefix='/quotations')
 
@@ -389,7 +390,7 @@ def customers_search():
     except (TypeError, ValueError):
         lim = 20
     lim = max(1, min(lim, 100))
-    query = User.query.filter_by(organization_id=oid, is_active=True)
+    query = User.query.filter(user_in_org_clause(User, oid), User.is_active.is_(True))
     if q:
         like = f'%{q}%'
         conds = [

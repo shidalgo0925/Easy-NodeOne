@@ -2,15 +2,22 @@
 from flask import Blueprint, request, redirect, url_for, flash, session, jsonify, render_template
 from flask_login import login_required, current_user
 
+from utils.organization import resolve_current_organization
+
 from . import service as svc
 
 services_bp = Blueprint('services', __name__, url_prefix='')
 
 
 @services_bp.route('/services')
-@login_required
 def list():
-    data = svc.get_services_page_data(current_user)
+    """
+    Catálogo: visible sin login (vitrina por tenant vía subdominio).
+    Solicitar cita sigue exigiendo sesión en las rutas correspondientes.
+    """
+    oid = resolve_current_organization()
+    user = current_user if getattr(current_user, 'is_authenticated', False) else None
+    data = svc.get_services_page_data(user, organization_id=oid)
     return render_template(
         'services.html',
         membership=data['membership'],

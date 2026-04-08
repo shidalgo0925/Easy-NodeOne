@@ -4,13 +4,14 @@
 
 {% block page_content %}
 <div class="container-fluid py-3 px-3">
-    <!-- Barra superior: título + KPIs en una sola línea -->
-    <div class="d-flex flex-wrap align-items-center gap-3 gap-md-4 mb-3 py-2 px-2 rounded bg-light border-bottom">
+    <!-- Barra superior: título + KPIs (KPIs con scroll horizontal en móvil) -->
+    <div class="d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center gap-3 gap-md-4 mb-3 py-2 px-2 rounded bg-light border-bottom">
         <div class="d-flex align-items-baseline flex-shrink-0">
             <h1 class="h5 mb-0 me-2"><i class="fas fa-bullhorn"></i> Email Marketing</h1>
             <span class="text-muted small d-none d-md-inline">Resumen, configuración y envío</span>
         </div>
-        <div class="d-flex flex-grow-1 flex-wrap justify-content-start justify-content-md-end gap-2 gap-md-3">
+        <div class="flex-grow-1 min-w-0 w-100 mobile-scroll-x">
+        <div class="d-flex flex-nowrap flex-md-wrap justify-content-start justify-content-md-end gap-2 gap-md-3 pb-1 pb-md-0">
             <div class="d-flex align-items-center gap-1 px-2 py-1 rounded bg-white border">
                 <span class="text-muted small">Suscritos</span>
                 <strong class="ms-1">{{ stats.subscribed_count }}</strong>
@@ -36,6 +37,18 @@
                 <strong class="ms-1">{{ stats.segments_count }}</strong>
             </div>
             <a href="{{ url_for('admin_marketing_email_settings') }}" class="btn btn-sm btn-outline-secondary">Config. correo</a>
+            {% if can_filter_marketing_orgs and saas_organizations %}
+            <form method="get" action="{{ url_for('admin_marketing') }}" class="d-flex align-items-center gap-1 ms-1">
+                <label class="small text-muted mb-0 text-nowrap" for="mkt_org_filter">Org</label>
+                <select class="form-select form-select-sm" id="mkt_org_filter" name="organization_id" style="width:auto;min-width:9rem" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for org in saas_organizations %}
+                    <option value="{{ org.id }}" {% if marketing_organization_filter == org.id %}selected{% endif %}>{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+        </div>
         </div>
     </div>
 
@@ -51,36 +64,41 @@
 
     <!-- 2. Configuración: Segmentos y Plantillas (primero) -->
     <div class="row g-3 mb-4">
-        <div class="col-lg-6">
+        <div class="col-12 col-lg-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <strong><i class="fas fa-users"></i> 1. Segmentos</strong>
-                    <span class="badge bg-secondary">A quién enviar</span>
+                <div class="card-header bg-light d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
+                    <strong class="min-w-0"><i class="fas fa-users"></i> 1. Segmentos</strong>
+                    <span class="badge bg-secondary align-self-start align-self-sm-center">A quién enviar</span>
                 </div>
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                    <span></span>
-                    <div class="btn-group btn-group-sm">
+                <div class="card-header py-2">
+                    <div class="w-100 mobile-scroll-x pb-1 d-flex justify-content-end">
+                    <div class="btn-group btn-group-sm flex-nowrap">
                         <a href="{{ url_for('admin_marketing_segments_create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Crear segmento</a>
                         <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#form-segment">Rápido (sin filtros)</button>
+                    </div>
                     </div>
                 </div>
                 <div class="card-body py-2 collapse" id="form-segment">
                     <form action="{{ url_for('admin_marketing_create_segment') }}" method="post" class="row g-2">
                         {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                        <div class="col"><input type="text" name="name" class="form-control form-control-sm" placeholder="Nombre (ej. Todos suscritos)" required></div>
-                        <div class="col-auto"><button type="submit" class="btn btn-sm btn-success">Crear</button></div>
+                        <div class="col-12 col-sm"><input type="text" name="name" class="form-control form-control-sm" placeholder="Nombre (ej. Todos suscritos)" required></div>
+                        <div class="col-12 col-sm-auto"><button type="submit" class="btn btn-sm btn-success">Crear</button></div>
                     </form>
                 </div>
                 <ul class="list-group list-group-flush">
                     {% for s in segments %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <span>{{ s.name }}</span>
-                            <div class="btn-group btn-group-sm">
+                        <li class="list-group-item py-2">
+                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
+                            <span class="min-w-0">{{ s.name }}</span>
+                            <div class="mobile-scroll-x pb-1 align-self-stretch align-self-sm-auto">
+                            <div class="btn-group btn-group-sm flex-nowrap">
                                 <a href="{{ url_for('admin_marketing_segment_edit', segment_id=s.id) }}" class="btn btn-outline-primary">Editar</a>
                                 <form action="{{ url_for('admin_marketing_segment_delete', segment_id=s.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este segmento?');">
                                     {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
                                     <button type="submit" class="btn btn-outline-danger">Eliminar</button>
                                 </form>
+                            </div>
+                            </div>
                             </div>
                         </li>
                     {% else %}
@@ -89,17 +107,18 @@
                 </ul>
             </div>
         </div>
-        <div class="col-lg-6">
+        <div class="col-12 col-lg-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <strong><i class="fas fa-file-alt"></i> 2. Plantillas</strong>
-                    <span class="badge bg-secondary">Contenido del correo</span>
+                <div class="card-header bg-light d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
+                    <strong class="min-w-0"><i class="fas fa-file-alt"></i> 2. Plantillas</strong>
+                    <span class="badge bg-secondary align-self-start align-self-sm-center">Contenido del correo</span>
                 </div>
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                    <span></span>
-                    <div class="btn-group btn-group-sm">
+                <div class="card-header py-2">
+                    <div class="w-100 mobile-scroll-x pb-1 d-flex justify-content-end">
+                    <div class="btn-group btn-group-sm flex-nowrap">
                         <a href="{{ url_for('admin_marketing_templates_create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Crear plantilla</a>
                         <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#form-template">Rápido (sin modelo)</button>
+                    </div>
                     </div>
                 </div>
                 <div class="card-body py-2 collapse" id="form-template">
@@ -112,14 +131,18 @@
                 </div>
                 <ul class="list-group list-group-flush">
                     {% for t in templates %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <span>{{ t.name }}</span>
-                            <div class="btn-group btn-group-sm">
+                        <li class="list-group-item py-2">
+                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
+                            <span class="min-w-0">{{ t.name }}</span>
+                            <div class="mobile-scroll-x pb-1 align-self-stretch align-self-sm-auto">
+                            <div class="btn-group btn-group-sm flex-nowrap">
                                 <a href="{{ url_for('admin_marketing_template_edit', template_id=t.id) }}" class="btn btn-outline-primary">Editar</a>
                                 <form action="{{ url_for('admin_marketing_template_delete', template_id=t.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Eliminar esta plantilla?');">
                                     {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
                                     <button type="submit" class="btn btn-outline-danger">Eliminar</button>
                                 </form>
+                            </div>
+                            </div>
                             </div>
                         </li>
                     {% else %}
@@ -132,36 +155,36 @@
 
     <!-- 3. Crear y enviar campaña -->
     <div class="card shadow-sm mb-4 border-primary">
-        <div class="card-header bg-primary text-white d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <strong><i class="fas fa-paper-plane"></i> 3. Crear y enviar campaña</strong>
-            <a href="{{ url_for('admin_marketing_campaign_new') }}" class="btn btn-light btn-sm">Editor visual (diseño completo)</a>
+        <div class="card-header bg-primary text-white d-flex flex-column flex-md-row flex-wrap align-items-stretch align-items-md-center justify-content-between gap-2">
+            <strong class="min-w-0"><i class="fas fa-paper-plane"></i> 3. Crear y enviar campaña</strong>
+            <a href="{{ url_for('admin_marketing_campaign_new') }}" class="btn btn-light btn-sm text-nowrap align-self-stretch align-self-md-auto">Editor visual (diseño completo)</a>
         </div>
         <div class="card-body">
             <form action="{{ url_for('admin_marketing_send') }}" method="post" class="row g-3">
                 {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <label class="form-label">Nombre</label>
                     <input type="text" name="name" class="form-control" required placeholder="Ej. Newsletter marzo">
                 </div>
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <label class="form-label">Asunto del email</label>
                     <input type="text" name="subject" class="form-control" required placeholder="Asunto">
                 </div>
-                <div class="col-md-2">
+                <div class="col-12 col-md-2">
                     <label class="form-label">Segmento</label>
                     <select name="segment_id" class="form-select" required>
                         <option value="">Elegir…</option>
                         {% for s in segments %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-12 col-md-2">
                     <label class="form-label">Plantilla</label>
                     <select name="template_id" class="form-select" required>
                         <option value="">Elegir…</option>
                         {% for t in templates %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
+                <div class="col-12 col-md-2 d-flex align-items-end">
                     <button type="submit" class="btn btn-success w-100"><i class="fas fa-paper-plane"></i> Enviar</button>
                 </div>
                 <div class="col-12">
@@ -176,11 +199,15 @@
 
     <!-- 4. Historial de campañas -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <strong><i class="fas fa-list"></i> 4. Campañas enviadas</strong>
-            <a href="{{ url_for('admin_marketing_process_scheduled') }}" class="btn btn-sm btn-outline-secondary">Procesar programadas</a>
-            <a href="{{ url_for('admin_marketing_process_queue') }}" class="btn btn-sm btn-outline-primary">Procesar cola</a>
-            <a href="{{ url_for('admin_marketing_queue') }}" class="btn btn-sm btn-outline-secondary">Ver cola</a>
+        <div class="card-header bg-light d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+            <strong class="min-w-0 mb-1 mb-md-0"><i class="fas fa-list"></i> 4. Campañas enviadas</strong>
+            <div class="w-100 w-md-auto min-w-0 mobile-scroll-x pb-1">
+            <div class="d-flex flex-nowrap flex-md-wrap gap-2 justify-content-md-end">
+            <a href="{{ url_for('admin_marketing_process_scheduled') }}" class="btn btn-sm btn-outline-secondary text-nowrap">Procesar programadas</a>
+            <a href="{{ url_for('admin_marketing_process_queue') }}" class="btn btn-sm btn-outline-primary text-nowrap">Procesar cola</a>
+            <a href="{{ url_for('admin_marketing_queue') }}" class="btn btn-sm btn-outline-secondary text-nowrap">Ver cola</a>
+            </div>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">

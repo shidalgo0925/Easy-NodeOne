@@ -3,13 +3,18 @@
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from app import app, db, CertificateEvent, Certificate
+from app import app, db, CertificateEvent, Certificate, ensure_phase2_certificate_multitenant_schema
 
 with app.app_context():
+    ensure_phase2_certificate_multitenant_schema()
     CertificateEvent.__table__.create(db.engine, checkfirst=True)
     Certificate.__table__.create(db.engine, checkfirst=True)
-    if not CertificateEvent.query.filter(CertificateEvent.name == 'Certificado de Membresía').first():
+    if not CertificateEvent.query.filter(
+        CertificateEvent.organization_id == 1,
+        CertificateEvent.name == 'Certificado de Membresía',
+    ).first():
         ev = CertificateEvent(
+            organization_id=1,
             name='Certificado de Membresía',
             is_active=True,
             verification_enabled=True,

@@ -82,8 +82,21 @@ def register_admin_dashboard_memberships_routes(app):
     @require_permission('memberships.view')
     def admin_memberships():
         """Gestión de membresías (incluye Membership y Subscription) con filtros y paginación"""
-        old_memberships = Membership.query.order_by(Membership.created_at.desc()).all()
-        subscriptions = Subscription.query.order_by(Subscription.created_at.desc()).all()
+        scope_oid = admin_data_scope_organization_id()
+        old_memberships = (
+            db.session.query(Membership)
+            .join(User, Membership.user_id == User.id)
+            .filter(User.organization_id == scope_oid)
+            .order_by(Membership.created_at.desc())
+            .all()
+        )
+        subscriptions = (
+            db.session.query(Subscription)
+            .join(User, Subscription.user_id == User.id)
+            .filter(User.organization_id == scope_oid)
+            .order_by(Subscription.created_at.desc())
+            .all()
+        )
         all_memberships = []
         for sub in subscriptions:
             all_memberships.append(

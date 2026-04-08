@@ -10,6 +10,8 @@ import os
 # Agregar el directorio del backend al path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from datetime import datetime
+
 from app import app, db
 from payment_processors import get_payment_processor
 from models import Payment, PaymentConfig
@@ -56,8 +58,8 @@ def verify_payment_by_code(receipt_code):
                 print(f"✅ El pago ya está confirmado (Status: {payment.status})")
                 return True
             
-            # Obtener configuración y procesador
-            payment_config = PaymentConfig.get_active_config()
+            # Obtener configuración y procesador (tenant del usuario del pago)
+            payment_config = PaymentConfig.get_active_config_for_user_id(payment.user_id)
             if not payment_config:
                 print("❌ No hay configuración de pagos activa")
                 return False
@@ -78,7 +80,7 @@ def verify_payment_by_code(receipt_code):
                     # Actualizar estado del pago
                     old_status = payment.status
                     payment.status = 'succeeded'
-                    payment.paid_at = db.datetime.utcnow()
+                    payment.paid_at = datetime.utcnow()
                     payment.payment_reference = receipt_code  # Actualizar con el código real
                     db.session.commit()
                     

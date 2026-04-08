@@ -74,44 +74,45 @@ def check_expiring_memberships():
 
 
 def check_appointment_reminders():
-    """Verificar citas próximas y enviar recordatorios"""
+    """Citas confirmadas: recordatorios ~24h y ~1h antes (start interpretado con APPOINTMENT_NAIVE_DATETIME_AS)."""
     with app.app_context():
         try:
-            from app import Appointment, User, Advisor
+            from app import Appointment, User, Advisor, appointment_start_datetime_as_utc_naive
             
-            # Buscar citas confirmadas en las próximas 24 y 48 horas
             now = datetime.utcnow()
-            reminder_times = [
-                (now + timedelta(hours=24), 24),
-                (now + timedelta(hours=48), 48)
+            reminder_specs = [
+                (24, timedelta(hours=24), lambda a: not getattr(a, 'reminder_24h_sent_at', None)),
+                (1, timedelta(hours=1), lambda a: not getattr(a, 'reminder_1h_sent_at', None)),
             ]
+            # No filtrar por start_datetime en SQL: naive puede ser UTC o hora local (ver app.appointment_start_datetime_as_utc_naive).
+            candidates = Appointment.query.filter(
+                Appointment.status.in_(['CONFIRMADA', 'confirmed']),
+                Appointment.start_datetime.isnot(None),
+            ).all()
             
-            for reminder_time, hours_before in reminder_times:
-                # Buscar citas en el rango de tiempo (ventana de 1 hora)
-                start_window = reminder_time - timedelta(minutes=30)
-                end_window = reminder_time + timedelta(minutes=30)
-                
-                appointments = Appointment.query.filter(
-                    Appointment.status == 'confirmed',
-                    Appointment.start_datetime >= start_window,
-                    Appointment.start_datetime <= end_window
-                ).all()
-                
-                for appointment in appointments:
-                    user = User.query.get(appointment.user_id)
-                    advisor = User.query.get(appointment.advisor_id) if appointment.advisor_id else None
-                    
-                    if user and advisor:
-                        # Verificar si ya se envió recordatorio para esta hora
-                        existing_notification = Notification.query.filter(
-                            Notification.user_id == user.id,
-                            Notification.notification_type == 'appointment_reminder',
-                            Notification.created_at >= datetime.utcnow() - timedelta(hours=2)
-                        ).first()
-                        
-                        if not existing_notification:
-                            NotificationEngine.notify_appointment_reminder(appointment, user, advisor, hours_before)
-                            print(f"✅ Recordatorio enviado a {user.email}: cita en {hours_before} horas")
+            for appointment in candidates:
+                st_utc = appointment_start_datetime_as_utc_naive(appointment)
+                if st_utc is None:
+                    continue
+                if st_utc < now - timedelta(days=1) or st_utc > now + timedelta(days=2):
+                    continue
+                user = User.query.get(appointment.user_id)
+                adv = Advisor.query.get(appointment.advisor_id) if appointment.advisor_id else None
+                advisor_user = adv.user if adv and getattr(adv, 'user', None) else None
+                if not user or not advisor_user:
+                    continue
+                for hours_before, delta, should_send in reminder_specs:
+                    if not should_send(appointment):
+                        continue
+                    target = now + delta
+                    start_window = target - timedelta(minutes=30)
+                    end_window = target + timedelta(minutes=30)
+                    if not (start_window <= st_utc <= end_window):
+                        continue
+                    NotificationEngine.notify_appointment_reminder(
+                        appointment, user, advisor_user, hours_before
+                    )
+                    print(f"✅ Recordatorio ({hours_before}h) para {user.email} cita id={appointment.id}")
             
             db.session.commit()
             print(f"✅ Verificación de recordatorios de citas completada: {datetime.utcnow()}")
@@ -133,7 +134,6 @@ def verify_yappy_payments():
     4. Usar ventana de ±15 minutos para cron (más amplia que verificación manual)
     """
     from app import Payment, PaymentConfig, Cart, User
-    from payment_processors import get_payment_processor
     from app import process_cart_after_payment, get_or_create_cart
     from app import NotificationEngine, Subscription
     from datetime import timedelta
@@ -154,14 +154,8 @@ def verify_yappy_payments():
             
             print(f"🔍 Verificando {len(pending_payments)} pagos pendientes de Yappy (últimas 24h)...")
             
-            # Obtener configuración de pagos
-            payment_config = PaymentConfig.get_active_config()
-            if not payment_config:
-                print("⚠️ No hay configuración de pagos activa")
-                return
-            
-            processor = get_payment_processor('yappy', payment_config)
-            
+            cfg_memo = {}
+            proc_memo = {}
             verified_count = 0
             failed_count = 0
             no_match_count = 0
@@ -169,6 +163,12 @@ def verify_yappy_payments():
             
             for payment in pending_payments:
                 try:
+                    processor, payment_config = PaymentConfig.processor_for_payment_user(
+                        payment, 'yappy', cfg_memo, proc_memo
+                    )
+                    if not payment_config or not processor:
+                        print(f"   ⚠️ Pago {payment.id}: sin configuración de pagos para el tenant del usuario")
+                        continue
                     # Si ya tiene yappy_transaction_id, verificar directamente
                     yappy_transaction_id = None
                     if payment.payment_metadata:
@@ -315,7 +315,6 @@ def verify_yappy_payments():
 def verify_paypal_payments():
     """Verificar automáticamente pagos pendientes de PayPal"""
     from app import Payment, PaymentConfig
-    from payment_processors import get_payment_processor
     from app import process_cart_after_payment, get_or_create_cart
     from app import NotificationEngine, Subscription
     
@@ -333,14 +332,8 @@ def verify_paypal_payments():
             
             print(f"🔍 Verificando {len(pending_payments)} pagos pendientes de PayPal...")
             
-            # Obtener configuración de pagos
-            payment_config = PaymentConfig.get_active_config()
-            if not payment_config:
-                print("⚠️ No hay configuración de pagos activa")
-                return
-            
-            processor = get_payment_processor('paypal', payment_config)
-            
+            cfg_memo = {}
+            proc_memo = {}
             verified_count = 0
             failed_count = 0
             
@@ -350,6 +343,12 @@ def verify_paypal_payments():
                     continue
                 
                 try:
+                    processor, payment_config = PaymentConfig.processor_for_payment_user(
+                        payment, 'paypal', cfg_memo, proc_memo
+                    )
+                    if not payment_config or not processor:
+                        print(f"⚠️ Pago {payment.id}: sin configuración de pagos para el tenant del usuario, saltando...")
+                        continue
                     # Verificar el pago con la API de PayPal
                     success, status, payment_data = processor.verify_payment(payment.payment_reference)
                     
@@ -414,7 +413,6 @@ def verify_paypal_payments():
 def verify_stripe_payments():
     """Verificar automáticamente pagos pendientes de Stripe/TCR"""
     from app import Payment, PaymentConfig
-    from payment_processors import get_payment_processor
     from app import process_cart_after_payment, get_or_create_cart
     from app import NotificationEngine, Subscription
     
@@ -432,14 +430,8 @@ def verify_stripe_payments():
             
             print(f"🔍 Verificando {len(pending_payments)} pagos pendientes de Stripe/TCR...")
             
-            # Obtener configuración de pagos
-            payment_config = PaymentConfig.get_active_config()
-            if not payment_config:
-                print("⚠️ No hay configuración de pagos activa")
-                return
-            
-            processor = get_payment_processor('stripe', payment_config)
-            
+            cfg_memo = {}
+            proc_memo = {}
             verified_count = 0
             failed_count = 0
             
@@ -449,6 +441,12 @@ def verify_stripe_payments():
                     continue
                 
                 try:
+                    processor, payment_config = PaymentConfig.processor_for_payment_user(
+                        payment, 'stripe', cfg_memo, proc_memo
+                    )
+                    if not payment_config or not processor:
+                        print(f"⚠️ Pago {payment.id}: sin configuración de pagos para el tenant del usuario, saltando...")
+                        continue
                     # Verificar el pago con la API de Stripe
                     success, status, payment_data = processor.verify_payment(payment.payment_reference)
                     
@@ -516,14 +514,150 @@ def verify_all_payments():
     print(f"\n{'='*60}")
     print(f"🔍 Verificación automática de pagos - {datetime.utcnow()}")
     print(f"{'='*60}\n")
-    
-    verify_yappy_payments()  # Verificar pagos de Yappy
-    verify_paypal_payments()  # Verificar pagos de PayPal
-    verify_stripe_payments()  # Verificar pagos de Stripe/TCR
-    
+    verify_yappy_payments()
+    verify_paypal_payments()
+    verify_stripe_payments()
     print(f"\n{'='*60}")
     print(f"✅ Verificación de pagos completada: {datetime.utcnow()}")
     print(f"{'='*60}\n")
+
+
+def send_crm_activity_email_alerts():
+    """Enviar alertas por email para actividades CRM vencidas/por vencer."""
+    with app.app_context():
+        try:
+            from app import (
+                EmailLog,
+                Mail,
+                apply_email_config_from_db,
+                apply_transactional_smtp_for_organization,
+                email_service,
+            )
+            from utils.organization import default_organization_id
+            from nodeone.modules.crm_api.models import CrmActivity, CrmLead
+            from email_templates import _default_base_url, get_crm_activity_reminder_email
+            from nodeone.services.crm_email import (
+                build_crm_activity_reminder_email,
+                crm_email_context_reminder_plain_esc,
+            )
+
+            if not Mail:
+                print('⚠️ CRM alerts email: Flask-Mail no instalado')
+                return
+
+            last_smtp = [None]
+            now = datetime.utcnow()
+            next_24h = now + timedelta(hours=24)
+            rows = CrmActivity.query.filter(
+                CrmActivity.status.in_(('pending', 'overdue')),
+                CrmActivity.assigned_to.isnot(None),
+            ).order_by(CrmActivity.due_date.asc()).limit(1000).all()
+
+            sent = 0
+            skipped = 0
+            for a in rows:
+                due = a.due_date
+                if due is None:
+                    continue
+                if due < now:
+                    alert_kind = 'overdue'
+                    alert_label = 'Actividad vencida'
+                elif due.date() == now.date():
+                    alert_kind = 'due_today'
+                    alert_label = 'Actividad vence hoy'
+                elif due <= next_24h:
+                    alert_kind = 'due_soon'
+                    alert_label = 'Actividad vence en próximas 24h'
+                else:
+                    continue
+
+                user = User.query.get(int(a.assigned_to))
+                if not user or not getattr(user, 'email', None):
+                    continue
+                lead = CrmLead.query.get(int(a.lead_id))
+                lead_name = (lead.name if lead else f'Lead #{a.lead_id}')
+
+                # Deduplicación por actividad/usuario/tipo de alerta en las últimas 20 horas.
+                exists = EmailLog.query.filter(
+                    EmailLog.recipient_id == user.id,
+                    EmailLog.email_type == f'crm_activity_alert_{alert_kind}',
+                    EmailLog.related_entity_type == 'crm_activity',
+                    EmailLog.related_entity_id == int(a.id),
+                    EmailLog.status == 'sent',
+                    EmailLog.created_at >= now - timedelta(hours=20),
+                ).first()
+                if exists:
+                    skipped += 1
+                    continue
+
+                due_text = due.strftime('%Y-%m-%d %H:%M UTC')
+                crm_url = f"{_default_base_url().rstrip('/')}/admin/crm"
+                recipient_name = (
+                    f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip() or user.email
+                )
+                plain, esc = crm_email_context_reminder_plain_esc(
+                    lead_name=lead_name,
+                    activity_summary=a.summary,
+                    activity_type=a.type,
+                    due_text=due_text,
+                    alert_label=alert_label,
+                    alert_kind=alert_kind,
+                    crm_url=crm_url,
+                    assignee_name=recipient_name,
+                )
+                default_subject = f"[CRM] {alert_label}: {a.summary}"
+                default_html = get_crm_activity_reminder_email(
+                    lead_name,
+                    a.summary,
+                    a.type,
+                    due_text,
+                    alert_label,
+                    crm_url,
+                )
+                default_text = f"{alert_label} | Lead: {lead_name} | Actividad: {a.summary} | Vence: {due_text}"
+                org_id = int(getattr(a, 'organization_id', None) or 1)
+                subject, html, text = build_crm_activity_reminder_email(
+                    org_id,
+                    plain,
+                    esc,
+                    default_subject=default_subject,
+                    default_html=default_html,
+                    default_text=default_text,
+                )
+                smtp_oid = int(
+                    getattr(a, 'organization_id', None)
+                    or getattr(user, 'organization_id', None)
+                    or default_organization_id()
+                )
+                ok_smtp, cfg_id = apply_transactional_smtp_for_organization(
+                    smtp_oid, skip_if_config_id=last_smtp[0]
+                )
+                if ok_smtp and cfg_id is not None:
+                    last_smtp[0] = cfg_id
+                if not ok_smtp or not email_service:
+                    skipped += 1
+                    continue
+                ok = email_service.send_email(
+                    subject=subject,
+                    recipients=[user.email],
+                    html_content=html,
+                    text_content=text,
+                    email_type=f'crm_activity_alert_{alert_kind}',
+                    related_entity_type='crm_activity',
+                    related_entity_id=int(a.id),
+                    recipient_id=user.id,
+                    recipient_name=recipient_name,
+                )
+                if ok:
+                    sent += 1
+
+            print(f"✅ CRM alerts email: enviados={sent}, omitidos={skipped}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error CRM alerts email: {e}")
+        finally:
+            apply_email_config_from_db()
+
 
 def run_scheduled_tasks():
     """Ejecutar todas las tareas programadas"""
@@ -533,6 +667,7 @@ def run_scheduled_tasks():
     
     check_expiring_memberships()
     check_appointment_reminders()
+    send_crm_activity_email_alerts()
     verify_all_payments()  # Verificar pagos de TODOS los métodos automáticamente
     
     print(f"\n{'='*60}")

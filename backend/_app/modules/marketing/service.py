@@ -256,13 +256,19 @@ def render_template_html(template_html, variables_json, context, base_url=None):
     return html
 
 
-def create_campaign(name, subject, template_id, segment_id):
+def create_campaign(name, subject, template_id, segment_id, organization_id=None):
+    if organization_id is None:
+        from app import get_current_organization_id
+        organization_id = get_current_organization_id()
+    if organization_id is None:
+        raise ValueError('organization_id requerido (sesión sin organización activa)')
     c = MarketingCampaign(
         name=name,
         subject=subject,
         template_id=template_id,
         segment_id=segment_id,
-        status='draft'
+        organization_id=int(organization_id),
+        status='draft',
     )
     db.session.add(c)
     db.session.commit()
@@ -273,6 +279,14 @@ def start_campaign(campaign_id):
     c = repository.get_campaign_by_id(campaign_id)
     if not c or c.status not in ('draft', 'scheduled'):
         return None, 'Campaña no válida o ya enviada'
+    try:
+        from app import has_saas_module_enabled
+
+        oid = int(getattr(c, 'organization_id', None) or 1)
+        if not has_saas_module_enabled(oid, 'marketing_email'):
+            return None, 'Módulo marketing_email desactivado para esta organización'
+    except Exception:
+        pass
     template = repository.get_template_by_id(c.template_id)
     if not template:
         return None, 'Plantilla no encontrada'
@@ -331,6 +345,7 @@ def start_campaign(campaign_id):
             'reply_to': getattr(c, 'reply_to', None) or None
         })
         eq = EmailQueueItem(
+            organization_id=int(getattr(c, 'organization_id', None) or 1),
             recipient_id=rec.id,
             campaign_id=c.id,
             payload=payload,
@@ -373,9 +388,12 @@ def unsubscribe_user(user_id):
 def trigger_automation(trigger_event, user_id, base_url=None, **extra_context):
     """Encola emails de automatización para trigger_event y user_id. No bloquea si falla."""
     try:
+        from app import default_organization_id
+
         u = User.query.get(user_id)
         if not u or getattr(u, 'email_marketing_status', 'subscribed') != 'subscribed':
             return
+        oid_queue = int(getattr(u, 'organization_id', None) or default_organization_id())
         flows = repository.get_active_automation_flows_by_trigger(trigger_event)
         for flow in flows:
             template = repository.get_template_by_id(flow.template_id)
@@ -396,6 +414,7 @@ def trigger_automation(trigger_event, user_id, base_url=None, **extra_context):
                 'to_email': u.email,
             })
             eq = EmailQueueItem(
+                organization_id=oid_queue,
                 recipient_id=None,
                 campaign_id=None,
                 payload=payload,

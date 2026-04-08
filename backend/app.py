@@ -6,7 +6,7 @@ Easy NodeOne - Backend Flask para gestión modular
 import sys
 import re
 import html as html_module
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file, abort, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file, abort, send_from_directory, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -43,6 +43,11 @@ except ImportError:
 
 try:
     from email_service import EmailService
+except ImportError:
+    EmailService = None
+    print("⚠️ EmailService no disponible (email_service).")
+
+try:
     from email_templates import (
         get_membership_payment_confirmation_email,
         get_membership_expiring_email,
@@ -53,6 +58,7 @@ try:
         get_event_update_email,
         get_appointment_confirmation_email,
         get_appointment_reminder_email,
+        get_appointment_cancellation_email,
         get_appointment_created_email,
         get_appointment_new_advisor_email,
         get_appointment_new_admin_email,
@@ -60,11 +66,12 @@ try:
         get_password_reset_email,
         get_email_verification_email,
         get_office365_request_email,
+        get_crm_activity_assigned_email,
+        get_crm_activity_reminder_email,
     )
     EMAIL_TEMPLATES_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     EMAIL_TEMPLATES_AVAILABLE = False
-    EmailService = None
     print("⚠️ Email templates no disponibles. Usando templates básicos.")
 
 # Importar procesadores de pago
@@ -173,11 +180,28 @@ mail = Mail(app) if Mail else None
 
 # Aplicar configuración de email desde BD si existe (después de crear las tablas)
 def apply_email_config_from_db():
-    """Aplicar configuración de email desde la base de datos"""
+    """Aplicar configuración de email desde la base de datos (por org en sesión si hay usuario)."""
     global mail, email_service
     try:
-        # EmailConfig ya está definido arriba, no necesita import
-        email_config = EmailConfig.get_active_config()
+        from utils.organization import default_organization_id, get_current_organization_id
+
+        oid = None
+        try:
+            if has_request_context() and getattr(current_user, 'is_authenticated', False):
+                oid = get_current_organization_id()
+                if oid is None:
+                    oid = default_organization_id()
+        except RuntimeError:
+            oid = None
+
+        if oid is not None:
+            email_config = EmailConfig.get_active_config(
+                organization_id=int(oid),
+                allow_fallback_to_default_org=True,
+            )
+        else:
+            email_config = EmailConfig.get_active_config()
+
         if email_config:
             email_config.apply_to_app(app)
             # Reinicializar Mail con nueva configuración (solo si Mail está disponible)
@@ -186,17 +210,17 @@ def apply_email_config_from_db():
                 mail.init_app(app)
             else:
                 mail = None
-            if EMAIL_TEMPLATES_AVAILABLE:
+            if EmailService and mail:
                 email_service = EmailService(mail)
-            print("✅ Configuración de email cargada desde base de datos")
+            app.logger.debug('EmailConfig aplicada (org_id=%s)', getattr(email_config, 'organization_id', None))
         else:
-            # Si no hay configuración en BD, usar variables de entorno o valores por defecto
-            print("⚠️ No hay configuración de email en BD, usando variables de entorno")
+            # Sin fila SMTP para este contexto: env / Mail por defecto
+            app.logger.debug('Sin EmailConfig activa; usando variables de entorno o Mail por defecto')
             # Asegurar que mail esté inicializado (solo si Mail está disponible)
             if not mail and Mail:
                 mail = Mail(app)
                 mail.init_app(app)
-            if EMAIL_TEMPLATES_AVAILABLE and mail:
+            if EmailService and mail:
                 if not email_service:
                     email_service = EmailService(mail)
     except Exception as e:
@@ -208,7 +232,7 @@ def apply_email_config_from_db():
         if not mail and Mail:
             mail = Mail(app)
             mail.init_app(app)
-        if EMAIL_TEMPLATES_AVAILABLE and mail:
+        if EmailService and mail:
             if not email_service:
                 email_service = EmailService(mail)
 login_manager.login_view = 'auth.login'
@@ -253,8 +277,8 @@ if oauth:
         userinfo_endpoint='https://api.linkedin.com/v2/userinfo',
     )
 
-# Inicializar servicio de correo
-if EMAIL_TEMPLATES_AVAILABLE:
+# Inicializar servicio de correo (envío SMTP no depende del módulo email_templates)
+if EmailService and mail:
     email_service = EmailService(mail)
 else:
     email_service = None
@@ -272,6 +296,24 @@ def ensure_session_organization():
     global _single_tenant_other_orgs_deactivated, _rehome_users_to_default_org_done
     if not has_request_context():
         return
+    try:
+        if getattr(current_user, 'is_authenticated', False) and session.get('require_org_selection'):
+            ep = request.endpoint or ''
+            _org_pick_ok = frozenset({
+                'auth.select_organization',
+                'set_organization',
+                'logout',
+                'static',
+                'web_app_manifest',
+                'auth.change_password',
+                'oauth_callback',
+                'oauth_login',
+                'service_worker',
+            })
+            if ep not in _org_pick_ok:
+                return redirect(url_for('auth.select_organization', next=request.path))
+    except Exception:
+        pass
     from utils.organization import default_organization_id, single_tenant_default_only
 
     def _rollback():
@@ -332,7 +374,10 @@ def ensure_session_organization():
 
     try:
         if getattr(current_user, 'is_authenticated', False):
-            if single_tenant_default_only():
+            _skip_org_coerce = session.get('require_org_selection') and getattr(current_user, 'is_admin', False)
+            if _skip_org_coerce:
+                pass
+            elif single_tenant_default_only():
                 if getattr(current_user, 'is_admin', False):
                     if session.get('organization_id') in (None, ''):
                         session['organization_id'] = default_organization_id()
@@ -375,7 +420,9 @@ def ensure_session_organization():
         app.logger.warning('ensure_session_organization (session): %s', e)
         try:
             if getattr(current_user, 'is_authenticated', False):
-                if single_tenant_default_only():
+                if session.get('require_org_selection') and getattr(current_user, 'is_admin', False):
+                    pass
+                elif single_tenant_default_only():
                     if getattr(current_user, 'is_admin', False):
                         if session.get('organization_id') in (None, ''):
                             session['organization_id'] = default_organization_id()
@@ -391,19 +438,19 @@ def ensure_session_organization():
 
 @app.before_request
 def initialize_email_config():
-    """Aplicar configuración de email al iniciar la aplicación (solo una vez)"""
+    """Migraciones ligeras una vez; SMTP se reaplica por request según organización en sesión."""
     global _email_config_initialized
-    if not _email_config_initialized:
-        try:
+    try:
+        if not _email_config_initialized:
             ensure_organization_settings()
-            apply_email_config_from_db()
             ensure_office365_discount_code_id()
             ensure_discount_code_valid_for_office365()
             _email_config_initialized = True
-        except Exception as e:
-            print(f"⚠️ No se pudo inicializar configuración de email: {e}")
-            import traceback
-            traceback.print_exc()
+        apply_email_config_from_db()
+    except Exception as e:
+        print(f"⚠️ No se pudo inicializar configuración de email: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @app.before_request
@@ -616,57 +663,23 @@ def get_public_image_url(filename, absolute=True):
     
     return relative_url
 
+
+def resolve_email_logo_absolute_url(organization_id=None, allow_fallback_to_platform_logo=True):
+    """Wrapper: delega en nodeone.services.email_branding."""
+    from nodeone.services.email_branding import resolve_email_logo_absolute_url as _fn
+
+    return _fn(
+        organization_id=organization_id,
+        allow_fallback_to_platform_logo=allow_fallback_to_platform_logo,
+    )
+
+
 # Funciones de utilidad para validación de email
 def validate_email_format(email):
-    """
-    Validación estricta de formato de email
-    Retorna (is_valid, error_message)
-    """
-    if not email or not isinstance(email, str):
-        return False, "El email es obligatorio"
-    
-    email = email.strip().lower()
-    
-    # Validación básica de longitud
-    if len(email) > 120:
-        return False, "El email es demasiado largo (máximo 120 caracteres)"
-    
-    if len(email) < 5:
-        return False, "El email es demasiado corto"
-    
-    # Regex estricto para validar formato de email
-    email_regex = r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'
-    
-    if not re.match(email_regex, email):
-        return False, "El formato del email no es válido"
-    
-    # Validar estructura del dominio
-    parts = email.split('@')
-    if len(parts) != 2:
-        return False, "El email debe tener un formato válido (usuario@dominio.com)"
-    
-    domain = parts[1]
-    domain_parts = domain.split('.')
-    
-    if len(domain_parts) < 2:
-        return False, "El dominio del email debe tener al menos una extensión (ej: .com, .org)"
-    
-    # La extensión debe tener al menos 2 caracteres y ser solo letras
-    extension = domain_parts[-1]
-    if len(extension) < 2 or not extension.isalpha():
-        return False, "La extensión del dominio no es válida"
-    
-    # Dominios temporales bloqueados (lista básica)
-    blocked_domains = [
-        'tempmail.com', 'mailinator.com', 'guerrillamail.com', 
-        '10minutemail.com', 'throwaway.email', 'temp-mail.org',
-        'maildrop.cc', 'getnada.com', 'mohmal.com'
-    ]
-    
-    if domain.lower() in blocked_domains:
-        return False, "No se permiten direcciones de correo temporal"
-    
-    return True, None
+    """Wrapper: delega en utils.validators."""
+    from utils.validators import validate_email_format as _fn
+
+    return _fn(email)
 
 # Decorador para requerir permisos de administrador
 def admin_required(f):
@@ -704,12 +717,10 @@ def platform_admin_required(f):
 
 
 def _user_has_any_admin_permission(user):
-    """True si el usuario tiene al menos un rol RBAC con algún permiso (para admin_required)."""
-    r = db.session.execute(
-        db.text('SELECT 1 FROM user_role ur JOIN role_permission rp ON rp.role_id = ur.role_id WHERE ur.user_id = :uid LIMIT 1'),
-        {'uid': user.id}
-    ).fetchone()
-    return r is not None
+    """Delegación a nodeone (facade); la consulta vive en admin_tenant_access."""
+    from nodeone.services.admin_tenant_access import user_has_any_rbac_admin_permission
+
+    return user_has_any_rbac_admin_permission(user)
 
 
 def require_permission(perm_code):
@@ -735,95 +746,26 @@ def require_permission(perm_code):
     return decorator
 
 
-# Lista de países válidos
-VALID_COUNTRIES = [
-    'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica',
-    'Cuba', 'Ecuador', 'El Salvador', 'España', 'Guatemala', 'Honduras',
-    'México', 'Nicaragua', 'Panamá', 'Paraguay', 'Perú', 'República Dominicana',
-    'Uruguay', 'Venezuela', 'Estados Unidos', 'Canadá', 'Otro'
-]
+# Lista de países válidos (compat legacy; fuente real: utils.validators)
+from utils.validators import VALID_COUNTRIES  # noqa: E402
 
 def validate_country(country):
-    """
-    Validar que el país sea válido
-    Retorna (is_valid, error_message)
-    """
-    if not country or not isinstance(country, str):
-        return False, "El país es obligatorio"
-    
-    country = country.strip()
-    
-    if country not in VALID_COUNTRIES:
-        return False, f"El país '{country}' no es válido. Seleccione un país de la lista."
-    
-    return True, None
+    """Wrapper: delega en utils.validators."""
+    from utils.validators import validate_country as _fn
+
+    return _fn(country)
 
 def validate_cedula_or_passport(cedula_or_passport, country=None):
-    """
-    Validar formato de cédula o pasaporte según el país
-    Retorna (is_valid, error_message)
-    """
-    if not cedula_or_passport or not isinstance(cedula_or_passport, str):
-        return False, "La cédula o pasaporte es obligatorio"
-    
-    cedula_or_passport = cedula_or_passport.strip()
-    
-    # Validación básica de longitud
-    if len(cedula_or_passport) < 4:
-        return False, "La cédula o pasaporte es demasiado corta (mínimo 4 caracteres)"
-    
-    if len(cedula_or_passport) > 20:
-        return False, "La cédula o pasaporte es demasiado larga (máximo 20 caracteres)"
-    
-    # Validación específica por país
-    if country:
-        country = country.strip()
-        
-        # Panamá: formato 8-123-456 o 12345678 (8 dígitos)
-        if country == 'Panamá':
-            # Remover guiones y espacios
-            cleaned = re.sub(r'[-\s]', '', cedula_or_passport)
-            if not cleaned.isdigit():
-                return False, "La cédula panameña debe contener solo números"
-            if len(cleaned) != 8:
-                return False, "La cédula panameña debe tener 8 dígitos (formato: 8-123-456 o 12345678)"
-        
-        # Colombia: formato 1234567890 (10 dígitos)
-        elif country == 'Colombia':
-            cleaned = re.sub(r'[-\s.]', '', cedula_or_passport)
-            if not cleaned.isdigit():
-                return False, "La cédula colombiana debe contener solo números"
-            if len(cleaned) < 7 or len(cleaned) > 10:
-                return False, "La cédula colombiana debe tener entre 7 y 10 dígitos"
-        
-        # Argentina: formato 12345678 (8 dígitos) o 12.345.678
-        elif country == 'Argentina':
-            cleaned = re.sub(r'[-\s.]', '', cedula_or_passport)
-            if not cleaned.isdigit():
-                return False, "El DNI argentino debe contener solo números"
-            if len(cleaned) < 7 or len(cleaned) > 8:
-                return False, "El DNI argentino debe tener 7 u 8 dígitos"
-        
-        # México: formato CURP o RFC (alfanumérico)
-        elif country == 'México':
-            if not re.match(r'^[A-Z0-9]{10,18}$', cedula_or_passport.upper()):
-                return False, "El formato de identificación mexicana no es válido (CURP o RFC)"
-        
-        # Pasaportes internacionales: formato alfanumérico
-        # Permitir formato estándar de pasaporte (letras y números)
-        if 'pasaporte' in cedula_or_passport.lower() or len(cedula_or_passport) > 10:
-            if not re.match(r'^[A-Z0-9]{6,20}$', cedula_or_passport.upper()):
-                return False, "El formato del pasaporte no es válido (debe ser alfanumérico, 6-20 caracteres)"
-    
-    # Validación general: debe ser alfanumérico (letras y números)
-    if not re.match(r'^[A-Z0-9\-\s\.]{4,20}$', cedula_or_passport.upper()):
-        return False, "El formato de cédula o pasaporte no es válido (debe ser alfanumérico)"
-    
-    return True, None
+    """Wrapper: delega en utils.validators."""
+    from utils.validators import validate_cedula_or_passport as _fn
+
+    return _fn(cedula_or_passport, country=country)
 
 def generate_verification_token():
-    """Generar token único para verificación de email"""
-    return secrets.token_urlsafe(32)
+    """Wrapper: delega en utils.validators."""
+    from utils.validators import generate_verification_token as _fn
+
+    return _fn()
 
 
 def _enable_multi_tenant_catalog():
@@ -837,6 +779,7 @@ from utils.organization import (  # noqa: E402 — tras modelos SaaS
     default_organization_id,
     get_current_organization_id,
     get_user_home_organization_id,
+    platform_visible_organization_ids,
     scoped_query,
     single_tenant_default_only,
     user_has_access_to_organization,
@@ -902,97 +845,291 @@ def _usable_session_organization_id_for_user(user):
 
 
 def _infra_org_id_for_runtime():
-    return get_current_organization_id()
-
-
-def _org_id_for_module_visibility():
-    """
-    Solo para flags de módulo en plantillas y guards públicos (¿módulo encendido?).
-    No usar para queries de datos: ahí va get_current_organization_id() (anónimo = None).
-    """
     try:
         oid = get_current_organization_id()
     except RuntimeError:
         oid = None
-    if oid is not None:
-        return oid
-    return default_organization_id()
+    return int(oid) if oid is not None else int(default_organization_id())
 
 
-def has_saas_module_enabled(organization_id, module_code):
-    if not module_code:
-        return True
-    if not _enable_multi_tenant_catalog():
-        return True
-    if organization_id is None:
-        return False
+def apply_marketing_smtp_for_organization(organization_id, skip_if_config_id=None):
+    """
+    Aplica SMTP marketing/institucional del tenant y recrea mail + email_service en este módulo.
+    skip_if_config_id: si coincide con la fila EmailConfig resuelta y ya hay email_service, no reaplica.
+    Retorna (ok, email_config_id|None); ok=True solo si email_service quedó listo para enviar.
+    """
+    global mail, email_service
     try:
         oid = int(organization_id)
     except (TypeError, ValueError):
-        return False
-    mod = SaasModule.query.filter_by(code=module_code).first()
-    if mod is None:
-        return True
-    link = SaasOrgModule.query.filter_by(organization_id=oid, module_id=mod.id).first()
-    if link is not None:
-        return bool(link.enabled)
-    return bool(mod.is_core)
+        oid = int(default_organization_id())
+    m_cfg = EmailConfig.get_marketing_config(organization_id=oid)
+    if not m_cfg:
+        return False, None
+    if skip_if_config_id is not None and m_cfg.id == skip_if_config_id and email_service:
+        return True, m_cfg.id
+    m_cfg.apply_to_app(app)
+    if not Mail:
+        mail = None
+        email_service = None
+        return False, m_cfg.id
+    mail = Mail()
+    mail.init_app(app)
+    if EmailService and mail:
+        email_service = EmailService(mail)
+        return True, m_cfg.id
+    email_service = None
+    return False, m_cfg.id
+
+
+def apply_transactional_smtp_for_organization(organization_id, skip_if_config_id=None):
+    """
+    SMTP institucional (get_active_config) por tenant; para notificaciones y correo transaccional.
+    No depende de EMAIL_TEMPLATES_AVAILABLE: solo Mail + EmailService.
+    """
+    global mail, email_service
+    try:
+        oid = int(organization_id)
+    except (TypeError, ValueError):
+        oid = int(default_organization_id())
+    cfg = EmailConfig.get_active_config(
+        organization_id=oid,
+        allow_fallback_to_default_org=True,
+    )
+    if not cfg:
+        return False, None
+    if skip_if_config_id is not None and cfg.id == skip_if_config_id and email_service:
+        return True, cfg.id
+    cfg.apply_to_app(app)
+    if not Mail:
+        mail = None
+        email_service = None
+        return False, cfg.id
+    mail = Mail()
+    mail.init_app(app)
+    if EmailService and mail:
+        email_service = EmailService(mail)
+        return True, cfg.id
+    email_service = None
+    return False, cfg.id
+
+
+def _email_preview_base_url():
+    """Wrapper: delega en nodeone.services.email_branding."""
+    from nodeone.services.email_branding import email_preview_base_url as _fn
+
+    return _fn()
+
+
+def _email_branding_from_organization_id(organization_id):
+    """Wrapper: delega en nodeone.services.email_branding."""
+    from nodeone.services.email_branding import email_branding_from_organization_id as _fn
+
+    return _fn(organization_id)
+
+
+def _inject_organization_email_context(ctx, organization_id):
+    """Wrapper: delega en nodeone.services.email_branding."""
+    from nodeone.services.email_branding import inject_organization_email_context as _fn
+
+    return _fn(ctx, organization_id)
+
+
+def _finalize_email_subject_from_row(row_subject, default_subject, ctx):
+    """Wrapper: delega en nodeone.services.email_templates_catalog."""
+    from nodeone.services.email_templates_catalog import (
+        _finalize_email_subject_from_row as _fn,
+    )
+
+    return _fn(row_subject, default_subject, ctx)
+
+
+def _empty_email_if_no_templates():
+    """Wrapper: delega en nodeone.services.email_templates_catalog."""
+    from nodeone.services.email_templates_catalog import _empty_email_if_no_templates as _fn
+
+    return _fn()
+
+
+def render_email_from_db_template(
+    template_key, organization_id, ctx, default_html, default_subject, strict_tenant_logo=False
+):
+    """Wrapper: delega en nodeone.services.email_templates_catalog."""
+    from nodeone.services.email_templates_catalog import render_email_from_db_template as _fn
+
+    return _fn(
+        template_key,
+        organization_id,
+        ctx,
+        default_html,
+        default_subject,
+        strict_tenant_logo=strict_tenant_logo,
+    )
+
+
+def clone_email_templates_from_org(source_organization_id, dest_organization_id, overwrite=False):
+    """Wrapper: delega en nodeone.services.email_templates_catalog."""
+    from nodeone.services.email_templates_catalog import clone_email_templates_from_org as _fn
+
+    return _fn(source_organization_id, dest_organization_id, overwrite=overwrite)
+
+
+def render_appointment_communication_email(*args, **kwargs):
+    from nodeone.modules.appointments.email_comm import render_appointment_communication_email as _fn
+
+    return _fn(*args, **kwargs)
+
+
+def render_welcome_email_for_org(user, organization_id, strict_tenant_logo=False):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import render_welcome_email_for_org as _fn
+
+    return _fn(user, organization_id, strict_tenant_logo=strict_tenant_logo)
+
+
+def render_membership_payment_email_for_org(
+    user, payment, subscription, organization_id, strict_tenant_logo=False
+):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import (
+        render_membership_payment_email_for_org as _fn,
+    )
+
+    return _fn(
+        user, payment, subscription, organization_id, strict_tenant_logo=strict_tenant_logo
+    )
+
+
+def render_membership_expiring_email_for_org(
+    user, subscription, days_left, organization_id, strict_tenant_logo=False
+):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import (
+        render_membership_expiring_email_for_org as _fn,
+    )
+
+    return _fn(
+        user,
+        subscription,
+        days_left,
+        organization_id,
+        strict_tenant_logo=strict_tenant_logo,
+    )
+
+
+def render_membership_expired_email_for_org(user, subscription, organization_id, strict_tenant_logo=False):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import render_membership_expired_email_for_org as _fn
+
+    return _fn(user, subscription, organization_id, strict_tenant_logo=strict_tenant_logo)
+
+
+def render_membership_renewed_email_for_org(user, subscription, organization_id, strict_tenant_logo=False):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import render_membership_renewed_email_for_org as _fn
+
+    return _fn(user, subscription, organization_id, strict_tenant_logo=strict_tenant_logo)
+
+
+def render_event_cancellation_email_for_org(event, user, organization_id, strict_tenant_logo=False):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import render_event_cancellation_email_for_org as _fn
+
+    return _fn(event, user, organization_id, strict_tenant_logo=strict_tenant_logo)
+
+
+def render_event_update_email_for_org(event, user, changes, organization_id, strict_tenant_logo=False):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import render_event_update_email_for_org as _fn
+
+    return _fn(event, user, changes, organization_id, strict_tenant_logo=strict_tenant_logo)
+
+
+def render_password_reset_email_for_org(
+    user, reset_token, reset_url, organization_id, strict_tenant_logo=False
+):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import render_password_reset_email_for_org as _fn
+
+    return _fn(
+        user,
+        reset_token,
+        reset_url,
+        organization_id,
+        strict_tenant_logo=strict_tenant_logo,
+    )
+
+
+def render_office365_request_email_for_org(
+    user_name,
+    email,
+    purpose,
+    description,
+    request_id,
+    organization_id,
+    strict_tenant_logo=False,
+):
+    """Wrapper: delega en nodeone.services.email_renderers."""
+    from nodeone.services.email_renderers import render_office365_request_email_for_org as _fn
+
+    return _fn(
+        user_name,
+        email,
+        purpose,
+        description,
+        request_id,
+        organization_id,
+        strict_tenant_logo=strict_tenant_logo,
+    )
+
+
+def _org_id_for_module_visibility():
+    """Wrapper: delega en nodeone.services.org_scope."""
+    from nodeone.services.org_scope import org_id_for_module_visibility as _fn
+
+    return _fn()
+
+
+def has_saas_module_enabled(organization_id, module_code):
+    """Wrapper: delega en nodeone.services.org_scope."""
+    from nodeone.services.org_scope import has_saas_module_enabled as _fn
+
+    return _fn(organization_id, module_code)
 
 
 def apply_session_organization_after_login(user, req):
-    """Tras login: session['organization_id'] = org del usuario; selector opcional si hay acceso."""
-    if single_tenant_default_only():
-        ensure_canonical_saas_organization_usable()
-        if getattr(user, 'is_admin', False):
-            raw = (req.form.get('organization_id') or req.form.get('saas_organization_id') or '').strip()
-            if raw:
-                try:
-                    cand = int(raw)
-                except (TypeError, ValueError):
-                    return False, 'Organización no válida.'
-                org = SaasOrganization.query.get(cand)
-                if org is None or not getattr(org, 'is_active', True):
-                    return False, 'Organización no disponible.'
-                if not user_has_access_to_organization(user, cand):
-                    return False, 'No tienes acceso a esa organización.'
-                session['organization_id'] = cand
-                return True, None
-            session['organization_id'] = default_organization_id()
-            return True, None
-        session['organization_id'] = int(getattr(user, 'organization_id', None) or default_organization_id())
-        return True, None
-    base = _usable_session_organization_id_for_user(user)
-    session['organization_id'] = base
-    raw = (req.form.get('organization_id') or req.form.get('saas_organization_id') or '').strip()
-    if not raw:
-        return True, None
-    try:
-        cand = int(raw)
-    except (TypeError, ValueError):
-        return False, 'Organización no válida.'
-    org = SaasOrganization.query.get(cand)
-    if org is None or not getattr(org, 'is_active', True):
-        return False, 'Organización no disponible.'
-    if not user_has_access_to_organization(user, cand):
-        return False, 'No tienes acceso a esa organización.'
-    session['organization_id'] = cand
-    return True, None
+    """Wrapper: (code, msg) con code en ok | pick | error."""
+    from nodeone.services.org_scope import apply_session_organization_after_login as _fn
+
+    return _fn(user, req)
 
 
 def _admin_can_view_all_organizations():
-    return bool(getattr(current_user, 'is_authenticated', False) and getattr(current_user, 'is_admin', False))
+    """Wrapper: delega en nodeone.services.org_scope."""
+    from nodeone.services.org_scope import admin_can_view_all_organizations as _fn
+
+    return _fn()
 
 
 def _platform_admin_data_scope_organization_id():
-    if not has_request_context():
-        return None
-    v = session.get('platform_admin_scope_org_id')
-    if v is None:
-        return None
-    try:
-        return int(v)
-    except (TypeError, ValueError):
-        return None
+    """Wrapper: delega en nodeone.services.org_scope."""
+    from nodeone.services.org_scope import platform_admin_data_scope_organization_id as _fn
+
+    return _fn()
+
+
+def _current_user_can_view_org_users():
+    """Wrapper: delega en nodeone.services.org_scope."""
+    from nodeone.services.org_scope import current_user_can_view_org_users as _fn
+
+    return _fn()
+
+
+def _admin_scope_user_ids_only():
+    """Wrapper: delega en nodeone.services.org_scope."""
+    from nodeone.services.org_scope import admin_scope_user_ids_only as _fn
+
+    return _fn()
 
 
 def _catalog_org_for_member_and_theme():
@@ -1004,14 +1141,10 @@ def _catalog_org_for_admin_catalog_routes():
 
 
 def admin_data_scope_organization_id():
-    """Listados admin: is_admin → sesión (selector); resto en single-tenant → user.organization_id."""
-    if has_request_context() and getattr(current_user, 'is_authenticated', False):
-        if single_tenant_default_only() and not getattr(current_user, 'is_admin', False):
-            return int(getattr(current_user, 'organization_id', None) or default_organization_id())
-    oid = get_current_organization_id()
-    if oid is not None:
-        return int(oid)
-    return int(default_organization_id())
+    """Wrapper: delega en nodeone.services.org_scope."""
+    from nodeone.services.org_scope import admin_data_scope_organization_id as _fn
+
+    return _fn()
 
 
 def tenant_data_organization_id():
@@ -1031,98 +1164,101 @@ def tenant_data_organization_id():
 
 
 def _platform_nav_logo_relpath():
-    """
-    Logo de barra/favicon fijo de producto (Easy NodeOne).
-    El upload de branding en /admin escribe logo-relatic.* en public/emails/logos y copia a
-    images/logo-relatic.* — puede pisar el icono global. Este nombre no lo toca el upload.
-    """
-    static_dir = os.path.join(os.path.dirname(__file__), '..', 'static')
-    p = os.path.join(static_dir, 'images', 'logo-easy-nodeone.svg')
-    if os.path.exists(p):
-        return 'images/logo-easy-nodeone.svg'
-    p2 = os.path.join(static_dir, 'images', 'logo-relatic.svg')
-    if os.path.exists(p2):
-        return 'images/logo-relatic.svg'
-    return 'images/logo-relatic.svg'
+    """Wrapper: delega en nodeone.services.nav_branding."""
+    from nodeone.services.nav_branding import platform_nav_logo_relpath as _fn
+
+    return _fn()
 
 
 def _nav_theme_logo_relpath():
-    """Ruta bajo static/ del logo configurado en organization_settings de la org activa (sesión)."""
-    try:
-        s = OrganizationSettings.get_settings_for_session()
-        u = (s.logo_url or '').strip()
-        if u:
-            return u.lstrip('/')
-    except Exception:
-        pass
-    return None
+    """Wrapper: delega en nodeone.services.nav_branding."""
+    from nodeone.services.nav_branding import nav_theme_logo_relpath as _fn
+
+    return _fn()
 
 
 def get_nav_logo():
-    # Branding por organización (sesión): si hay logo en organization_settings de esa org, usarlo.
-    rel = _nav_theme_logo_relpath()
-    if rel:
-        return rel
-    # Single-tenant: logo de plataforma fijo si no hay branding por tenant (evita pisar icono global).
-    if single_tenant_default_only() and os.environ.get('NODEONE_NAV_USE_PLATFORM_LOGO', '1').strip().lower() not in (
-        '0', 'false', 'no', 'off',
-    ):
-        return _platform_nav_logo_relpath()
-    return get_system_logo()
+    """Wrapper: delega en nodeone.services.nav_branding."""
+    from nodeone.services.nav_branding import get_nav_logo as _fn
+
+    return _fn()
 
 
 def get_nav_logo_cache_key():
-    rel = _nav_theme_logo_relpath()
-    if rel:
-        p = os.path.join(os.path.dirname(__file__), '..', 'static', rel)
-        if os.path.exists(p):
-            try:
-                oid = 0
-                try:
-                    if has_request_context() and getattr(current_user, 'is_authenticated', False):
-                        gco = get_current_organization_id()
-                        oid = int(gco) if gco is not None else 0
-                except Exception:
-                    pass
-                return int(os.path.getmtime(p)) + oid * 1_000_000_000
-            except OSError:
-                pass
-        return 0
-    if single_tenant_default_only() and os.environ.get('NODEONE_NAV_USE_PLATFORM_LOGO', '1').strip().lower() not in (
-        '0', 'false', 'no', 'off',
-    ):
-        rel = _platform_nav_logo_relpath()
-        p = os.path.join(os.path.dirname(__file__), '..', 'static', rel)
-        if os.path.exists(p):
-            try:
-                return int(os.path.getmtime(p))
-            except OSError:
-                pass
-        return 0
-    return get_logo_cache_key()
+    """Wrapper: delega en nodeone.services.nav_branding."""
+    from nodeone.services.nav_branding import get_nav_logo_cache_key as _fn
+
+    return _fn()
 
 
 def get_nav_brand_name():
-    """Una sola regla: BRAND_MODE GLOBAL vs TENANT (sesión)."""
+    """Wrapper: delega en nodeone.services.nav_branding."""
+    from nodeone.services.nav_branding import get_nav_brand_name as _fn
+
+    return _fn()
+
+
+@app.route('/manifest.webmanifest')
+def web_app_manifest():
+    """PWA mínimo: manifest JSON con nombre e icono según branding (sesión/tenant)."""
     try:
-        mode = (app.config.get('BRAND_MODE') or 'GLOBAL').strip().upper()
-        if mode == 'GLOBAL':
-            return (app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
-        # Single-tenant: miembros → org canónica; admin plataforma → org activa en sesión.
-        if single_tenant_default_only() and not (
-            getattr(current_user, 'is_authenticated', False) and getattr(current_user, 'is_admin', False)
-        ):
-            oid = default_organization_id()
-        else:
-            oid = get_current_organization_id()
-        if oid is None:
-            return (app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
-        org = SaasOrganization.query.get(oid)
-        if org and (org.name or '').strip():
-            return (org.name or '').strip()
+        s = OrganizationSettings.get_settings_for_session()
+        theme_hex = (s.primary_color or '#2563EB').strip()
     except Exception:
-        pass
-    return (app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
+        theme_hex = '#2563EB'
+    if theme_hex and not theme_hex.startswith('#'):
+        theme_hex = '#' + theme_hex.lstrip('#')
+    brand = get_nav_brand_name()
+    short = brand[:24] if len(brand) > 24 else brand
+    logo_path = get_nav_logo()
+    v = get_nav_logo_cache_key()
+    icon_url = url_for('static', filename=logo_path) + f'?v={v}'
+    ext = (logo_path or '').rsplit('.', 1)[-1].lower()
+    icon_type = 'image/svg+xml' if ext == 'svg' else 'image/png'
+    icon_entry = {'src': icon_url, 'sizes': '192x192', 'type': icon_type, 'purpose': 'any'}
+    body = {
+        'id': '/',
+        'name': brand,
+        'short_name': short,
+        'description': 'Membresías, servicios y panel de miembro',
+        'lang': 'es',
+        'dir': 'ltr',
+        'start_url': '/',
+        'scope': '/',
+        'display': 'standalone',
+        'background_color': '#f1f5f9',
+        'theme_color': theme_hex,
+        'icons': [
+            icon_entry,
+            {'src': icon_url, 'sizes': '512x512', 'type': icon_type, 'purpose': 'any'},
+        ],
+        'shortcuts': [
+            {
+                'name': 'Dashboard',
+                'short_name': 'Panel',
+                'url': url_for('dashboard'),
+                'icons': [icon_entry],
+            },
+            {
+                'name': 'Ayuda',
+                'url': url_for('member_pages.help_page'),
+                'icons': [icon_entry],
+            },
+            {
+                'name': 'Membresía',
+                'short_name': 'Planes',
+                'url': url_for('membership'),
+                'icons': [icon_entry],
+            },
+        ],
+    }
+    return Response(json.dumps(body, ensure_ascii=False), mimetype='application/manifest+json')
+
+
+@app.route('/sw.js')
+def service_worker():
+    """Service worker en raíz del sitio para alcance '/' (PWA / instalación)."""
+    return send_from_directory(app.static_folder, 'sw.js', mimetype='application/javascript')
 
 
 def get_platform_logo():
@@ -1152,11 +1288,19 @@ def inject_admin_nav_context():
         'multi_tenant_catalog_enabled': _enable_multi_tenant_catalog(),
         'catalog_admin_context_org_name': None,
         'effective_org_nav': None,
+        'show_org_switcher_link': False,
     }
     if not has_request_context():
         return out
     try:
         if not getattr(current_user, 'is_authenticated', False):
+            return out
+        if session.get('require_org_selection'):
+            out['show_tenant_admin_menu'] = False
+            out['show_platform_admin_nav'] = False
+            out['saas_organizations_nav'] = []
+            out['effective_org_nav'] = None
+            out['catalog_admin_context_org_name'] = None
             return out
         is_flag_admin = bool(getattr(current_user, 'is_admin', False))
         rbac_admin = False
@@ -1176,11 +1320,15 @@ def inject_admin_nav_context():
                 q = SaasOrganization.query.filter_by(is_active=True).order_by(
                     SaasOrganization.name.asc(), SaasOrganization.id.asc()
                 )
+                rows = q.all()
+                allow = platform_visible_organization_ids()
+                if allow is not None:
+                    rows = [o for o in rows if int(o.id) in allow]
                 if single_tenant_default_only() and not is_flag_admin:
                     def_oid = default_organization_id()
-                    out['saas_organizations_nav'] = [o for o in q.all() if int(o.id) == int(def_oid)]
+                    out['saas_organizations_nav'] = [o for o in rows if int(o.id) == int(def_oid)]
                 else:
-                    out['saas_organizations_nav'] = q.all()
+                    out['saas_organizations_nav'] = rows
             except Exception:
                 out['saas_organizations_nav'] = []
         if single_tenant_default_only() and not is_flag_admin:
@@ -1198,6 +1346,14 @@ def inject_admin_nav_context():
                     out['catalog_admin_context_org_name'] = org.name.strip()
             except Exception:
                 pass
+        try:
+            if is_flag_admin:
+                from nodeone.services.post_login_organization import organizations_for_session_after_login
+
+                if len(organizations_for_session_after_login(current_user)) > 1:
+                    out['show_org_switcher_link'] = True
+        except Exception:
+            pass
     except Exception:
         pass
     return out
@@ -1333,6 +1489,27 @@ def _organization_id_for_public_registration():
             if org is not None:
                 return int(org.id)
     return default_organization_id()
+
+
+def _organization_id_from_request_host(req):
+    """Resolver org activa por subdominio del host; None si no aplica."""
+    host = ((getattr(req, 'host', '') or '').split(':')[0] or '').lower().strip()
+    if not host:
+        return None
+    parts = host.split('.')
+    if len(parts) < 3:
+        return None
+    sub = (parts[0] or '').strip().lower()
+    if not sub or sub in ('www', 'app', 'mail', 'web', 'cdn'):
+        return None
+    org = (
+        SaasOrganization.query.filter_by(is_active=True)
+        .filter(SaasOrganization.subdomain.isnot(None))
+        .filter(SaasOrganization.subdomain != '')
+        .filter(db.func.lower(SaasOrganization.subdomain) == sub)
+        .first()
+    )
+    return int(org.id) if org is not None else None
 
 
 def send_payment_to_odoo(payment, user, cart=None):
@@ -1768,1056 +1945,42 @@ def add_to_cart(user_id, product_type, product_id, product_name, unit_price, qua
     return _add(user_id, product_type, product_id, product_name, unit_price, quantity, product_description, metadata)
 
 
-class NotificationEngine:
-    """Motor de notificaciones para eventos y movimientos del sistema"""
-    
-    @staticmethod
-    def _is_notification_enabled(notification_type):
-        """Verificar si una notificación está habilitada en la configuración"""
-        return NotificationSettings.is_enabled(notification_type)
-    
-    @staticmethod
-    def notify_event_registration(event, user, registration):
-        """Notificar a moderador, administrador y expositor del evento sobre un nuevo registro"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('event_registration'):
-            print(f"⚠️ Notificación 'event_registration' está deshabilitada. No se enviará correo.")
-            return
-        
-        try:
-            # Obtener todos los responsables del evento
-            recipients = event.get_notification_recipients()
-            
-            if not recipients:
-                print(f"⚠️ No se encontraron responsables para el evento {event.id}")
-                return
-            
-            # Crear notificaciones y enviar emails a todos los responsables
-            for recipient in recipients:
-                # Crear notificación en la base de datos
-                notification = Notification(
-                    user_id=recipient.id,
-                    event_id=event.id,
-                    notification_type='event_registration',
-                    title=f'Nuevo registro al evento: {event.title}',
-                    message=f'El usuario {user.first_name} {user.last_name} ({user.email}) se ha registrado al evento "{event.title}". Estado: {registration.registration_status}.'
-                )
-                db.session.add(notification)
-                # Hacer commit de la notificación primero
-                db.session.flush()  # Para obtener el ID de la notificación
-                
-                # Enviar email al responsable
-                try:
-                    # Determinar el rol del destinatario
-                    role = "Responsable"
-                    if event.moderator_id == recipient.id:
-                        role = "Moderador"
-                    elif event.administrator_id == recipient.id:
-                        role = "Administrador"
-                    elif event.speaker_id == recipient.id:
-                        role = "Expositor"
-                    elif event.created_by == recipient.id:
-                        role = "Creador"
-                    
-                    html_content = f"""
-                        <h2>Nuevo Registro al Evento</h2>
-                        <p>Hola {recipient.first_name},</p>
-                        <p>Como <strong>{role}</strong> del evento, te informamos que se ha registrado un nuevo participante:</p>
-                        <ul>
-                            <li><strong>Evento:</strong> {event.title}</li>
-                            <li><strong>Participante:</strong> {user.first_name} {user.last_name}</li>
-                            <li><strong>Email:</strong> {user.email}</li>
-                            <li><strong>Estado:</strong> {registration.registration_status}</li>
-                            <li><strong>Fecha de registro:</strong> {registration.registration_date.strftime('%d/%m/%Y %H:%M')}</li>
-                            <li><strong>Precio pagado:</strong> ${registration.final_price:.2f} {event.currency}</li>
-                        </ul>
-                        <p>Puedes gestionar los registros desde el panel de administración.</p>
-                        <p>Saludos,<br>Equipo RelaticPanama</p>
-                        """
-                    # Verificar que mail esté configurado
-                    if not mail:
-                        raise Exception("Flask-Mail no está inicializado")
-                    
-                    msg = Message(
-                        subject=f'[RelaticPanama] Nuevo registro: {event.title}',
-                        recipients=[recipient.email],
-                        html=html_content
-                    )
-                    mail.send(msg)
-                    notification.email_sent = True
-                    notification.email_sent_at = datetime.utcnow()
-                    # Registrar en EmailLog ANTES del commit
-                    log_email_sent(
-                        recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Nuevo registro: {event.title}',
-                        html_content=html_content,
-                        email_type='event_registration_notification',
-                        related_entity_type='event',
-                        related_entity_id=event.id,
-                        recipient_id=recipient.id,
-                        recipient_name=f"{recipient.first_name} {recipient.last_name}",
-                        status='sent'
-                    )
-                    print(f"✅ Email de notificación enviado a {recipient.email} para evento {event.id}")
-                except Exception as e:
-                    print(f"❌ Error enviando email de notificación a {recipient.email}: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    notification.email_sent = False
-                    # Registrar fallo en EmailLog ANTES del commit
-                    log_email_sent(
-                        recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Nuevo registro: {event.title}',
-                        html_content='',
-                        email_type='event_registration_notification',
-                        related_entity_type='event',
-                        related_entity_id=event.id,
-                        recipient_id=recipient.id,
-                        recipient_name=f"{recipient.first_name} {recipient.last_name}",
-                        status='failed',
-                        error_message=str(e)[:1000]  # Limitar tamaño del error
-                    )
-            
-            db.session.commit()
-            
-        except Exception as e:
-            print(f"Error en notify_event_registration: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_event_cancellation(event, user, registration):
-        """Notificar a moderador, administrador y expositor sobre una cancelación"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('event_cancellation'):
-            print(f"⚠️ Notificación 'event_cancellation' está deshabilitada. No se enviará correo.")
-            return
-        
-        try:
-            recipients = event.get_notification_recipients()
-            
-            if not recipients:
-                return
-            
-            for recipient in recipients:
-                role = "Responsable"
-                if event.moderator_id == recipient.id:
-                    role = "Moderador"
-                elif event.administrator_id == recipient.id:
-                    role = "Administrador"
-                elif event.speaker_id == recipient.id:
-                    role = "Expositor"
-                elif event.created_by == recipient.id:
-                    role = "Creador"
-                
-                notification = Notification(
-                    user_id=recipient.id,
-                    event_id=event.id,
-                    notification_type='event_cancellation',
-                    title=f'Cancelación de registro: {event.title}',
-                    message=f'El usuario {user.first_name} {user.last_name} ({user.email}) ha cancelado su registro al evento "{event.title}".'
-                )
-                db.session.add(notification)
-                
-                try:
-                    html_content = f"""
-                        <h2>Cancelación de Registro</h2>
-                        <p>Hola {recipient.first_name},</p>
-                        <p>Como <strong>{role}</strong> del evento, te informamos que un participante ha cancelado su registro:</p>
-                        <ul>
-                            <li><strong>Evento:</strong> {event.title}</li>
-                            <li><strong>Participante:</strong> {user.first_name} {user.last_name}</li>
-                            <li><strong>Email:</strong> {user.email}</li>
-                            <li><strong>Fecha de cancelación:</strong> {datetime.utcnow().strftime('%d/%m/%Y %H:%M')}</li>
-                        </ul>
-                        <p>Saludos,<br>Equipo RelaticPanama</p>
-                        """
-                    msg = Message(
-                        subject=f'[RelaticPanama] Cancelación de registro: {event.title}',
-                        recipients=[recipient.email],
-                        html=html_content
-                    )
-                    mail.send(msg)
-                    notification.email_sent = True
-                    notification.email_sent_at = datetime.utcnow()
-                    # Registrar en EmailLog
-                    log_email_sent(
-                        recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Cancelación de registro: {event.title}',
-                        html_content=html_content,
-                        email_type='event_cancellation_notification',
-                        related_entity_type='event',
-                        related_entity_id=event.id,
-                        recipient_id=recipient.id,
-                        recipient_name=f"{recipient.first_name} {recipient.last_name}",
-                        status='sent'
-                    )
-                except Exception as e:
-                    print(f"Error enviando email de cancelación a {recipient.email}: {e}")
-                    log_email_sent(
-                        recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Cancelación de registro: {event.title}',
-                        html_content='',
-                        email_type='event_cancellation_notification',
-                        related_entity_type='event',
-                        related_entity_id=event.id,
-                        recipient_id=recipient.id,
-                        recipient_name=f"{recipient.first_name} {recipient.last_name}",
-                        status='failed',
-                        error_message=str(e)
-                    )
-            
-            db.session.commit()
-            
-        except Exception as e:
-            print(f"Error en notify_event_cancellation: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_event_confirmation(event, user, registration):
-        """Notificar a moderador, administrador y expositor cuando se confirma un registro"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('event_confirmation'):
-            print(f"⚠️ Notificación 'event_confirmation' está deshabilitada. No se enviará correo.")
-            return
-        
-        try:
-            recipients = event.get_notification_recipients()
-            
-            if not recipients:
-                return
-            
-            for recipient in recipients:
-                role = "Responsable"
-                if event.moderator_id == recipient.id:
-                    role = "Moderador"
-                elif event.administrator_id == recipient.id:
-                    role = "Administrador"
-                elif event.speaker_id == recipient.id:
-                    role = "Expositor"
-                elif event.created_by == recipient.id:
-                    role = "Creador"
-                
-                notification = Notification(
-                    user_id=recipient.id,
-                    event_id=event.id,
-                    notification_type='event_confirmation',
-                    title=f'Registro confirmado: {event.title}',
-                    message=f'El registro de {user.first_name} {user.last_name} al evento "{event.title}" ha sido confirmado.'
-                )
-                db.session.add(notification)
-                
-                try:
-                    html_content = f"""
-                        <h2>Registro Confirmado</h2>
-                        <p>Hola {recipient.first_name},</p>
-                        <p>Como <strong>{role}</strong> del evento, te informamos que un registro ha sido confirmado:</p>
-                        <ul>
-                            <li><strong>Evento:</strong> {event.title}</li>
-                            <li><strong>Participante:</strong> {user.first_name} {user.last_name}</li>
-                            <li><strong>Email:</strong> {user.email}</li>
-                            <li><strong>Estado:</strong> Confirmado</li>
-                        </ul>
-                        <p>Saludos,<br>Equipo RelaticPanama</p>
-                        """
-                    msg = Message(
-                        subject=f'[RelaticPanama] Registro confirmado: {event.title}',
-                        recipients=[recipient.email],
-                        html=html_content
-                    )
-                    mail.send(msg)
-                    notification.email_sent = True
-                    notification.email_sent_at = datetime.utcnow()
-                    # Registrar en EmailLog
-                    log_email_sent(
-                        recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Registro confirmado: {event.title}',
-                        html_content=html_content,
-                        email_type='event_confirmation_notification',
-                        related_entity_type='event',
-                        related_entity_id=event.id,
-                        recipient_id=recipient.id,
-                        recipient_name=f"{recipient.first_name} {recipient.last_name}",
-                        status='sent'
-                    )
-                    print(f"✅ Email de confirmación enviado a {recipient.email} para evento {event.id}")
-                except Exception as e:
-                    print(f"❌ Error enviando email de confirmación a {recipient.email}: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    notification.email_sent = False
-                    # Registrar fallo en EmailLog
-                    log_email_sent(
-                        recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Registro confirmado: {event.title}',
-                        html_content='',
-                        email_type='event_confirmation_notification',
-                        related_entity_type='event',
-                        related_entity_id=event.id,
-                        recipient_id=recipient.id,
-                        recipient_name=f"{recipient.first_name} {recipient.last_name}",
-                        status='failed',
-                        error_message=str(e)
-                    )
-            
-            db.session.commit()
-            
-        except Exception as e:
-            print(f"Error en notify_event_confirmation: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_event_update(event, changes=None):
-        """Notificar cambios en un evento a todos los registrados"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('event_update'):
-            print(f"⚠️ Notificación 'event_update' está deshabilitada. No se enviará correo.")
-            return
-        
-        try:
-            event_creator = User.query.get(event.created_by) if event.created_by else None
-            
-            if not event_creator:
-                return
-            
-            # Notificar al creador
-            notification = Notification(
-                user_id=event_creator.id,
-                event_id=event.id,
-                notification_type='event_update',
-                title=f'Evento actualizado: {event.title}',
-                message=f'Se han realizado cambios en el evento "{event.title}".'
-            )
-            db.session.add(notification)
-            
-            # Notificar a todos los registrados
-            registrations = EventRegistration.query.filter_by(
-                event_id=event.id,
-                registration_status='confirmed'
-            ).all()
-            
-            for reg in registrations:
-                user = User.query.get(reg.user_id)
-                if user:
-                    user_notification = Notification(
-                        user_id=user.id,
-                        event_id=event.id,
-                        notification_type='event_update',
-                        title=f'Actualización del evento: {event.title}',
-                        message=f'El evento "{event.title}" al que estás registrado ha sido actualizado. Revisa los detalles en la plataforma.'
-                    )
-                    db.session.add(user_notification)
-                    
-                    try:
-                        html_content = f"""
-                            <h2>Evento Actualizado</h2>
-                            <p>Hola {user.first_name},</p>
-                            <p>El evento "{event.title}" al que estás registrado ha sido actualizado.</p>
-                            <p>Te recomendamos revisar los detalles del evento en la plataforma.</p>
-                            <p>Saludos,<br>Equipo RelaticPanama</p>
-                            """
-                        msg = Message(
-                            subject=f'[RelaticPanama] Actualización: {event.title}',
-                            recipients=[user.email],
-                            html=html_content
-                        )
-                        mail.send(msg)
-                        user_notification.email_sent = True
-                        user_notification.email_sent_at = datetime.utcnow()
-                        # Registrar en EmailLog
-                        log_email_sent(
-                            recipient_email=user.email,
-                            subject=f'[RelaticPanama] Actualización: {event.title}',
-                            html_content=html_content,
-                            email_type='event_update',
-                            related_entity_type='event',
-                            related_entity_id=event.id,
-                            recipient_id=user.id,
-                            recipient_name=f"{user.first_name} {user.last_name}",
-                            status='sent'
-                        )
-                    except Exception as e:
-                        print(f"Error enviando email de actualización a {user.email}: {e}")
-                        log_email_sent(
-                            recipient_email=user.email,
-                            subject=f'[RelaticPanama] Actualización: {event.title}',
-                            html_content='',
-                            email_type='event_update',
-                            related_entity_type='event',
-                            related_entity_id=event.id,
-                            recipient_id=user.id,
-                            recipient_name=f"{user.first_name} {user.last_name}",
-                            status='failed',
-                            error_message=str(e)
-                        )
-            
-            db.session.commit()
-            
-        except Exception as e:
-            print(f"Error en notify_event_update: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_membership_payment(user, payment, subscription):
-        """Notificar confirmación de pago de membresía"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('membership_payment'):
-            print(f"⚠️ Notificación 'membership_payment' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            # Crear notificación
-            notification = Notification(
-                user_id=user.id,
-                notification_type='membership_payment',
-                title='Pago de Membresía Confirmado',
-                message=f'Tu pago por la membresía {payment.membership_type.title()} ha sido procesado exitosamente. Válida hasta {subscription.end_date.strftime("%d/%m/%Y")}.'
-            )
-            db.session.add(notification)
-            
-            # Enviar email
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_membership_payment_confirmation_email(user, payment, subscription)
-                email_service.send_email(
-                    subject='Confirmación de Pago - RelaticPanama',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='membership_payment',
-                    related_entity_type='payment',
-                    related_entity_id=payment.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            else:
-                # Fallback al método anterior
-                send_payment_confirmation_email(user, payment, subscription)
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_membership_payment: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_membership_expiring(user, subscription, days_left):
-        """Notificar que la membresía está por expirar"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('membership_expiring'):
-            print(f"⚠️ Notificación 'membership_expiring' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                notification_type='membership_expiring',
-                title=f'Membresía Expirará en {days_left} Días',
-                message=f'Tu membresía {subscription.membership_type.title()} expirará el {subscription.end_date.strftime("%d/%m/%Y")}. Renueva ahora para continuar disfrutando de todos los beneficios.'
-            )
-            db.session.add(notification)
-            
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_membership_expiring_email(user, subscription, days_left)
-                email_service.send_email(
-                    subject=f'Tu Membresía Expirará en {days_left} Días - RelaticPanama',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='membership_expiring',
-                    related_entity_type='subscription',
-                    related_entity_id=subscription.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_membership_expiring: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_membership_expired(user, subscription):
-        """Notificar que la membresía ha expirado"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('membership_expired'):
-            print(f"⚠️ Notificación 'membership_expired' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                notification_type='membership_expired',
-                title='Membresía Expirada',
-                message=f'Tu membresía {subscription.membership_type.title()} ha expirado. Renueva ahora para reactivar tus beneficios.'
-            )
-            db.session.add(notification)
-            
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_membership_expired_email(user, subscription)
-                email_service.send_email(
-                    subject='Tu Membresía Ha Expirado - RelaticPanama',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='membership_expired',
-                    related_entity_type='subscription',
-                    related_entity_id=subscription.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_membership_expired: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_membership_renewed(user, subscription):
-        """Notificar renovación de membresía"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('membership_renewed'):
-            print(f"⚠️ Notificación 'membership_renewed' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                notification_type='membership_renewed',
-                title='Membresía Renovada',
-                message=f'Tu membresía {subscription.membership_type.title()} ha sido renovada exitosamente. Válida hasta {subscription.end_date.strftime("%d/%m/%Y")}.'
-            )
-            db.session.add(notification)
-            
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_membership_renewed_email(user, subscription)
-                email_service.send_email(
-                    subject='Membresía Renovada - RelaticPanama',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='membership_renewed',
-                    related_entity_type='subscription',
-                    related_entity_id=subscription.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_membership_renewed: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_appointment_confirmation(appointment, user, advisor):
-        """Notificar confirmación de cita"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('appointment_confirmation'):
-            print(f"⚠️ Notificación 'appointment_confirmation' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                notification_type='appointment_confirmation',
-                title='Cita Confirmada',
-                message=f'Tu cita con {advisor.first_name} {advisor.last_name} ha sido confirmada para el {(appointment.start_datetime.strftime("%d/%m/%Y %H:%M") if getattr(appointment, "start_datetime", None) else "próximo")}.'
-            )
-            db.session.add(notification)
-            
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_appointment_confirmation_email(appointment, user, advisor)
-                email_service.send_email(
-                    subject='Cita Confirmada - RelaticPanama',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='appointment_confirmation',
-                    related_entity_type='appointment',
-                    related_entity_id=appointment.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_appointment_confirmation: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_appointment_reminder(appointment, user, advisor, hours_before=24):
-        """Notificar recordatorio de cita"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('appointment_reminder'):
-            print(f"⚠️ Notificación 'appointment_reminder' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                notification_type='appointment_reminder',
-                title=f'Recordatorio: Cita en {hours_before} horas',
-                message=f'Recuerda que tienes una cita con {advisor.first_name} {advisor.last_name} el {appointment.appointment_date.strftime("%d/%m/%Y")} a las {appointment.appointment_time}.'
-            )
-            db.session.add(notification)
-            
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_appointment_reminder_email(appointment, user, advisor, hours_before)
-                email_service.send_email(
-                    subject=f'Recordatorio: Cita en {hours_before} horas - RelaticPanama',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='appointment_reminder',
-                    related_entity_type='appointment',
-                    related_entity_id=appointment.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_appointment_reminder: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_appointment_created(appointment, user, advisor, service):
-        """Notificar al cliente que su cita fue creada después del pago"""
-        try:
-            # Crear notificación para el cliente
-            notification = Notification(
-                user_id=user.id,
-                notification_type='appointment_created',
-                title='Cita Agendada - Pendiente de Confirmación',
-                message=f'Tu cita para "{service.name if service else appointment.appointment_type.name}" ha sido agendada para el {appointment.start_datetime.strftime("%d/%m/%Y")} a las {appointment.start_datetime.strftime("%H:%M")}. Está pendiente de confirmación por el asesor.'
-            )
-            db.session.add(notification)
-            db.session.flush()
-            
-            # Enviar email al cliente
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                try:
-                    from email_templates import get_appointment_created_email
-                    html_content = get_appointment_created_email(appointment, user, advisor, service)
-                    email_service.send_email(
-                        subject='Cita Agendada - RelaticPanama',
-                        recipients=[user.email],
-                        html_content=html_content,
-                        email_type='appointment_created',
-                        related_entity_type='appointment',
-                        related_entity_id=appointment.id,
-                        recipient_id=user.id,
-                        recipient_name=f"{user.first_name} {user.last_name}"
-                    )
-                    notification.email_sent = True
-                    notification.email_sent_at = datetime.utcnow()
-                    print(f"✅ Email de cita creada enviado a cliente {user.email}")
-                except Exception as e:
-                    print(f"⚠️ Error enviando email de cita creada a cliente: {e}")
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_appointment_created: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_appointment_new_to_advisor(appointment, user, advisor, service):
-        """Notificar al asesor sobre nueva cita que requiere confirmación"""
-        if not advisor:
-            return
-        
-        try:
-            # Crear notificación para el asesor
-            notification = Notification(
-                user_id=advisor.id,
-                notification_type='appointment_new',
-                title='Nueva Cita Pendiente de Confirmación',
-                message=f'Nueva cita solicitada por {user.first_name} {user.last_name} para "{service.name if service else appointment.appointment_type.name}" el {appointment.start_datetime.strftime("%d/%m/%Y")} a las {appointment.start_datetime.strftime("%H:%M")}. Requiere tu confirmación.'
-            )
-            db.session.add(notification)
-            db.session.flush()
-            
-            # Enviar email al asesor
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                try:
-                    from email_templates import get_appointment_new_advisor_email
-                    html_content = get_appointment_new_advisor_email(appointment, user, advisor, service)
-                    email_service.send_email(
-                        subject='Nueva Cita Pendiente de Confirmación - RelaticPanama',
-                        recipients=[advisor.email],
-                        html_content=html_content,
-                        email_type='appointment_new_advisor',
-                        related_entity_type='appointment',
-                        related_entity_id=appointment.id,
-                        recipient_id=advisor.id,
-                        recipient_name=f"{advisor.first_name} {advisor.last_name}"
-                    )
-                    notification.email_sent = True
-                    notification.email_sent_at = datetime.utcnow()
-                    print(f"✅ Email de nueva cita enviado a asesor {advisor.email}")
-                except Exception as e:
-                    print(f"⚠️ Error enviando email de nueva cita a asesor: {e}")
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_appointment_new_to_advisor: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_appointment_new_to_admins(appointment, user, advisor, service):
-        """Notificar a administradores sobre nueva cita creada"""
-        try:
-            # Obtener todos los administradores activos
-            admins = User.query.filter_by(is_admin=True, is_active=True).all()
-            
-            if not admins:
-                print("⚠️ No se encontraron administradores para notificar")
-                return
-            
-            advisor_name = f"{advisor.first_name} {advisor.last_name}" if advisor else "No asignado"
-            
-            for admin in admins:
-                # Crear notificación para cada administrador
-                notification = Notification(
-                    user_id=admin.id,
-                    notification_type='appointment_new_admin',
-                    title='Nueva Cita Creada',
-                    message=f'Nueva cita creada: {user.first_name} {user.last_name} ({user.email}) solicitó "{service.name if service else appointment.appointment_type.name}" con {advisor_name} para el {appointment.start_datetime.strftime("%d/%m/%Y")} a las {appointment.start_datetime.strftime("%H:%M")}.'
-                )
-                db.session.add(notification)
-                db.session.flush()
-                
-                # Enviar email a cada administrador
-                if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                    try:
-                        from email_templates import get_appointment_new_admin_email
-                        html_content = get_appointment_new_admin_email(appointment, user, advisor, service, admin)
-                        email_service.send_email(
-                            subject='Nueva Cita Creada - RelaticPanama',
-                            recipients=[admin.email],
-                            html_content=html_content,
-                            email_type='appointment_new_admin',
-                            related_entity_type='appointment',
-                            related_entity_id=appointment.id,
-                            recipient_id=admin.id,
-                            recipient_name=f"{admin.first_name} {admin.last_name}"
-                        )
-                        notification.email_sent = True
-                        notification.email_sent_at = datetime.utcnow()
-                        print(f"✅ Email de nueva cita enviado a administrador {admin.email}")
-                    except Exception as e:
-                        print(f"⚠️ Error enviando email de nueva cita a administrador {admin.email}: {e}")
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_appointment_new_to_admins: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_welcome(user):
-        """Notificar bienvenida a nuevo usuario"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('welcome'):
-            print(f"⚠️ Notificación 'welcome' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                notification_type='welcome',
-                title='¡Bienvenido a RelaticPanama!',
-                message='Te damos la bienvenida a RelaticPanama. Explora nuestros eventos, recursos y servicios disponibles.'
-            )
-            db.session.add(notification)
-            
-            # Verificar si email_service está disponible
-            if not EMAIL_TEMPLATES_AVAILABLE:
-                print(f"⚠️ EMAIL_TEMPLATES_AVAILABLE es False. No se enviará correo a {user.email}")
-                db.session.commit()
-                return
-            
-            if not email_service:
-                print(f"⚠️ email_service es None. No se enviará correo a {user.email}")
-                db.session.commit()
-                return
-            
-            # Generar HTML del email
-            try:
-                html_content = get_welcome_email(user)
-            except Exception as e:
-                print(f"❌ Error al generar template de bienvenida: {e}")
-                import traceback
-                traceback.print_exc()
-                db.session.commit()  # Guardar notificación aunque falle el email
-                return
-            
-            # Enviar email
-            try:
-                success = email_service.send_email(
-                    subject='Bienvenido a RelaticPanama',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='welcome',
-                    related_entity_type='user',
-                    related_entity_id=user.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                
-                if success:
-                    notification.email_sent = True
-                    notification.email_sent_at = datetime.utcnow()
-                    print(f"✅ Email de bienvenida enviado exitosamente a {user.email}")
-                else:
-                    print(f"❌ Error al enviar email de bienvenida a {user.email}")
-            except Exception as e:
-                print(f"❌ Error al enviar email de bienvenida: {e}")
-                import traceback
-                traceback.print_exc()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"❌ Error en notify_welcome: {e}")
-            import traceback
-            traceback.print_exc()
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_event_registration_to_user(event, user, registration):
-        """Notificar al usuario sobre su registro a evento"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('event_registration_user'):
-            print(f"⚠️ Notificación 'event_registration_user' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                event_id=event.id,
-                notification_type='event_registration_user',
-                title=f'Registro Confirmado: {event.title}',
-                message=f'Tu registro al evento "{event.title}" ha sido confirmado. Estado: {registration.registration_status}.'
-            )
-            db.session.add(notification)
-            
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_event_registration_email(event, user, registration)
-                email_service.send_email(
-                    subject=f'Registro Confirmado: {event.title}',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='event_registration',
-                    related_entity_type='event',
-                    related_entity_id=event.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_event_registration_to_user: {e}")
-            db.session.rollback()
-    
-    @staticmethod
-    def notify_event_cancellation_to_user(event, user):
-        """Notificar al usuario sobre cancelación de registro"""
-        # Verificar si la notificación está habilitada
-        if not NotificationEngine._is_notification_enabled('event_cancellation_user'):
-            print(f"⚠️ Notificación 'event_cancellation_user' está deshabilitada. No se enviará correo a {user.email}")
-            return
-        
-        try:
-            notification = Notification(
-                user_id=user.id,
-                event_id=event.id,
-                notification_type='event_cancellation_user',
-                title=f'Registro Cancelado: {event.title}',
-                message=f'Tu registro al evento "{event.title}" ha sido cancelado.'
-            )
-            db.session.add(notification)
-            
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                html_content = get_event_cancellation_email(event, user)
-                email_service.send_email(
-                    subject=f'Cancelación de Registro: {event.title}',
-                    recipients=[user.email],
-                    html_content=html_content,
-                    email_type='event_cancellation',
-                    related_entity_type='event',
-                    related_entity_id=event.id,
-                    recipient_id=user.id,
-                    recipient_name=f"{user.first_name} {user.last_name}"
-                )
-                notification.email_sent = True
-                notification.email_sent_at = datetime.utcnow()
-            
-            db.session.commit()
-        except Exception as e:
-            print(f"Error en notify_event_cancellation_to_user: {e}")
-            db.session.rollback()
+from nodeone.services.notification_engine import NotificationEngine
 
 
 def log_email_sent(recipient_email, subject, html_content=None, text_content=None, 
                    email_type=None, related_entity_type=None, related_entity_id=None,
                    recipient_id=None, recipient_name=None, status='sent', error_message=None):
-    """Registrar un email enviado en EmailLog"""
-    try:
-        email_log = EmailLog(
-            recipient_id=recipient_id,
-            recipient_email=recipient_email,
-            recipient_name=recipient_name or recipient_email,
-            subject=subject,
-            html_content=html_content[:5000] if html_content else None,
-            text_content=text_content[:5000] if text_content else None,
-            email_type=email_type or 'general',
-            related_entity_type=related_entity_type,
-            related_entity_id=related_entity_id,
-            status=status,
-            error_message=error_message[:1000] if error_message else None,
-            sent_at=datetime.utcnow() if status == 'sent' else None
-        )
-        db.session.add(email_log)
-        db.session.commit()
-        print(f"📧 Email registrado en log: {email_type or 'general'} → {recipient_email} ({status})")
-    except Exception as e:
-        print(f"❌ Error registrando email en log: {e}")
-        import traceback
-        traceback.print_exc()
-        db.session.rollback()
+    """Wrapper: delega en nodeone.services.email_log."""
+    from nodeone.services.email_log import log_email_sent as _log_email_sent
+
+    return _log_email_sent(
+        recipient_email=recipient_email,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+        email_type=email_type,
+        related_entity_type=related_entity_type,
+        related_entity_id=related_entity_id,
+        recipient_id=recipient_id,
+        recipient_name=recipient_name,
+        status=status,
+        error_message=error_message,
+    )
 
 def send_ocr_review_notifications(payment, user, ocr_extracted_data):
-    """Enviar notificaciones cuando OCR necesita revisión manual"""
-    try:
-        # Obtener administradores
-        admins = User.query.filter_by(is_admin=True, is_active=True).all()
-        
-        if not admins:
-            print("⚠️ No hay administradores para notificar")
-            return
-        
-        # Preparar datos para el email
-        expected_amount = payment.amount / 100.0
-        extracted_amount = ocr_extracted_data.get('amount') if ocr_extracted_data else None
-        
-        # Email al usuario
-        if EMAIL_TEMPLATES_AVAILABLE and email_service:
-            user_html = f"""
-            <h2>Revisión de Pago Requerida</h2>
-            <p>Hola {user.first_name},</p>
-            <p>Hemos recibido tu comprobante de pago, pero necesitamos verificar algunos datos:</p>
-            <ul>
-                <li><strong>Monto esperado:</strong> ${expected_amount:.2f}</li>
-                <li><strong>Monto en comprobante:</strong> ${extracted_amount:.2f} {'(detectado)' if extracted_amount else '(no detectado)'}</li>
-                <li><strong>Método de pago:</strong> {payment.payment_method.title()}</li>
-            </ul>
-            <p>Nuestro equipo revisará tu comprobante y te notificará cuando se apruebe tu membresía.</p>
-            <p>Saludos,<br>Equipo RelaticPanama</p>
-            """
-            
-            email_service.send_email(
-                subject='Revisión de Pago - RelaticPanama',
-                recipients=[user.email],
-                html_content=user_html,
-                email_type='payment_review',
-                related_entity_type='payment',
-                related_entity_id=payment.id,
-                recipient_id=user.id,
-                recipient_name=f"{user.first_name} {user.last_name}"
-            )
-        
-        # Email a administradores
-        admin_html = f"""
-        <h2>Revisión de Pago Requerida</h2>
-        <p>Se requiere revisión manual de un pago:</p>
-        <ul>
-            <li><strong>Usuario:</strong> {user.first_name} {user.last_name} ({user.email})</li>
-            <li><strong>ID de Pago:</strong> {payment.id}</li>
-            <li><strong>Monto esperado:</strong> ${expected_amount:.2f}</li>
-            <li><strong>Monto detectado:</strong> ${extracted_amount:.2f} {'(detectado)' if extracted_amount else '(no detectado)'}</li>
-            <li><strong>Método:</strong> {payment.payment_method.title()}</li>
-            <li><strong>Referencia:</strong> {ocr_extracted_data.get('reference', 'N/A') if ocr_extracted_data else 'N/A'}</li>
-            <li><strong>Fecha detectada:</strong> {ocr_extracted_data.get('date', 'N/A') if ocr_extracted_data else 'N/A'}</li>
-            <li><strong>Banco detectado:</strong> {ocr_extracted_data.get('bank', 'N/A') if ocr_extracted_data else 'N/A'}</li>
-        </ul>
-        <p><a href="/admin/payments/review/{payment.id}">Revisar Pago</a></p>
-        """
-        
-        for admin in admins:
-            if EMAIL_TEMPLATES_AVAILABLE and email_service:
-                email_service.send_email(
-                    subject=f'Revisión de Pago Requerida - Pago #{payment.id}',
-                    recipients=[admin.email],
-                    html_content=admin_html,
-                    email_type='payment_review_admin',
-                    related_entity_type='payment',
-                    related_entity_id=payment.id,
-                    recipient_id=admin.id,
-                    recipient_name=f"{admin.first_name} {admin.last_name}"
-                )
-        
-        print(f"✅ Notificaciones OCR enviadas para Payment ID: {payment.id}")
-    except Exception as e:
-        print(f"⚠️ Error enviando notificaciones OCR: {e}")
-        import traceback
-        traceback.print_exc()
+    """Wrapper: delega en nodeone.services.ocr_notifications."""
+    from nodeone.services.ocr_notifications import (
+        send_ocr_review_notifications as _send_ocr_review_notifications,
+    )
+
+    return _send_ocr_review_notifications(payment, user, ocr_extracted_data)
 
 def send_payment_confirmation_email(user, payment, subscription):
-    """Enviar email de confirmación de pago"""
-    try:
-        html_content = f"""
-            <h2>¡Pago Confirmado!</h2>
-            <p>Hola {user.first_name},</p>
-            <p>Tu pago por la membresía {payment.membership_type.title()} ha sido procesado exitosamente.</p>
-            <p><strong>Detalles del pago:</strong></p>
-            <ul>
-                <li>Membresía: {payment.membership_type.title()}</li>
-                <li>Monto: ${payment.amount / 100:.2f}</li>
-                <li>Fecha: {payment.created_at.strftime('%d/%m/%Y')}</li>
-                <li>Válida hasta: {subscription.end_date.strftime('%d/%m/%Y')}</li>
-            </ul>
-            <p>Ya puedes acceder a todos los beneficios de tu membresía.</p>
-            <p>¡Gracias por ser parte de RelaticPanama!</p>
-            """
-        msg = Message(
-            subject='Confirmación de Pago - RelaticPanama',
-            recipients=[user.email],
-            html=html_content
-        )
-        mail.send(msg)
-        # Registrar en EmailLog
-        log_email_sent(
-            recipient_email=user.email,
-            subject='Confirmación de Pago - RelaticPanama',
-            html_content=html_content,
-            email_type='membership_payment',
-            related_entity_type='payment',
-            related_entity_id=payment.id,
-            recipient_id=user.id,
-            recipient_name=f"{user.first_name} {user.last_name}",
-            status='sent'
-        )
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        # Registrar fallo en EmailLog
-        log_email_sent(
-            recipient_email=user.email,
-            subject='Confirmación de Pago - RelaticPanama',
-            html_content='',
-            email_type='membership_payment',
-            related_entity_type='payment',
-            related_entity_id=payment.id,
-            recipient_id=user.id,
-            recipient_name=f"{user.first_name} {user.last_name}",
-            status='failed',
-            error_message=str(e)
-        )
+    """Única vía: plantilla BD + SMTP transaccional por tenant (`payment_emails`)."""
+    from nodeone.services.payment_emails import send_payment_confirmation_email as _send_payment_confirmation
+
+    return _send_payment_confirmation(user, payment, subscription)
 
 
 
@@ -2883,6 +2046,24 @@ def ensure_must_change_password_column():
     except Exception as e:
         db.session.rollback()
         print(f'⚠️ ensure_must_change_password_column: {e}')
+
+
+def ensure_user_last_selected_organization_id_column():
+    """Añadir user.last_selected_organization_id (selector post-login admin)."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'user' not in inspector.get_table_names():
+            return
+        columns = [col['name'] for col in inspector.get_columns('user')]
+        if 'last_selected_organization_id' in columns:
+            return
+        db.session.execute(text('ALTER TABLE user ADD COLUMN last_selected_organization_id INTEGER'))
+        db.session.commit()
+        print('✅ Columna user.last_selected_organization_id añadida.')
+    except Exception as e:
+        db.session.rollback()
+        print(f'⚠️ ensure_user_last_selected_organization_id_column: {e}')
 
 
 def ensure_benefit_icon_color_columns():
@@ -3267,6 +2448,13 @@ def create_app():
     return app
 
 
+def bootstrap_runtime_schema_and_email():
+    """Workers/cron ligeros: tablas + SMTP por defecto (sin sesión HTTP)."""
+    with app.app_context():
+        db.create_all()
+        apply_email_config_from_db()
+
+
 def bootstrap_nodeone_schema():
     """
     DDL / parches idempotentes antes de Gunicorn (bootstrap_nodeone.py, systemd ExecStartPre).
@@ -3275,6 +2463,7 @@ def bootstrap_nodeone_schema():
     with app.app_context():
         db.create_all()
         ensure_must_change_password_column()
+        ensure_user_last_selected_organization_id_column()
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra
         ensure_benefit_icon_color_columns()
         ensure_canonical_saas_organization_usable()
@@ -3305,6 +2494,13 @@ def bootstrap_nodeone_schema():
         ensure_office365_discount_code_id()
         ensure_discount_code_valid_for_office365()
         create_sample_data()
+        try:
+            from nodeone.services.saas_catalog_defaults import apply_platform_org_allowlist, ensure_saas_catalog_full
+
+            ensure_saas_catalog_full()
+            apply_platform_org_allowlist()
+        except Exception as e:
+            print(f'⚠️ ensure_saas_catalog_full / org allowlist: {e}')
         apply_email_config_from_db()
 
 

@@ -303,11 +303,22 @@ def register_public_auth_legacy_routes(app):
                 flash('Tu cuenta está desactivada.', 'error')
                 return redirect(url_for('auth.login'))
             login_user(user)
-            ok_oauth_org, oauth_org_err = M.apply_session_organization_after_login(user, request)
-            if not ok_oauth_org:
+            code, oauth_org_err = M.apply_session_organization_after_login(user, request)
+            if code == 'error':
                 logout_user()
                 flash(oauth_org_err or 'No se pudo validar la organización.', 'error')
                 return redirect(url_for('auth.login'))
+            if code == 'pick':
+                from _app.modules.auth.service import safe_next_path
+
+                next_page = safe_next_path(session.pop('oauth_post_login_next', None)) or safe_next_path(
+                    request.args.get('next')
+                )
+                return (
+                    redirect(url_for('auth.select_organization', next=next_page))
+                    if next_page
+                    else redirect(url_for('auth.select_organization'))
+                )
             if bool(getattr(user, 'must_change_password', False)):
                 flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
                 return redirect(url_for('auth.change_password'))
@@ -362,6 +373,7 @@ def register_public_auth_legacy_routes(app):
         except Exception as e:
             pass  # No romper el flujo si falla el historial
 
+        session.pop('require_org_selection', None)
         logout_user()
         flash('Has cerrado sesión exitosamente.', 'info')
         return redirect(url_for('index'))

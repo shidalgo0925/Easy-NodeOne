@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{% if module %}Editar módulo{% else %}Nuevo módulo{% endif %} - EasyNodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3" style="max-width: 40rem;">
+    <h1 class="h4 mb-3">{% if module %}Editar módulo{% else %}Nuevo módulo{% endif %}</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+                <div class="alert alert-{{ 'danger' if cat == 'error' else cat }}">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <form method="post" class="card card-body shadow-sm">
+        {% if module %}
+        <div class="mb-3">
+            <label class="form-label">Código</label>
+            <input type="text" class="form-control" value="{{ module.code }}" disabled>
+            <div class="form-text">El código no se cambia (referencias en sistema).</div>
+        </div>
+        {% else %}
+        <div class="mb-3">
+            <label class="form-label">Código <span class="text-danger">*</span></label>
+            <input type="text" name="code" class="form-control" required maxlength="64" pattern="[a-z][a-z0-9_]{1,62}"
+                   placeholder="ej. mi_modulo" value="{{ form.get('code', '') if form else '' }}">
+        </div>
+        {% endif %}
+        <div class="mb-3">
+            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" required maxlength="200"
+                   value="{{ form.get('name', '') if form else (module.name if module else '') }}">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <textarea name="description" class="form-control" rows="3">{{ form.get('description', '') if form else (module.description or '') }}</textarea>
+        </div>
+        <div class="mb-3">
+            {% if module and module.is_core %}
+            <p class="text-muted small mb-0">Módulo <strong>core</strong> (no se puede desmarcar ni eliminar).</p>
+            {% else %}
+            <div class="form-check">
+                <input type="hidden" name="is_core" value="0">
+                <input type="checkbox" name="is_core" value="1" class="form-check-input" id="is_core"
+                       {% if form %}{{ 'checked' if form.get('is_core') == '1' else '' }}{% elif module %}{{ 'checked' if module.is_core else '' }}{% endif %}>
+                <label class="form-check-label" for="is_core">Módulo core (no eliminable; siempre permitido)</label>
+            </div>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('admin_saas_catalog_list') }}" class="btn btn-outline-secondary">Volver</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

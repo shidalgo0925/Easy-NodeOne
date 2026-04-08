@@ -74,7 +74,9 @@ def resolve_product_for_cart(user, data):
         product_id = int(data.get('product_id', 0))
         if product_id == 0:
             return None, {'success': False, 'error': 'ID de servicio no especificado'}, 400
-        service = Service.query.get(product_id)
+        from app import _catalog_org_for_member_and_theme
+        _oid = int(getattr(user, 'organization_id', None) or _catalog_org_for_member_and_theme())
+        service = Service.query.filter_by(id=product_id, organization_id=_oid).first()
         if not service:
             return None, {'success': False, 'error': 'Servicio no encontrado'}, 404
         active_membership = user.get_active_membership()

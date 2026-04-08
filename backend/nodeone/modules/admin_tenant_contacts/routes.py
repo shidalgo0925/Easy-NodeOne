@@ -1,83 +1,69 @@
-"""Registro de rutas /admin/contacts sobre la app (endpoints legacy sin prefijo de blueprint)."""
+"""Compat legacy: /admin/contacts redirige a CRM y migra contactos a leads."""
 
 
 def register_admin_tenant_contacts_routes(app):
-    from flask import flash, redirect, render_template, request, url_for
+    from flask import flash, redirect, url_for
     from flask_login import current_user
 
-    from app import (
-        admin_required,
-        db,
-        get_current_organization_id,
-        SaasOrganization,
-        scoped_query,
-        TenantCrmContact,
-    )
+    from app import admin_required, db, TenantCrmContact
+    from nodeone.modules.crm_api.models import CrmLead, CrmStage
+
+    def _migrate_contacts_to_leads():
+        rows = TenantCrmContact.query.order_by(TenantCrmContact.id.asc()).all()
+        if not rows:
+            return 0
+        moved = 0
+        for c in rows:
+            stage = (
+                CrmStage.query
+                .filter_by(organization_id=int(c.organization_id), is_won=False, is_lost=False)
+                .order_by(CrmStage.sequence.asc())
+                .first()
+            )
+            if stage is None:
+                continue
+            exists = CrmLead.query.filter_by(
+                organization_id=int(c.organization_id),
+                name=(c.name or '').strip(),
+                email=(c.email or '').strip() or None,
+                phone=(c.phone or '').strip() or None,
+            ).first()
+            if exists:
+                continue
+            row = CrmLead(
+                organization_id=int(c.organization_id),
+                lead_type='lead',
+                name=(c.name or 'Contacto').strip(),
+                contact_name=(c.name or '').strip() or None,
+                company_name=(c.company or '').strip() or None,
+                email=(c.email or '').strip() or None,
+                phone=(c.phone or '').strip() or None,
+                stage_id=stage.id,
+                user_id=int(getattr(current_user, 'id', 0) or 0) or None,
+                expected_revenue=0.0,
+                probability=float(stage.probability_default or 0),
+                priority='low',
+                source='crm_contacts_migration',
+                description=(c.notes or '').strip() or None,
+                active=True,
+            )
+            db.session.add(row)
+            moved += 1
+        if moved:
+            db.session.commit()
+        return moved
 
     @app.route('/admin/contacts', methods=['GET', 'POST'])
     @admin_required
     def admin_tenant_contacts():
-        """CRM contactos por tenant (base.html → Clientes)."""
-        is_plat = bool(getattr(current_user, 'is_admin', False))
-        orgs = (
-            SaasOrganization.query.filter_by(is_active=True).order_by(SaasOrganization.name.asc(), SaasOrganization.id.asc()).all()
-            if is_plat
-            else []
-        )
-        filter_oid = request.args.get('organization_id', type=int)
-        ctx_oid = int(get_current_organization_id())
-
-        if request.method == 'POST':
-            name = (request.form.get('name') or '').strip()
-            if not name:
-                flash('El nombre es obligatorio.', 'error')
-                return redirect(request.url)
-            oid = ctx_oid
-            if is_plat:
-                oid = filter_oid if filter_oid else ctx_oid
-            org = SaasOrganization.query.get(oid)
-            if org is None or not getattr(org, 'is_active', True):
-                flash('Organización no válida.', 'error')
-                return redirect(url_for('admin_tenant_contacts'))
-            if not is_plat and oid != ctx_oid:
-                flash('No autorizado.', 'error')
-                return redirect(url_for('admin_tenant_contacts'))
-            row = TenantCrmContact(
-                organization_id=oid,
-                name=name,
-                email=(request.form.get('email') or '').strip() or None,
-                phone=(request.form.get('phone') or '').strip() or None,
-                company=(request.form.get('company') or '').strip() or None,
-                notes=(request.form.get('notes') or '').strip() or None,
-            )
-            db.session.add(row)
-            db.session.commit()
-            flash('Contacto guardado.', 'success')
-            redir = url_for('admin_tenant_contacts', organization_id=oid) if is_plat and oid else url_for('admin_tenant_contacts')
-            return redirect(redir)
-
-        if is_plat:
-            q = TenantCrmContact.query
-            if filter_oid:
-                q = q.filter_by(organization_id=filter_oid)
-        else:
-            q = scoped_query(TenantCrmContact)
-        contacts = q.order_by(TenantCrmContact.created_at.desc()).limit(500).all()
-        return render_template(
-            'admin/contacts.html',
-            saas_organizations=orgs,
-            contacts=contacts,
-            contacts_org_filter=filter_oid,
-        )
+        moved = _migrate_contacts_to_leads()
+        if moved:
+            flash(f'Se migraron {moved} contactos a CRM.', 'info')
+        flash('Contactos fue unificado en CRM. Usa el módulo CRM.', 'info')
+        return redirect(url_for('admin_crm_dashboard'))
 
     @app.route('/admin/contacts/<int:cid>/delete', methods=['POST'])
     @admin_required
     def admin_tenant_contact_delete(cid):
-        c = TenantCrmContact.query.get_or_404(cid)
-        if not getattr(current_user, 'is_admin', False) and c.organization_id != int(get_current_organization_id()):
-            flash('No autorizado.', 'error')
-            return redirect(url_for('admin_tenant_contacts'))
-        db.session.delete(c)
-        db.session.commit()
-        flash('Contacto eliminado.', 'success')
-        return redirect(url_for('admin_tenant_contacts'))
+        flash('Contactos fue unificado en CRM. Usa el módulo CRM.', 'info')
+        return redirect(url_for('admin_crm_dashboard'))

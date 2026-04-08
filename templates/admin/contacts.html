@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}CRM Contactos{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+  <h1 class="h5 mb-3"><i class="fas fa-address-book"></i> Contactos (CRM)</h1>
+  {% if saas_organizations %}
+  <form method="get" class="mb-3 d-flex align-items-end gap-2 flex-wrap">
+    <div>
+      <label class="form-label small mb-0">Organización</label>
+      <select class="form-select form-select-sm" name="organization_id" onchange="this.form.submit()">
+        <option value="">Todas</option>
+        {% for org in saas_organizations %}
+        <option value="{{ org.id }}" {% if contacts_org_filter == org.id %}selected{% endif %}>{{ org.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+  {% endif %}
+  <div class="row g-3">
+    <div class="col-12 col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-header">Nuevo contacto</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('admin_tenant_contacts') }}">
+            <div class="mb-2"><label class="form-label">Nombre *</label><input class="form-control form-control-sm" name="name" required></div>
+            <div class="mb-2"><label class="form-label">Email</label><input class="form-control form-control-sm" name="email" type="email"></div>
+            <div class="mb-2"><label class="form-label">Teléfono</label><input class="form-control form-control-sm" name="phone"></div>
+            <div class="mb-2"><label class="form-label">Empresa</label><input class="form-control form-control-sm" name="company"></div>
+            <div class="mb-2"><label class="form-label">Notas</label><textarea class="form-control form-control-sm" name="notes" rows="2"></textarea></div>
+            <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-7 mt-4 mt-lg-0">
+      <div class="card shadow-sm">
+        <div class="card-header">Listado ({{ contacts|length }})</div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Nombre</th><th>Email</th><th>Tel.</th><th>Org</th><th></th></tr></thead>
+            <tbody>
+              {% for c in contacts %}
+              <tr>
+                <td>{{ c.name }}</td>
+                <td>{{ c.email or '—' }}</td>
+                <td>{{ c.phone or '—' }}</td>
+                <td>{{ c.organization_id }}</td>
+                <td class="text-end">
+                  <form method="post" action="{{ url_for('admin_tenant_contact_delete', cid=c.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar</button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-muted">Sin contactos.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

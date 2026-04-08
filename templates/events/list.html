@@ -22,11 +22,11 @@
         </div>
 
         <form class="row g-3 align-items-end mb-4" method="get">
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <label class="form-label text-muted">Buscar</label>
                 <input type="text" class="form-control" name="q" value="{{ search }}" placeholder="Congreso, revista, libro...">
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-md-3">
                 <label class="form-label text-muted">Categoría</label>
                 <select class="form-select" name="category">
                     <option value="">Todas</option>
@@ -35,7 +35,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-md-3">
                 <label class="form-label text-muted">Estado</label>
                 <select class="form-select" name="status">
                     <option value="published" {% if status == 'published' %}selected{% endif %}>Publicado</option>
@@ -44,7 +44,7 @@
                     <option value="all" {% if status == 'all' %}selected{% endif %}>Todos</option>
                 </select>
             </div>
-            <div class="col-md-2 d-grid">
+            <div class="col-12 col-md-2 d-grid">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-search me-2"></i>Filtrar
                 </button>
@@ -56,7 +56,7 @@
                 {% for event in events %}
                 {% set pricing = event.pricing_for_membership(membership_type) %}
                 {% set cover = event.cover_url() %}
-                <div class="col-md-6 col-lg-4">
+                <div class="col-12 col-md-6 col-lg-4">
                     <div class="event-card h-100">
                         <div class="event-card-cover {% if not cover %}no-cover{% endif %}" {% if cover %}style="background-image: url('{{ cover }}');"{% endif %}>
                             {% if not cover %}

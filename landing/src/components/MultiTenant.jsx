@@ -4,7 +4,7 @@ const points = ['Multi-organización', 'Marca blanca', 'API-first', 'Infraestruc
 
 export default function MultiTenant() {
   return (
-    <section className="relative overflow-hidden bg-gray-light/50 px-4 py-20 md:py-28">
+    <section className="relative overflow-hidden bg-gray-light/50 px-4 py-12 md:py-16">
       {/* Subtle grid pattern */}
       <div
         className="absolute inset-0 opacity-[0.03]"
@@ -23,7 +23,7 @@ export default function MultiTenant() {
         >
           Diseñado para escalar.
         </motion.h2>
-        <ul className="mt-12 flex flex-wrap justify-center gap-4">
+        <ul className="mt-8 flex flex-wrap justify-center gap-3">
           {points.map((p, i) => (
             <motion.li
               key={p}
@@ -38,13 +38,13 @@ export default function MultiTenant() {
           ))}
         </ul>
         <motion.div
-          className="mt-16 flex justify-center"
+          className="mt-8 flex justify-center"
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <svg viewBox="0 0 280 160" className="h-40 w-full max-w-md md:h-48" aria-hidden>
+          <svg viewBox="0 0 280 160" className="h-32 w-full max-w-md md:h-40" aria-hidden>
             <defs>
               <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#2563EB" />

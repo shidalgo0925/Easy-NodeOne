@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Empresas / Tenants - EasyNodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center flex-wrap gap-2 mb-3">
+        <h1 class="h4 mb-0"><i class="fas fa-building"></i> Empresas / Tenants</h1>
+        <a href="{{ url_for('admin_organization_new') }}" class="btn btn-sm btn-primary text-nowrap align-self-stretch align-self-sm-auto"><i class="fas fa-plus"></i> Nueva empresa</a>
+    </div>
+    <p class="text-muted small">Solo administradores de plataforma. Desactivar corta el acceso por subdominio.</p>
+    <div class="mb-3">
+        <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 w-100 w-md-auto" type="button"
+                data-bs-toggle="collapse" data-bs-target="#orgsListExplain" aria-expanded="false" aria-controls="orgsListExplain">
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            <span>Para qué sirve esta pantalla</span>
+            <i class="fas fa-chevron-down small ms-auto collapse-chevron-orgs" aria-hidden="true"></i>
+        </button>
+        <div class="collapse mt-2" id="orgsListExplain">
+            <div class="card border shadow-sm overflow-hidden">
+                <div class="row g-0">
+                    <div class="col-12 col-lg-5 bg-light d-flex align-items-center justify-content-center p-3 p-lg-4 border-bottom orgs-explain-visual">
+                        <img src="{{ url_for('static', filename='images/help-empresas-tenants.png') }}"
+                             alt="" class="img-fluid rounded-3 shadow-sm" style="max-height: 220px; object-fit: contain;"
+                             width="640" height="360" loading="lazy">
+                    </div>
+                    <div class="col-12 col-lg-7 mt-3 mt-lg-0">
+                        <div class="card-body py-3 small text-body-secondary">
+                            <p class="mb-2 fw-semibold text-body">¿Qué es esta pantalla?</p>
+                            <p class="mb-2">Aquí administrás las <strong>empresas (tenants)</strong> de la plataforma: cada fila es una organización con usuarios y datos propios.</p>
+                            <ul class="mb-2 ps-3">
+                                <li><strong>Nueva empresa</strong>: crea un tenant; luego asigná <strong>Módulos</strong> y usuarios a esa organización.</li>
+                                <li><strong>Subdominio</strong>: si lo configurás, el público puede entrar por <code>subdominio.tudominio.com</code>. Desactivar la empresa corta ese acceso.</li>
+                                <li><strong>Editar</strong>: nombre, subdominio y estado (la org por defecto id&nbsp;1 no se desactiva).</li>
+                            </ul>
+                            <p class="mb-0 fw-semibold text-body">Identidad e IA</p>
+                            <p class="mb-0 mt-1">Colores, logo e integración de IA aplican hoy a <strong>toda la instancia</strong>; el resto del contenido (contactos, citas, etc.) sí es por empresa.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Subdominio</th>
+                    <th>Estado</th>
+                    <th class="text-nowrap">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in organizations %}
+                <tr>
+                    <td>{{ o.id }}</td>
+                    <td>{{ o.name }}</td>
+                    <td>
+                        <code>{{ o.subdomain or '—' }}</code>
+                        {% if o.subdomain and tenant_public_base %}
+                        <a class="btn btn-sm btn-link py-0" href="https://{{ o.subdomain }}.{{ tenant_public_base }}/" target="_blank" rel="noopener noreferrer" title="Abrir en pestaña nueva (no usar dentro de un iframe)">Portal <i class="fas fa-external-link-alt small"></i></a>
+                        {% endif %}
+                    </td>
+                    <td>{% if o.is_active %}<span class="badge bg-success">Activa</span>{% else %}<span class="badge bg-secondary">Inactiva</span>{% endif %}</td>
+                    <td class="text-nowrap">
+                        <a href="{{ url_for('admin_organization_edit', oid=o.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                        <a href="{{ url_for('admin_saas_modules_page', organization_id=o.id) }}" class="btn btn-sm btn-outline-secondary">Módulos</a>
+                        {% if o.id != 1 %}
+                            {% if o.is_active %}
+                            <form method="post" action="{{ url_for('admin_organization_deactivate', oid=o.id) }}" class="d-inline" onsubmit="return confirm('¿Desactivar esta empresa?');">
+                                <button type="submit" class="btn btn-sm btn-outline-warning">Desactivar</button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{{ url_for('admin_organization_activate', oid=o.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-success">Activar</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="{{ url_for('admin_organization_delete', oid=o.id) }}" class="d-inline" onsubmit="return confirm('¿ELIMINAR definitivamente la empresa id={{ o.id }}?\n\nLos usuarios pasarán a la org por defecto. Se borran datos ligados a esta org (módulos, campañas, citas, etc.).');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

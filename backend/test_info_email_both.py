@@ -3,22 +3,30 @@
 Probar configuración de info@relaticpanama.org con Gmail y Office 365
 """
 
-import sys
+import argparse
 import os
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db, EmailConfig
 
+
 def test_both_configs():
     """Probar ambas configuraciones (Gmail y Office 365)"""
-    print("=" * 60)
-    print("PRUEBA DE CONFIGURACIÓN: info@relaticpanama.org")
-    print("=" * 60)
-    
+    parser = argparse.ArgumentParser(description='Info email: Gmail vs O365')
+    parser.add_argument('--org-id', type=int, default=None, help='Tenant para EmailConfig')
+    args = parser.parse_args()
+
+    print('=' * 60)
+    print('PRUEBA DE CONFIGURACIÓN: info@relaticpanama.org')
+    if args.org_id is not None:
+        print(f'  (org: {args.org_id})')
+    print('=' * 60)
+
     with app.app_context():
-        config = EmailConfig.get_active_config()
+        config = EmailConfig.get_active_config(organization_id=args.org_id)
         
         if not config:
             print("\n❌ No hay configuración activa")

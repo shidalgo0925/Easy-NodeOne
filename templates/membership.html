@@ -6,7 +6,7 @@
 <div class="container py-4">
     <div class="row">
         <div class="col-12">
-            <h1 class="display-6 mb-4">
+            <h1 class="h3 mb-4">
                 <i class="fas fa-crown"></i> Membresía
             </h1>
         </div>
@@ -25,7 +25,7 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <p><strong>Tipo:</strong> 
                                 {% if membership.membership_type == 'admin' %}
                                 <span class="badge bg-primary">Administrador</span>
@@ -56,7 +56,7 @@
                             <p><strong>Período de gracia hasta:</strong> {{ membership.grace_period_end.strftime('%d/%m/%Y') }}</p>
                             {% endif %}
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <p><strong>Inicio:</strong> {{ membership.start_date.strftime('%d/%m/%Y') }}</p>
                             <p><strong>Vencimiento:</strong> 
                                 {% if membership.membership_type == 'admin' %}
@@ -99,9 +99,11 @@
                             <a href="{{ url_for('benefits') }}" class="btn btn-primary">
                                 <i class="fas fa-star"></i> Ver Beneficios
                             </a>
+                            {% if saas_module_enabled('appointments') %}
                             <a href="{{ url_for('services.list') }}" class="btn btn-outline-primary">
                                 <i class="fas fa-th-large"></i> Ver Servicios
                             </a>
+                            {% endif %}
                             {% if membership_cert_event_id %}
                             {% if membership_cert_issued %}
                             <a href="{{ membership_cert_download_url }}" class="btn btn-outline-success" target="_blank">
@@ -155,9 +157,11 @@
                             <a href="{{ url_for('benefits') }}" class="btn btn-primary">
                                 <i class="fas fa-star"></i> Ver Beneficios
                             </a>
+                            {% if saas_module_enabled('appointments') %}
                             <a href="{{ url_for('services.list') }}" class="btn btn-outline-primary">
                                 <i class="fas fa-th-large"></i> Ver Servicios
                             </a>
+                            {% endif %}
                             {% if membership_cert_event_id %}
                             {% if membership_cert_issued %}
                             <a href="{{ membership_cert_download_url }}" class="btn btn-outline-success" target="_blank">
@@ -368,7 +372,7 @@
                                 <td colspan="{{ 1 + plans_display|length }}" class="text-center text-muted py-4">
                                     <i class="fas fa-info-circle"></i> No hay servicios configurados.
                                     {% if current_user.is_admin %}
-                                    <a href="{{ url_for('admin_services') }}">Configura servicios desde el panel de administración</a>
+                                    <a href="{{ url_for('admin_services_catalog.admin_services') }}">Configura servicios desde el panel de administración</a>
                                     {% else %}
                                     Contacta al administrador para configurar servicios.
                                     {% endif %}
@@ -406,7 +410,9 @@
                     <li>Los planes de membresía tienen validez anual y se renuevan automáticamente.</li>
                     <li>Los descuentos en servicios y eventos se aplican automáticamente según tu plan de membresía.</li>
                     <li>Puedes agregar múltiples productos al carrito y pagarlos todos juntos.</li>
+                    {% if saas_module_enabled('appointments') %}
                     <li>Para ver todos los servicios disponibles, visita la <a href="{{ url_for('services.list') }}" class="alert-link">página de servicios</a>.</li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

@@ -5,24 +5,30 @@ const APP_URL = import.meta.env.VITE_APP_URL || ''
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const nav = ['Plataforma', 'Módulos', 'Planes', 'Seguridad', 'Contacto']
+  const nav = [
+    { label: 'Plataforma', href: '/#plataforma' },
+    { label: 'Módulos', href: '/#modulos' },
+    { label: 'Planes', href: '/#planes' },
+    { label: 'Seguridad', href: '/#seguridad' },
+    { label: 'Contacto', href: '/#contacto' },
+  ]
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-light bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <a href="#" className="flex items-center shrink-0">
-          <img src="/logos/logo-nodeone.png" alt="Easy NodeOne" className="h-16 w-auto md:h-[122px]" />
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2">
+        <a href="/" className="flex items-center shrink-0">
+          <img src="/logos/logo-nodeone.png" alt="EasyNodeOne" className="h-14 w-auto md:h-16" />
         </a>
 
         {/* Desktop: enlaces + CTAs */}
-        <nav className="hidden items-center gap-6 md:flex md:gap-8">
+        <nav className="hidden items-center gap-5 md:flex md:gap-6">
           {nav.map((item) => (
             <a
-              key={item}
-              href={'#' + item.toLowerCase()}
-              className="text-lg font-bold text-gray-mid hover:text-secondary"
+              key={item.label}
+              href={item.href}
+              className="text-base font-bold text-gray-mid hover:text-secondary"
             >
-              {item}
+              {item.label}
             </a>
           ))}
         </nav>
@@ -68,12 +74,12 @@ export default function Header() {
           <nav className="flex flex-col gap-4">
             {nav.map((item) => (
               <a
-                key={item}
-                href={'#' + item.toLowerCase()}
+                key={item.label}
+                href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className="font-bold text-gray-mid hover:text-secondary"
               >
-                {item}
+                {item.label}
               </a>
             ))}
           </nav>

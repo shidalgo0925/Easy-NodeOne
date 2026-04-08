@@ -11,7 +11,7 @@
 {% block page_content %}
 <div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-lg-8">
+        <div class="col-12 col-lg-8">
             {% if payment.status == 'succeeded' %}
             <!-- ========== PAGO CONFIRMADO - Mostrar éxito ========== -->
             <div class="card border-success">
@@ -32,7 +32,7 @@
 
                     <!-- Detalles del pago -->
                     <div class="row mb-4">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6 mb-3 mb-md-0">
                             <div class="card bg-light">
                                 <div class="card-body">
                                     <h6 class="card-title">Detalles del Pago</h6>
@@ -52,7 +52,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6 mb-3 mb-md-0">
                             <div class="card bg-light">
                                 <div class="card-body">
                                     <h6 class="card-title">Próximos Pasos</h6>
@@ -73,14 +73,14 @@
                             <h5>Beneficios de tu Membresía {{ payment.membership_type.title() }}</h5>
                             <div class="row">
                                 {% if payment.membership_type == 'basic' %}
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6 mb-3 mb-md-0">
                                     <ul class="list-unstyled">
                                         <li><i class="fas fa-check text-success"></i> Acceso a revistas especializadas</li>
                                         <li><i class="fas fa-check text-success"></i> Bases de datos de investigación</li>
                                         <li><i class="fas fa-check text-success"></i> Herramientas de investigación</li>
                                     </ul>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6 mb-3 mb-md-0">
                                     <ul class="list-unstyled">
                                         <li><i class="fas fa-check text-success"></i> Soporte por email</li>
                                         <li><i class="fas fa-check text-success"></i> Biblioteca digital académica</li>
@@ -88,14 +88,14 @@
                                     </ul>
                                 </div>
                                 {% else %}
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6 mb-3 mb-md-0">
                                     <ul class="list-unstyled">
                                         <li><i class="fas fa-check text-success"></i> Todo lo de Básica</li>
                                         <li><i class="fas fa-check text-success"></i> Asesoría de publicación</li>
                                         <li><i class="fas fa-check text-success"></i> Soporte prioritario 24/7</li>
                                     </ul>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6 mb-3 mb-md-0">
                                     <ul class="list-unstyled">
                                         <li><i class="fas fa-check text-success"></i> Acceso a webinars exclusivos</li>
                                         <li><i class="fas fa-check text-success"></i> Red de contactos académicos</li>
@@ -108,7 +108,7 @@
                     </div>
 
                     <!-- Botones de acción -->
-                    <div class="d-flex gap-3 justify-content-center">
+                    <div class="d-grid gap-2 d-sm-flex flex-sm-row flex-wrap justify-content-sm-center">
                         <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
                             <i class="fas fa-tachometer-alt"></i> Ir al Dashboard
                         </a>
@@ -161,7 +161,7 @@
                     </div>
                     
                     <div class="row justify-content-center mb-4">
-                        <div class="col-md-10">
+                        <div class="col-12 col-md-10 mx-auto">
                             <!-- Formulario para código de comprobante -->
                             <div class="card border-info mb-4">
                                 <div class="card-body">

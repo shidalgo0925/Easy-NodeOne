@@ -1,0 +1,59 @@
+{# Requiere: show_onboarding_rail, ob_step, ob_prev_url, ob_next_url (opcional), ob_next_hint (opcional), setup_wizard #}
+{% if show_onboarding_rail %}
+<style>
+  .onb-rail { position: sticky; top: 1rem; border-radius: 20px; border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 8px 32px rgba(15,23,42,.08); overflow: hidden; background: #fff; }
+  .onb-rail-img { max-width: 100%; height: auto; max-height: 180px; object-fit: contain; display: block; margin: 0 auto; }
+  .onb-rail .btn-salmon { background: #e07a5f; border-color: #e07a5f; color: #fff; font-weight: 600; border-radius: 12px; }
+  .onb-rail .btn-salmon:hover { background: #c96a52; border-color: #c96a52; color: #fff; }
+</style>
+<div class="onb-rail p-3 mb-3">
+    <div class="small text-muted mb-1">Guía en pantalla · Paso <strong>{{ ob_step }}</strong> de 5</div>
+    <h2 class="h6 text-dark mb-2">
+        {% if ob_step == 1 %}Crear organización
+        {% elif ob_step == 2 %}Subdominio y empresa
+        {% elif ob_step == 3 %}Módulos SaaS
+        {% elif ob_step == 4 %}Invitar usuarios
+        {% else %}Configuración{% endif %}
+    </h2>
+    {% set _img = 'images/onboarding/onboard-step1-org.png' %}
+    {% if ob_step == 2 %}{% set _img = 'images/onboarding/onboard-step2-dns.png' %}
+    {% elif ob_step == 3 %}{% set _img = 'images/onboarding/onboard-step3-modules.png' %}
+    {% elif ob_step == 4 %}{% set _img = 'images/onboarding/onboard-step4-invite.png' %}
+    {% endif %}
+    <img src="{{ url_for('static', filename=_img) }}" alt="" class="onb-rail-img mb-2" width="260" height="180" loading="lazy">
+    <ul class="small text-muted ps-3 mb-3">
+        {% if ob_step == 1 %}
+        <li>Nombre comercial del cliente.</li>
+        <li>Podés dejar el subdominio vacío y definirlo en el paso 2.</li>
+        {% elif ob_step == 2 %}
+        <li>Completá el subdominio en minúsculas (DNS del cliente).</li>
+        <li>Al guardar seguís al paso 3 si venís de la guía.</li>
+        {% elif ob_step == 3 %}
+        <li>Elegí la empresa en el selector superior.</li>
+        <li>Activá los módulos que necesite ese tenant (no core).</li>
+        {% elif ob_step == 4 %}
+        <li>Filtrá por <strong>organización</strong> para ver solo el tenant.</li>
+        <li>Creá usuarios y asignales la org correcta.</li>
+        {% else %}
+        <li>Seguí los pasos de la guía general.</li>
+        {% endif %}
+    </ul>
+    <div class="d-flex flex-column gap-2">
+        {% if ob_prev_url %}
+        <a href="{{ ob_prev_url }}" class="btn btn-outline-secondary btn-sm rounded-3"><i class="fas fa-arrow-left me-1"></i> Paso anterior</a>
+        {% endif %}
+        {% if ob_next_url %}
+        <a href="{{ ob_next_url }}" class="btn btn-salmon btn-sm rounded-3">Siguiente paso <i class="fas fa-arrow-right ms-1"></i></a>
+        {% endif %}
+        {% if ob_next_hint %}
+        <p class="small text-muted mb-0 border-top pt-2">{{ ob_next_hint }}</p>
+        {% endif %}
+        <a href="{{ url_for('admin_platform_setup') }}?guide=1" class="btn btn-link btn-sm text-decoration-none p-0 text-start"><i class="fas fa-map-signs me-1"></i> Ver guía completa</a>
+    </div>
+    {% if setup_wizard is defined and setup_wizard %}
+    <div class="progress mt-3" style="height:6px"><div class="progress-bar bg-success" role="progressbar" style="width: {{ setup_wizard.percent }}%"></div></div>
+    <div class="small text-muted mt-1">{{ setup_wizard.percent }}% configuración plataforma</div>
+    {% endif %}
+</div>
+{% endif %}

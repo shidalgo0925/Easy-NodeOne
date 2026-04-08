@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Cotizaciones | {{ get_nav_brand_name() }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" id="odooQuotationList">
+    <div id="salesError" class="alert alert-danger d-none"></div>
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <button id="btnNewQuotation" class="btn btn-primary btn-sm">Nuevo</button>
+        <button class="btn btn-light btn-sm border">Cargar</button>
+        <h5 class="mb-0 ms-2">Cotizaciones</h5>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <span class="badge bg-light text-dark border">Mis cotizaciones</span>
+            <input id="quotationSearch" class="form-control form-control-sm" style="width:260px" placeholder="Buscar...">
+        </div>
+    </div>
+    <div class="table-responsive border rounded bg-white">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:30px"><input type="checkbox"></th>
+                    <th>Número</th>
+                    <th>Fecha de creación</th>
+                    <th>Cliente</th>
+                    <th>Vendedor</th>
+                    <th>Actividades</th>
+                    <th class="text-end">Total</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyQuotations"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6"></td>
+                    <td class="text-end fw-bold" id="qTotalFooter">B/. 0.00</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/modules/sales/quotations_list.js') }}"></script>
+{% endblock %}
+

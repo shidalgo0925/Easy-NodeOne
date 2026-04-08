@@ -17,20 +17,44 @@ from app import (
 )
 
 
-def get_active_categories():
+def _member_org_id(organization_id=None):
+    if organization_id is not None:
+        return int(organization_id)
+    from app import _catalog_org_for_member_and_theme
+    oid = _catalog_org_for_member_and_theme()
+    if oid is None:
+        return None
+    return int(oid)
+
+
+def get_active_categories(organization_id=None):
+    """Categorías compartidas; no filtrar por organization_id (ServiceCategory no es multi-tenant)."""
+    oid = _member_org_id(organization_id)
+    if oid is None:
+        return []
     return ServiceCategory.query.filter_by(is_active=True).order_by(
         ServiceCategory.display_order, ServiceCategory.name
     ).all()
 
 
-def get_active_services():
-    return Service.query.filter_by(is_active=True).order_by(
+def get_active_services(organization_id=None):
+    oid = _member_org_id(organization_id)
+    if oid is None:
+        return []
+    return Service.query.filter_by(organization_id=oid, is_active=True).order_by(
         Service.display_order, Service.name
     ).all()
 
 
-def get_service_or_404(service_id):
-    return Service.query.get_or_404(service_id)
+def get_service_or_404(service_id, organization_id=None):
+    from flask import abort
+    oid = _member_org_id(organization_id)
+    if oid is None:
+        abort(404)
+    s = Service.query.filter_by(id=service_id, organization_id=oid).first()
+    if s is None:
+        abort(404)
+    return s
 
 
 def get_appointment_type(atype_id):

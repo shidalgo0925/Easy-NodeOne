@@ -6,20 +6,22 @@
 <!-- Encabezado del Dashboard -->
 <div class="dashboard-header bg-white border-bottom mb-2">
     <div class="container-fluid py-2">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <div class="d-flex align-items-center">
-                    <img src="{{ url_for('static', filename=get_system_logo()) }}?v={{ get_logo_cache_key() }}" alt="RELATIC" height="32" class="me-3" onerror="this.src='{{ url_for('static', filename='images/logo-relatic.svg') }}?v={{ get_logo_cache_key() }}';">
-                    <nav class="dashboard-nav">
+        <div class="row align-items-center g-3">
+            <div class="col-12 col-md-6">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <img src="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}" alt="{{ get_nav_brand_name() }}" height="32" class="flex-shrink-0 me-md-3" decoding="async" onerror="this.src='{{ url_for('static', filename=get_platform_logo()) }}?v={{ get_logo_cache_key() }}';">
+                    <nav class="dashboard-nav flex-grow-1 min-w-0">
                         <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link active">Inicio</a>
+                        {% if saas_module_enabled('appointments') %}
                         <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Contenido</a>
-                        <a href="{{ url_for('foros') }}" class="dashboard-nav-link">Comunidad</a>
+                        {% endif %}
+                        <a href="{{ url_for('member_community.foros') }}" class="dashboard-nav-link">Comunidad</a>
                         <a href="{{ url_for('members.profile') }}" class="dashboard-nav-link">Perfil</a>
                     </nav>
                 </div>
             </div>
-            <div class="col-md-6 text-end d-flex flex-column align-items-md-end justify-content-center">
-                <div class="mb-1">
+            <div class="col-12 col-md-6 text-md-end d-flex flex-column align-items-start align-items-md-end justify-content-center gap-2">
+                <div>
                     <span class="fw-bold">Bienvenido de vuelta, {{ current_user.first_name }}</span>
                     <span class="text-muted small d-none d-md-inline ms-1">· Aquí está lo nuevo para ti hoy</span>
                 </div>
@@ -28,14 +30,14 @@
                     <i class="fas fa-crown me-1"></i>Plan {{ membership.membership_type|upper }}
                 </span>
                 {% else %}
-                <a href="{{ url_for('membership') }}" class="btn btn-sm btn-outline-primary">
+                <a href="{{ url_for('membership') }}" class="btn btn-sm btn-outline-primary text-nowrap">
                     <i class="fas fa-crown me-1"></i>Ver Planes
                 </a>
                 {% endif %}
             </div>
-                </div>
-            </div>
-                </div>
+        </div>
+    </div>
+</div>
 
 <div class="container-fluid py-2">
     <!-- Advertencia de Email No Verificado -->
@@ -93,15 +95,15 @@
     
     <div class="row g-4">
         <!-- Columna Principal -->
-        <div class="col-lg-8">
+        <div class="col-12 col-lg-8">
             <!-- Calendario Visual de Eventos (PRIMERO) -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-calendar-alt me-2 text-danger"></i>Calendario
                         </h5>
-                        <a href="{{ url_for('events.list_events') }}" class="btn btn-sm btn-outline-danger">Ver todos los eventos</a>
+                        <a href="{{ url_for('events.list_events') }}" class="btn btn-sm btn-outline-danger text-nowrap align-self-stretch align-self-sm-auto">Ver todos los eventos</a>
                     </div>
                     {% if user_confirmed_appointments %}
                     <p class="small text-muted mb-2"><span class="badge bg-success me-1">Citas</span> Tus citas confirmadas por el asesor</p>
@@ -113,11 +115,13 @@
             <!-- Mis Recursos Recientes (SEGUNDO) -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-history me-2 text-info"></i>Mis Recursos Recientes
                         </h5>
-                        <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+                        {% if saas_module_enabled('appointments') %}
+                        <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-outline-primary text-nowrap align-self-stretch align-self-sm-auto">Ver todos</a>
+                        {% endif %}
                     </div>
                     <div class="recent-resources-list">
                         <div class="resource-item d-flex align-items-center mb-3 p-2 border rounded">
@@ -217,7 +221,7 @@
         </div>
 
         <!-- Sidebar Derecho -->
-        <div class="col-lg-4">
+        <div class="col-12 col-lg-4">
             <!-- Resumen rápido (compacto en columna derecha) -->
             {% if user_status %}
             <div class="card border-0 shadow-sm mb-4">
@@ -258,6 +262,7 @@
                                 <img src="{{ announcement.image_url }}" alt="{{ announcement.title }}" 
                                      class="rounded announcement-image-thumbnail w-100" 
                                      style="max-height: 200px; width: 100%; object-fit: contain; cursor: pointer; border: 1px solid #dee2e6; background: #f8f9fa; padding: 4px;"
+                                     loading="lazy" decoding="async"
                                      onclick="openAnnouncementImage('{{ announcement.image_url|e }}', '{{ announcement.title|e }}', {{ announcement.id }})"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
                                      title="Haz clic para ver en tamaño completo - {{ announcement.title }}">
@@ -280,11 +285,11 @@
             <!-- Mi Agenda -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-calendar me-2 text-primary"></i>Mi Agenda
                         </h5>
-                        <a href="{{ url_for('appointments.appointments_home') }}" class="btn btn-sm btn-outline-primary">Ver todas</a>
+                        <a href="{{ url_for('appointments.appointments_home') }}" class="btn btn-sm btn-outline-primary text-nowrap align-self-stretch align-self-sm-auto">Ver todas</a>
                     </div>
                     {% if upcoming_appointments or upcoming_events %}
                     <div class="agenda-list">
@@ -334,13 +339,15 @@
             <!-- Comunidad -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-users me-2 text-primary"></i>Comunidad
                         </h5>
-                        <div>
-                            <a href="{{ url_for('foros') }}" class="btn btn-sm btn-outline-primary me-2">Foros</a>
-                            <a href="{{ url_for('grupos') }}" class="btn btn-sm btn-outline-primary">Grupos</a>
+                        <div class="w-100 w-sm-auto min-w-0 mobile-scroll-x pb-1">
+                        <div class="d-flex flex-nowrap flex-sm-wrap gap-2 justify-content-sm-end">
+                            <a href="{{ url_for('member_community.foros') }}" class="btn btn-sm btn-outline-primary text-nowrap">Foros</a>
+                            <a href="{{ url_for('member_community.grupos') }}" class="btn btn-sm btn-outline-primary text-nowrap">Grupos</a>
+                        </div>
                         </div>
                     </div>
                     <div class="community-preview">
@@ -352,7 +359,7 @@
                                 <div class="ms-3 flex-grow-1">
                                     <h6 class="mb-1">Únete a la discusión</h6>
                                     <p class="text-muted small mb-2">Participa en los foros de investigación y metodología</p>
-                                    <a href="{{ url_for('foros') }}" class="btn btn-sm btn-outline-primary">Ver foros</a>
+                                    <a href="{{ url_for('member_community.foros') }}" class="btn btn-sm btn-outline-primary">Ver foros</a>
                                 </div>
                             </div>
                         </div>
@@ -364,7 +371,7 @@
                                 <div class="ms-3 flex-grow-1">
                                     <h6 class="mb-1">Grupos temáticos</h6>
                                     <p class="text-muted small mb-2">Conecta con investigadores de tu área</p>
-                                    <a href="{{ url_for('grupos') }}" class="btn btn-sm btn-outline-success">Ver grupos</a>
+                                    <a href="{{ url_for('member_community.grupos') }}" class="btn btn-sm btn-outline-success">Ver grupos</a>
                                 </div>
                             </div>
                         </div>
@@ -380,7 +387,7 @@
                     </div>
                     <h5 class="mb-2">¿Necesitas ayuda?</h5>
                     <p class="text-muted small mb-3">Estamos aquí para ayudarte con cualquier duda o problema</p>
-                    <a href="{{ url_for('help') if url_for('help') else '#' }}" class="btn btn-primary btn-sm w-100 mb-2">
+                    <a href="{{ url_for('member_pages.help_page') }}" class="btn btn-primary btn-sm w-100 mb-2">
                         <i class="fas fa-question-circle me-1"></i>Ver guías rápidas
                     </a>
                     <a href="mailto:info@relaticpanama.org" class="btn btn-outline-primary btn-sm w-100">
@@ -392,11 +399,11 @@
             <!-- Mi Progreso -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-tasks me-2 text-primary"></i>Mi Progreso
                         </h5>
-                        <a href="{{ url_for('membership') }}" class="btn btn-sm btn-primary">Seguir mi plan</a>
+                        <a href="{{ url_for('membership') }}" class="btn btn-sm btn-primary text-nowrap align-self-stretch align-self-sm-auto">Seguir mi plan</a>
                     </div>
                     {% if membership %}
                     <div class="progress-section">
@@ -445,9 +452,9 @@
 <div class="dashboard-footer bg-light border-top mt-5 py-4">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <div class="footer-links">
-                    <a href="{{ url_for('settings') }}" class="footer-link me-3">
+                    <a href="{{ url_for('member_pages.settings') }}" class="footer-link me-3">
                         <i class="fas fa-cog me-1"></i>Configuración de cuenta
                     </a>
                     <a href="{{ url_for('communications.notifications_page') }}" class="footer-link me-3">
@@ -455,7 +462,7 @@
                     </a>
                 </div>
             </div>
-            <div class="col-md-6 text-end">
+            <div class="col-12 col-md-6 text-md-end mt-3 mt-md-0">
                 <a href="{{ url_for('logout') }}" class="footer-link text-danger">
                     <i class="fas fa-sign-out-alt me-1"></i>Cerrar sesión
                 </a>
@@ -826,9 +833,18 @@
 /* Responsive */
 @media (max-width: 768px) {
     .dashboard-nav {
-        flex-direction: column;
-        gap: 8px;
-        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 12px;
+        align-items: center;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+        max-width: 100%;
+    }
+    .dashboard-nav-link {
+        white-space: nowrap;
+        flex-shrink: 0;
     }
     
     .services-grid-canvas {
@@ -1139,21 +1155,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 
                 <div class="row g-3 mb-4">
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <div class="text-center p-3 border rounded">
                             <i class="fas fa-crown fa-2x text-warning mb-2"></i>
                             <h6 class="mb-2">1. Elige tu Plan</h6>
                             <p class="text-muted small mb-0">Selecciona la membresía que mejor se adapte a tus necesidades</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <div class="text-center p-3 border rounded">
                             <i class="fas fa-book-open fa-2x text-primary mb-2"></i>
                             <h6 class="mb-2">2. Explora Contenido</h6>
                             <p class="text-muted small mb-0">Accede a revistas, cursos, bases de datos y recursos exclusivos</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <div class="text-center p-3 border rounded">
                             <i class="fas fa-users fa-2x text-success mb-2"></i>
                             <h6 class="mb-2">3. Únete a la Comunidad</h6>
@@ -1186,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (startBtn) {
         startBtn.addEventListener('click', function() {
             // Marcar onboarding como visto
-            fetch('{{ url_for("mark_onboarding_seen") }}', {
+            fetch('{{ url_for("public_api.mark_onboarding_seen") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

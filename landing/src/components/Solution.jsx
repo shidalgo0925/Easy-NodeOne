@@ -1,17 +1,17 @@
 import { motion } from 'framer-motion'
 
 const modules = [
-  { name: 'Core', desc: 'Usuarios, roles, permisos', icon: '◆' },
-  { name: 'Members', desc: 'Gestión de miembros', icon: '◇' },
-  { name: 'Services', desc: 'Citas y servicios', icon: '◎' },
-  { name: 'Payments', desc: 'Stripe, PayPal, Yappy', icon: '◉' },
-  { name: 'Communications', desc: 'Correo y WhatsApp', icon: '▣' },
-  { name: 'Integrations', desc: 'APIs y Odoo', icon: '⬡' },
+  { name: 'Core', desc: 'Usuarios, roles y permisos', icon: '◆' },
+  { name: 'Clientes', desc: 'Base de clientes unificada', icon: '◇' },
+  { name: 'Conversaciones', desc: 'Historial centralizado', icon: '◎' },
+  { name: 'Seguimiento', desc: 'Tareas y estado comercial', icon: '◉' },
+  { name: 'Comunicaciones', desc: 'Correo y canales de contacto', icon: '▣' },
+  { name: 'Integraciones', desc: 'APIs y conectores externos', icon: '⬡' },
 ]
 
 export default function Solution() {
   return (
-    <section id="modulos" className="bg-gray-light/50 px-4 py-20 md:py-28">
+    <section id="modulos" className="bg-gray-light/50 px-4 py-12 md:py-16">
       <div className="mx-auto max-w-6xl">
         <motion.h2
           className="text-center text-3xl font-bold text-gray-dark md:text-4xl"
@@ -20,13 +20,13 @@ export default function Solution() {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.5 }}
         >
-          Una plataforma modular, escalable y segura.
+          EasyNodeOne centraliza tus conversaciones, clientes y seguimiento en una sola plataforma.
         </motion.h2>
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map(({ name, desc, icon }, i) => (
             <motion.div
               key={name}
-              className="group relative overflow-hidden rounded-2xl border border-white bg-white p-8 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-glow hover:shadow-secondary/10"
+              className="group relative overflow-hidden rounded-2xl border border-white bg-white p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-glow hover:shadow-secondary/10"
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
@@ -38,7 +38,7 @@ export default function Solution() {
               </div>
               <h3 className="mt-5 text-lg font-semibold text-gray-dark">{name}</h3>
               <p className="mt-2 text-gray-mid">{desc}</p>
-              <a href="#demo" className="mt-5 inline-block font-medium text-secondary transition-opacity hover:opacity-80">
+              <a href="/contact#demo" className="mt-5 inline-block font-medium text-secondary transition-opacity hover:opacity-80">
                 Ver más →
               </a>
             </motion.div>

@@ -5,7 +5,7 @@
 {% block page_content %}
 <div class="container pt-0 pb-5">
     <div class="row justify-content-center">
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white text-center">
                     <h3><i class="fas fa-user-plus"></i> Registro de Usuario</h3>
@@ -81,7 +81,7 @@
                                 <br>
                                 Las credenciales OAuth deben configurarse en las variables de entorno.
                                 <br>
-                                <a href="{{ url_for('help') }}#oauth-config" class="alert-link">
+                                <a href="{{ url_for('member_pages.help_page') }}#oauth-config" class="alert-link">
                                     <i class="fas fa-question-circle me-1"></i>Ver guía de configuración
                                 </a>
                             </small>

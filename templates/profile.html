@@ -6,14 +6,14 @@
 <div class="container py-4">
     <div class="row">
         <div class="col-12">
-            <h1 class="display-6 mb-4">
+            <h1 class="h3 mb-3">
                 <i class="fas fa-user"></i> Mi Perfil
             </h1>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-12 col-md-8">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-user-edit"></i> Información Personal</h5>
@@ -21,14 +21,14 @@
                 <div class="card-body">
                     <form id="profile-form">
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <div class="mb-3">
                                     <label for="first_name" class="form-label">Nombre <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="first_name" name="first_name" 
                                            value="{{ current_user.first_name }}" required>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <div class="mb-3">
                                     <label for="last_name" class="form-label">Apellido <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="last_name" name="last_name" 
@@ -97,7 +97,7 @@
             </div>
         </div>
         
-        <div class="col-md-4">
+        <div class="col-12 col-md-4 mt-4 mt-md-0">
             <!-- Foto de Perfil -->
             <div class="card mb-3">
                 <div class="card-header">

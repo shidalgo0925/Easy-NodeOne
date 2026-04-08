@@ -69,7 +69,7 @@
             position: 'right'
         },
         {
-            element: 'a[href*="admin_backup"]',
+            element: 'a[href*="/admin/backup"]',
             intro: '<h4>💾 Respaldos de BD</h4><p><strong>⚠️ MUY IMPORTANTE:</strong> Crea respaldos regulares de la base de datos.</p><p><strong>¿Cómo hacer respaldo?</strong><ol><li>Haz clic aquí para acceder a respaldos</li><li>Haz clic en "Crear y Descargar Respaldo"</li><li>Descarga el archivo .db a tu computadora</li><li>Guarda los respaldos en un lugar seguro</li><li>Para restaurar, selecciona un backup y haz clic en "Restaurar"</li></ol></p>',
             position: 'right'
         },

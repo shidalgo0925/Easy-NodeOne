@@ -190,7 +190,8 @@ def verify_notification_engine():
         'event_confirmation',
         'event_update',
         'appointment_confirmation',
-        'appointment_reminder'
+        'appointment_reminder',
+        'appointment_cancellation'
     ]
     
     print("🔍 Verificando tipos de notificaciones:")
@@ -228,7 +229,8 @@ def verify_notification_engine():
         'notify_event_confirmation',
         'notify_event_update',
         'notify_appointment_confirmation',
-        'notify_appointment_reminder'
+        'notify_appointment_reminder',
+        'notify_appointment_cancelled'
     ]
     
     for method_name in methods:

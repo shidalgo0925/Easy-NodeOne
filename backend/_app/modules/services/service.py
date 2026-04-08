@@ -25,11 +25,14 @@ PLANS_INFO_FALLBACK = {
 }
 
 
-def _get_plans_info():
+def _get_plans_info(user=None):
     """Obtener plans_info desde BD (MembershipPlan) o fallback estático."""
     try:
-        from app import MembershipPlan
-        return MembershipPlan.get_plans_info()
+        from app import MembershipPlan, _enable_multi_tenant_catalog
+        oid = None
+        if user is not None and _enable_multi_tenant_catalog():
+            oid = int(getattr(user, 'organization_id', None) or 1)
+        return MembershipPlan.get_plans_info(organization_id=oid)
     except Exception:
         return PLANS_INFO_FALLBACK.copy()
 
@@ -83,7 +86,7 @@ def get_services_page_data(user):
     return {
         'membership': active_membership,
         'services_by_plan': services_by_plan,
-        'plans_info': _get_plans_info(),
+        'plans_info': _get_plans_info(user),
         'categories': categories,
         'user_membership_type': membership_type,
         'membership_type': membership_type,
@@ -133,7 +136,7 @@ def get_request_appointment_data(service_id, user, selected_advisor_id=None, ret
     if not advisors_list:
         return None, (url_for('services.list'), 'Este servicio no tiene asesores con horarios configurados. Por favor, contacta al administrador.', 'error')
     # Generar slots si faltan
-    from app import generate_slots_from_availability
+    from nodeone.modules.appointments.slot_generation import generate_slots_from_availability
     for aid in advisors_with_schedules:
         try:
             if repository.count_slots(aid, service.appointment_type_id, 30) < 10:
@@ -244,7 +247,8 @@ def get_calendar_data(service_id, start_date=None, end_date=None, advisor_id_fil
     """
     Datos para GET /api/services/<id>/calendar. Devuelve dict para jsonify o (None, error_msg, status_code).
     """
-    from app import generate_slots_from_availability, Advisor, Appointment
+    from nodeone.modules.appointments.slot_generation import generate_slots_from_availability
+    from app import Advisor, Appointment
     service = repository.get_service_or_404(service_id)
     if not service.is_active:
         return None, 'Este servicio no está disponible', 400

@@ -19,7 +19,8 @@ os.chdir(backend_dir)
 try:
     from app import app, db, Payment, PaymentConfig, User, Cart, CartItem
     from payment_processors import get_payment_processor
-    
+    from utils.organization import default_organization_id
+
     with app.app_context():
         print("\n" + "="*70)
         print("🔍 DIAGNÓSTICO DE PAGOS PENDIENTES - YAPPY")
@@ -28,8 +29,10 @@ try:
         # 1. Verificar configuración de Yappy
         print("1️⃣ VERIFICANDO CONFIGURACIÓN DE YAPPY")
         print("-" * 70)
-        payment_config = PaymentConfig.get_active_config()
-        
+        _def_oid = default_organization_id()
+        payment_config = PaymentConfig.get_active_config(organization_id=_def_oid)
+        print(f"   (config mostrada: tenant por defecto organization_id={_def_oid})")
+
         if not payment_config:
             print("❌ No hay configuración de pagos activa")
         else:
@@ -118,9 +121,18 @@ try:
         print("4️⃣ VERIFICANDO PROCESADOR DE YAPPY")
         print("-" * 70)
         
-        if payment_config:
+        proc_config = payment_config
+        if pending_payments:
+            pc_user = PaymentConfig.get_active_config_for_user_id(pending_payments[0].user_id)
+            if pc_user:
+                proc_config = pc_user
+                print(
+                    f"   (procesador: tenant del pago pendiente user_id={pending_payments[0].user_id})"
+                )
+
+        if proc_config:
             try:
-                processor = get_payment_processor('yappy', payment_config)
+                processor = get_payment_processor('yappy', proc_config)
                 print("✅ Procesador de Yappy inicializado correctamente")
                 
                 # Probar con un pago pendiente si existe

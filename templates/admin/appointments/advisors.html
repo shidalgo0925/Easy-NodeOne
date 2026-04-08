@@ -3,12 +3,12 @@
 {% block title %}Asesores de citas{% endblock %}
 
 {% block content %}
-<div class="container">
-    <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3">
+<div class="container-fluid px-3">
+    <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-3 text-nowrap">
         <i class="fas fa-arrow-left me-2"></i>Volver a citas
     </a>
     <div class="row g-4">
-        <div class="col-lg-7">
+        <div class="col-12 col-lg-7">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0">
                     <h1 class="h5 mb-0">Asesores registrados</h1>
@@ -48,7 +48,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-5">
+        <div class="col-12 col-lg-5">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0">
                     <h2 class="h6 mb-0">Agregar asesor</h2>

@@ -86,6 +86,13 @@ EMAIL_TEMPLATES = [
         'variables': '{"user": ["first_name", "last_name", "email"], "advisor": ["first_name", "last_name"], "appointment": ["appointment_date", "appointment_time", "duration"], "hours_before": "number"}'
     },
     {
+        'template_key': 'appointment_cancellation',
+        'name': 'Cancelación de Cita',
+        'subject': 'Cancelación de cita - RelaticPanama',
+        'category': 'appointment',
+        'variables': '{"user": ["first_name", "last_name", "email"], "appointment": ["reference", "start_datetime"], "cancellation_reason": "string", "cancelled_by": "string"}'
+    },
+    {
         'template_key': 'password_reset',
         'name': 'Restablecimiento de Contraseña',
         'subject': 'Restablecer Contraseña - RelaticPanama',
@@ -98,7 +105,21 @@ EMAIL_TEMPLATES = [
         'subject': 'Nueva solicitud Office 365 – {email}',
         'category': 'system',
         'variables': '{"user_name": "string", "email": "string", "purpose": "string", "description": "string", "request_id": "number"}'
-    }
+    },
+    {
+        'template_key': 'crm_activity_assigned',
+        'name': 'CRM — Nueva actividad asignada',
+        'subject': '[CRM] Nueva actividad asignada: {activity_summary}',
+        'category': 'crm',
+        'variables': '{"lead_name": "string", "activity_summary": "string", "activity_type": "string", "due_text": "string", "crm_url": "string", "assignee_name": "string"}'
+    },
+    {
+        'template_key': 'crm_activity_reminder',
+        'name': 'CRM — Recordatorio / vencimiento de actividad',
+        'subject': '[CRM] {alert_label}: {activity_summary}',
+        'category': 'crm',
+        'variables': '{"lead_name": "string", "activity_summary": "string", "activity_type": "string", "due_text": "string", "alert_label": "string", "alert_kind": "string", "crm_url": "string", "assignee_name": "string"}'
+    },
 ]
 
 
@@ -116,7 +137,7 @@ def initialize_email_templates():
             for template_data in EMAIL_TEMPLATES:
                 # Verificar si ya existe
                 existing = EmailTemplate.query.filter_by(
-                    template_key=template_data['template_key']
+                    organization_id=1, template_key=template_data['template_key']
                 ).first()
                 
                 if existing:
@@ -130,6 +151,7 @@ def initialize_email_templates():
                 else:
                     # Crear nuevo template (sin contenido HTML, usa el por defecto)
                     template = EmailTemplate(
+                        organization_id=1,
                         template_key=template_data['template_key'],
                         name=template_data['name'],
                         subject=template_data['subject'],

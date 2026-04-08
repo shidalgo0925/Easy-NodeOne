@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Chatbots - Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h5 mb-2">
+                <i class="fas fa-robot"></i> Chatbots
+            </h1>
+            <p class="text-muted small">Módulo inicial del chat. Aquí verás el estado del encendido progresivo y el acceso a la configuración de IA.</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Paso 1</h6>
+                    <h5 class="mb-2">Configuración IA</h5>
+                    <p class="small text-muted mb-3">Estado actual del proveedor y activación desde panel.</p>
+                    <p class="mb-1"><strong>IA activa:</strong> {{ 'Sí' if ai_config and ai_config.enabled else 'No' }}</p>
+                    <p class="mb-1"><strong>Collection:</strong> {{ ai_config.collection if ai_config else 'nodeone' }}</p>
+                    <p class="mb-3"><strong>Timeout:</strong> {{ ai_config.timeout_seconds if ai_config else 15 }}s</p>
+                    <a href="{{ url_for('admin_ai') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-sliders-h me-1"></i> Configurar IA
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Paso 2</h6>
+                    <h5 class="mb-2">Conexión del bot</h5>
+                    <p class="small text-muted mb-3">Falta enlazar el handler real de mensajes al servicio `ask_ai(...)`.</p>
+                    <span class="badge bg-warning text-dark">Pendiente</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Paso 3</h6>
+                    <h5 class="mb-2">Canales</h5>
+                    <p class="small text-muted mb-3">WhatsApp, Telegram o canal interno cuando definamos el punto de entrada real.</p>
+                    <span class="badge bg-secondary">Por integrar</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <strong><i class="fas fa-list-check"></i> Qué ya está listo</strong>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li>Activar o desactivar IA desde panel.</li>
+                <li>Definir `API URL`, `API Key`, `Collection`, `Timeout` y `Fallback`.</li>
+                <li>Servicio Python `ask_ai(...)` preparado para usarse.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-header bg-light d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
+            <strong class="min-w-0"><i class="fas fa-vial"></i> Probar prompt</strong>
+            <span class="small text-muted">Prueba manual contra la API configurada</span>
+        </div>
+        <div class="card-body">
+            <div id="ai-test-alert"></div>
+            <div class="row g-3">
+                <div class="col-12 col-md-8">
+                    <label for="test-prompt" class="form-label">Prompt</label>
+                    <textarea id="test-prompt" class="form-control" rows="4" placeholder="Escribe aquí el mensaje que quieres enviar a la IA..."></textarea>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label for="test-session-id" class="form-label">Session ID</label>
+                    <input type="text" id="test-session-id" class="form-control" value="admin-test" placeholder="admin-test">
+                    <small class="text-muted">Opcional. Sirve para mantener contexto si tu API lo soporta.</small>
+                </div>
+                <div class="col-12">
+                    <button type="button" class="btn btn-primary" id="btn-test-ai">
+                        <i class="fas fa-paper-plane me-1"></i> Enviar prueba
+                    </button>
+                </div>
+                <div class="col-12">
+                    <label for="test-response" class="form-label">Respuesta</label>
+                    <textarea id="test-response" class="form-control" rows="8" readonly placeholder="La respuesta de la IA aparecerá aquí..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var btn = document.getElementById('btn-test-ai');
+    var promptEl = document.getElementById('test-prompt');
+    var sessionEl = document.getElementById('test-session-id');
+    var responseEl = document.getElementById('test-response');
+    var alertEl = document.getElementById('ai-test-alert');
+
+    function showAlert(msg, type) {
+        alertEl.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    btn.addEventListener('click', function() {
+        var prompt = (promptEl.value || '').trim();
+        var sessionId = (sessionEl.value || '').trim() || 'admin-test';
+        responseEl.value = '';
+        alertEl.innerHTML = '';
+
+        if (!prompt) {
+            showAlert('Escribe un prompt antes de probar.', 'warning');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Probando...';
+
+        fetch('/api/admin/ai/test', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                prompt: prompt,
+                session_id: sessionId
+            })
+        })
+        .then(function(r) {
+            return r.text().then(function(body) {
+                var parsed = null;
+                try { parsed = JSON.parse(body); } catch (e) {}
+                return { ok: r.ok, status: r.status, redirected: r.redirected, body: body, j: parsed };
+            });
+        })
+        .then(function(result) {
+            if (result.ok && result.j && result.j.success) {
+                responseEl.value = result.j.response || '';
+                showAlert('Prueba completada.', 'success');
+            } else if (result.status === 401 || result.status === 403) {
+                showAlert((result.j && result.j.error) || 'Tu sesión no tiene permisos o expiró. Recarga la página e inicia sesión de nuevo.', 'danger');
+            } else if (result.redirected || (result.body || '').toLowerCase().indexOf('<!doctype html>') !== -1) {
+                showAlert('La solicitud fue redirigida al login o devolvió HTML. Recarga la página e inicia sesión de nuevo.', 'danger');
+            } else {
+                showAlert((result.j && result.j.error) || 'Error al probar IA.', 'danger');
+            }
+        })
+        .catch(function() {
+            showAlert('Error de conexión.', 'danger');
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Enviar prueba';
+        });
+    });
+})();
+</script>
+{% endblock %}

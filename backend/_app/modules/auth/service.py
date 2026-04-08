@@ -2,6 +2,18 @@
 from . import repository
 
 
+def safe_next_path(candidate):
+    """Path relativo interno seguro para redirect post-login; None si no es válido."""
+    if not candidate:
+        return None
+    s = str(candidate).strip()
+    if not s.startswith('/') or s.startswith('//'):
+        return None
+    if '\\' in s or '\n' in s or '\r' in s:
+        return None
+    return s
+
+
 def login(email, password):
     user = repository.get_user_by_email(email)
     if not user:

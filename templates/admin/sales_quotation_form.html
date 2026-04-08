@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Cotización | {{ get_nav_brand_name() }}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}">
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3 quote-odoo-page" id="odooQuotationForm" data-quotation-id="{{ quotation_id }}" data-initial-status="{{ quotation_status or '' }}">
+    <div id="formError" class="alert alert-danger d-none"></div>
+    <div id="quoteReadonlyBanner" class="alert alert-light border mb-3 py-2 small d-none" role="status">
+        <strong>Solo lectura.</strong> Fuera de borrador no puede editar líneas ni cabecera. Use <strong>Cancelar</strong> si aplica, o cree una cotización nueva.
+    </div>
+    <div id="quoteSavedToast" class="quote-saved-toast d-none" role="status" aria-live="polite">Guardado</div>
+
+    <div class="quote-odoo-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" id="btnSave" class="btn btn-primary btn-sm">Guardar</button>
+            <button type="button" id="btnSend" class="btn btn-light border btn-sm">Enviar por correo</button>
+            <button type="button" id="btnConfirm" class="btn btn-outline-primary btn-sm">Confirmar</button>
+            <button type="button" id="btnCreateInvoice" class="btn btn-outline-success btn-sm">Crear factura</button>
+            <a id="btnViewInvoice" class="btn btn-outline-secondary btn-sm d-none" href="/admin/accounting/invoices">Ver factura</a>
+            <button type="button" id="btnPreview" class="btn btn-light border btn-sm">Vista previa</button>
+            <button type="button" id="btnCancel" class="btn btn-light border btn-sm">Cancelar</button>
+            <button type="button" id="btnDeleteQuotation" class="btn btn-danger btn-sm">Eliminar</button>
+        </div>
+        <div class="ms-auto d-flex align-items-center gap-2 quote-odoo-status flex-wrap justify-content-end">
+            <span class="badge rounded-pill text-bg-secondary" id="stDraft" title="Borrador">Borrador</span>
+            <span class="badge rounded-pill text-bg-primary" id="stSent" title="Enviada">Enviada</span>
+            <span class="badge rounded-pill text-bg-success" id="stConfirmed" title="Confirmada">Confirmada</span>
+            <span class="badge rounded-pill text-bg-info" id="stInvoiced" title="Facturada">Facturada</span>
+            <span class="badge rounded-pill text-bg-dark" id="stPaid" title="Pagada">Pagada</span>
+        </div>
+    </div>
+
+    <div class="quote-odoo-card card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <div class="quote-odoo-header d-flex flex-wrap align-items-end gap-3 gap-lg-4 mb-4 pb-3 border-bottom">
+                <div class="quote-odoo-number-wrap">
+                    <span class="quote-odoo-number" id="qNumber">—</span>
+                </div>
+                <div class="quote-odoo-meta flex-grow-1 d-flex flex-wrap align-items-end gap-3 gap-xl-4">
+                    <label class="quote-odoo-field quote-odoo-field-customer">
+                        <span class="quote-odoo-label">Cliente</span>
+                        <div class="odoo-m2o quote-customer-m2o" id="quoteCustomerM2o">
+                            <div class="d-flex align-items-stretch odoo-m2o-input-wrap">
+                                <input type="text" id="customerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Buscar por nombre, correo o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Miembros de esta organización">
+                            </div>
+                            <input type="hidden" id="customerId" value="">
+                            <div id="customerMenu" class="odoo-m2o-dropdown" role="listbox"></div>
+                        </div>
+                    </label>
+                    <label class="quote-odoo-field">
+                        <span class="quote-odoo-label">Fecha</span>
+                        <input id="quoteDate" class="quote-odoo-input" type="date" readonly title="Fecha de la cotización">
+                    </label>
+                    <label class="quote-odoo-field">
+                        <span class="quote-odoo-label">Vencimiento</span>
+                        <input id="validityDate" class="quote-odoo-input" type="date">
+                    </label>
+                    <label class="quote-odoo-field quote-odoo-field-grow">
+                        <span class="quote-odoo-label">Términos de pago</span>
+                        <input id="paymentTerms" class="quote-odoo-input" placeholder="Inmediato">
+                    </label>
+                </div>
+                <div class="w-100 d-flex flex-wrap gap-3 gap-xl-4 align-items-end mt-2 pt-2 border-top border-light">
+                    <label class="quote-odoo-field flex-grow-1" style="min-width:12rem">
+                        <span class="quote-odoo-label">Vendedor</span>
+                        <input id="quoteSeller" class="quote-odoo-input" placeholder="Opcional" autocomplete="off">
+                    </label>
+                    <label class="quote-odoo-field flex-grow-1" style="min-width:16rem">
+                        <span class="quote-odoo-label">Notas internas</span>
+                        <input id="quoteInternalNotes" class="quote-odoo-input" placeholder="Solo uso interno" autocomplete="off">
+                    </label>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs quote-odoo-tabs border-0 mb-0" id="qTabs" role="tablist">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-lines" type="button">Líneas</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-optional" type="button">Opcionales</button></li>
+            </ul>
+
+            <div class="tab-content quote-odoo-tab-content border border-top-0 rounded-bottom bg-white p-3 p-md-4">
+                <div class="tab-pane fade show active" id="tab-lines">
+                    <div class="quotation-lines-table-outer">
+                        <table class="table quotation-lines-table quote-lines-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Descripción</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Precio</th>
+                                    <th>Impuesto</th>
+                                    <th class="text-end">Importe</th>
+                                    <th class="text-center" style="width:2.5rem"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="lineItems"></tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-2">
+                        <button type="button" class="btn btn-primary btn-sm" id="btnAddLine">+ Agregar línea</button>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm border dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="btnLineExtras">Más</button>
+                            <ul class="dropdown-menu dropdown-menu-start shadow-sm" aria-labelledby="btnLineExtras">
+                                <li><a class="dropdown-item" href="#" id="menuAddNote">Agregar nota</a></li>
+                                <li><a class="dropdown-item" href="#" id="menuAddSection">Agregar sección</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" id="menuOpenCatalog">Buscar en catálogo…</a></li>
+                            </ul>
+                        </div>
+                        <span class="text-muted small ms-md-2 d-none d-md-inline quote-lines-hint">Enter en cantidad o precio abre una línea nueva</span>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="tab-optional">
+                    <p class="text-muted small mb-0">Servicios opcionales (no suman al total) — próxima fase.</p>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-4">
+                <div class="quote-totals-panel">
+                    <div class="quote-totals-row"><span>Subtotal</span><span id="subtotalLbl">B/. 0.00</span></div>
+                    <div class="quote-totals-row"><span>Impuestos</span><span id="taxLbl">B/. 0.00</span></div>
+                    <div class="quote-totals-row quote-totals-grand"><span>Total</span><span id="grandLbl">B/. 0.00</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="serviceCatalogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title">Catálogo de servicios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="search" class="form-control form-control-sm mb-2" id="serviceCatalogFilter" placeholder="Filtrar…" autocomplete="off">
+                <div class="table-responsive border rounded" style="max-height:380px">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light"><tr><th>Servicio</th><th>Descripción</th><th class="text-end">Precio</th></tr></thead>
+                        <tbody id="serviceCatalogRows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="quotePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Vista previa de cotización</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="quotePreviewBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=11"></script>
+{% endblock %}

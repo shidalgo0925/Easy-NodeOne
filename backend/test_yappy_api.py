@@ -16,14 +16,15 @@ os.chdir(backend_dir)
 
 try:
     from app import app, db, PaymentConfig
-    
+    from utils.organization import default_organization_id
+
     with app.app_context():
         print("\n" + "="*70)
         print("🔍 PRUEBA DE CONECTIVIDAD CON API DE YAPPY")
         print("="*70 + "\n")
         
-        payment_config = PaymentConfig.get_active_config()
-        
+        payment_config = PaymentConfig.get_active_config(organization_id=default_organization_id())
+
         if not payment_config:
             print("❌ No hay configuración de pagos")
             sys.exit(1)

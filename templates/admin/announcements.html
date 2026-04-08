@@ -4,19 +4,19 @@
 
 {% block page_content %}
 <div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-0">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2 mb-4">
+        <div class="min-w-0">
+            <h1 class="h4 mb-0">
                 <i class="fas fa-bullhorn me-2 text-primary"></i>Anuncios y Mensajes
             </h1>
             <p class="text-muted mb-0">Gestiona los mensajes que ven los miembros en el dashboard</p>
         </div>
-        <a href="{{ url_for('admin_announcements_create') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i> Nuevo Anuncio</a>
+        <a href="{{ url_for('admin_announcements_create') }}" class="btn btn-sm btn-primary text-nowrap align-self-stretch align-self-md-auto"><i class="fas fa-plus me-1"></i> Nuevo Anuncio</a>
     </div>
 
     <!-- Estadísticas -->
     <div class="row mb-4">
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -33,7 +33,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -50,7 +50,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -72,7 +72,8 @@
     <!-- Filtros en una línea -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body py-2">
-            <form method="GET" class="d-flex flex-wrap align-items-end gap-2">
+            <div class="w-100 mobile-scroll-x pb-1">
+            <form method="GET" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                 <div class="flex-shrink-0">
                     <label class="form-label form-label-sm mb-0">Estado</label>
                     <select name="status" class="form-select form-select-sm" style="width:120px">
@@ -86,6 +87,7 @@
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter me-1"></i> Filtrar</button>
                 </div>
             </form>
+            </div>
         </div>
     </div>
 

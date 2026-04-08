@@ -15,7 +15,7 @@
 
     <form method="POST">
         <div class="row">
-            <div class="col-md-8">
+            <div class="col-12 col-md-8">
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información Básica</h5>
@@ -43,14 +43,14 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Tipo de Descuento <span class="text-danger">*</span></label>
                                 <select name="discount_type" class="form-select" id="discount_type" required>
                                     <option value="percentage" {% if discount and discount.discount_type == 'percentage' %}selected{% endif %}>Porcentaje (%)</option>
                                     <option value="fixed" {% if discount and discount.discount_type == 'fixed' %}selected{% endif %}>Monto Fijo ($)</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Valor <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="number" name="value" class="form-control" step="0.01" min="0" 
@@ -91,13 +91,13 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Fecha de Inicio</label>
                                 <input type="datetime-local" name="start_date" class="form-control" 
                                        value="{{ discount.start_date.strftime('%Y-%m-%dT%H:%M') if discount and discount.start_date else '' }}">
                                 <small class="form-text text-muted">Opcional - dejar vacío para sin límite</small>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Fecha de Fin</label>
                                 <input type="datetime-local" name="end_date" class="form-control" 
                                        value="{{ discount.end_date.strftime('%Y-%m-%dT%H:%M') if discount and discount.end_date else '' }}">
@@ -114,7 +114,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0"><i class="fas fa-cog"></i> Opciones</h5>

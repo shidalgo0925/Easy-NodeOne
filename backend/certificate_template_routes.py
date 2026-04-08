@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 certificate_templates_bp = Blueprint('certificate_templates', __name__, url_prefix='/api')
 
 
+def _tpl_admin_org_id():
+    from app import _catalog_org_for_admin_catalog_routes
+    return _catalog_org_for_admin_catalog_routes()
+
+
 def _admin_required(f):
     from functools import wraps
     @wraps(f)
@@ -51,10 +56,11 @@ def _background_path_from_url(url, upload_dir):
     return path if os.path.isfile(path) else None
 
 
-def render_html_from_json_layout(template_model, data, base_url, qr_base64=None, upload_dir=None):
+def render_html_from_json_layout(template_model, data, base_url, qr_base64=None, upload_dir=None, use_file_urls=True):
     """
     Genera HTML a partir de template (CertificateTemplate) con json_layout y data.
     data: participant_name, program_name, hours, issue_date, certificate_code, verification_url, institution, etc.
+    use_file_urls: si True (PDF/WeasyPrint) usa file:// para assets locales; si False (vista previa en navegador) solo URLs HTTP.
     """
     layout_raw = template_model.json_layout
     if not layout_raw:
@@ -64,13 +70,13 @@ def render_html_from_json_layout(template_model, data, base_url, qr_base64=None,
     except Exception:
         return None
     canvas_cfg = layout.get('canvas') or {}
-    width = canvas_cfg.get('width', 1200)
-    height = canvas_cfg.get('height', 900)
+    width = canvas_cfg.get('width', 1024)
+    height = canvas_cfg.get('height', 768)
     elements = layout.get('elements') or []
     bg_url = (template_model.background_image or '').strip()
     if bg_url and base_url:
         bg_url = _abs_url(base_url, bg_url)
-    if upload_dir and template_model.background_image and '/static/uploads/certificates/' in (template_model.background_image or ''):
+    if use_file_urls and upload_dir and template_model.background_image and '/static/uploads/certificates/' in (template_model.background_image or ''):
         bg_path = _background_path_from_url(template_model.background_image, upload_dir)
         if bg_path:
             bg_url = 'file://' + os.path.abspath(bg_path)
@@ -112,7 +118,7 @@ def render_html_from_json_layout(template_model, data, base_url, qr_base64=None,
             src = el.get('src', '')
             if src and base_url and not src.startswith('data:'):
                 src = _abs_url(base_url, src)
-            if upload_dir and src and '/static/uploads/certificates/' in src:
+            if use_file_urls and upload_dir and src and '/static/uploads/certificates/' in src:
                 bp = _background_path_from_url(src, upload_dir)
                 if bp:
                     src = 'file://' + os.path.abspath(bp)
@@ -162,9 +168,10 @@ def render_pdf_from_json_layout(template_model, data, base_url, qr_base64, uploa
 def _template_to_dict(t):
     return {
         'id': t.id,
+        'organization_id': getattr(t, 'organization_id', None) or 1,
         'name': t.name,
-        'width': t.width or 1200,
-        'height': t.height or 900,
+        'width': t.width or 1024,
+        'height': t.height or 768,
         'background_image': t.background_image,
         'json_layout': t.json_layout,
         'created_at': t.created_at.isoformat() if t.created_at else None,
@@ -177,7 +184,10 @@ def _template_to_dict(t):
 @_admin_required
 def list_templates():
     from app import CertificateTemplate
-    items = CertificateTemplate.query.order_by(CertificateTemplate.updated_at.desc()).all()
+    coid = _tpl_admin_org_id()
+    items = CertificateTemplate.query.filter_by(organization_id=coid).order_by(
+        CertificateTemplate.updated_at.desc()
+    ).all()
     return jsonify({'items': [_template_to_dict(t) for t in items]})
 
 
@@ -194,9 +204,10 @@ def create_template():
     if isinstance(json_layout, dict):
         json_layout = json.dumps(json_layout)
     t = CertificateTemplate(
+        organization_id=_tpl_admin_org_id(),
         name=name.strip(),
-        width=int(data.get('width', 1200)),
-        height=int(data.get('height', 900)),
+        width=int(data.get('width', 1024)),
+        height=int(data.get('height', 768)),
         background_image=data.get('background_image') or None,
         json_layout=json_layout,
     )
@@ -210,7 +221,8 @@ def create_template():
 @_admin_required
 def get_template(template_id):
     from app import CertificateTemplate
-    t = CertificateTemplate.query.get(template_id)
+    coid = _tpl_admin_org_id()
+    t = CertificateTemplate.query.filter_by(id=template_id, organization_id=coid).first()
     if not t:
         return jsonify({'error': 'Plantilla no encontrada'}), 404
     return jsonify({'item': _template_to_dict(t)})
@@ -221,16 +233,17 @@ def get_template(template_id):
 @_admin_required
 def update_template(template_id):
     from app import db, CertificateTemplate
-    t = CertificateTemplate.query.get(template_id)
+    coid = _tpl_admin_org_id()
+    t = CertificateTemplate.query.filter_by(id=template_id, organization_id=coid).first()
     if not t:
         return jsonify({'error': 'Plantilla no encontrada'}), 404
     data = request.get_json() or {}
     if data.get('name') is not None:
         t.name = (data.get('name') or '').strip() or t.name
     if 'width' in data:
-        t.width = int(data.get('width', 1200))
+        t.width = int(data.get('width', 1024))
     if 'height' in data:
-        t.height = int(data.get('height', 900))
+        t.height = int(data.get('height', 768))
     if 'background_image' in data:
         t.background_image = data.get('background_image') or None
     if 'json_layout' in data:
@@ -245,7 +258,8 @@ def update_template(template_id):
 @_admin_required
 def delete_template(template_id):
     from app import db, CertificateTemplate
-    t = CertificateTemplate.query.get(template_id)
+    coid = _tpl_admin_org_id()
+    t = CertificateTemplate.query.filter_by(id=template_id, organization_id=coid).first()
     if not t:
         return jsonify({'error': 'Plantilla no encontrada'}), 404
     db.session.delete(t)

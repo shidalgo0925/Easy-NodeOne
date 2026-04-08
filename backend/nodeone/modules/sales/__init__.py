@@ -1,0 +1,2 @@
+"""Módulo Sales: cotizaciones."""
+

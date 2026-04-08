@@ -1,0 +1,22 @@
+MODULE = {
+    'id': 'appointments',
+    'name': 'Appointments',
+    'depends_on': [],
+    'routes_module': 'nodeone.modules.appointments.routes',
+    'models_module': 'nodeone.modules.appointments.models',
+    'slot_generation_module': 'nodeone.modules.appointments.slot_generation',
+    'advisor_slots_module': 'nodeone.modules.appointments.advisor_slots_api',
+    'model_names': [
+        'Appointment',
+        'AppointmentType',
+        'AppointmentSlot',
+        'AppointmentAdvisor',
+        'AppointmentParticipant',
+        'AppointmentPricing',
+        'AdvisorAvailability',
+        'AdvisorServiceAvailability',
+        'DailyServiceAvailability',
+        'Advisor',
+        'Proposal',
+    ],
+}

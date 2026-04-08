@@ -133,7 +133,14 @@ NOTIFICATION_TYPES = [
     {
         'notification_type': 'appointment_reminder',
         'name': 'Recordatorio de Cita',
-        'description': 'Se envía como recordatorio antes de una cita (24 y 48 horas antes). Se ejecuta automáticamente por notification_scheduler.py',
+        'description': 'Se envía como recordatorio antes de una cita (24h y 1h antes). Se ejecuta automáticamente por notification_scheduler.py',
+        'category': 'appointment',
+        'enabled': True
+    },
+    {
+        'notification_type': 'appointment_cancellation',
+        'name': 'Cancelación de Cita (miembro)',
+        'description': 'Se envía al miembro cuando se cancela una cita. Llamado desde NotificationEngine.notify_appointment_cancelled()',
         'category': 'appointment',
         'enabled': True
     }

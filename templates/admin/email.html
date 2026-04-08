@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Configuración de Email - RelaticPanama{% endblock %}
+{% block title %}Configuración de Email — {{ email_page_org_name|default('Organización') }}{% endblock %}
 
 {% block page_content %}
 <div class="container py-4">
@@ -10,6 +10,13 @@
                 <i class="fas fa-envelope"></i> Configuración de Email
             </h1>
             <p class="text-muted">Configura el servidor SMTP y edita los templates de correo</p>
+            {% if multi_tenant_catalog_enabled %}
+            <div class="alert alert-info small mb-0 mt-2">
+                <strong>Organización:</strong> {{ email_page_org_name }}.
+                Las filas de plantillas son de <em>esta</em> empresa; si se clonaron al crear el tenant, los nombres pueden parecer los de Default.
+                Con badge <span class="badge bg-info">Por defecto</span>, el HTML del correo sale del <strong>código</strong> de la plataforma (marca Relatic) hasta que guardes HTML personalizado aquí o uses <strong>Resetear</strong> solo para volver al código.
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -31,45 +38,55 @@
         </div>
     </div>
 
-    <!-- Sección 0: Gestión de Logo -->
+    <!-- Sección 0: Gestión de Logo (acordeón, mismo patrón que SMTP en móvil) -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-image"></i> Logo para Emails</h5>
-                </div>
-                <div class="card-body">
-                    <form id="logo-form" enctype="multipart/form-data">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label for="logo_file" class="form-label">Subir Logo</label>
-                                <input type="file" class="form-control" id="logo_file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/svg+xml">
-                                <small class="form-text text-muted">
-                                    Formatos: PNG (recomendado), JPG, SVG. Tamaño recomendado: 90-150px de ancho. Máximo 500KB.
-                                </small>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Logo Actual</label>
-                                <div id="current-logo-container">
-                                    <img id="current-logo" src="{{ url_for('static', filename='public/emails/logos/logo-relatic.png') }}?v={{ get_logo_cache_key() }}"
-                                         alt="Logo actual" 
-                                         style="max-width: 150px; max-height: 80px; border: 1px solid #ddd; padding: 5px; border-radius: 4px;"
-                                         onerror="this.style.display='none'; document.getElementById('no-logo-message').style.display='block';">
-                                    <div id="no-logo-message" style="display: none; color: #666; font-style: italic;">
-                                        No hay logo cargado. Sube uno para que aparezca en todos los emails.
-                                    </div>
+                <div class="card-body pb-3">
+                    <div class="accordion eno-settings-accordion" id="logoEmailAccordion">
+                        <div class="accordion-item border rounded overflow-hidden mb-0">
+                            <h2 class="accordion-header m-0" id="logoEmailHead">
+                                <button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#logoEmailCollapse" aria-expanded="true" aria-controls="logoEmailCollapse">
+                                    <i class="fas fa-image me-2 text-warning"></i>Logo para emails
+                                </button>
+                            </h2>
+                            <div id="logoEmailCollapse" class="accordion-collapse collapse show" aria-labelledby="logoEmailHead">
+                                <div class="accordion-body pt-0">
+                                    <form id="logo-form" enctype="multipart/form-data">
+                                        <div class="row">
+                                            <div class="col-12 col-md-6">
+                                                <label for="logo_file" class="form-label">Subir Logo</label>
+                                                <input type="file" class="form-control" id="logo_file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/svg+xml">
+                                                <small class="form-text text-muted">
+                                                    Formatos: PNG (recomendado), JPG, SVG. Tamaño recomendado: 90-150px de ancho. Máximo 500KB.
+                                                </small>
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label">Logo Actual</label>
+                                                <div id="current-logo-container">
+                                                    <img id="current-logo" {% if email_logo_initial_url %}src="{{ email_logo_initial_url }}"{% endif %}
+                                                         alt="Logo actual" decoding="async"
+                                                         style="max-width: 150px; max-height: 80px; border: 1px solid #ddd; padding: 5px; border-radius: 4px;{% if not email_logo_initial_url %} display: none;{% endif %}"
+                                                         onerror="this.style.display='none'; document.getElementById('no-logo-message').style.display='block';">
+                                                    <div id="no-logo-message" style="{% if email_logo_initial_url %}display: none;{% else %}display: block;{% endif %} color: #666; font-style: italic;">
+                                                        No hay logo para esta organización. Sube uno para los correos de este tenant.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-column flex-md-row flex-wrap gap-2 mt-3">
+                                            <button type="submit" class="btn btn-warning">
+                                                <i class="fas fa-upload"></i> Subir Logo
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger" onclick="deleteLogo()" id="delete-logo-btn" style="display: none;">
+                                                <i class="fas fa-trash"></i> Eliminar Logo
+                                            </button>
+                                        </div>
+                                    </form>
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-3">
-                            <button type="submit" class="btn btn-warning">
-                                <i class="fas fa-upload"></i> Subir Logo
-                            </button>
-                            <button type="button" class="btn btn-outline-danger" onclick="deleteLogo()" id="delete-logo-btn" style="display: none;">
-                                <i class="fas fa-trash"></i> Eliminar Logo
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -84,73 +101,105 @@
                 </div>
                 <div class="card-body">
                     <form id="smtp-form">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="mail_server" class="form-label">Servidor SMTP</label>
-                                <input type="text" class="form-control" id="mail_server" name="mail_server" 
-                                       value="{% if email_config %}{{ email_config.mail_server }}{% else %}smtp.gmail.com{% endif %}" required>
-                                <small class="form-text text-muted">Ejemplo: smtp.gmail.com, smtp.resend.com, smtp-relay.brevo.com</small>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="mail_port" class="form-label">Puerto</label>
-                                <input type="number" class="form-control" id="mail_port" name="mail_port" 
-                                       value="{% if email_config %}{{ email_config.mail_port }}{% else %}587{% endif %}" required>
-                                <small class="form-text text-muted">587 (TLS) o 465 (SSL). Resend: si se cuelga la prueba, usa 587 + TLS (SSL desmarcado).</small>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" id="mail_use_tls" name="mail_use_tls"
-                                           {% if not email_config or (email_config and email_config.mail_use_tls) %}checked{% endif %}>
-                                    <label class="form-check-label" for="mail_use_tls">Usar TLS</label>
+                        <div class="accordion eno-settings-accordion mb-3" id="smtpSections">
+                            <div class="accordion-item border rounded overflow-hidden mb-2">
+                                <h2 class="accordion-header m-0" id="smtpHeadSrv">
+                                    <button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#smtpCollapseSrv" aria-expanded="true" aria-controls="smtpCollapseSrv">
+                                        <i class="fas fa-network-wired me-2 text-primary"></i>Servidor y encriptación
+                                    </button>
+                                </h2>
+                                <div id="smtpCollapseSrv" class="accordion-collapse collapse show" aria-labelledby="smtpHeadSrv">
+                                    <div class="accordion-body pt-0">
+                                        <div class="row mb-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="mail_server" class="form-label">Servidor SMTP</label>
+                                                <input type="text" class="form-control" id="mail_server" name="mail_server" 
+                                                       value="{% if email_config %}{{ email_config.mail_server }}{% else %}smtp.gmail.com{% endif %}" required>
+                                                <small class="form-text text-muted">Ejemplo: smtp.gmail.com, smtp.resend.com, smtp-relay.brevo.com</small>
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label for="mail_port" class="form-label">Puerto</label>
+                                                <input type="number" class="form-control" id="mail_port" name="mail_port" 
+                                                       value="{% if email_config %}{{ email_config.mail_port }}{% else %}587{% endif %}" required>
+                                                <small class="form-text text-muted">587 (TLS) o 465 (SSL). Resend: si se cuelga la prueba, usa 587 + TLS (SSL desmarcado).</small>
+                                            </div>
+                                        </div>
+                                        <div class="row mb-0">
+                                            <div class="col-12 col-md-6">
+                                                <div class="form-check form-switch mb-3">
+                                                    <input class="form-check-input" type="checkbox" id="mail_use_tls" name="mail_use_tls"
+                                                           {% if not email_config or (email_config and email_config.mail_use_tls) %}checked{% endif %}>
+                                                    <label class="form-check-label" for="mail_use_tls">Usar TLS</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <div class="form-check form-switch mb-3">
+                                                    <input class="form-check-input" type="checkbox" id="mail_use_ssl" name="mail_use_ssl"
+                                                           {% if email_config and email_config.mail_use_ssl %}checked{% endif %}>
+                                                    <label class="form-check-label" for="mail_use_ssl">Usar SSL</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" id="mail_use_ssl" name="mail_use_ssl"
-                                           {% if email_config and email_config.mail_use_ssl %}checked{% endif %}>
-                                    <label class="form-check-label" for="mail_use_ssl">Usar SSL</label>
+                            <div class="accordion-item border rounded overflow-hidden mb-2">
+                                <h2 class="accordion-header m-0" id="smtpHeadAuth">
+                                    <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#smtpCollapseAuth" aria-expanded="false" aria-controls="smtpCollapseAuth">
+                                        <i class="fas fa-key me-2 text-primary"></i>Autenticación SMTP
+                                    </button>
+                                </h2>
+                                <div id="smtpCollapseAuth" class="accordion-collapse collapse" aria-labelledby="smtpHeadAuth">
+                                    <div class="accordion-body">
+                                        <div class="row g-3 mb-0">
+                                            <div class="col-12 col-md-6">
+                                                <label for="mail_username" class="form-label">Usuario SMTP / Email</label>
+                                                <input type="text" class="form-control" id="mail_username" name="mail_username" 
+                                                       value="{% if email_config %}{{ email_config.mail_username or '' }}{% endif %}"
+                                                       placeholder="Ej: usuario@smtp-brevo.com">
+                                                <small class="form-text text-muted">Dejar vacío si se usa variable de entorno</small>
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label for="mail_password" class="form-label">Contraseña</label>
+                                                <input type="password" class="form-control" id="mail_password" name="mail_password" 
+                                                       placeholder="Dejar vacío para no cambiar">
+                                                <small class="form-text text-muted">Dejar vacío para no cambiar</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item border rounded overflow-hidden mb-2">
+                                <h2 class="accordion-header m-0" id="smtpHeadFrom">
+                                    <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#smtpCollapseFrom" aria-expanded="false" aria-controls="smtpCollapseFrom">
+                                        <i class="fas fa-paper-plane me-2 text-primary"></i>Remitente y entorno
+                                    </button>
+                                </h2>
+                                <div id="smtpCollapseFrom" class="accordion-collapse collapse" aria-labelledby="smtpHeadFrom">
+                                    <div class="accordion-body">
+                                        <div class="row mb-0">
+                                            <div class="col-12 col-md-6">
+                                                <label for="mail_default_sender" class="form-label">Remitente por Defecto</label>
+                                                <input type="email" class="form-control" id="mail_default_sender" name="mail_default_sender" 
+                                                       value="{% if email_config %}{{ email_config.mail_default_sender }}{% else %}noreply@easynodeone.com{% endif %}" required>
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <div class="form-check form-switch mt-md-4 pt-md-2">
+                                                    <input class="form-check-input" type="checkbox" id="use_environment_variables" name="use_environment_variables"
+                                                           {% if not email_config or (email_config and email_config.use_environment_variables) %}checked{% endif %}>
+                                                    <label class="form-check-label" for="use_environment_variables">
+                                                        Usar Variables de Entorno
+                                                    </label>
+                                                    <small class="form-text text-muted d-block">Si está activado, se usarán MAIL_* del sistema. Para Brevo u otro SMTP propio, desmarca esta opción al guardar.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="mail_username" class="form-label">Usuario SMTP / Email</label>
-                                <input type="text" class="form-control" id="mail_username" name="mail_username" 
-                                       value="{% if email_config %}{{ email_config.mail_username or '' }}{% endif %}"
-                                       placeholder="Ej: usuario@smtp-brevo.com">
-                                <small class="form-text text-muted">Dejar vacío si se usa variable de entorno</small>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="mail_password" class="form-label">Contraseña</label>
-                                <input type="password" class="form-control" id="mail_password" name="mail_password" 
-                                       placeholder="Dejar vacío para no cambiar">
-                                <small class="form-text text-muted">Dejar vacío para no cambiar</small>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="mail_default_sender" class="form-label">Remitente por Defecto</label>
-                                <input type="email" class="form-control" id="mail_default_sender" name="mail_default_sender" 
-                                       value="{% if email_config %}{{ email_config.mail_default_sender }}{% else %}noreply@easynodeone.com{% endif %}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-check form-switch mt-4 pt-2">
-                                    <input class="form-check-input" type="checkbox" id="use_environment_variables" name="use_environment_variables"
-                                           {% if not email_config or (email_config and email_config.use_environment_variables) %}checked{% endif %}>
-                                    <label class="form-check-label" for="use_environment_variables">
-                                        Usar Variables de Entorno
-                                    </label>
-                                    <small class="form-text text-muted d-block">Si está activado, se usarán MAIL_* del sistema. Para Brevo u otro SMTP propio, desmarca esta opción al guardar.</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="d-flex gap-2">
+                        <div class="d-flex flex-column flex-md-row flex-wrap gap-2">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Guardar Configuración
                             </button>
@@ -171,10 +220,52 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header bg-success text-white">
+                <div class="card-header bg-success text-white d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <h5 class="mb-0"><i class="fas fa-file-alt"></i> Templates de Correo</h5>
+                    {% if show_email_templates_clone %}
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-light text-success" id="btn-clone-templates" title="Copia desde la organización base (1) las plantillas que aún no existen aquí">
+                            <i class="fas fa-copy"></i> Clonar desde base
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light" id="btn-clone-templates-overwrite" title="Sobrescribe asunto y HTML de las plantillas ya existentes con los de la org base">
+                            <i class="fas fa-sync-alt"></i> Clonar y sobrescribir
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="card-body">
+                    {% if show_email_templates_clone %}
+                    <div class="card border border-success border-opacity-25 bg-body-secondary mb-4 overflow-hidden">
+                        <div class="row g-0 align-items-stretch">
+                            <div class="col-12 col-md-5 col-lg-4 bg-white d-flex align-items-center justify-content-center p-3">
+                                <img src="{{ url_for('static', filename='public/help/email-templates-clone-guide.png') }}"
+                                     alt="Esquema: plantillas maestras en Default se copian al tenant"
+                                     class="img-fluid rounded shadow-sm"
+                                     style="max-height: 240px; object-fit: contain;"
+                                     loading="lazy" decoding="async" width="480" height="240">
+                            </div>
+                            <div class="col-12 col-md-7 col-lg-8">
+                                <div class="p-3 p-md-4">
+                                    <h6 class="text-success mb-2"><i class="fas fa-route me-1"></i> Cómo funciona el proceso</h6>
+                                    <p class="small text-muted mb-3 mb-md-2">
+                                        En SaaS multi-tenant las plantillas de correo viven primero en la organización <strong>Default (id&nbsp;1)</strong>.
+                                        Tu empresa (tenant) <strong>no crea</strong> filas vacías: <strong>clona</strong> desde esa base y luego ajusta textos, asuntos y HTML con tu marca.
+                                    </p>
+                                    <ol class="small mb-3 ps-3">
+                                        <li class="mb-1">Comprueba que el panel corresponde a <strong>esta</strong> organización (menú Empresa, <code>?organization_id=</code> o subdominio).</li>
+                                        <li class="mb-1"><strong>Clonar desde base</strong> — copia desde Default solo las plantillas que <strong>aún no existen</strong> aquí.</li>
+                                        <li class="mb-1"><strong>Editar / Ver</strong> — personaliza y previsualiza; el logo del tenant se aplica en la vista previa según configuración.</li>
+                                        <li class="mb-0"><strong>Clonar y sobrescribir</strong> — vuelve a traer asunto y HTML desde Default sobre las plantillas ya existentes (útil si actualizaste la base).</li>
+                                    </ol>
+                                    <p class="small text-muted mb-0">
+                                        <i class="fas fa-undo text-secondary me-1"></i>
+                                        <strong>Resetear</strong> en una plantilla deja de usar el HTML guardado en BD y vuelve al comportamiento por defecto del código para esa clave.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% if templates and templates|length > 0 %}
                         {% for category, templates_list in templates.items() %}
                         <div class="mb-4">
@@ -235,11 +326,13 @@
                     {% else %}
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle"></i> <strong>No se encontraron templates.</strong>
-                            <br><br>
-                            <p>Esto puede deberse a:</p>
-                            <ul>
-                                <li>Los templates no se han inicializado en la base de datos</li>
-                                <li>Hay un problema con la conexión a la base de datos</li>
+                            {% if show_email_templates_clone %}
+                            <p class="mb-2 mt-2">Pulsa <strong>Clonar desde base</strong> arriba para copiar las plantillas de la organización Default.</p>
+                            {% endif %}
+                            <p class="mb-0">Otras causas posibles:</p>
+                            <ul class="mb-0">
+                                <li>Los templates no se han inicializado en la base de datos (org Default)</li>
+                                <li>Problema de conexión a la base de datos</li>
                             </ul>
                         </div>
                     {% endif %}
@@ -627,5 +720,35 @@ window.addEventListener('load', async () => {
         console.error('Error al verificar logo:', error);
     }
 });
+
+// Clonar plantillas desde org base (1) → tenant actual del contexto /admin/email
+(function () {
+    const btn = document.getElementById('btn-clone-templates');
+    const btnOw = document.getElementById('btn-clone-templates-overwrite');
+    async function doClone(overwrite) {
+        const msg = overwrite
+            ? 'Se sobrescribirán asunto y HTML de las plantillas que ya existan en este tenant con los de la organización base. ¿Continuar?'
+            : 'Se copiarán desde la organización base solo las plantillas que aún no existan aquí. ¿Continuar?';
+        if (!confirm(msg)) return;
+        try {
+            const r = await fetch('/api/admin/email/templates/clone-from-default', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ overwrite: overwrite, source_organization_id: 1 }),
+            });
+            const data = await r.json();
+            if (data.success) {
+                showAlert('Listo: ' + data.created + ' nuevas, ' + data.updated + ' actualizadas, ' + data.skipped + ' omitidas (ya existían y no se sobrescribieron).', 'success');
+                location.reload();
+            } else {
+                showAlert(data.error || 'Error al clonar', 'danger');
+            }
+        } catch (e) {
+            showAlert('Error de conexión', 'danger');
+        }
+    }
+    if (btn) btn.addEventListener('click', function () { doClone(false); });
+    if (btnOw) btn.addEventListener('click', function () { doClone(true); });
+})();
 </script>
 {% endblock %}

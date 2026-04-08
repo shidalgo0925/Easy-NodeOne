@@ -4,8 +4,8 @@
 
 {% block page_content %}
 <div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-start gap-2 mb-4">
+        <div class="min-w-0">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-1">
                     <li class="breadcrumb-item"><a href="{{ url_for('admin_roles_list') }}">Roles</a></li>
@@ -17,7 +17,7 @@
             </h1>
             <p class="text-muted mb-0 small">Solo lectura. Código, categoría y roles que los usan.</p>
         </div>
-        <a href="{{ url_for('admin_roles_list') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Roles</a>
+        <a href="{{ url_for('admin_roles_list') }}" class="btn btn-sm btn-outline-secondary text-nowrap align-self-stretch align-self-md-auto"><i class="fas fa-arrow-left me-1"></i> Roles</a>
     </div>
 
     <div class="card border-0 shadow-sm">

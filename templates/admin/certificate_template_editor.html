@@ -4,19 +4,21 @@
 
 {% block page_content %}
 <div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2 mb-3">
         <h1 class="h5 mb-0"><i class="fas fa-palette"></i> Editor de plantilla</h1>
-        <div>
-            <a href="{{ url_for('admin_certificate_templates') }}" class="btn btn-outline-secondary btn-sm me-2">Volver</a>
-            <input type="text" id="templateName" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Nombre de la plantilla" value="">
-            <button type="button" id="btnSave" class="btn btn-primary btn-sm">Guardar</button>
+        <div class="w-100 w-md-auto min-w-0 mobile-scroll-x pb-1">
+        <div class="d-flex flex-nowrap flex-md-wrap gap-2 align-items-center">
+            <a href="{{ url_for('admin_certificate_templates') }}" class="btn btn-outline-secondary btn-sm text-nowrap flex-shrink-0">Volver</a>
+            <input type="text" id="templateName" class="form-control form-control-sm flex-grow-1" style="min-width:10rem;max-width:20rem" placeholder="Nombre de la plantilla" value="">
+            <button type="button" id="btnSave" class="btn btn-primary btn-sm text-nowrap flex-shrink-0">Guardar</button>
+        </div>
         </div>
     </div>
 
     <div id="alert-container"></div>
 
-    <div class="row">
-        <div class="col-md-2 border-end">
+    <div class="row g-3">
+        <div class="col-12 col-md-2 border-end pb-3 pb-md-0 mb-3 mb-md-0">
             <p class="small fw-bold mb-2">Objetos</p>
             <button type="button" id="btnAddText" class="btn btn-outline-secondary btn-sm w-100 mb-1">Texto</button>
             <button type="button" id="btnAddImage" class="btn btn-outline-secondary btn-sm w-100 mb-1">Imagen</button>
@@ -31,40 +33,111 @@
             </select>
             <button type="button" id="btnAddVariable" class="btn btn-outline-secondary btn-sm w-100 mb-1">Añadir variable</button>
             <button type="button" id="btnAddQR" class="btn btn-outline-secondary btn-sm w-100 mb-1">QR verificación</button>
+            <button type="button" id="btnDelete" class="btn btn-outline-danger btn-sm w-100 mb-1">Eliminar seleccionado</button>
+            <p class="small fw-bold mb-1 mt-2">Capas (orden)</p>
+            <p class="small text-muted mb-1">La <strong>imagen de fondo</strong> (abajo) va siempre detrás de textos e imágenes. Entre objetos: lo que queda <strong>arriba</strong> tapa lo de abajo. Al guardar, el orden del listado es el que verás en el PDF.</p>
+            <button type="button" id="btnLayerUp" class="btn btn-outline-secondary btn-sm w-100 mb-1" title="Un nivel más arriba">Subir capa</button>
+            <button type="button" id="btnLayerDown" class="btn btn-outline-secondary btn-sm w-100 mb-1" title="Un nivel más abajo">Bajar capa</button>
+            <button type="button" id="btnLayerFront" class="btn btn-outline-secondary btn-sm w-100 mb-1" title="Encima de todo">Al frente</button>
+            <button type="button" id="btnLayerBack" class="btn btn-outline-secondary btn-sm w-100 mb-1" title="Detrás de todo">Al fondo</button>
+            <p class="small text-muted mb-1 mt-2">Fondo del certificado</p>
+            <button type="button" id="btnBgImage" class="btn btn-outline-secondary btn-sm w-100 mb-1">Imagen de fondo</button>
+            <button type="button" id="btnBgClear" class="btn btn-outline-warning btn-sm w-100 mb-1">Quitar fondo</button>
             <input type="file" id="fileImage" accept="image/*" class="d-none">
+            <input type="file" id="fileBgImage" accept="image/*" class="d-none">
         </div>
-        <div class="col-md-10">
-            <p class="small text-muted mb-1">Haz clic en un botón de la izquierda para añadir un objeto; luego arrástralo en el recuadro blanco.</p>
-            <div id="canvas-wrapper" class="border rounded overflow-auto bg-secondary bg-opacity-10" style="min-height: 400px; max-height: 85vh;">
-                <canvas id="editor" width="1200" height="900"></canvas>
+        <div class="col-12 col-md-10">
+            <p class="small text-muted mb-1">Añadí objetos; <strong>clic</strong> para seleccionar y <strong>arrastrar</strong>. <strong>Eliminar</strong>: botón o Supr/Retroceso (no editando texto). <strong>Capas</strong>: usá los botones de la izquierda con un objeto seleccionado.</p>
+            <div id="canvas-wrapper" class="border rounded overflow-auto cert-editor-workspace" style="min-height: 400px; max-height: 85vh;">
+                <canvas id="editor" width="1024" height="768"></canvas>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-#canvas-wrapper .canvas-container { margin: 0 auto; }
-#canvas-wrapper canvas { display: block; background: #fff !important; box-shadow: 0 0 0 1px #dee2e6; }
+/* Área gris alrededor del lienzo; NO poner fondo blanco en upper-canvas (tapaba todo y anulaba arrastre/selección). */
+#canvas-wrapper.cert-editor-workspace {
+    background: #dee2e6;
+    padding: 12px;
+}
+#canvas-wrapper .canvas-container {
+    margin: 0 auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    touch-action: none;
+}
+#canvas-wrapper canvas.lower-canvas {
+    display: block;
+    background: #fff !important;
+}
+#canvas-wrapper canvas.upper-canvas {
+    display: block;
+    background: transparent !important;
+}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+{# Fabric 5.3.0 CDN tiene typo textBaseline="alphabetical"; copia local corregida en static/js #}
+<script src="{{ url_for('static', filename='js/fabric-5.3.0.min.js') }}"></script>
 <script>
 (function() {
-    const templateId = {{ template_id|default('null') }};
-    const alertEl = document.getElementById('alert-container');
-    const canvasEl = document.getElementById('editor');
-    const templateNameEl = document.getElementById('templateName');
-    const btnSave = document.getElementById('btnSave');
-    const btnAddText = document.getElementById('btnAddText');
-    const btnAddImage = document.getElementById('btnAddImage');
-    const btnAddVariable = document.getElementById('btnAddVariable');
-    const btnAddQR = document.getElementById('btnAddQR');
-    const selVariable = document.getElementById('selVariable');
-    const fileImage = document.getElementById('fileImage');
+    const templateId = {{ template_id | tojson }};
 
     let canvas = null;
+    let alertEl = null;
+    let templateNameEl = null;
+    let btnSave = null;
+    let btnAddText = null;
+    let btnAddImage = null;
+    let btnAddVariable = null;
+    let btnAddQR = null;
+    let selVariable = null;
+    let fileImage = null;
+    let fileBgImage = null;
+    let btnBgImage = null;
+    let btnBgClear = null;
+    let btnDelete = null;
+    let btnLayerUp = null;
+    let btnLayerDown = null;
+    let btnLayerFront = null;
+    let btnLayerBack = null;
+    /** URL guardada en BD (/static/...) o data URL temporal; se envía en PUT/POST */
+    let backgroundImageUrl = null;
+
+    /* Etiquetas mustache: se arman con String.fromCharCode (no escribir llaves dobles aquí: Jinja las parsea). */
+    function mustacheVar(inner) {
+        return String.fromCharCode(123, 123) + inner + String.fromCharCode(125, 125);
+    }
+    var VAR_LABELS = {
+        participant_name: mustacheVar('nombre'),
+        program_name: mustacheVar('programa'),
+        hours: mustacheVar('horas'),
+        issue_date: mustacheVar('fecha'),
+        certificate_code: mustacheVar('código'),
+        institution: mustacheVar('institución')
+    };
 
     function showAlert(msg, type) {
+        if (!alertEl) { try { console.warn('[editor cert]', msg); } catch (e) {} return; }
         alertEl.innerHTML = '<div class="alert alert-' + (type || 'info') + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function bindDom() {
+        alertEl = document.getElementById('alert-container');
+        templateNameEl = document.getElementById('templateName');
+        btnSave = document.getElementById('btnSave');
+        btnAddText = document.getElementById('btnAddText');
+        btnAddImage = document.getElementById('btnAddImage');
+        btnAddVariable = document.getElementById('btnAddVariable');
+        btnAddQR = document.getElementById('btnAddQR');
+        selVariable = document.getElementById('selVariable');
+        fileImage = document.getElementById('fileImage');
+        fileBgImage = document.getElementById('fileBgImage');
+        btnBgImage = document.getElementById('btnBgImage');
+        btnBgClear = document.getElementById('btnBgClear');
+        btnDelete = document.getElementById('btnDelete');
+        btnLayerUp = document.getElementById('btnLayerUp');
+        btnLayerDown = document.getElementById('btnLayerDown');
+        btnLayerFront = document.getElementById('btnLayerFront');
+        btnLayerBack = document.getElementById('btnLayerBack');
     }
 
     function initCanvas(w, h) {
@@ -72,8 +145,8 @@
             showAlert('No se pudo cargar Fabric.js. Comprueba la conexión o permisos del navegador.', 'danger');
             return;
         }
-        w = w || 1200;
-        h = h || 900;
+        w = w || 1024;
+        h = h || 768;
         if (canvas) {
             canvas.dispose();
             canvas = null;
@@ -82,25 +155,100 @@
         if (!el) { showAlert('Canvas no encontrado.', 'danger'); return; }
         el.width = w;
         el.height = h;
-        canvas = new fabric.Canvas('editor', {
-            width: w,
-            height: h,
-            backgroundColor: '#ffffff',
-            selection: true
+        try {
+            canvas = new fabric.Canvas('editor', {
+                width: w,
+                height: h,
+                backgroundColor: '#ffffff',
+                selection: true,
+                renderOnAddRemove: true
+            });
+            canvas.renderAll();
+            bindCanvasKeys();
+        } catch (e) {
+            canvas = null;
+            showAlert('No se pudo crear el lienzo Fabric: ' + (e && e.message ? e.message : String(e)), 'danger');
+        }
+    }
+
+    var FABRIC_EXTRA_PROPS = ['dataType', 'dataVariable', 'dataSrc', 'dataSize'];
+
+    /** Recarga el estado del lienzo sin fondo (más fiable que solo anular backgroundImage). */
+    function clearFabricBackground(done) {
+        if (!canvas) { if (typeof done === 'function') done(); return; }
+        try {
+            var data = canvas.toObject(FABRIC_EXTRA_PROPS);
+            if (data && typeof data === 'object') {
+                delete data.backgroundImage;
+                delete data.overlayImage;
+                data.background = '#ffffff';
+            }
+            var w = canvas.getWidth();
+            var h = canvas.getHeight();
+            canvas.loadFromJSON(data, function () {
+                try {
+                    canvas.setDimensions({ width: w, height: h });
+                    canvas.backgroundImage = null;
+                    canvas.backgroundColor = '#ffffff';
+                    canvas.renderAll();
+                } catch (e1) {}
+                if (typeof done === 'function') done();
+            });
+        } catch (e2) {
+            try {
+                canvas.backgroundImage = null;
+                canvas.backgroundColor = '#ffffff';
+                canvas.renderAll();
+            } catch (e3) {}
+            if (typeof done === 'function') done();
+        }
+    }
+
+    function applyBackgroundImage(url, done) {
+        if (!canvas) { if (typeof done === 'function') done(); return; }
+        if (!url) {
+            clearFabricBackground(done);
+            return;
+        }
+        var cw = canvas.getWidth();
+        var ch = canvas.getHeight();
+        fabric.Image.fromURL(url, function (img) {
+            if (!canvas || !img) {
+                showAlert('No se pudo cargar la imagen de fondo (URL o CORS).', 'warning');
+                if (typeof done === 'function') done();
+                return;
+            }
+            var iw = img.width || 1;
+            var ih = img.height || 1;
+            var s = Math.max(cw / iw, ch / ih);
+            img.set({
+                scaleX: s,
+                scaleY: s,
+                originX: 'center',
+                originY: 'center',
+                left: cw / 2,
+                top: ch / 2,
+                selectable: false,
+                evented: false
+            });
+            canvas.setBackgroundImage(img, function () {
+                canvas.backgroundColor = '#ffffff';
+                canvas.requestRenderAll();
+                if (typeof done === 'function') done();
+            });
         });
-        canvas.renderAll();
     }
 
     function addText() {
-        if (!canvas) return;
-        const text = new fabric.Textbox('Texto', { left: 200, top: 200, width: 300, fontSize: 40, fontFamily: 'Times New Roman', fill: '#000' });
+        if (!canvas) { showAlert('El lienzo no está listo. Recargá la página o revisá que Fabric.js cargue.', 'warning'); return; }
+        const text = new fabric.Textbox('Texto', { left: 200, top: 200, width: 300, fontSize: 40, fontFamily: 'Times New Roman', fill: '#000', textBaseline: 'alphabetic' });
         canvas.add(text);
         canvas.setActiveObject(text);
         canvas.renderAll();
     }
 
     function addImage(src) {
-        if (!canvas) return;
+        if (!canvas) { showAlert('El lienzo no está listo.', 'warning'); return; }
         fabric.Image.fromURL(src, function(img) {
             const scale = Math.min(200 / (img.width || 1), 200 / (img.height || 1), 1);
             img.set({ left: 100, top: 100, scaleX: scale, scaleY: scale });
@@ -112,9 +260,10 @@
     }
 
     function addVariable(name) {
-        if (!canvas || !name) return;
-        const label = { participant_name: '{{nombre}}', program_name: '{{programa}}', hours: '{{horas}}', issue_date: '{{fecha}}', certificate_code: '{{código}}', institution: '{{institución}}' }[name] || '{{' + name + '}}';
-        const text = new fabric.Textbox(label, { left: 200, top: 300, width: 400, fontSize: 36, fontFamily: 'Times New Roman' });
+        if (!canvas) { showAlert('El lienzo no está listo.', 'warning'); return; }
+        if (!name) { showAlert('Elegí una variable en el desplegable (Programa, Horas, etc.) y después tocá "Añadir variable".', 'warning'); return; }
+        const label = VAR_LABELS[name] || mustacheVar(name);
+        const text = new fabric.Textbox(label, { left: 200, top: 300, width: 400, fontSize: 36, fontFamily: 'Times New Roman', fill: '#000000', textBaseline: 'alphabetic' });
         text.dataType = 'variable';
         text.dataVariable = name;
         canvas.add(text);
@@ -122,8 +271,102 @@
         canvas.renderAll();
     }
 
+    function getActiveForLayer() {
+        if (!canvas) return null;
+        var o = canvas.getActiveObject();
+        if (!o) {
+            showAlert('Seleccioná un elemento en el lienzo. La imagen de fondo de plantilla no se mueve aquí: usá "Quitar fondo".', 'info');
+            return null;
+        }
+        return o;
+    }
+
+    function layerBringForward() {
+        var o = getActiveForLayer();
+        if (!o) return;
+        canvas.bringForward(o);
+        canvas.requestRenderAll();
+    }
+
+    function layerSendBackwards() {
+        var o = getActiveForLayer();
+        if (!o) return;
+        canvas.sendBackwards(o);
+        canvas.requestRenderAll();
+    }
+
+    function layerBringToFront() {
+        var o = getActiveForLayer();
+        if (!o) return;
+        canvas.bringToFront(o);
+        canvas.requestRenderAll();
+    }
+
+    function layerSendToBack() {
+        var o = getActiveForLayer();
+        if (!o) return;
+        canvas.sendToBack(o);
+        canvas.requestRenderAll();
+    }
+
+    function removeSelectedObjects() {
+        if (!canvas) {
+            showAlert('El lienzo no está listo.', 'warning');
+            return;
+        }
+        var act = canvas.getActiveObject();
+        if (!act) {
+            showAlert('Seleccioná un elemento en el lienzo (clic sobre texto, imagen o QR).', 'info');
+            return;
+        }
+        var toRemove = [];
+        if (act.type === 'activeSelection') {
+            toRemove = (typeof act.getObjects === 'function') ? act.getObjects().slice() : (act._objects ? act._objects.slice() : []);
+        } else {
+            toRemove = [act];
+        }
+        if (!toRemove.length) {
+            showAlert('Seleccioná un elemento en el lienzo.', 'info');
+            return;
+        }
+        toRemove.forEach(function (o) {
+            if (o && typeof o.exitEditing === 'function') {
+                try { o.exitEditing(); } catch (x) {}
+            }
+        });
+        try { canvas.discardActiveObject(); } catch (x2) {}
+        toRemove.forEach(function (o) {
+            if (!o) return;
+            try {
+                canvas.remove(o);
+            } catch (x3) {
+                try { if (typeof canvas.removeWithUpdate === 'function') canvas.removeWithUpdate(o); } catch (x4) {}
+            }
+        });
+        try { canvas.discardActiveObject(); } catch (x5) {}
+        try { canvas.renderAll(); } catch (x6) {}
+        try { if (typeof canvas.requestRenderAll === 'function') canvas.requestRenderAll(); } catch (x7) {}
+    }
+
+    function bindCanvasKeys() {
+        if (!canvas || canvas._certEditorKeysBound) return;
+        canvas._certEditorKeysBound = true;
+        var el = canvas.upperCanvasEl || canvas.lowerCanvasEl;
+        if (!el) return;
+        el.setAttribute('tabindex', '0');
+        el.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+            var ao = canvas.getActiveObject();
+            if (!ao) return;
+            if (ao.isEditing === true) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            removeSelectedObjects();
+        });
+    }
+
     function addQR() {
-        if (!canvas) return;
+        if (!canvas) { showAlert('El lienzo no está listo.', 'warning'); return; }
         const rect = new fabric.Rect({ left: 950, top: 650, width: 120, height: 120, fill: '#e0e0e0', stroke: '#999' });
         rect.dataType = 'qr';
         rect.dataSize = 120;
@@ -155,10 +398,17 @@
     }
 
     function saveTemplate() {
+        if (!canvas) { showAlert('El lienzo no está listo. Esperá a que cargue o recargá.', 'warning'); return; }
         const name = (templateNameEl.value || '').trim();
         if (!name) { showAlert('Escribe el nombre de la plantilla.', 'warning'); return; }
         const json_layout = buildLayout();
-        const payload = { name: name, width: canvas.getWidth(), height: canvas.getHeight(), json_layout: json_layout };
+        const payload = {
+            name: name,
+            width: canvas.getWidth(),
+            height: canvas.getHeight(),
+            json_layout: json_layout,
+            background_image: backgroundImageUrl || null
+        };
         const url = templateId ? '/api/templates/' + templateId : '/api/templates';
         const method = templateId ? 'PUT' : 'POST';
         fetch(url, {
@@ -174,25 +424,36 @@
 
     function loadTemplate(id) {
         fetch('/api/templates/' + id, { credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(data => {
-                const item = data.item;
-                if (!item) return;
+            .then(function (r) {
+                return r.json().then(function (data) {
+                    return { ok: r.ok, status: r.status, data: data };
+                });
+            })
+            .then(function (res) {
+                var item = res.data && res.data.item;
+                if (!res.ok || !item) {
+                    var err = (res.data && res.data.error) ? res.data.error : ('HTTP ' + res.status);
+                    showAlert('No se pudo cargar la plantilla: ' + err + '. Podés editar en blanco o volver a la lista.', 'danger');
+                    initCanvas(1024, 768);
+                    return;
+                }
                 templateNameEl.value = item.name || '';
-                const w = item.width || 1200;
-                const h = item.height || 900;
+                backgroundImageUrl = (item.background_image && String(item.background_image).trim()) || null;
+                var w = item.width || 1024;
+                var h = item.height || 768;
                 initCanvas(w, h);
-                let layout = item.json_layout;
-                if (typeof layout === 'string') try { layout = JSON.parse(layout); } catch(e) {}
+                applyBackgroundImage(backgroundImageUrl);
+                var layout = item.json_layout;
+                if (typeof layout === 'string') try { layout = JSON.parse(layout); } catch (e) {}
                 if (layout && layout.elements && layout.elements.length) {
                     layout.elements.forEach(function(el) {
                         if (el.type === 'text') {
-                            const t = new fabric.Textbox(el.value || 'Texto', { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', width: 400 });
+                            const t = new fabric.Textbox(el.value || 'Texto', { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', fill: '#000000', width: 400, textBaseline: 'alphabetic' });
                             if (el.align) t.set('textAlign', el.align);
                             canvas.add(t);
                         } else if (el.type === 'variable') {
-                            const label = '{{' + (el.name || '') + '}}';
-                            const t = new fabric.Textbox(label, { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', width: 400 });
+                            const label = mustacheVar(el.name || '');
+                            const t = new fabric.Textbox(label, { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', fill: '#000000', width: 400, textBaseline: 'alphabetic' });
                             t.dataType = 'variable';
                             t.dataVariable = el.name;
                             if (el.align) t.set('textAlign', el.align);
@@ -215,29 +476,97 @@
                 }
                 canvas.renderAll();
             })
-            .catch(e => { showAlert('Error al cargar: ' + e.message, 'danger'); initCanvas(1200, 900); });
+            .catch(function (e) {
+                showAlert('Error al cargar: ' + e.message, 'danger');
+                initCanvas(1024, 768);
+            });
     }
 
-    btnAddText.addEventListener('click', addText);
-    btnAddVariable.addEventListener('click', function() { addVariable(selVariable.value); });
-    btnAddQR.addEventListener('click', addQR);
-    btnSave.addEventListener('click', saveTemplate);
+    function wireUi() {
+        if (!btnAddText || !btnAddVariable || !btnAddQR || !btnSave || !btnAddImage || !fileImage || !selVariable || !fileBgImage || !btnBgImage || !btnBgClear || !btnDelete) {
+            showAlert('Error interno: faltan controles del editor. Recargá la página.', 'danger');
+            return;
+        }
+        btnAddText.addEventListener('click', addText);
+        btnDelete.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            removeSelectedObjects();
+        });
+        if (btnLayerUp) btnLayerUp.addEventListener('click', layerBringForward);
+        if (btnLayerDown) btnLayerDown.addEventListener('click', layerSendBackwards);
+        if (btnLayerFront) btnLayerFront.addEventListener('click', layerBringToFront);
+        if (btnLayerBack) btnLayerBack.addEventListener('click', layerSendToBack);
+        btnAddVariable.addEventListener('click', function() { addVariable(selVariable.value); });
+        btnAddQR.addEventListener('click', addQR);
+        btnSave.addEventListener('click', saveTemplate);
+        btnAddImage.addEventListener('click', function() { fileImage.click(); });
+        btnBgImage.addEventListener('click', function() { fileBgImage.click(); });
+        btnBgClear.addEventListener('click', function() {
+            backgroundImageUrl = null;
+            clearFabricBackground(function () {
+                showAlert('Fondo de plantilla quitado. Pulsá <strong>Guardar</strong>. Si seguís viendo una imagen, es un <strong>objeto</strong> (botón Imagen): seleccionála → Eliminar o mandala al fondo con Capas.', 'info');
+            });
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+            var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if (!canvas) return;
+            var ao = canvas.getActiveObject();
+            if (ao && ao.isEditing === true) return;
+            var multi = (typeof canvas.getActiveObjects === 'function') ? canvas.getActiveObjects() : [];
+            if (!canvas.getActiveObject() && (!multi || !multi.length)) return;
+            e.preventDefault();
+            removeSelectedObjects();
+        });
+        fileImage.addEventListener('change', function() {
+            const f = this.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = function() { addImage(reader.result); };
+            reader.readAsDataURL(f);
+            this.value = '';
+        });
+        fileBgImage.addEventListener('change', function() {
+            const f = this.files[0];
+            if (!f) return;
+            const fd = new FormData();
+            fd.append('file', f);
+            fetch('/api/certificates-builder/upload-image', { method: 'POST', credentials: 'same-origin', body: fd })
+                .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                .then(function (res) {
+                    if (!res.ok || !res.data.url) {
+                        showAlert((res.data && res.data.error) || 'No se pudo subir el fondo', 'danger');
+                        return;
+                    }
+                    backgroundImageUrl = res.data.url;
+                    applyBackgroundImage(backgroundImageUrl);
+                    showAlert('Fondo subido. Guardá la plantilla.', 'success');
+                })
+                .catch(function (e) { showAlert('Error al subir fondo: ' + e.message, 'danger'); });
+            this.value = '';
+        });
+    }
 
-    btnAddImage.addEventListener('click', function() { fileImage.click(); });
-    fileImage.addEventListener('change', function() {
-        const f = this.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = function() { addImage(reader.result); };
-        reader.readAsDataURL(f);
-        this.value = '';
-    });
+    function start() {
+        bindDom();
+        wireUi();
+        if (typeof fabric === 'undefined') {
+            showAlert('No se cargó Fabric.js (static/js/fabric-5.3.0.min.js). Revisá red o caché (Ctrl+F5).', 'danger');
+            return;
+        }
+        if (templateId) {
+            loadTemplate(templateId);
+        } else {
+            initCanvas(1024, 768);
+            showAlert('Pulsa "Texto", "Imagen", "Añadir variable" o "QR verificación" para añadir elementos; luego arrástralos en el recuadro blanco.', 'info');
+        }
+    }
 
-    if (templateId) {
-        loadTemplate(templateId);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
     } else {
-        initCanvas(1200, 900);
-        showAlert('Pulsa "Texto", "Imagen", "Añadir variable" o "QR verificación" para añadir elementos; luego arrástralos en el recuadro blanco.', 'info');
+        start();
     }
 })();
 </script>

@@ -43,7 +43,7 @@ def test_campaign_creation(app, db):
         db.session.commit()
         c = MarketingCampaign(
             name='C1', subject='Test', template_id=tpl.id,
-            segment_id=seg.id, status='draft'
+            segment_id=seg.id, organization_id=1, status='draft'
         )
         db.session.add(c)
         db.session.commit()

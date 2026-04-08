@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 
-{% block title %}Citas y asesorías - RELATIC{% endblock %}
+{% block title %}Citas y asesorías - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 <section class="py-3 bg-light" id="section-servicios">
     <div class="container">
         <div class="row align-items-center gy-3">
-            <div class="col-lg-7">
+            <div class="col-12 col-lg-7">
                 <p class="text-uppercase text-primary fw-bold small mb-2">Agenda tu tiempo</p>
                 <h1 class="fw-bold mb-2">Citas y asesorías personalizadas</h1>
                 <p class="text-muted mb-3">
@@ -18,13 +18,22 @@
                     <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Confirmación y recordatorios automáticos</li>
                     <li><i class="fas fa-check-circle text-success me-2"></i>Descuentos aplicados automáticamente a tu membresía</li>
                 </ul>
-                <p class="mb-3 small text-muted">Para reservar: entra en <strong>Servicios</strong>, elige el que necesites y usa &quot;Solicitar cita&quot; (calendario y pago) o &quot;Solicitar primera reunión&quot; (propón fecha, el asesor confirma).</p>
+                <div class="alert alert-light border small mb-3">
+                    <strong class="d-block mb-1">Dos formas de agendar (no se mezclan)</strong>
+                    <span class="text-muted"><strong>1) Reserva directa:</strong> elige un tipo de cita con horarios publicados → slot → confirmación según reglas del servicio.</span><br>
+                    <span class="text-muted"><strong>2) Solicitud (cola):</strong> desde <strong>Servicios</strong> → &quot;Solicitar primera reunión&quot;; queda pendiente hasta que el asesor confirme.</span>
+                </div>
+                {% if saas_module_enabled('appointments') %}
+                <p class="mb-3 small text-muted">También puedes entrar en <strong>Servicios</strong> para &quot;Solicitar cita&quot; con calendario y pago cuando aplique.</p>
+                {% endif %}
                 <div class="d-flex gap-2 flex-wrap">
+                    {% if saas_module_enabled('appointments') %}
                     <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-lg px-4"><i class="fas fa-calendar-plus me-2"></i>Reservar una cita</a>
+                    {% endif %}
                     <a href="#appointment-types" class="btn btn-outline-primary btn-lg px-4">Explorar tipos de cita</a>
                 </div>
             </div>
-            <div class="col-lg-5">
+            <div class="col-12 col-lg-5">
                 <div class="card border-0 shadow-sm mb-2">
                     <div class="card-body p-3">
                         <h5 class="mb-2">Mi estado</h5>
@@ -66,20 +75,22 @@
 
 <section class="py-3" id="appointment-types">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <div>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center mb-3 gap-2">
+            <div class="min-w-0">
                 <p class="text-uppercase text-primary fw-bold small mb-1">Servicios disponibles</p>
                 <h2 class="h3 mb-0">Selecciona el tipo de cita</h2>
             </div>
-            <form class="d-flex gap-2" method="get">
-                <input type="search" name="q" class="form-control form-control-sm" placeholder="Buscar por tema o categoría">
-                <button type="submit" class="btn btn-outline-secondary btn-sm">Buscar</button>
+            <div class="w-100 w-md-auto min-w-0 mobile-scroll-x pb-1">
+            <form class="d-flex flex-nowrap flex-md-wrap gap-2 align-items-center" method="get">
+                <input type="search" name="q" class="form-control form-control-sm flex-grow-1" style="min-width:10rem" placeholder="Buscar por tema o categoría">
+                <button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap flex-shrink-0">Buscar</button>
             </form>
+            </div>
         </div>
 
         <div class="row g-3">
-            {% for appointment_type, pricing in types_with_pricing %}
-            <div class="col-md-6 col-xl-4">
+            {% for appointment_type, pricing, tenant_org in types_with_pricing %}
+            <div class="col-12 col-md-6 col-xl-4">
                 <div class="card h-100 shadow-sm border-0">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-start mb-3">
@@ -87,7 +98,10 @@
                                 <span class="badge rounded-pill text-uppercase" style="background: {{ appointment_type.color_tag }}20; color: {{ appointment_type.color_tag }};">
                                     {{ appointment_type.service_category or 'Servicio' }}
                                 </span>
-                                <h3 class="h5 fw-bold mt-2">{{ appointment_type.name }}</h3>
+                                {% if tenant_org %}
+                                <p class="small text-muted text-uppercase mb-0 mt-2 fw-semibold">{{ tenant_org.name }}</p>
+                                {% endif %}
+                                <h3 class="h5 fw-bold mt-1">{{ appointment_type.public_service_label() }}</h3>
                             </div>
                             <div class="icon-circle bg-primary bg-opacity-10 text-primary">
                                 <i class="fas {{ appointment_type.icon }}"></i>
@@ -143,15 +157,15 @@
 <section class="py-3 bg-light">
     <div class="container">
         <div class="row g-3">
-            <div class="col-lg-7">
+            <div class="col-12 col-lg-7">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-2 flex-wrap gap-2">
                             <h3 class="h5 mb-0">Mis próximas citas</h3>
-                            <div class="d-flex align-items-center gap-2">
-                                <a href="{{ url_for('appointments.my_requests') }}" class="btn btn-sm btn-outline-primary">Mis solicitudes</a>
-                                <a href="{{ url_for('appointments.my_proposals') }}" class="btn btn-sm btn-outline-primary">Mis propuestas</a>
-                                <span class="text-muted small">{{ upcoming_appointments|length }} programadas</span>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mobile-scroll-x pb-1">
+                                <a href="{{ url_for('appointments.my_requests') }}" class="btn btn-sm btn-outline-primary text-nowrap">Mis solicitudes</a>
+                                <a href="{{ url_for('appointments.my_proposals') }}" class="btn btn-sm btn-outline-primary text-nowrap">Mis propuestas</a>
+                                <span class="text-muted small text-nowrap">{{ upcoming_appointments|length }} programadas</span>
                             </div>
                         </div>
                         {% if upcoming_appointments %}
@@ -159,7 +173,10 @@
                             {% for appointment in upcoming_appointments %}
                             <div class="list-group-item px-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <div class="d-flex align-items-center flex-wrap gap-2">
-                                    <strong class="text-nowrap">{{ appointment.appointment_type.name }}</strong>
+                                    <span class="d-flex flex-column">
+                                        {% if appt_org_names.get(appointment.id) %}<small class="text-muted text-uppercase">{{ appt_org_names.get(appointment.id) }}</small>{% endif %}
+                                        <strong class="text-nowrap">{{ appointment.appointment_type.public_service_label() if appointment.appointment_type else 'Cita' }}</strong>
+                                    </span>
                                     <span class="text-muted small text-nowrap"><i class="far fa-calendar me-1"></i>{{ appointment.start_datetime.strftime('%d %b %Y %H:%M') }}</span>
                                     {% if appointment.advisor_profile and appointment.advisor_profile.user %}
                                     <span class="text-muted small text-nowrap">{{ appointment.advisor_profile.user.first_name }} {{ appointment.advisor_profile.user.last_name }}</span>
@@ -183,7 +200,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-lg-5">
+            <div class="col-12 col-lg-5">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-3">
                         <h3 class="h5 mb-2">Historial reciente</h3>
@@ -191,7 +208,10 @@
                         <ul class="list-unstyled mb-0">
                             {% for appointment in past_appointments %}
                             <li class="d-flex justify-content-between align-items-center gap-2 py-2 border-bottom">
-                                <span class="text-nowrap"><strong>{{ appointment.appointment_type.name }}</strong></span>
+                                <span class="d-flex flex-column text-nowrap">
+                                    {% if appt_org_names.get(appointment.id) %}<small class="text-muted text-uppercase">{{ appt_org_names.get(appointment.id) }}</small>{% endif %}
+                                    <strong>{{ appointment.appointment_type.public_service_label() if appointment.appointment_type else 'Cita' }}</strong>
+                                </span>
                                 <span class="text-muted small text-nowrap">{{ appointment.start_datetime.strftime('%d %b %Y %H:%M') }}</span>
                                 <span class="badge bg-secondary text-uppercase">{{ appointment.status }}</span>
                             </li>

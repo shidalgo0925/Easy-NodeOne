@@ -6,11 +6,11 @@
 <div class="container-fluid px-0">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <h1 class="h5 mb-2">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+                <h1 class="h5 mb-0">
                     <i class="fas fa-tags"></i> Gestión de Categorías de Servicios
                 </h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCategoryModal">
+                <button type="button" class="btn btn-primary text-nowrap align-self-stretch align-self-md-auto" data-bs-toggle="modal" data-bs-target="#createCategoryModal">
                     <i class="fas fa-plus"></i> Crear Categoría
                 </button>
             </div>
@@ -116,13 +116,13 @@
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-12 col-md-6 mb-3">
                             <label for="categoryIcon" class="form-label">Icono (FontAwesome)</label>
                             <input type="text" class="form-control" id="categoryIcon" name="icon" placeholder="fas fa-folder" value="fas fa-folder">
                             <small class="text-muted">Ej: fas fa-book, fas fa-graduation-cap</small>
                         </div>
                         
-                        <div class="col-md-6 mb-3">
+                        <div class="col-12 col-md-6 mb-3">
                             <label for="categoryColor" class="form-label">Color</label>
                             <select class="form-select" id="categoryColor" name="color">
                                 <option value="primary">Primary (Azul)</option>

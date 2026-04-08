@@ -45,12 +45,14 @@
 /admin/office365/requests GET
 /admin/office365/requests/<id>/update POST
 
--- Foros, grupos, settings, notificaciones, help
+-- Foros, grupos (blueprint member_community en nodeone/modules/member_community/routes.py)
 /foros GET
 /grupos GET
+-- Preferencias y ayuda (blueprint member_pages en nodeone/modules/member_pages/routes.py)
 /settings GET
-/notifications GET
 /help GET
+-- Notificaciones
+/notifications GET
 
 -- Checkout y pagos
 /checkout GET
@@ -75,6 +77,8 @@
 
 -- Historial y pagos usuario
 /payments/history GET
+/payments/status/<payment_id> GET
+/api/payments/<payment_id>/success GET
 /api/history GET
 /api/history/<id> GET
 /api/history/stats GET
@@ -139,7 +143,7 @@
 /api/admin/media/config GET,POST,PUT,DELETE
 /api/media/config/<key> GET
 
--- Admin payments, backup, export
+-- Admin payments, backup, export (export: admin_export; backup: admin_backup en nodeone/modules/)
 /admin/payments GET
 /admin/payments/review/<id> GET
 /api/admin/payments/<id>/approve POST
@@ -158,7 +162,7 @@
 /api/admin/export/templates GET,POST
 /api/admin/export/templates/<id> GET
 
--- Admin discount codes
+-- Admin discount codes (blueprint admin_discount_codes en nodeone/modules/admin_discount_codes/routes.py)
 /admin/discount-codes GET
 /admin/discount-codes/create POST
 /admin/discount-codes/<id> GET
@@ -166,26 +170,35 @@
 /admin/discount-codes/<id>/delete POST
 /api/admin/discount-codes/generate POST
 
--- Admin services y citas (app.py)
-/admin/services GET
+-- Catálogo admin servicios y categorías (blueprint admin_services_catalog en nodeone/modules/admin_services_catalog/routes.py)
+/admin/services GET  → admin_services_catalog.admin_services
 /api/admin/services/create POST
 /api/admin/services/update/<id> PUT
 /api/admin/services/<id> GET
 /api/admin/services/delete/<id> DELETE
+/admin/service-categories GET  → admin_services_catalog.admin_service_categories
+/api/admin/service-categories GET,POST
+/api/admin/service-categories/<id> GET,PUT,DELETE
+-- Citas / calendario (app.py + appointments)
 /api/admin/appointment-types GET
 /api/appointments/calendar/<advisor_id> GET
 /api/services/<id>/calendar GET
-/admin/service-categories GET
-/api/admin/service-categories GET,POST
-/api/admin/service-categories/<id> GET,PUT,DELETE
 /admin/membership-discounts GET
 /api/admin/membership-discounts/create POST
 /api/admin/membership-discounts/update/<id> PUT
 /api/admin/membership-discounts/<id> GET
 /api/admin/membership-discounts/delete/<id> DELETE
 /admin/master-discount GET,POST
+# (blueprint admin_membership_discounts en nodeone/modules/admin_membership_discounts/routes.py)
 
 === BLUEPRINTS ===
+
+-- member_pages (nodeone/modules/member_pages/routes.py)
+/settings GET  → member_pages.settings
+/help GET  → member_pages.help_page
+
+-- admin_services_catalog (nodeone/modules/admin_services_catalog/routes.py)
+/admin/services, /admin/service-categories, /api/admin/services/*, /api/admin/service-categories/*
 
 -- event_routes.py
 /events/ GET

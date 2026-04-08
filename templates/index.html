@@ -7,10 +7,10 @@
 <section class="hero-section">
     <div class="container">
         <div class="row align-items-center">
-            <div class="col-lg-6">
-                <h1 class="display-4 fw-bold mb-4">Sistema de Membresía Relatic Panama</h1>
+            <div class="col-12 col-lg-6">
+                <h1 class="h2 fw-bold mb-3 mb-lg-4">Sistema de Membresía Relatic Panama</h1>
                 <p class="lead mb-4">Accede a recursos académicos exclusivos, revistas especializadas, bases de datos y asesoría profesional.</p>
-                <div class="d-flex gap-3 flex-wrap">
+                <div class="d-flex gap-3 flex-wrap mobile-scroll-x pb-1">
                     {% if not current_user.is_authenticated %}
                     <a href="{{ url_for('register') }}" class="btn btn-light btn-lg">Registrarse</a>
                     <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg">Iniciar Sesión</a>
@@ -23,7 +23,7 @@
                     </a>
                 </div>
             </div>
-            <div class="col-lg-6 text-center">
+            <div class="col-12 col-lg-6 text-center mt-4 mt-lg-0">
                 <!-- Logo RELATIC PANAMÁ -->
                 <div class="logo-container mb-4">
                     <div class="logo-icon">
@@ -57,13 +57,13 @@
 <section class="py-5">
     <div class="container">
         <div class="row">
-            <div class="col-lg-8 mx-auto text-center mb-5">
-                <h2 class="display-5 fw-bold">Beneficios de la Membresía</h2>
+            <div class="col-12 col-lg-8 mx-auto text-center mb-5">
+                <h2 class="h2 fw-bold">Beneficios de la Membresía</h2>
                 <p class="lead">Accede a recursos exclusivos diseñados para profesionales y académicos</p>
             </div>
         </div>
         <div class="row g-4">
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card benefit-card h-100 border-0 shadow-sm">
                     <div class="card-body text-center p-4">
                         <div class="mb-3">
@@ -74,7 +74,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card benefit-card h-100 border-0 shadow-sm">
                     <div class="card-body text-center p-4">
                         <div class="mb-3">
@@ -85,7 +85,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card benefit-card h-100 border-0 shadow-sm">
                     <div class="card-body text-center p-4">
                         <div class="mb-3">
@@ -104,13 +104,13 @@
 <section class="py-5 bg-light">
     <div class="container">
         <div class="row">
-            <div class="col-lg-8 mx-auto text-center mb-5">
-                <h2 class="display-5 fw-bold">Planes de Membresía</h2>
+            <div class="col-12 col-lg-8 mx-auto text-center mb-5">
+                <h2 class="h2 fw-bold">Planes de Membresía</h2>
                 <p class="lead">Elige el plan que mejor se adapte a tus necesidades</p>
             </div>
         </div>
         <div class="row g-4 justify-content-center">
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card membership-card h-100">
                     <div class="card-header bg-primary text-white text-center">
                         <h4 class="mb-0">Básico</h4>
@@ -131,7 +131,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card membership-card h-100 border-info">
                     <div class="card-header bg-info text-white text-center">
                         <h4 class="mb-0">Pro</h4>
@@ -153,7 +153,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card membership-card h-100 border-primary">
                     <div class="card-header bg-success text-white text-center">
                         <h4 class="mb-0">Premium</h4>
@@ -177,7 +177,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card membership-card h-100 border-warning">
                     <div class="card-header bg-warning text-dark text-center">
                         <h4 class="mb-0">DeLuxe</h4>
@@ -210,13 +210,13 @@
 <section class="py-5 bg-white">
     <div class="container">
         <div class="row">
-            <div class="col-lg-8 mx-auto text-center mb-5">
-                <h2 class="display-5 fw-bold">Lo que dicen nuestros miembros</h2>
+            <div class="col-12 col-lg-8 mx-auto text-center mb-5">
+                <h2 class="h2 fw-bold">Lo que dicen nuestros miembros</h2>
                 <p class="lead">Testimonios reales de profesionales que confían en RELATIC</p>
             </div>
         </div>
         <div class="row g-4">
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card testimonial-card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
                         <div class="mb-3">
@@ -239,7 +239,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card testimonial-card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
                         <div class="mb-3">
@@ -262,7 +262,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card testimonial-card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
                         <div class="mb-3">
@@ -293,25 +293,25 @@
 <section class="py-4 bg-light">
     <div class="container">
         <div class="row text-center">
-            <div class="col-md-3 mb-3 mb-md-0">
+            <div class="col-12 col-sm-6 col-md-3 mb-3 mb-md-0">
                 <div class="trust-stat">
                     <h3 class="text-primary mb-1">500+</h3>
                     <p class="text-muted mb-0 small">Miembros activos</p>
                 </div>
             </div>
-            <div class="col-md-3 mb-3 mb-md-0">
+            <div class="col-12 col-sm-6 col-md-3 mb-3 mb-md-0">
                 <div class="trust-stat">
                     <h3 class="text-primary mb-1">50+</h3>
                     <p class="text-muted mb-0 small">Eventos realizados</p>
                 </div>
             </div>
-            <div class="col-md-3 mb-3 mb-md-0">
+            <div class="col-12 col-sm-6 col-md-3 mb-3 mb-md-0">
                 <div class="trust-stat">
                     <h3 class="text-primary mb-1">100+</h3>
                     <p class="text-muted mb-0 small">Publicaciones indexadas</p>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-md-3">
                 <div class="trust-stat">
                     <h3 class="text-primary mb-1">95%</h3>
                     <p class="text-muted mb-0 small">Satisfacción de miembros</p>
@@ -326,13 +326,13 @@
 <section class="py-5 bg-white">
     <div class="container">
         <div class="row">
-            <div class="col-lg-8 mx-auto text-center mb-5">
-                <h2 class="display-5 fw-bold">¿Qué verás como miembro?</h2>
+            <div class="col-12 col-lg-8 mx-auto text-center mb-5">
+                <h2 class="h2 fw-bold">¿Qué verás como miembro?</h2>
                 <p class="lead">Descubre el dashboard personalizado que te espera</p>
             </div>
         </div>
         <div class="row g-4">
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card preview-card h-100 border-0 shadow-sm">
                     <div class="card-body text-center p-4">
                         <div class="preview-icon bg-primary text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
@@ -343,7 +343,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card preview-card h-100 border-0 shadow-sm">
                     <div class="card-body text-center p-4">
                         <div class="preview-icon bg-success text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
@@ -354,7 +354,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <div class="card preview-card h-100 border-0 shadow-sm">
                     <div class="card-body text-center p-4">
                         <div class="preview-icon bg-info text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
@@ -373,25 +373,25 @@
                         <h5 class="mb-3">Vista Previa del Dashboard</h5>
                         <div class="dashboard-preview bg-light p-4 rounded mb-3" style="min-height: 300px;">
                             <div class="row g-3">
-                                <div class="col-md-3">
+                                <div class="col-6 col-md-3">
                                     <div class="preview-item bg-white p-3 rounded shadow-sm text-center">
                                         <i class="fas fa-book-open fa-2x text-primary mb-2"></i>
                                         <h6 class="small mb-0">Continuar</h6>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-6 col-md-3">
                                     <div class="preview-item bg-white p-3 rounded shadow-sm text-center">
                                         <i class="fas fa-star fa-2x text-success mb-2"></i>
                                         <h6 class="small mb-0">Nuevos</h6>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-6 col-md-3">
                                     <div class="preview-item bg-white p-3 rounded shadow-sm text-center">
                                         <i class="fas fa-chart-line fa-2x text-info mb-2"></i>
                                         <h6 class="small mb-0">Progreso</h6>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-6 col-md-3">
                                     <div class="preview-item bg-white p-3 rounded shadow-sm text-center">
                                         <i class="fas fa-calendar-alt fa-2x text-danger mb-2"></i>
                                         <h6 class="small mb-0">Eventos</h6>

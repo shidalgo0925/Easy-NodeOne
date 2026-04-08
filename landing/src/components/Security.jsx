@@ -16,7 +16,7 @@ const icon = (
 
 export default function Security() {
   return (
-    <section id="seguridad" className="bg-[#0F172A] px-4 py-20 text-white md:py-28">
+    <section id="seguridad" className="bg-[#0F172A] px-4 py-12 text-white md:py-16">
       <div className="mx-auto max-w-6xl">
         <motion.h2
           className="text-center text-3xl font-bold md:text-4xl"
@@ -27,7 +27,7 @@ export default function Security() {
         >
           Seguridad de nivel empresarial.
         </motion.h2>
-        <ul className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item, i) => (
             <motion.li
               key={item}

@@ -3,19 +3,27 @@
 Script para configurar contraseña de aplicación de Gmail
 """
 
-import sys
+import argparse
 import os
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db, EmailConfig
 
+
 def set_gmail_app_password():
     """Configurar contraseña de aplicación de Gmail"""
-    print("=" * 60)
-    print("CONFIGURAR CONTRASEÑA DE APLICACIÓN - Gmail")
-    print("=" * 60)
+    parser = argparse.ArgumentParser(description='Guardar app password Gmail en EmailConfig')
+    parser.add_argument('--org-id', type=int, default=None, help='Tenant de la fila EmailConfig')
+    args = parser.parse_args()
+
+    print('=' * 60)
+    print('CONFIGURAR CONTRASEÑA DE APLICACIÓN - Gmail')
+    if args.org_id is not None:
+        print(f'  (org: {args.org_id})')
+    print('=' * 60)
     
     print("\n📝 IMPORTANTE: No puedo generar la contraseña por ti")
     print("   Solo Google puede generar contraseñas de aplicación")
@@ -50,7 +58,7 @@ def set_gmail_app_password():
             return False
     
     with app.app_context():
-        config = EmailConfig.get_active_config()
+        config = EmailConfig.get_active_config(organization_id=args.org_id)
         
         if not config:
             print("\n❌ No hay configuración activa")

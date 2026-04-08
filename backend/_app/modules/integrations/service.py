@@ -9,6 +9,7 @@ from app import (
     User,
     Notification,
     EmailTemplate,
+    _enable_multi_tenant_catalog,
 )
 from . import repository
 
@@ -18,6 +19,23 @@ except ImportError:
     get_office365_request_email = None
 
 OFFICE365_PRO_OR_ABOVE = ('admin', 'pro', 'premium', 'deluxe', 'corporativo')
+
+
+def _policies_module_enabled_for_user(user) -> bool:
+    """Si el módulo Normativas está off para la org del usuario, no exigir política de correo ni enlaces a /normativas."""
+    try:
+        from app import has_saas_module_enabled
+        from utils.organization import default_organization_id
+
+        try:
+            oid = int(getattr(user, 'organization_id', None) or 0)
+        except (TypeError, ValueError):
+            oid = 0
+        if oid < 1:
+            oid = int(default_organization_id())
+        return bool(has_saas_module_enabled(oid, 'policies'))
+    except Exception:
+        return True
 
 
 def user_has_pro_or_above(user):
@@ -31,16 +49,19 @@ def user_has_pro_or_above(user):
 def get_page_data(user):
     membership = user.get_active_membership()
     is_pro_or_above = user_has_pro_or_above(user)
-    # Política de uso de correo: si debe aceptar y datos para mostrar
-    try:
-        from _app.modules.policies import service as policies_svc
-        policy_correo = policies_svc.get_policy_for_display(policies_svc.SLUG_POLITICA_CORREO, active_only=True)
-        must_accept = policies_svc.user_must_accept_email_policy(user)
-        checkbox_text = policies_svc.CHECKBOX_POLITICA_CORREO
-    except Exception:
-        policy_correo = None
-        must_accept = False
-        checkbox_text = ''
+    # Política de uso de correo: solo si el módulo Normativas está activo para la org del usuario
+    policy_correo = None
+    must_accept = False
+    checkbox_text = ''
+    if _policies_module_enabled_for_user(user):
+        try:
+            from _app.modules.policies import service as policies_svc
+
+            policy_correo = policies_svc.get_policy_for_display(policies_svc.SLUG_POLITICA_CORREO, active_only=True)
+            must_accept = policies_svc.user_must_accept_email_policy(user)
+            checkbox_text = policies_svc.CHECKBOX_POLITICA_CORREO
+        except Exception:
+            pass
     return {
         'membership': membership,
         'is_pro_or_above': is_pro_or_above,
@@ -62,17 +83,26 @@ def submit_request(user, data, request=None):
     authorization_code = (data.get('authorization_code') or data.get('code') or '').strip()
     policy_accepted = data.get('policy_accepted') in (True, 'true', '1', 1)
 
-    # Aceptación obligatoria de política de uso de correo
-    try:
-        from _app.modules.policies import service as policies_svc
-        if policies_svc.user_must_accept_email_policy(user):
-            if not policy_accepted:
-                return None, ({'success': False, 'error': 'Debes aceptar la Política de Uso del Correo Institucional para continuar.', 'require_policy_acceptance': True}, 400)
-            ok, err = policies_svc.record_email_policy_acceptance(user, request)
-            if not ok:
-                return None, ({'success': False, 'error': err or 'Error al registrar la aceptación.'}, 400)
-    except Exception:
-        pass
+    # Aceptación obligatoria de política de uso de correo (solo con módulo Normativas activo)
+    if _policies_module_enabled_for_user(user):
+        try:
+            from _app.modules.policies import service as policies_svc
+
+            if policies_svc.user_must_accept_email_policy(user):
+                if not policy_accepted:
+                    return None, (
+                        {
+                            'success': False,
+                            'error': 'Debes aceptar la Política de Uso del Correo Institucional para continuar.',
+                            'require_policy_acceptance': True,
+                        },
+                        400,
+                    )
+                ok, err = policies_svc.record_email_policy_acceptance(user, request)
+                if not ok:
+                    return None, ({'success': False, 'error': err or 'Error al registrar la aceptación.'}, 400)
+        except Exception:
+            pass
 
     if not email:
         return None, ({'success': False, 'error': 'El correo es obligatorio.'}, 400)
@@ -129,7 +159,10 @@ def submit_request(user, data, request=None):
         'description': html_module.escape(description_safe).replace(chr(10), '<br>'),
         'request_id': req.id,
     }
-    t = EmailTemplate.query.filter_by(template_key='office365_request').first()
+    oid = int(getattr(user, 'organization_id', None) or 1)
+    t = EmailTemplate.query.filter_by(organization_id=oid, template_key='office365_request').first()
+    if t is None and oid != 1 and _enable_multi_tenant_catalog():
+        t = EmailTemplate.query.filter_by(organization_id=1, template_key='office365_request').first()
     if t:
         subject = t.subject.replace('{user_name}', sub['user_name']).replace('{email}', sub['email']).replace('{purpose}', sub['purpose']).replace('{description}', sub['description']).replace('{request_id}', str(req.id))
         if t.is_custom and t.html_content:

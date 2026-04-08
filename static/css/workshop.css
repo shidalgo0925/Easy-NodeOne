@@ -1,0 +1,26 @@
+/* Taller — body map y ficha orden */
+.workshop-order-page .car-zone {
+  fill: #e8ecf4;
+  stroke: #5c6bc0;
+  stroke-width: 2;
+  cursor: pointer;
+  transition: fill 0.15s ease;
+}
+.workshop-order-page .car-zone:hover {
+  fill: #dde3f5;
+}
+.workshop-order-page .car-zone.sev-low { fill: #b7eb8f; stroke: #389e0d; }
+.workshop-order-page .car-zone.sev-medium { fill: #ffe58f; stroke: #d48806; }
+.workshop-order-page .car-zone.sev-high { fill: #ffccc7; stroke: #cf1322; }
+.workshop-body-map-wrap {
+  max-width: 420px;
+  margin: 0 auto;
+}
+.workshop-body-map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.workshop-order-page .line-items-wrap {
+  overflow-x: auto;
+}

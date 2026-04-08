@@ -51,13 +51,13 @@
                 <div class="card-body">
                     <form id="paypal-form">
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="paypal_client_id" class="form-label">Client ID</label>
                                 <input type="text" class="form-control" id="paypal_client_id" name="paypal_client_id" 
                                        placeholder="Tu Client ID de PayPal">
                                 <small class="form-text text-muted">Client ID de la aplicación PayPal</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="paypal_client_secret" class="form-label">Client Secret</label>
                                 <input type="password" class="form-control" id="paypal_client_secret" name="paypal_client_secret" 
                                        placeholder="Tu Client Secret de PayPal">
@@ -65,19 +65,19 @@
                             </div>
                         </div>
                         <div class="row mb-3">
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label for="paypal_mode" class="form-label">Modo</label>
                                 <select class="form-select" id="paypal_mode" name="paypal_mode">
                                     <option value="sandbox" {% if not payment_config or (payment_config and payment_config.paypal_mode == 'sandbox') %}selected{% endif %}>Sandbox (Pruebas)</option>
                                     <option value="live" {% if payment_config and payment_config.paypal_mode == 'live' %}selected{% endif %}>Live (Producción)</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label for="paypal_return_url" class="form-label">URL de Retorno</label>
                                 <input type="url" class="form-control" id="paypal_return_url" name="paypal_return_url" 
                                        value="{% if payment_config %}{{ payment_config.paypal_return_url }}{% else %}https://miembros.relatic.org/payment/paypal/return{% endif %}">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label for="paypal_cancel_url" class="form-label">URL de Cancelación</label>
                                 <input type="url" class="form-control" id="paypal_cancel_url" name="paypal_cancel_url" 
                                        value="{% if payment_config %}{{ payment_config.paypal_cancel_url }}{% else %}https://miembros.relatic.org/payment/paypal/cancel{% endif %}">
@@ -99,14 +99,14 @@
                 <div class="card-body">
                     <form id="banco-general-form">
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="banco_general_merchant_id" class="form-label">Merchant ID</label>
                                 <input type="text" class="form-control" id="banco_general_merchant_id" name="banco_general_merchant_id" 
                                        placeholder="Tu Merchant ID de CyberSource"
                                        value="{% if payment_config %}{{ payment_config.banco_general_merchant_id }}{% endif %}">
                                 <small class="form-text text-muted">ID del comercio en CyberSource</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="banco_general_api_key" class="form-label">API Key</label>
                                 <input type="password" class="form-control" id="banco_general_api_key" name="banco_general_api_key" 
                                        placeholder="Tu API Key de CyberSource">
@@ -114,13 +114,13 @@
                             </div>
                         </div>
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="banco_general_shared_secret" class="form-label">Shared Secret</label>
                                 <input type="password" class="form-control" id="banco_general_shared_secret" name="banco_general_shared_secret" 
                                        placeholder="Tu Shared Secret de CyberSource">
                                 <small class="form-text text-muted">Secreto compartido de CyberSource</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="banco_general_api_url" class="form-label">API URL</label>
                                 <input type="url" class="form-control" id="banco_general_api_url" name="banco_general_api_url" 
                                        value="{% if payment_config %}{{ payment_config.banco_general_api_url }}{% else %}https://api.cybersource.com{% endif %}">
@@ -143,13 +143,13 @@
                 <div class="card-body">
                     <form id="yappy-form">
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="yappy_api_key" class="form-label">API Key</label>
                                 <input type="password" class="form-control" id="yappy_api_key" name="yappy_api_key" 
                                        placeholder="Tu API Key de Yappy">
                                 <small class="form-text text-muted">Clave de API de Yappy</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="yappy_merchant_id" class="form-label">Merchant ID</label>
                                 <input type="text" class="form-control" id="yappy_merchant_id" name="yappy_merchant_id" 
                                        placeholder="Tu Merchant ID de Yappy"
@@ -158,7 +158,7 @@
                             </div>
                         </div>
                         <div class="row mb-3">
-                            <div class="col-md-12">
+                            <div class="col-12 col-md-12">
                                 <label for="yappy_api_url" class="form-label">API URL</label>
                                 <input type="url" class="form-control" id="yappy_api_url" name="yappy_api_url" 
                                        value="{% if payment_config %}{{ payment_config.yappy_api_url }}{% else %}https://api.yappy.im{% endif %}">
@@ -168,21 +168,21 @@
                         <hr>
                         <h6 class="mb-3"><i class="fas fa-info-circle"></i> Configuración de Visualización</h6>
                         <div class="row mb-3">
-                            <div class="col-md-3">
+                            <div class="col-12 col-sm-6 col-lg-3">
                                 <label for="yappy_directory_name" class="form-label">Nombre en Directorio</label>
                                 <input type="text" class="form-control" id="yappy_directory_name" name="yappy_directory_name" 
                                        placeholder="@multiserviciostk"
                                        value="{% if payment_config and payment_config.yappy_directory_name %}{{ payment_config.yappy_directory_name }}{% else %}@multiserviciostk{% endif %}">
                                 <small class="form-text text-muted">Nombre que aparece en el directorio de Yappy (ej: @multiserviciostk)</small>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-12 col-sm-6 col-lg-3">
                                 <label for="yappy_business_name" class="form-label">Nombre del Negocio</label>
                                 <input type="text" class="form-control" id="yappy_business_name" name="yappy_business_name" 
                                        placeholder="MULTISERVICIOS TK"
                                        value="{% if payment_config and payment_config.yappy_business_name %}{{ payment_config.yappy_business_name }}{% else %}MULTISERVICIOS TK{% endif %}">
                                 <small class="form-text text-muted">Nombre del negocio que se muestra a los usuarios</small>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-12 col-sm-6 col-lg-3">
                                 <label for="yappy_merchant_phone" class="form-label">
                                     <i class="fas fa-mobile-alt"></i> Teléfono del Comercio
                                 </label>
@@ -191,7 +191,7 @@
                                        value="{% if payment_config and payment_config.yappy_merchant_phone %}{{ payment_config.yappy_merchant_phone }}{% endif %}">
                                 <small class="form-text text-muted">Número de teléfono que se muestra en los pagos con Yappy</small>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-12 col-sm-6 col-lg-3">
                                 <label for="yappy_qr_image_path" class="form-label">Ruta de Imagen QR</label>
                                 <input type="text" class="form-control" id="yappy_qr_image_path" name="yappy_qr_image_path" 
                                        placeholder="/static/images/yappy-qr-multiserviciostk.png"
@@ -320,11 +320,11 @@
                                             <div class="collapse" id="transDetails{{ trans.get('id', '') }}">
                                                 <div class="card card-body bg-light">
                                                     <div class="row">
-                                                        <div class="col-md-6">
+                                                        <div class="col-12 col-md-6">
                                                             <h6>Payload (Entrada):</h6>
                                                             <pre class="bg-white p-2 rounded" style="max-height: 200px; overflow-y: auto;"><code>{% if trans.get('payload') %}{{ trans.get('payload')|tojson(indent=2) }}{% else %}N/A{% endif %}</code></pre>
                                                         </div>
-                                                        <div class="col-md-6">
+                                                        <div class="col-12 col-md-6">
                                                             <h6>Result (Resultado):</h6>
                                                             <pre class="bg-white p-2 rounded" style="max-height: 200px; overflow-y: auto;"><code>{% if trans.get('result') %}{{ trans.get('result')|tojson(indent=2) }}{% else %}N/A{% endif %}</code></pre>
                                                         </div>

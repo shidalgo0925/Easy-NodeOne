@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Catálogo de módulos - EasyNodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center flex-wrap gap-2 mb-3">
+        <h1 class="h4 mb-0"><i class="fas fa-list"></i> Catálogo de módulos</h1>
+        <a href="{{ url_for('admin_saas_catalog_new') }}" class="btn btn-sm btn-primary text-nowrap align-self-stretch align-self-sm-auto"><i class="fas fa-plus"></i> Nuevo módulo</a>
+    </div>
+    <p class="text-muted small">Códigos usados en código y API (<code>has_saas_module_enabled</code>). Los core no se eliminan.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+                <div class="alert alert-{{ 'danger' if cat == 'error' else cat }}">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Core</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in modules %}
+                <tr>
+                    <td><code>{{ m.code }}</code></td>
+                    <td>{{ m.name }}</td>
+                    <td>{% if m.is_core %}<span class="text-success">Sí</span>{% else %}No{% endif %}</td>
+                    <td class="text-nowrap">
+                        <a href="{{ url_for('admin_saas_catalog_edit', mid=m.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                        {% if not m.is_core %}
+                        <form method="post" action="{{ url_for('admin_saas_catalog_delete', mid=m.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este módulo del catálogo?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

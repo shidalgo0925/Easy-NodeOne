@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """
-Script de verificación del sistema de emails
-Verifica que todos los componentes estén configurados correctamente
+Script de verificación del sistema de emails.
+Uso: python verify_email_system.py [--org-id ID]
 """
 
-import sys
+import argparse
 import os
+import sys
 
-# Agregar el directorio backend al path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from app import (
-        app, db, 
-        EmailConfig, NotificationSettings, 
-        EMAIL_TEMPLATES_AVAILABLE, email_service,
-        get_welcome_email, NotificationEngine
+        app,
+        db,
+        EmailConfig,
+        NotificationSettings,
+        EMAIL_TEMPLATES_AVAILABLE,
+        get_welcome_email,
+        NotificationEngine,
     )
     from email_service import EmailService
     from flask_mail import Mail
@@ -24,17 +27,19 @@ except ImportError as e:
     print("   Asegúrate de tener todas las dependencias instaladas")
     sys.exit(1)
 
-def check_email_config():
+def check_email_config(organization_id=None):
     """Verificar configuración de email"""
-    print("\n" + "="*60)
-    print("1. VERIFICANDO CONFIGURACIÓN DE EMAIL")
-    print("="*60)
-    
-    # Verificar si hay configuración en BD
-    email_config = EmailConfig.get_active_config()
+    print('\n' + '=' * 60)
+    print('1. VERIFICANDO CONFIGURACIÓN DE EMAIL')
+    if organization_id is not None:
+        print(f'   (organization_id solicitado: {organization_id})')
+    print('=' * 60)
+
+    email_config = EmailConfig.get_active_config(organization_id=organization_id)
     if email_config:
-        print("✅ Configuración de email encontrada en BD:")
-        print(f"   Servidor: {email_config.mail_server}")
+        print('✅ Configuración de email encontrada en BD:')
+        print(f'   organization_id (fila): {getattr(email_config, "organization_id", None)}')
+        print(f'   Servidor: {email_config.mail_server}')
         print(f"   Puerto: {email_config.mail_port}")
         print(f"   TLS: {email_config.mail_use_tls}")
         print(f"   SSL: {email_config.mail_use_ssl}")
@@ -77,25 +82,28 @@ def check_notification_settings():
 
 def check_email_service():
     """Verificar servicio de email"""
-    print("\n" + "="*60)
-    print("3. VERIFICANDO SERVICIO DE EMAIL")
-    print("="*60)
-    
-    print(f"EMAIL_TEMPLATES_AVAILABLE: {EMAIL_TEMPLATES_AVAILABLE}")
-    print(f"email_service: {email_service}")
-    
+    import app as ap
+
+    print('\n' + '=' * 60)
+    print('3. VERIFICANDO SERVICIO DE EMAIL')
+    print('=' * 60)
+
+    svc = ap.email_service
+    print(f'EMAIL_TEMPLATES_AVAILABLE (render plantillas): {EMAIL_TEMPLATES_AVAILABLE}')
+    print(f'email_service: {svc}')
+
     if EMAIL_TEMPLATES_AVAILABLE:
-        print("✅ Templates de email disponibles")
+        print('✅ Templates de email disponibles para render')
     else:
-        print("❌ Templates de email NO disponibles")
-        print("   ⚠️ No se podrán enviar emails con templates HTML")
-    
-    if email_service:
-        print("✅ EmailService inicializado")
-        print(f"   Tipo: {type(email_service)}")
+        print('❌ Templates de email NO disponibles')
+        print('   ⚠️ No se podrán renderizar emails HTML desde plantillas DB/archivos')
+
+    if svc:
+        print('✅ EmailService inicializado (envío SMTP)')
+        print(f'   Tipo: {type(svc)}')
     else:
-        print("❌ EmailService NO inicializado")
-        print("   ⚠️ No se podrán enviar emails")
+        print('❌ EmailService NO inicializado')
+        print('   ⚠️ No se podrá enviar por SMTP hasta configurar Mail + servicio')
 
 def check_welcome_email_template():
     """Verificar template de bienvenida"""
@@ -178,35 +186,52 @@ def check_file_structure():
 
 def main():
     """Ejecutar todas las verificaciones"""
-    print("\n" + "="*60)
-    print("VERIFICACIÓN DEL SISTEMA DE EMAILS")
-    print("="*60)
-    
+    parser = argparse.ArgumentParser(description='Verificación sistema de emails')
+    parser.add_argument(
+        '--org-id',
+        type=int,
+        default=None,
+        help='Aplicar SMTP transaccional de este tenant antes de las comprobaciones',
+    )
+    args = parser.parse_args()
+
+    print('\n' + '=' * 60)
+    print('VERIFICACIÓN DEL SISTEMA DE EMAILS')
+    if args.org_id is not None:
+        print(f'  (--org-id {args.org_id})')
+    print('=' * 60)
+
+    import app as ap
+
     with app.app_context():
-        # Crear tablas si no existen
         db.create_all()
-        
-        # Aplicar configuración de email
-        from app import apply_email_config_from_db
-        apply_email_config_from_db()
-        
-        # Ejecutar verificaciones
-        check_email_config()
-        check_notification_settings()
-        check_email_service()
-        check_welcome_email_template()
-        check_database_tables()
-        check_file_structure()
-        
-        print("\n" + "="*60)
-        print("RESUMEN")
-        print("="*60)
-        print("\n✅ Verificación completada")
-        print("\nSi encuentras problemas:")
-        print("1. Verifica la configuración SMTP en /admin/email")
-        print("2. Verifica que la notificación 'welcome' esté habilitada en /admin/notifications")
-        print("3. Revisa los logs del servidor para más detalles")
-        print("\n")
+
+        try:
+            if args.org_id is not None:
+                ap.apply_transactional_smtp_for_organization(int(args.org_id))
+            else:
+                from app import apply_email_config_from_db
+
+                apply_email_config_from_db()
+
+            check_email_config(organization_id=args.org_id)
+            check_notification_settings()
+            check_email_service()
+            check_welcome_email_template()
+            check_database_tables()
+            check_file_structure()
+
+            print('\n' + '=' * 60)
+            print('RESUMEN')
+            print('=' * 60)
+            print('\n✅ Verificación completada')
+            print('\nSi encuentras problemas:')
+            print('1. Verifica la configuración SMTP en /admin/email')
+            print("2. Verifica que la notificación 'welcome' esté habilitada en /admin/notifications")
+            print('3. Revisa los logs del servidor para más detalles')
+            print('\n')
+        finally:
+            ap.apply_email_config_from_db()
 
 if __name__ == '__main__':
     main()

@@ -10,6 +10,7 @@ def register_admin_marketing_routes(app):
     from flask import flash, jsonify, redirect, render_template, request, url_for
 
     from app import (
+        admin_data_scope_organization_id,
         admin_required,
         CampaignRecipient,
         db,
@@ -21,11 +22,18 @@ def register_admin_marketing_routes(app):
         User,
     )
 
+    def _scope_query_by_org(query, model, scope_oid):
+        if hasattr(model, 'organization_id'):
+            return query.filter(model.organization_id == scope_oid)
+        return query
+
     @app.route('/admin/marketing/email-settings')
     @admin_required
     def admin_marketing_email_settings():
         """Configuración de correo para envíos masivos: listar cuentas y designar cuál usar en campañas."""
-        configs = [c.to_dict() for c in EmailConfig.query.order_by(EmailConfig.id).all()]
+        scope_oid = admin_data_scope_organization_id()
+        q = _scope_query_by_org(EmailConfig.query, EmailConfig, scope_oid)
+        configs = [c.to_dict() for c in q.order_by(EmailConfig.id).all()]
         return render_template('admin/marketing_email_settings.html', configs=configs)
 
 
@@ -37,11 +45,15 @@ def register_admin_marketing_routes(app):
         config_id = data.get('config_id')
         if config_id is None:
             return jsonify({'success': False, 'error': 'Falta config_id'}), 400
+        scope_oid = admin_data_scope_organization_id()
         cfg = EmailConfig.query.get(config_id)
         if not cfg:
             return jsonify({'success': False, 'error': 'Configuración no encontrada'}), 404
+        if hasattr(EmailConfig, 'organization_id') and int(getattr(cfg, 'organization_id', 0) or 0) != int(scope_oid):
+            return jsonify({'success': False, 'error': 'No autorizado'}), 403
         try:
-            for c in EmailConfig.query.all():
+            cfg_query = _scope_query_by_org(EmailConfig.query, EmailConfig, scope_oid)
+            for c in cfg_query.all():
                 c.use_for_marketing = (c.id == cfg.id)
             db.session.commit()
             return jsonify({'success': True, 'message': 'Configuración designada para correos masivos.', 'config': cfg.to_dict()})
@@ -83,7 +95,8 @@ def register_admin_marketing_routes(app):
     def admin_marketing():
         """Panel de Email Marketing: campañas, segmentos, plantillas y estadísticas."""
         from sqlalchemy import func
-        campaigns = MarketingCampaign.query.order_by(MarketingCampaign.created_at.desc()).limit(100).all()
+        scope_oid = admin_data_scope_organization_id()
+        campaigns = _scope_query_by_org(MarketingCampaign.query, MarketingCampaign, scope_oid).order_by(MarketingCampaign.created_at.desc()).limit(100).all()
         campaign_list = []
         for c in campaigns:
             recs = CampaignRecipient.query.filter_by(campaign_id=c.id).all()
@@ -114,13 +127,13 @@ def register_admin_marketing_routes(app):
                 item['sent_a'] = sent_a
                 item['sent_b'] = sent_b
             campaign_list.append(item)
-        segments = MarketingSegment.query.order_by(MarketingSegment.id).all()
-        templates = MarketingTemplate.query.order_by(MarketingTemplate.id).all()
-        total_sent = db.session.query(func.count(CampaignRecipient.id)).filter(CampaignRecipient.sent_at.isnot(None)).scalar() or 0
-        total_opened = db.session.query(func.count(CampaignRecipient.id)).filter(CampaignRecipient.opened_at.isnot(None)).scalar() or 0
-        total_clicked = db.session.query(func.count(CampaignRecipient.id)).filter(CampaignRecipient.clicked_at.isnot(None)).scalar() or 0
-        unsub_count = db.session.query(func.count(User.id)).filter(User.email_marketing_status == 'unsubscribed').scalar() or 0
-        sub_count = db.session.query(func.count(User.id)).filter(User.email_marketing_status == 'subscribed').scalar() or 0
+        segments = _scope_query_by_org(MarketingSegment.query, MarketingSegment, scope_oid).order_by(MarketingSegment.id).all()
+        templates = _scope_query_by_org(MarketingTemplate.query, MarketingTemplate, scope_oid).order_by(MarketingTemplate.id).all()
+        total_sent = db.session.query(func.count(CampaignRecipient.id)).join(User, CampaignRecipient.user_id == User.id).filter(User.organization_id == scope_oid, CampaignRecipient.sent_at.isnot(None)).scalar() or 0
+        total_opened = db.session.query(func.count(CampaignRecipient.id)).join(User, CampaignRecipient.user_id == User.id).filter(User.organization_id == scope_oid, CampaignRecipient.opened_at.isnot(None)).scalar() or 0
+        total_clicked = db.session.query(func.count(CampaignRecipient.id)).join(User, CampaignRecipient.user_id == User.id).filter(User.organization_id == scope_oid, CampaignRecipient.clicked_at.isnot(None)).scalar() or 0
+        unsub_count = db.session.query(func.count(User.id)).filter(User.organization_id == scope_oid, User.email_marketing_status == 'unsubscribed').scalar() or 0
+        sub_count = db.session.query(func.count(User.id)).filter(User.organization_id == scope_oid, User.email_marketing_status == 'subscribed').scalar() or 0
         stats = {
             'emails_sent': total_sent,
             'open_rate': (total_opened / total_sent * 100) if total_sent else 0,
@@ -143,8 +156,9 @@ def register_admin_marketing_routes(app):
     @admin_required
     def admin_marketing_campaign_new():
         """Editor de campaña: galería de plantillas + bloques."""
-        segments = MarketingSegment.query.order_by(MarketingSegment.id).all()
-        templates = MarketingTemplate.query.order_by(MarketingTemplate.id).all()
+        scope_oid = admin_data_scope_organization_id()
+        segments = _scope_query_by_org(MarketingSegment.query, MarketingSegment, scope_oid).order_by(MarketingSegment.id).all()
+        templates = _scope_query_by_org(MarketingTemplate.query, MarketingTemplate, scope_oid).order_by(MarketingTemplate.id).all()
         if not templates:
             flash('Crea al menos una plantilla (abajo) antes de usar el editor.', 'warning')
             return redirect(url_for('admin_marketing'))
@@ -163,12 +177,16 @@ def register_admin_marketing_routes(app):
     @admin_required
     def admin_marketing_campaign_edit(campaign_id):
         """Editar campaña en borrador."""
+        scope_oid = admin_data_scope_organization_id()
         c = MarketingCampaign.query.get_or_404(campaign_id)
+        if hasattr(MarketingCampaign, 'organization_id') and int(getattr(c, 'organization_id', 0) or 0) != int(scope_oid):
+            flash('No autorizado.', 'danger')
+            return redirect(url_for('admin_marketing'))
         if c.status not in ('draft', 'scheduled'):
             flash('Solo se pueden editar campañas en borrador o programadas.', 'warning')
             return redirect(url_for('admin_marketing'))
-        segments = MarketingSegment.query.order_by(MarketingSegment.id).all()
-        templates = MarketingTemplate.query.order_by(MarketingTemplate.id).all()
+        segments = _scope_query_by_org(MarketingSegment.query, MarketingSegment, scope_oid).order_by(MarketingSegment.id).all()
+        templates = _scope_query_by_org(MarketingTemplate.query, MarketingTemplate, scope_oid).order_by(MarketingTemplate.id).all()
         return render_template('admin/marketing_editor.html',
                              campaign=c,
                              segments=segments,
@@ -300,22 +318,31 @@ def register_admin_marketing_routes(app):
         base_url = request.host_url.rstrip('/') if request else ''
         ctx = {'nombre': 'Prueba', 'email': test_email, 'user_id': None}
         html = render_template_html(body_source, getattr(template, 'variables', '[]') if template else '[]', ctx, base_url=base_url)
+        oid_c = int(getattr(c, 'organization_id', None) or ap.default_organization_id())
         try:
-            if not ap.email_service:
-                flash('Servicio de email no configurado.', 'danger')
+            ok_smtp, _cfg_id = ap.apply_marketing_smtp_for_organization(oid_c)
+            if not ok_smtp:
+                flash(
+                    'No hay SMTP (marketing o institucional) o Mail/EmailService no disponible para esta organización.',
+                    'danger',
+                )
             else:
                 ok = ap.email_service.send_email(
                     subject=c.subject,
                     recipients=[test_email],
                     html_content=html,
                     email_type='marketing_test',
+                    sender=getattr(c, 'from_name', None) or None,
+                    reply_to=getattr(c, 'reply_to', None) or None,
                 )
                 if ok:
                     flash(f'Prueba enviada a {test_email}.', 'success')
                 else:
-                    flash('El envío falló. Revisa la configuración SMTP.', 'danger')
+                    flash('El envío falló. Revisa la configuración SMTP del tenant.', 'danger')
         except Exception as e:
             flash(f'Error: {e}', 'danger')
+        finally:
+            ap.apply_email_config_from_db()
         return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
 
 
@@ -343,32 +370,42 @@ def register_admin_marketing_routes(app):
     @app.route('/admin/marketing/process-queue', methods=['GET', 'POST'])
     @admin_required
     def admin_marketing_process_queue():
-        """Procesa la cola email_queue: envía hasta 50 pendientes (send_after <= now). Usa config de marketing si existe."""
+        """Procesa la cola email_queue: hasta 50 pendientes; SMTP por organización de la campaña."""
         from datetime import datetime as dt
+
         ap.initialize_email_config()
-        # Usar configuración designada para marketing (o fallback a institucional)
-        marketing_cfg = EmailConfig.get_marketing_config() or EmailConfig.get_active_config()
-        if marketing_cfg:
-            marketing_cfg.apply_to_app(app)
-            if ap.Mail:
-                ap.mail = ap.Mail()
-                ap.mail.init_app(app)
-            if ap.EMAIL_TEMPLATES_AVAILABLE:
-                ap.email_service = ap.EmailService(ap.mail)
-        if not ap.email_service:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in (request.headers.get('Accept') or ''):
-                return jsonify({'success': False, 'error': 'EmailService no disponible', 'processed': 0}), 503
-            flash('Servicio de email no disponible.', 'danger')
-            return redirect(url_for('admin_marketing'))
+        scope_oid = admin_data_scope_organization_id()
         now = dt.utcnow()
         q = EmailQueueItem.query.filter(
             EmailQueueItem.status == 'pending',
             db.or_(
                 EmailQueueItem.send_after.is_(None),
-                EmailQueueItem.send_after <= now
+                EmailQueueItem.send_after <= now,
+            ),
+        )
+        if not ap._admin_can_view_all_organizations():
+            scope = int(scope_oid)
+            q = q.outerjoin(MarketingCampaign, EmailQueueItem.campaign_id == MarketingCampaign.id).filter(
+                db.or_(
+                    EmailQueueItem.organization_id == scope,
+                    MarketingCampaign.organization_id == scope,
+                )
             )
-        ).order_by(EmailQueueItem.id).limit(50)
-        items = q.all()
+        items = q.order_by(EmailQueueItem.id).limit(50).all()
+
+        def _item_org_id(item):
+            oi = getattr(item, 'organization_id', None)
+            if oi is not None:
+                return int(oi)
+            if item.campaign_id:
+                c = MarketingCampaign.query.get(item.campaign_id)
+                if c is not None:
+                    return int(c.organization_id or ap.default_organization_id())
+            if not ap._admin_can_view_all_organizations():
+                return int(scope_oid)
+            return int(ap.default_organization_id())
+
+        last_cfg_id = None
         sent, failed = 0, 0
         for item in items:
             item.status = 'processing'
@@ -376,6 +413,19 @@ def register_admin_marketing_routes(app):
                 item.attempts = (item.attempts or 0) + 1
             db.session.commit()
             try:
+                oid_send = _item_org_id(item)
+                ok_smtp, cfg_id = ap.apply_marketing_smtp_for_organization(
+                    oid_send, skip_if_config_id=last_cfg_id
+                )
+                if ok_smtp:
+                    last_cfg_id = cfg_id
+                if not ok_smtp:
+                    item.status = 'failed'
+                    if getattr(item, 'error_message', None) is not None:
+                        item.error_message = 'Sin SMTP/marketing para esta organización'
+                    db.session.commit()
+                    failed += 1
+                    continue
                 payload = json.loads(item.payload) if item.payload else {}
                 subject = payload.get('subject', '')
                 html = payload.get('html', '')
@@ -387,14 +437,15 @@ def register_admin_marketing_routes(app):
                     db.session.commit()
                     failed += 1
                     continue
+                is_campaign = bool(item.campaign_id)
                 ok = ap.email_service.send_email(
                     subject=subject,
                     recipients=[to_email],
                     html_content=html,
                     sender=payload.get('from_name') or None,
                     reply_to=payload.get('reply_to') or None,
-                    email_type='marketing_campaign',
-                    related_entity_type='campaign',
+                    email_type='marketing_campaign' if is_campaign else 'marketing_automation',
+                    related_entity_type='campaign' if is_campaign else 'marketing_automation',
                     related_entity_id=item.campaign_id,
                 )
                 if ok:
@@ -418,7 +469,6 @@ def register_admin_marketing_routes(app):
                 db.session.rollback()
                 db.session.commit()
                 failed += 1
-        # Restaurar configuración institucional para el resto de la app
         ap.apply_email_config_from_db()
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in (request.headers.get('Accept') or ''):
             return jsonify({'success': True, 'processed': len(items), 'sent': sent, 'failed': failed})

@@ -26,7 +26,8 @@
         <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-body py-2">
-                    <form id="calendarFilters" class="d-flex flex-wrap align-items-end gap-2">
+                    <div class="w-100 mobile-scroll-x pb-1">
+                    <form id="calendarFilters" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                         <div class="flex-shrink-0">
                             <label for="service_id" class="form-label form-label-sm mb-0">Servicio <span class="text-danger">*</span></label>
                             <select name="service_id" id="service_id" class="form-select form-select-sm" style="min-width:180px" required>
@@ -55,6 +56,7 @@
                             <button type="button" id="calendarLimpiar" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i> Limpiar</button>
                         </div>
                     </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -64,12 +66,12 @@
     <div class="row">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white border-bottom d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
                     <h5 class="mb-0">
                         <i class="fas fa-calendar-check me-2"></i>Calendario
                     </h5>
-                    <div>
-                        <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-primary btn-sm">
+                    <div class="flex-shrink-0">
+                        <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-primary btn-sm text-nowrap">
                             <i class="fas fa-clock me-2"></i>Horarios Semanales
                         </a>
                     </div>

@@ -87,7 +87,7 @@ class UserStatusChecker:
                     'currency': payment.currency,
                     'payment_method': payment.payment_method,
                     'payment_reference': payment.payment_reference,
-                    'yappy_transaction_id': self._get_yappy_transaction_id(payment),
+                    'yappy_transaction_id': UserStatusChecker._get_yappy_transaction_id(payment),
                     'status': payment.status,
                     'created_at': payment.created_at.isoformat() if payment.created_at else None,
                     'minutes_elapsed': minutes_elapsed,
@@ -269,8 +269,8 @@ class UserStatusChecker:
                     'message': notification.message,
                     'created_at': notification.created_at.isoformat() if notification.created_at else None,
                     'is_read': notification.is_read,
-                    'related_entity_type': notification.related_entity_type,
-                    'related_entity_id': notification.related_entity_id
+                    'related_entity_type': getattr(notification, 'related_entity_type', None),
+                    'related_entity_id': getattr(notification, 'related_entity_id', None),
                 }
                 
                 status['pending_notifications'].append(notification_info)

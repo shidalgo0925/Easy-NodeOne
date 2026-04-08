@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Módulos SaaS - EasyNodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3">
+  <div class="row g-4 align-items-start">
+    <div class="{% if show_onboarding_rail %}col-12 col-lg-8{% else %}col-12{% endif %}">
+    <h1 class="h4 mb-3"><i class="fas fa-puzzle-piece"></i> Módulos por organización</h1>
+    <p class="text-muted small">Asignación tenant ↔ módulo. Los administradores de plataforma no quedan bloqueados por estos flags.</p>
+    {% if not saas_organizations %}
+    <div class="alert alert-warning">No hay empresas registradas. Cree una en <a href="{{ url_for('admin_organization_new') }}">Empresas</a>.</div>
+    {% endif %}
+    <div class="mb-3 w-100 mobile-scroll-x pb-1">
+    <div class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
+        <div class="flex-shrink-0">
+            <label class="form-label small mb-0">Empresa</label>
+            <select id="orgSelect" class="form-select form-select-sm" style="min-width:14rem" {% if not saas_organizations %}disabled{% endif %}>
+                {% for o in saas_organizations %}
+                <option value="{{ o.id }}" {% if selected_organization_id is not none and o.id == selected_organization_id %}selected{% endif %}>
+                  {{ o.name }} (id={{ o.id }}){% if not o.is_active %} — inactiva{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnReload">Recargar lista</button>
+        <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-sm btn-outline-secondary">Ir a empresas</a>
+        <a href="{{ url_for('admin_saas_catalog_list') }}" class="btn btn-sm btn-outline-secondary">Catálogo</a>
+    </div>
+    </div>
+    <div id="msg" class="alert d-none" role="alert"></div>
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Core</th>
+                    <th>Activo</th>
+                    <th>Depende de</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
+    </div>
+    {% if show_onboarding_rail %}
+    <div class="col-12 col-lg-4 mt-2 mt-lg-0">
+      {% include 'admin/_onboarding_rail.html' %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+<script>
+(function () {
+    const tbody = document.getElementById('tbody');
+    const msg = document.getElementById('msg');
+    const orgSelect = document.getElementById('orgSelect');
+    function showMsg(text, ok) {
+        msg.textContent = text;
+        msg.className = 'alert alert-' + (ok ? 'success' : 'danger');
+        msg.classList.remove('d-none');
+    }
+    function hideMsg() { msg.classList.add('d-none'); }
+    async function load() {
+        hideMsg();
+        const oid = orgSelect.value || '1';
+        const r = await fetch('/api/admin/saas/modules?organization_id=' + encodeURIComponent(oid), { credentials: 'same-origin' });
+        const j = await r.json();
+        if (!j.success) { showMsg(j.error || 'Error', false); return; }
+        tbody.innerHTML = '';
+        (j.modules || []).forEach(function (m) {
+            const tr = document.createElement('tr');
+            const dep = (m.depends_on || []).join(', ') || '—';
+            const core = m.is_core ? 'Sí' : 'No';
+            const on = m.enabled ? 'Sí' : 'No';
+            let actions = '';
+            if (!m.is_core) {
+                if (m.enabled) {
+                    actions = '<button type="button" class="btn btn-sm btn-outline-danger btn-disable" data-code="' + m.code + '">Desactivar</button>';
+                } else {
+                    actions = '<button type="button" class="btn btn-sm btn-outline-success btn-enable" data-code="' + m.code + '">Activar</button>';
+                }
+            }
+            tr.innerHTML = '<td><code>' + m.code + '</code></td><td>' + (m.name || '') + '</td><td>' + core + '</td><td>' + on + '</td><td class="small">' + dep + '</td><td>' + actions + '</td>';
+            tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('.btn-disable').forEach(function (btn) {
+            btn.addEventListener('click', function () { toggle(btn.dataset.code, false); });
+        });
+        tbody.querySelectorAll('.btn-enable').forEach(function (btn) {
+            btn.addEventListener('click', function () { toggle(btn.dataset.code, true); });
+        });
+    }
+    async function toggle(code, enable) {
+        hideMsg();
+        const oid = parseInt(orgSelect.value || '1', 10);
+        const url = '/api/admin/saas/modules/' + encodeURIComponent(code) + '/' + (enable ? 'enable' : 'disable');
+        const r = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ organization_id: oid })
+        });
+        const j = await r.json();
+        if (!j.success) { showMsg(j.error || 'Error', false); return; }
+        showMsg('Actualizado: ' + code, true);
+        load();
+    }
+    document.getElementById('btnReload').addEventListener('click', load);
+    orgSelect.addEventListener('change', load);
+    load();
+})();
+</script>
+{% endblock %}

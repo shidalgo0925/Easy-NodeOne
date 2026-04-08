@@ -45,3 +45,15 @@ Paso 4 — Si sigue sin verse: caché
 ---
 
 Resumen: Nginx sirve desde /var/www/easynodeone. Tras cada cambio en el landing hay que hacer build y copiar dist/* a esa carpeta, luego recargar nginx y purgar caché si usas Cloudflare.
+
+---
+
+Paso 5 — Verificación rápida SEO / archivos públicos (cualquier máquina)
+  curl -sI https://easynodeone.com/ | head -5
+  curl -s https://easynodeone.com/robots.txt | tail -5
+  curl -s https://easynodeone.com/sitemap.xml | head -15
+
+  Debe existir Sitemap: https://easynodeone.com/sitemap.xml al final de robots (tras bloque opcional de Cloudflare).
+  El HTML de la home debe traer <link rel="canonical" href="https://easynodeone.com/" /> y meta description.
+  Bloque estático crawlable (tras #root en el HTML servido):
+  curl -s https://easynodeone.com/ | grep -q 'Acerca de EasyNodeOne' && echo OK

@@ -1,7 +1,7 @@
 # Análisis de Configuración Nginx
 
 **Fecha:** $(date)
-**Servidor:** 34.66.214.83
+**Servidor (origen GCP, easynodeone / NodeOne):** 136.112.128.239
 
 ---
 
@@ -27,23 +27,16 @@
    - **Headers:** WebSocket habilitado
    - **Buffering:** Activado (producción)
 
-3. **helpdesk** ✅
-   - **Subdominio:** helpdesk.etsrv.site
-   - **Puerto Frontend:** 3001
-   - **Puerto Backend API:** 8001
-   - **SSL:** ✅ Certificado Let's Encrypt
-   - **Estado:** ✅ Configurado correctamente
-
-4. **apps.etsrv.site** ✅
+3. **apps.etsrv.site** ✅
    - **Subdominio:** apps.etsrv.site
    - **Puerto Backend:** 5001
    - **SSL:** ✅ Certificado Let's Encrypt
    - **Estado:** ✅ Configurado correctamente
 
-5. **waconnect.etsrv.site** ⚠️
+4. **waconnect.etsrv.site** ⚠️
    - **Estado:** Habilitado pero no revisado
 
-6. **waconnect.site** ⚠️
+5. **waconnect.site** ⚠️
    - **Estado:** Habilitado pero no revisado
 
 ---
@@ -97,8 +90,6 @@ Todos los sitios de `relatic.org` tienen configurados:
    - ✅ No hay conflictos: cada servicio usa puerto diferente
    - 5173: relatic-frontend
    - 9000: membresia-relatic
-   - 3001: helpdesk-frontend
-   - 8001: helpdesk-backend
    - 5001: apps.etsrv.site
 
 3. **Logs:**
@@ -137,7 +128,7 @@ Todos los sitios de `relatic.org` tienen configurados:
 1. **Rate Limiting:** Agregar rate limiting para prevenir abusos
 2. **Caching:** Configurar caching para assets estáticos
 3. **Compresión:** Habilitar gzip para todos los tipos de archivo
-4. **Security Headers:** Agregar más headers de seguridad (como en helpdesk)
+4. **Security Headers:** Agregar más headers de seguridad
 
 ---
 
@@ -151,7 +142,6 @@ Cloudflare (SSL/TLS)
 Nginx (Reverse Proxy)
    ├── dev.relatic.org → localhost:5173 (relatic-frontend)
    ├── miembros.relatic.org → localhost:9000 (membresia-relatic)
-   ├── helpdesk.etsrv.site → localhost:3001 (frontend) + localhost:8001 (API)
    └── apps.etsrv.site → localhost:5001
 ```
 

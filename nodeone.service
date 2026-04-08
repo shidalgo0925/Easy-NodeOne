@@ -1,15 +1,20 @@
 [Unit]
-Description=Easy NodeOne (Flask backend - puerto 9001)
+Description=Easy NodeOne (Gunicorn → wsgi:application, Nginx proxy 9001)
 After=network.target
 
 [Service]
 Type=simple
 User=relaticpanama2025
+# CRÍTICO: cwd = backend/ para importar app.py y wsgi.py del monolito
 WorkingDirectory=/home/relaticpanama2025/workspace/NodeOne/backend
 Environment="PATH=/home/relaticpanama2025/workspace/NodeOne/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
 Environment="PORT=9001"
-ExecStart=/home/relaticpanama2025/workspace/NodeOne/venv/bin/python3 app.py
+# Sin EASYNODEONE_PLATFORM_VISIBLE_ORG_IDS: todas las empresas activas se listan; no desactivar tenants extra en bootstrap.
+# Parches DDL / create_all antes de workers (idempotente en la medida de lo posible)
+ExecStartPre=/home/relaticpanama2025/workspace/NodeOne/venv/bin/python3 /home/relaticpanama2025/workspace/NodeOne/backend/bootstrap_nodeone.py
+# Producción: no usar `python app.py`. Gunicorn carga wsgi.application (= create_app()).
+ExecStart=/home/relaticpanama2025/workspace/NodeOne/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:9001 --timeout 120 --access-logfile - --error-logfile - wsgi:application
 Restart=always
 RestartSec=10
 StandardOutput=journal

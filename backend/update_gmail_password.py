@@ -3,22 +3,30 @@
 Actualizar contraseña de Gmail
 """
 
-import sys
+import argparse
 import os
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db, EmailConfig
 
+
 def update_gmail_password():
     """Actualizar contraseña de Gmail"""
-    print("=" * 60)
-    print("ACTUALIZAR CONTRASEÑA: relaticpanama2025@gmail.com")
-    print("=" * 60)
-    
+    parser = argparse.ArgumentParser(description='Actualizar mail_password en EmailConfig')
+    parser.add_argument('--org-id', type=int, default=None, help='Tenant de la fila EmailConfig')
+    args = parser.parse_args()
+
+    print('=' * 60)
+    print('ACTUALIZAR CONTRASEÑA: relaticpanama2025@gmail.com')
+    if args.org_id is not None:
+        print(f'  (org: {args.org_id})')
+    print('=' * 60)
+
     with app.app_context():
-        config = EmailConfig.get_active_config()
+        config = EmailConfig.get_active_config(organization_id=args.org_id)
         
         if not config:
             print("\n❌ No hay configuración activa")

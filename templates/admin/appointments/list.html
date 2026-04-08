@@ -4,29 +4,31 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-        <div>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center mb-4 flex-md-wrap gap-3">
+        <div class="min-w-0">
             <p class="text-uppercase text-muted small mb-1">Panel administrativo</p>
-            <h1 class="h3 mb-0">Gestión de citas</h1>
+            <h1 class="mb-0">Gestión de citas</h1>
         </div>
-        <div class="d-flex gap-2">
-            <a href="{{ url_for('admin_appointments.create_appointment_type') }}" class="btn btn-primary">
+        <div class="w-100 w-md-auto min-w-0 mobile-scroll-x pb-1">
+        <div class="d-flex flex-nowrap flex-md-wrap gap-2 justify-content-start justify-content-md-end">
+            <a href="{{ url_for('admin_appointments.create_appointment_type') }}" class="btn btn-primary text-nowrap">
                 <i class="fas fa-plus me-2"></i>Nuevo servicio
             </a>
-            <a href="{{ url_for('admin_appointments.list_advisors') }}" class="btn btn-outline-primary">
+            <a href="{{ url_for('admin_appointments.list_advisors') }}" class="btn btn-outline-primary text-nowrap">
                 <i class="fas fa-user-tie me-2"></i>Asesores
             </a>
-            <a href="{{ url_for('admin_appointments.calendar_view') }}" class="btn btn-outline-success">
+            <a href="{{ url_for('admin_appointments.calendar_view') }}" class="btn btn-outline-success text-nowrap">
                 <i class="fas fa-calendar me-2"></i>Calendario de Disponibilidad
             </a>
-            <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('admin_appointments.list_service_availability') }}" class="btn btn-outline-secondary text-nowrap">
                 <i class="fas fa-clock me-2"></i>Horarios Semanales
             </a>
+        </div>
         </div>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Servicios activos</p>
@@ -34,7 +36,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Asesores activos</p>
@@ -42,7 +44,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Citas pendientes</p>
@@ -50,7 +52,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Próximos slots</p>
@@ -61,11 +63,11 @@
     </div>
 
     <div class="row g-4">
-        <div class="col-lg-7">
+        <div class="col-12 col-lg-7">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white border-0 d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
                     <h2 class="h5 mb-0">Servicios configurados</h2>
-                    <span class="badge bg-light text-dark">{{ types|length }} servicios</span>
+                    <span class="badge bg-light text-dark align-self-start align-self-sm-center">{{ types|length }} servicios</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -83,8 +85,8 @@
                                 {% for appointment_type in types %}
                                 <tr class="{{ 'table-secondary' if not (appointment_type.is_active | default(true)) else '' }}">
                                     <td>
-                                        <strong>{{ appointment_type.name }}</strong>
-                                        <p class="text-muted small mb-0">{{ appointment_type.service_category }}</p>
+                                        <strong>{{ appointment_type.public_service_label() }}</strong>
+                                        <p class="text-muted small mb-0">{{ appointment_type.service_category }} · <span class="font-monospace">name:</span> {{ appointment_type.name }}</p>
                                     </td>
                                     <td>{{ appointment_type.duration_minutes }} min</td>
                                     <td>{{ appointment_type.base_price|round(2) }} {{ appointment_type.currency }}</td>
@@ -113,7 +115,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-5">
+        <div class="col-12 col-lg-5 mt-4 mt-lg-0">
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-header bg-white border-0">
                     <h2 class="h6 mb-0">Crear slot manual</h2>
@@ -125,7 +127,7 @@
                             <select name="appointment_type_id" class="form-select" required>
                                 <option value="">Selecciona...</option>
                                 {% for appointment_type in types %}
-                                <option value="{{ appointment_type.id }}">{{ appointment_type.name }}</option>
+                                <option value="{{ appointment_type.id }}">{{ appointment_type.public_service_label() }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -138,11 +140,11 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-7">
+                        <div class="col-12 col-md-7">
                             <label class="form-label small text-muted">Inicio</label>
                             <input type="datetime-local" name="start_datetime" class="form-control" required>
                         </div>
-                        <div class="col-md-5">
+                        <div class="col-12 col-md-5">
                             <label class="form-label small text-muted">Capacidad</label>
                             <input type="number" name="capacity" class="form-control" min="1" value="1">
                         </div>

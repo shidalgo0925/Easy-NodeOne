@@ -4,10 +4,10 @@
 
 {% block page_content %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver</a>
-            <h1 class="h5 d-inline ms-2">Crear segmento</h1>
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2 min-w-0">
+            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm text-nowrap"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1 class="h5 mb-0">Crear segmento</h1>
         </div>
     </div>
 
@@ -80,10 +80,10 @@
         var valDisplay = (cond.op === 'is_set' || cond.op === 'is_not_set') ? ' style="display:none"' : '';
         var safeVal = (cond.value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         row.innerHTML =
-            '<div class="col-md-4"><select class="form-select form-select-sm filter-field">' + '<option value="">— Campo —</option>' + fieldOptions + '</select></div>' +
-            '<div class="col-md-3"><select class="form-select form-select-sm filter-op">' + opOptions + '</select></div>' +
-            '<div class="col-md-4 filter-value-wrap"' + valDisplay + '><input type="text" class="form-control form-control-sm filter-value" placeholder="Valor" value="' + safeVal + '"></div>' +
-            '<div class="col-md-1"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-filter" title="Quitar"><i class="fas fa-times"></i></button></div>';
+            '<div class="col-12 col-md-4"><select class="form-select form-select-sm filter-field">' + '<option value="">— Campo —</option>' + fieldOptions + '</select></div>' +
+            '<div class="col-12 col-md-3"><select class="form-select form-select-sm filter-op">' + opOptions + '</select></div>' +
+            '<div class="col-12 col-md-4 filter-value-wrap"' + valDisplay + '><input type="text" class="form-control form-control-sm filter-value" placeholder="Valor" value="' + safeVal + '"></div>' +
+            '<div class="col-12 col-md-1"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-filter" title="Quitar"><i class="fas fa-times"></i></button></div>';
         container.appendChild(row);
         var opSel = row.querySelector('.filter-op');
         var valWrap = row.querySelector('.filter-value-wrap');

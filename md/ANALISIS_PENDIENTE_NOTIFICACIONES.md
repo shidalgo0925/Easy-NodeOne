@@ -58,7 +58,7 @@ cd /home/relaticpanama2025/projects/membresia-relatic/backend
 ```
 
 **Archivos a crear**:
-- `backend/setup_notification_cron.sh` - Script de configuración automática
+- `scripts/backend/setup_notification_cron.sh` - Script de configuración automática
 - `backend/notification_scheduler.service` - Systemd service (alternativa)
 
 ---
@@ -234,7 +234,7 @@ python backend/configure_o365.py  # o configure_gmail.py
 ```bash
 cd /home/relaticpanama2025/projects/membresia-relatic/backend
 # Crear script de configuración (ver siguiente sección)
-./setup_notification_cron.sh
+./scripts/backend/setup_notification_cron.sh
 ```
 
 ### Paso 3: Procesar Pendientes (10 minutos)
@@ -255,7 +255,7 @@ python backend/verify_notifications_system.py
 
 ## 📝 SCRIPTS A CREAR
 
-### 1. `backend/setup_notification_cron.sh`
+### 1. `scripts/backend/setup_notification_cron.sh`
 Script para configurar cron job automáticamente.
 
 ### 2. `backend/retry_pending_notifications.py`

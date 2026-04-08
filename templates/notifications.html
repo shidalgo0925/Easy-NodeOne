@@ -6,15 +6,15 @@
 <div class="container py-4">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h1 class="display-6 mb-0">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-start gap-3 mb-4">
+                <div class="min-w-0">
+                    <h1 class="h3 mb-0">
                         <i class="fas fa-bell"></i> Notificaciones
                     </h1>
                     <p class="text-muted mb-0">Gestiona tus alertas y notificaciones</p>
                     <!-- Contador mejorado -->
-                    <div class="mt-2">
-                        <span class="badge bg-primary me-2">
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                        <span class="badge bg-primary">
                             <i class="fas fa-bell"></i> Total: <span id="totalCount">{{ notifications|length }}</span>
                         </span>
                         <span class="badge bg-warning">
@@ -22,7 +22,8 @@
                         </span>
                     </div>
                 </div>
-                <div class="btn-group" role="group">
+                <div class="w-100 w-md-auto min-w-0 mobile-scroll-x pb-1">
+                <div class="btn-group flex-nowrap" role="group">
                     <button class="btn btn-outline-primary" onclick="markAllAsRead()" title="Marcar todas como leídas">
                         <i class="fas fa-check-double"></i> Marcar todas
                     </button>
@@ -38,6 +39,7 @@
                         </a></li>
                     </ul>
                 </div>
+                </div>
             </div>
         </div>
     </div>
@@ -47,8 +49,8 @@
         <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-4">
+                    <div class="row align-items-center g-2">
+                        <div class="col-12 col-md-4">
                             <select class="form-select" id="filterType">
                                 <option value="all">Todas las notificaciones</option>
                                 <option value="event">Eventos</option>
@@ -57,14 +59,14 @@
                                 <option value="membership">Membresía</option>
                             </select>
                         </div>
-                        <div class="col-md-4 mt-3 mt-md-0">
+                        <div class="col-12 col-md-4">
                             <select class="form-select" id="filterStatus">
                                 <option value="all">Todas</option>
                                 <option value="unread">No leídas</option>
                                 <option value="read">Leídas</option>
                             </select>
                         </div>
-                        <div class="col-md-4 mt-3 mt-md-0">
+                        <div class="col-12 col-md-4">
                             <button class="btn btn-primary w-100" onclick="filterNotifications()">
                                 <i class="fas fa-filter"></i> Filtrar
                             </button>
@@ -100,6 +102,7 @@
                                             'membership_renewed': 'fa-check-circle',
                                             'appointment_confirmation': 'fa-clock',
                                             'appointment_reminder': 'fa-bell',
+                                            'appointment_cancellation': 'fa-calendar-times',
                                             'welcome': 'fa-hand-sparkles',
                                             'system': 'fa-info-circle'
                                         } %}
@@ -114,6 +117,7 @@
                                             'membership_renewed': 'success',
                                             'appointment_confirmation': 'info',
                                             'appointment_reminder': 'warning',
+                                            'appointment_cancellation': 'secondary',
                                             'welcome': 'primary',
                                             'system': 'info'
                                         } %}

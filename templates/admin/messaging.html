@@ -6,8 +6,8 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+                <div class="min-w-0">
                     <h1 class="h5 mb-2">
                         <i class="fas fa-envelope"></i> Gestión de Mensajería
                     </h1>
@@ -28,7 +28,7 @@
 
     <!-- Estadísticas (tarjetas compactas) -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card text-center">
                 <div class="card-body py-2">
                     <h6 class="card-title text-muted mb-1 small">Total Emails</h6>
@@ -36,7 +36,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card text-center">
                 <div class="card-body py-2">
                     <h6 class="card-title text-muted mb-1 small">Enviados</h6>
@@ -44,7 +44,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card text-center">
                 <div class="card-body py-2">
                     <h6 class="card-title text-muted mb-1 small">Fallidos</h6>
@@ -52,7 +52,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <div class="card text-center">
                 <div class="card-body py-2">
                     <h6 class="card-title text-muted mb-1 small">Tasa de Éxito</h6>
@@ -74,7 +74,8 @@
             <div class="card shadow-sm">
                 <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-filter"></i> Filtros</h6></div>
                 <div class="card-body py-2">
-                    <form method="GET" action="{{ url_for('admin_messaging') }}" class="d-flex flex-wrap align-items-end gap-2">
+                    <div class="w-100 mobile-scroll-x pb-1">
+                    <form method="GET" action="{{ url_for('admin_messaging') }}" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                         <div class="flex-shrink-0">
                             <label for="type" class="form-label form-label-sm mb-0">Tipo</label>
                             <select name="type" id="type" class="form-select form-select-sm" style="width:110px">
@@ -110,6 +111,7 @@
                         </div>
                         <input type="hidden" name="page" value="1">
                     </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -130,9 +132,9 @@
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <div class="card-header py-2 d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
                     <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Emails</h5>
-                    <span class="badge bg-primary">{{ pagination.total }} emails</span>
+                    <span class="badge bg-primary align-self-start align-self-sm-center">{{ pagination.total }} emails</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">

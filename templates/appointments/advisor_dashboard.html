@@ -7,7 +7,7 @@
     <h1 class="h4 mb-4"><i class="fas fa-tachometer-alt me-2"></i>Panel del asesor</h1>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Solicitudes pendientes</p>
@@ -18,7 +18,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Citas confirmadas próximas</p>
@@ -26,7 +26,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-12 col-sm-6 col-md-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Slots disponibles</p>
@@ -38,9 +38,9 @@
 
     {% if queue_appointments %}
     <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-warning bg-opacity-25 d-flex justify-content-between align-items-center">
+        <div class="card-header bg-warning bg-opacity-25 d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
             <h5 class="mb-0"><i class="fas fa-inbox me-2"></i>Solicitudes pendientes de confirmación</h5>
-            <a href="{{ url_for('appointments.advisor_queue') }}" class="btn btn-sm btn-warning">Ver todas y confirmar</a>
+            <a href="{{ url_for('appointments.advisor_queue') }}" class="btn btn-sm btn-warning text-nowrap">Ver todas y confirmar</a>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -61,7 +61,10 @@
                                 {% if apt.user %}{{ apt.user.first_name }} {{ apt.user.last_name }}<br><small class="text-muted">{{ apt.user.email }}</small>{% else %}—{% endif %}
                             </td>
                             <td>
-                                {% if apt.related_service %}{{ apt.related_service.name }}{% elif apt.appointment_type %}{{ apt.appointment_type.name }}{% else %}—{% endif %}
+                                {% if apt.appointment_type %}
+                                <small class="text-muted text-uppercase d-block">{{ appt_tenant_names.get(apt.appointment_type.organization_id, '') }}</small>
+                                <span>{{ apt.appointment_type.public_service_label() }}</span>
+                                {% elif apt.related_service %}{{ apt.related_service.name }}{% else %}—{% endif %}
                                 {% if apt.start_datetime %}<br><small>{{ apt.start_datetime.strftime('%d/%m/%Y %H:%M') }}</small>{% endif %}
                             </td>
                             <td class="text-end">
@@ -95,7 +98,7 @@
         <ul class="list-group list-group-flush">
             {% for apt in upcoming_appointments %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>{{ apt.appointment_type.name if apt.appointment_type else 'Cita' }} — {{ apt.start_datetime.strftime('%d/%m/%Y %H:%M') }}{% if apt.user %} ({{ apt.user.first_name }} {{ apt.user.last_name }}){% endif %}</span>
+                <span>{% if apt.appointment_type %}<small class="text-muted text-uppercase d-block">{{ appt_tenant_names.get(apt.appointment_type.organization_id, '') }}</small>{{ apt.appointment_type.public_service_label() }}{% else %}Cita{% endif %} — {{ apt.start_datetime.strftime('%d/%m/%Y %H:%M') }}{% if apt.user %} ({{ apt.user.first_name }} {{ apt.user.last_name }}){% endif %}</span>
                 <code class="small">{{ apt.reference }}</code>
             </li>
             {% endfor %}

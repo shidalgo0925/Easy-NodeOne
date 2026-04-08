@@ -63,6 +63,7 @@ def main():
             is_active=True,
             email_verified=True,
             must_change_password=True,
+            organization_id=1,
         )
         user.set_password(password)
         db.session.add(user)

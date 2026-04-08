@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Guía de configuración - Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<style>
+  .ob-wrap { max-width: 720px; margin: 0 auto; }
+  .ob-seg-progress { display: flex; gap: 6px; margin-bottom: 2rem; }
+  .ob-seg { flex: 1; height: 10px; border-radius: 999px; background: #e2e8f0; transition: background .25s; }
+  .ob-seg.done { background: linear-gradient(90deg, #6b9f7a, #8fbc8f); }
+  .ob-seg.current { background: linear-gradient(90deg, var(--color-primary, #2563eb), var(--color-accent, #06b6d4)); box-shadow: 0 0 0 2px rgba(37,99,235,.2); }
+  .ob-card {
+    border: none; border-radius: 20px; box-shadow: 0 8px 32px rgba(15,23,42,.08);
+    margin-bottom: 1.75rem; overflow: hidden; background: #fff;
+    border: 1px solid rgba(0,0,0,.04);
+  }
+  .ob-card.done { opacity: .92; }
+  .ob-card.current { box-shadow: 0 12px 40px rgba(37,99,235,.12); outline: 2px solid rgba(37,99,235,.25); outline-offset: 0; }
+  .ob-card-h { position: relative; padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; }
+  .ob-check-corner {
+    position: absolute; top: 1rem; right: 1rem; width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: .9rem;
+  }
+  .ob-check-corner.ok { background: #d1fae5; color: #059669; }
+  .ob-check-corner.pending { background: #f1f5f9; color: #94a3b8; }
+  .ob-meta code { font-size: .72rem; background: #f1f5f9; padding: .15rem .4rem; border-radius: 6px; }
+  .btn-onboard-primary {
+    background: #e07a5f; border-color: #e07a5f; color: #fff; font-weight: 600; border-radius: 12px; padding: .6rem 1.25rem;
+  }
+  .btn-onboard-primary:hover { background: #c96a52; border-color: #c96a52; color: #fff; }
+  .btn-onboard-secondary { border-radius: 12px; font-weight: 500; }
+  .ob-illus { max-width: 100%; height: auto; max-height: 200px; object-fit: contain; }
+  .ob-input-mock { background: #f8fafc !important; border-radius: 12px !important; border: 1px solid #e2e8f0 !important; }
+  .ob-switch-mock .form-check-input { width: 2.5em; height: 1.25em; opacity: .85; pointer-events: none; }
+  .ob-pill-core { font-size: .65rem; vertical-align: middle; }
+  @media (max-width: 575.98px) {
+    .ob-seg-progress { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; margin-left: -2px; margin-right: -2px; }
+    .ob-seg { flex: 1 0 2rem; min-width: 1.75rem; }
+  }
+</style>
+
+<div class="container-fluid py-4 px-3 ob-wrap">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-start flex-wrap gap-2 mb-4">
+        <div class="min-w-0">
+            <h1 class="h3 mb-1" style="color:#1e293b;">Configuración de clientes</h1>
+            <p class="text-muted mb-0 small">Seguí los pasos · Las ilustraciones son generadas por IA (podés reemplazarlas luego).</p>
+        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary btn-sm btn-onboard-secondary align-self-start flex-shrink-0">Volver al portal</a>
+    </div>
+
+    {# Barra segmentada (5 pasos) #}
+    <div class="ob-seg-progress" aria-hidden="true">
+        {% for i in [1,2,3,4,5] %}
+        <div class="ob-seg {% if i < w.current_step or w.current_step == 6 %}done{% elif i == w.current_step %}current{% endif %}" title="Paso {{ i }}"></div>
+        {% endfor %}
+    </div>
+
+    <p class="small text-muted mb-4 text-center">Progreso global <strong>{{ w.percent }}%</strong> — también se calcula con tus datos reales en la base.</p>
+
+    {# —— Paso 1 —— #}
+    <div class="ob-card {% if w.step_tenant %}done{% endif %} {% if w.current_step == 1 %}current{% endif %}">
+        <div class="ob-card-h">
+            <span class="ob-check-corner {% if w.step_tenant %}ok{% else %}pending{% endif %}">{% if w.step_tenant %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-minus"></i>{% endif %}</span>
+            <div class="ob-meta small text-muted mb-1">Paso 1 · <span class="badge rounded-pill" style="background:#e8f5e9;color:#2e7d32;">~2 min</span></div>
+            <h2 class="h5 mb-0">Crear organización</h2>
+            <div class="ob-meta mt-1"><code>/admin/organizations/new</code></div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-center">
+                <div class="col-12 col-md-7">
+                    <p class="text-muted small">Referencia visual; el alta real está en el formulario oficial.</p>
+                    <label class="form-label small text-muted mb-1">Nombre de la empresa</label>
+                    <input type="text" class="form-control form-control-sm ob-input-mock mb-2" disabled placeholder="Ej. Mi Empresa S.A.">
+                    <label class="form-label small text-muted mb-1">Nombre corto / subdominio (opcional aquí)</label>
+                    <input type="text" class="form-control form-control-sm ob-input-mock mb-2" disabled placeholder="miempresa">
+                    <label class="form-label small text-muted mb-1">Email del administrador (referencia)</label>
+                    <input type="email" class="form-control form-control-sm ob-input-mock mb-3" disabled placeholder="admin@empresa.com">
+                    <div class="d-flex flex-column flex-sm-row flex-wrap gap-2">
+                    <a href="{{ url_for('admin_organization_new') }}?guide=1" class="btn btn-onboard-primary"><i class="fas fa-plus me-1"></i> Crear organización</a>
+                    <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-outline-secondary btn-sm btn-onboard-secondary">Listado</a>
+                    </div>
+                </div>
+                <div class="col-12 col-md-5 text-center mt-3 mt-md-0">
+                    <img src="{{ url_for('static', filename='images/onboarding/onboard-step1-org.png') }}" alt="" class="ob-illus" width="280" height="200" loading="lazy" decoding="async">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# —— Paso 2 —— #}
+    <div class="ob-card {% if w.step_subdomain_strict %}done{% endif %} {% if w.current_step == 2 %}current{% endif %}">
+        <div class="ob-card-h">
+            <span class="ob-check-corner {% if w.step_subdomain_strict %}ok{% else %}pending{% endif %}">{% if w.step_subdomain_strict %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-minus"></i>{% endif %}</span>
+            <div class="ob-meta small text-muted mb-1">Paso 2 · <span class="badge rounded-pill bg-info text-dark">~3 min</span></div>
+            <h2 class="h5 mb-0">Configurar subdominio</h2>
+            <div class="ob-meta mt-1"><code>/admin/organizations/&lt;id&gt;/edit</code></div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-center">
+                <div class="col-12 col-md-7">
+                    <div class="input-group input-group-sm mb-3">
+                        <input type="text" class="form-control ob-input-mock" disabled value="{% if w.first_tenant_name %}{{ (w.first_tenant_name|lower)|replace(' ', '')|truncate(12, True, '') }}{% else %}empresa{% endif %}.tuapp.com">
+                        <span class="input-group-text bg-white border-start-0 text-success"><i class="fas fa-check"></i></span>
+                    </div>
+                    <p class="small text-muted">Editá la empresa y guardá el subdominio en minúsculas.</p>
+                    {% if w.first_tenant_id %}
+                    <a href="{{ url_for('admin_organization_edit', oid=w.first_tenant_id) }}?guide=1" class="btn btn-success rounded-pill px-4">Abrir editor</a>
+                    {% else %}
+                    <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-success rounded-pill px-4">Ir a empresas</a>
+                    {% endif %}
+                </div>
+                <div class="col-12 col-md-5 text-center mt-3 mt-md-0">
+                    <img src="{{ url_for('static', filename='images/onboarding/onboard-step2-dns.png') }}" alt="" class="ob-illus" width="280" height="200" loading="lazy" decoding="async">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# —— Paso 3 —— #}
+    <div class="ob-card {% if w.step_modules %}done{% endif %} {% if w.current_step == 3 %}current{% endif %}">
+        <div class="ob-card-h">
+            <span class="ob-check-corner {% if w.step_modules %}ok{% else %}pending{% endif %}">{% if w.step_modules %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-minus"></i>{% endif %}</span>
+            <div class="ob-meta small text-muted mb-1">Paso 3 · <span class="badge rounded-pill" style="background:#fff3e0;color:#e65100;">~4 min</span></div>
+            <h2 class="h5 mb-0">Activar módulos SaaS</h2>
+            <div class="ob-meta mt-1"><code>/admin/saas-modules{% if w.first_tenant_id %}?organization_id={{ w.first_tenant_id }}{% endif %}</code></div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-start">
+                <div class="col-12 col-md-7">
+                    <p class="small text-muted mb-2">Vista de referencia (los cambios reales son en la pantalla de módulos).</p>
+                    <ul class="list-group list-group-flush rounded-3 border ob-input-mock p-0">
+                        {% for m in saas_modules_preview[:8] %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 bg-transparent">
+                            <span>
+                                <i class="fas fa-cube text-muted me-2 small"></i>{{ m.name }}
+                                {% if m.is_core %}<span class="badge bg-secondary ob-pill-core ms-1">Core</span>{% endif %}
+                            </span>
+                            <div class="form-check form-switch ob-switch-mock m-0">
+                                <input class="form-check-input" type="checkbox" disabled {% if m.is_core %}checked{% endif %}>
+                            </div>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item text-muted small">Sin módulos en catálogo.</li>
+                        {% endfor %}
+                    </ul>
+                    <div class="mt-3">
+                        {% if w.first_tenant_id %}
+                        <a href="{{ url_for('admin_saas_modules_page', organization_id=w.first_tenant_id) }}&amp;guide=1" class="btn btn-onboard-primary"><i class="fas fa-sliders-h me-1"></i> Configurar de verdad</a>
+                        {% else %}
+                        <a href="{{ url_for('admin_saas_modules_page') }}?guide=1" class="btn btn-onboard-primary"><i class="fas fa-sliders-h me-1"></i> Configurar de verdad</a>
+                        {% endif %}
+                        <a href="{{ url_for('admin_saas_catalog_list') }}" class="btn btn-outline-secondary btn-sm ms-2">Catálogo</a>
+                    </div>
+                </div>
+                <div class="col-12 col-md-5 text-center mt-3 mt-md-0">
+                    <img src="{{ url_for('static', filename='images/onboarding/onboard-step3-modules.png') }}" alt="" class="ob-illus" width="280" height="200" loading="lazy" decoding="async">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# —— Paso 4 —— #}
+    <div class="ob-card {% if w.step_users %}done{% endif %} {% if w.current_step == 4 %}current{% endif %}">
+        <div class="ob-card-h">
+            <span class="ob-check-corner {% if w.step_users %}ok{% else %}pending{% endif %}">{% if w.step_users %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-minus"></i>{% endif %}</span>
+            <div class="ob-meta small text-muted mb-1">Paso 4 · <span class="badge rounded-pill bg-primary">~5 min</span></div>
+            <h2 class="h5 mb-0">Invitar usuarios</h2>
+            <div class="ob-meta mt-1"><code>/admin/users</code></div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-center">
+                <div class="col-12 col-md-7">
+                    <div class="small text-muted mb-2">Ejemplo de invitaciones — asigná <strong>organización</strong> al crear usuarios.</div>
+                    {% for ex in ['admin@cliente.com', 'agente@cliente.com', 'soporte@cliente.com'] %}
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                        <input type="text" class="form-control form-control-sm ob-input-mock" style="max-width:200px" disabled value="{{ ex }}">
+                        <select class="form-select form-select-sm ob-input-mock" style="max-width:140px" disabled>
+                            <option>Administrador</option>
+                            <option>Agente</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                    <a href="{{ url_for('admin_users') }}?guide=1" class="btn btn-onboard-primary mt-2"><i class="fas fa-paper-plane me-1"></i> Gestionar usuarios</a>
+                    <a href="{{ url_for('admin_roles_list') }}" class="btn btn-outline-secondary btn-sm ms-2">Roles</a>
+                </div>
+                <div class="col-12 col-md-5 text-center mt-3 mt-md-0">
+                    <img src="{{ url_for('static', filename='images/onboarding/onboard-step4-invite.png') }}" alt="" class="ob-illus" width="280" height="200" loading="lazy" decoding="async">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# —— Paso 5 —— #}
+    <div class="ob-card {% if w.step_review %}done{% endif %} {% if w.current_step == 5 or w.current_step == 6 %}current{% endif %}">
+        <div class="ob-card-h">
+            <span class="ob-check-corner {% if w.step_review %}ok{% else %}pending{% endif %}">{% if w.step_review %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-minus"></i>{% endif %}</span>
+            <div class="ob-meta small text-muted mb-1">Paso 5 · <span class="badge rounded-pill bg-secondary">~1 min</span></div>
+            <h2 class="h5 mb-0">¡Todo listo!</h2>
+            <div class="ob-meta mt-1"><code>dashboard + selector de org</code></div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-center">
+                <div class="col-12 col-md-7">
+                    {% if w.step_review %}
+                    <p class="text-success fw-semibold mb-2">La organización tiene el flujo base configurado.</p>
+                    {% else %}
+                    <p class="text-muted mb-2">Completá los pasos anteriores; acá verás el resumen.</p>
+                    {% endif %}
+                    <ul class="list-unstyled small mb-3">
+                        <li class="mb-1">{% if w.step_tenant %}<i class="fas fa-check text-success me-1"></i>{% else %}<i class="fas fa-circle text-muted me-1" style="font-size:.4rem;vertical-align:middle;"></i>{% endif %} Empresa creada</li>
+                        <li class="mb-1">{% if w.step_subdomain_strict %}<i class="fas fa-check text-success me-1"></i>{% else %}<i class="fas fa-circle text-muted me-1" style="font-size:.4rem;vertical-align:middle;"></i>{% endif %} Subdominio configurado</li>
+                        <li class="mb-1">{% if w.step_modules %}<i class="fas fa-check text-success me-1"></i>{% else %}<i class="fas fa-circle text-muted me-1" style="font-size:.4rem;vertical-align:middle;"></i>{% endif %} Módulos activados</li>
+                        <li class="mb-1">{% if w.step_users %}<i class="fas fa-check text-success me-1"></i>{% else %}<i class="fas fa-circle text-muted me-1" style="font-size:.4rem;vertical-align:middle;"></i>{% endif %} Usuarios del tenant</li>
+                    </ul>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-success btn-lg rounded-pill px-4">Ir al panel</a>
+                    <a href="{{ url_for('member_pages.help_page') }}" class="btn btn-outline-secondary ms-2 btn-onboard-secondary">Ayuda</a>
+                </div>
+                <div class="col-12 col-md-5 text-center mt-3 mt-md-0">
+                    <img src="{{ url_for('static', filename='images/onboarding/onboard-step5-success.png') }}" alt="" class="ob-illus" width="280" height="200" loading="lazy" decoding="async">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

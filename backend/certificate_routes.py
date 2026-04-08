@@ -6,10 +6,24 @@ import hashlib
 import io
 import logging
 from datetime import datetime
-from flask import Blueprint, jsonify, request, send_file, redirect, url_for, render_template_string, render_template
+from flask import Blueprint, jsonify, request, send_file, redirect, url_for, render_template_string, render_template, Response
 from flask_login import login_required, current_user
+from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
+
+
+def _cert_admin_org_id():
+    from app import _catalog_org_for_admin_catalog_routes
+    return _catalog_org_for_admin_catalog_routes()
+
+
+def _cert_member_org_id():
+    """Misma regla que beneficios/planes: tenant del miembro o sesión del admin."""
+    from app import tenant_data_organization_id
+
+    return int(tenant_data_organization_id())
+
 
 certificates_api_bp = Blueprint('certificates_api', __name__, url_prefix='/api')
 certificates_public_bp = Blueprint('certificates_public', __name__)
@@ -55,14 +69,20 @@ def _user_qualified_for_event(user, cert_event):
 
 def _user_active_membership_plan_id(user):
     """ID del plan de membresía activo del usuario, o None."""
-    from app import MembershipPlan
+    from app import MembershipPlan, _enable_multi_tenant_catalog
     active = user.get_active_membership()
     if not active:
         return None
     mt = getattr(active, 'membership_type', None) or getattr(active, 'membership_type', None)
     if not mt:
         return None
-    plan = MembershipPlan.query.filter_by(slug=mt).first() or MembershipPlan.query.filter_by(name=mt).first()
+    oid = int(getattr(user, 'organization_id', None) or 1)
+    if not _enable_multi_tenant_catalog():
+        oid = 1
+    plan = (
+        MembershipPlan.query.filter_by(organization_id=oid, slug=mt).first()
+        or MembershipPlan.query.filter_by(organization_id=oid, name=mt).first()
+    )
     return plan.id if plan else None
 
 
@@ -95,20 +115,35 @@ def _certificates_upload_dir():
     return d
 
 
-def _ensure_certificate_events():
-    """Crea tablas y eventos por defecto: Certificado por Registro (REG) y Certificado de Membresía (MEM)."""
-    from app import CertificateEvent, Certificate, db
+def _parse_template_id(v):
+    """Convierte valor de template_id del request a int o None."""
+    if v is None or v == '' or v == 0:
+        return None
     try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _seed_org_certificate_events(oid: int):
+    """Crea tablas si hace falta y siembra REG + MEM para la organización oid."""
+    from app import CertificateEvent, Certificate, SaasOrganization, db
+
+    oid = int(oid)
+    try:
+        if SaasOrganization.query.get(oid) is None:
+            return
         CertificateEvent.__table__.create(db.engine, checkfirst=True)
         Certificate.__table__.create(db.engine, checkfirst=True)
-        # Primer certificado: por registro (cualquier usuario registrado con membresía puede emitirlo)
         if not CertificateEvent.query.filter(
+            CertificateEvent.organization_id == oid,
             db.or_(
                 CertificateEvent.name == 'Certificado por Registro',
-                CertificateEvent.code_prefix == 'REG'
-            )
+                CertificateEvent.code_prefix == 'REG',
+            ),
         ).first():
             ev = CertificateEvent(
+                organization_id=oid,
                 name='Certificado por Registro',
                 is_active=True,
                 verification_enabled=True,
@@ -118,14 +153,15 @@ def _ensure_certificate_events():
             )
             db.session.add(ev)
             db.session.commit()
-        # Certificado de membresía
         if not CertificateEvent.query.filter(
+            CertificateEvent.organization_id == oid,
             db.or_(
                 CertificateEvent.name == 'Certificado de Membresía',
-                CertificateEvent.code_prefix == 'MEM'
-            )
+                CertificateEvent.code_prefix == 'MEM',
+            ),
         ).first():
             ev = CertificateEvent(
+                organization_id=oid,
                 name='Certificado de Membresía',
                 is_active=True,
                 verification_enabled=True,
@@ -139,9 +175,16 @@ def _ensure_certificate_events():
         db.session.rollback()
 
 
+def _ensure_certificate_events():
+    """Compat: siembra org 1 (instalaciones que llaman sin contexto de tenant)."""
+    from utils.organization import default_organization_id
+
+    _seed_org_certificate_events(int(default_organization_id()))
+
+
 def _ensure_membership_certificate_event():
-    """Alias: asegura que existan eventos de certificado (incl. Registro y Membresía)."""
-    _ensure_certificate_events()
+    """Eventos REG/MEM para la org del usuario actual (miembro o admin en sesión)."""
+    _seed_org_certificate_events(_cert_member_org_id())
 
 
 @certificates_api_bp.route('/my-certificates', methods=['GET'])
@@ -150,7 +193,10 @@ def my_certificates():
     """Lista TODOS los eventos de certificado activos; por cada uno indica si el usuario puede emitir y estado."""
     from app import CertificateEvent, Certificate, db
     _ensure_membership_certificate_event()
-    cert_event_list = CertificateEvent.query.filter_by(is_active=True).order_by(CertificateEvent.name).all()
+    coid = _cert_member_org_id()
+    cert_event_list = CertificateEvent.query.filter_by(
+        organization_id=coid, is_active=True
+    ).order_by(CertificateEvent.name).all()
     user_plan_id = _user_active_membership_plan_id(current_user)
     user_event_ids = _user_completed_event_ids(current_user)
     has_membership = bool(current_user.get_active_membership())
@@ -177,10 +223,15 @@ def my_certificates():
 
 
 def _next_certificate_code(cert_event):
-    """Genera código único tipo REL-2026-0001."""
-    from app import Certificate, db
+    """Genera código único tipo REL-2026-0001 o REL-O2-2026-0001 si catálogo multi-tenant activo."""
+    from app import Certificate, db, _enable_multi_tenant_catalog
     year = datetime.utcnow().year
-    prefix = f"{cert_event.code_prefix or 'REL'}-{year}-"
+    base = cert_event.code_prefix or 'REL'
+    oid = int(getattr(cert_event, 'organization_id', None) or 1)
+    if _enable_multi_tenant_catalog():
+        prefix = f"{base}-O{oid}-{year}-"
+    else:
+        prefix = f"{base}-{year}-"
     last = Certificate.query.filter(Certificate.certificate_code.like(prefix + '%')).order_by(Certificate.id.desc()).first()
     if last:
         try:
@@ -282,12 +333,10 @@ def _render_pdf_reportlab(full_name, event_name, date_emission, certificate_code
 
 
 def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_url):
-    """Renderiza HTML de la plantilla y convierte a PDF. Retorna bytes del PDF. Si cert_event tiene template_id con JSON, usa plantilla visual."""
+    """Genera PDF usando el mismo HTML que la vista previa (_get_certificate_html). Así pantalla y descarga son idénticos."""
     full_name = f"{user.first_name} {user.last_name}".strip()
     event_name = cert_event.name
     date_str = datetime.utcnow().strftime('%Y-%m-%d')
-    qr_b64 = _qr_base64(verify_url)
-    base = _get_base_url()
     membership = user.get_active_membership()
     membership_type = getattr(membership, 'membership_type', None) if membership else None
     membership_start = getattr(membership, 'start_date', None)
@@ -296,81 +345,22 @@ def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_ur
         membership_start = membership_start.strftime('%Y-%m-%d')
     if membership_end and hasattr(membership_end, 'strftime'):
         membership_end = membership_end.strftime('%Y-%m-%d')
-    # Plantilla JSON (tipo Canva): si el evento tiene template_id con json_layout, render desde JSON
-    template_obj = getattr(cert_event, 'certificate_template', None)
-    if getattr(cert_event, 'template_id', None) and template_obj and getattr(template_obj, 'json_layout', None):
-        try:
-            from certificate_template_routes import render_pdf_from_json_layout
-            data = {
-                'participant_name': full_name,
-                'program_name': event_name,
-                'hours': cert_event.duration_hours or '',
-                'issue_date': date_str,
-                'certificate_code': certificate_code,
-                'verification_url': verify_url,
-                'institution': cert_event.institution or '',
-            }
-            upload_dir = _certificates_upload_dir()
-            pdf_bytes = render_pdf_from_json_layout(template_obj, data, base, qr_b64, upload_dir)
-            if pdf_bytes:
-                return pdf_bytes
-        except Exception as e:
-            logger.warning("Render PDF desde plantilla JSON falló, usando HTML: %s", e)
-    from jinja2 import Template
-    template_html = cert_event.template_html or _default_template()
-    partner_org = getattr(cert_event, 'partner_organization', None) or 'Relatic Panamá'
-    membership = user.get_active_membership()
-    membership_type = getattr(membership, 'membership_type', None) if membership else None
-    membership_start = getattr(membership, 'start_date', None)
-    membership_end = getattr(membership, 'end_date', None)
-    if membership_start and hasattr(membership_start, 'strftime'):
-        membership_start = membership_start.strftime('%Y-%m-%d')
-    if membership_end and hasattr(membership_end, 'strftime'):
-        membership_end = membership_end.strftime('%Y-%m-%d')
-    # URLs absolutas para WeasyPrint (necesita poder cargar imágenes)
-    base = _get_base_url()
-    def _abs(u):
-        if not u: return ''
-        u = (u or '').strip()
-        if u.startswith('http'): return u
-        if u.startswith('/'): return base + u
-        return base + '/' + u
-    logo_left_url = _abs(getattr(cert_event, 'logo_left_url', None))
-    logo_right_url = _abs(getattr(cert_event, 'logo_right_url', None))
-    seal_url = _abs(getattr(cert_event, 'seal_url', None))
-    raw_bg = getattr(cert_event, 'background_url', None)
-    if not raw_bg:
-        logger.debug("Certificado evento id=%s sin background_url en BD", getattr(cert_event, 'id', None))
-    background_url = _abs(raw_bg)
-    # WeasyPrint carga mejor con file:// cuando el archivo es local
-    bg_path = _background_path_from_url(raw_bg or background_url) if (raw_bg or background_url) else None
-    if bg_path:
-        background_url = 'file://' + os.path.abspath(bg_path)  # file:///abs/path para WeasyPrint
-    else:
-        background_url = _abs(raw_bg)  # mantener URL HTTP por si WeasyPrint puede cargarla
-    html = Template(template_html).render(
-        full_name=full_name,
-        event_name=event_name,
-        date_emission=date_str,
-        certificate_code=certificate_code,
-        verification_hash=verification_hash,
-        verify_url=verify_url,
-        qr_base64=qr_b64,
-        institution=cert_event.institution or '',
-        partner_organization=partner_org,
-        duration_hours=cert_event.duration_hours,
-        rector_name=cert_event.rector_name or '',
-        academic_director_name=cert_event.academic_director_name or '',
-        rector_title='Rector',
-        director_title='Directora Académica',
-        logo_left_url=logo_left_url,
-        logo_right_url=logo_right_url,
-        seal_url=seal_url,
-        background_url=background_url,
-        membership_type=membership_type or '',
-        membership_start=membership_start or '',
-        membership_end=membership_end or '',
-    )
+    sample_data = {
+        'participant_name': full_name,
+        'program_name': event_name,
+        'hours': cert_event.duration_hours or '',
+        'issue_date': date_str,
+        'certificate_code': certificate_code,
+        'verification_url': verify_url,
+        'institution': cert_event.institution or '',
+        'membership_type': membership_type or '',
+        'membership_start': membership_start or '',
+        'membership_end': membership_end or '',
+    }
+    html = _get_certificate_html(cert_event, sample_data, verify_url, use_file_urls=True)
+    if not html:
+        logger.warning("_get_certificate_html devolvió None para event_id=%s", getattr(cert_event, 'id'))
+        return None
     try:
         from weasyprint import HTML
         pdf_bytes = HTML(string=html).write_pdf()
@@ -383,17 +373,17 @@ def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_ur
             return pdf_bytes
         except Exception as e2:
             logger.warning("WeasyPrint (alt) falló: %s", e2)
-    # Fallback: ReportLab (no requiere cairo/pango)
     try:
-        bg_path = _background_path_from_url(background_url) if background_url else None
+        qr_b64 = _qr_base64(verify_url)
+        bg_path = _background_path_from_url(getattr(cert_event, 'background_url', None))
         return _render_pdf_reportlab(
-            full_name=f"{user.first_name} {user.last_name}".strip(),
-            event_name=cert_event.name,
-            date_emission=datetime.utcnow().strftime('%Y-%m-%d'),
+            full_name=full_name,
+            event_name=event_name,
+            date_emission=date_str,
             certificate_code=certificate_code,
             verify_url=verify_url,
             qr_base64=qr_b64,
-            membership_type=getattr(user.get_active_membership(), 'membership_type', None) if user.get_active_membership() else None,
+            membership_type=membership_type,
             membership_start=membership_start or '',
             membership_end=membership_end or '',
             background_path=bg_path,
@@ -404,14 +394,14 @@ def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_ur
 
 
 def _default_template():
-    """Estructura tipo certificado institucional: bordes dorado/azul, cabecera dos logos, centro datos, pie dos firmas + sello."""
+    """Estructura tipo certificado institucional: bordes dorado/azul, cabecera dos logos, centro datos, pie dos firmas + sello. Tamaño fijo 1024x768 para que coincida vista previa y PDF."""
     return """<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
-@page { size: A4 landscape; margin: 18mm; }
+@page { size: 1024px 768px; margin: 0; }
 * { box-sizing: border-box; }
-body { font-family: 'Times New Roman', serif; margin: 0; padding: 0; min-height: 100vh; background: #f5f4f0; color: #333; }
-.cert-wrap { position: relative; min-height: 100vh; padding: 24px; {% if background_url %} background-image: url({{ background_url }}); background-size: cover; background-position: center; {% endif %} }
+body { font-family: 'Times New Roman', serif; margin: 0; padding: 0; width: 1024px; height: 768px; background: #f5f4f0; color: #333; overflow: hidden; }
+.cert-wrap { position: relative; width: 1024px; height: 768px; padding: 24px; {% if background_url %} background-image: url({{ background_url }}); background-size: cover; background-position: center; {% endif %} }
 /* Bordes decorativos dorado y azul */
 .cert-wrap::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 2px solid #c9a227; pointer-events: none; }
 .cert-wrap::after { content: ''; position: absolute; top: 6px; left: 6px; right: 6px; bottom: 6px; border: 1px solid #1e3a5f; pointer-events: none; }
@@ -482,13 +472,121 @@ body { font-family: 'Times New Roman', serif; margin: 0; padding: 0; min-height:
 </body></html>"""
 
 
+def _get_certificate_html(event_like, sample_data, verification_url=None, use_file_urls=False):
+    """
+    Genera solo el HTML del certificado (sin convertir a PDF). Misma lógica para vista previa y PDF.
+    event_like: CertificateEvent o objeto con template_id, name, institution, template_html, logos, etc.
+    sample_data: dict con participant_name, program_name, hours, issue_date, certificate_code, verification_url, institution.
+    use_file_urls: si True (generación PDF) usa file:// para assets locales; si False (vista previa en navegador) solo HTTP.
+    Retorna str HTML o None.
+    """
+    base = _get_base_url()
+    verify_url = (sample_data.get('verification_url') or verification_url or (base + '/verify/PREVIEW')).strip()
+    qr_b64 = _qr_base64(verify_url)
+    full_name = sample_data.get('participant_name', 'Nombre de Ejemplo')
+    event_name = sample_data.get('program_name', getattr(event_like, 'name', 'Certificado'))
+    date_str = sample_data.get('issue_date', datetime.utcnow().strftime('%Y-%m-%d'))
+    certificate_code = sample_data.get('certificate_code', 'PREVIEW-0000')
+    # Plantilla JSON
+    tid = getattr(event_like, 'template_id', None)
+    template_obj = None
+    if tid:
+        from app import CertificateTemplate, _enable_multi_tenant_catalog
+        template_obj = CertificateTemplate.query.get(tid)
+        if template_obj and _enable_multi_tenant_catalog():
+            ev_org = int(getattr(event_like, 'organization_id', None) or 1)
+            if int(getattr(template_obj, 'organization_id', None) or 1) != ev_org:
+                template_obj = None
+    json_layout = (getattr(template_obj, 'json_layout', None) or '').strip() if template_obj else ''
+    if template_obj and json_layout:
+        try:
+            from certificate_template_routes import render_html_from_json_layout
+            data = {
+                'participant_name': full_name,
+                'program_name': event_name,
+                'hours': sample_data.get('hours', '') or getattr(event_like, 'duration_hours', ''),
+                'issue_date': date_str,
+                'certificate_code': certificate_code,
+                'verification_url': verify_url,
+                'institution': sample_data.get('institution', '') or getattr(event_like, 'institution', ''),
+            }
+            upload_dir = _certificates_upload_dir()
+            html = render_html_from_json_layout(template_obj, data, base, qr_b64, upload_dir, use_file_urls=use_file_urls)
+            if html:
+                return html
+        except Exception as e:
+            logger.warning("Plantilla JSON falló: %s", e)
+    # HTML/Jinja
+    from jinja2 import Template
+    template_html = getattr(event_like, 'template_html', None) or _default_template()
+    partner_org = getattr(event_like, 'partner_organization', None) or 'Relatic Panamá'
+
+    def _abs(u):
+        if not u:
+            return ''
+        u = (u or '').strip()
+        if u.startswith('http'):
+            return u
+        if u.startswith('/'):
+            return base + u
+        return base + '/' + u
+
+    logo_left_url = _abs(getattr(event_like, 'logo_left_url', None))
+    logo_right_url = _abs(getattr(event_like, 'logo_right_url', None))
+    seal_url = _abs(getattr(event_like, 'seal_url', None))
+    raw_bg = getattr(event_like, 'background_url', None)
+    background_url = _abs(raw_bg)
+    if use_file_urls:
+        for url_val, ref in [(getattr(event_like, 'logo_left_url', None), 'logo_left_url'), (getattr(event_like, 'logo_right_url', None), 'logo_right_url'), (getattr(event_like, 'seal_url', None), 'seal_url'), (raw_bg, 'background_url')]:
+            if url_val and '/static/uploads/certificates/' in (url_val or ''):
+                p = _background_path_from_url(url_val)
+                if p and os.path.isfile(p):
+                    val = 'file://' + os.path.abspath(p)
+                    if ref == 'logo_left_url':
+                        logo_left_url = val
+                    elif ref == 'logo_right_url':
+                        logo_right_url = val
+                    elif ref == 'seal_url':
+                        seal_url = val
+                    else:
+                        background_url = val
+
+    return Template(template_html).render(
+        full_name=full_name,
+        event_name=event_name,
+        date_emission=date_str,
+        certificate_code=certificate_code,
+        verification_hash='',
+        verify_url=verify_url,
+        qr_base64=qr_b64,
+        institution=getattr(event_like, 'institution', '') or '',
+        partner_organization=partner_org,
+        duration_hours=getattr(event_like, 'duration_hours', None),
+        rector_name=getattr(event_like, 'rector_name', '') or '',
+        academic_director_name=getattr(event_like, 'academic_director_name', '') or '',
+        rector_title='Rector',
+        director_title='Directora Académica',
+        logo_left_url=logo_left_url,
+        logo_right_url=logo_right_url,
+        seal_url=seal_url,
+        background_url=background_url,
+        membership_type=sample_data.get('membership_type', ''),
+        membership_start=sample_data.get('membership_start', ''),
+        membership_end=sample_data.get('membership_end', ''),
+    )
+
+
 @certificates_api_bp.route('/request-certificate/<int:event_id>', methods=['POST'])
 @login_required
 def request_certificate(event_id):
     """Genera certificado para el certificate_event event_id. Retorna download_url y certificate_code."""
-    from app import app, db, CertificateEvent, Certificate, mail, email_service
+    import app as _cert_app
+    from app import app, db, CertificateEvent, Certificate
     cert_event = CertificateEvent.query.get(event_id)
     if not cert_event:
+        return jsonify({'error': 'Evento no encontrado'}), 404
+    uo = int(_cert_member_org_id())
+    if int(getattr(cert_event, 'organization_id', None) or 1) != uo:
         return jsonify({'error': 'Evento no encontrado'}), 404
     if not cert_event.is_active:
         return jsonify({'error': 'Evento de certificado no activo'}), 400
@@ -511,6 +609,12 @@ def request_certificate(event_id):
     ).hexdigest()
     base = _get_base_url()
     verify_url = f"{base}/verify/{certificate_code}"
+    try:
+        db.session.refresh(cert_event)
+    except Exception:
+        pass
+    tid = getattr(cert_event, 'template_id', None)
+    logger.info("Certificado emisión event_id=%s template_id=%s", cert_event.id, tid)
     pdf_bytes = _render_pdf(cert_event, current_user, certificate_code, verification_hash, verify_url)
     if not pdf_bytes:
         return jsonify({'error': 'No se pudo generar el PDF'}), 500
@@ -531,16 +635,30 @@ def request_certificate(event_id):
     db.session.add(cert)
     db.session.commit()
     download_url = f"{base}/api/certificates/{certificate_code}/download"
-    if mail and getattr(current_user, 'email', None):
+    if _cert_app.Mail and getattr(current_user, 'email', None):
         try:
             from flask_mail import Message
-            msg = Message(
-                subject=f"Tu certificado: {cert_event.name}",
-                recipients=[current_user.email],
-                body=f"Hola {current_user.first_name},\n\nAdjunto tu certificado.\nCódigo: {certificate_code}\nVerificación: {verify_url}",
-                attachments=[(f"certificado_{safe_code}.pdf", "application/pdf", pdf_bytes)],
+
+            cert_oid = int(
+                getattr(cert_event, 'organization_id', None) or _cert_member_org_id()
             )
-            mail.send(msg)
+            try:
+                ok_smtp, _ = _cert_app.apply_transactional_smtp_for_organization(cert_oid)
+                if ok_smtp and _cert_app.mail:
+                    msg = Message(
+                        subject=f"Tu certificado: {cert_event.name}",
+                        recipients=[current_user.email],
+                        body=(
+                            f"Hola {current_user.first_name},\n\nAdjunto tu certificado.\n"
+                            f"Código: {certificate_code}\nVerificación: {verify_url}"
+                        ),
+                        attachments=[
+                            (f"certificado_{safe_code}.pdf", "application/pdf", pdf_bytes)
+                        ],
+                    )
+                    _cert_app.mail.send(msg)
+            finally:
+                _cert_app.apply_email_config_from_db()
         except Exception:
             pass
     return jsonify({
@@ -557,6 +675,12 @@ def certificates_page():
     return render_template('certificates.html')
 
 
+def _certificates_pdf_dir():
+    """Directorio canónico donde se guardan los PDFs de certificados (con sep final)."""
+    d = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'certificates')
+    return os.path.normpath(os.path.abspath(d)) + os.sep
+
+
 @certificates_api_bp.route('/certificates/<certificate_code>/download', methods=['GET'])
 @login_required
 def download_certificate(certificate_code):
@@ -569,8 +693,12 @@ def download_certificate(certificate_code):
         return jsonify({'error': 'No autorizado'}), 403
     if not cert.pdf_path or not os.path.isfile(cert.pdf_path):
         return jsonify({'error': 'Archivo no disponible'}), 404
+    allowed_dir = _certificates_pdf_dir()
+    real_path = os.path.normpath(os.path.realpath(cert.pdf_path))
+    if not real_path.startswith(allowed_dir):
+        return jsonify({'error': 'Archivo no disponible'}), 404
     return send_file(
-        cert.pdf_path,
+        real_path,
         mimetype='application/pdf',
         as_attachment=True,
         download_name=f"certificado_{certificate_code.replace('/', '_')}.pdf",
@@ -587,10 +715,32 @@ def _admin_required(f):
     return wrapped
 
 
+def _validate_certificate_event_refs_for_org(org_id, data, partial=False):
+    from app import MembershipPlan, CertificateTemplate
+    oid = int(org_id)
+    if (not partial) or ('membership_required_id' in data):
+        v = data.get('membership_required_id')
+        if v not in (None, ''):
+            p = MembershipPlan.query.filter_by(id=int(v), organization_id=oid).first()
+            if not p:
+                return 'Plan de membresía no válido para esta organización'
+    if (not partial) or ('template_id' in data):
+        if partial and 'template_id' not in data:
+            pass
+        else:
+            tid = _parse_template_id(data.get('template_id'))
+            if tid:
+                t = CertificateTemplate.query.filter_by(id=tid, organization_id=oid).first()
+                if not t:
+                    return 'Plantilla no válida para esta organización'
+    return None
+
+
 def _cert_event_to_dict(e):
     """Serializa un CertificateEvent para API."""
     return {
         'id': e.id,
+        'organization_id': getattr(e, 'organization_id', None) or 1,
         'name': e.name,
         'is_active': e.is_active,
         'verification_enabled': getattr(e, 'verification_enabled', True),
@@ -621,8 +771,12 @@ def _cert_event_to_dict(e):
 def admin_list_certificate_events():
     """Lista todos los certificate_events (admin) con todos los campos."""
     from app import CertificateEvent
-    _ensure_certificate_events()
-    events = CertificateEvent.query.order_by(CertificateEvent.created_at.desc()).all()
+
+    coid = _cert_admin_org_id()
+    _seed_org_certificate_events(coid)
+    events = CertificateEvent.query.filter_by(organization_id=coid).order_by(
+        CertificateEvent.created_at.desc()
+    ).all()
     return jsonify({'items': [_cert_event_to_dict(e) for e in events]})
 
 
@@ -636,7 +790,12 @@ def admin_create_certificate_event():
     name = data.get('name')
     if not name:
         return jsonify({'error': 'name es obligatorio'}), 400
+    coid = _cert_admin_org_id()
+    err = _validate_certificate_event_refs_for_org(coid, data, partial=False)
+    if err:
+        return jsonify({'error': err}), 400
     ev = CertificateEvent(
+        organization_id=coid,
         name=name,
         start_date=datetime.fromisoformat(data['start_date'].replace('Z', '+00:00')) if data.get('start_date') else None,
         end_date=datetime.fromisoformat(data['end_date'].replace('Z', '+00:00')) if data.get('end_date') else None,
@@ -653,7 +812,7 @@ def admin_create_certificate_event():
         membership_required_id=int(data['membership_required_id']) if data.get('membership_required_id') not in (None, '') else None,
         event_required_id=int(data['event_required_id']) if data.get('event_required_id') not in (None, '') else None,
         template_html=data.get('template_html'),
-        template_id=int(data['template_id']) if data.get('template_id') not in (None, '') else None,
+        template_id=_parse_template_id(data.get('template_id')),
         is_active=bool(data.get('is_active', True)),
         verification_enabled=bool(data.get('verification_enabled', True)),
         code_prefix=(data.get('code_prefix') or 'REL').strip().upper()[:20],
@@ -669,7 +828,8 @@ def admin_create_certificate_event():
 def admin_get_certificate_event(event_id):
     """Obtiene un CertificateEvent por id."""
     from app import CertificateEvent
-    ev = CertificateEvent.query.get(event_id)
+    coid = _cert_admin_org_id()
+    ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
     if not ev:
         return jsonify({'error': 'No encontrado'}), 404
     return jsonify({'item': _cert_event_to_dict(ev)})
@@ -681,10 +841,14 @@ def admin_get_certificate_event(event_id):
 def admin_update_certificate_event(event_id):
     """Actualiza un CertificateEvent (admin)."""
     from app import db, CertificateEvent
-    ev = CertificateEvent.query.get(event_id)
+    coid = _cert_admin_org_id()
+    ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
     if not ev:
         return jsonify({'error': 'No encontrado'}), 404
     data = request.get_json() or {}
+    err = _validate_certificate_event_refs_for_org(coid, data, partial=True)
+    if err:
+        return jsonify({'error': err}), 400
     if data.get('name'):
         ev.name = data['name']
     if 'start_date' in data:
@@ -700,8 +864,7 @@ def admin_update_certificate_event(event_id):
     if 'background_url' in data and hasattr(ev, 'background_url'):
         ev.background_url = data.get('background_url') or None
     if 'template_id' in data and hasattr(ev, 'template_id'):
-        v = data.get('template_id')
-        ev.template_id = int(v) if v not in (None, '') else None
+        ev.template_id = _parse_template_id(data.get('template_id'))
     if 'code_prefix' in data:
         ev.code_prefix = (data.get('code_prefix') or 'REL').strip().upper()[:20]
     if 'membership_required_id' in data:
@@ -724,7 +887,8 @@ def admin_update_certificate_event(event_id):
 def admin_delete_certificate_event(event_id):
     """Elimina un CertificateEvent (admin). No borra certificados ya emitidos."""
     from app import db, CertificateEvent
-    ev = CertificateEvent.query.get(event_id)
+    coid = _cert_admin_org_id()
+    ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
     if not ev:
         return jsonify({'error': 'No encontrado'}), 404
     db.session.delete(ev)
@@ -755,6 +919,73 @@ def admin_upload_certificate_asset():
     f.save(path)
     url = f"/static/uploads/certificates/{safe_name}"
     return jsonify({'success': True, 'url': url, 'filename': safe_name})
+
+
+@certificates_api_bp.route('/admin/certificate-events/preview', methods=['POST'])
+@login_required
+@_admin_required
+def admin_certificate_event_preview():
+    """
+    Vista previa del certificado: body JSON con campos del formato (event_id opcional para cargar y sobreescribir).
+    Devuelve HTML para mostrar en iframe.
+    """
+    from app import CertificateEvent
+    data = request.get_json() or {}
+    event_id = data.get('event_id')
+    if event_id:
+        coid = _cert_admin_org_id()
+        ev = CertificateEvent.query.filter_by(id=int(event_id), organization_id=coid).first()
+        if not ev:
+            return jsonify({'error': 'Evento no encontrado'}), 404
+        event_like = SimpleNamespace(
+            id=ev.id,
+            organization_id=getattr(ev, 'organization_id', None) or 1,
+            name=data.get('name', ev.name),
+            template_id=_parse_template_id(data.get('template_id')) if 'template_id' in data else getattr(ev, 'template_id', None),
+            institution=data.get('institution', ev.institution),
+            partner_organization=data.get('partner_organization', getattr(ev, 'partner_organization', None)),
+            rector_name=data.get('rector_name', ev.rector_name),
+            academic_director_name=data.get('academic_director_name', ev.academic_director_name),
+            logo_left_url=data.get('logo_left_url', ev.logo_left_url),
+            logo_right_url=data.get('logo_right_url', ev.logo_right_url),
+            seal_url=data.get('seal_url', ev.seal_url),
+            background_url=data.get('background_url', getattr(ev, 'background_url', None)),
+            template_html=data.get('template_html', ev.template_html),
+            duration_hours=float(data['duration_hours']) if data.get('duration_hours') not in (None, '') else ev.duration_hours,
+        )
+    else:
+        event_like = SimpleNamespace(
+            id=None,
+            organization_id=_cert_admin_org_id(),
+            name=data.get('name', 'Vista previa'),
+            template_id=_parse_template_id(data.get('template_id')),
+            institution=data.get('institution') or '',
+            partner_organization=data.get('partner_organization') or '',
+            rector_name=data.get('rector_name') or '',
+            academic_director_name=data.get('academic_director_name') or '',
+            logo_left_url=data.get('logo_left_url') or '',
+            logo_right_url=data.get('logo_right_url') or '',
+            seal_url=data.get('seal_url') or '',
+            background_url=data.get('background_url') or '',
+            template_html=data.get('template_html') or '',
+            duration_hours=float(data['duration_hours']) if data.get('duration_hours') not in (None, '') else None,
+        )
+    sample_data = {
+        'participant_name': 'Nombre de Ejemplo',
+        'program_name': getattr(event_like, 'name', 'Certificado'),
+        'hours': getattr(event_like, 'duration_hours', '') or '',
+        'issue_date': datetime.utcnow().strftime('%Y-%m-%d'),
+        'certificate_code': 'PREVIEW-0000',
+        'verification_url': _get_base_url() + '/verify/PREVIEW-0000',
+        'institution': getattr(event_like, 'institution', '') or '',
+    }
+    html = _get_certificate_html(event_like, sample_data)
+    if not html:
+        return jsonify({'error': 'No se pudo generar la vista previa'}), 500
+    # Misma escala que el PDF (1024px): viewport fijo para que vista previa y descarga se vean igual
+    if '<head>' in html:
+        html = html.replace('<head>', '<head><meta name="viewport" content="width=1024">', 1)
+    return Response(html, mimetype='text/html; charset=utf-8')
 
 
 @certificates_public_bp.route('/verify/<certificate_code>')

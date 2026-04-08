@@ -1,25 +1,31 @@
 #!/usr/bin/env python3
 """
-Script para verificar la configuración actual de SMTP
+Script para verificar la configuración actual de SMTP.
+Uso: python check_email_config.py [--org-id ID]
 """
 
-import sys
+import argparse
 import os
+import sys
 
-# Agregar el directorio actual al path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db, EmailConfig
 
+
 def check_email_config():
-    """Verificar configuración de email"""
-    print("=" * 60)
-    print("VERIFICACIÓN DE CONFIGURACIÓN SMTP")
-    print("=" * 60)
-    
+    parser = argparse.ArgumentParser(description='Verificación SMTP')
+    parser.add_argument('--org-id', type=int, default=None, help='Tenant; sin flag = primera activa (legado)')
+    args = parser.parse_args()
+
+    print('=' * 60)
+    print('VERIFICACIÓN DE CONFIGURACIÓN SMTP')
+    if args.org_id is not None:
+        print(f'  organization_id: {args.org_id}')
+    print('=' * 60)
+
     with app.app_context():
-        # Obtener configuración activa
-        config = EmailConfig.get_active_config()
+        config = EmailConfig.get_active_config(organization_id=args.org_id)
         
         if not config:
             print("\n❌ No hay configuración de email activa en la base de datos")
@@ -32,7 +38,8 @@ def check_email_config():
                 print("   - No hay configuraciones en la base de datos")
             return
         
-        print(f"\n✅ Configuración activa encontrada (ID: {config.id})")
+        print(f'\n✅ Configuración activa encontrada (ID: {config.id})')
+        print(f'   organization_id (fila): {getattr(config, "organization_id", None)}')
         print("\n📧 CONFIGURACIÓN SMTP:")
         print(f"   Servidor:        {config.mail_server}")
         print(f"   Puerto:          {config.mail_port}")
@@ -117,3 +124,4 @@ def check_email_config():
 
 if __name__ == '__main__':
     check_email_config()
+

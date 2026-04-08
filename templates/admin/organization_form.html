@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{% if org %}Editar{% else %}Nueva{% endif %} empresa - EasyNodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3">
+    <div class="{% if show_onboarding_rail %}d-flex flex-column flex-lg-row gap-4 align-items-start justify-content-lg-center org-onboarding-layout{% else %}row g-4 justify-content-center align-items-start{% endif %}"{% if show_onboarding_rail %} id="orgOnboardingLayout"{% endif %}>
+        <div class="{% if show_onboarding_rail %}w-100 org-onboarding-main{% else %}col-12 mx-auto{% endif %}" {% if show_onboarding_rail %}id="orgFormPrimaryCol"{% endif %} {% if not show_onboarding_rail %}style="max-width:36rem"{% endif %}>
+            <h1 class="h4 mb-3">{% if org %}Editar empresa{% else %}Nueva empresa{% endif %}</h1>
+            <div class="mb-3">
+                <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#orgFormExplain" aria-expanded="false" aria-controls="orgFormExplain">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                    <span>Qué es esta opción</span>
+                    <i class="fas fa-chevron-down small ms-auto collapse-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="collapse" id="orgFormExplain">
+                    <div class="card card-body border mt-2 py-3 small text-body-secondary">
+                        <p class="mb-2 fw-semibold text-body">Empresa (tenant)</p>
+                        <ul class="mb-2 ps-3">
+                            <li>Es el contenedor lógico: usuarios y datos de negocio se filtran por esta organización.</li>
+                            <li><strong>Subdominio</strong> (opcional): permite entrar por <code>subdominio.tudominio.com</code>. Si lo dejás vacío, el acceso depende de que cada usuario esté asignado a esta empresa.</li>
+                            <li>Después de crearla, asigná <strong>módulos SaaS</strong> y usuarios al tenant correspondiente.</li>
+                        </ul>
+                        <p class="mb-2 fw-semibold text-body">Organización por defecto (id&nbsp;1)</p>
+                        <ul class="mb-2 ps-3">
+                            <li>No se puede desactivar ni eliminar; sirve como respaldo si borrás otra empresa.</li>
+                        </ul>
+                        <p class="mb-0 fw-semibold text-body">Configuración global de la instalación</p>
+                        <p class="mb-0 mt-1">Identidad visual (colores, logo) e IA se aplican a <strong>toda la instancia</strong>; el resto de datos (contactos, citas, etc.) sí son por empresa.</p>
+                    </div>
+                </div>
+            </div>
+            <form method="post" class="card card-body shadow-sm">
+                {% if show_onboarding_rail %}
+                <input type="hidden" name="onboarding_guide" value="1">
+                {% endif %}
+                <div class="mb-3">
+                    <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" required maxlength="200"
+                           value="{{ form.get('name', '') if form else (org.name if org else '') }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Subdominio</label>
+                    <input type="text" name="subdomain" class="form-control" maxlength="128" placeholder="ej. acme (vacío = solo acceso por usuario)"
+                           value="{{ form.get('subdomain', '') if form else (org.subdomain if org else '') }}">
+                    <div class="form-text">Minúsculas; se resuelve como <code>subdominio.tudominio.com</code>.</div>
+                </div>
+                <div class="mb-3">
+                    {% if org and org.id == 1 %}
+                    <input type="hidden" name="is_active" value="1">
+                    <p class="text-muted small mb-0">La organización por defecto (id=1) permanece siempre activa.</p>
+                    {% else %}
+                    <div class="form-check">
+                        <input type="hidden" name="is_active" value="0">
+                        <input type="checkbox" name="is_active" value="1" class="form-check-input" id="is_active"
+                               {% if form %}{{ 'checked' if form.get('is_active') == '1' else '' }}{% elif org %}{{ 'checked' if org.is_active else '' }}{% else %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">Empresa activa</label>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </form>
+            {% if org and org.id != 1 %}
+            <div class="card border-danger mt-4">
+                <div class="card-header bg-danger text-white py-2"><i class="fas fa-exclamation-triangle me-1"></i> Zona peligrosa</div>
+                <div class="card-body py-3">
+                    <p class="small text-muted mb-2">Eliminar la empresa no se puede deshacer. Los usuarios de este tenant pasan a la organización por defecto (id=1).</p>
+                    <form method="post" action="{{ url_for('admin_organization_delete', oid=org.id) }}" onsubmit="return confirm('¿ELIMINAR definitivamente la empresa id={{ org.id }}? Los usuarios pasarán a la org por defecto.');">
+                        <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt me-1"></i> Eliminar empresa</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% if show_onboarding_rail %}
+        <div class="w-100 onboarding-rail-outer" id="onboardingRailOuter">
+            <button type="button" class="btn btn-sm btn-light border shadow-sm onboarding-rail-toggle mb-2" id="onboardingRailToggle"
+                    aria-expanded="true" aria-controls="onboardingRailInner" title="Ocultar guía">
+                <span class="onboarding-rail-icon-expanded" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+                <span class="onboarding-rail-icon-collapsed d-none" aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
+                <span class="visually-hidden onboarding-rail-sr-expanded">Ocultar guía</span>
+                <span class="visually-hidden onboarding-rail-sr-collapsed d-none">Mostrar guía</span>
+            </button>
+            <div class="onboarding-rail-inner" id="onboardingRailInner">
+                {% include 'admin/_onboarding_rail.html' %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if show_onboarding_rail %}
+<script>
+(function () {
+  var STORAGE_KEY = 'nodeone_onboarding_rail_collapsed';
+  var layout = document.getElementById('orgOnboardingLayout');
+  var outer = document.getElementById('onboardingRailOuter');
+  var btn = document.getElementById('onboardingRailToggle');
+  if (!layout || !outer || !btn) return;
+
+  function setCollapsed(collapsed) {
+    layout.classList.toggle('is-rail-collapsed', collapsed);
+    outer.classList.toggle('is-collapsed', collapsed);
+    syncToggleUi(collapsed);
+    try { localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0'); } catch (e) {}
+  }
+
+  function syncToggleUi(hidden) {
+    btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+    btn.title = hidden ? 'Mostrar guía' : 'Ocultar guía';
+    var ie = btn.querySelector('.onboarding-rail-icon-expanded');
+    var ic = btn.querySelector('.onboarding-rail-icon-collapsed');
+    var se = btn.querySelector('.onboarding-rail-sr-expanded');
+    var sc = btn.querySelector('.onboarding-rail-sr-collapsed');
+    if (ie) ie.classList.toggle('d-none', hidden);
+    if (ic) ic.classList.toggle('d-none', !hidden);
+    if (se) se.classList.toggle('d-none', hidden);
+    if (sc) sc.classList.toggle('d-none', !hidden);
+  }
+
+  function applyStoredForViewport() {
+    var lg = window.matchMedia('(min-width: 992px)').matches;
+    var stored = false;
+    try { stored = localStorage.getItem(STORAGE_KEY) === '1'; } catch (e) {}
+    if (lg) {
+      setCollapsed(stored);
+      return;
+    }
+    layout.classList.remove('is-rail-collapsed');
+    outer.classList.toggle('is-collapsed', stored);
+    syncToggleUi(stored);
+  }
+
+  applyStoredForViewport();
+  try {
+    window.matchMedia('(min-width: 992px)').addEventListener('change', applyStoredForViewport);
+  } catch (e) {
+    window.matchMedia('(min-width: 992px)').addListener(applyStoredForViewport);
+  }
+
+  btn.addEventListener('click', function () {
+    if (!window.matchMedia('(min-width: 992px)').matches) {
+      outer.classList.toggle('is-collapsed');
+      var hidden = outer.classList.contains('is-collapsed');
+      syncToggleUi(hidden);
+      try { localStorage.setItem(STORAGE_KEY, hidden ? '1' : '0'); } catch (e) {}
+      return;
+    }
+    setCollapsed(!outer.classList.contains('is-collapsed'));
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

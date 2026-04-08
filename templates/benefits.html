@@ -22,7 +22,7 @@
     <!-- Lista de Beneficios (desde BD, filtrados por tipo de membresía) -->
     <div class="row g-3">
         {% for benefit in benefits %}
-        <div class="col-md-6 col-lg-4">
+        <div class="col-12 col-md-6 col-lg-4">
             <div class="card benefit-card h-100 border-0 shadow-sm">
                 <div class="card-body p-3">
                     <div class="d-flex align-items-center mb-2">
@@ -53,7 +53,7 @@
             <div class="card bg-light border-0 shadow-sm">
                 <div class="card-body p-3">
                     <div class="row align-items-center">
-                        <div class="col-md-8">
+                        <div class="col-12 col-md-8">
                             <h5 class="mb-2">
                                 <i class="fas fa-info-circle text-primary"></i> ¿Cómo acceder a estos beneficios?
                             </h5>
@@ -62,7 +62,7 @@
                                 Si aún no tienes una membresía, puedes adquirirla desde la sección de Membresía.
                             </p>
                         </div>
-                        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <div class="col-12 col-md-4 text-md-end mt-3 mt-md-0">
                             {% if membership and membership.is_currently_active() %}
                             <span class="badge bg-success fs-6 p-3">
                                 <i class="fas fa-check-circle"></i> Membresía Activa
@@ -91,7 +91,7 @@
                     <a href="mailto:info@easynodeone.com" class="btn btn-primary me-2">
                         <i class="fas fa-envelope"></i> Contactar Soporte
                     </a>
-                    <a href="{{ url_for('help') }}" class="btn btn-outline-primary">
+                    <a href="{{ url_for('member_pages.help_page') }}" class="btn btn-outline-primary">
                         <i class="fas fa-question-circle"></i> Centro de Ayuda
                     </a>
                 </div>

@@ -3,21 +3,29 @@
 Verificar y mostrar configuración de Office 365 para info@relaticpanama.org
 """
 
-import sys
+import argparse
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db, EmailConfig
 
+
 def verify_o365_config():
     """Verificar configuración de Office 365"""
-    print("=" * 60)
-    print("VERIFICACIÓN: info@relaticpanama.org (Office 365)")
-    print("=" * 60)
-    
+    parser = argparse.ArgumentParser(description='Verificación O365 vs BD')
+    parser.add_argument('--org-id', type=int, default=None, help='Tenant para EmailConfig')
+    args = parser.parse_args()
+
+    print('=' * 60)
+    print('VERIFICACIÓN: info@relaticpanama.org (Office 365)')
+    if args.org_id is not None:
+        print(f'  (org: {args.org_id})')
+    print('=' * 60)
+
     with app.app_context():
-        config = EmailConfig.get_active_config()
+        config = EmailConfig.get_active_config(organization_id=args.org_id)
         
         if not config:
             print("\n❌ No hay configuración activa")

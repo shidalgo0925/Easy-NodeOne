@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de IA - Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h5 mb-2">
+                <i class="fas fa-robot"></i> Configuración de IA
+            </h1>
+            <p class="text-muted small">Activa o desactiva el uso de IA y define la API sin tocar variables de entorno.</p>
+        </div>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Ajustes del chatbot IA</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-check form-switch mb-4">
+                <input class="form-check-input" type="checkbox" id="enabled" {% if ai_config and ai_config.enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enabled">
+                    <strong>Activar IA</strong>
+                    <br><small class="text-muted">Si está apagado, el sistema debe seguir usando el bot local.</small>
+                </label>
+            </div>
+
+            <div class="accordion eno-settings-accordion" id="aiSettingsSections">
+                <div class="accordion-item border rounded overflow-hidden mb-2">
+                    <h2 class="accordion-header m-0" id="aiHeadConn">
+                        <button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#aiCollapseConn" aria-expanded="true" aria-controls="aiCollapseConn">
+                            <i class="fas fa-plug me-2 text-primary"></i>Conexión a la API
+                        </button>
+                    </h2>
+                    <div id="aiCollapseConn" class="accordion-collapse collapse show" aria-labelledby="aiHeadConn">
+                        <div class="accordion-body pt-0">
+                            <div class="row g-3">
+                                <div class="col-12 col-md-8">
+                                    <label for="api_url" class="form-label">API URL</label>
+                                    <input type="url" class="form-control" id="api_url" value="{{ ai_config.api_url if ai_config else 'https://api.etsrv.site/ai/chat' }}" placeholder="https://api.etsrv.site/ai/chat">
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label for="collection" class="form-label">Collection</label>
+                                    <input type="text" class="form-control" id="collection" value="{{ ai_config.collection if ai_config else 'nodeone' }}" placeholder="nodeone">
+                                </div>
+                                <div class="col-12 col-md-8">
+                                    <label for="api_key" class="form-label">API Key</label>
+                                    <input type="password" class="form-control" id="api_key" placeholder="Dejar vacío para conservar la actual">
+                                    <small class="text-muted">Por seguridad no se vuelve a exponer la clave guardada. Solo escribe aquí si deseas reemplazarla.</small>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label for="timeout_seconds" class="form-label">Timeout (segundos)</label>
+                                    <input type="number" class="form-control" id="timeout_seconds" min="3" max="60" value="{{ ai_config.timeout_seconds if ai_config else 30 }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item border rounded overflow-hidden mb-2">
+                    <h2 class="accordion-header m-0" id="aiHeadBehav">
+                        <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#aiCollapseBehav" aria-expanded="false" aria-controls="aiCollapseBehav">
+                            <i class="fas fa-random me-2 text-primary"></i>Comportamiento
+                        </button>
+                    </h2>
+                    <div id="aiCollapseBehav" class="accordion-collapse collapse" aria-labelledby="aiHeadBehav">
+                        <div class="accordion-body">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="fallback_to_local" {% if not ai_config or ai_config.fallback_to_local %}checked{% endif %}>
+                                <label class="form-check-label" for="fallback_to_local">
+                                    <strong>Fallback al bot local</strong>
+                                    <br><small class="text-muted">Si la IA falla o no responde, el sistema debe continuar con la lógica local.</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="button" class="btn btn-primary" id="btn-save">
+                    <i class="fas fa-save me-1"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+            <h6 class="text-muted mb-2">Flujo esperado</h6>
+            <p class="small text-muted mb-1">IA apagada: el bot local responde.</p>
+            <p class="small text-muted mb-1">IA encendida: NodeOne consulta la API configurada.</p>
+            <p class="small text-muted mb-0">Si falla y el fallback está activo, el bot local toma el control.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const alertContainer = document.getElementById('alert-container');
+    const btnSave = document.getElementById('btn-save');
+
+    function showAlert(msg, type) {
+        alertContainer.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function loadSettings() {
+        fetch('/api/admin/ai/config')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success || !data.config) return;
+                const cfg = data.config;
+                document.getElementById('enabled').checked = !!cfg.enabled;
+                document.getElementById('api_url').value = cfg.api_url || 'https://api.etsrv.site/ai/chat';
+                document.getElementById('collection').value = cfg.collection || 'nodeone';
+                document.getElementById('timeout_seconds').value = cfg.timeout_seconds || 30;
+                document.getElementById('fallback_to_local').checked = !!cfg.fallback_to_local;
+                document.getElementById('api_key').value = '';
+            })
+            .catch(function() {
+                showAlert('Error al cargar configuración de IA.', 'danger');
+            });
+    }
+
+    btnSave.addEventListener('click', function() {
+        const payload = {
+            enabled: document.getElementById('enabled').checked,
+            api_url: document.getElementById('api_url').value.trim(),
+            api_key: document.getElementById('api_key').value.trim(),
+            collection: document.getElementById('collection').value.trim(),
+            timeout_seconds: parseInt(document.getElementById('timeout_seconds').value || '30', 10),
+            fallback_to_local: document.getElementById('fallback_to_local').checked
+        };
+
+        fetch('/api/admin/ai/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+        .then(function(result) {
+            if (result.ok && result.j.success) {
+                showAlert('Configuración de IA guardada.', 'success');
+                loadSettings();
+            } else {
+                showAlert(result.j.error || 'Error al guardar configuración de IA.', 'danger');
+            }
+        })
+        .catch(function() {
+            showAlert('Error de conexión.', 'danger');
+        });
+    });
+
+    loadSettings();
+})();
+</script>
+{% endblock %}

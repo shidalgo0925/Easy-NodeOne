@@ -1,0 +1,1 @@
+"""Módulo eventos NodeOne."""

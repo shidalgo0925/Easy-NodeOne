@@ -4,24 +4,26 @@
 
 {% block page_content %}
 <div class="container-fluid py-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver</a>
-            <h1 class="h5 d-inline ms-2">{% if campaign %}Editar: {{ campaign.name }}{% else %}Nueva campaña{% endif %}</h1>
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start gap-3 mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2 min-w-0">
+            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm text-nowrap"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1 class="h5 mb-0 text-break">{% if campaign %}Editar: {{ campaign.name }}{% else %}Nueva campaña{% endif %}</h1>
         </div>
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            <button type="submit" form="form-campaign" name="action" value="save" class="btn btn-outline-primary"><i class="fas fa-save"></i> Guardar borrador</button>
+        <div class="w-100 w-lg-auto min-w-0 mobile-scroll-x pb-1">
+        <div class="d-flex flex-nowrap flex-md-wrap gap-2 align-items-center justify-content-lg-end">
+            <button type="submit" form="form-campaign" name="action" value="save" class="btn btn-outline-primary btn-sm text-nowrap"><i class="fas fa-save"></i> Guardar borrador</button>
             {% if campaign and campaign.status in ('draft', 'scheduled') %}
-            <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#modal-programar"><i class="fas fa-clock"></i> Programar</button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modal-prueba"><i class="fas fa-vial"></i> Prueba</button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modal-save-template"><i class="fas fa-plus-square"></i> Agregar a plantillas</button>
-            <form action="{{ url_for('admin_marketing_campaign_send', campaign_id=campaign.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Enviar esta campaña ahora?');">
+            <button type="button" class="btn btn-outline-info btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-programar"><i class="fas fa-clock"></i> Programar</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-prueba"><i class="fas fa-vial"></i> Prueba</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-save-template"><i class="fas fa-plus-square"></i> Agregar a plantillas</button>
+            <form action="{{ url_for('admin_marketing_campaign_send', campaign_id=campaign.id) }}" method="post" class="d-inline flex-shrink-0" onsubmit="return confirm('¿Enviar esta campaña ahora?');">
                 {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Enviar</button>
+                <button type="submit" class="btn btn-primary btn-sm text-nowrap"><i class="fas fa-paper-plane"></i> Enviar</button>
             </form>
             {% elif not campaign %}
-            <span class="text-muted small">Guarda el borrador para poder enviar.</span>
+            <span class="text-muted small text-nowrap">Guarda el borrador para poder enviar.</span>
             {% endif %}
+        </div>
         </div>
     </div>
 
@@ -43,13 +45,13 @@
         <textarea name="body_html" id="body_html" class="d-none">{{ (campaign and campaign.body_html) or (default_template and default_template.html) or '' }}</textarea>
 
         <div class="row mb-3">
-            <div class="col-md-12">
+            <div class="col-12 col-md-12">
                 <label class="form-label">Nombre de la campaña</label>
                 <input type="text" name="name" class="form-control" required placeholder="Ej. Newsletter marzo" value="{{ campaign.name if campaign else '' }}">
             </div>
         </div>
         <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <label class="form-label">Segmento</label>
                 <select name="segment_id" id="segment_id" class="form-select" required>
                     <option value="">Seleccionar</option>
@@ -59,7 +61,7 @@
                 </select>
                 <p class="small text-muted mb-0 mt-1">→ <strong id="recipient-count">-</strong> registro(s)</p>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <label class="form-label">Plantilla</label>
                 <select name="template_id" id="template_id" class="form-select" required>
                     <option value="">Seleccionar</option>
@@ -68,18 +70,18 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <label class="form-label">Asunto del correo</label>
                 <input type="text" name="subject" class="form-control" required placeholder="Asunto del email" value="{{ campaign.subject if campaign else '' }}">
             </div>
         </div>
         <div class="row mb-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <label class="form-label">Lista de exclusión</label>
                 <textarea name="exclusion_emails" id="exclusion_emails" class="form-control form-control-sm" rows="2" placeholder="Emails a excluir (uno por línea o separados por coma)">{{ (campaign and campaign.exclusion_emails) or '' }}</textarea>
             </div>
             {% if campaign and campaign.scheduled_at %}
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <label class="form-label">Programado para</label>
                 <p class="form-control-plaintext small">{{ campaign.scheduled_at.strftime('%d/%m/%Y %H:%M') }}</p>
             </div>
@@ -94,7 +96,7 @@
         <div class="tab-content">
             <div class="tab-pane active" id="cuerpo">
                 <div class="row">
-                    <div class="col-lg-8">
+                    <div class="col-12 col-lg-8">
                         <p class="text-muted small">Elige una plantilla como base o añade bloques.</p>
                         <div class="mb-3">
                             <label class="form-label">Plantillas</label>
@@ -116,7 +118,7 @@
                             <iframe id="preview-frame" title="Vista previa" style="width:100%; height: 420px; border: 0;"></iframe>
                         </div>
                     </div>
-                    <div class="col-lg-4">
+                    <div class="col-12 col-lg-4 mt-4 mt-lg-0">
                         <div class="card">
                             <div class="card-header py-2"><strong><i class="fas fa-th-large"></i> BLOQUES</strong></div>
                             <div class="card-body p-2">
@@ -151,19 +153,19 @@
             </div>
             <div class="tab-pane" id="ajustes">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-12 col-md-6">
                         <label class="form-label">Remitente (from name)</label>
                         <input type="text" name="from_name" class="form-control" placeholder="Ej. Relatic Panamá o Nombre &lt;email@dominio.com&gt;" value="{{ (campaign and campaign.from_name) or '' }}">
                         <p class="small text-muted">Opcional. Si está vacío se usa el configurado en SMTP.</p>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-12 col-md-6">
                         <label class="form-label">Responder a (reply-to)</label>
                         <input type="email" name="reply_to" class="form-control" placeholder="respuestas@dominio.com" value="{{ (campaign and campaign.reply_to) or '' }}">
                     </div>
                 </div>
                 <hr>
                 <div class="row mb-3">
-                    <div class="col-md-12">
+                    <div class="col-12 col-md-12">
                         <label class="form-label">URL de reunión / Meet</label>
                         <input type="url" name="meeting_url" class="form-control" placeholder="Ej. https://meet.google.com/xxx-xxxx-xxx" value="{{ (campaign and campaign.meeting_url) or '' }}">
                         <p class="small text-muted mb-0">Opcional. Usa en la plantilla <code>{{ "{{ reunion_url }}" }}</code> en un enlace o botón para que el destinatario abra la videollamada.</p>
@@ -173,7 +175,7 @@
                 <h6 class="text-muted"><i class="fas fa-chart-line"></i> Prueba A/B (asunto)</h6>
                 <p class="small text-muted">Si rellenas "Asunto variante B", al enviar la mitad de destinatarios recibirán el asunto principal y la otra mitad el B. Luego podrás ver aperturas y clics por variante en el listado.</p>
                 <div class="row">
-                    <div class="col-md-12">
+                    <div class="col-12 col-md-12">
                         <label class="form-label">Asunto variante B</label>
                         <input type="text" name="subject_b" class="form-control" placeholder="Opcional: asunto alternativo para prueba A/B" value="{{ (campaign and campaign.subject_b) or '' }}">
                     </div>

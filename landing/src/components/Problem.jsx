@@ -1,14 +1,14 @@
 import { motion } from 'framer-motion'
 
 const items = [
-  { title: 'Gestión dispersa', num: '1' },
-  { title: 'Integraciones complejas', num: '2' },
-  { title: 'Procesos manuales', num: '3' },
+  { title: 'Pierdes mensajes de clientes', num: '1' },
+  { title: 'No haces seguimiento', num: '2' },
+  { title: 'Respondes tarde', num: '3' },
 ]
 
 export default function Problem() {
   return (
-    <section id="plataforma" className="px-4 py-20 md:py-28">
+    <section id="plataforma" className="px-4 py-12 md:py-16">
       <div className="mx-auto max-w-6xl">
         <motion.h2
           className="text-center text-3xl font-bold text-gray-dark md:text-4xl"
@@ -17,13 +17,13 @@ export default function Problem() {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.5 }}
         >
-          Las organizaciones modernas enfrentan sistemas fragmentados.
+          Los equipos comerciales pierden oportunidades por falta de orden.
         </motion.h2>
-        <div className="mt-16 grid gap-8 md:grid-cols-3">
+        <div className="mt-8 grid gap-6 md:grid-cols-3">
           {items.map(({ title, num }, i) => (
             <motion.div
               key={title}
-              className="group rounded-2xl bg-white p-8 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:ring-2 hover:ring-secondary/10"
+              className="group rounded-2xl bg-white p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:ring-2 hover:ring-secondary/10"
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
@@ -41,13 +41,13 @@ export default function Problem() {
           ))}
         </div>
         <motion.p
-          className="mt-14 text-center text-lg text-gray-mid"
+          className="mt-8 text-center text-lg text-gray-mid"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          NodeOne unifica todo en una sola infraestructura modular.
+          EasyNodeOne centraliza tus conversaciones, clientes y seguimiento en una sola plataforma.
         </motion.p>
       </div>
     </section>

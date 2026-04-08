@@ -10,7 +10,7 @@ import os
 # Agregar el directorio del backend al path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import app, db, Payment, PaymentConfig, get_payment_processor, PAYMENT_PROCESSORS_AVAILABLE
+from app import app, db, Payment, PaymentConfig, PAYMENT_PROCESSORS_AVAILABLE
 from datetime import datetime, timedelta
 
 def verify_pending_paypal_payments():
@@ -21,10 +21,9 @@ def verify_pending_paypal_payments():
         print("❌ Sistema de pagos no disponible")
         return
     
-    # Obtener configuración de pagos
-    payment_config = PaymentConfig.get_active_config()
-    processor = get_payment_processor('paypal', payment_config)
-    
+    cfg_memo = {}
+    proc_memo = {}
+
     # Buscar pagos pendientes de PayPal
     pending_payments = Payment.query.filter(
         Payment.payment_method == 'paypal',
@@ -50,6 +49,13 @@ def verify_pending_paypal_payments():
         print(f"   Usuario: {payment.user_id}, Monto: ${payment.amount/100:.2f}")
         
         try:
+            processor, payment_config = PaymentConfig.processor_for_payment_user(
+                payment, 'paypal', cfg_memo, proc_memo
+            )
+            if not processor or not payment_config:
+                print("   ⚠️ Sin configuración de pagos para el tenant de este usuario, saltando...")
+                failed_count += 1
+                continue
             # Verificar el pago con PayPal
             success, status, payment_data = processor.verify_payment(payment.payment_reference)
             
@@ -125,9 +131,13 @@ def verify_specific_payment(payment_id):
         print("❌ Sistema de pagos no disponible")
         return
     
-    payment_config = PaymentConfig.get_active_config()
-    processor = get_payment_processor('paypal', payment_config)
-    
+    processor, payment_config = PaymentConfig.processor_for_payment_user(
+        payment, 'paypal', None, None
+    )
+    if not processor or not payment_config:
+        print("❌ Sin configuración de pagos para el tenant de este usuario")
+        return
+
     try:
         success, status, payment_data = processor.verify_payment(payment.payment_reference)
         

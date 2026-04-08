@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+{% block title %}Editor certificados (builder){% endblock %}
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h1 class="h5 mb-0">Editor visual certificados</h1>
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <input type="text" id="templateName" class="form-control form-control-sm" style="width:180px" placeholder="Nombre plantilla" value="">
+            <input type="number" id="certTemplateId" class="form-control form-control-sm" style="width:140px" min="1" placeholder="ID plantilla BD (opcional)" title="Si lo dejás vacío se crea una plantilla nueva en BD; si ponés un ID, se actualiza esa.">
+            <button type="button" id="btnSave" class="btn btn-primary btn-sm">Guardar</button>
+            <button type="button" id="btnPublish" class="btn btn-success btn-sm">Publicar al motor</button>
+            <a href="{{ url_for('admin_certificate_templates') }}" class="btn btn-outline-secondary btn-sm">Volver a plantillas</a>
+        </div>
+        <p class="small text-muted mb-0 mt-1">Publicar al motor copia este diseño a <code>certificate_templates</code> para emitir PDFs reales. El JSON del builder no se borra.</p>
+    </div>
+    <div id="alert-container"></div>
+    <div class="row">
+        <div class="col-auto border-end pe-2">
+            <p class="small fw-bold mb-1">Añadir</p>
+            <button type="button" id="btnAddNombre" class="btn btn-outline-secondary btn-sm w-100 mb-1">Texto: nombre</button>
+            <button type="button" id="btnAddCip" class="btn btn-outline-secondary btn-sm w-100 mb-1">Texto: CIP</button>
+            <button type="button" id="btnAddQR" class="btn btn-outline-secondary btn-sm w-100 mb-1">QR</button>
+            <button type="button" id="btnAddImage" class="btn btn-outline-secondary btn-sm w-100 mb-1">Imagen</button>
+            <input type="file" id="fileImage" accept="image/*" class="d-none">
+            <hr class="my-2">
+            <p class="small fw-bold mb-1">Propiedades</p>
+            <div id="propsPanel" class="small d-none">
+                <label class="form-label mb-0">Alineación</label>
+                <select id="propAlign" class="form-select form-select-sm mb-1"><option value="left">Izq</option><option value="center">Centro</option><option value="right">Der</option></select>
+                <label class="form-label mb-0">Tamaño texto</label>
+                <input type="number" id="propFontSize" class="form-control form-control-sm mb-1" min="8" max="72" value="24">
+                <label class="form-label mb-0">Tamaño QR</label>
+                <input type="number" id="propQrSize" class="form-control form-control-sm mb-1 d-none" min="40" max="200" value="80">
+                <label class="form-label mb-0">Ancho imagen</label>
+                <input type="number" id="propImgW" class="form-control form-control-sm mb-1 d-none" min="20" max="800" value="100">
+                <label class="form-label mb-0">Alto imagen</label>
+                <input type="number" id="propImgH" class="form-control form-control-sm mb-1 d-none" min="20" max="600" value="100">
+            </div>
+        </div>
+        <div class="col">
+            <div id="canvas-container" class="border rounded bg-light overflow-auto" style="min-height:420px;"></div>
+        </div>
+    </div>
+</div>
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script>
+(function() {
+    const API = '{{ url_for("certificates_builder.list_templates") }}'.replace(/\/templates\/?$/, '');
+    const PUBLISH_URL = '{{ url_for("certificates_builder.publish_to_engine") }}';
+    const templateId = {{ template_id|default('null') }};
+    const alertEl = document.getElementById('alert-container');
+    const container = document.getElementById('canvas-container');
+    const templateNameEl = document.getElementById('templateName');
+    const btnSave = document.getElementById('btnSave');
+    const btnPublish = document.getElementById('btnPublish');
+    const certTemplateIdEl = document.getElementById('certTemplateId');
+    const btnAddNombre = document.getElementById('btnAddNombre');
+    const btnAddCip = document.getElementById('btnAddCip');
+    const btnAddQR = document.getElementById('btnAddQR');
+    const btnAddImage = document.getElementById('btnAddImage');
+    const fileImage = document.getElementById('fileImage');
+    const propsPanel = document.getElementById('propsPanel');
+    const propAlign = document.getElementById('propAlign');
+    const propFontSize = document.getElementById('propFontSize');
+    const propQrSize = document.getElementById('propQrSize');
+    const propImgW = document.getElementById('propImgW');
+    const propImgH = document.getElementById('propImgH');
+
+    let stage, layer;
+    let width = 842, height = 595;
+    let elements = [];
+    let selectedId = null;
+
+    function alert(msg, type) {
+        alertEl.innerHTML = '<div class="alert alert-' + (type || 'info') + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function initStage() {
+        if (stage) stage.destroy();
+        stage = new Konva.Stage({ container: 'canvas-container', width: width, height: height });
+        layer = new Konva.Layer();
+        stage.add(layer);
+        stage.on('click tap', function(e) {
+            const target = e.target;
+            if (target === stage || target === layer) {
+                stage.find('Group').forEach(g => { g.draggable(true); g.stroke(null); });
+                propsPanel.classList.add('d-none');
+                selectedId = null;
+            } else if (target.getClassName() === 'Group') {
+                stage.find('Group').forEach(g => { g.draggable(true); g.stroke(null); });
+                target.stroke('#0d6efd');
+                target.strokeWidth(2);
+                selectedId = target.getAttr('dataId');
+                propsPanel.classList.remove('d-none');
+                const el = elements.find(x => x._id === selectedId);
+                if (el) {
+                    if (el.type === 'variable' || el.type === 'text') {
+                        propAlign.value = el.align || 'left';
+                        propFontSize.value = el.fontSize || 24;
+                        propFontSize.closest('.mb-1').classList.remove('d-none');
+                        propQrSize.closest('.mb-1').classList.add('d-none');
+                        propImgW.closest('.mb-1').classList.add('d-none');
+                        propImgH.closest('.mb-1').classList.add('d-none');
+                    } else if (el.type === 'qr') {
+                        propQrSize.value = el.size || 80;
+                        propQrSize.closest('.mb-1').classList.remove('d-none');
+                        propFontSize.closest('.mb-1').classList.add('d-none');
+                        propImgW.closest('.mb-1').classList.add('d-none');
+                        propImgH.closest('.mb-1').classList.add('d-none');
+                    } else if (el.type === 'image') {
+                        propImgW.value = el.width || 100;
+                        propImgH.value = el.height || 100;
+                        propImgW.closest('.mb-1').classList.remove('d-none');
+                        propImgH.closest('.mb-1').classList.remove('d-none');
+                        propFontSize.closest('.mb-1').classList.add('d-none');
+                        propQrSize.closest('.mb-1').classList.add('d-none');
+                    } else {
+                        propFontSize.closest('.mb-1').classList.add('d-none');
+                        propQrSize.closest('.mb-1').classList.add('d-none');
+                        propImgW.closest('.mb-1').classList.add('d-none');
+                        propImgH.closest('.mb-1').classList.add('d-none');
+                    }
+                }
+            }
+            layer.draw();
+        });
+    }
+
+    function addElement(type, label, x, y, fontSize, name) {
+        const g = new Konva.Group({ x: x, y: y, draggable: true });
+        const isVariable = type === 'variable';
+        const text = new Konva.Text({
+            text: isVariable ? '{{' + (name || label) + '}}' : label,
+            fontSize: fontSize || 24,
+            fontFamily: 'Arial',
+            fill: '#000',
+            listening: false
+        });
+        g.add(text);
+        g.on('dragend', function() {
+            const el = elements.find(e => e._id === g.getAttr('dataId'));
+            if (el) { el.x = g.x(); el.y = g.y(); }
+        });
+        const id = 'el_' + Date.now();
+        g.setAttr('dataId', id);
+        layer.add(g);
+        layer.draw();
+
+        const el = { type: type === 'variable' ? 'variable' : 'text', x: g.x(), y: g.y(), fontSize: fontSize || 24, align: 'left' };
+        if (type === 'variable') el.name = name || label;
+        else el.value = label;
+        el._id = id;
+        elements.push(el);
+        return el;
+    }
+
+    function updateSelectedFromProps() {
+        if (!selectedId) return;
+        const el = elements.find(e => e._id === selectedId);
+        const g = stage.findOne(node => node.getAttr('dataId') === selectedId);
+        if (!el || !g) return;
+        if (el.type === 'variable' || el.type === 'text') {
+            el.align = propAlign.value;
+            el.fontSize = parseInt(propFontSize.value, 10) || 24;
+            const text = g.findOne('Text');
+            if (text) { text.fontSize(el.fontSize); text.align(el.align); }
+        } else if (el.type === 'qr') {
+            el.size = parseInt(propQrSize.value, 10) || 80;
+            const rect = g.findOne('Rect');
+            if (rect) { rect.width(el.size); rect.height(el.size); }
+        } else if (el.type === 'image') {
+            el.width = parseInt(propImgW.value, 10) || 100;
+            el.height = parseInt(propImgH.value, 10) || 100;
+            const imgNode = g.findOne('Image');
+            if (imgNode) { imgNode.width(el.width); imgNode.height(el.height); }
+        }
+        layer.draw();
+    }
+    propAlign.onchange = propFontSize.onchange = propFontSize.oninput = propQrSize.onchange = propQrSize.oninput = propImgW.onchange = propImgW.oninput = propImgH.onchange = propImgH.oninput = updateSelectedFromProps;
+
+    btnAddNombre.onclick = function() { addElement('variable', 'nombre', 300, 320, 24, 'participant_name'); };
+    btnAddCip.onclick = function() { addElement('variable', 'CIP', 300, 360, 14, 'cip'); };
+    btnAddQR.onclick = function() {
+        const g = new Konva.Group({ x: 700, y: 80, draggable: true });
+        const rect = new Konva.Rect({ width: 80, height: 80, fill: '#eee', stroke: '#999' });
+        const txt = new Konva.Text({ text: 'QR', fontSize: 12, fill: '#666', offsetX: 10, offsetY: 10, x: 40, y: 40 });
+        g.add(rect).add(txt);
+        g.on('dragend', function() {
+            const el = elements.find(e => e._id === g.getAttr('dataId'));
+            if (el) { el.x = g.x(); el.y = g.y(); }
+        });
+        const id = 'el_' + Date.now();
+        g.setAttr('dataId', id);
+        layer.add(g);
+        layer.draw();
+        elements.push({ type: 'qr', x: 700, y: 80, size: 80, _id: id });
+    };
+
+    btnAddImage.onclick = function() { fileImage.click(); };
+    fileImage.onchange = function() {
+        const file = fileImage.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append('file', file);
+        fetch(API + '/upload-image', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json()).then(function(data) {
+                if (data.error) { alert(data.error, 'danger'); return; }
+                const url = (window.location.origin || '') + data.url;
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    const w = Math.min(200, img.width);
+                    const h = Math.min(200, img.height);
+                    const id = 'el_' + Date.now();
+                    const g = new Konva.Group({ x: 100, y: 100, draggable: true });
+                    const kImg = new Konva.Image({ image: img, width: w, height: h, listening: false });
+                    g.add(kImg);
+                    g.on('dragend', function() { const el = elements.find(e => e._id === id); if (el) { el.x = g.x(); el.y = g.y(); } });
+                    g.setAttr('dataId', id);
+                    layer.add(g);
+                    layer.draw();
+                    elements.push({ type: 'image', src: data.url, x: 100, y: 100, width: w, height: h, _id: id });
+                };
+                img.src = url;
+            }).catch(function() { alert('Error al subir.', 'danger'); });
+        fileImage.value = '';
+    };
+
+    function toPayload() {
+        const out = [];
+        stage.find('Group').forEach(g => {
+            const dataId = g.getAttr('dataId');
+            const el = elements.find(e => e._id === dataId);
+            if (!el) return;
+            const o = { type: el.type, x: Math.round(g.x()), y: Math.round(g.y()) };
+            if (el.type === 'variable') o.name = el.name;
+            if (el.type === 'text') o.value = el.value;
+            if (el.fontSize) o.fontSize = el.fontSize;
+            if (el.align) o.align = el.align;
+            if (el.type === 'qr') o.size = el.size || 80;
+            if (el.type === 'image') { o.src = el.src; o.width = el.width; o.height = el.height; }
+            out.push(o);
+        });
+        return { name: templateNameEl.value.trim() || 'Sin nombre', width: width, height: height, background: '', elements: out };
+    }
+
+    btnSave.onclick = function() {
+        const payload = toPayload();
+        const url = templateId ? API + '/templates/' + templateId : API + '/templates';
+        const method = templateId ? 'PUT' : 'POST';
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify(payload)
+        }).then(r => r.json()).then(data => {
+            if (data.error) alert(data.error, 'danger');
+            else { alert('Guardado.', 'success'); if (data.item && data.item.id) window.location.search = '?id=' + data.item.id; }
+        }).catch(() => alert('Error al guardar.', 'danger'));
+    };
+
+    btnPublish.onclick = function() {
+        const payload = toPayload();
+        const body = { document: payload };
+        const rawId = (certTemplateIdEl && certTemplateIdEl.value) ? certTemplateIdEl.value.trim() : '';
+        if (rawId) {
+            const n = parseInt(rawId, 10);
+            if (!n || n < 1) { alert('ID de plantilla BD inválido.', 'danger'); return; }
+            body.certificate_template_id = n;
+        }
+        fetch(PUBLISH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify(body)
+        }).then(r => r.json()).then(data => {
+            if (data.error) alert(data.error, 'danger');
+            else {
+                const msg = data.updated
+                    ? 'Listo: actualizaste la plantilla en BD (id ' + data.certificate_template_id + '). Asignala al evento de certificado si hace falta.'
+                    : 'Listo: creaste plantilla en BD (id ' + data.certificate_template_id + '). Copiá ese ID para el evento o para la próxima actualización.';
+                alert(msg, 'success');
+                if (certTemplateIdEl && data.certificate_template_id && !rawId) certTemplateIdEl.value = String(data.certificate_template_id);
+            }
+        }).catch(function() { alert('Error al publicar.', 'danger'); });
+    };
+
+    function loadTemplate(id) {
+        fetch(API + '/templates/' + id, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json()).then(data => {
+                if (!data.item) return;
+                const t = data.item;
+                templateNameEl.value = t.name || '';
+                width = t.width || 842;
+                height = t.height || 595;
+                initStage();
+                elements = [];
+                (t.elements || []).forEach(function(el, idx) {
+                    const id = 'el_' + Date.now() + '_' + idx;
+                    if (el.type === 'variable') {
+                        const g = new Konva.Group({ x: el.x, y: el.y, draggable: true });
+                        g.add(new Konva.Text({ text: '{{' + (el.name || '') + '}}', fontSize: el.fontSize || 24, fontFamily: 'Arial', fill: '#000', listening: false }));
+                        g.setAttr('dataId', id);
+                        g.on('dragend', function() { const e = elements.find(x => x._id === id); if (e) { e.x = g.x(); e.y = g.y(); } });
+                        layer.add(g);
+                        elements.push({ type: 'variable', name: el.name, x: el.x, y: el.y, fontSize: el.fontSize || 24, align: 'left', _id: id });
+                    } else if (el.type === 'qr') {
+                        const g = new Konva.Group({ x: el.x, y: el.y, draggable: true });
+                        g.add(new Konva.Rect({ width: el.size || 80, height: el.size || 80, fill: '#eee', stroke: '#999' }));
+                        g.add(new Konva.Text({ text: 'QR', fontSize: 12, fill: '#666', offsetX: 10, offsetY: 10, x: (el.size||80)/2 - 10, y: (el.size||80)/2 - 6 }));
+                        g.setAttr('dataId', id);
+                        g.on('dragend', function() { const e = elements.find(x => x._id === id); if (e) { e.x = g.x(); e.y = g.y(); } });
+                        layer.add(g);
+                        elements.push({ type: 'qr', x: el.x, y: el.y, size: el.size || 80, _id: id });
+                    } else if (el.type === 'image' && el.src) {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = function() {
+                            const g = new Konva.Group({ x: el.x, y: el.y, draggable: true });
+                            g.add(new Konva.Image({ image: img, width: el.width || 100, height: el.height || 100, listening: false }));
+                            g.setAttr('dataId', id);
+                            g.on('dragend', function() { const e = elements.find(x => x._id === id); if (e) { e.x = g.x(); e.y = g.y(); } });
+                            layer.add(g);
+                            layer.draw();
+                        };
+                        img.src = (el.src.indexOf('/') === 0) ? (window.location.origin || '') + el.src : el.src;
+                        elements.push({ type: 'image', src: el.src, x: el.x, y: el.y, width: el.width || 100, height: el.height || 100, _id: id });
+                    }
+                });
+                layer.draw();
+            });
+    }
+
+    initStage();
+    if (templateId) loadTemplate(templateId);
+})();
+</script>
+{% endblock %}

@@ -7,7 +7,7 @@
 <section class="event-hero" {% if cover %}style="background-image: linear-gradient(120deg, rgba(15,23,42,0.9), rgba(15,23,42,0.7)), url('{{ cover }}');"{% endif %}>
     <div class="container py-5 text-white">
         <p class="text-uppercase mb-1" style="letter-spacing: 0.2em;">{{ event.category }}</p>
-        <h1 class="display-5 fw-bold mb-3">{{ event.title }}</h1>
+        <h1 class="h2 fw-bold mb-3">{{ event.title }}</h1>
         <p class="lead text-light">{{ event.summary or event.description[:240] }}</p>
         <div class="d-flex flex-column flex-md-row gap-3 mt-4">
             <div><i class="far fa-calendar me-2"></i>{{ event.start_date.strftime('%d %b %Y %H:%M') }} - {{ event.end_date.strftime('%d %b %Y %H:%M') }}</div>
@@ -22,7 +22,7 @@
 <section class="py-5" style="background: #f8fafc;">
     <div class="container">
         <div class="row g-4">
-            <div class="col-lg-8">
+            <div class="col-12 col-lg-8">
                 <div class="card shadow-sm border-0 mb-4">
                     <div class="card-body p-4">
                         <h2 class="h4 mb-3">Descripción general</h2>
@@ -36,7 +36,7 @@
                         <h3 class="h5 mb-3">Galería</h3>
                         <div class="row g-3">
                             {% for image in event.images %}
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <div class="event-gallery-image" style="background-image: url('{{ image.file_path }}');">
                                     {% if image.caption %}<span>{{ image.caption }}</span>{% endif %}
                                 </div>
@@ -65,7 +65,7 @@
                 {% endif %}
             </div>
 
-            <div class="col-lg-4">
+            <div class="col-12 col-lg-4 mt-4 mt-lg-0">
                 <div class="card shadow-sm border-0 mb-4">
                     <div class="card-body p-4">
                         <h3 class="h5 mb-3">Información clave</h3>

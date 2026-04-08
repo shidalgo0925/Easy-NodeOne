@@ -3,18 +3,50 @@
 {% block title %}Iniciar Sesión - Easy NodeOne{% endblock %}
 
 {% block page_content %}
-<div class="container pt-3 pb-2">
+<style>
+    .login-page-wrap {
+        padding-top: 0.5rem;
+        padding-bottom: 1rem;
+    }
+    .login-card {
+        border: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+    }
+    .login-card .card-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #20c997 100%) !important;
+        border-bottom: 0;
+    }
+    .login-card .btn-primary {
+        background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
+        border: 0;
+    }
+    .login-card .btn-primary:hover {
+        filter: brightness(0.96);
+    }
+    .login-card .form-control:focus,
+    .login-card .form-select:focus {
+        border-color: #0dcaf0;
+        box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.2);
+    }
+</style>
+<div class="container login-page-wrap">
     <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow">
+        <div class="col-12 col-md-6">
+            <div class="card login-card">
                 <div class="card-header bg-primary text-white text-center">
                     <h3><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</h3>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST">
+                    {% set next_val = request.args.get('next') %}
+                    <form method="POST" action="{{ url_for('auth.login', **request.args) }}">
+                        {% if next_val %}
+                        <input type="hidden" name="next" value="{{ next_val }}">
+                        {% endif %}
                         <div class="mb-3">
                             <label for="email" class="form-label">Correo Electrónico</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ login_email or '' }}" required>
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Contraseña</label>
@@ -31,13 +63,13 @@
                             <span class="text-muted">O continúa con</span>
                         </div>
                         <div class="d-grid gap-2">
-                            <a href="{{ url_for('oauth_login', provider='google') }}" class="btn btn-outline-danger">
+                            <a href="{% if next_val %}{{ url_for('oauth_login', provider='google', next=next_val) }}{% else %}{{ url_for('oauth_login', provider='google') }}{% endif %}" class="btn btn-outline-danger">
                                 <i class="fab fa-google me-2"></i> Google
                             </a>
-                            <a href="{{ url_for('oauth_login', provider='facebook') }}" class="btn btn-outline-primary">
+                            <a href="{% if next_val %}{{ url_for('oauth_login', provider='facebook', next=next_val) }}{% else %}{{ url_for('oauth_login', provider='facebook') }}{% endif %}" class="btn btn-outline-primary">
                                 <i class="fab fa-facebook me-2"></i> Facebook
                             </a>
-                            <a href="{{ url_for('oauth_login', provider='linkedin') }}" class="btn btn-outline-info">
+                            <a href="{% if next_val %}{{ url_for('oauth_login', provider='linkedin', next=next_val) }}{% else %}{{ url_for('oauth_login', provider='linkedin') }}{% endif %}" class="btn btn-outline-info">
                                 <i class="fab fa-linkedin me-2"></i> LinkedIn
                             </a>
                         </div>
@@ -48,7 +80,7 @@
                                 <br>
                                 Las credenciales OAuth deben configurarse en las variables de entorno.
                                 <br>
-                                <a href="{{ url_for('help') }}#oauth-config" class="alert-link">
+                                <a href="{{ url_for('member_pages.help_page') }}#oauth-config" class="alert-link">
                                     <i class="fas fa-question-circle me-1"></i>Ver guía de configuración
                                 </a>
                             </small>

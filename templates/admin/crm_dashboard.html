@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+
+{% block title %}CRM | Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-column flex-md-row flex-wrap justify-content-between align-items-stretch align-items-md-center gap-2 mb-3">
+    <div class="min-w-0">
+      <h3 class="mb-1"><i class="fas fa-funnel-dollar me-2"></i>CRM</h3>
+      <p class="text-muted mb-0 small">Leads, oportunidades, actividades y reportes.</p>
+    </div>
+    <div class="d-flex flex-shrink-0 gap-2 flex-md-wrap">
+      <button class="btn btn-outline-secondary btn-sm text-nowrap" id="crmReloadBtn"><i class="fas fa-sync-alt me-1"></i>Actualizar</button>
+      <button class="btn btn-primary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#newLeadModal"><i class="fas fa-plus me-1"></i>Nuevo lead</button>
+    </div>
+  </div>
+
+  <div class="w-100 mobile-scroll-x mb-3 pb-1">
+  <ul class="nav nav-tabs flex-nowrap mb-0">
+    <li class="nav-item"><a class="nav-link {% if crm_view == 'dashboard' %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">Dashboard</a></li>
+    <li class="nav-item"><a class="nav-link {% if crm_view == 'kanban' %}active{% endif %}" href="{{ url_for('admin_crm_kanban') }}">Kanban</a></li>
+    <li class="nav-item"><a class="nav-link {% if crm_view == 'list' %}active{% endif %}" href="{{ url_for('admin_crm_leads') }}">Lista</a></li>
+    <li class="nav-item"><a class="nav-link {% if crm_view == 'reports' %}active{% endif %}" href="{{ url_for('admin_crm_reports') }}">Reportes</a></li>
+  </ul>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Leads totales</small><h4 id="kpiTotal" class="mb-0">0</h4></div></div></div>
+    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Ganados</small><h4 id="kpiWon" class="mb-0">0</h4></div></div></div>
+    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Conversión</small><h4 id="kpiConv" class="mb-0">0%</h4></div></div></div>
+    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Forecast</small><h4 id="kpiForecast" class="mb-0">$0</h4></div></div></div>
+  </div>
+  <div id="crmAlertsBox" class="mb-3"></div>
+
+  {% if crm_view == 'kanban' %}
+  <div class="crm-kanban-wrapper">
+    <div id="kanbanBoard" class="crm-kanban-board row g-3"></div>
+  </div>
+  <button type="button" class="btn btn-primary rounded-circle crm-kanban-fab d-lg-none" data-bs-toggle="modal" data-bs-target="#newLeadModal" aria-label="Nuevo lead">
+    <i class="fas fa-plus fa-lg"></i>
+  </button>
+  {% elif crm_view == 'reports' %}
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card"><div class="card-header">Leads por canal</div><div class="card-body"><pre id="bySource" class="mb-0 small"></pre></div></div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card"><div class="card-header">Ventas por vendedor</div><div class="card-body"><pre id="byUser" class="mb-0 small"></pre></div></div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+      <span class="fw-medium">Leads y oportunidades</span>
+      <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+        <select id="filterStage" class="form-select form-select-sm flex-grow-1"><option value="">Todas las etapas</option></select>
+        <input id="filterSource" class="form-control form-control-sm flex-grow-1" placeholder="Fuente (web, campaña)">
+      </div>
+    </div>
+    <div class="d-none d-md-block table-responsive">
+      <table class="table table-sm mb-0 align-middle crm-leads-table">
+        <thead><tr><th>Título</th><th>Contacto</th><th>Etapa</th><th>Vendedor</th><th>Ingreso</th><th>Prob.</th><th>Actividades</th><th></th></tr></thead>
+        <tbody id="leadsTbody"></tbody>
+      </table>
+    </div>
+    <div id="leadsMobileCards" class="d-md-none p-2 border-top"></div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal fade" id="newLeadModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="newLeadForm">
+      <div class="modal-header"><h5 class="modal-title">Nuevo Lead</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-2"><label class="form-label">Titulo</label><input name="name" class="form-control" required></div>
+        <div class="mb-2"><label class="form-label">Nombre contacto</label><input name="contact_name" class="form-control"></div>
+        <div class="mb-2"><label class="form-label">Empresa</label><input name="company_name" class="form-control"></div>
+        <div class="row g-2">
+          <div class="col"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+          <div class="col"><label class="form-label">Telefono</label><input name="phone" class="form-control"></div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col"><label class="form-label">Fuente</label><input name="source" class="form-control" value="web"></div>
+          <div class="col"><label class="form-label">Prioridad</label>
+            <select name="priority" class="form-select"><option>low</option><option selected>medium</option><option>high</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="leadActivitiesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Actividades del lead</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <h6 id="actLeadTitle" class="mb-1">-</h6>
+          <small id="actLeadMeta" class="text-muted"></small>
+        </div>
+        <div class="border rounded p-2 mb-3" style="max-height:220px; overflow:auto;">
+          <div id="activitiesList" class="small text-muted">Sin actividades.</div>
+        </div>
+        <form id="newActivityForm" class="row g-2">
+          <input type="hidden" id="activityLeadId" name="lead_id">
+          <div class="col-12 col-md-3">
+            <label class="form-label">Tipo</label>
+            <select class="form-select" name="type">
+              <option value="call">Llamada</option>
+              <option value="meeting">Reunión</option>
+              <option value="task" selected>Tarea</option>
+              <option value="email">Email</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label">Resumen</label>
+            <input class="form-control" name="summary" required>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Vence</label>
+            <input class="form-control" type="datetime-local" name="due_date" required>
+          </div>
+          <div class="col-12 d-flex justify-content-end">
+            <button class="btn btn-primary btn-sm" type="submit">Agregar actividad</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const currentView = {{ crm_view|tojson }};
+  const leadsTbody = document.getElementById('leadsTbody');
+  const leadsMobileCards = document.getElementById('leadsMobileCards');
+  const kanbanBoard = document.getElementById('kanbanBoard');
+  const filterStage = document.getElementById('filterStage');
+  const filterSource = document.getElementById('filterSource');
+  const newLeadForm = document.getElementById('newLeadForm');
+  const newActivityForm = document.getElementById('newActivityForm');
+  const reloadBtn = document.getElementById('crmReloadBtn');
+  const activitiesList = document.getElementById('activitiesList');
+  const activityLeadId = document.getElementById('activityLeadId');
+  const actLeadTitle = document.getElementById('actLeadTitle');
+  const actLeadMeta = document.getElementById('actLeadMeta');
+  const alertsBox = document.getElementById('crmAlertsBox');
+
+  const activityTypeLabel = {
+    call: 'Llamada',
+    meeting: 'Reunión',
+    task: 'Tarea',
+    email: 'Email',
+  };
+
+  async function j(url, opts) {
+    const r = await fetch(url, Object.assign({headers: {'Content-Type': 'application/json'}}, opts || {}));
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.success === false) throw new Error(data.error || 'Error');
+    return data;
+  }
+
+  function money(v) {
+    return new Intl.NumberFormat('es-PA', {style: 'currency', currency: 'USD', maximumFractionDigits: 0}).format(v || 0);
+  }
+
+  async function loadStages() {
+    const data = await j('/crm/stages');
+    if (!filterStage) return data.items || [];
+    filterStage.innerHTML = '<option value="">Todas las etapas</option>';
+    for (const s of data.items || []) {
+      const o = document.createElement('option');
+      o.value = String(s.id);
+      o.textContent = s.name;
+      filterStage.appendChild(o);
+    }
+    return data.items || [];
+  }
+
+  async function loadReports() {
+    const data = await j('/crm/reports');
+    const k = data.kpis || {};
+    document.getElementById('kpiTotal').textContent = String(k.total_leads || 0);
+    document.getElementById('kpiWon').textContent = String(k.won || 0);
+    document.getElementById('kpiConv').textContent = `${(k.conversion_rate || 0).toFixed(1)}%`;
+    document.getElementById('kpiForecast').textContent = money(data.forecast || 0);
+    const bySource = document.getElementById('bySource');
+    const byUser = document.getElementById('byUser');
+    if (bySource) bySource.textContent = JSON.stringify(k.leads_by_source || {}, null, 2);
+    if (byUser) byUser.textContent = JSON.stringify(k.sales_by_user || {}, null, 2);
+  }
+
+  function renderAlerts(data) {
+    if (!alertsBox) return;
+    const t = (((data || {}).alerts || {}).totals || {});
+    const overdue = Number(t.overdue || 0);
+    const dueToday = Number(t.due_today || 0);
+    const dueSoon = Number(t.due_soon || 0);
+    if (!overdue && !dueToday && !dueSoon) {
+      alertsBox.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fas fa-check-circle me-1"></i> Sin alertas de actividades.</div>';
+      return;
+    }
+    const chunks = [];
+    if (overdue) chunks.push(`<span class="badge bg-danger me-2">${overdue} vencida(s)</span>`);
+    if (dueToday) chunks.push(`<span class="badge bg-warning text-dark me-2">${dueToday} vence(n) hoy</span>`);
+    if (dueSoon) chunks.push(`<span class="badge bg-info text-dark">${dueSoon} en próximas 24h</span>`);
+    alertsBox.innerHTML = `<div class="alert alert-warning py-2 mb-0"><i class="fas fa-bell me-2"></i>${chunks.join('')}</div>`;
+  }
+
+  async function loadAlerts() {
+    try {
+      const data = await j('/crm/activities/alerts');
+      renderAlerts(data);
+    } catch (e) {
+      if (alertsBox) alertsBox.innerHTML = '';
+    }
+  }
+
+  function countOverdue(a) {
+    return (a || []).filter(x => x.status === 'overdue').length;
+  }
+
+  function renderList(items) {
+    if (!leadsTbody) return;
+    leadsTbody.innerHTML = '';
+    if (leadsMobileCards) leadsMobileCards.innerHTML = '';
+    for (const x of items) {
+      const act = x.activities_count || 0;
+      const overdue = x.activities_overdue || 0;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${x.name || ''}</strong><div class="small text-muted">${x.type || ''}</div></td>
+        <td>${x.contact_name || ''}<div class="small text-muted">${x.email || x.phone || ''}</div></td>
+        <td><span class="badge bg-light text-dark">${x.stage_name || '-'}</span></td>
+        <td>${x.user_id || '-'}</td>
+        <td>${money(x.expected_revenue || 0)}</td>
+        <td>${(x.probability || 0)}%</td>
+        <td>
+          <span class="badge bg-secondary">${act}</span>
+          ${overdue ? `<span class="badge bg-danger ms-1">${overdue} vencida(s)</span>` : ''}
+        </td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-primary me-1" data-activities="${x.id}">Actividades</button>
+          <button class="btn btn-sm btn-outline-success me-1" data-win="${x.id}">Ganado</button>
+          <button class="btn btn-sm btn-outline-danger" data-lost="${x.id}">Perdido</button>
+        </td>`;
+      leadsTbody.appendChild(tr);
+      if (leadsMobileCards) {
+        const ovHtml = overdue ? `<span class="text-danger fw-medium">${overdue} venc.</span>` : '';
+        const card = document.createElement('div');
+        card.className = 'card crm-lead-mobile-card mb-2 shadow-sm';
+        card.innerHTML = `
+          <div class="card-body py-2 px-3">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div class="min-w-0 flex-grow-1">
+                <div class="fw-bold">${x.name || ''}</div>
+                <div class="small text-muted">${x.type || ''}</div>
+                <div class="small mt-1">${x.contact_name || ''}</div>
+                <div class="small text-muted text-truncate">${x.email || x.phone || ''}</div>
+              </div>
+              <span class="badge bg-light text-dark flex-shrink-0">${x.stage_name || '-'}</span>
+            </div>
+            <div class="small mt-2 text-muted">Vendedor: ${x.user_id || '—'}</div>
+            <div class="small mt-1">${money(x.expected_revenue || 0)} · ${(x.probability || 0)}% · <span class="badge bg-secondary">${act}</span> act. ${ovHtml ? ' · ' + ovHtml : ''}</div>
+            <div class="d-grid gap-2 mt-3">
+              <button type="button" class="btn btn-sm btn-outline-primary" data-activities="${x.id}">Actividades</button>
+              <button type="button" class="btn btn-sm btn-outline-success" data-win="${x.id}">Ganado</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-lost="${x.id}">Perdido</button>
+            </div>
+          </div>`;
+        leadsMobileCards.appendChild(card);
+      }
+    }
+    const bindList = (root) => {
+      if (!root) return;
+      root.querySelectorAll('[data-activities]').forEach(btn => btn.addEventListener('click', () => openActivities(btn.getAttribute('data-activities'))));
+      root.querySelectorAll('[data-win]').forEach(btn => btn.addEventListener('click', () => markWin(btn.getAttribute('data-win'))));
+      root.querySelectorAll('[data-lost]').forEach(btn => btn.addEventListener('click', () => markLost(btn.getAttribute('data-lost'))));
+    };
+    bindList(leadsTbody);
+    bindList(leadsMobileCards);
+  }
+
+  function renderKanban(items, stages) {
+    if (!kanbanBoard) return;
+    kanbanBoard.innerHTML = '';
+    const byStage = {};
+    for (const s of stages) byStage[s.id] = [];
+    for (const x of items) {
+      if (!byStage[x.stage_id]) byStage[x.stage_id] = [];
+      byStage[x.stage_id].push(x);
+    }
+    for (const s of stages) {
+      const col = document.createElement('div');
+      col.className = 'crm-kanban-column col-12 col-md-6 col-lg-3';
+      col.innerHTML = `<div class="card h-100"><div class="card-header"><strong>${s.name}</strong></div><div class="card-body p-2" id="stage-${s.id}"></div></div>`;
+      kanbanBoard.appendChild(col);
+      const box = col.querySelector(`#stage-${s.id}`);
+      (byStage[s.id] || []).forEach(x => {
+        const card = document.createElement('div');
+        card.className = 'border rounded p-2 mb-2 bg-white';
+        const overdue = x.activities_overdue || 0;
+        card.innerHTML = `<strong>${x.name || ''}</strong><div class="small text-muted">${x.contact_name || ''}</div><div class="small">${money(x.expected_revenue || 0)} | ${(x.probability || 0)}%</div><div class="mt-1"><button class="btn btn-sm btn-outline-primary" data-activities="${x.id}">Actividades ${overdue ? '(' + overdue + ' vencida)' : ''}</button></div>`;
+        box.appendChild(card);
+      });
+    }
+    kanbanBoard.querySelectorAll('[data-activities]').forEach(btn => btn.addEventListener('click', () => openActivities(btn.getAttribute('data-activities'))));
+  }
+
+  async function loadLeads(stages) {
+    const params = new URLSearchParams();
+    if (filterStage && filterStage.value) params.set('stage', filterStage.value);
+    if (filterSource && filterSource.value.trim()) params.set('source', filterSource.value.trim());
+    const data = await j('/crm/leads' + (params.toString() ? `?${params.toString()}` : ''));
+    const items = data.items || [];
+    for (const x of items) {
+      try {
+        const detail = await j(`/crm/leads/${x.id}`);
+        const acts = detail.activities || [];
+        x.activities_count = acts.length;
+        x.activities_overdue = countOverdue(acts);
+      } catch (e) {
+        x.activities_count = 0;
+        x.activities_overdue = 0;
+      }
+    }
+    if (currentView === 'kanban') renderKanban(items, stages || []);
+    else renderList(items);
+  }
+
+  async function openActivities(id) {
+    const data = await j(`/crm/leads/${id}`);
+    activityLeadId.value = String(id);
+    const lead = data.item || {};
+    actLeadTitle.textContent = lead.name || '-';
+    actLeadMeta.textContent = [lead.contact_name, lead.email, lead.phone].filter(Boolean).join(' | ');
+    const acts = data.activities || [];
+    if (!acts.length) {
+      activitiesList.innerHTML = '<div class="text-muted">Sin actividades.</div>';
+    } else {
+      activitiesList.innerHTML = acts.map(a => {
+        const badge = a.status === 'overdue' ? 'danger' : (a.status === 'done' ? 'success' : 'secondary');
+        return `<div class="border-bottom py-1">
+          <strong>${activityTypeLabel[a.type] || a.type}</strong> - ${a.summary || ''}
+          <span class="badge bg-${badge} ms-1">${a.status}</span>
+          <div class="text-muted">Vence: ${a.due_date ? new Date(a.due_date).toLocaleString() : '-'}</div>
+        </div>`;
+      }).join('');
+    }
+    const m = new bootstrap.Modal(document.getElementById('leadActivitiesModal'));
+    m.show();
+  }
+
+  async function markLost(id) {
+    const reason = window.prompt('Razón de pérdida (obligatoria):');
+    if (!reason) return;
+    await j(`/crm/leads/${id}/lost`, {method: 'POST', body: JSON.stringify({reason: reason})});
+    await refresh();
+  }
+
+  async function markWin(id) {
+    const stages = await j('/crm/stages');
+    const won = (stages.items || []).find(s => s.is_won);
+    if (!won) return alert('No hay etapa de ganado configurada');
+    await j(`/crm/leads/${id}`, {method: 'PATCH', body: JSON.stringify({stage_id: won.id})});
+    await refresh();
+  }
+
+  async function refresh() {
+    const stages = await loadStages();
+    await loadAlerts();
+    await loadReports();
+    if (currentView !== 'reports') await loadLeads(stages);
+  }
+
+  if (reloadBtn) reloadBtn.addEventListener('click', refresh);
+  if (filterStage) filterStage.addEventListener('change', () => loadLeads());
+  if (filterSource) filterSource.addEventListener('change', () => loadLeads());
+  if (newLeadForm) {
+    newLeadForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(newLeadForm);
+      const payload = Object.fromEntries(fd.entries());
+      await j('/crm/leads', {method: 'POST', body: JSON.stringify(payload)});
+      const m = bootstrap.Modal.getInstance(document.getElementById('newLeadModal'));
+      if (m) m.hide();
+      newLeadForm.reset();
+      await refresh();
+    });
+  }
+
+  if (newActivityForm) {
+    newActivityForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(newActivityForm);
+      const leadId = activityLeadId.value;
+      const payload = Object.fromEntries(fd.entries());
+      await j(`/crm/leads/${leadId}/activities`, {method: 'POST', body: JSON.stringify(payload)});
+      await openActivities(leadId);
+      await loadLeads();
+      await loadReports();
+    });
+  }
+
+  refresh().catch((e) => console.error('CRM load error', e));
+})();
+</script>
+{% endblock %}

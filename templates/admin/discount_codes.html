@@ -20,7 +20,7 @@
     <div class="row mb-4">
         <div class="col-12">
             <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createCodeModal"><i class="fas fa-plus"></i> Crear Código</button>
-            <a href="{{ url_for('admin_master_discount') }}" class="btn btn-sm btn-outline-secondary ms-2"><i class="fas fa-crown"></i> Descuento Maestro</a>
+            <a href="{{ url_for('admin_membership_discounts.admin_master_discount') }}" class="btn btn-sm btn-outline-secondary ms-2"><i class="fas fa-crown"></i> Descuento Maestro</a>
         </div>
     </div>
 
@@ -29,13 +29,13 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <form method="GET" action="{{ url_for('admin_discount_codes') }}" class="row g-3">
-                        <div class="col-md-4">
+                    <form method="GET" action="{{ url_for('admin_discount_codes.admin_discount_codes') }}" class="row g-3">
+                        <div class="col-12 col-md-4">
                             <label for="search" class="form-label">Buscar</label>
                             <input type="text" class="form-control" id="search" name="search" 
                                    value="{{ search }}" placeholder="Código o nombre...">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-12 col-md-3">
                             <label for="status" class="form-label">Estado</label>
                             <select class="form-select" id="status" name="status">
                                 <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
@@ -43,9 +43,9 @@
                                 <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactivos</option>
                             </select>
                         </div>
-                        <div class="col-md-3 d-flex align-items-end">
+                        <div class="col-12 col-md-3 d-flex align-items-end">
                             <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filtrar</button>
-                            <a href="{{ url_for('admin_discount_codes') }}" class="btn btn-sm btn-outline-secondary ms-2"><i class="fas fa-times"></i> Limpiar</a>
+                            <a href="{{ url_for('admin_discount_codes.admin_discount_codes') }}" class="btn btn-sm btn-outline-secondary ms-2"><i class="fas fa-times"></i> Limpiar</a>
                         </div>
                     </form>
                 </div>
@@ -57,9 +57,9 @@
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <div class="card-header py-2 d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
                     <h5 class="mb-0">Códigos de Descuento</h5>
-                    <span class="badge bg-primary">{{ pagination.total }}</span>
+                    <span class="badge bg-primary align-self-start align-self-sm-center">{{ pagination.total }}</span>
                 </div>
                 <div class="card-body p-0">
                     {% if codes %}
@@ -154,7 +154,7 @@
                         <ul class="pagination justify-content-center">
                             {% if pagination.has_prev %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('admin_discount_codes', page=pagination.prev_num, search=search, status=status_filter, per_page=request.args.get('per_page', 10)) }}">Anterior</a>
+                                <a class="page-link" href="{{ url_for('admin_discount_codes.admin_discount_codes', page=pagination.prev_num, search=search, status=status_filter, per_page=request.args.get('per_page', 10)) }}">Anterior</a>
                             </li>
                             {% endif %}
                             
@@ -166,7 +166,7 @@
                                     </li>
                                     {% else %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin_discount_codes', page=page_num, search=search, status=status_filter) }}">{{ page_num }}</a>
+                                        <a class="page-link" href="{{ url_for('admin_discount_codes.admin_discount_codes', page=page_num, search=search, status=status_filter) }}">{{ page_num }}</a>
                                     </li>
                                     {% endif %}
                                 {% else %}
@@ -176,7 +176,7 @@
                             
                             {% if pagination.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('admin_discount_codes', page=pagination.next_num, search=search, status=status_filter, per_page=request.args.get('per_page', 10)) }}">Siguiente</a>
+                                <a class="page-link" href="{{ url_for('admin_discount_codes.admin_discount_codes', page=pagination.next_num, search=search, status=status_filter, per_page=request.args.get('per_page', 10)) }}">Siguiente</a>
                             </li>
                             {% endif %}
                         </ul>
@@ -217,7 +217,7 @@
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label class="form-label">Tipo de Generación <span class="text-danger">*</span></label>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="generate_auto" id="generate_manual" value="false" checked onchange="toggleCodeInput()">
@@ -232,7 +232,7 @@
                                 </label>
                             </div>
                         </div>
-                        <div class="col-md-6" id="prefix-section" style="display: none;">
+                        <div class="col-12 col-md-6" id="prefix-section" style="display: none;">
                             <label for="prefix" class="form-label">Prefijo</label>
                             <input type="text" class="form-control" id="prefix" name="prefix" value="DSC" maxlength="10">
                         </div>
@@ -251,14 +251,14 @@
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="discount_type" class="form-label">Tipo de Descuento <span class="text-danger">*</span></label>
                             <select class="form-select" id="discount_type" name="discount_type" required onchange="updateValueLabel()">
                                 <option value="percentage">Porcentaje (%)</option>
                                 <option value="fixed">Fijo ($)</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="value" class="form-label" id="value_label">Valor (%) <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" id="value" name="value" 
                                    step="0.01" min="0" max="100" required>
@@ -276,24 +276,24 @@
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="start_date" class="form-label">Fecha de Inicio</label>
                             <input type="date" class="form-control" id="start_date" name="start_date">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="end_date" class="form-label">Fecha de Fin</label>
                             <input type="date" class="form-control" id="end_date" name="end_date">
                         </div>
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="max_uses_total" class="form-label">Usos Totales Máximos</label>
                             <input type="number" class="form-control" id="max_uses_total" name="max_uses_total" 
                                    min="0" placeholder="Sin límite">
                             <small class="text-muted">Dejar vacío para sin límite</small>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="max_uses_per_user" class="form-label">Usos por Usuario</label>
                             <input type="number" class="form-control" id="max_uses_per_user" name="max_uses_per_user" 
                                    value="1" min="1">

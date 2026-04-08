@@ -14,7 +14,7 @@
     </div>
 
     <div class="row">
-        <div class="col-lg-8">
+        <div class="col-12 col-lg-8">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-cog"></i> Configurar Reporte</h5>
@@ -35,12 +35,12 @@
 
                         <!-- Rango de Fechas -->
                         <div class="row mb-4">
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="start_date" class="form-label fw-bold">Fecha Inicio</label>
                                 <input type="date" class="form-control" id="start_date" name="start_date">
                                 <small class="text-muted">Opcional - Dejar vacío para incluir todos los registros</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="end_date" class="form-label fw-bold">Fecha Fin</label>
                                 <input type="date" class="form-control" id="end_date" name="end_date">
                                 <small class="text-muted">Opcional - Dejar vacío para incluir todos los registros</small>
@@ -51,7 +51,7 @@
                         <div class="mb-4">
                             <label for="format" class="form-label fw-bold">Formato de Exportación</label>
                             <div class="row g-3">
-                                <div class="col-md-3">
+                                <div class="col-12 col-sm-6 col-md-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="format" id="format_csv" value="csv" checked>
                                         <label class="form-check-label" for="format_csv">
@@ -59,7 +59,7 @@
                                         </label>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-sm-6 col-md-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="format" id="format_excel" value="excel">
                                         <label class="form-check-label" for="format_excel">
@@ -67,7 +67,7 @@
                                         </label>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-sm-6 col-md-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="format" id="format_pdf" value="pdf">
                                         <label class="form-check-label" for="format_pdf">
@@ -75,7 +75,7 @@
                                         </label>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-sm-6 col-md-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="format" id="format_json" value="json">
                                         <label class="form-check-label" for="format_json">
@@ -108,7 +108,7 @@
             </div>
         </div>
 
-        <div class="col-lg-4">
+        <div class="col-12 col-lg-4 mt-4 mt-lg-0">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información</h5>
@@ -209,7 +209,7 @@ document.getElementById('report_type').addEventListener('change', function() {
         
         reportColumns[reportType].forEach(col => {
             const colDiv = document.createElement('div');
-            colDiv.className = 'col-md-6';
+            colDiv.className = 'col-12 col-md-6';
             colDiv.innerHTML = `
                 <div class="form-check">
                     <input class="form-check-input column-checkbox" type="checkbox" 

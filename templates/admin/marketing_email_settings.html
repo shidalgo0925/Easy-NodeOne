@@ -2,27 +2,27 @@
 {% block title %}Correo para envíos masivos - Marketing{% endblock %}
 {% block page_content %}
 <div class="container-fluid py-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver</a>
-            <h1 class="h5 d-inline ms-2">Correo para envíos masivos</h1>
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2 min-w-0">
+            <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm text-nowrap"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1 class="h5 mb-0">Correo para envíos masivos</h1>
         </div>
     </div>
     <p class="text-muted small">Designa qué cuenta SMTP se usará al procesar la cola de campañas. El correo institucional (bienvenida, etc.) se configura en <a href="{{ url_for('admin_email') }}">Configuración de Email</a>.</p>
 
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <span><i class="fas fa-envelope"></i> Cuentas configuradas</span>
-            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#form-new-config"><i class="fas fa-plus"></i> Nueva cuenta</button>
+        <div class="card-header bg-light d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
+            <span class="min-w-0"><i class="fas fa-envelope"></i> Cuentas configuradas</span>
+            <button type="button" class="btn btn-sm btn-primary text-nowrap" data-bs-toggle="collapse" data-bs-target="#form-new-config"><i class="fas fa-plus"></i> Nueva cuenta</button>
         </div>
         <div class="card-body collapse" id="form-new-config">
             <form id="new-config-form" class="row g-2">
-                <div class="col-md-4"><label class="form-label small">Servidor SMTP</label><input type="text" name="mail_server" class="form-control form-control-sm" placeholder="smtp.gmail.com" value="smtp.gmail.com"></div>
-                <div class="col-md-2"><label class="form-label small">Puerto</label><input type="number" name="mail_port" class="form-control form-control-sm" value="587"></div>
-                <div class="col-md-3"><label class="form-label small">Usuario</label><input type="text" name="mail_username" class="form-control form-control-sm" placeholder="email@dominio.com"></div>
-                <div class="col-md-3"><label class="form-label small">Contraseña</label><input type="password" name="mail_password" class="form-control form-control-sm" placeholder=""></div>
-                <div class="col-md-6"><label class="form-label small">Remitente</label><input type="text" name="mail_default_sender" class="form-control form-control-sm" placeholder="noreply@dominio.com"></div>
-                <div class="col-md-6 d-flex align-items-end"><label class="form-check-label small me-2"><input type="checkbox" name="mail_use_tls" class="form-check-input" checked> TLS</label><button type="submit" class="btn btn-success btn-sm">Crear cuenta</button></div>
+                <div class="col-12 col-md-4"><label class="form-label small">Servidor SMTP</label><input type="text" name="mail_server" class="form-control form-control-sm" placeholder="smtp.gmail.com" value="smtp.gmail.com"></div>
+                <div class="col-12 col-sm-6 col-md-2"><label class="form-label small">Puerto</label><input type="number" name="mail_port" class="form-control form-control-sm" value="587"></div>
+                <div class="col-12 col-sm-6 col-md-3"><label class="form-label small">Usuario</label><input type="text" name="mail_username" class="form-control form-control-sm" placeholder="email@dominio.com"></div>
+                <div class="col-12 col-md-3"><label class="form-label small">Contraseña</label><input type="password" name="mail_password" class="form-control form-control-sm" placeholder=""></div>
+                <div class="col-12 col-md-6"><label class="form-label small">Remitente</label><input type="text" name="mail_default_sender" class="form-control form-control-sm" placeholder="noreply@dominio.com"></div>
+                <div class="col-12 col-md-6 d-flex flex-wrap align-items-center gap-2"><label class="form-check-label small mb-0"><input type="checkbox" name="mail_use_tls" class="form-check-input" checked> TLS</label><button type="submit" class="btn btn-success btn-sm">Crear cuenta</button></div>
             </form>
             <div id="new-config-error" class="text-danger small mt-2" style="display:none;"></div>
         </div>

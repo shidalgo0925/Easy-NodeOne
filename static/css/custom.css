@@ -851,7 +851,7 @@ body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon {
 }
 
 .nav-group.show .nav-group-items {
-    max-height: 1000px;
+    max-height: 2400px;
     padding: 4px 0;
 }
 
@@ -885,6 +885,25 @@ body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon {
     bottom: 0;
     width: 3px;
     background: var(--color-primary);
+}
+
+/* Subgrupos anidados (p. ej. Productos > Eventos > Descuentos, Comunicación > Automatizaciones) */
+.nav-group-items .nav-group .nav-link.nav-group-toggle {
+    padding: 8px 16px 8px 44px !important;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a5568;
+}
+.nav-group-items .nav-group .nav-group-items .nav-link:not(.nav-group-toggle) {
+    padding-left: 56px !important;
+    font-size: 13px;
+}
+.nav-group-items .nav-group-items .nav-group .nav-group-items .nav-link:not(.nav-group-toggle) {
+    padding-left: 64px !important;
+    font-size: 12px;
+}
+.nav-group-items .nav-group .menu-arrow {
+    margin-top: 3px;
 }
 
 /* Ocultar submenús cuando está colapsado */
@@ -1314,6 +1333,471 @@ body.open #right-panel {
     background: #f9fafb;
 }
 
+/* Móvil / tablet: menú lateral como drawer (Easy NodeOne modular, una sola app) */
+.sidebar-mobile-backdrop {
+    display: none;
+}
+
+@media (max-width: 991.98px) {
+    .navbar.fixed-top.navbar-landing {
+        padding-top: env(safe-area-inset-top, 0);
+        padding-left: max(0.25rem, env(safe-area-inset-left, 0px));
+        padding-right: max(0.25rem, env(safe-area-inset-right, 0px));
+    }
+
+    .navbar-landing .topbar-sidebar-toggle {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .sidebar-mobile-backdrop.show {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1018;
+        background: rgba(15, 23, 42, 0.45);
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    aside.left-panel {
+        width: min(300px, 88vw) !important;
+        top: calc(56px + env(safe-area-inset-top, 0px));
+        height: calc(100vh - 56px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        min-height: calc(100vh - 56px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        transform: translateX(-105%);
+        transition: transform 0.3s ease;
+        z-index: 1025;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    }
+
+    body.sidebar-drawer-open aside.left-panel {
+        transform: translateX(0);
+    }
+
+    body.sidebar-collapsed aside.left-panel {
+        width: min(300px, 88vw) !important;
+    }
+
+    #right-panel,
+    body.sidebar-collapsed #right-panel,
+    body.open #right-panel {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+
+    #right-panel .content {
+        padding: 12px 14px;
+        min-width: 0;
+    }
+
+    .expand-sidebar-btn {
+        display: none !important;
+    }
+
+    .navbar-brand span:not(.visually-hidden) {
+        max-width: min(42vw, 11rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Tablas anchas: scroll horizontal táctil */
+    .content > .table-responsive,
+    .content .card .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ========== Fase 2 — Estandarización UI móvil (Easy NodeOne) ========== */
+
+    /* 4.1 Grid: una columna en contenido autenticado (.col-auto se conserva para toolbars) */
+    #right-panel .content .row > [class*="col-"]:not(.col-auto):not(.crm-kanban-column) {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Páginas públicas / bloques en main (sin #right-panel) */
+    main .container .row > [class*="col-"]:not(.col-auto),
+    main .container-fluid .row > [class*="col-"]:not(.col-auto) {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Modales Bootstrap: formularios en columnas → apiladas */
+    .modal-body .row > [class*="col-"]:not(.col-auto) {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* 4.2 Espaciado — cards dentro del área de trabajo */
+    #right-panel .content .card .card-body {
+        padding: 12px;
+    }
+
+    #right-panel .content .card .card-header,
+    #right-panel .content .card .card-footer {
+        padding: 12px 14px;
+    }
+
+    /* 4.3 Tipografía base en contenido app */
+    #right-panel .content {
+        font-size: 15px;
+        line-height: 1.5;
+    }
+
+    #right-panel .content h1,
+    #right-panel .content .h1 {
+        font-size: 1.25rem;
+        line-height: 1.3;
+    }
+
+    #right-panel .content h2,
+    #right-panel .content .h2 {
+        font-size: 1.125rem;
+        line-height: 1.35;
+    }
+
+    #right-panel .content h3,
+    #right-panel .content .h3 {
+        font-size: 1.05rem;
+    }
+
+    #right-panel .content .text-truncate,
+    #right-panel .content .page-title-truncate {
+        min-width: 0;
+    }
+
+    /* Público: tipografía compacta */
+    main .container,
+    main .container-fluid {
+        font-size: 15px;
+    }
+
+    main .container h1,
+    main .container .h1,
+    main .container-fluid h1,
+    main .container-fluid .h1 {
+        font-size: 1.25rem;
+    }
+
+    main .container h2,
+    main .container .h2,
+    main .container-fluid h2,
+    main .container-fluid .h2 {
+        font-size: 1.125rem;
+    }
+
+    /* 4.4 Botones — altura táctil; ancho completo solo en formularios (no card-header / tablas) */
+    #right-panel .content .btn:not(.btn-link):not(.btn-close):not(.btn-sm) {
+        min-height: 44px;
+        align-items: center;
+        display: inline-flex;
+        justify-content: center;
+    }
+
+    #right-panel .content form .btn:not(.btn-link):not(.btn-close):not(.btn-sm),
+    #right-panel .content .mobile-form .btn:not(.btn-link):not(.btn-close):not(.btn-sm) {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #right-panel .content form .btn-group,
+    #right-panel .content .mobile-form .btn-group {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 0.5rem;
+    }
+
+    #right-panel .content form .btn-group > .btn,
+    #right-panel .content .mobile-form .btn-group > .btn {
+        width: 100%;
+        margin: 0 !important;
+        border-radius: var(--bs-border-radius, 0.375rem) !important;
+    }
+
+    /* 4.5 Inputs — 16px evita zoom iOS; altura táctil */
+    #right-panel .content .form-control,
+    #right-panel .content .form-select,
+    #right-panel .content input[type="text"],
+    #right-panel .content input[type="email"],
+    #right-panel .content input[type="password"],
+    #right-panel .content input[type="number"],
+    #right-panel .content input[type="tel"],
+    #right-panel .content input[type="url"],
+    #right-panel .content input[type="search"],
+    #right-panel .content input[type="date"],
+    #right-panel .content input[type="datetime-local"] {
+        min-height: 44px;
+        font-size: 1rem !important;
+    }
+
+    #right-panel .content textarea.form-control {
+        font-size: 1rem !important;
+        min-height: 6rem;
+    }
+
+    #right-panel .content .mobile-form .form-label,
+    #right-panel .content form .row .form-label {
+        display: block;
+        width: 100%;
+        margin-bottom: 0.35rem;
+    }
+
+    .modal-body .form-control,
+    .modal-body .form-select,
+    .modal-body input[type="text"],
+    .modal-body input[type="email"],
+    .modal-body input[type="password"],
+    .modal-body input[type="number"],
+    .modal-body input[type="tel"],
+    .modal-body input[type="search"] {
+        min-height: 44px;
+        font-size: 1rem !important;
+    }
+
+    .modal-body textarea.form-control {
+        font-size: 1rem !important;
+    }
+
+    main .container .form-control,
+    main .container .form-select,
+    main .container-fluid .form-control,
+    main .container-fluid .form-select {
+        min-height: 44px;
+        font-size: 1rem !important;
+    }
+
+    /* Utilidades Fase 4 (base; usar en templates cuando convenga) */
+    .mobile-scroll-x {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        min-width: 0;
+    }
+
+    .mobile-scroll-x .nav-tabs .nav-link {
+        white-space: nowrap;
+    }
+
+    .mobile-section {
+        margin-bottom: 1rem;
+    }
+
+    .mobile-card.card .card-body {
+        padding: 12px;
+    }
+
+    .mobile-form .form-label {
+        display: block;
+        width: 100%;
+    }
+
+    .mobile-sticky-bottom {
+        position: sticky;
+        bottom: 0;
+        z-index: 5;
+        padding-top: 12px;
+        margin-top: 8px;
+        background: linear-gradient(to top, var(--color-background, #f9fafb) 70%, transparent);
+    }
+
+    html[data-theme="dark"] .mobile-sticky-bottom,
+    html[data-theme="auto"] .mobile-sticky-bottom {
+        background: linear-gradient(to top, #1a1d23 75%, transparent);
+    }
+
+    /* Carrito: resumen debajo en móvil, sin sticky que tape contenido */
+    .cart-summary-sidebar.sticky-top {
+        position: static !important;
+        top: auto !important;
+    }
+
+    /* CRM Kanban — scroll horizontal tipo Trello (Fase 3) */
+    .crm-kanban-wrapper {
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x pan-y;
+        margin-left: -8px;
+        margin-right: -8px;
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-bottom: 8px;
+        scroll-snap-type: x proximity;
+    }
+
+    .crm-kanban-board {
+        flex-wrap: nowrap !important;
+    }
+
+    .crm-kanban-board > .crm-kanban-column {
+        flex: 0 0 min(88vw, 300px) !important;
+        max-width: min(88vw, 300px) !important;
+        scroll-snap-align: start;
+    }
+
+    .crm-kanban-board > .crm-kanban-column .card {
+        min-height: 12rem;
+    }
+
+    .crm-kanban-fab {
+        position: fixed;
+        right: max(16px, env(safe-area-inset-right, 0px));
+        bottom: max(16px, env(safe-area-inset-bottom, 0px));
+        z-index: 1040;
+        width: 56px;
+        height: 56px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Portal admin: acciones rápidas en columna */
+    #right-panel .content .portal-quick-actions {
+        flex-direction: column;
+    }
+
+    #right-panel .content .portal-quick-actions .btn {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
+    }
+
+    #right-panel .content .modules-grid .module-card {
+        padding: 18px 16px;
+    }
+
+    /* Modales: pantalla completa, cuerpo con scroll (Fase 3) */
+    .modal .modal-dialog {
+        margin: 0;
+        max-width: 100%;
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+    }
+
+    .modal-content {
+        height: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        border-radius: 0;
+        border: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-body {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        min-height: 0;
+    }
+
+    .modal-header,
+    .modal-footer {
+        flex-shrink: 0;
+    }
+
+    .modal-footer {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 0.5rem;
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        padding-top: 0.75rem;
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+        min-height: 44px;
+        margin: 0;
+    }
+
+    /* Tablas en panel: scroll horizontal estable */
+    #right-panel .content .table-responsive {
+        overscroll-behavior-x: contain;
+    }
+
+    #right-panel .content .table-responsive .table.crm-leads-table {
+        min-width: 720px;
+    }
+
+    /* CRM lista móvil (cards) */
+    .crm-lead-mobile-card .card-body {
+        min-width: 0;
+    }
+
+    .crm-lead-mobile-card .min-w-0 {
+        min-width: 0;
+    }
+
+    /* Tablas: grupos de botones en columna (plantillas email, listados) */
+    #right-panel .content table.table .btn-group {
+        flex-direction: column;
+        width: 100%;
+        align-items: stretch;
+    }
+
+    #right-panel .content table.table .btn-group > .btn {
+        width: 100%;
+        margin: 0 !important;
+        border-radius: var(--bs-border-radius, 0.375rem) !important;
+    }
+}
+
+/* Formularios largos: acordeón táctil (ej. admin/ai_settings) */
+.eno-settings-accordion .accordion-button {
+    min-height: 48px;
+    font-size: 1rem;
+    box-shadow: none;
+}
+
+.eno-settings-accordion .accordion-button:not(.collapsed) {
+    background-color: rgba(13, 110, 253, 0.08);
+}
+
+html[data-theme="dark"] .eno-settings-accordion .accordion-button,
+html[data-theme="auto"] .eno-settings-accordion .accordion-button {
+    color: #e4e6eb;
+    background-color: #2d3139;
+}
+
+html[data-theme="dark"] .eno-settings-accordion .accordion-button:not(.collapsed),
+html[data-theme="auto"] .eno-settings-accordion .accordion-button:not(.collapsed) {
+    background-color: #363b45;
+}
+
+/* Utilidades responsive (BS 5.1.x no trae w-md-auto) */
+@media (min-width: 768px) {
+    .w-md-auto {
+        width: auto !important;
+    }
+}
+
+/* Kanban escritorio: grid normal Bootstrap */
+@media (min-width: 992px) {
+    .crm-kanban-wrapper {
+        overflow-x: visible;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+        scroll-snap-type: none;
+    }
+
+    .crm-kanban-board {
+        flex-wrap: wrap !important;
+    }
+
+    .crm-kanban-board > .crm-kanban-column .card {
+        min-height: 0;
+    }
+}
+
+/* Toasts globales (legacy): preferir admin-flash-stack dentro de .content */
 .flash-messages-container {
     position: fixed;
     top: 70px;
@@ -1325,6 +1809,18 @@ body.open #right-panel {
 .flash-messages-container .alert {
     margin-bottom: 10px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Alertas de sesión en panel admin: flujo normal, sin solapar botones del listado */
+.admin-flash-stack {
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.admin-flash-stack .alert {
+    margin-bottom: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Sidebar Navigation - Legacy (mantener por compatibilidad) */
@@ -1983,4 +2479,246 @@ h1, h2, h3, h4, h5, h6 {
 .btn-lg:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* ----- Portal admin (estilo Twilio: módulos visuales) ----- */
+.portal-welcome {
+    margin-bottom: 24px;
+}
+.portal-welcome h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.portal-welcome .subtitle {
+    color: var(--gray-600, #6b7280);
+    font-size: 0.95rem;
+}
+.portal-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+.portal-quick-actions .btn {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+.modules-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 8px;
+}
+@media (max-width: 992px) {
+    .modules-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 576px) {
+    .modules-grid { grid-template-columns: 1fr; }
+}
+.module-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 28px;
+    cursor: pointer;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+    transition: all 0.2s ease;
+    text-align: left;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid rgba(0,0,0,0.06);
+    display: block;
+}
+.module-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    color: inherit;
+    border-color: var(--color-primary, #4f46e5);
+}
+.module-card .module-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    color: var(--color-primary, #4f46e5);
+}
+.module-card h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.module-card p {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 0;
+}
+html[data-theme="dark"] .module-card,
+html[data-theme="auto"] .module-card {
+    background: #252830;
+    border-color: #3a3f4b;
+}
+html[data-theme="dark"] .module-card p,
+html[data-theme="auto"] .module-card p { color: #9ca3af; }
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 24px;
+}
+.feature-card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    transition: 0.2s;
+}
+.feature-card:hover {
+    box-shadow: 0 5px 18px rgba(0,0,0,0.1);
+}
+html[data-theme="dark"] .feature-card {
+    background: #252830;
+    border-color: #3a3f4b;
+}
+
+/* Formulario empresa: chevron del bloque explicativo colapsable */
+button[data-bs-target="#orgFormExplain"] .collapse-chevron {
+    transition: transform 0.2s ease;
+}
+button[data-bs-target="#orgFormExplain"][aria-expanded="true"] .collapse-chevron {
+    transform: rotate(180deg);
+}
+
+/* Listado empresas/tenants: chevron del bloque explicativo */
+button[data-bs-target="#orgsListExplain"] .collapse-chevron-orgs {
+    transition: transform 0.2s ease;
+}
+button[data-bs-target="#orgsListExplain"][aria-expanded="true"] .collapse-chevron-orgs {
+    transform: rotate(180deg);
+}
+
+/* Guía de productos (líneas + módulos SaaS) */
+button[data-bs-target^="#pg-"] .collapse-chevron-pg {
+    transition: transform 0.2s ease;
+}
+button[data-bs-target^="#pg-"][aria-expanded="true"] .collapse-chevron-pg {
+    transform: rotate(180deg);
+}
+@media (min-width: 992px) {
+    #orgsListExplain .orgs-explain-visual {
+        border-bottom: none !important;
+        border-right: 1px solid var(--bs-border-color, #dee2e6);
+    }
+}
+
+/* Catálogo servicios / categorías: chevron bloques explicativos */
+button[data-bs-target="#servicesCatalogExplain"] .collapse-chevron-svc,
+button[data-bs-target="#serviceCategoriesExplain"] .collapse-chevron-cat {
+    transition: transform 0.2s ease;
+}
+button[data-bs-target="#servicesCatalogExplain"][aria-expanded="true"] .collapse-chevron-svc,
+button[data-bs-target="#serviceCategoriesExplain"][aria-expanded="true"] .collapse-chevron-cat {
+    transform: rotate(180deg);
+}
+@media (min-width: 992px) {
+    #servicesCatalogExplain .services-explain-visual,
+    #serviceCategoriesExplain .categories-explain-visual {
+        border-bottom: none !important;
+        border-right: 1px solid var(--bs-border-color, #dee2e6);
+    }
+}
+
+/* Nueva/editar empresa: guía lateral colapsa hacia la derecha (más espacio al formulario) */
+.org-onboarding-layout {
+    width: 100%;
+}
+.org-onboarding-layout.is-rail-collapsed {
+    overflow-x: clip;
+}
+.org-onboarding-main {
+    min-width: 0;
+}
+@media (min-width: 992px) {
+    .org-onboarding-layout .org-onboarding-main {
+        flex: 1 1 0;
+        max-width: min(36rem, 100%);
+    }
+    .org-onboarding-layout.is-rail-collapsed .org-onboarding-main {
+        flex: 1 1 auto;
+        max-width: none;
+    }
+    .org-onboarding-layout .onboarding-rail-outer {
+        position: relative;
+        flex: 0 0 380px;
+        width: 380px;
+        max-width: min(380px, 40vw);
+        align-self: flex-start;
+        padding-left: 0.5rem;
+        transition: flex 0.35s ease, max-width 0.35s ease, width 0.35s ease, min-width 0.35s ease;
+        overflow: visible;
+    }
+    .org-onboarding-layout.is-rail-collapsed .onboarding-rail-outer {
+        flex: 0 0 2.75rem !important;
+        width: 2.75rem !important;
+        min-width: 2.75rem !important;
+        max-width: 2.75rem !important;
+        padding-left: 0;
+        overflow: visible;
+    }
+    .onboarding-rail-inner {
+        transition: transform 0.35s ease, opacity 0.25s ease, visibility 0.25s ease;
+    }
+    .onboarding-rail-outer:not(.is-collapsed) .onboarding-rail-inner {
+        position: relative;
+        transform: none;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        width: 100%;
+        top: auto;
+        right: auto;
+    }
+    .onboarding-rail-outer.is-collapsed .onboarding-rail-inner {
+        position: absolute;
+        right: 0;
+        top: 2.5rem;
+        width: min(420px, 90vw);
+        transform: translateX(calc(100% + 8px));
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+    .onboarding-rail-toggle {
+        position: sticky;
+        top: 1rem;
+        z-index: 3;
+        width: 100%;
+    }
+}
+@media (max-width: 991.98px) {
+    .onboarding-rail-outer.is-collapsed .onboarding-rail-inner {
+        display: none !important;
+    }
+    .onboarding-rail-toggle {
+        width: auto;
+        max-width: 12rem;
+    }
+}
+
+/* Accesibilidad: enlace “saltar al contenido” por encima del navbar fijo al enfocar */
+.skip-link.visually-hidden-focusable:focus {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 1100;
+    padding: 0.5rem 1rem;
+    background: var(--gray-900, #111827);
+    color: #fff;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    outline: 2px solid var(--color-primary, #2563eb);
+    outline-offset: 2px;
 }

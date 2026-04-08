@@ -4,9 +4,10 @@ Diagnóstico para info@relaticpanama.org
 Verifica si es Gmail o Office 365 y configura correctamente
 """
 
-import sys
+import argparse
 import os
 import socket
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -32,12 +33,18 @@ def test_smtp_connection(server, port, use_tls=True):
 
 def diagnose_info_email():
     """Diagnosticar configuración de info@relaticpanama.org"""
-    print("=" * 60)
-    print("DIAGNÓSTICO: info@relaticpanama.org")
-    print("=" * 60)
-    
+    parser = argparse.ArgumentParser(description='Diagnóstico cuenta info / SMTP')
+    parser.add_argument('--org-id', type=int, default=None, help='Tenant para EmailConfig')
+    args = parser.parse_args()
+
+    print('=' * 60)
+    print('DIAGNÓSTICO: info@relaticpanama.org')
+    if args.org_id is not None:
+        print(f'  (EmailConfig org: {args.org_id})')
+    print('=' * 60)
+
     with app.app_context():
-        config = EmailConfig.get_active_config()
+        config = EmailConfig.get_active_config(organization_id=args.org_id)
         
         if not config:
             print("\n❌ No hay configuración activa")

@@ -2,16 +2,31 @@
 
 
 def register_admin_benefits_plans_policies_routes(app):
-    from flask import jsonify, render_template, request
+    from flask import flash, jsonify, redirect, render_template, request, url_for
+    from flask_login import current_user
 
     from app import (
         admin_data_scope_organization_id,
         admin_required,
         Benefit,
         db,
+        has_saas_module_enabled,
         MembershipPlan,
         Policy,
     )
+
+    def _policies_module_guard():
+        """Admin de empresa: requiere módulo policies. is_admin plataforma: sin bloqueo."""
+        if getattr(current_user, 'is_admin', False):
+            return None
+        oid = admin_data_scope_organization_id()
+        if has_saas_module_enabled(oid, 'policies'):
+            return None
+        p = request.path or ''
+        if p.startswith('/api/admin/policies'):
+            return jsonify({'success': False, 'error': 'Módulo Normativas no habilitado para esta organización.'}), 403
+        flash('El módulo Normativas no está habilitado para esta organización.', 'error')
+        return redirect(url_for('dashboard'))
 
     # ==================== RUTAS ADMIN PARA BENEFICIOS ====================
 
@@ -206,6 +221,9 @@ def register_admin_benefits_plans_policies_routes(app):
     @admin_required
     def admin_policies():
         """Panel de administración de políticas institucionales"""
+        blocked = _policies_module_guard()
+        if blocked is not None:
+            return blocked
         status = request.args.get('status', 'all')
         q = Policy.query.order_by(Policy.title)
         if status == 'active':
@@ -219,6 +237,9 @@ def register_admin_benefits_plans_policies_routes(app):
     @admin_required
     def admin_policies_create():
         """Crear política"""
+        blocked = _policies_module_guard()
+        if blocked is not None:
+            return blocked
         try:
             data = request.get_json()
             slug = (data.get('slug') or '').strip().lower().replace(' ', '-')
@@ -244,6 +265,9 @@ def register_admin_benefits_plans_policies_routes(app):
     @admin_required
     def admin_policies_update(policy_id):
         """Actualizar política (permite cambiar versión y contenido)"""
+        blocked = _policies_module_guard()
+        if blocked is not None:
+            return blocked
         try:
             p = Policy.query.get_or_404(policy_id)
             data = request.get_json()
@@ -261,6 +285,9 @@ def register_admin_benefits_plans_policies_routes(app):
     @admin_required
     def admin_policies_get(policy_id):
         """Obtener una política"""
+        blocked = _policies_module_guard()
+        if blocked is not None:
+            return blocked
         p = Policy.query.get_or_404(policy_id)
         return jsonify({'success': True, 'policy': p.to_dict()})
 
@@ -268,6 +295,9 @@ def register_admin_benefits_plans_policies_routes(app):
     @admin_required
     def admin_policies_acceptances(policy_id):
         """Listar aceptaciones de una política"""
+        blocked = _policies_module_guard()
+        if blocked is not None:
+            return blocked
         Policy.query.get_or_404(policy_id)
         from _app.modules.policies.repository import get_acceptances_for_policy
 
@@ -290,6 +320,9 @@ def register_admin_benefits_plans_policies_routes(app):
     @admin_required
     def admin_policies_delete(policy_id):
         """Eliminar política (y sus aceptaciones por CASCADE)"""
+        blocked = _policies_module_guard()
+        if blocked is not None:
+            return blocked
         try:
             p = Policy.query.get_or_404(policy_id)
             db.session.delete(p)

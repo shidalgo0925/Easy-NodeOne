@@ -4,14 +4,22 @@
 def register_admin_email_page_routes(app):
     from flask import render_template
 
-    from app import admin_required, EmailConfig, EmailTemplate
+    from app import admin_data_scope_organization_id, admin_required, EmailConfig, EmailTemplate
 
     @app.route('/admin/email')
     @admin_required
     def admin_email():
         """Panel de configuración de email (SMTP y templates)"""
-        email_config = EmailConfig.get_active_config()
-        templates = EmailTemplate.query.order_by(EmailTemplate.category, EmailTemplate.name).all()
+        scope_oid = admin_data_scope_organization_id()
+        email_config = EmailConfig.get_active_config(
+            organization_id=int(scope_oid),
+            allow_fallback_to_default_org=False,
+        )
+
+        tq = EmailTemplate.query
+        if hasattr(EmailTemplate, 'organization_id'):
+            tq = tq.filter(EmailTemplate.organization_id == scope_oid)
+        templates = tq.order_by(EmailTemplate.category, EmailTemplate.name).all()
 
         templates_by_category = {}
         for template in templates:

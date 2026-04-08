@@ -15,7 +15,7 @@
 
     <form method="POST" enctype="multipart/form-data">
         <div class="row">
-            <div class="col-md-8">
+            <div class="col-12 col-md-8">
                 <!-- Información Básica -->
                 <div class="card mb-4">
                     <div class="card-header">
@@ -48,12 +48,12 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Fecha Inicio <span class="text-danger">*</span></label>
                                 <input type="datetime-local" name="start_date" class="form-control" 
                                        value="{{ (event.start_date.strftime('%Y-%m-%dT%H:%M') if event and event.start_date else default_start.strftime('%Y-%m-%dT%H:%M')) if default_start else '' }}" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Fecha Fin <span class="text-danger">*</span></label>
                                 <input type="datetime-local" name="end_date" class="form-control" 
                                        value="{{ (event.end_date.strftime('%Y-%m-%dT%H:%M') if event and event.end_date else default_end.strftime('%Y-%m-%dT%H:%M')) if default_end else '' }}" required>
@@ -72,11 +72,11 @@
                             </div>
                         </div>
                         <div class="row" id="location_fields" {% if event and event.is_virtual %}style="display:none;"{% endif %}>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Ubicación</label>
                                 <input type="text" name="location" class="form-control" value="{{ event.location if event else '' }}">
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">País</label>
                                 <input type="text" name="country" class="form-control" value="{{ event.country if event else '' }}">
                             </div>
@@ -97,12 +97,12 @@
                             (Básico, Pro, Premium, DeLuxe) desde la sección de descuentos.
                         </div>
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Precio Base</label>
                                 <input type="number" name="base_price" class="form-control" step="0.01" value="{{ event.base_price if event else '0.00' }}" placeholder="0.00">
                                 <small class="form-text text-muted">Precio estándar que se aplica a todos los usuarios. Use 0.00 para eventos gratuitos.</small>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label">Moneda</label>
                                 <select name="currency" class="form-select">
                                     <option value="USD" {% if event and event.currency == 'USD' %}selected{% endif %}>USD</option>
@@ -141,7 +141,7 @@
                             <label class="form-label">Imagen de Portada</label>
                             {% if event and event.cover_image %}
                             <div class="mb-2">
-                                <img src="{{ event.cover_image }}" alt="Portada" class="img-thumbnail" style="max-height: 200px;">
+                                <img src="{{ event.cover_image }}" alt="Portada" class="img-thumbnail" style="max-height: 200px;" loading="lazy" decoding="async">
                                 <div class="form-check mt-2">
                                     <input type="checkbox" name="remove_cover" class="form-check-input" id="remove_cover">
                                     <label class="form-check-label" for="remove_cover">Eliminar imagen actual</label>
@@ -158,8 +158,8 @@
                                 <h6>Imágenes Actuales:</h6>
                                 <div class="row">
                                     {% for image in event.images %}
-                                    <div class="col-md-3 mb-2">
-                                        <img src="{{ image.file_path }}" alt="Galería" class="img-thumbnail" style="max-height: 100px;">
+                                    <div class="col-12 col-md-3 mb-2">
+                                        <img src="{{ image.file_path }}" alt="Galería" class="img-thumbnail" style="max-height: 100px;" loading="lazy" decoding="async">
                                         <div class="form-check">
                                             <input type="checkbox" name="delete_images" value="{{ image.id }}" class="form-check-input" id="delete_{{ image.id }}">
                                             <label class="form-check-label" for="delete_{{ image.id }}">Eliminar</label>
@@ -174,7 +174,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <!-- Configuración -->
                 <div class="card mb-4">
                     <div class="card-header">

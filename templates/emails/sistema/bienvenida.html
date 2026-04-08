@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienvenido a RELATIC Panamá</title>
+    <title>Bienvenido{% if organization_name %} a {{ organization_name }}{% endif %}</title>
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -99,9 +99,9 @@
     <div class="container">
         <div class="header">
             {% if logo_url %}
-            <img src="{{ logo_url }}" alt="Logo RELATIC Panamá" style="width: 90px; height: auto; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <img src="{{ logo_url }}" alt="{{ organization_name or 'Logo' }}" style="width: 90px; height: auto; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
             {% endif %}
-            <div class="title" {% if not logo_url %}style="width: 100%; text-align: center;"{% endif %}>RELATIC PANAMÁ</div>
+            <div class="title" {% if not logo_url %}style="width: 100%; text-align: center;"{% endif %}>{{ (organization_name or 'Portal')|upper }}</div>
         </div>
         <div class="content">
             <h2>¡Bienvenido(a) al Portal!</h2>
@@ -127,10 +127,10 @@
             </div>
         </div>
         <div class="footer">
-            <p>© {{ year }} RELATIC Panamá – Todos los derechos reservados.</p>
+            <p>© {{ year }} {{ organization_name or 'Portal' }} – Todos los derechos reservados.</p>
             <p>
                 <a href="{{ base_url }}">Visitar sitio web</a> | 
-                <a href="mailto:administracion@relaticpanama.org">Contacto</a>
+                <a href="mailto:{{ contact_email }}">Contacto</a>
             </p>
         </div>
     </div>

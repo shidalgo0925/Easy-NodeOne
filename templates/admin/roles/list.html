@@ -4,20 +4,22 @@
 
 {% block page_content %}
 <div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2 mb-4">
+        <div class="min-w-0">
             <h1 class="h5 mb-2">
                 <i class="fas fa-user-shield me-2 text-primary"></i>Roles y Permisos
             </h1>
             <p class="text-muted mb-0 small">Solo lectura. Solo usuarios con permiso roles.view pueden acceder.</p>
         </div>
-        <div>
+        <div class="w-100 w-md-auto min-w-0 mobile-scroll-x pb-1">
+        <div class="d-flex flex-nowrap flex-md-wrap gap-1 align-items-center justify-content-start justify-content-md-end">
             {% if current_user.has_permission('reports.export') %}
-            <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm me-1" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
-            <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm me-1" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
+            <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm text-nowrap" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
+            <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm text-nowrap" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
             {% endif %}
-            <a href="{{ url_for('admin_permissions_list') }}" class="btn btn-sm btn-outline-info me-1"><i class="fas fa-key me-1"></i> Permisos del sistema</a>
-            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Panel</a>
+            <a href="{{ url_for('admin_permissions_list') }}" class="btn btn-sm btn-outline-info text-nowrap"><i class="fas fa-key me-1"></i> Permisos del sistema</a>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-secondary text-nowrap"><i class="fas fa-arrow-left me-1"></i> Panel</a>
+        </div>
         </div>
     </div>
 

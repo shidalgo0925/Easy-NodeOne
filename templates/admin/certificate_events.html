@@ -6,15 +6,15 @@
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h1 class="h5 mb-2">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center flex-wrap gap-2">
+                <h1 class="h5 mb-0">
                     <i class="fas fa-certificate"></i> Formatos de certificado
                 </h1>
-                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#eventModal" onclick="openForm()">
+                <button type="button" class="btn btn-primary btn-sm text-nowrap align-self-stretch align-self-md-auto" data-bs-toggle="modal" data-bs-target="#eventModal" onclick="openForm()">
                     <i class="fas fa-plus me-1"></i> Nuevo formato
                 </button>
             </div>
-            <p class="text-muted small mb-0">Configura cada tipo de certificado: sube el fondo, logos y sello; define institución y firmas. Los usuarios emiten según el tipo (registro, membresía, etc.).</p>
+            <p class="text-muted small mb-0">Configura cada tipo de certificado: sube el fondo, logos y sello; define institución y firmas. Para usar una <strong>plantilla visual</strong>, edita el formato, elige "Plantilla visual" en el desplegable, guarda y usa <strong>Vista previa</strong> (icono <i class="fas fa-eye"></i>) para comprobar.</p>
         </div>
     </div>
 
@@ -33,6 +33,7 @@
                             <th>Nombre</th>
                             <th>Prefijo</th>
                             <th>Institución</th>
+                            <th>Plantilla</th>
                             <th>Requisito</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -57,46 +58,46 @@
                 <form id="eventForm">
                     <input type="hidden" id="eventId" name="id">
                     <div class="row g-3">
-                        <div class="col-md-8">
+                        <div class="col-12 col-md-8">
                             <label for="eventName" class="form-label">Nombre del certificado *</label>
                             <input type="text" class="form-control" id="eventName" name="name" required maxlength="200" placeholder="Ej. Certificado por Registro">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="eventCodePrefix" class="form-label">Prefijo código</label>
                             <input type="text" class="form-control" id="eventCodePrefix" name="code_prefix" maxlength="20" placeholder="REG">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="eventInstitution" class="form-label">Institución</label>
                             <input type="text" class="form-control" id="eventInstitution" name="institution" maxlength="200">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="eventPartner" class="form-label">Organización partner</label>
                             <input type="text" class="form-control" id="eventPartner" name="partner_organization" maxlength="200">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="eventRector" class="form-label">Nombre rector</label>
                             <input type="text" class="form-control" id="eventRector" name="rector_name" maxlength="200">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="eventDirector" class="form-label">Directora académica</label>
                             <input type="text" class="form-control" id="eventDirector" name="academic_director_name" maxlength="200">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="eventDuration" class="form-label">Duración (horas)</label>
                             <input type="number" class="form-control" id="eventDuration" name="duration_hours" step="0.5" min="0" placeholder="">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="eventStart" class="form-label">Fecha inicio</label>
                             <input type="date" class="form-control" id="eventStart" name="start_date">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="eventEnd" class="form-label">Fecha fin</label>
                             <input type="date" class="form-control" id="eventEnd" name="end_date">
                         </div>
                         <div class="col-12">
                             <label class="form-label">Formato del certificado (fondo y logos)</label>
                             <div class="row g-2">
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6">
                                     <label class="small text-muted">Fondo</label>
                                     <div class="d-flex gap-2 align-items-center">
                                         <input type="file" class="form-control form-control-sm" id="fileFondo" accept="image/*">
@@ -105,7 +106,7 @@
                                     <input type="hidden" id="eventBackgroundUrl" name="background_url">
                                     <div id="previewFondo" class="mt-1"></div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6">
                                     <label class="small text-muted">Logo izquierdo</label>
                                     <div class="d-flex gap-2 align-items-center">
                                         <input type="file" class="form-control form-control-sm" id="fileLogoLeft" accept="image/*">
@@ -114,7 +115,7 @@
                                     <input type="hidden" id="eventLogoLeftUrl" name="logo_left_url">
                                     <div id="previewLogoLeft" class="mt-1"></div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6">
                                     <label class="small text-muted">Logo derecho</label>
                                     <div class="d-flex gap-2 align-items-center">
                                         <input type="file" class="form-control form-control-sm" id="fileLogoRight" accept="image/*">
@@ -123,7 +124,7 @@
                                     <input type="hidden" id="eventLogoRightUrl" name="logo_right_url">
                                     <div id="previewLogoRight" class="mt-1"></div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-12 col-md-6">
                                     <label class="small text-muted">Sello</label>
                                     <div class="d-flex gap-2 align-items-center">
                                         <input type="file" class="form-control form-control-sm" id="fileSeal" accept="image/*">
@@ -134,7 +135,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="eventMembershipPlan" class="form-label">Plan requerido (opcional)</label>
                             <select class="form-select" id="eventMembershipPlan" name="membership_required_id">
                                 <option value="">Ninguno (membresía activa)</option>
@@ -143,7 +144,7 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label class="form-label">Estado</label>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="eventIsActive" name="is_active" checked>
@@ -154,7 +155,7 @@
                                 <label class="form-check-label" for="eventVerification">Verificación habilitada</label>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="eventTemplateId" class="form-label">Plantilla visual (editor Canva)</label>
                             <select class="form-select" id="eventTemplateId" name="template_id">
                                 <option value="">Ninguna (usar HTML o predeterminado)</option>
@@ -168,9 +169,26 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer flex-nowrap">
+                <button type="button" class="btn btn-info" id="btnPreviewEvent" title="Ver cómo quedará el certificado"><i class="fas fa-eye me-1"></i> Vista previa</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btnSaveEvent"><i class="fas fa-save me-1"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Vista previa -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl" style="max-width: 95%;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-eye me-1"></i> Vista previa del certificado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" style="min-height: 70vh;">
+                <div id="previewLoading" class="text-center py-5 text-muted d-none">Generando vista previa...</div>
+                <iframe id="previewIframe" title="Vista previa" style="width:100%; height: 75vh; border: none;"></iframe>
             </div>
         </div>
     </div>
@@ -201,13 +219,16 @@
                     var req = 'Membresía activa';
                     if (e.membership_required_id) req = 'Plan ID ' + e.membership_required_id;
                     else if (e.event_required_id) req = 'Evento ID ' + e.event_required_id;
+                    var tpl = (e.template_id ? '<span class="badge bg-info">Sí (id ' + e.template_id + ')</span>' : '<span class="text-muted">—</span>');
                     return '<tr>' +
                         '<td><strong>' + (e.name || '') + '</strong></td>' +
                         '<td><code>' + (e.code_prefix || '') + '</code></td>' +
                         '<td>' + (e.institution || '—') + '</td>' +
+                        '<td>' + tpl + '</td>' +
                         '<td><small>' + req + '</small></td>' +
                         '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
-                        '<td><button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')"><i class="fas fa-edit"></i></button>' +
+                        '<td><button type="button" class="btn btn-info btn-sm me-1" onclick="previewEvent(' + e.id + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
+                        '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')"><i class="fas fa-edit"></i></button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteEvent(' + e.id + ',' + JSON.stringify(e.name || '') + ')"><i class="fas fa-trash"></i></button></td>' +
                         '</tr>';
                 }).join('');
@@ -254,6 +275,57 @@
             var el = document.getElementById(id);
             if (el) el.innerHTML = '';
         });
+    };
+
+    window.previewEvent = function(id) {
+        var loading = document.getElementById('previewLoading');
+        var iframe = document.getElementById('previewIframe');
+        loading.classList.remove('d-none');
+        iframe.style.visibility = 'hidden';
+        fetch('/api/admin/certificate-events/' + id, { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var e = data.item;
+                if (!e) throw new Error('Evento no encontrado');
+                var payload = {
+                    event_id: id,
+                    name: e.name,
+                    template_id: e.template_id || null,
+                    institution: e.institution || null,
+                    partner_organization: e.partner_organization || null,
+                    rector_name: e.rector_name || null,
+                    academic_director_name: e.academic_director_name || null,
+                    logo_left_url: e.logo_left_url || null,
+                    logo_right_url: e.logo_right_url || null,
+                    seal_url: e.seal_url || null,
+                    background_url: e.background_url || null,
+                    template_html: e.template_html || null,
+                    duration_hours: e.duration_hours != null ? e.duration_hours : null
+                };
+                return fetch('/api/admin/certificate-events/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    credentials: 'same-origin'
+                });
+            })
+            .then(function(r) {
+                if (!r.ok) return r.json().then(function(j) { throw new Error(j.error || 'Error'); });
+                return r.text();
+            })
+            .then(function(html) {
+                iframe.srcdoc = html;
+                iframe.onload = function() {
+                    loading.classList.add('d-none');
+                    iframe.style.visibility = 'visible';
+                };
+                new bootstrap.Modal(document.getElementById('previewModal')).show();
+            })
+            .catch(function(err) {
+                loading.classList.add('d-none');
+                iframe.style.visibility = 'visible';
+                showAlert(err.message || 'Error al generar vista previa.', 'danger');
+            });
     };
 
     window.editEvent = function(id) {
@@ -310,28 +382,71 @@
             .catch(function() { showAlert('Error de conexión.', 'danger'); });
     };
 
-    document.getElementById('btnSaveEvent').addEventListener('click', function() {
+    function buildEventPayload() {
         var id = document.getElementById('eventId').value;
         var payload = {
             name: document.getElementById('eventName').value.trim(),
-            code_prefix: document.getElementById('eventCodePrefix').value.trim() || 'REL',
             institution: document.getElementById('eventInstitution').value.trim() || null,
             partner_organization: document.getElementById('eventPartner').value.trim() || null,
             rector_name: document.getElementById('eventRector').value.trim() || null,
             academic_director_name: document.getElementById('eventDirector').value.trim() || null,
             duration_hours: document.getElementById('eventDuration').value ? parseFloat(document.getElementById('eventDuration').value) : null,
-            start_date: document.getElementById('eventStart').value || null,
-            end_date: document.getElementById('eventEnd').value || null,
             background_url: document.getElementById('eventBackgroundUrl').value || null,
             logo_left_url: document.getElementById('eventLogoLeftUrl').value || null,
             logo_right_url: document.getElementById('eventLogoRightUrl').value || null,
             seal_url: document.getElementById('eventSealUrl').value || null,
-            membership_required_id: document.getElementById('eventMembershipPlan').value || null,
-            is_active: document.getElementById('eventIsActive').checked,
-            verification_enabled: document.getElementById('eventVerification').checked,
             template_id: document.getElementById('eventTemplateId').value || null,
             template_html: document.getElementById('eventTemplate').value.trim() || null
         };
+        if (id) { var n = parseInt(id, 10); if (!isNaN(n)) payload.event_id = n; }
+        return payload;
+    }
+
+    document.getElementById('btnPreviewEvent').addEventListener('click', function() {
+        var payload = buildEventPayload();
+        if (!payload.name) {
+            showAlert('Escribe el nombre del certificado para ver la vista previa.', 'warning');
+            return;
+        }
+        var loading = document.getElementById('previewLoading');
+        var iframe = document.getElementById('previewIframe');
+        loading.classList.remove('d-none');
+        iframe.style.visibility = 'hidden';
+        fetch('/api/admin/certificate-events/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin'
+        })
+        .then(function(r) {
+            if (!r.ok) return r.json().then(function(j) { throw new Error(j.error || 'Error'); });
+            return r.text();
+        })
+        .then(function(html) {
+            iframe.srcdoc = html;
+            iframe.onload = function() {
+                loading.classList.add('d-none');
+                iframe.style.visibility = 'visible';
+            };
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        })
+        .catch(function(err) {
+            loading.classList.add('d-none');
+            iframe.style.visibility = 'visible';
+            showAlert(err.message || 'Error al generar vista previa.', 'danger');
+        });
+    });
+
+    document.getElementById('btnSaveEvent').addEventListener('click', function() {
+        var id = document.getElementById('eventId').value;
+        var payload = buildEventPayload();
+        payload.code_prefix = document.getElementById('eventCodePrefix').value.trim() || 'REL';
+        payload.start_date = document.getElementById('eventStart').value || null;
+        payload.end_date = document.getElementById('eventEnd').value || null;
+        payload.membership_required_id = document.getElementById('eventMembershipPlan').value || null;
+        payload.is_active = document.getElementById('eventIsActive').checked;
+        payload.verification_enabled = document.getElementById('eventVerification').checked;
+        if (payload.event_id) delete payload.event_id;
         if (!payload.name) {
             showAlert('El nombre es obligatorio.', 'warning');
             return;

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ appointment_type.name }} - Citas{% endblock %}
+{% block title %}{{ appointment_type.public_service_label() }} - Citas{% endblock %}
 
 {% block extra_head %}
 <!-- FullCalendar CSS -->
@@ -28,22 +28,25 @@
             <i class="fas fa-arrow-left me-2"></i>Volver a servicios
         </a>
         <div class="row gy-4 align-items-center">
-            <div class="col-md-8">
+            <div class="col-12 col-md-8">
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <span class="badge rounded-pill" style="background: {{ appointment_type.color_tag }}; color: #fff;">
                         {{ appointment_type.service_category or 'Servicio' }}
                     </span>
                     <span class="text-uppercase small">Duración: {{ appointment_type.duration_minutes }} min</span>
                 </div>
-                <h1 class="display-5 fw-bold mb-3">{{ appointment_type.name }}</h1>
+                {% if tenant_org %}
+                <p class="text-white-50 text-uppercase small mb-2 fw-semibold">{{ tenant_org.name }}</p>
+                {% endif %}
+                <h1 class="h2 fw-bold mb-3">{{ appointment_type.public_service_label() }}</h1>
                 <p class="lead mb-4">{{ appointment_type.description or 'Servicio especializado a través de asesores certificados.' }}</p>
-                <div class="d-flex flex-wrap gap-4 text-white-50">
+                <div class="d-flex flex-nowrap gap-3 text-white-50 mobile-scroll-x pb-1">
                     <div><i class="fas fa-video me-2"></i>{{ 'Virtual' if appointment_type.is_virtual else 'Presencial' }}</div>
                     <div><i class="fas fa-users me-2"></i>{{ 'Grupal' if appointment_type.is_group_allowed else 'Individual' }}</div>
                     <div><i class="fas fa-check me-2"></i>{{ 'Confirmación requerida' if appointment_type.requires_confirmation else 'Confirmación automática' }}</div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4 mt-3 mt-md-0">
                 <div class="card border-0 shadow-lg text-dark">
                     <div class="card-body p-4">
                         <p class="text-uppercase text-muted small mb-1">Tu tarifa estimada</p>
@@ -74,15 +77,15 @@
 <section class="py-5">
     <div class="container">
         <div class="row g-4">
-            <div class="col-lg-8">
+            <div class="col-12 col-lg-8">
                 <!-- Toggle entre Vista de Calendario y Tabla -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mb-3">
                             <h3 class="h5 mb-0">Agenda disponible</h3>
-                            <div class="d-flex gap-2 align-items-center">
-                                <span class="text-muted small">{{ slots|length }} horarios publicados</span>
-                                <div class="btn-group btn-group-sm view-toggle" role="group">
+                            <div class="d-flex flex-wrap gap-2 align-items-center mobile-scroll-x pb-1">
+                                <span class="text-muted small text-nowrap">{{ slots|length }} horarios publicados</span>
+                                <div class="btn-group btn-group-sm view-toggle flex-shrink-0" role="group">
                                     <button type="button" class="btn btn-outline-primary active" id="view-calendar-btn">
                                         <i class="fas fa-calendar-alt me-1"></i>Calendario
                                     </button>
@@ -177,7 +180,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-12 col-lg-4 mt-4 mt-lg-0">
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body p-4">
                         <h3 class="h6 text-uppercase text-muted mb-3">Asesores disponibles</h3>
@@ -189,7 +192,7 @@
                                 </div>
                                 <div>
                                     <strong>{{ advisor.user.first_name }} {{ advisor.user.last_name }}</strong>
-                                    <p class="mb-1 text-muted small">{{ advisor.headline or 'Asesor RELATIC' }}</p>
+                                    <p class="mb-1 text-muted small">{{ advisor.headline or 'Asesor' }}</p>
                                     <p class="mb-0 text-muted small">{{ advisor.specializations or 'Especialista en investigación cualitativa.' }}</p>
                                 </div>
                             </div>

@@ -29,6 +29,10 @@ def register_public_and_org_switch_routes(app):
         if raw in (ORG_HOME, ORG_NONE) or raw is None:
             home = get_user_home_organization_id()
             session['organization_id'] = home
+            session.pop('require_org_selection', None)
+            from nodeone.services.post_login_organization import save_last_selected_organization
+
+            save_last_selected_organization(current_user, int(home))
             app.logger.info('User %s switched to home organization %s', current_user.id, home)
             return jsonify({'success': True, 'organization_id': home})
         try:
@@ -43,6 +47,10 @@ def register_public_and_org_switch_routes(app):
         if not user_has_access_to_organization(current_user, cand):
             return jsonify({'error': 'Unauthorized'}), 403
         session['organization_id'] = cand
+        session.pop('require_org_selection', None)
+        from nodeone.services.post_login_organization import save_last_selected_organization
+
+        save_last_selected_organization(current_user, cand)
         app.logger.info('User %s switched to organization %s', current_user.id, cand)
         return jsonify({'success': True, 'organization_id': cand})
 
@@ -66,7 +74,12 @@ def register_public_and_org_switch_routes(app):
         else:
             raw = (request.form.get('organization_id') or '').strip()
         if raw in (ORG_HOME, ORG_NONE):
-            session['organization_id'] = get_user_home_organization_id()
+            home = get_user_home_organization_id()
+            session['organization_id'] = home
+            session.pop('require_org_selection', None)
+            from nodeone.services.post_login_organization import save_last_selected_organization
+
+            save_last_selected_organization(current_user, int(home))
             app.logger.info('User %s switched to home organization (form)', current_user.id)
             flash('Empresa activa: organización asignada a tu usuario.', 'info')
             return redirect(request.referrer or url_for('dashboard'))
@@ -86,6 +99,10 @@ def register_public_and_org_switch_routes(app):
             flash('No tienes acceso a esa organización.', 'error')
             return redirect(request.referrer or url_for('dashboard'))
         session['organization_id'] = cand
+        session.pop('require_org_selection', None)
+        from nodeone.services.post_login_organization import save_last_selected_organization
+
+        save_last_selected_organization(current_user, cand)
         app.logger.info('User %s switched to organization %s (form)', current_user.id, cand)
         flash('Empresa activa actualizada.', 'success')
         return redirect(request.referrer or url_for('dashboard'))

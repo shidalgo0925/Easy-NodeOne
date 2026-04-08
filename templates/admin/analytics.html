@@ -18,17 +18,17 @@
             <div class="card">
                 <div class="card-body">
                     <form method="GET" action="{{ url_for('admin_analytics') }}" class="row g-3">
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="start_date" class="form-label">Fecha Inicio</label>
                             <input type="date" class="form-control" id="start_date" name="start_date" 
                                    value="{{ start_date }}">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="end_date" class="form-label">Fecha Fin</label>
                             <input type="date" class="form-control" id="end_date" name="end_date" 
                                    value="{{ end_date }}">
                         </div>
-                        <div class="col-md-4 d-flex align-items-end">
+                        <div class="col-12 col-md-4 d-flex align-items-end">
                             <button type="submit" class="btn btn-primary me-2">
                                 <i class="fas fa-filter"></i> Filtrar
                             </button>
@@ -54,7 +54,7 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3" id="realtimeMetrics">
-                        <div class="col-md-3">
+                        <div class="col-12 col-sm-6 col-lg-3">
                             <div class="card bg-light">
                                 <div class="card-body text-center">
                                     <h6 class="text-muted">Nuevos Usuarios</h6>
@@ -62,7 +62,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-12 col-sm-6 col-lg-3">
                             <div class="card bg-light">
                                 <div class="card-body text-center">
                                     <h6 class="text-muted">Nuevas Membresías</h6>
@@ -70,7 +70,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-12 col-sm-6 col-lg-3">
                             <div class="card bg-light">
                                 <div class="card-body text-center">
                                     <h6 class="text-muted">Nuevos Pagos</h6>
@@ -78,7 +78,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-12 col-sm-6 col-lg-3">
                             <div class="card bg-light">
                                 <div class="card-body text-center">
                                     <h6 class="text-muted">Ingresos (24h)</h6>
@@ -94,7 +94,7 @@
 
     <!-- Métricas de Usuarios -->
     <div class="row mb-4">
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-users"></i> Métricas de Usuarios</h5>
@@ -126,7 +126,7 @@
         </div>
 
         <!-- Métricas de Membresías -->
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-crown"></i> Métricas de Membresías</h5>
@@ -169,7 +169,7 @@
 
     <!-- Métricas de Pagos -->
     <div class="row mb-4">
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-credit-card"></i> Métricas de Pagos</h5>
@@ -206,7 +206,7 @@
         </div>
 
         <!-- Métricas de Eventos -->
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-calendar"></i> Métricas de Eventos</h5>

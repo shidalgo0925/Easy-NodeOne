@@ -5,7 +5,7 @@ import re
 
 
 def register_admin_platform_org_routes(app):
-    from flask import abort, flash, redirect, render_template, request, send_from_directory, url_for
+    from flask import abort, current_app, flash, redirect, render_template, request, send_from_directory, url_for
     from app import (
         admin_required,
         db,
@@ -126,7 +126,12 @@ def register_admin_platform_org_routes(app):
     @app.route('/admin/organizations')
     @platform_admin_required
     def admin_organizations_list():
+        from utils.organization import platform_visible_organization_ids
+
         orgs = SaasOrganization.query.order_by(SaasOrganization.id).all()
+        allow = platform_visible_organization_ids()
+        if allow is not None:
+            orgs = [o for o in orgs if int(o.id) in allow]
         return render_template('admin/organizations_list.html', organizations=orgs, tenant_public_base=_tenant_public_base())
 
     @app.route('/admin/organizations/new', methods=['GET', 'POST'])
@@ -150,6 +155,16 @@ def register_admin_platform_org_routes(app):
             db.session.add(o)
             try:
                 db.session.commit()
+                try:
+                    from nodeone.services.saas_catalog_defaults import (
+                        ensure_sales_org_module_links,
+                        ensure_toggleable_tenant_module_links,
+                    )
+
+                    ensure_sales_org_module_links()
+                    ensure_toggleable_tenant_module_links(organization_id=o.id)
+                except Exception as seed_ex:
+                    current_app.logger.warning('saas seed post-org-create: %s', seed_ex)
                 flash('Empresa creada.', 'success')
                 return redirect(url_for('admin_organizations_list'))
             except Exception as ex:

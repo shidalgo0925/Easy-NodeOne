@@ -8,7 +8,7 @@ export default function HowItWorks() {
   const inView = useInView(ref, { once: true, margin: '-80px' })
 
   return (
-    <section className="px-4 py-20 md:py-28" ref={ref}>
+    <section className="px-4 py-12 md:py-16" ref={ref}>
       <div className="mx-auto max-w-6xl">
         <motion.h2
           className="text-center text-3xl font-bold text-gray-dark md:text-4xl"
@@ -17,9 +17,9 @@ export default function HowItWorks() {
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          Cómo funciona Easy NodeOne
+          Cómo funciona EasyNodeOne
         </motion.h2>
-        <div className="relative mt-16 flex flex-col items-stretch gap-10 md:flex-row md:items-start md:justify-between">
+        <div className="relative mt-8 flex flex-col items-stretch gap-6 md:flex-row md:items-start md:justify-between">
           {/* Horizontal line - visible on desktop */}
           <div className="absolute left-1/2 top-12 hidden h-0.5 w-2/3 -translate-x-1/2 overflow-hidden rounded md:block" aria-hidden>
             <motion.div

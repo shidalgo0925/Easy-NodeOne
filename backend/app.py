@@ -6,6 +6,7 @@ Easy NodeOne - Backend Flask para gestión modular
 import sys
 import re
 import html as html_module
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file, abort, send_from_directory, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,10 +17,26 @@ import secrets
 from functools import wraps
 from sqlalchemy import text as sql_text
 
-# Sistema de licencias (módulo independiente)
 try:
-    sys.path.insert(0, '/home/relaticpanama2025/.shh/license-system')
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+except ImportError:
+    pass
+
+try:
+    from nodeone.config.settings import settings as _nodeone_settings
+except Exception:
+    _nodeone_settings = None
+
+# Sistema de licencias (módulo independiente; ruta vía LICENSE_PATH)
+try:
+    if _nodeone_settings:
+        _lic = Path(_nodeone_settings.LICENSE_PATH)
+        if _lic.is_dir():
+            sys.path.insert(0, str(_lic))
     from license_validator import LicenseValidator
+
     LICENSE_VALIDATOR = LicenseValidator('nodeone')
 except Exception as e:
     LICENSE_VALIDATOR = None
@@ -136,8 +153,14 @@ def _load_or_create_secret_key():
 
 
 app.config['SECRET_KEY'] = _load_or_create_secret_key()
-db_path = os.path.join(_instance_dir, 'nodeone.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+_db_uri = (os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL') or '').strip()
+if _db_uri:
+    if _db_uri.startswith('postgres://'):
+        _db_uri = _db_uri.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = _db_uri
+else:
+    db_path = os.path.join(_instance_dir, 'NodeOne.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuración de Stripe
@@ -155,7 +178,7 @@ app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
 app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'False').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@example.com')
 
 # Inicialización de extensiones
 from nodeone.core.db import db
@@ -241,7 +264,7 @@ login_manager.login_message = 'Por favor, inicia sesión para acceder a esta pá
 # OAuth (login social): Google, Facebook, LinkedIn
 oauth = OAuth(app) if OAUTH_AVAILABLE else None
 if oauth:
-    base_url = os.getenv('BASE_URL', '').rstrip('/')  # ej: https://miembros.relatic.org
+    base_url = os.getenv('BASE_URL', '').rstrip('/')  # ej: https://app.example.com
     app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '')
     app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET', '')
     app.config['FACEBOOK_CLIENT_ID'] = os.getenv('FACEBOOK_CLIENT_ID', '')
@@ -487,6 +510,12 @@ def from_json_filter(value):
     except:
         return {}
 
+def _logo_basename():
+    if _nodeone_settings:
+        return _nodeone_settings.LOGO_BASENAME
+    return 'logo-primary'
+
+
 # Helper function para obtener el logo del sistema
 def get_system_logo():
     """
@@ -497,36 +526,38 @@ def get_system_logo():
         URL relativa del logo (para usar con url_for o directamente)
     """
     import os
-    
+
+    bn = _logo_basename()
     # Buscar en la nueva ubicación (prioridad)
     logo_dir_public = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos')
-    logo_path_png = os.path.join(logo_dir_public, 'logo-relatic.png')
-    logo_path_svg = os.path.join(logo_dir_public, 'logo-relatic.svg')
+    logo_path_png = os.path.join(logo_dir_public, f'{bn}.png')
+    logo_path_svg = os.path.join(logo_dir_public, f'{bn}.svg')
     
     if os.path.exists(logo_path_png):
-        return 'public/emails/logos/logo-relatic.png'
+        return f'public/emails/logos/{bn}.png'
     elif os.path.exists(logo_path_svg):
-        return 'public/emails/logos/logo-relatic.svg'
+        return f'public/emails/logos/{bn}.svg'
     
     # Fallback a ubicación antigua
     logo_dir_old = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
-    logo_path_old = os.path.join(logo_dir_old, 'logo-relatic.svg')
+    logo_path_old = os.path.join(logo_dir_old, f'{bn}.svg')
     
     if os.path.exists(logo_path_old):
-        return 'images/logo-relatic.svg'
+        return f'images/{bn}.svg'
     
     # Si no existe ninguno, retornar la ruta por defecto
-    return 'images/logo-relatic.svg'
+    return f'images/{bn}.svg'
 
 def get_logo_cache_key():
     """Mtime del logo para cache-busting: al subir uno nuevo, la URL cambia."""
+    bn = _logo_basename()
     logo_dir_public = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos')
     logo_dir_old = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
     for path in (
-        os.path.join(logo_dir_public, 'logo-relatic.png'),
-        os.path.join(logo_dir_public, 'logo-relatic.svg'),
-        os.path.join(logo_dir_old, 'logo-relatic.png'),
-        os.path.join(logo_dir_old, 'logo-relatic.svg'),
+        os.path.join(logo_dir_public, f'{bn}.png'),
+        os.path.join(logo_dir_public, f'{bn}.svg'),
+        os.path.join(logo_dir_old, f'{bn}.png'),
+        os.path.join(logo_dir_old, f'{bn}.svg'),
     ):
         if os.path.exists(path):
             try:
@@ -629,22 +660,12 @@ def get_public_image_url(filename, absolute=True):
     Obtener URL de imagen pública desde static/public/
     
     Args:
-        filename: Ruta relativa desde static/public/ 
-                 (ej: 'emails/logos/logo-relatic.png')
+        filename: Ruta relativa desde static/public/
         absolute: Si True, retorna URL absoluta (necesario para emails)
                  Si False, retorna URL relativa (para páginas web)
     
     Returns:
         URL completa de la imagen
-        
-    Ejemplo:
-        # Para emails (URL absoluta)
-        logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
-        # → https://miembros.relatic.org/static/public/emails/logos/logo-relatic.png
-        
-        # Para páginas web (URL relativa)
-        logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=False)
-        # → /static/public/emails/logos/logo-relatic.png
     """
     from flask import url_for, request
     
@@ -657,8 +678,7 @@ def get_public_image_url(filename, absolute=True):
         if request and hasattr(request, 'url_root'):
             base_url = request.url_root.rstrip('/')
         else:
-            # Fallback: usar variable de entorno o valor por defecto
-            base_url = os.getenv('BASE_URL', 'https://miembros.relatic.org')
+            base_url = (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
         return f"{base_url}{relative_url}"
     
     return relative_url
@@ -795,13 +815,13 @@ def ensure_canonical_saas_organization_usable():
     Nota: PK en SQLite es 1, 2, … — no existe organización id 0.
     """
     oid = default_organization_id()
+    extra = _nodeone_settings.LEGACY_SAAS_ORG_NAMES if _nodeone_settings else ()
     _legacy_default_org_names = (
         'organización principal',
         'default',
         'organización por defecto',
-        'relatic',
         '',
-    )
+    ) + extra
     org = SaasOrganization.query.get(oid)
     if org is not None and (org.name or '').strip().lower() in _legacy_default_org_names:
         org.name = 'Easy Demo'
@@ -1267,7 +1287,28 @@ def saas_module_enabled(module_code):
 
 @app.context_processor
 def inject_saas_module_template_helper():
-    return dict(saas_module_enabled=saas_module_enabled)
+    from flask import current_app, has_request_context
+    from flask_login import current_user
+
+    from nodeone.services.academic_module import is_academic_module_enabled_for_org
+    from nodeone.services.office365_module import is_office365_module_enabled_for_org
+
+    # Menú solo si el blueprint existe y el módulo SaaS `academic` está ON para la org (incl. is_admin).
+    show_academic_nav = False
+    if (
+        has_request_context()
+        and getattr(current_user, 'is_authenticated', False)
+        and 'academic_admin' in current_app.blueprints
+        and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+    ):
+        show_academic_nav = True
+
+    return dict(
+        saas_module_enabled=saas_module_enabled,
+        office365_module_enabled=is_office365_module_enabled_for_org(_org_id_for_module_visibility()),
+        academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
+        show_academic_admin_nav=show_academic_nav,
+    )
 
 
 @app.context_processor
@@ -1368,6 +1409,24 @@ def inject_admin_nav_context():
     return out
 
 
+@app.context_processor
+def inject_platform_user_form_flags():
+    """
+    Casilla «Es Administrador» en admin/users: flag coherente aunque una vista antigua
+    no pase can_filter_users_by_org (kwargs de render_template siguen teniendo prioridad).
+    """
+    out = {'can_filter_users_by_org': False}
+    try:
+        if not has_request_context():
+            return out
+        if not getattr(current_user, 'is_authenticated', False):
+            return out
+        from nodeone.modules.admin_users_roles.routes import can_manage_platform_superuser_fields
+
+        out['can_filter_users_by_org'] = bool(can_manage_platform_superuser_fields(current_user))
+    except Exception:
+        pass
+    return out
 
 
 # Función helper para validar archivos
@@ -1433,7 +1492,7 @@ def send_verification_email(user):
         if has_request_context() and request:
             base_url = request.url_root.rstrip('/')
         else:
-            base_url = os.getenv('BASE_URL', 'https://miembros.relatic.org')
+            base_url = (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
         
         verification_url = f"{base_url}/verify-email/{token}"
         
@@ -1442,7 +1501,7 @@ def send_verification_email(user):
         
         # Enviar email
         success = email_service.send_email(
-            subject='Verifica tu Email - RelaticPanama',
+            subject='Verifica tu Email - Easy NodeOne',
             recipients=[user.email],
             html_content=html_content,
             email_type='email_verification',
@@ -1468,6 +1527,21 @@ def send_verification_email(user):
         return False, err if err else "Error desconocido al enviar el correo."
 
 
+def _tenant_subdomain_from_host_label(first_label):
+    """
+    Subdominio usado para buscar SaasOrganization.subdomain.
+    Si el host es «apps» o «app1» y existe EASYNODEONE_APPS_ORG_SUBDOMAIN, usa ese slug
+    (mismo tenant que p. ej. tonysonax.easynodeone.com).
+    """
+    sub = (first_label or '').strip().lower()
+    if not sub:
+        return None
+    if sub in ('apps', 'app1'):
+        mirrored = (os.environ.get('EASYNODEONE_APPS_ORG_SUBDOMAIN') or '').strip().lower()
+        return mirrored if mirrored else None
+    return sub
+
+
 def _organization_id_for_public_registration():
     """organization_id para /register y OAuth nuevo usuario: form/query, subdominio en saas_organization, o default."""
     raw = (
@@ -1486,13 +1560,13 @@ def _organization_id_for_public_registration():
     host = (request.host or '').split(':')[0].lower()
     parts = host.split('.')
     if len(parts) >= 3:
-        sub = parts[0]
+        sub = _tenant_subdomain_from_host_label(parts[0])
         if sub and sub not in ('www', 'app', 'mail', 'web', 'cdn'):
             org = (
                 SaasOrganization.query.filter_by(is_active=True)
                 .filter(SaasOrganization.subdomain.isnot(None))
                 .filter(SaasOrganization.subdomain != '')
-                .filter(db.func.lower(SaasOrganization.subdomain) == sub.lower())
+                .filter(db.func.lower(SaasOrganization.subdomain) == sub)
                 .first()
             )
             if org is not None:
@@ -1508,7 +1582,7 @@ def _organization_id_from_request_host(req):
     parts = host.split('.')
     if len(parts) < 3:
         return None
-    sub = (parts[0] or '').strip().lower()
+    sub = _tenant_subdomain_from_host_label(parts[0])
     if not sub or sub in ('www', 'app', 'mail', 'web', 'cdn'):
         return None
     org = (
@@ -2137,10 +2211,10 @@ def ensure_membership_plan_table():
 def _politica_correo_institucional_html():
     """Contenido HTML de la Política de Uso de Correo Institucional (versión 1.0)."""
     return """
-<p><strong>Relatic Panamá</strong><br>Versión 1.0</p>
+<p><strong>Easy NodeOne</strong><br>Versión 1.0</p>
 
 <h2>1. Naturaleza del Servicio</h2>
-<p>El correo institucional @relaticpanama.org es un beneficio otorgado por Relatic Panamá a sus miembros activos como parte de su ecosistema digital institucional.</p>
+<p>El correo institucional en el dominio configurado por su organización es un beneficio para miembros activos dentro de la plataforma.</p>
 <p>La asignación de la cuenta está sujeta a las condiciones establecidas en la presente política y podrá estar subsidiada total o parcialmente según campañas vigentes.</p>
 
 <h2>2. Vigencia</h2>
@@ -2161,7 +2235,7 @@ def _politica_correo_institucional_html():
 <li>Posteriormente, la cuenta será suspendida.</li>
 <li>Transcurridos hasta <strong>60 días adicionales</strong>, la cuenta podrá ser eliminada definitivamente.</li>
 </ul>
-<p>Relatic Panamá no garantiza la recuperación de información una vez eliminada la cuenta.</p>
+<p>La organización no garantiza la recuperación de información una vez eliminada la cuenta.</p>
 
 <h2>4. Uso Adecuado</h2>
 <p>El correo institucional debe utilizarse exclusivamente para fines académicos, institucionales o profesionales relacionados con la organización.</p>
@@ -2173,7 +2247,7 @@ def _politica_correo_institucional_html():
 <li>Compartir credenciales con terceros.</li>
 <li>Uso que afecte la reputación institucional.</li>
 </ul>
-<p>Relatic Panamá se reserva el derecho de suspender cuentas que incumplan estas disposiciones.</p>
+<p>La organización se reserva el derecho de suspender cuentas que incumplan estas disposiciones.</p>
 
 <h2>5. Seguridad</h2>
 <p>El usuario es responsable de:</p>
@@ -2182,14 +2256,14 @@ def _politica_correo_institucional_html():
 <li>Activar y mantener el doble factor de autenticación.</li>
 <li>Notificar cualquier acceso sospechoso.</li>
 </ul>
-<p>Relatic Panamá no se hace responsable por negligencia en la protección de credenciales.</p>
+<p>La organización no se hace responsable por negligencia en la protección de credenciales.</p>
 
 <h2>6. Costos y Renovación</h2>
 <p>El otorgamiento inicial del correo puede estar subsidiado como parte de campañas institucionales.</p>
-<p>Relatic Panamá podrá establecer en el futuro un cargo por gestión administrativa o mantenimiento del servicio, el cual será comunicado previamente.</p>
+<p>La organización podrá establecer en el futuro un cargo por gestión administrativa o mantenimiento del servicio, el cual será comunicado previamente.</p>
 
 <h2>7. Modificaciones</h2>
-<p>Relatic Panamá podrá actualizar esta política cuando lo considere necesario. Las modificaciones serán publicadas en el portal institucional.</p>
+<p>La organización podrá actualizar esta política cuando lo considere necesario. Las modificaciones serán publicadas en el portal institucional.</p>
 <p>El uso continuo del correo implica aceptación de las condiciones vigentes.</p>
 """
 

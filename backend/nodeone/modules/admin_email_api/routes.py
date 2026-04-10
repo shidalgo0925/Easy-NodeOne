@@ -71,7 +71,7 @@ def api_email_config():
                 mail_use_ssl=bool(data.get('mail_use_ssl', False)),
                 mail_username=data.get('mail_username', ''),
                 mail_password=data.get('mail_password', ''),
-                mail_default_sender=data.get('mail_default_sender', 'noreply@relaticpanama.org'),
+                mail_default_sender=data.get('mail_default_sender', 'noreply@example.com'),
                 use_environment_variables=bool(data.get('use_environment_variables', True)),
                 is_active=True
             )
@@ -293,7 +293,7 @@ def api_email_test():
         from flask_mail import Message
 
         msg = Message(
-            subject='[Prueba] Configuración de Email - RelaticPanama',
+            subject='[Prueba] Configuración de Email - Easy NodeOne',
             recipients=[test_email],
             sender=email_config.mail_default_sender,
             html=f"""
@@ -303,7 +303,7 @@ def api_email_test():
             <p><strong>Remitente:</strong> {email_config.mail_default_sender}</p>
             <p><strong>Servidor:</strong> {email_config.mail_server}</p>
             <p><strong>Fecha:</strong> {datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')}</p>
-            <p>Saludos,<br>Equipo RelaticPanama</p>
+            <p>Saludos,<br>Equipo Easy NodeOne</p>
             """
         )
         M.mail.send(msg)
@@ -352,12 +352,12 @@ def api_email_test():
             error_details.append('')
             error_details.append('Pasos:')
             error_details.append('1. Ve a: https://myaccount.google.com/apppasswords')
-            error_details.append('2. Inicia sesión con relaticpanama2025@gmail.com')
+            error_details.append('2. Inicia sesión con nodeone@gmail.com')
             error_details.append('3. Si no tienes 2FA, actívalo primero (requerido)')
             error_details.append('4. Selecciona:')
             error_details.append('   - App: "Correo"')
             error_details.append('   - Device: "Otro (nombre personalizado)"')
-            error_details.append('   - Escribe: "RelaticPanama"')
+            error_details.append('   - Escribe: "Easy NodeOne"')
             error_details.append('5. Haz clic en "Generar"')
             error_details.append('6. Copia la contraseña de 16 caracteres (sin espacios)')
             error_details.append('7. Actualiza la contraseña en /admin/email')
@@ -372,7 +372,7 @@ def api_email_test():
             error_details.append('1. Ve a https://admin.microsoft.com')
             error_details.append('2. Configuración → Correo → Autenticación')
             error_details.append('3. Busca "Autenticación SMTP básica"')
-            error_details.append('4. Habilita SMTP AUTH para el usuario info@relaticpanama.org')
+            error_details.append('4. Habilita SMTP AUTH para el usuario info@example.com')
             error_details.append('')
             error_details.append('O visita: https://aka.ms/smtp_auth_disabled')
             error_details.append('')
@@ -429,7 +429,7 @@ def api_email_test():
             error_details.append('Pasos:')
             error_details.append('1. Ve a https://admin.microsoft.com')
             error_details.append('2. Configuración → Correo → Autenticación')
-            error_details.append('3. Habilita "Autenticación SMTP básica" para el usuario info@relaticpanama.org')
+            error_details.append('3. Habilita "Autenticación SMTP básica" para el usuario info@example.com')
             error_details.append('O visita: https://aka.ms/smtp_auth_disabled')
         
         return jsonify({
@@ -596,7 +596,7 @@ def api_email_preview_template(template_key):
                 # Intentar usar el template HTML nuevo primero
                 from flask import render_template
                 
-                base_url = request.url_root.rstrip('/') if request else 'https://miembros.relatic.org'
+                base_url = request.url_root.rstrip('/') if request else 'https://app.example.com'
                 logo_url = preview_logo_url
                 
                 html_content = render_template('emails/eventos/registro_evento.html',
@@ -618,7 +618,7 @@ def api_email_preview_template(template_key):
                                               discount_applied=False,
                                               base_url=base_url,
                                               year=datetime.now().year,
-                                              contact_email='administracion@relaticpanama.org')
+                                              contact_email='administracion@example.com')
             except Exception as e:
                 # Fallback al template antiguo si el nuevo falla
                 html_content = M.get_event_registration_email(
@@ -641,7 +641,7 @@ def api_email_preview_template(template_key):
                 # Usar el template HTML nuevo
                 from flask import render_template
                 
-                base_url = request.url_root.rstrip('/') if request else 'https://miembros.relatic.org'
+                base_url = request.url_root.rstrip('/') if request else 'https://app.example.com'
                 logo_url = preview_logo_url
                 
                 html_content = render_template('emails/eventos/confirmacion_cita.html',
@@ -660,7 +660,7 @@ def api_email_preview_template(template_key):
                                               appointments_url=f"{base_url}/appointments",
                                               base_url=base_url,
                                               year=datetime.now().year,
-                                              contact_email='administracion@relaticpanama.org')
+                                              contact_email='administracion@example.com')
             except Exception as e:
                 # Fallback al template antiguo si el nuevo falla
                 html_content = M.get_appointment_confirmation_email(
@@ -673,7 +673,7 @@ def api_email_preview_template(template_key):
                 # Usar el template HTML nuevo
                 from flask import render_template
                 
-                base_url = request.url_root.rstrip('/') if request else 'https://miembros.relatic.org'
+                base_url = request.url_root.rstrip('/') if request else 'https://app.example.com'
                 logo_url = preview_logo_url
                 
                 html_content = render_template('emails/eventos/recordatorio_cita.html',
@@ -693,7 +693,7 @@ def api_email_preview_template(template_key):
                                               appointments_url=f"{base_url}/appointments",
                                               base_url=base_url,
                                               year=datetime.now().year,
-                                              contact_email='administracion@relaticpanama.org')
+                                              contact_email='administracion@example.com')
             except Exception as e:
                 # Fallback al template antiguo si el nuevo falla
                 html_content = M.get_appointment_reminder_email(
@@ -879,7 +879,7 @@ def api_upload_logo():
         logo_dir = _EMAIL_LOGO_DIR
         os.makedirs(logo_dir, exist_ok=True)
         coid = M._catalog_org_for_admin_catalog_routes()
-        # Siempre por tenant: no pisar logo-relatic / plataforma
+        # Siempre por tenant: no pisar logo-primary / plataforma
         base_fn = f'logo-email-org{int(coid)}'
         
         filename = secure_filename(file.filename)

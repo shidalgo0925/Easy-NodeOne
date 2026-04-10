@@ -1,5 +1,5 @@
 #!/bin/bash
-# Easy NodeOne (no tocar membresia-relatic.service en projects/)
+# Easy NodeOne (no tocar nodeone.service en projects/)
 sudo systemctl start nodeone.service
 sudo systemctl status nodeone.service --no-pager
 

@@ -7,10 +7,10 @@ Este script debe ejecutarse periódicamente (cada 5-15 minutos) para verificar
 pagos que no fueron confirmados por webhooks.
 
 Configuración del cron job:
-    */10 * * * * cd /ruta/al/proyecto/backend && python3 verify_all_payments_cron.py >> /var/log/relatic_payments.log 2>&1
+    */10 * * * * cd /ruta/al/proyecto/backend && python3 verify_all_payments_cron.py >> /var/log/membership_payments.log 2>&1
 
 O ejecutar cada 10 minutos:
-    0,10,20,30,40,50 * * * * cd /ruta/al/proyecto/backend && python3 verify_all_payments_cron.py >> /var/log/relatic_payments.log 2>&1
+    0,10,20,30,40,50 * * * * cd /ruta/al/proyecto/backend && python3 verify_all_payments_cron.py >> /var/log/membership_payments.log 2>&1
 """
 
 import sys

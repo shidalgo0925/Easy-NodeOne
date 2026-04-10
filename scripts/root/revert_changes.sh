@@ -25,17 +25,17 @@ echo ""
 
 echo "4. Verificando servicios..."
 echo ""
-echo "membresia-relatic:"
-sudo systemctl status membresia-relatic.service --no-pager | head -5
+echo "nodeone:"
+sudo systemctl status nodeone.service --no-pager | head -5
 echo ""
-echo "relatic-frontend:"
-sudo systemctl status relatic-frontend.service --no-pager | head -5
+echo "example-frontend:"
+sudo systemctl status example-frontend.service --no-pager | head -5
 echo ""
 
 echo "=========================================="
 echo "CAMBIOS REVERTIDOS"
 echo "=========================================="
-echo "✅ dev.relatic.org → membresia-relatic (puerto 9000)"
-echo "✅ relatic-frontend.service → WorkingDirectory original restaurado"
+echo "✅ dev.app.example.com → nodeone (puerto 9000)"
+echo "✅ example-frontend.service → WorkingDirectory original restaurado"
 echo ""
 

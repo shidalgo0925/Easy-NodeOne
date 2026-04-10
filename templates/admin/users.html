@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Gestionar Usuarios - RelaticPanama{% endblock %}
+{% block title %}Gestionar Usuarios - Easy NodeOne{% endblock %}
+
+{# Evita hueco en modales si el flag no llega desde la vista (Gunicorn antiguo, caché, etc.) #}
+{% set can_pa = can_filter_users_by_org|default(false) %}
 
 {% block page_content %}
 <div class="container py-4">
@@ -119,7 +122,7 @@
                                 <option value="100" {% if request.args.get('per_page', '10') == '100' %}selected{% endif %}>100</option>
                             </select>
                         </div>
-                        {% if can_filter_users_by_org and saas_organizations %}
+                        {% if can_pa and saas_organizations %}
                         <div class="flex-shrink-0">
                             <label for="filter_organization_id" class="form-label form-label-sm mb-0">Organización</label>
                             <select class="form-select form-select-sm" id="filter_organization_id" name="organization_id" style="min-width:140px;max-width:200px" onchange="this.form.submit()">
@@ -422,7 +425,7 @@
                             </datalist>
                         </div>
                     </div>
-                    {% if can_filter_users_by_org and saas_organizations %}
+                    {% if can_pa and saas_organizations %}
                     <div class="mb-3">
                         <label for="create_organization_id" class="form-label">Organización (tenant)</label>
                         <select class="form-select" id="create_organization_id" name="organization_id">
@@ -446,14 +449,13 @@
                                 <label class="form-check-label" for="create_is_active">Usuario Activo</label>
                             </div>
                         </div>
-                        {% if can_filter_users_by_org %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="create_is_admin" name="is_admin">
-                                <label class="form-check-label" for="create_is_admin">Es Administrador</label>
+                                <input class="form-check-input" type="checkbox" id="create_is_admin" name="is_admin" {% if not can_pa %}disabled{% endif %}>
+                                <label class="form-check-label" for="create_is_admin">Es Administrador (plataforma)</label>
                             </div>
+                            {% if not can_pa %}<small class="text-muted d-block">Solo cuentas con rol SA o flag admin de plataforma pueden activarlo.</small>{% endif %}
                         </div>
-                        {% endif %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="create_is_advisor" name="is_advisor">
@@ -594,14 +596,13 @@
                                 <label class="form-check-label" for="edit_is_active">Usuario Activo</label>
                             </div>
                         </div>
-                        {% if can_filter_users_by_org %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="edit_is_admin" name="is_admin">
-                                <label class="form-check-label" for="edit_is_admin">Es Administrador</label>
+                                <input class="form-check-input" type="checkbox" id="edit_is_admin" name="is_admin" {% if not can_pa %}disabled{% endif %}>
+                                <label class="form-check-label" for="edit_is_admin">Es Administrador (plataforma)</label>
                             </div>
+                            {% if not can_pa %}<small class="text-muted d-block">Solo superadministradores pueden cambiar este valor.</small>{% endif %}
                         </div>
-                        {% endif %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="edit_is_advisor" name="is_advisor">

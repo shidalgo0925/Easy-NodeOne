@@ -16,12 +16,12 @@ if ! command -v crontab &> /dev/null; then
     echo "   crontab -e"
     echo ""
     echo "   Y agrega esta línea:"
-    echo "   */5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1"
+    echo "   */5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1"
     exit 1
 fi
 
 # Crear directorio de logs si no existe
-mkdir -p /home/relaticpanama2025/projects/membresia-relatic/logs
+mkdir -p /var/www/nodeone/logs
 
 # Verificar si el cron job ya existe
 if crontab -l 2>/dev/null | grep -q "verify_yappy_payments_cron.py"; then
@@ -41,7 +41,7 @@ fi
 
 # Agregar nuevo cron job
 echo "# Verificación automática de pagos Yappy cada 5 minutos" >> /tmp/crontab_backup.txt
-echo "*/5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1" >> /tmp/crontab_backup.txt
+echo "*/5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1" >> /tmp/crontab_backup.txt
 
 # Instalar nuevo crontab
 crontab /tmp/crontab_backup.txt
@@ -53,10 +53,10 @@ if [ $? -eq 0 ]; then
     crontab -l | grep "verify_yappy_payments_cron.py"
     echo ""
     echo "📝 El script se ejecutará cada 5 minutos"
-    echo "📁 Los logs se guardarán en: /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log"
+    echo "📁 Los logs se guardarán en: /var/www/nodeone/logs/yappy_verification.log"
     echo ""
     echo "🔍 Para verificar que está funcionando:"
-    echo "   tail -f /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log"
+    echo "   tail -f /var/www/nodeone/logs/yappy_verification.log"
 else
     echo "❌ Error al configurar el cron job"
     exit 1

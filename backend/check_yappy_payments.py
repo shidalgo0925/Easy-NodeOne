@@ -13,10 +13,10 @@ def find_database():
     project_root = backend_dir.parent
     
     possible_paths = [
-        project_root / 'instance' / 'relaticpanama.db',
-        backend_dir / 'instance' / 'relaticpanama.db',
-        backend_dir / 'relaticpanama.db',
-        project_root / 'relaticpanama.db',
+        project_root / 'instance' / 'membership_legacy.db',
+        backend_dir / 'instance' / 'membership_legacy.db',
+        backend_dir / 'membership_legacy.db',
+        project_root / 'membership_legacy.db',
     ]
     
     for path in possible_paths:

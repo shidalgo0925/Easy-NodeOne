@@ -515,7 +515,7 @@ def register_public_auth_legacy_routes(app):
                         html_content = M.get_password_reset_email(user, reset_token, reset_url)
                         M.email_service.send_email(
                             to_email=user.email,
-                            subject='Restablecer Contraseña - RelaticPanama',
+                            subject='Restablecer Contraseña - Easy NodeOne',
                             html_content=html_content,
                             email_type='password_reset',
                             recipient_id=user.id,

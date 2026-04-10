@@ -14,7 +14,7 @@ LO QUE YA ESTÁ HECHO EN EL REPO
 
 2. Vite
    - workspace/NodeOne/landing/vite.config.js  → server.watch.usePolling: false
-   - projects/relatic-frontend/vite.config.js → server.watch.usePolling: false
+   - projects/example-frontend/vite.config.js → server.watch.usePolling: false
 
 3. Script para el servidor
    - workspace/NodeOne/scripts/fix-inotify.sh

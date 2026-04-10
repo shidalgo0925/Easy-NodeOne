@@ -232,12 +232,22 @@ def invoices_post():
         return jsonify({'error': 'customer_id_required'}), 400
 
     origin_qid = int(data.get('origin_quotation_id') or 0) or None
+    enr_id = int(data.get('enrollment_id') or 0) or None
+    due_raw = data.get('due_date')
+    due_dt = None
+    if due_raw:
+        try:
+            due_dt = datetime.fromisoformat(str(due_raw).replace('Z', '+00:00'))
+        except Exception:
+            due_dt = None
     inv = Invoice(
         organization_id=oid,
         number=_next_number('INV', Invoice, oid),
         customer_id=customer_id,
         status='draft',
         origin_quotation_id=origin_qid,
+        enrollment_id=enr_id,
+        due_date=due_dt,
         total=0.0,
         tax_total=0.0,
         grand_total=0.0,
@@ -296,6 +306,8 @@ def invoices_get():
                 'total': r.total,
                 'tax_total': r.tax_total,
                 'grand_total': r.grand_total,
+                'enrollment_id': getattr(r, 'enrollment_id', None),
+                'due_date': r.due_date.isoformat() if getattr(r, 'due_date', None) else None,
             }
             for r in rows
         ]
@@ -337,6 +349,12 @@ def invoice_pay(iid):
         if q and q.status == 'invoiced':
             q.status = 'paid'
     db.session.commit()
+    try:
+        from nodeone.services.academic_service import on_invoice_paid_hook
+
+        on_invoice_paid_hook(inv.id, oid)
+    except Exception:
+        pass
     return jsonify({'ok': True, 'status': inv.status})
 
 
@@ -354,6 +372,12 @@ def invoice_cancel(iid):
         return jsonify({'error': 'paid_invoice_cannot_be_cancelled'}), 400
     inv.status = 'cancelled'
     db.session.commit()
+    try:
+        from nodeone.services.academic_service import on_invoice_cancelled_hook
+
+        on_invoice_cancelled_hook(inv.id, oid)
+    except Exception:
+        pass
     return jsonify({'ok': True, 'status': inv.status})
 
 

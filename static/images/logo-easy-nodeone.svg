@@ -29,7 +29,7 @@
   <path d="M 35 45 L 35 70 L 60 70 L 60 45 Z" fill="none" stroke="#000" stroke-width="1.5"/>
   <line x1="35" y1="45" x2="35" y2="70" stroke="#000" stroke-width="1.5"/>
   
-  <!-- Texto RELATIC -->
-  <text x="75" y="50" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#000">RELATIC</text>
+  <!-- Marca -->
+  <text x="75" y="50" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#000">Easy NodeOne</text>
   <text x="75" y="65" font-family="Arial, sans-serif" font-size="12" fill="#4169E1">PANAMÁ</text>
 </svg>

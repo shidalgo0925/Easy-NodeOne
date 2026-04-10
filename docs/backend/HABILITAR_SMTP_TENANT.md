@@ -18,7 +18,7 @@ Aunque habilitaste "SMTP autenticado" para el usuario individual, necesitas habi
    - Ve a **Configuración** → **Correo** → **Autenticación**
    - Busca **"Autenticación SMTP básica"** o **"SMTP AUTH"**
    - Habilita la opción para **"Toda la organización"** o **"Usuarios específicos"**
-   - Si eliges usuarios específicos, agrega `info@relaticpanama.org`
+   - Si eliges usuarios específicos, agrega `info@example.com`
    - Guarda los cambios
 
 ### Opción 2: PowerShell (Más Directo)
@@ -33,11 +33,11 @@ Connect-ExchangeOnline
 Set-TransportConfig -SmtpClientAuthenticationDisabled $false
 
 # O habilitar solo para usuarios específicos
-Set-CASMailbox -Identity "info@relaticpanama.org" -SmtpClientAuthenticationDisabled $false
+Set-CASMailbox -Identity "info@example.com" -SmtpClientAuthenticationDisabled $false
 
 # Verificar configuración
 Get-TransportConfig | Select SmtpClientAuthenticationDisabled
-Get-CASMailbox -Identity "info@relaticpanama.org" | Select SmtpClientAuthenticationDisabled
+Get-CASMailbox -Identity "info@example.com" | Select SmtpClientAuthenticationDisabled
 ```
 
 ### Opción 3: Microsoft 365 Admin Center

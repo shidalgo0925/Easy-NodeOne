@@ -9,7 +9,7 @@ sys.path.insert(0, 'backend')
 from app import app, db
 import sqlite3
 
-db_path = 'relaticpanama.db'
+db_path = 'membership_legacy.db'
 
 with app.app_context():
     # Usar conexión directa de SQLite para ALTER TABLE

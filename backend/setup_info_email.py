@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script para configurar email con info@relaticpanama.org (Office 365)
+Script para configurar email con info@example.com (Office 365)
 """
 
 import sys
@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app import app, db, EmailConfig
 
 def setup_info_email():
-    """Configurar email con info@relaticpanama.org"""
+    """Configurar email con info@example.com"""
     print("=" * 60)
-    print("CONFIGURANDO: info@relaticpanama.org")
+    print("CONFIGURANDO: info@example.com")
     print("=" * 60)
     
     with app.app_context():
@@ -35,8 +35,8 @@ def setup_info_email():
         config.mail_port = 587
         config.mail_use_tls = True
         config.mail_use_ssl = False
-        config.mail_username = 'info@relaticpanama.org'
-        config.mail_default_sender = 'info@relaticpanama.org'
+        config.mail_username = 'info@example.com'
+        config.mail_default_sender = 'info@example.com'
         config.use_environment_variables = False  # Usar BD, no variables de entorno
         config.is_active = True
         config.updated_at = datetime.utcnow()
@@ -67,11 +67,11 @@ def setup_info_email():
             print("\n📝 PRÓXIMOS PASOS:")
             print("   1. Configura la contraseña desde /admin/email")
             print("   2. O ejecuta: python3 configure_info_email.py")
-            print("   3. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+            print("   3. Reinicia el servicio: sudo systemctl restart nodeone.service")
             print("   4. Prueba el envío desde /admin/email")
             
             print("\n💡 NOTAS:")
-            print("   - Si info@relaticpanama.org es Gmail, cambia servidor a smtp.gmail.com")
+            print("   - Si info@example.com es Gmail, cambia servidor a smtp.gmail.com")
             print("   - Office 365 usa tu contraseña normal (no requiere App Password)")
             print("   - Gmail requiere contraseña de aplicación (16 caracteres)")
             

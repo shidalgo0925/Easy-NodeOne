@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Moodle — configuración{% endblock %}
+{% block page_content %}
+<div class="container py-4" style="max-width:640px">
+  <h1 class="h4 mb-3"><i class="fab fa-moodle me-2"></i>Moodle (por organización)</h1>
+  <p class="text-muted small">URL base (ej. https://cursos.tudominio.com) y token de servicio web. El token no se muestra al guardar; reemplázalo solo si cambia.</p>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="mb-2"><label class="form-label">URL base</label><input type="url" id="base_url" class="form-control form-control-sm" placeholder="https://moodle.ejemplo.com"></div>
+      <div class="mb-2"><label class="form-label">Token (secreto)</label><input type="password" id="token" class="form-control form-control-sm" placeholder="Dejar vacío para no cambiar"></div>
+      <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="enabled"><label class="form-check-label" for="enabled">Integración activa</label></div>
+      <button type="button" class="btn btn-primary btn-sm" id="save">Guardar</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const API = '/api/admin/academic/moodle-config';
+  fetch(API, {credentials:'same-origin'}).then(r=>r.json()).then(j=>{
+    if(j.success && j.config){ document.getElementById('base_url').value = j.config.base_url||''; document.getElementById('enabled').checked = !!j.config.enabled; }
+  });
+  document.getElementById('save').onclick = function(){
+    const body = { base_url: document.getElementById('base_url').value, enabled: document.getElementById('enabled').checked };
+    const t = document.getElementById('token').value;
+    if(t) body.token = t;
+    fetch(API, {method:'PUT', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}).then(r=>r.json()).then(j=>{ alert(j.success ? 'Guardado' : (j.error||'Error')); });
+  };
+})();
+</script>
+{% endblock %}

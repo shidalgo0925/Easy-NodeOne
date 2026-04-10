@@ -6,7 +6,7 @@ import sqlite3
 import os
 
 # Define the path to your SQLite database
-DB_PATH = os.path.join(os.path.dirname(__file__), 'instance', 'relaticpanama.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'instance', 'membership_legacy.db')
 
 def add_column_if_not_exists(cursor, table_name, column_name, column_type, default_value=None):
     """Agrega una columna a una tabla si no existe."""

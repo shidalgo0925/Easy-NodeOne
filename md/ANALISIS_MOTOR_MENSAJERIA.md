@@ -1,8 +1,8 @@
-# 📧 Análisis Completo del Motor de Mensajería - RelaticPanama
+# 📧 Análisis Completo del Motor de Mensajería - Easy NodeOne
 
 ## 🎯 Resumen Ejecutivo
 
-El sistema de mensajería de RelaticPanama es un sistema completo que incluye:
+El sistema de mensajería de Easy NodeOne es un sistema completo que incluye:
 - **Gestión de emails enviados** (historial completo)
 - **Configuración de servidor SMTP** (editable desde panel)
 - **Templates de correo editables** (personalización de mensajes)
@@ -283,10 +283,10 @@ En `/admin` (Panel de Administración) hay botones para:
 
 ## 🔍 Cómo Verificar el Sistema
 
-1. **Ver emails enviados**: https://miembros.relatic.org/admin/messaging
-2. **Configurar SMTP**: https://miembros.relatic.org/admin/email
-3. **Configurar notificaciones**: https://miembros.relatic.org/admin/notifications
-4. **Ver logs del servidor**: `sudo journalctl -u membresia-relatic.service -f`
+1. **Ver emails enviados**: https://app.example.com/admin/messaging
+2. **Configurar SMTP**: https://app.example.com/admin/email
+3. **Configurar notificaciones**: https://app.example.com/admin/notifications
+4. **Ver logs del servidor**: `sudo journalctl -u nodeone.service -f`
 
 ---
 

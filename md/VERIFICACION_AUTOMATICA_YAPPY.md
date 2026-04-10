@@ -15,7 +15,7 @@
 
 **Requisito**: Configurar el webhook en el panel de Yappy apuntando a:
 ```
-https://miembros.relatic.org/webhook/yappy
+https://app.example.com/webhook/yappy
 ```
 
 ### 2. **Verificación Automática en Segundo Plano** (Cada 5 minutos) ✅
@@ -40,7 +40,7 @@ https://miembros.relatic.org/webhook/yappy
 1. Acceder al panel de administración de Yappy
 2. Buscar la sección de "Webhooks" o "Notificaciones"
 3. Agregar nuevo webhook con:
-   - **URL**: `https://miembros.relatic.org/webhook/yappy`
+   - **URL**: `https://app.example.com/webhook/yappy`
    - **Eventos**: Seleccionar eventos de confirmación de pago (APPROVED, PAID, COMPLETED)
    - **Método**: POST
    - **Formato**: JSON
@@ -54,17 +54,17 @@ Ejecutar el siguiente comando para agregar el cron job:
 crontab -e
 
 # Agregar esta línea:
-*/5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1
+*/5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1
 ```
 
 O ejecutar directamente:
 ```bash
-(crontab -l 2>/dev/null; echo "*/5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo "*/5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1") | crontab -
 ```
 
 **Nota**: Asegúrate de crear el directorio de logs si no existe:
 ```bash
-mkdir -p /home/relaticpanama2025/projects/membresia-relatic/logs
+mkdir -p /var/www/nodeone/logs
 ```
 
 ---
@@ -152,7 +152,7 @@ mkdir -p /home/relaticpanama2025/projects/membresia-relatic/logs
 Puedes probar la verificación manualmente ejecutando:
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 verify_yappy_payments_cron.py
 ```
 

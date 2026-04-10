@@ -3,6 +3,8 @@
 Migración RBAC: crea tablas role, permission, role_permission, user_role
 y carga semilla de roles y permisos según matriz FASE 2.
 Ejecutar desde el directorio del proyecto: python backend/migrate_rbac_tables.py
+
+Si las tablas ya existen pero están vacías (sin filas en role), aplica solo la semilla.
 """
 
 import sys
@@ -11,8 +13,67 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from sqlalchemy import MetaData, Table, Column, Integer, String, Text, DateTime, ForeignKey, select, insert
+from sqlalchemy import MetaData, Table, Column, Integer, String, Text, DateTime, ForeignKey, select, insert, text
 from sqlalchemy import inspect
+
+
+def _seed_rbac_core(conn, trans, role_t, permission_t, role_permission_t):
+    """Inserta permisos, roles y matriz role_permission (SA, AD, ST, TE)."""
+    permissions = [
+        'users.view', 'users.create', 'users.update', 'users.delete', 'users.assign_roles', 'users.suspend',
+        'roles.view', 'roles.assign', 'roles.create', 'roles.update', 'roles.delete', 'permissions.view',
+        'services.view', 'services.create', 'services.update', 'services.delete',
+        'memberships.view', 'memberships.assign', 'memberships.suspend',
+        'payments.view', 'payments.manage', 'payments.refund',
+        'reports.view', 'reports.export',
+        'integrations.view', 'integrations.manage', 'api.keys.create', 'api.keys.revoke',
+        'system.settings.view', 'system.settings.update', 'audit.logs.view',
+    ]
+
+    for code in permissions:
+        name = code.replace('.', ' ').replace('_', ' ').title()
+        conn.execute(insert(permission_t).values(code=code, name=name))
+    print(f"Insertados {len(permissions)} permisos.")
+
+    roles_data = [
+        ('SA', 'SuperAdministrador'),
+        ('AD', 'Administrador'),
+        ('ST', 'Staff / Operaciones'),
+        ('TE', 'Técnico / Integraciones'),
+        ('MI', 'Miembro'),
+        ('IN', 'Invitado'),
+    ]
+    for code, name in roles_data:
+        conn.execute(insert(role_t).values(code=code, name=name))
+    print(f"Insertados {len(roles_data)} roles.")
+
+    r = conn.execute(select(role_t))
+    role_ids = {row[1]: row[0] for row in r}
+    r = conn.execute(select(permission_t))
+    perm_ids = {row[1]: row[0] for row in r}
+
+    for code, pid in perm_ids.items():
+        conn.execute(insert(role_permission_t).values(role_id=role_ids['SA'], permission_id=pid))
+    print("Rol SA: todos los permisos asignados.")
+
+    ad_exclude = {'users.delete', 'roles.delete', 'system.settings.update'}
+    for code, pid in perm_ids.items():
+        if code not in ad_exclude:
+            conn.execute(insert(role_permission_t).values(role_id=role_ids['AD'], permission_id=pid))
+    print("Rol AD: permisos asignados (sin users.delete, roles.delete, system.settings.update).")
+
+    st_perms = {'users.view', 'users.create', 'users.update', 'services.view', 'memberships.view', 'memberships.assign', 'payments.view', 'reports.view', 'integrations.view'}
+    for code in st_perms:
+        if code in perm_ids:
+            conn.execute(insert(role_permission_t).values(role_id=role_ids['ST'], permission_id=perm_ids[code]))
+    print("Rol ST: permisos de operaciones asignados.")
+
+    te_perms = {'users.view', 'services.view', 'integrations.view', 'integrations.manage', 'api.keys.create', 'api.keys.revoke', 'audit.logs.view'}
+    for code in te_perms:
+        if code in perm_ids:
+            conn.execute(insert(role_permission_t).values(role_id=role_ids['TE'], permission_id=perm_ids[code]))
+    print("Rol TE: permisos de integraciones asignados.")
+
 
 def run_migration():
     from app import app, db
@@ -21,8 +82,31 @@ def run_migration():
         inspector = inspect(db.engine)
         existing = inspector.get_table_names()
 
-        if 'role' in existing and 'permission' in existing:
-            print("Tablas RBAC ya existen. Omitiendo creación.")
+        rbac_tables_ok = 'role' in existing and 'permission' in existing
+
+        if rbac_tables_ok:
+            with db.engine.connect() as c:
+                nroles = c.execute(text('SELECT COUNT(*) FROM role')).scalar()
+            if nroles and int(nroles) > 0:
+                print("Tablas RBAC ya existen y tienen datos. Omitiendo.")
+                return True
+            print("Tablas RBAC existen pero sin roles; aplicando semilla...")
+            metadata = MetaData()
+            metadata.reflect(bind=db.engine, only=['role', 'permission', 'role_permission'])
+            role_t = metadata.tables['role']
+            permission_t = metadata.tables['permission']
+            role_permission_t = metadata.tables['role_permission']
+            conn = db.engine.connect()
+            trans = conn.begin()
+            try:
+                _seed_rbac_core(conn, trans, role_t, permission_t, role_permission_t)
+                trans.commit()
+            except Exception:
+                trans.rollback()
+                raise
+            finally:
+                conn.close()
+            print("Semilla RBAC completada correctamente.")
             return True
 
         metadata = MetaData()
@@ -51,7 +135,6 @@ def run_migration():
             Column('permission_id', Integer, ForeignKey('permission.id', ondelete='CASCADE'), primary_key=True),
         )
 
-        # user_id y assigned_by_id referencian user.id (tabla en otro metadata); sin FK en esta migración
         user_role_t = Table(
             'user_role', metadata,
             Column('user_id', Integer, primary_key=True),
@@ -63,77 +146,14 @@ def run_migration():
         metadata.create_all(db.engine)
         print("Tablas RBAC creadas: role, permission, role_permission, user_role")
 
-        # Semilla: permisos
-        permissions = [
-            'users.view', 'users.create', 'users.update', 'users.delete', 'users.assign_roles', 'users.suspend',
-            'roles.view', 'roles.assign', 'roles.create', 'roles.update', 'roles.delete', 'permissions.view',
-            'services.view', 'services.create', 'services.update', 'services.delete',
-            'memberships.view', 'memberships.assign', 'memberships.suspend',
-            'payments.view', 'payments.manage', 'payments.refund',
-            'reports.view', 'reports.export',
-            'integrations.view', 'integrations.manage', 'api.keys.create', 'api.keys.revoke',
-            'system.settings.view', 'system.settings.update', 'audit.logs.view',
-        ]
-
         conn = db.engine.connect()
         trans = conn.begin()
-
         try:
-            for code in permissions:
-                name = code.replace('.', ' ').replace('_', ' ').title()
-                conn.execute(insert(permission_t).values(code=code, name=name))
-            print(f"Insertados {len(permissions)} permisos.")
-
-            # Semilla: roles
-            roles_data = [
-                ('SA', 'SuperAdministrador'),
-                ('AD', 'Administrador'),
-                ('ST', 'Staff / Operaciones'),
-                ('TE', 'Técnico / Integraciones'),
-                ('MI', 'Miembro'),
-                ('IN', 'Invitado'),
-            ]
-            for code, name in roles_data:
-                conn.execute(insert(role_t).values(code=code, name=name))
-            print(f"Insertados {len(roles_data)} roles.")
-
-            # Obtener IDs de roles y permisos
-            r = conn.execute(select(role_t))
-            role_ids = {row[1]: row[0] for row in r}  # code -> id
-            r = conn.execute(select(permission_t))
-            perm_ids = {row[1]: row[0] for row in r}  # code -> id
-
-            # SA: todos los permisos
-            for code, pid in perm_ids.items():
-                conn.execute(insert(role_permission_t).values(role_id=role_ids['SA'], permission_id=pid))
-            print("Rol SA: todos los permisos asignados.")
-
-            # AD: todos excepto users.delete, roles.delete, system.settings.update
-            ad_exclude = {'users.delete', 'roles.delete', 'system.settings.update'}
-            for code, pid in perm_ids.items():
-                if code not in ad_exclude:
-                    conn.execute(insert(role_permission_t).values(role_id=role_ids['AD'], permission_id=pid))
-            print("Rol AD: permisos asignados (sin users.delete, roles.delete, system.settings.update).")
-
-            # ST: subset operaciones
-            st_perms = {'users.view', 'users.create', 'users.update', 'services.view', 'memberships.view', 'memberships.assign', 'payments.view', 'reports.view', 'integrations.view'}
-            for code in st_perms:
-                if code in perm_ids:
-                    conn.execute(insert(role_permission_t).values(role_id=role_ids['ST'], permission_id=perm_ids[code]))
-            print("Rol ST: permisos de operaciones asignados.")
-
-            # TE: integrations, api.keys, audit.logs
-            te_perms = {'users.view', 'services.view', 'integrations.view', 'integrations.manage', 'api.keys.create', 'api.keys.revoke', 'audit.logs.view'}
-            for code in te_perms:
-                if code in perm_ids:
-                    conn.execute(insert(role_permission_t).values(role_id=role_ids['TE'], permission_id=perm_ids[code]))
-            print("Rol TE: permisos de integraciones asignados.")
-
-            # MI e IN: sin permisos admin (acceso a recursos propios vía lógica de negocio)
+            _seed_rbac_core(conn, trans, role_t, permission_t, role_permission_t)
             trans.commit()
-        except Exception as e:
+        except Exception:
             trans.rollback()
-            raise e
+            raise
         finally:
             conn.close()
 

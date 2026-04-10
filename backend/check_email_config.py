@@ -78,7 +78,7 @@ def check_email_config():
         # Análisis de los correos mencionados
         print("\n📬 ANÁLISIS DE CORREOS DISPONIBLES:")
         
-        email1 = "info@relaticpanama.org"
+        email1 = "info@example.com"
         email2 = "easytechservices25@gmail.com"
         
         current_username = config.mail_username or app.config.get('MAIL_USERNAME', '')
@@ -107,7 +107,7 @@ def check_email_config():
             else:
                 print("   ✅ Contraseña configurada (verifica que sea contraseña de aplicación)")
         
-        if "relaticpanama.org" in email1:
+        if "example.com" in email1:
             print(f"   - Para {email1}:")
             print("     * Verifica el servidor SMTP (puede ser Office 365, Gmail, o otro)")
             print("     * Si es Office 365: smtp.office365.com, puerto 587, TLS=True")

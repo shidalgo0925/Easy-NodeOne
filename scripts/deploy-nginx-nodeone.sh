@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Despliega nginx-nodeone.conf a sites-available, enlace en sites-enabled,
-# backup del anterior, nginx -t y reload. Requiere root o sudo.
+# Despliega nginx-nodeone.conf a sites-available si el archivo existe en el repo.
+# Si nginx-nodeone.conf no está (vhost retirado), este script falla con mensaje claro.
 set -euo pipefail
 
-# Mismo nombre que en producción: sites-available/app.easynodeone.com
-SITE_NAME="${NGINX_SITE_NAME:-app.easynodeone.com}"
+SITE_NAME="${NGINX_SITE_NAME:-apps.easynodeone.com}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SRC="${REPO_ROOT}/nginx-nodeone.conf"
@@ -16,8 +15,8 @@ DRY_RUN=0
 
 usage() {
   echo "Uso: sudo $0 [--dry-run]"
-  echo "  --dry-run  Solo muestra acciones, no escribe ni recarga."
-  echo "Env: NGINX_SITE_NAME (default: app.easynodeone.com)"
+  echo "  Requiere nginx-nodeone.conf en la raíz del repo (si fue borrado, el vhost NodeOne en Nginx está retirado)."
+  echo "Env: NGINX_SITE_NAME (default: apps.easynodeone.com)"
 }
 
 [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
@@ -29,7 +28,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 if [[ ! -f "$SRC" ]]; then
-  echo "Error: no existe fuente: $SRC"
+  echo "Error: no existe $SRC — no hay conf NodeOne para desplegar (sitio easynodeone en Nginx eliminado)."
   exit 1
 fi
 
@@ -59,6 +58,12 @@ if [[ -L "$ENABLED" ]] || [[ -e "$ENABLED" ]]; then
 fi
 run "ln -sf \"$AVAILABLE\" \"$ENABLED\""
 echo "Enlace: $ENABLED -> $AVAILABLE"
+
+LEGACY_ENABLE=/etc/nginx/sites-enabled/app.easynodeone.com
+if [[ -L "$LEGACY_ENABLE" ]] || [[ -e "$LEGACY_ENABLE" ]]; then
+  run "rm -f \"$LEGACY_ENABLE\""
+  echo "Eliminado enlace legado: $LEGACY_ENABLE"
+fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[dry-run] nginx -t && systemctl reload nginx"

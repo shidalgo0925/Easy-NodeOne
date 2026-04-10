@@ -45,7 +45,7 @@ def admin_backup():
 
     if os.path.exists(backups_dir):
         for filename in sorted(os.listdir(backups_dir), reverse=True):
-            if filename.startswith('relaticpanama_backup_') and filename.endswith('.db'):
+            if filename.startswith('nodeone_backup_') and filename.endswith('.db'):
                 filepath = os.path.join(backups_dir, filename)
                 file_stat = os.stat(filepath)
                 backups.append({
@@ -65,7 +65,7 @@ def create_backup():
     """Crear respaldo de base de datos y devolverlo para descarga"""
     try:
         project_root = _project_root()
-        db_path = os.path.join(project_root, 'instance', 'relaticpanama.db')
+        db_path = os.path.join(project_root, 'instance', 'membership_legacy.db')
         backups_dir = os.path.join(project_root, 'backups')
 
         os.makedirs(backups_dir, exist_ok=True)
@@ -74,7 +74,7 @@ def create_backup():
             return jsonify({'success': False, 'error': 'Base de datos no encontrada'}), 404
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_filename = f'relaticpanama_backup_{timestamp}.db'
+        backup_filename = f'nodeone_backup_{timestamp}.db'
         backup_path = os.path.join(backups_dir, backup_filename)
 
         shutil.copy2(db_path, backup_path)
@@ -99,7 +99,7 @@ def create_backup():
 def download_backup(filename):
     """Descargar un respaldo existente"""
     try:
-        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+        if not filename.startswith('nodeone_backup_') or not filename.endswith('.db'):
             return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
 
         project_root = _project_root()
@@ -125,7 +125,7 @@ def download_backup(filename):
 def delete_backup(filename):
     """Eliminar un respaldo"""
     try:
-        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+        if not filename.startswith('nodeone_backup_') or not filename.endswith('.db'):
             return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
 
         project_root = _project_root()
@@ -148,12 +148,12 @@ def delete_backup(filename):
 def restore_backup(filename):
     """Restaurar base de datos desde un respaldo"""
     try:
-        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+        if not filename.startswith('nodeone_backup_') or not filename.endswith('.db'):
             return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
 
         project_root = _project_root()
         backup_path = os.path.join(project_root, 'backups', filename)
-        db_path = os.path.join(project_root, 'instance', 'relaticpanama.db')
+        db_path = os.path.join(project_root, 'instance', 'membership_legacy.db')
 
         if not os.path.exists(backup_path):
             return jsonify({'success': False, 'error': 'Respaldo no encontrado'}), 404

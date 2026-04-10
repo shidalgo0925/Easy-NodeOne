@@ -18,7 +18,7 @@ def test_odoo_connection():
     print("")
     
     # Obtener configuración
-    api_url = os.getenv('ODOO_API_URL', 'https://odoo.relatic.org/api/relatic/v1/sale')
+    api_url = os.getenv('ODOO_API_URL', 'https://odoo.example.com/api/v1/sale')
     api_key = os.getenv('ODOO_API_KEY', '')
     hmac_secret = os.getenv('ODOO_HMAC_SECRET', '')
     enabled = os.getenv('ODOO_INTEGRATION_ENABLED', 'false').lower() == 'true'
@@ -88,7 +88,7 @@ def test_odoo_connection():
     # Preparar headers
     headers = {
         'Authorization': f'Bearer {api_key}',
-        'X-Relatic-Signature': signature,
+        'X-Easy NodeOne-Signature': signature,
         'Content-Type': 'application/json'
     }
     

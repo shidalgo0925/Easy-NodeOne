@@ -1,11 +1,11 @@
 #!/bin/bash
 # Restaurar servicio de membresía y recargar nginx
 
-echo "Iniciando servicio membresia-relatic..."
-sudo systemctl start membresia-relatic.service
+echo "Iniciando servicio nodeone..."
+sudo systemctl start nodeone.service
 
 echo "Verificando estado del servicio..."
-sudo systemctl status membresia-relatic.service --no-pager -l
+sudo systemctl status nodeone.service --no-pager -l
 
 echo "Verificando configuración de nginx..."
 sudo nginx -t

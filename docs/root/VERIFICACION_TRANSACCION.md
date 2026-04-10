@@ -50,14 +50,14 @@ Se intentó re-enviar el webhook manualmente:
 - ✅ API Key: ✅ Configurada
 - ✅ HMAC Secret: ✅ Configurado
 - ✅ Payload construido correctamente
-- ❌ **Error de conexión:** No se pudo conectar a `https://odoo.relatic.org/api/relatic/v1/sale`
+- ❌ **Error de conexión:** No se pudo conectar a `https://odoo.example.com/api/v1/sale
 
 ## ⚠️ Motivos del Error de Conexión
 
 El error de conexión puede deberse a:
 
 1. **El módulo de Odoo aún no está instalado/configurado**
-2. **El dominio `odoo.relatic.org` no está accesible desde este servidor**
+2. **El dominio Odoo configurado en `ODOO_API_URL` no está accesible desde este servidor**
 3. **El endpoint aún no está disponible**
 4. **Problemas de red/firewall**
 
@@ -82,7 +82,7 @@ Los pagos futuros **SÍ enviarán webhooks automáticamente** porque:
 Usar el script creado:
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 reenviar_webhook_odoo.py <payment_id>
 ```
 
@@ -95,7 +95,7 @@ python3 reenviar_webhook_odoo.py 7
 
 Una vez que Odoo esté accesible:
 
-1. Ir a: **Contabilidad → Relatic Integration → Logs de Sincronización**
+1. Ir a: **Contabilidad → NodeOne Integration → Logs de Sincronización**
 2. Buscar Order ID: `ORD-2026-00007`
 3. Verificar que se creó la factura
 

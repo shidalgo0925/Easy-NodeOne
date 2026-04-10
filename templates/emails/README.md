@@ -1,4 +1,4 @@
-# 📧 Templates de Email - RELATIC Panamá
+# 📧 Templates de Email - Easy NodeOne
 
 Este directorio contiene todos los templates HTML para emails del sistema.
 
@@ -19,9 +19,9 @@ templates/emails/
 
 ## 🖼️ Imágenes Requeridas
 
-### Logo de RELATIC
+### Logo de Easy NodeOne
 
-**Ubicación**: `static/public/emails/logos/logo-relatic.png`
+**Ubicación**: `static/public/emails/logos/logo-primary.png`
 
 **Requisitos**:
 - Formato: PNG (mejor compatibilidad con clientes de email)
@@ -30,7 +30,7 @@ templates/emails/
 - Fondo transparente o blanco
 
 **Cómo subir el logo**:
-1. Coloca tu archivo `logo-relatic.png` en: `static/public/emails/logos/`
+1. Coloca tu archivo `logo-primary.png` en: `static/public/emails/logos/`
 2. El template usará automáticamente la función `get_public_image_url()` para generar la URL
 
 ## 💻 Cómo Usar los Templates
@@ -43,8 +43,8 @@ from app import get_public_image_url, request
 
 def send_welcome_email(user):
     # Generar URLs absolutas (necesarias para emails)
-    logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
-    base_url = request.url_root.rstrip('/') if request else 'https://miembros.relatic.org'
+    logo_url = get_public_image_url('emails/logos/logo-primary.png', absolute=True)
+    base_url = request.url_root.rstrip('/') if request else 'https://app.example.com'
     login_url = f"{base_url}/login"
     
     # Renderizar template
@@ -55,18 +55,18 @@ def send_welcome_email(user):
                           login_url=login_url,
                           base_url=base_url,
                           year=datetime.now().year,
-                          contact_email='administracion@relaticpanama.org')
+                          contact_email='administracion@example.com')
     
     # Enviar email...
-    send_email(user.email, 'Bienvenido a RELATIC Panamá', html)
+    send_email(user.email, 'Bienvenido a Easy NodeOne', html)
 ```
 
 ### Ejemplo: Confirmación de Registro a Evento
 
 ```python
 def send_event_registration_email(user, event, registration):
-    logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
-    base_url = request.url_root.rstrip('/') if request else 'https://miembros.relatic.org'
+    logo_url = get_public_image_url('emails/logos/logo-primary.png', absolute=True)
+    base_url = request.url_root.rstrip('/') if request else 'https://app.example.com'
     
     html = render_template('emails/eventos/registro_evento.html',
                           logo_url=logo_url,
@@ -87,7 +87,7 @@ def send_event_registration_email(user, event, registration):
                           discount_applied=False,
                           base_url=base_url,
                           year=datetime.now().year,
-                          contact_email=event.contact_email or 'administracion@relaticpanama.org')
+                          contact_email=event.contact_email or 'administracion@example.com')
     
     send_email(user.email, f'Confirmación de Registro - {event.title}', html)
 ```
@@ -96,8 +96,8 @@ def send_event_registration_email(user, event, registration):
 
 ```python
 def send_appointment_confirmation_email(user, appointment, advisor):
-    logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
-    base_url = request.url_root.rstrip('/') if request else 'https://miembros.relatic.org'
+    logo_url = get_public_image_url('emails/logos/logo-primary.png', absolute=True)
+    base_url = request.url_root.rstrip('/') if request else 'https://app.example.com'
     
     html = render_template('emails/eventos/confirmacion_cita.html',
                           logo_url=logo_url,
@@ -115,7 +115,7 @@ def send_appointment_confirmation_email(user, appointment, advisor):
                           appointments_url=f"{base_url}/appointments",
                           base_url=base_url,
                           year=datetime.now().year,
-                          contact_email='administracion@relaticpanama.org')
+                          contact_email='administracion@example.com')
     
     send_email(user.email, f'Confirmación de Cita - {appointment.appointment_type.name}', html)
 ```
@@ -186,7 +186,7 @@ def send_appointment_confirmation_email(user, appointment, advisor):
 
 ## 🎨 Paleta de Colores
 
-Los templates usan la paleta oficial de RELATIC:
+Los templates usan la paleta oficial de Easy NodeOne:
 - **Azul Principal**: `#0039ef`
 - **Azul Oscuro**: `#0a2a43`
 - **Amarillo Dorado**: `#ffc433`

@@ -1,12 +1,12 @@
-# Sistema de Membresía RelaticPanama
+# Sistema de Membresía Easy NodeOne
 
-Sistema completo de gestión de membresías para RelaticPanama con integración de pagos y formularios de suscripción.
+Sistema completo de gestión de membresías para Easy NodeOne con integración de pagos y formularios de suscripción.
 
 ## 🚀 Características
 
 ### Sistema de Membresías
 - **4 Planes de Membresía:**
-  - **Básico**: Gratis - Recursos básicos, boletines RELATIC e invitaciones abiertas
+  - **Básico**: Gratis - Recursos básicos, boletines Easy NodeOne e invitaciones abiertas
   - **Pro**: $60/año - Todo lo de Básico + acceso a revistas/bases y certificaciones
   - **Premium**: $120/año - Todo lo de Pro + asesoría, soporte prioritario y webinars exclusivos
   - **DeLuxe**: $200/año - Todo lo de Premium + O365 completo, soporte 24/7 y consultoría estratégica
@@ -26,7 +26,7 @@ Sistema completo de gestión de membresías para RelaticPanama con integración 
 ## 📁 Estructura del Proyecto
 
 ```
-relaticpanama/
+nodeone/
 ├── backend/
 │   └── app.py                 # Aplicación Flask principal
 ├── templates/                 # Templates HTML
@@ -56,8 +56,8 @@ relaticpanama/
 
 ### 1. Clonar el repositorio
 ```bash
-git clone https://github.com/shidalgo0925/MembresiaRelatic.git
-cd MembresiaRelatic
+git clone https://github.com/shidalgo0925/MembresiaEasy NodeOne.git
+cd MembresiaEasy NodeOne
 ```
 
 ### 2. Crear entorno virtual
@@ -134,7 +134,7 @@ El sistema soporta múltiples métodos de pago configurables desde el panel de a
 
 ## 🎨 Diseño
 
-- **Colores**: Paleta oficial de RelaticPanama
+- **Colores**: Paleta oficial de Easy NodeOne
 - **Responsive**: Compatible con móviles y tablets
 - **Logo**: SVG personalizado integrado
 - **Iconos**: Font Awesome
@@ -172,13 +172,13 @@ gunicorn -w 4 -b 0.0.0.0:8080 backend.app:app
 
 ## 📞 Soporte
 
-- **Email**: administracion@relaticpanama.org
-- **Desarrollador**: Sistema desarrollado para RelaticPanama
+- **Email**: administracion@example.com
+- **Desarrollador**: Sistema desarrollado para Easy NodeOne
 
 ## 📄 Licencia
 
-Este proyecto es propiedad de RelaticPanama. Todos los derechos reservados.
+Este proyecto es propiedad de Easy NodeOne. Todos los derechos reservados.
 
 ---
 
-**RelaticPanama** - Red Latinoamericana de Investigaciones Cualitativas
+**Easy NodeOne** - Red Latinoamericana de Investigaciones Cualitativas

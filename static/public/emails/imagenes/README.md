@@ -19,7 +19,7 @@ En el HTML de la plantilla puedes poner:
 <img src="{{ base_url }}/static/public/emails/imagenes/capacitacion-mar26-o365.png" alt="Capacitación Office 365" width="600" style="max-width:100%; height:auto;">
 ```
 
-Al enviar la campaña, `{{ base_url }}` se reemplaza por la URL base del sitio (ej. `https://miembros.relatic.org`), así el correo muestra la imagen desde tu servidor.
+Al enviar la campaña, `{{ base_url }}` se reemplaza por la URL base del sitio (ej. `https://app.example.com`), así el correo muestra la imagen desde tu servidor.
 
 ## Otras imágenes
 

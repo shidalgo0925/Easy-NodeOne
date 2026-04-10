@@ -7,7 +7,7 @@ Uso:
     python3 verify_yappy_payments_cron.py
 
 O desde cron:
-    */5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1
+    */5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1
 """
 
 import sys

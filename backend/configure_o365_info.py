@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configurar info@relaticpanama.org para Office 365
+Configurar info@example.com para Office 365
 """
 
 import sys
@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app import app, db, EmailConfig
 
 def configure_o365_info():
-    """Configurar info@relaticpanama.org para Office 365"""
+    """Configurar info@example.com para Office 365"""
     print("=" * 60)
-    print("CONFIGURANDO: info@relaticpanama.org (Office 365)")
+    print("CONFIGURANDO: info@example.com (Office 365)")
     print("=" * 60)
     
     with app.app_context():
@@ -34,8 +34,8 @@ def configure_o365_info():
         config.mail_port = 587
         config.mail_use_tls = True
         config.mail_use_ssl = False
-        config.mail_username = 'info@relaticpanama.org'
-        config.mail_default_sender = 'info@relaticpanama.org'
+        config.mail_username = 'info@example.com'
+        config.mail_default_sender = 'info@example.com'
         config.use_environment_variables = False  # Usar BD, no variables de entorno
         config.is_active = True
         config.updated_at = datetime.utcnow()
@@ -66,15 +66,15 @@ def configure_o365_info():
             print("   ✅ Servidor: smtp.office365.com")
             print("   ✅ Puerto: 587")
             print("   ✅ TLS: True")
-            print("   ✅ Usuario: info@relaticpanama.org")
-            print("   ✅ Remitente: info@relaticpanama.org")
+            print("   ✅ Usuario: info@example.com")
+            print("   ✅ Remitente: info@example.com")
             
             if not app.config.get('MAIL_PASSWORD'):
                 print("\n⚠️  IMPORTANTE: Verifica que la contraseña esté correcta")
                 print("   Si no funciona, actualiza la contraseña desde /admin/email")
             
             print("\n💡 PRÓXIMOS PASOS:")
-            print("   1. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+            print("   1. Reinicia el servicio: sudo systemctl restart nodeone.service")
             print("   2. Prueba el envío desde /admin/email")
             print("   3. Si falla, verifica la contraseña en /admin/email")
             

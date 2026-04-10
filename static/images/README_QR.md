@@ -5,7 +5,7 @@ Coloca el código QR de @multiserviciostk en este directorio con el nombre:
 `yappy-qr-multiserviciostk.png`
 
 ## Ruta completa
-`/home/relaticpanama2025/projects/membresia-relatic/static/images/yappy-qr-multiserviciostk.png`
+`/var/www/nodeone/static/images/yappy-qr-multiserviciostk.png`
 
 ## Formato
 - Formato: PNG

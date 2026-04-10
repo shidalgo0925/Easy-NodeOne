@@ -1,4 +1,4 @@
-# Verificación del Sistema de Emails - RelaticPanama
+# Verificación del Sistema de Emails - Easy NodeOne
 
 ## ✅ Correcciones Realizadas
 
@@ -48,7 +48,7 @@
 
 4. **Archivos**:
    - [ ] Template `templates/emails/sistema/bienvenida.html` existe
-   - [ ] Logo en `static/public/emails/logos/logo-relatic.png` (opcional)
+   - [ ] Logo en `static/public/emails/logos/logo-primary.png` (opcional)
 
 ## 🔍 Flujo de Envío de Email de Bienvenida
 

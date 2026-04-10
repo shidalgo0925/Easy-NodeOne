@@ -1,6 +1,6 @@
 # Configuración de Métodos de Pago
 
-Este documento explica cómo configurar y gestionar los diferentes métodos de pago disponibles en el sistema de membresías RELATIC.
+Este documento explica cómo configurar y gestionar los diferentes métodos de pago disponibles en el sistema de membresías Easy NodeOne.
 
 ## Tabla de Contenidos
 
@@ -120,8 +120,8 @@ PayPal permite pagos mediante cuenta PayPal o tarjeta de crédito.
 Client ID: AbCdEfGhIjKlMnOpQrStUvWxYz1234567890
 Client Secret: 1234567890AbCdEfGhIjKlMnOpQrStUvWxYz
 Modo: sandbox (o live para producción)
-Return URL: https://miembros.relatic.org/payment/paypal/return
-Cancel URL: https://miembros.relatic.org/payment/paypal/cancel
+Return URL: https://app.example.com/payment/paypal/return
+Cancel URL: https://app.example.com/payment/paypal/cancel
 ```
 
 #### Variables de Entorno
@@ -536,7 +536,7 @@ echo "STRIPE_PUBLISHABLE_KEY=pk_live_51..." >> .env
 # - Guardar configuración
 
 # 3. Reiniciar la aplicación
-systemctl restart relatic-app
+systemctl restart nodeone-app
 ```
 
 ### Ejemplo 2: Cambiar PayPal de Sandbox a Live
@@ -584,7 +584,7 @@ nuevo_metodo_api_key = db.Column(db.String(500))
 
 ### Soporte
 
-- **Email**: soporte@relaticpanama.org
+- **Email**: soporte@example.com
 - **Panel de Administración**: `/admin/payments`
 - **Logs del Sistema**: Revisa los logs del servidor para errores
 

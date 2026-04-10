@@ -108,13 +108,13 @@ class NotificationEngine:
                             <li><strong>Precio pagado:</strong> ${registration.final_price:.2f} {event.currency}</li>
                         </ul>
                         <p>Puedes gestionar los registros desde el panel de administración.</p>
-                        <p>Saludos,<br>Equipo RelaticPanama</p>
+                        <p>Saludos,<br>Equipo Easy NodeOne</p>
                         """
                     oid = NotificationEngine._event_tenant_org_id(event, user, recipient)
                     if not NotificationEngine._smtp_ready(oid, last_smtp):
                         raise Exception('SMTP no disponible para la organización del evento')
                     M.email_service.send_email(
-                        subject=f'[RelaticPanama] Nuevo registro: {event.title}',
+                        subject=f'[Easy NodeOne] Nuevo registro: {event.title}',
                         recipients=[recipient.email],
                         html_content=html_content,
                         email_type='event_registration_notification',
@@ -134,7 +134,7 @@ class NotificationEngine:
                     # Registrar fallo en EmailLog ANTES del commit
                     M.log_email_sent(
                         recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Nuevo registro: {event.title}',
+                        subject=f'[Easy NodeOne] Nuevo registro: {event.title}',
                         html_content='',
                         email_type='event_registration_notification',
                         related_entity_type='event',
@@ -200,13 +200,13 @@ class NotificationEngine:
                             <li><strong>Email:</strong> {user.email}</li>
                             <li><strong>Fecha de cancelación:</strong> {datetime.utcnow().strftime('%d/%m/%Y %H:%M')}</li>
                         </ul>
-                        <p>Saludos,<br>Equipo RelaticPanama</p>
+                        <p>Saludos,<br>Equipo Easy NodeOne</p>
                         """
                     oid = NotificationEngine._event_tenant_org_id(event, user, recipient)
                     if not NotificationEngine._smtp_ready(oid, last_smtp):
                         raise RuntimeError('SMTP no disponible para la organización del evento')
                     M.email_service.send_email(
-                        subject=f'[RelaticPanama] Cancelación de registro: {event.title}',
+                        subject=f'[Easy NodeOne] Cancelación de registro: {event.title}',
                         recipients=[recipient.email],
                         html_content=html_content,
                         email_type='event_cancellation_notification',
@@ -221,7 +221,7 @@ class NotificationEngine:
                     print(f"Error enviando email de cancelación a {recipient.email}: {e}")
                     M.log_email_sent(
                         recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Cancelación de registro: {event.title}',
+                        subject=f'[Easy NodeOne] Cancelación de registro: {event.title}',
                         html_content='',
                         email_type='event_cancellation_notification',
                         related_entity_type='event',
@@ -287,13 +287,13 @@ class NotificationEngine:
                             <li><strong>Email:</strong> {user.email}</li>
                             <li><strong>Estado:</strong> Confirmado</li>
                         </ul>
-                        <p>Saludos,<br>Equipo RelaticPanama</p>
+                        <p>Saludos,<br>Equipo Easy NodeOne</p>
                         """
                     oid = NotificationEngine._event_tenant_org_id(event, user, recipient)
                     if not NotificationEngine._smtp_ready(oid, last_smtp):
                         raise RuntimeError('SMTP no disponible para la organización del evento')
                     M.email_service.send_email(
-                        subject=f'[RelaticPanama] Registro confirmado: {event.title}',
+                        subject=f'[Easy NodeOne] Registro confirmado: {event.title}',
                         recipients=[recipient.email],
                         html_content=html_content,
                         email_type='event_confirmation_notification',
@@ -313,7 +313,7 @@ class NotificationEngine:
                     # Registrar fallo en EmailLog
                     M.log_email_sent(
                         recipient_email=recipient.email,
-                        subject=f'[RelaticPanama] Registro confirmado: {event.title}',
+                        subject=f'[Easy NodeOne] Registro confirmado: {event.title}',
                         html_content='',
                         email_type='event_confirmation_notification',
                         related_entity_type='event',
@@ -382,13 +382,13 @@ class NotificationEngine:
                             <p>Hola {user.first_name},</p>
                             <p>El evento "{event.title}" al que estás registrado ha sido actualizado.</p>
                             <p>Te recomendamos revisar los detalles del evento en la plataforma.</p>
-                            <p>Saludos,<br>Equipo RelaticPanama</p>
+                            <p>Saludos,<br>Equipo Easy NodeOne</p>
                             """
                         oid = NotificationEngine._event_tenant_org_id(event, user, user)
                         if not NotificationEngine._smtp_ready(oid, last_smtp):
                             raise RuntimeError('SMTP no disponible para la organización del evento')
                         M.email_service.send_email(
-                            subject=f'[RelaticPanama] Actualización: {event.title}',
+                            subject=f'[Easy NodeOne] Actualización: {event.title}',
                             recipients=[user.email],
                             html_content=html_content,
                             email_type='event_update',
@@ -403,7 +403,7 @@ class NotificationEngine:
                         print(f"Error enviando email de actualización a {user.email}: {e}")
                         M.log_email_sent(
                             recipient_email=user.email,
-                            subject=f'[RelaticPanama] Actualización: {event.title}',
+                            subject=f'[Easy NodeOne] Actualización: {event.title}',
                             html_content='',
                             email_type='event_update',
                             related_entity_type='event',
@@ -1008,8 +1008,8 @@ class NotificationEngine:
             notification = M.Notification(
                 user_id=user.id,
                 notification_type='welcome',
-                title='¡Bienvenido a RelaticPanama!',
-                message='Te damos la bienvenida a RelaticPanama. Explora nuestros eventos, recursos y servicios disponibles.'
+                title='¡Bienvenido a Easy NodeOne!',
+                message='Te damos la bienvenida a Easy NodeOne. Explora nuestros eventos, recursos y servicios disponibles.'
             )
             M.db.session.add(notification)
 

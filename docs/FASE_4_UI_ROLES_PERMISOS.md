@@ -1,6 +1,6 @@
 # FASE 4 — Consola administrativa de Roles y Permisos (UI)
 
-**Proyecto:** miembros.relatic.org (membresia-relatic)  
+**Proyecto:** app.example.com (nodeone)  
 **Objetivo:** Dar visibilidad y control al sistema RBAC existente sin romper seguridad. Solo lectura en esta fase.
 
 ---

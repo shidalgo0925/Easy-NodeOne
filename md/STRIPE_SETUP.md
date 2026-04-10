@@ -1,4 +1,4 @@
-# Configuración de Stripe para RelaticPanama
+# Configuración de Stripe para Easy NodeOne
 
 ## Pasos para configurar Stripe
 
@@ -25,7 +25,7 @@ STRIPE_WEBHOOK_SECRET=whsec_tu_webhook_secret_aqui
 # Configuración de Email (opcional)
 MAIL_USERNAME=tu_email@gmail.com
 MAIL_PASSWORD=tu_contraseña_de_aplicacion
-MAIL_DEFAULT_SENDER=noreply@relaticpanama.org
+MAIL_DEFAULT_SENDER=noreply@example.com
 ```
 
 ### 4. Configurar Webhooks (Opcional)

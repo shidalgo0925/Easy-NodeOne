@@ -44,17 +44,17 @@
 **Acción requerida**:
 ```bash
 # Crear script de configuración de cron
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 # Configurar cron job para ejecutar diariamente
 ```
 
 **Cron job recomendado**:
 ```bash
 # Ejecutar tareas de notificaciones diariamente a las 9:00 AM
-0 9 * * * cd /home/relaticpanama2025/projects/membresia-relatic && source venv/bin/activate && python backend/notification_scheduler.py >> logs/notifications.log 2>&1
+0 9 * * * cd /var/www/nodeone && source venv/bin/activate && python backend/notification_scheduler.py >> logs/notifications.log 2>&1
 
 # Opcional: Ejecutar cada 6 horas para verificación más frecuente
-0 */6 * * * cd /home/relaticpanama2025/projects/membresia-relatic && source venv/bin/activate && python backend/notification_scheduler.py >> logs/notifications.log 2>&1
+0 */6 * * * cd /var/www/nodeone && source venv/bin/activate && python backend/notification_scheduler.py >> logs/notifications.log 2>&1
 ```
 
 **Archivos a crear**:
@@ -74,9 +74,9 @@ cd /home/relaticpanama2025/projects/membresia-relatic/backend
    export MAIL_SERVER=smtp.office365.com  # o smtp.gmail.com
    export MAIL_PORT=587
    export MAIL_USE_TLS=True
-   export MAIL_USERNAME=tu_email@relaticpanama.org
+   export MAIL_USERNAME=tu_email@example.com
    export MAIL_PASSWORD=tu_contraseña_o_app_password
-   export MAIL_DEFAULT_SENDER=noreply@relaticpanama.org
+   export MAIL_DEFAULT_SENDER=noreply@example.com
    ```
 
 **Opciones de SMTP**:
@@ -86,7 +86,7 @@ cd /home/relaticpanama2025/projects/membresia-relatic/backend
 
 **Verificar configuración**:
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python backend/test_email_send.py
 ```
@@ -113,7 +113,7 @@ python backend/test_email_send.py
 
 **Acción requerida**:
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python backend/migrate_email_templates.py
 ```
@@ -144,8 +144,8 @@ python backend/migrate_email_templates.py
 
 **Acción requerida**:
 ```bash
-mkdir -p /home/relaticpanama2025/projects/membresia-relatic/logs
-chmod 755 /home/relaticpanama2025/projects/membresia-relatic/logs
+mkdir -p /var/www/nodeone/logs
+chmod 755 /var/www/nodeone/logs
 ```
 
 ---
@@ -221,32 +221,32 @@ chmod 755 /home/relaticpanama2025/projects/membresia-relatic/logs
 ### Paso 1: Configurar Email (5 minutos)
 ```bash
 # Opción A: Desde panel web
-# Ir a https://miembros.relatic.org/admin/email
+# Ir a https://app.example.com/admin/email
 # Configurar SMTP y probar envío
 
 # Opción B: Desde script
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python backend/configure_o365.py  # o configure_gmail.py
 ```
 
 ### Paso 2: Configurar Cron Job (5 minutos)
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 # Crear script de configuración (ver siguiente sección)
 ./scripts/backend/setup_notification_cron.sh
 ```
 
 ### Paso 3: Procesar Pendientes (10 minutos)
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python backend/retry_pending_notifications.py
 ```
 
 ### Paso 4: Verificar Todo (5 minutos)
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python backend/verify_notifications_system.py
 ```

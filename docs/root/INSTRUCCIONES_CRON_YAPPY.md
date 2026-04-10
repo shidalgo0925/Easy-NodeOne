@@ -7,7 +7,7 @@ El sistema de verificación automática de pagos Yappy está implementado y list
 ## 🔧 Opción 1: Usar Script Automático (Recomendado)
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 ./scripts/backend/setup_yappy_cron.sh
 ```
 
@@ -23,7 +23,7 @@ crontab -e
 
 ```bash
 # Verificación automática de pagos Yappy cada 5 minutos
-*/5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1
+*/5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1
 ```
 
 ### Paso 3: Guardar y salir
@@ -42,13 +42,13 @@ crontab -l | grep yappy
 ### Ver los logs en tiempo real:
 
 ```bash
-tail -f /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log
+tail -f /var/www/nodeone/logs/yappy_verification.log
 ```
 
 ### Ejecutar manualmente para probar:
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 verify_yappy_payments_cron.py
 ```
 
@@ -68,14 +68,14 @@ python3 verify_yappy_payments_cron.py
 ### Ver estadísticas de pagos:
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 check_yappy_payments.py
 ```
 
 ### Ver últimos logs:
 
 ```bash
-tail -n 50 /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log
+tail -n 50 /var/www/nodeone/logs/yappy_verification.log
 ```
 
 ## ⚠️ Notas Importantes
@@ -87,12 +87,12 @@ tail -n 50 /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verific
 
 2. **Permisos**: El script debe tener permisos de ejecución:
    ```bash
-   chmod +x /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py
+   chmod +x /var/www/nodeone/backend/verify_yappy_payments_cron.py
    ```
 
 3. **Logs**: Los logs se guardan en:
    ```
-   /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log
+   /var/www/nodeone/logs/yappy_verification.log
    ```
 
 ## 🚀 Sistema Completo

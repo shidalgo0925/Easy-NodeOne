@@ -7,7 +7,7 @@ import sqlite3
 import os
 from datetime import datetime
 
-db_path = 'relaticpanama.db'
+db_path = 'membership_legacy.db'
 
 if not os.path.exists(db_path):
     print(f"❌ No se encontró la base de datos: {db_path}")

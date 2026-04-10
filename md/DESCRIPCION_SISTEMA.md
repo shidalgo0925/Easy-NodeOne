@@ -1,8 +1,8 @@
-# 📋 Descripción Detallada del Sistema de Membresía RelaticPanama
+# 📋 Descripción Detallada del Sistema de Membresía Easy NodeOne
 
 ## 🎯 Visión General
 
-Sistema completo de gestión de membresías para **RelaticPanama** (Red Latinoamericana de Investigaciones Cualitativas) desarrollado en Flask (Python). El sistema gestiona usuarios, membresías, pagos, eventos, citas, notificaciones y múltiples funcionalidades administrativas.
+Sistema completo de gestión de membresías para **Easy NodeOne** (Red Latinoamericana de Investigaciones Cualitativas) desarrollado en Flask (Python). El sistema gestiona usuarios, membresías, pagos, eventos, citas, notificaciones y múltiples funcionalidades administrativas.
 
 ---
 
@@ -542,7 +542,7 @@ Sistema completo de gestión de membresías para **RelaticPanama** (Red Latinoam
 - Bootstrap 5
 - Font Awesome 6
 - JavaScript vanilla
-- CSS personalizado con paleta RelaticPanama
+- CSS personalizado con paleta Easy NodeOne
 
 ### **Características UI**
 - ✅ Diseño responsive
@@ -580,7 +580,7 @@ Sistema completo de gestión de membresías para **RelaticPanama** (Red Latinoam
 ## 📁 Estructura del Proyecto
 
 ```
-membresia-relatic/
+nodeone/
 ├── backend/
 │   ├── app.py                    # Aplicación Flask principal
 │   ├── payment_processors.py     # Procesadores de pago
@@ -708,5 +708,5 @@ membresia-relatic/
 
 **Versión del Documento**: 1.0  
 **Última Actualización**: Diciembre 2025  
-**Sistema**: Membresía RelaticPanama
+**Sistema**: Membresía Easy NodeOne
 

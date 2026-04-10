@@ -1,24 +1,24 @@
-# 📊 Análisis de Estructura - membresia-relatic
+# 📊 Análisis de Estructura - nodeone
 
 ## 🎯 Resumen General
 
-**Proyecto:** Sistema de Membresía RelaticPanama  
+**Proyecto:** Sistema de Membresía Easy NodeOne  
 **Tecnología:** Flask (Python) + SQLite/PostgreSQL  
 **Estado:** En desarrollo activo  
-**Ubicación:** `/home/relaticpanama2025/projects/membresia-relatic`
+**Ubicación:** `/var/www/nodeone`
 
 ---
 
 ## 📁 Estructura de Directorios
 
 ```
-membresia-relatic/
+nodeone/
 ├── backend/                    # Código Python del backend
 │   ├── app.py                 # Aplicación Flask principal (569 líneas)
 │   ├── event_routes.py        # Rutas de eventos/citas (1276+ líneas)
 │   ├── remove_duplicates.py   # Script de limpieza de BD
 │   └── instance/              # Base de datos SQLite
-│       └── relaticpanama.db
+│       └── membership_legacy.db
 │
 ├── templates/                  # Templates HTML (Jinja2)
 │   ├── base.html              # Template base con sidebar
@@ -52,7 +52,7 @@ membresia-relatic/
 │   │   └── custom.css          # Estilos personalizados
 │   └── images/
 │       ├── favicon.svg         # Favicon (nueva paleta)
-│       └── logo-relatic.svg    # Logo (nueva paleta)
+│       └── logo-primary.svg    # Logo (nueva paleta)
 │
 ├── venv/                       # Entorno virtual Python
 ├── instance/                   # Base de datos (alternativa)
@@ -178,7 +178,7 @@ membresia-relatic/
 ### 3. Frontend (Templates)
 
 #### Template Base (`templates/base.html`):
-- ✅ Navbar con logo RelaticPanama
+- ✅ Navbar con logo Easy NodeOne
 - ✅ Sidebar lateral (estilo Sufee) - **VISIBLE en Dashboard**
 - ✅ Sistema de bloques Jinja2 (`{% block content %}`)
 - ✅ Flash messages
@@ -330,9 +330,9 @@ requests==2.31.0
 
 ## 🔗 Enlaces Importantes
 
-- **Dominio:** miembros.relatic.org
+- **Dominio:** app.example.com
 - **Puerto:** 9000 (desarrollo) / 8080 (producción)
-- **Base de datos:** SQLite (`backend/instance/relaticpanama.db`)
+- **Base de datos:** SQLite (`backend/instance/membership_legacy.db`)
 
 ---
 

@@ -3,7 +3,7 @@
 ## ❌ Problema Identificado
 
 **Síntoma**: Los pagos de PayPal se debitaron exitosamente pero:
-- ❌ No se registraron en el portal de Relatic
+- ❌ No se registraron en el portal de Easy NodeOne
 - ❌ El carrito quedó lleno
 - ❌ La membresía no se activó
 
@@ -58,7 +58,7 @@
 3. Ir a la sección **"Webhooks"**
 4. Click en **"Add Webhook"**
 5. Configurar:
-   - **URL**: `https://miembros.relatic.org/webhook/paypal`
+   - **URL**: `https://app.example.com/webhook/paypal`
    - **Eventos**:
      - ✅ `PAYMENT.CAPTURE.COMPLETED`
      - ✅ `CHECKOUT.ORDER.COMPLETED`
@@ -72,14 +72,14 @@
 
 ### **Opción 1: Script Python**
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 verify_pending_paypal_payments.py
 ```
 
 ### **Opción 2: API Endpoint**
 ```bash
 # Verificar un pago específico por order_id
-curl -X POST https://miembros.relatic.org/api/payments/paypal/verify \
+curl -X POST https://app.example.com/api/payments/paypal/verify \
   -H "Content-Type: application/json" \
   -d '{"order_id": "ORDER_ID_DE_PAYPAL"}'
 ```

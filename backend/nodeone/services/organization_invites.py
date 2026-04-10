@@ -111,7 +111,7 @@ def send_invite_email(invite) -> tuple[bool, str | None]:
     except Exception:
         pass
     if not base:
-        base = (os.getenv('BASE_URL') or 'https://miembros.relatic.org').rstrip('/')
+        base = (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
     link = f"{base}/accept-invite/{invite.token}"
     subject = f'Invitación a {org_name}'
     html = f"""<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;">

@@ -58,7 +58,7 @@ def configure_gmail(gmail_email, app_password):
             print(f"   Remitente: {config.mail_default_sender}")
             print("\n✅ Configuración guardada exitosamente")
             print("\n⚠️  IMPORTANTE: Reinicia el servidor para aplicar los cambios:")
-            print("   sudo systemctl restart membresia-relatic.service")
+            print("   sudo systemctl restart nodeone.service")
             return True
         except Exception as e:
             db.session.rollback()

@@ -323,7 +323,7 @@ const {error, paymentIntent} = await stripe.confirmCardPayment(clientSecret, {
 
 ### **Yappy:**
 - ✅ Ya configurado
-- Webhook URL: `https://miembros.relatic.org/webhook/yappy`
+- Webhook URL: `https://app.example.com/webhook/yappy`
 - Secret: `YAPPY_WEBHOOK_SECRET` (opcional)
 
 ### **PayPal:** ⚠️ **CONFIGURAR**
@@ -331,7 +331,7 @@ const {error, paymentIntent} = await stripe.confirmCardPayment(clientSecret, {
 2. Seleccionar tu App
 3. Ir a "Webhooks"
 4. Agregar webhook:
-   - **URL**: `https://miembros.relatic.org/webhook/paypal`
+   - **URL**: `https://app.example.com/webhook/paypal`
    - **Eventos**:
      - `PAYMENT.CAPTURE.COMPLETED`
      - `CHECKOUT.ORDER.COMPLETED`
@@ -348,23 +348,23 @@ const {error, paymentIntent} = await stripe.confirmCardPayment(clientSecret, {
 ### **Yappy:**
 ```bash
 # Verificar un pago específico
-curl -X POST https://miembros.relatic.org/api/payments/yappy/verify \
+curl -X POST https://app.example.com/api/payments/yappy/verify \
   -H "Content-Type: application/json" \
   -d '{"reference": "YAPPY-XXXXXXXX"}'
 
 # Verificar todos los pendientes
-curl -X POST https://miembros.relatic.org/api/payments/yappy/verify-all
+curl -X POST https://app.example.com/api/payments/yappy/verify-all
 ```
 
 ### **PayPal:**
 ```bash
 # Verificar un pago específico por order_id
-curl -X POST https://miembros.relatic.org/api/payments/paypal/verify \
+curl -X POST https://app.example.com/api/payments/paypal/verify \
   -H "Content-Type: application/json" \
   -d '{"order_id": "ORDER_ID_DE_PAYPAL"}'
 
 # Verificar por payment_id (requiere login)
-curl -X POST https://miembros.relatic.org/api/payments/paypal/verify-by-payment-id \
+curl -X POST https://app.example.com/api/payments/paypal/verify-by-payment-id \
   -H "Content-Type: application/json" \
   -H "Cookie: session=..." \
   -d '{"payment_id": 123}'

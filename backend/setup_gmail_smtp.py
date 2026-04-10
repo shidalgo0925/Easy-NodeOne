@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configurar email con relaticpanama2025@gmail.com (Gmail)
+Configurar email con nodeone@gmail.com (Gmail)
 """
 
 import sys
@@ -11,10 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db, EmailConfig
 
-def setup_gmail_relatic():
-    """Configurar email con relaticpanama2025@gmail.com"""
+def setup_gmail_smtp():
+    """Configurar email con nodeone@gmail.com"""
     print("=" * 60)
-    print("CONFIGURANDO: relaticpanama2025@gmail.com (Gmail)")
+    print("CONFIGURANDO: nodeone@gmail.com (Gmail)")
     print("=" * 60)
     
     with app.app_context():
@@ -34,8 +34,8 @@ def setup_gmail_relatic():
         config.mail_port = 587
         config.mail_use_tls = True
         config.mail_use_ssl = False
-        config.mail_username = 'relaticpanama2025@gmail.com'
-        config.mail_default_sender = 'relaticpanama2025@gmail.com'
+        config.mail_username = 'nodeone@gmail.com'
+        config.mail_default_sender = 'nodeone@gmail.com'
         config.use_environment_variables = False  # Usar BD, no variables de entorno
         config.is_active = True
         config.updated_at = datetime.utcnow()
@@ -68,8 +68,8 @@ def setup_gmail_relatic():
             print("   ✅ Servidor: smtp.gmail.com")
             print("   ✅ Puerto: 587")
             print("   ✅ TLS: True")
-            print("   ✅ Usuario: relaticpanama2025@gmail.com")
-            print("   ✅ Remitente: relaticpanama2025@gmail.com")
+            print("   ✅ Usuario: nodeone@gmail.com")
+            print("   ✅ Remitente: nodeone@gmail.com")
             
             print("\n🔐 IMPORTANTE: CONTRASEÑA DE APLICACIÓN REQUERIDA")
             print("   Para Gmail necesitas una contraseña de aplicación (16 caracteres)")
@@ -77,14 +77,14 @@ def setup_gmail_relatic():
             print("\n📝 Pasos para generar contraseña de aplicación:")
             print("   1. Ve a: https://myaccount.google.com/apppasswords")
             print("   2. Selecciona 'Correo' → 'Otro (nombre personalizado)'")
-            print("   3. Escribe: 'RelaticPanama'")
+            print("   3. Escribe: 'Easy NodeOne'")
             print("   4. Copia la contraseña de 16 caracteres (sin espacios)")
             print("   5. Configúrala en /admin/email")
             
             print("\n💡 PRÓXIMOS PASOS:")
             print("   1. Genera la contraseña de aplicación en Google")
             print("   2. Ve a /admin/email y configura la contraseña (16 caracteres)")
-            print("   3. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+            print("   3. Reinicia el servicio: sudo systemctl restart nodeone.service")
             print("   4. Prueba el envío desde /admin/email")
             
         except Exception as e:
@@ -96,4 +96,4 @@ def setup_gmail_relatic():
         return True
 
 if __name__ == '__main__':
-    setup_gmail_relatic()
+    setup_gmail_smtp()

@@ -202,7 +202,7 @@
     background-color: var(--success-green) !important;
 }
 
-/* Navbar estilo landing (igual que relatic-frontend: fondo blanco, texto oscuro) */
+/* Navbar estilo landing (igual que example-frontend: fondo blanco, texto oscuro) */
 .navbar-landing {
     background-color: #ffffff !important;
     border-bottom: 1px solid #e2e8f0;
@@ -422,7 +422,7 @@
     background: linear-gradient(90deg, transparent 0%, var(--secondary-blue) 50%, transparent 100%);
 }
 
-    /* Logo RELATIC PANAMÁ */
+    /* Logo Easy NodeOne */
     .logo-container {
         display: flex;
         flex-direction: column;
@@ -605,7 +605,7 @@ body.sidebar-collapsed .sidebar-brand-full {
     display: none !important;
 }
 
-/* Ocultar todos los textos de RELATIC PANAMÁ cuando está colapsado */
+/* Ocultar todos los textos de Easy NodeOne cuando está colapsado */
 body.sidebar-collapsed .sidebar-brand-text,
 body.sidebar-collapsed .sidebar-brand-text-small {
     display: none !important;

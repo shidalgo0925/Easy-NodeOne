@@ -165,4 +165,4 @@ Estamos trabajando en:
 
 ---
 
-*Gracias por ser parte de RELATIC Panamá. Tu experiencia es nuestra prioridad.*
+*Gracias por ser parte de Easy NodeOne. Tu experiencia es nuestra prioridad.*

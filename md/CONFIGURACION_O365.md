@@ -44,7 +44,7 @@ Si prefieres usar variables de entorno (más seguro):
 
 1. **Editar el archivo del servicio systemd:**
    ```bash
-   sudo nano /etc/systemd/system/membresia-relatic.service
+   sudo nano /etc/systemd/system/nodeone.service
    ```
 
 2. **Agregar en la sección `[Service]`:**
@@ -61,7 +61,7 @@ Si prefieres usar variables de entorno (más seguro):
 3. **Recargar y reiniciar:**
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl restart membresia-relatic.service
+   sudo systemctl restart nodeone.service
    ```
 
 4. **En el panel `/admin/email`:**
@@ -100,7 +100,7 @@ Si prefieres usar variables de entorno (más seguro):
 ### 2. Revisar Logs
 
 ```bash
-sudo journalctl -u membresia-relatic.service -f
+sudo journalctl -u nodeone.service -f
 ```
 
 Buscar mensajes como:

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Estudiantes — Educación{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+  <h1 class="h4 mb-3"><i class="fas fa-user-graduate me-2"></i>Estudiantes</h1>
+  <p class="text-muted small">Registro académico ligado a usuarios existentes. Los campos de programa, facultad, sede, etc. se guardan aquí; nombre y email siguen en el usuario.</p>
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <h6 class="card-title">Nuevo estudiante (crear usuario)</h6>
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-md-3"><label class="form-label small">Email</label><input type="email" id="ns_email" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><label class="form-label small">Nombre</label><input type="text" id="ns_fn" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><label class="form-label small">Apellido</label><input type="text" id="ns_ln" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><label class="form-label small">Código estudiante</label><input type="text" id="ns_code" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><label class="form-label small">Contraseña (≥8)</label><input type="password" id="ns_pw" class="form-control form-control-sm"></div>
+        <div class="col-md-1"><button type="button" class="btn btn-primary btn-sm w-100" id="ns_btn">Crear</button></div>
+      </div>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3"><label class="form-label small">Programa / carrera</label><input type="text" id="ns_program" class="form-control form-control-sm" placeholder="Opcional"></div>
+        <div class="col-md-2"><label class="form-label small">Facultad / escuela</label><input type="text" id="ns_faculty" class="form-control form-control-sm" placeholder="Opcional"></div>
+        <div class="col-md-2"><label class="form-label small">Sede / campus</label><input type="text" id="ns_campus" class="form-control form-control-sm" placeholder="Opcional"></div>
+        <div class="col-md-2"><label class="form-label small">Año ingreso</label><input type="number" id="ns_cohort" class="form-control form-control-sm" placeholder="Ej. 2024" min="1950" max="2100"></div>
+        <div class="col-md-2"><label class="form-label small">Email institucional</label><input type="email" id="ns_inst_email" class="form-control form-control-sm" placeholder="Opcional"></div>
+        <div class="col-md-1"><label class="form-label small">Estado</label><select id="ns_status" class="form-select form-select-sm"><option value="active">Activo</option><option value="inactive">Inactivo</option><option value="graduated">Graduado</option><option value="withdrawn">Baja</option></select></div>
+      </div>
+    </div>
+  </div>
+  <div id="apiErr" class="alert alert-danger d-none" role="alert"></div>
+  <div class="card shadow-sm">
+    <div class="card-header py-2">Listado</div>
+    <div class="card-body p-0 table-responsive">
+      <table class="table table-sm table-hover mb-0"><thead><tr>
+        <th>Código</th><th>Usuario</th><th>Email</th><th>Programa</th><th>Facultad</th><th>Sede</th><th>Año</th><th>Email inst.</th><th>Estado</th><th></th>
+      </tr></thead><tbody id="tbl"></tbody></table>
+      <p id="emptyHint" class="text-muted small p-3 mb-0 d-none">No hay estudiantes. Activa el módulo <strong>Educación / LMS</strong> en Admin → Módulos SaaS si no ves el menú lateral, o crea el primero arriba.</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2"><h6 class="modal-title">Editar estudiante</h6><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="ed_id">
+        <div class="row g-2">
+          <div class="col-md-4"><label class="form-label small">Código</label><input type="text" id="ed_code" class="form-control form-control-sm"></div>
+          <div class="col-md-4"><label class="form-label small">Estado</label><select id="ed_status" class="form-select form-select-sm"><option value="active">Activo</option><option value="inactive">Inactivo</option><option value="graduated">Graduado</option><option value="withdrawn">Baja</option></select></div>
+          <div class="col-md-12"><label class="form-label small">Programa / carrera</label><input type="text" id="ed_program" class="form-control form-control-sm"></div>
+          <div class="col-md-6"><label class="form-label small">Facultad</label><input type="text" id="ed_faculty" class="form-control form-control-sm"></div>
+          <div class="col-md-6"><label class="form-label small">Sede</label><input type="text" id="ed_campus" class="form-control form-control-sm"></div>
+          <div class="col-md-4"><label class="form-label small">Año ingreso</label><input type="number" id="ed_cohort" class="form-control form-control-sm" min="1950" max="2100"></div>
+          <div class="col-md-8"><label class="form-label small">Email institucional</label><input type="email" id="ed_inst_email" class="form-control form-control-sm"></div>
+        </div>
+        <p class="text-muted small mt-2 mb-0">Nombre y email de acceso se editan desde la gestión de usuarios del tenant.</p>
+      </div>
+      <div class="modal-footer py-2"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary btn-sm" id="ed_save">Guardar</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const API = '/api/admin/academic/students';
+  function showErr(msg){ var e=document.getElementById('apiErr'); e.textContent=msg; e.classList.remove('d-none'); }
+  function hideErr(){ var e=document.getElementById('apiErr'); e.classList.add('d-none'); }
+  function escapeHtml(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
+  function cell(t){ return '<td>'+escapeHtml(t)+'</td>'; }
+  function load(){
+    hideErr();
+    fetch(API, {credentials:'same-origin'}).then(function(r){
+      if(r.status===404||r.status===403){
+        return r.json().then(function(j){ throw new Error(j.error||('HTTP '+r.status)); });
+      }
+      return r.json();
+    }).then(function(j){
+      if(!j.success){ showErr(j.error||'Error al cargar'); return; }
+      const tb = document.getElementById('tbl'); tb.innerHTML='';
+      var rows = j.students||[];
+      document.getElementById('emptyHint').classList.toggle('d-none', rows.length>0);
+      rows.forEach(function(s){
+        const tr = document.createElement('tr');
+        const cy = (s.cohort_year!=null && s.cohort_year!=='') ? String(s.cohort_year) : '—';
+        tr.innerHTML =
+          cell(s.student_code)+
+          cell(s.first_name+' '+s.last_name)+
+          cell(s.email)+
+          cell(s.program_name||'—')+
+          cell(s.faculty||'—')+
+          cell(s.campus||'—')+
+          cell(cy)+
+          cell(s.institutional_email||'—')+
+          cell(s.academic_status)+
+          '<td></td>';
+        const tdBtn = tr.lastChild;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-secondary btn-sm py-0';
+        btn.textContent = 'Editar';
+        btn.addEventListener('click', function(){
+          document.getElementById('ed_id').value = s.id;
+          document.getElementById('ed_code').value = s.student_code||'';
+          document.getElementById('ed_status').value = s.academic_status||'active';
+          document.getElementById('ed_program').value = s.program_name||'';
+          document.getElementById('ed_faculty').value = s.faculty||'';
+          document.getElementById('ed_campus').value = s.campus||'';
+          document.getElementById('ed_cohort').value = (s.cohort_year!=null&&s.cohort_year!=='')?s.cohort_year:'';
+          document.getElementById('ed_inst_email').value = s.institutional_email||'';
+          new bootstrap.Modal(document.getElementById('editModal')).show();
+        });
+        tdBtn.appendChild(btn);
+        tb.appendChild(tr);
+      });
+    }).catch(function(err){ showErr(err.message||'Error de red'); });
+  }
+  document.getElementById('ns_btn').onclick = function(){
+    var body = {
+      email: document.getElementById('ns_email').value,
+      first_name: document.getElementById('ns_fn').value,
+      last_name: document.getElementById('ns_ln').value,
+      student_code: document.getElementById('ns_code').value,
+      password: document.getElementById('ns_pw').value,
+      academic_status: document.getElementById('ns_status').value,
+      program_name: document.getElementById('ns_program').value,
+      faculty: document.getElementById('ns_faculty').value,
+      campus: document.getElementById('ns_campus').value,
+      institutional_email: document.getElementById('ns_inst_email').value
+    };
+    var cy = document.getElementById('ns_cohort').value.trim();
+    if(cy) body.cohort_year = parseInt(cy,10);
+    fetch(API, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}).then(r=>r.json()).then(j=>{ if(!j.success){ alert(j.error||'Error'); return;} load(); });
+  };
+  document.getElementById('ed_save').onclick = function(){
+    var id = document.getElementById('ed_id').value;
+    var body = {
+      student_code: document.getElementById('ed_code').value,
+      academic_status: document.getElementById('ed_status').value,
+      program_name: document.getElementById('ed_program').value,
+      faculty: document.getElementById('ed_faculty').value,
+      campus: document.getElementById('ed_campus').value,
+      institutional_email: document.getElementById('ed_inst_email').value
+    };
+    var cy = document.getElementById('ed_cohort').value.trim();
+    body.cohort_year = cy ? parseInt(cy,10) : null;
+    fetch(API+'/'+id, {method:'PUT', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}).then(r=>r.json()).then(j=>{
+      if(!j.success){ alert(j.error||'Error'); return;}
+      bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+      load();
+    });
+  };
+  load();
+})();
+</script>
+{% endblock %}

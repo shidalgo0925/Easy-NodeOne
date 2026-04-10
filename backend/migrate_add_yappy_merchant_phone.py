@@ -16,12 +16,12 @@ def find_database():
     
     # Posibles ubicaciones (según app.py línea 80)
     possible_paths = [
-        os.path.join(project_root, 'instance', 'relaticpanama.db'),  # Ruta según app.py
-        os.path.join(backend_dir, 'instance', 'relaticpanama.db'),    # Alternativa
-        os.path.join(backend_dir, 'relaticpanama.db'),
-        os.path.join(project_root, 'relaticpanama.db'),
-        os.path.join(os.getcwd(), 'relaticpanama.db'),
-        'relaticpanama.db'
+        os.path.join(project_root, 'instance', 'membership_legacy.db'),  # Ruta según app.py
+        os.path.join(backend_dir, 'instance', 'membership_legacy.db'),    # Alternativa
+        os.path.join(backend_dir, 'membership_legacy.db'),
+        os.path.join(project_root, 'membership_legacy.db'),
+        os.path.join(os.getcwd(), 'membership_legacy.db'),
+        'membership_legacy.db'
     ]
     
     # También verificar variable de entorno
@@ -43,13 +43,13 @@ def migrate():
     db_path = find_database()
     
     if not db_path:
-        print("❌ No se encontró la base de datos relaticpanama.db")
+        print("❌ No se encontró la base de datos membership_legacy.db")
         print("   Buscando en:")
         backend_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(backend_dir)
-        print(f"   - {os.path.join(backend_dir, 'relaticpanama.db')}")
-        print(f"   - {os.path.join(project_root, 'relaticpanama.db')}")
-        print(f"   - {os.path.join(os.getcwd(), 'relaticpanama.db')}")
+        print(f"   - {os.path.join(backend_dir, 'membership_legacy.db')}")
+        print(f"   - {os.path.join(project_root, 'membership_legacy.db')}")
+        print(f"   - {os.path.join(os.getcwd(), 'membership_legacy.db')}")
         print("\n   Por favor, ejecuta este script desde el directorio donde está la base de datos")
         return False
     

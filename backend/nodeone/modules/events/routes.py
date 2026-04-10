@@ -592,13 +592,13 @@ def confirm_event_registration(event_id, registration_id):
                 <li><strong>Precio pagado:</strong> ${registration.final_price:.2f} {event.currency}</li>
             </ul>
             <p>Te esperamos en el evento. Si tienes alguna pregunta, no dudes en contactarnos.</p>
-            <p>Saludos,<br>Equipo RelaticPanama</p>
+            <p>Saludos,<br>Equipo Easy NodeOne</p>
             """
             text_content = None
         
         # Enviar email usando EmailService (que registra automáticamente en EmailLog)
         email_sent = email_service.send_email(
-            subject=f'[RelaticPanama] Registro confirmado: {event.title}',
+            subject=f'[Easy NodeOne] Registro confirmado: {event.title}',
             recipients=[user.email],
             html_content=html_content,
             text_content=text_content,

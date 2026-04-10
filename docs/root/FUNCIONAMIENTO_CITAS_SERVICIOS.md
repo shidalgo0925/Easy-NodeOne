@@ -1063,7 +1063,7 @@ if __name__ == '__main__':
 ### 6.2 Ejecutar Migración
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python backend/migrate_service_appointment_fields.py
 ```

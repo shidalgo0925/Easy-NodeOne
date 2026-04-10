@@ -1,7 +1,7 @@
 # 📋 Plan de Implementación de Mejoras 2025
 
 > **Fecha de Creación**: Diciembre 2025  
-> **Sistema**: Membresía RelaticPanama  
+> **Sistema**: Membresía Easy NodeOne  
 > **Objetivo**: Plan detallado para implementar las 20 funcionalidades identificadas
 
 ---

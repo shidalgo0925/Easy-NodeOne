@@ -176,10 +176,10 @@ def api_reject_payment(payment_id):
                 <p>Lamentamos informarte que tu pago #{payment.id} ha sido rechazado.</p>
                 <p><strong>Razón:</strong> {admin_notes or 'No se pudo verificar el comprobante de pago'}</p>
                 <p>Por favor, verifica los datos de tu comprobante y vuelve a intentar.</p>
-                <p>Saludos,<br>Equipo RelaticPanama</p>
+                <p>Saludos,<br>Equipo Easy NodeOne</p>
                 """
                 M.email_service.send_email(
-                    subject='Pago Rechazado - RelaticPanama',
+                    subject='Pago Rechazado - Easy NodeOne',
                     recipients=[user.email],
                     html_content=html_content,
                     email_type='payment_rejected',

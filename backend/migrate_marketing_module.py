@@ -5,13 +5,13 @@ import os
 from pathlib import Path
 
 for db_path in [
-    Path(__file__).parent.parent / 'instance' / 'nodeone.db',
-    Path(__file__).parent / 'instance' / 'nodeone.db',
+    Path(__file__).parent.parent / 'instance' / 'NodeOne.db',
+    Path(__file__).parent / 'instance' / 'NodeOne.db',
 ]:
     if db_path.exists():
         break
 else:
-    print("No se encontró nodeone.db en instance/")
+    print("No se encontró NodeOne.db en instance/")
     exit(1)
 
 conn = sqlite3.connect(str(db_path))

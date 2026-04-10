@@ -29,7 +29,7 @@ class CertificateEvent(db.Model):
     convenio = db.Column(db.String(200))
     rector_name = db.Column(db.String(200))
     academic_director_name = db.Column(db.String(200))
-    partner_organization = db.Column(db.String(200))  # Ej. Relatic Panamá (pie derecho)
+    partner_organization = db.Column(db.String(200))  # Ej. Easy NodeOne (pie derecho)
     logo_left_url = db.Column(db.String(500))
     logo_right_url = db.Column(db.String(500))
     seal_url = db.Column(db.String(500))

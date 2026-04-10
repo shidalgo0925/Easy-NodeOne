@@ -174,8 +174,8 @@ def check_file_structure():
         print(f"❌ Template de bienvenida NO existe en: {template_path}")
     
     # Verificar logo
-    logo_path_png = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos', 'logo-relatic.png')
-    logo_path_svg = os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'logo-relatic.svg')
+    logo_path_png = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos', 'logo-primary.png')
+    logo_path_svg = os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'logo-primary.svg')
     
     if os.path.exists(logo_path_png):
         print("✅ Logo PNG encontrado en nueva ubicación")

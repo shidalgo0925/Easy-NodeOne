@@ -3,6 +3,27 @@
 from sqlalchemy import insert, text as sql_text
 
 
+def _user_has_role_sa(user) -> bool:
+    """Rol SA (SuperAdministrador) en RBAC; puede gestionar el flag is_admin aunque la columna esté desincronizada."""
+    if user is None or not getattr(user, 'id', None):
+        return False
+    from app import db
+
+    r = db.session.execute(
+        sql_text(
+            'SELECT 1 FROM user_role ur JOIN role r ON r.id = ur.role_id '
+            "WHERE ur.user_id = :uid AND r.code = 'SA' LIMIT 1"
+        ),
+        {'uid': int(user.id)},
+    ).fetchone()
+    return r is not None
+
+
+def can_manage_platform_superuser_fields(user) -> bool:
+    """Quién puede ver/editar is_admin en UI y backend: flag plataforma o rol SA."""
+    return bool(getattr(user, 'is_admin', False)) or _user_has_role_sa(user)
+
+
 def apply_operator_filter(query, model, field_name, value):
     """Aplica filtro con soporte para negación usando '!' al inicio."""
     if not value:
@@ -24,6 +45,7 @@ def register_admin_users_roles_routes(app):
         require_permission,
         Role,
         role_permission_table,
+        SaasOrganization,
         Subscription,
         user_role_table,
         User,
@@ -54,9 +76,32 @@ def register_admin_users_roles_routes(app):
         tag_filter = request.args.get('tag', '').strip()
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
-    
-        # Construir query base: solo usuarios de la empresa activa (sesión / selector)
+
+        # is_admin (columna) o rol SA: pueden ver casilla "Es Administrador" y filtro por organización
+        is_platform_admin = can_manage_platform_superuser_fields(current_user)
+        users_organization_filter = None
+        # Construir query base: empresa activa (sesión / selector); admin plataforma puede acotar por ?organization_id=
         scope_oid = admin_data_scope_organization_id()
+        if is_platform_admin:
+            org_param = request.args.get('organization_id', type=int)
+            if org_param:
+                scope_oid = org_param
+                users_organization_filter = org_param
+
+        saas_organizations = []
+        if is_platform_admin:
+            from utils.organization import platform_visible_organization_ids
+
+            _rows = (
+                SaasOrganization.query.filter_by(is_active=True)
+                .order_by(SaasOrganization.name.asc(), SaasOrganization.id.asc())
+                .all()
+            )
+            _allow = platform_visible_organization_ids()
+            if _allow is not None:
+                _rows = [o for o in _rows if int(o.id) in _allow]
+            saas_organizations = _rows
+
         query = User.query.filter(user_in_org_clause(User, scope_oid))
 
         # Filtro de búsqueda (nombre, email, teléfono)
@@ -100,7 +145,7 @@ def register_admin_users_roles_routes(app):
             else:
                 query = query.filter(User.is_advisor == bool_val)
     
-        # Filtro de grupo (soporta !relatic)
+        # Filtro de grupo (soporta exclusión con prefijo ! en slug)
         if group_filter and group_filter != 'all':
             query = apply_operator_filter(query, User, 'user_group', group_filter)
     
@@ -152,19 +197,24 @@ def register_admin_users_roles_routes(app):
                         'is_subscription': False
                     }
     
-        return render_template('admin/users.html', 
-                             users=users,
-                             pagination=pagination,
-                             search=search,
-                             status_filter=status_filter,
-                             admin_filter=admin_filter,
-                             advisor_filter=advisor_filter,
-                             group_filter=group_filter,
-                             tag_filter=tag_filter,
-                             groups=groups,
-                             unique_tags=unique_tags,
-                             valid_countries=VALID_COUNTRIES,
-                             user_memberships=user_memberships)
+        return render_template(
+            'admin/users.html',
+            users=users,
+            pagination=pagination,
+            search=search,
+            status_filter=status_filter,
+            admin_filter=admin_filter,
+            advisor_filter=advisor_filter,
+            group_filter=group_filter,
+            tag_filter=tag_filter,
+            groups=groups,
+            unique_tags=unique_tags,
+            valid_countries=VALID_COUNTRIES,
+            user_memberships=user_memberships,
+            can_filter_users_by_org=is_platform_admin,
+            saas_organizations=saas_organizations,
+            users_organization_filter=users_organization_filter,
+        )
 
 
     @app.route('/admin/users/<int:user_id>/update', methods=['POST'])
@@ -232,7 +282,8 @@ def register_admin_users_roles_routes(app):
             user.password_hash = generate_password_hash(new_password)
 
         user.is_active = bool(request.form.get('is_active'))
-        user.is_admin = bool(request.form.get('is_admin'))
+        if can_manage_platform_superuser_fields(current_user):
+            user.is_admin = bool(request.form.get('is_admin'))
         wants_advisor = bool(request.form.get('is_advisor'))
 
         if wants_advisor and not user.is_advisor:
@@ -240,7 +291,7 @@ def register_admin_users_roles_routes(app):
             if not user.advisor_profile:
                 new_profile = Advisor(
                     user_id=user.id,
-                    headline=request.form.get('advisor_headline', '').strip() or 'Asesor RELATIC',
+                    headline=request.form.get('advisor_headline', '').strip() or 'Asesor Easy NodeOne',
                     specializations=request.form.get('advisor_specializations', '').strip(),
                     meeting_url=request.form.get('advisor_meeting_url', '').strip(),
                 )
@@ -267,7 +318,11 @@ def register_admin_users_roles_routes(app):
             country = request.form.get('country', '').strip()
             cedula_or_passport = request.form.get('cedula_or_passport', '').strip()
             is_active = bool(request.form.get('is_active'))
-            is_admin = bool(request.form.get('is_admin'))
+            is_admin = (
+                bool(request.form.get('is_admin'))
+                if can_manage_platform_superuser_fields(current_user)
+                else False
+            )
             is_advisor = bool(request.form.get('is_advisor'))
             tags = request.form.get('tags', '').strip() or None
             user_group = request.form.get('user_group', '').strip() or None
@@ -332,7 +387,7 @@ def register_admin_users_roles_routes(app):
             if is_advisor:
                 new_profile = Advisor(
                     user_id=new_user.id,
-                    headline='Asesor RELATIC',
+                    headline='Asesor Easy NodeOne',
                     specializations='',
                     meeting_url=''
                 )

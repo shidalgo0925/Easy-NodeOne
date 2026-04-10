@@ -10,7 +10,7 @@ if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Uso: $0 <API_KEY> <HMAC_SECRET>"
     echo ""
     echo "Ejemplo:"
-    echo "  $0 'RELATIC_API_KEY_2026' 'my_secret_key_for_hmac'"
+    echo "  $0 'Easy NodeOne_API_KEY_2026' 'my_secret_key_for_hmac'"
     exit 1
 fi
 

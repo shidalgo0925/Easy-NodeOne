@@ -6,19 +6,26 @@ import os
 def platform_nav_logo_relpath():
     """
     Logo de barra/favicon fijo de producto (Easy NodeOne).
-    El upload de branding en /admin escribe logo-relatic.* en public/emails/logos y copia a
-    images/logo-relatic.* — puede pisar el icono global. Este nombre no lo toca el upload.
+    El upload de branding en /admin puede escribir el logo del tenant en public/emails/logos;
+    el nombre por defecto del asset de producto es distinto (logo-easy-nodeone / logo-primary).
     """
     import app as M
+
+    try:
+        from nodeone.config.settings import settings
+
+        bn = settings.LOGO_BASENAME
+    except Exception:
+        bn = 'logo-primary'
 
     static_dir = os.path.join(os.path.dirname(M.__file__), '..', 'static')
     p = os.path.join(static_dir, 'images', 'logo-easy-nodeone.svg')
     if os.path.exists(p):
         return 'images/logo-easy-nodeone.svg'
-    p2 = os.path.join(static_dir, 'images', 'logo-relatic.svg')
+    p2 = os.path.join(static_dir, 'images', f'{bn}.svg')
     if os.path.exists(p2):
-        return 'images/logo-relatic.svg'
-    return 'images/logo-relatic.svg'
+        return f'images/{bn}.svg'
+    return f'images/{bn}.svg'
 
 
 def nav_theme_logo_relpath():

@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 # Ruta a la base de datos
-db_path = Path(__file__).parent.parent / 'instance' / 'relaticpanama.db'
+db_path = Path(__file__).parent.parent / 'instance' / 'membership_legacy.db'
 
 if not db_path.exists():
     print(f"❌ Error: No se encontró la base de datos en {db_path}")

@@ -13,7 +13,7 @@ El sistema tiene **3 formas** de confirmar pagos de Yappy:
 - **Estado**: ✅ Implementado y funcionando
 - **Requisitos**: 
   - Yappy debe estar configurado para enviar webhooks a esta URL
-  - La URL debe ser accesible públicamente: `https://miembros.relatic.org/webhook/yappy`
+  - La URL debe ser accesible públicamente: `https://app.example.com/webhook/yappy`
 
 ### 2. **Verificación Manual por Código** (Para usuarios)
 - **Endpoint**: `POST /api/payments/yappy/verify-by-code`
@@ -46,7 +46,7 @@ curl -X POST "http://localhost:8080/api/payments/yappy/verify-by-code" \
 
 ### Opción 3: Ejecutar Script de Verificación Manual
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 verify_yappy_payment_manual.py EBOWR-38807178
 ```
 
@@ -98,7 +98,7 @@ WHERE payment_method = 'yappy'
 ### Paso 3: Probar verificación manual
 - **Opción A**: Usar el endpoint público `/api/payments/yappy/verify` (NO requiere login)
   ```bash
-  curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify" \
+  curl -X POST "https://app.example.com/api/payments/yappy/verify" \
     -H "Content-Type: application/json" \
     -d '{"reference": "EBOWR-38807178"}'
   ```
@@ -118,13 +118,13 @@ WHERE payment_method = 'yappy'
 crontab -l | grep verify_yappy
 
 # Ejecutar manualmente para probar
-python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py
+python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py
 ```
 
 ## 📝 Recomendaciones
 
 1. **Configurar webhook en Yappy** (Más importante)
-   - URL: `https://miembros.relatic.org/webhook/yappy`
+   - URL: `https://app.example.com/webhook/yappy`
    - Esto asegura confirmación automática inmediata
 
 2. **Verificar que el cron job esté activo**

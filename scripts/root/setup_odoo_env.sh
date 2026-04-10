@@ -20,7 +20,7 @@ echo ""
 
 # Valores por defecto - EDITAR ESTOS VALORES
 ODOO_ENABLED="true"
-ODOO_API_URL="https://odoo.relatic.org/api/relatic/v1/sale"
+ODOO_API_URL="https://odoo.example.com/api/v1/sale"
 ODOO_API_KEY="CAMBIAR_CON_API_KEY_REAL"
 ODOO_HMAC_SECRET="CAMBIAR_CON_HMAC_SECRET_REAL"
 ODOO_ENVIRONMENT="prod"

@@ -1,4 +1,4 @@
-# KIT OPERATIVO DIGITAL — RELATIC PANAMÁ
+# KIT OPERATIVO DIGITAL — Easy NodeOne
 
 Documento base para formalizar la operación tecnológica y garantizar autonomía institucional.
 

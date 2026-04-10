@@ -1,6 +1,6 @@
 # FASE 5 — Asignación de roles a usuarios (UI + auditoría)
 
-**Proyecto:** membresia-relatic  
+**Proyecto:** nodeone  
 **Objetivo:** Permitir a administradores con permiso `roles.assign` asignar y quitar roles a usuarios, con validación exclusiva por permisos y auditoría obligatoria.
 
 ---

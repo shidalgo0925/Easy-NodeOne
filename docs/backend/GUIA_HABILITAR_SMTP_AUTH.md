@@ -8,7 +8,7 @@ La opción de "Autenticación SMTP básica" puede estar en diferentes lugares se
 
 1. Ve a: https://admin.microsoft.com
 2. **Usuarios** → **Usuarios activos**
-3. Busca y haz clic en **info@relaticpanama.org**
+3. Busca y haz clic en **info@example.com**
 4. Haz clic en la pestaña **"Correo"** (no "General")
 5. Busca la sección **"Autenticación SMTP básica"** o **"SMTP AUTH"**
 6. Habilita la opción
@@ -16,7 +16,7 @@ La opción de "Autenticación SMTP básica" puede estar en diferentes lugares se
 
 ### Opción 2: En "Aplicaciones de correo electrónico"
 
-1. En la página del usuario info@relaticpanama.org
+1. En la página del usuario info@example.com
 2. Busca la sección **"Aplicaciones de correo electrónico"**
 3. Haz clic en **"Administrar aplicaciones de correo"**
 4. Busca **"Autenticación SMTP básica"** o **"Otras aplicaciones de correo electrónico permitidas"**
@@ -27,7 +27,7 @@ La opción de "Autenticación SMTP básica" puede estar en diferentes lugares se
 
 1. Ve a: https://admin.exchange.microsoft.com
 2. **Destinatarios** → **Buzones**
-3. Busca **info@relaticpanama.org**
+3. Busca **info@example.com**
 4. Haz doble clic para abrir las propiedades
 5. Ve a la pestaña **"Correo"** o **"Funciones de buzón"**
 6. Busca **"Autenticación SMTP básica"**
@@ -43,10 +43,10 @@ Si tienes acceso a PowerShell:
 Connect-ExchangeOnline
 
 # Habilitar SMTP AUTH para el usuario
-Set-CASMailbox -Identity "info@relaticpanama.org" -SmtpClientAuthenticationDisabled $false
+Set-CASMailbox -Identity "info@example.com" -SmtpClientAuthenticationDisabled $false
 
 # Verificar que está habilitado
-Get-CASMailbox -Identity "info@relaticpanama.org" | Select SmtpClientAuthenticationDisabled
+Get-CASMailbox -Identity "info@example.com" | Select SmtpClientAuthenticationDisabled
 ```
 
 ## Verificación

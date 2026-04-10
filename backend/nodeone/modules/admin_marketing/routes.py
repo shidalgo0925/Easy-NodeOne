@@ -78,7 +78,7 @@ def register_admin_marketing_routes(app):
                 mail_use_ssl=bool(data.get('mail_use_ssl', False)),
                 mail_username=(data.get('mail_username') or '').strip(),
                 mail_password=(data.get('mail_password') or '').strip() or None,
-                mail_default_sender=(data.get('mail_default_sender') or 'noreply@relaticpanama.org').strip(),
+                mail_default_sender=(data.get('mail_default_sender') or 'noreply@example.com').strip(),
                 use_environment_variables=bool(data.get('use_environment_variables', False)),
                 is_active=False,
                 use_for_marketing=False,

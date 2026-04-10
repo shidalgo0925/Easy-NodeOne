@@ -6,6 +6,8 @@ Idempotente: seguro en bootstrap (ExecStartPre) y en migraciones.
 
 from __future__ import annotations
 
+import os
+
 from sqlalchemy import inspect, text
 
 # Códigos usados en guards/plantillas.
@@ -23,6 +25,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
     ('policies', 'Normativas', 'Políticas y normativas públicas', False),
     ('communications', 'Comunicaciones', 'Integraciones y mensajería', False),
     (
+        'office365',
+        'Office 365 (correo)',
+        'Solicitudes de correo institucional y flujo Office 365.',
+        False,
+    ),
+    (
         'sales',
         'Ventas',
         'Cotizaciones, facturación e impuestos (flujo comercial).',
@@ -38,6 +46,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'workshop',
         'Taller',
         'Recepción de vehículos, inspección (body map), órdenes y enlace a cotización.',
+        False,
+    ),
+    (
+        'academic',
+        'Educación / LMS',
+        'Estudiantes, cursos académicos, matrículas e integración Moodle.',
         False,
     ),
 )
@@ -137,10 +151,12 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'crm_contacts',
     'certificates',
     'communications',
+    'office365',
     'events',
     'chatbot',
     'marketing_email',
     'policies',
+    'academic',
 )
 
 
@@ -180,10 +196,70 @@ def ensure_toggleable_tenant_module_links(printfn=None, organization_id: int | N
         db.session.commit()
 
 
+def ensure_office365_module_dependency(printfn=None) -> None:
+    """office365 depende de communications (Admin → Módulos)."""
+    from app import SaasModule, SaasModuleDependency, db
+
+    child = SaasModule.query.filter_by(code='office365').first()
+    parent = SaasModule.query.filter_by(code='communications').first()
+    if child is None or parent is None:
+        return
+    existing = SaasModuleDependency.query.filter_by(
+        module_id=child.id, depends_on_module_id=parent.id
+    ).first()
+    if existing is not None:
+        return
+    db.session.add(SaasModuleDependency(module_id=child.id, depends_on_module_id=parent.id))
+    _log(printfn, '+ saas_module_dependency: office365 → communications')
+    db.session.commit()
+
+
+def ensure_academic_module_dependency(printfn=None) -> None:
+    """academic depende de sales (facturación / cotizaciones)."""
+    from app import SaasModule, SaasModuleDependency, db
+
+    child = SaasModule.query.filter_by(code='academic').first()
+    parent = SaasModule.query.filter_by(code='sales').first()
+    if child is None or parent is None:
+        return
+    existing = SaasModuleDependency.query.filter_by(
+        module_id=child.id, depends_on_module_id=parent.id
+    ).first()
+    if existing is not None:
+        return
+    db.session.add(SaasModuleDependency(module_id=child.id, depends_on_module_id=parent.id))
+    _log(printfn, '+ saas_module_dependency: academic → sales')
+    db.session.commit()
+
+
+def ensure_academic_org_modules_on(printfn=None) -> None:
+    """
+    Enciende saas_org_module para `academic` donde estaba en off (instalación inicial lo dejó apagado).
+    Omitir con NODEONE_ACADEMIC_KEEP_DEFAULT_OFF=1.
+    """
+    if os.environ.get('NODEONE_ACADEMIC_KEEP_DEFAULT_OFF', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    from app import SaasModule, SaasOrgModule, db
+
+    m = SaasModule.query.filter_by(code='academic').first()
+    if m is None:
+        return
+    n = 0
+    for link in SaasOrgModule.query.filter_by(module_id=m.id, enabled=False).all():
+        link.enabled = True
+        n += 1
+    if n:
+        db.session.commit()
+        _log(printfn, f'* saas_org_module: academic → on ({n} vínculo(s))')
+
+
 def ensure_saas_catalog_full(printfn=None) -> None:
     ensure_saas_module_catalog(printfn=printfn)
+    ensure_office365_module_dependency(printfn=printfn)
+    ensure_academic_module_dependency(printfn=printfn)
     ensure_sales_org_module_links(printfn=printfn)
     ensure_toggleable_tenant_module_links(printfn=printfn)
+    ensure_academic_org_modules_on(printfn=printfn)
 
 
 def apply_platform_org_allowlist(printfn=None) -> None:

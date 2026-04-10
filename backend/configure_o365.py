@@ -28,9 +28,9 @@ def configure_o365():
                 mail_port=587,
                 mail_use_tls=True,
                 mail_use_ssl=False,
-                mail_username='info@relaticpanama.org',
+                mail_username='info@example.com',
                 mail_password='Mariachi@0925',
-                mail_default_sender='info@relaticpanama.org',
+                mail_default_sender='info@example.com',
                 use_environment_variables=False,
                 is_active=True
             )
@@ -42,9 +42,9 @@ def configure_o365():
             config.mail_port = 587
             config.mail_use_tls = True
             config.mail_use_ssl = False
-            config.mail_username = 'info@relaticpanama.org'
+            config.mail_username = 'info@example.com'
             config.mail_password = 'Mariachi@0925'
-            config.mail_default_sender = 'info@relaticpanama.org'
+            config.mail_default_sender = 'info@example.com'
             config.use_environment_variables = False
             config.is_active = True
             config.updated_at = datetime.utcnow()
@@ -60,7 +60,7 @@ def configure_o365():
             print(f"   Remitente: {config.mail_default_sender}")
             print("\n✅ Configuración guardada exitosamente")
             print("\n⚠️  IMPORTANTE: Reinicia el servidor para aplicar los cambios:")
-            print("   sudo systemctl restart membresia-relatic.service")
+            print("   sudo systemctl restart nodeone.service")
             return True
         except Exception as e:
             db.session.rollback()

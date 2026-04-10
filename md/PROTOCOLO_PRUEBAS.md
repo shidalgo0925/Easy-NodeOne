@@ -1,4 +1,4 @@
-# Protocolo de Pruebas - Sistema membresia-relatic
+# Protocolo de Pruebas - Sistema nodeone
 
 > **Propósito**: Documento que define cómo probar todos los módulos y funcionalidades del sistema de manera sistemática.
 
@@ -719,16 +719,16 @@
 
 ```bash
 # Ver logs del servicio
-sudo journalctl -u membresia-relatic.service -f
+sudo journalctl -u nodeone.service -f
 
 # Verificar estado del servicio
-sudo systemctl status membresia-relatic.service
+sudo systemctl status nodeone.service
 
 # Reiniciar servicio
-sudo systemctl restart membresia-relatic.service
+sudo systemctl restart nodeone.service
 
 # Ver base de datos
-sqlite3 backend/instance/relaticpanama.db
+sqlite3 backend/instance/membership_legacy.db
 ```
 
 ### Consultas SQL Útiles

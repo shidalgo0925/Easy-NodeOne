@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Actualizar contraseña de info@relaticpanama.org
+Actualizar contraseña de info@example.com
 """
 
 import argparse
@@ -14,13 +14,13 @@ from app import app, db, EmailConfig
 
 
 def update_info_password():
-    """Actualizar contraseña de info@relaticpanama.org"""
+    """Actualizar contraseña de info@example.com"""
     parser = argparse.ArgumentParser(description='Actualizar contraseña en EmailConfig')
     parser.add_argument('--org-id', type=int, default=None, help='Tenant de la fila EmailConfig')
     args = parser.parse_args()
 
     print('=' * 60)
-    print('ACTUALIZAR CONTRASEÑA: info@relaticpanama.org')
+    print('ACTUALIZAR CONTRASEÑA: info@example.com')
     if args.org_id is not None:
         print(f'  (org: {args.org_id})')
     print('=' * 60)
@@ -32,7 +32,7 @@ def update_info_password():
             print("\n❌ No hay configuración activa")
             return False
         
-        if config.mail_username != 'info@relaticpanama.org':
+        if config.mail_username != 'info@example.com':
             print(f"\n⚠️  La configuración es para: {config.mail_username}")
             print("   ¿Quieres actualizar esta configuración?")
             respuesta = input("   (s/n): ").strip().lower()
@@ -43,7 +43,7 @@ def update_info_password():
         print(f"   Usuario: {config.mail_username}")
         print(f"   Contraseña actual: {'*' * 16 if config.mail_password else '(no configurada)'}")
         
-        print("\n🔐 Ingresa la nueva contraseña para info@relaticpanama.org:")
+        print("\n🔐 Ingresa la nueva contraseña para info@example.com:")
         print("   (La contraseña que usas para iniciar sesión en Outlook)")
         new_password = input("   Contraseña: ").strip()
         
@@ -61,7 +61,7 @@ def update_info_password():
             print(f"   Longitud: {len(new_password)} caracteres")
             
             print("\n💡 PRÓXIMOS PASOS:")
-            print("   1. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+            print("   1. Reinicia el servicio: sudo systemctl restart nodeone.service")
             print("   2. Prueba el envío desde /admin/email")
             
         except Exception as e:

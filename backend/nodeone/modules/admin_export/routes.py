@@ -39,8 +39,8 @@ def _get_export_logo_path():
     """Ruta absoluta del logo para PDF (solo PNG; ReportLab no soporta SVG). None si no hay logo."""
     base = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'static'))
     for rel in (
-        os.path.join('public', 'emails', 'logos', 'logo-relatic.png'),
-        os.path.join('images', 'logo-relatic.png'),
+        os.path.join('public', 'emails', 'logos', 'logo-primary.png'),
+        os.path.join('images', 'logo-primary.png'),
     ):
         path = os.path.join(base, rel)
         if os.path.isfile(path):

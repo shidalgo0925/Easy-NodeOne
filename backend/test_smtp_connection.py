@@ -16,9 +16,9 @@ def test_smtp_connection():
     # Configuración
     smtp_server = 'smtp.office365.com'
     smtp_port = 587
-    username = 'info@relaticpanama.org'
+    username = 'info@example.com'
     password = 'Mariachi@0925'
-    from_email = 'info@relaticpanama.org'
+    from_email = 'info@example.com'
     to_email = input("\n📬 Ingresa el email de prueba: ").strip()
     
     if not to_email:
@@ -50,14 +50,14 @@ def test_smtp_connection():
         msg = MIMEMultipart()
         msg['From'] = from_email
         msg['To'] = to_email
-        msg['Subject'] = '[Prueba] Test SMTP - RelaticPanama'
+        msg['Subject'] = '[Prueba] Test SMTP - Easy NodeOne'
         
         body = """
         <h2>Correo de Prueba SMTP</h2>
         <p>Este es un correo de prueba enviado directamente vía SMTP.</p>
         <p>Si recibes este correo, significa que la conexión SMTP funciona correctamente.</p>
-        <p><strong>Remitente:</strong> info@relaticpanama.org</p>
-        <p>Saludos,<br>Equipo RelaticPanama</p>
+        <p><strong>Remitente:</strong> info@example.com</p>
+        <p>Saludos,<br>Equipo Easy NodeOne</p>
         """
         msg.attach(MIMEText(body, 'html'))
         

@@ -2,7 +2,7 @@
 
 ## 🎯 Confirmación
 
-**SÍ, el sistema de confirmación automática de pagos (webhooks) funciona para TODOS los productos que se venden en membresia-relatic:**
+**SÍ, el sistema de confirmación automática de pagos (webhooks) funciona para TODOS los productos que se venden en nodeone:**
 
 - ✅ **Membresías** (`product_type='membership'`)
 - ✅ **Eventos** (`product_type='event'`)

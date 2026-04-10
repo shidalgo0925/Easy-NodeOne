@@ -11,10 +11,10 @@ def create_cart_tables():
     
     # Buscar la base de datos
     db_paths = [
-        'relaticpanama.db',
-        'instance/relaticpanama.db',
-        '../relaticpanama.db',
-        '../instance/relaticpanama.db'
+        'membership_legacy.db',
+        'instance/membership_legacy.db',
+        '../membership_legacy.db',
+        '../instance/membership_legacy.db'
     ]
     
     db_path = None

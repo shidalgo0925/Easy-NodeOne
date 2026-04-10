@@ -13,8 +13,7 @@ A      babershop     136.112.128.239    Sí      Debe coincidir con saas_organiz
 # Opcional: apex si la landing o app usan https://easynodeone.com
 A      @             136.112.128.239    Sí
 
-# --- Origen 86.48.20.243: cursos (Moodle) + app1 (NodeOne, proxy :8000) ---
-A      cursos        86.48.20.243       Sí      Moodle: deploy-nginx-moodle-cursos.sh
+# --- Origen 86.48.20.243 (otro VPS): app1 NodeOne (proxy :8000) si aplica ---
 A      app1          86.48.20.243       Sí      NodeOne: deploy-nginx-nodeone-app1.sh + nodeone.service
 
 # --- Web ---
@@ -28,6 +27,5 @@ CNAME  www           easynodeone.com    Sí      Ya lo tenés
 # =============================================================================
 # Comprobación rápida desde un PC:
 #   dig +short apps.easynodeone.com
-#   dig +short cursos.easynodeone.com
 # Tras proxy CF verás IPs de Cloudflare; en el panel CF debe mostrar el origen correcto.
 # =============================================================================

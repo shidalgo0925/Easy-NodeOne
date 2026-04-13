@@ -1,0 +1,13 @@
+---
+description: Easy NodeOne — único entorno de desarrollo (dev) y actualización vía Git
+alwaysApply: true
+---
+
+# Easy NodeOne — política obligatoria
+
+- **Única ruta autorizada** para editar código, templates y lógica del proyecto: `/opt/easynodeone/dev/app`. Ahí nacen los **commits** y el **push**.
+- **Prohibido** modificar manualmente el árbol del proyecto en `staging`, `prod` y `relatic` (no editar con editor, no copiar desde dev, no parches sueltos, no fixes directos en prod).
+- Esos entornos se actualizan **solo** con `git pull` desde el remoto (p. ej. `main` en staging/prod) más dependencias, migraciones y reinicio de servicio según corresponda.
+- **Ramas:** `dev/app` → `develop`; `staging/app`, `prod/app`, `relatic/app` → `main` (u otra rama solo si está acordado para relatic).
+
+Detalle completo, frase oficial para el equipo y checklist de cliente: **`REGLAS-DE-TRABAJO.md`** y **`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`** en la raíz del repo (`dev/app`).

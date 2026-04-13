@@ -182,6 +182,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@ex
 
 # Inicialización de extensiones
 from nodeone.core.db import db
+from nodeone.core.app_version import get_app_version
 db.init_app(app)
 
 from models import *  # noqa: F403 — ORM (compat from app import Model)
@@ -582,6 +583,7 @@ def inject_logo():
         ORG_NONE=ORG_NONE,
         scoped_query=scoped_query,
         single_tenant_default_only=single_tenant_default_only,
+        nodeone_app_version=get_app_version(),
     )
 
 # Context processor: design tokens de identidad por cliente (organization_settings)

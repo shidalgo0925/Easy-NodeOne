@@ -1,5 +1,6 @@
 """Registro de rutas public auth/account en app (endpoints legacy)."""
 
+import os
 import secrets
 
 import app as M
@@ -320,6 +321,18 @@ def register_public_auth_legacy_routes(app):
         if not M.OAUTH_AVAILABLE or provider not in ('google', 'facebook', 'linkedin'):
             flash('Login social no disponible para este proveedor.', 'error')
             return redirect(url_for('auth.login'))
+        oauth_err = request.args.get('error')
+        if oauth_err:
+            desc = (request.args.get('error_description') or '').replace('+', ' ')
+            flash(
+                (desc[:400] if desc else None)
+                or ('Acceso denegado o cancelado.' if oauth_err == 'access_denied' else f'OAuth: {oauth_err}'),
+                'error',
+            )
+            return redirect(url_for('auth.login'))
+        if not request.args.get('code'):
+            flash('Respuesta incompleta del proveedor (sin código). Reintenta o usa email y contraseña.', 'error')
+            return redirect(url_for('auth.login'))
         try:
             client = getattr(M.oauth, provider)
             token = client.authorize_access_token()
@@ -435,7 +448,19 @@ def register_public_auth_legacy_routes(app):
             import traceback
             traceback.print_exc()
             db.session.rollback()
-            flash('Error al iniciar sesión con el proveedor. Intenta de nuevo o usa email/contraseña.', 'error')
+            try:
+                from authlib.integrations.base_client.errors import MismatchingStateError as _MismatchingStateError
+            except ImportError:
+                _MismatchingStateError = None
+            if _MismatchingStateError is not None and isinstance(e, _MismatchingStateError):
+                flash(
+                    'La sesión de inicio con Google no coincidió (navegador o cookies). '
+                    'Cierra otras pestañas, borra cookies de este sitio o prueba en ventana privada; '
+                    'si sigue igual, revisa HTTPS y BASE_URL en el servidor.',
+                    'error',
+                )
+            else:
+                flash('Error al iniciar sesión con el proveedor. Intenta de nuevo o usa email/contraseña.', 'error')
             return redirect(url_for('auth.login'))
 
 
@@ -454,7 +479,11 @@ def register_public_auth_legacy_routes(app):
         n = safe_next_path(request.args.get('next'))
         if n:
             session['oauth_post_login_next'] = n
-        redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
+        base = (os.environ.get('BASE_URL') or '').strip().rstrip('/')
+        if base:
+            redirect_uri = f'{base}/auth/{provider}/callback'
+        else:
+            redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
         return client.authorize_redirect(redirect_uri)
 
 

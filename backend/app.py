@@ -112,7 +112,7 @@ except ImportError:
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 # Detrás de Nginx/Cloudflare: confiar en X-Forwarded-Proto y X-Forwarded-For
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1, x_host=1)
 # Branding unificado (GLOBAL = misma marca en topbar; TENANT = nombre de org activa en sesión)
 app.config['APP_BRAND_NAME'] = (os.environ.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
 _brand_mode = (os.environ.get('BRAND_MODE') or 'GLOBAL').strip().upper()
@@ -263,7 +263,27 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
 
 # OAuth (login social): Google, Facebook, LinkedIn
-oauth = OAuth(app) if OAUTH_AVAILABLE else None
+# State OAuth en SQLite (compartido entre workers Gunicorn). El usuario del servicio debe poder
+# escribir el fichero (p. ej. nodeone:nodeone en instance/). Ver OAUTH_STATE_SQLITE_PATH.
+_oauth_state_cache = None
+if OAUTH_AVAILABLE:
+    try:
+        from nodeone.services.oauth_state_cache import SqliteOAuthStateCache
+
+        _oauth_sqlite = (os.environ.get('OAUTH_STATE_SQLITE_PATH') or '').strip() or os.path.join(
+            _instance_dir,
+            'oauth_state.sqlite3',
+        )
+        _probe = SqliteOAuthStateCache(_oauth_sqlite)
+        _probe.set('__oauth_cache_probe', '{"data":{}}', 10)
+        if not _probe.get('__oauth_cache_probe'):
+            raise RuntimeError('SQLite OAuth probe get failed')
+        _probe.delete('__oauth_cache_probe')
+        _oauth_state_cache = _probe
+    except Exception as e:
+        print(f'⚠️ Caché OAuth state (SQLite) no disponible; se usa solo sesión: {e}')
+
+oauth = OAuth(app, cache=_oauth_state_cache) if OAUTH_AVAILABLE else None
 if oauth:
     base_url = os.getenv('BASE_URL', '').rstrip('/')  # ej: https://app.example.com
     app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '')

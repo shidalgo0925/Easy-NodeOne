@@ -27,7 +27,8 @@ def login():
         if success:
             from app import apply_session_organization_after_login
 
-            login_user(user)
+            remember = request.form.get('remember') == '1'
+            login_user(user, remember=remember)
             code, org_err = apply_session_organization_after_login(user, request)
             if code == 'error':
                 from flask_login import logout_user as _luo
@@ -74,6 +75,7 @@ def login():
             next_page = service.safe_next_path(request.form.get('next') or request.args.get('next'))
             return redirect(next_page) if next_page else redirect(url_for('dashboard'))
         flash(error or 'Credenciales inválidas.', 'error')
+        return render_template('login.html', saas_organizations=[], login_email=email)
     return render_template('login.html', saas_organizations=[], login_email=None)
 
 

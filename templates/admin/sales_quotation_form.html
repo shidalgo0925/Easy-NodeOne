@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Cotización | {{ get_nav_brand_name() }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=4">
 {% endblock %}
 {% block content %}
-<div class="container-fluid py-3 quote-odoo-page" id="odooQuotationForm" data-quotation-id="{{ quotation_id }}" data-initial-status="{{ quotation_status or '' }}">
+<div class="container-fluid py-3 quote-odoo-page" id="odooQuotationForm" data-quotation-id="{{ quotation_id }}" data-initial-status="{{ quotation_status or '' }}" data-sales-api-base="{{ url_for('sales.quotations_get') }}" data-quote-brand="{{ get_nav_brand_name()|e }}" data-quote-org-name="{{ (quotation_org_name|default('', true))|e }}" data-quote-logo-url="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
     <div id="formError" class="alert alert-danger d-none"></div>
     <div id="quoteReadonlyBanner" class="alert alert-light border mb-3 py-2 small d-none" role="status">
         <strong>Solo lectura.</strong> Fuera de borrador no puede editar líneas ni cabecera. Use <strong>Cancelar</strong> si aplica, o cree una cotización nueva.
     </div>
     <div id="quoteSavedToast" class="quote-saved-toast d-none" role="status" aria-live="polite">Guardado</div>
+    <div id="quoteMailToast" class="quote-saved-toast quote-mail-toast d-none" role="status" aria-live="polite"></div>
 
     <div class="quote-odoo-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
         <div class="d-flex flex-wrap gap-2">
@@ -48,6 +49,16 @@
                             <div id="customerMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                         </div>
                     </label>
+                    <label class="quote-odoo-field quote-odoo-field-salesperson flex-grow-1" style="min-width:14rem;max-width:22rem">
+                        <span class="quote-odoo-label">Vendedor</span>
+                        <div class="odoo-m2o quote-salesperson-m2o" id="quoteSalespersonM2o">
+                            <div class="d-flex align-items-stretch odoo-m2o-input-wrap quote-odoo-input border rounded px-1 bg-white">
+                                <input type="text" id="salespersonSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Buscar vendedor…" autocomplete="off" role="combobox" aria-expanded="false" title="Miembros con «Es vendedor» en Usuarios">
+                            </div>
+                            <input type="hidden" id="salespersonUserId" value="">
+                            <div id="salespersonMenu" class="odoo-m2o-dropdown" role="listbox"></div>
+                        </div>
+                    </label>
                     <label class="quote-odoo-field">
                         <span class="quote-odoo-label">Fecha</span>
                         <input id="quoteDate" class="quote-odoo-input" type="date" readonly title="Fecha de la cotización">
@@ -62,14 +73,14 @@
                     </label>
                 </div>
                 <div class="w-100 d-flex flex-wrap gap-3 gap-xl-4 align-items-end mt-2 pt-2 border-top border-light">
-                    <label class="quote-odoo-field flex-grow-1" style="min-width:12rem">
-                        <span class="quote-odoo-label">Vendedor</span>
-                        <input id="quoteSeller" class="quote-odoo-input" placeholder="Opcional" autocomplete="off">
-                    </label>
                     <label class="quote-odoo-field flex-grow-1" style="min-width:16rem">
                         <span class="quote-odoo-label">Notas internas</span>
                         <input id="quoteInternalNotes" class="quote-odoo-input" placeholder="Solo uso interno" autocomplete="off">
                     </label>
+                    <div class="quote-odoo-field flex-grow-1" style="min-width:18rem">
+                        <span class="quote-odoo-label">Datos fiscales emisor</span>
+                        <div id="quoteOrgFiscalText" class="small text-muted py-2">Sin datos fiscales configurados.</div>
+                    </div>
                 </div>
             </div>
 
@@ -145,19 +156,61 @@
     </div>
 </div>
 <div class="modal fade" id="quotePreviewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header quote-preview-modal-header">
                 <h5 class="modal-title">Vista previa de cotización</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <div class="d-flex gap-2 align-items-center">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnQuotePreviewPrint" title="Imprimir o guardar PDF">Imprimir / PDF</button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
             </div>
-            <div class="modal-body" id="quotePreviewBody"></div>
-            <div class="modal-footer">
+            <div class="modal-body p-0 bg-light" id="quotePreviewBody"></div>
+            <div class="modal-footer quote-preview-modal-footer d-print-none">
                 <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
 </div>
+<div class="modal fade" id="quoteMailModal" tabindex="-1" aria-labelledby="quoteMailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quoteMailModalLabel">Enviar cotización por correo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label" for="quoteMailTo">Para</label>
+                    <input type="text" class="form-control" id="quoteMailTo" autocomplete="email" placeholder="cliente@ejemplo.com (varios separados por coma)">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="quoteMailSubject">Asunto</label>
+                    <input type="text" class="form-control" id="quoteMailSubject" autocomplete="off">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="quoteMailBody">Mensaje</label>
+                    <textarea class="form-control font-monospace small" id="quoteMailBody" rows="12" style="min-height:14rem"></textarea>
+                </div>
+                <div class="border rounded p-3 bg-light">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="quoteMailAttachPdf" checked>
+                        <label class="form-check-label" for="quoteMailAttachPdf">Adjuntar PDF de la cotización</label>
+                    </div>
+                    <div class="small text-muted mt-2 mb-0" id="quoteMailPdfName">—</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Descartar</button>
+                <button type="button" class="btn btn-primary" id="btnQuoteMailSubmit">Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{# Tras bootstrap.bundle (defer) en base.html — si no, Modal.show() no existe y el diálogo no abre. #}
+{% block scripts %}
 <script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=11"></script>
-<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=24"></script>
 {% endblock %}

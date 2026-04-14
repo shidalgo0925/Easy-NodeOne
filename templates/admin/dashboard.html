@@ -31,6 +31,8 @@
         {% endif %}
         {% if show_tenant_admin_menu %}
         <a href="{{ url_for('admin_saas_modules_page') }}" class="btn btn-primary"><i class="fas fa-puzzle-piece me-1"></i> Módulos SaaS</a>
+        {% endif %}
+        {% if show_tenant_admin_menu or show_platform_admin_nav %}
         <a href="{{ url_for('admin_configuration_taxes') }}" class="btn btn-outline-dark"><i class="fas fa-percent me-1"></i> Impuestos</a>
         {% endif %}
         {% if saas_module_enabled('workshop') %}
@@ -68,6 +70,8 @@
             <h3>Módulos por organización</h3>
             <p>Encender o apagar citas, marketing, certificados, etc. por empresa.</p>
         </a>
+        {% endif %}
+        {% if show_tenant_admin_menu or show_platform_admin_nav %}
         <a href="{{ url_for('admin_configuration_taxes') }}" class="module-card" style="border-left:4px solid #fd7e14;">
             <div class="module-icon"><i class="fas fa-percent"></i></div>
             <h3>Impuestos</h3>

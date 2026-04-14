@@ -6,22 +6,24 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">Facturas</h3>
         <div class="d-flex gap-2">
-            <button id="btnCreateInvoice" class="btn btn-primary">Crear factura</button>
+            <button type="submit" form="invoiceForm" id="btnCreateInvoice" class="btn btn-primary">Crear factura</button>
             <a class="btn btn-outline-primary" href="{{ url_for('admin_sales_quotations') }}">Ir a cotizaciones</a>
         </div>
     </div>
 
     <div class="card mb-3">
         <div class="card-body">
-            <form id="invoiceForm" class="row g-2">
-                <div class="col-md-2">
-                    <input class="form-control" name="customer_id" type="number" placeholder="customer_id" required>
+            <form id="invoiceForm" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-0 text-muted" for="invCustomerId">Cliente (ID usuario)</label>
+                    <input class="form-control" id="invCustomerId" name="customer_id" type="number" min="1" step="1" placeholder="Ej. 3" title="ID del miembro en Usuarios; opcional si indica cotización">
                 </div>
                 <div class="col-md-3">
-                    <input class="form-control" name="origin_quotation_id" type="number" placeholder="origin_quotation_id (opcional)">
+                    <label class="form-label small mb-0 text-muted" for="invOriginQ">Cotización origen (opcional)</label>
+                    <input class="form-control" id="invOriginQ" name="origin_quotation_id" type="number" min="1" step="1" placeholder="ID cotización">
                 </div>
-                <div class="col-md-7 text-muted small d-flex align-items-center">
-                    Puedes crear factura sin cotización (origin_quotation_id vacío).
+                <div class="col-md-6 text-muted small">
+                    Si solo pones la cotización, se usa su cliente. Si no pones cotización, el ID cliente es obligatorio.
                 </div>
             </form>
         </div>
@@ -58,7 +60,7 @@ function clearError(){
 async function api(url, method='GET', body=null){
   const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):null});
   const data = await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error || data.detail || 'request_failed');
+  if(!res.ok) throw new Error(data.user_message || data.detail || data.error || 'request_failed');
   return data;
 }
 async function loadInvoices(){
@@ -69,37 +71,63 @@ async function loadInvoices(){
   rows.forEach(r=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${r.number}</td>
+      <td><a class="fw-semibold" href="/admin/accounting/invoices/${r.id}">${r.number}</a></td>
       <td>${r.customer_id}</td>
       <td>${r.status}</td>
       <td>$${(r.grand_total||0).toFixed(2)}</td>
       <td>${r.origin_quotation_id || '-'}</td>
       <td>
+        <a class="btn btn-sm btn-primary me-1" href="/admin/accounting/invoices/${r.id}">Editar</a>
         <button class="btn btn-sm btn-outline-primary me-1" onclick="postInvoice(${r.id})">Post</button>
         <button class="btn btn-sm btn-outline-success me-1" onclick="payInvoice(${r.id})">Pagar</button>
         <button class="btn btn-sm btn-outline-danger" onclick="cancelInvoice(${r.id})">Cancelar</button>
       </td>`;
     tb.appendChild(tr);
   });
+  const custEl = document.getElementById('invCustomerId');
+  const qEl = document.getElementById('invOriginQ');
+  if (rows.length && custEl && qEl && !custEl.value.trim() && !qEl.value.trim()) {
+    custEl.value = String(rows[0].customer_id != null ? rows[0].customer_id : '');
+  }
 }
 async function postInvoice(id){ try { await api(`/invoices/${id}/post`,'POST'); await loadInvoices(); } catch(e){ showError(e.message); } }
 async function payInvoice(id){ try { await api(`/invoices/${id}/pay`,'POST'); await loadInvoices(); } catch(e){ showError(e.message); } }
 async function cancelInvoice(id){ try { await api(`/invoices/${id}/cancel`,'POST'); await loadInvoices(); } catch(e){ showError(e.message); } }
-document.getElementById('btnCreateInvoice').addEventListener('click', async ()=>{
+document.getElementById('invoiceForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
   try {
     clearError();
     const f = document.getElementById('invoiceForm');
     const fd = new FormData(f);
+    const custRaw = (fd.get('customer_id') || '').toString().trim();
+    const qRaw = (fd.get('origin_quotation_id') || '').toString().trim();
+    const customer_id = custRaw ? Number(custRaw) : 0;
+    const origin_quotation_id = qRaw ? Number(qRaw) : null;
+    if ((!custRaw || Number.isNaN(customer_id) || customer_id < 1) && !origin_quotation_id) {
+      showError(
+        'Falta el cliente o la cotización: escriba el ID de usuario (columna Cliente del listado) o el ID de cotización. Si borró ambos campos, vuelva a cargar la página.',
+      );
+      return;
+    }
     const body = {
-      customer_id: Number(fd.get('customer_id')),
-      origin_quotation_id: fd.get('origin_quotation_id') ? Number(fd.get('origin_quotation_id')) : null,
-      lines: [{description:'Factura manual', quantity:1, price_unit:100, tax_id:null}]
+      customer_id: customer_id > 0 ? customer_id : 0,
+      origin_quotation_id,
+      lines: [{ description: 'Factura manual', quantity: 1, price_unit: 100, tax_id: null }],
     };
-    await api('/invoices','POST',body);
+    const created = await api('/invoices', 'POST', body);
+    if (created && created.id) {
+      window.location.href = '/admin/accounting/invoices/' + created.id;
+      return;
+    }
+    f.reset();
     await loadInvoices();
-  } catch(e){
+  } catch (e) {
     showError(e.message);
   }
+});
+['invCustomerId', 'invOriginQ'].forEach((id) => {
+  const n = document.getElementById(id);
+  if (n) n.addEventListener('input', () => clearError());
 });
 loadInvoices().catch(e => showError(e.message));
 </script>

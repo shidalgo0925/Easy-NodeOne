@@ -51,14 +51,18 @@ def register_admin_sales_quotations_invoices_routes(app):
         if not has_saas_module_enabled(oid, 'sales'):
             flash('El módulo Ventas no está habilitado para esta organización.', 'error')
             return redirect(url_for('dashboard'))
+        from models.saas import SaasOrganization
         from nodeone.modules.sales.models import Quotation
 
         qrow = Quotation.query.filter_by(id=quotation_id, organization_id=oid).first()
         quotation_status = qrow.status if qrow else None
+        org_row = SaasOrganization.query.get(oid)
+        quotation_org_name = (org_row.name or '').strip() if org_row else ''
         return render_template(
             'admin/sales_quotation_form.html',
             quotation_id=quotation_id,
             quotation_status=quotation_status,
+            quotation_org_name=quotation_org_name,
         )
 
     @app.route('/admin/accounting/invoices')
@@ -69,3 +73,44 @@ def register_admin_sales_quotations_invoices_routes(app):
             flash('El módulo Ventas no está habilitado para esta organización.', 'error')
             return redirect(url_for('dashboard'))
         return render_template('admin/accounting_invoices.html')
+
+    @app.route('/admin/accounting/invoices/<int:invoice_id>')
+    @admin_required
+    def admin_accounting_invoice_form(invoice_id):
+        oid = admin_data_scope_organization_id()
+        if not has_saas_module_enabled(oid, 'sales'):
+            flash('El módulo Ventas no está habilitado para esta organización.', 'error')
+            return redirect(url_for('dashboard'))
+        from nodeone.modules.accounting.models import Invoice
+
+        inv_row = Invoice.query.filter_by(id=invoice_id, organization_id=oid).first()
+        invoice_status = inv_row.status if inv_row else None
+        return render_template(
+            'admin/invoice_form.html',
+            invoice_id=invoice_id,
+            invoice_status=invoice_status,
+        )
+
+
+def register_admin_sales_commercial_contacts_routes(app):
+    """URL histórica: redirige a Usuarios (vendedor = flag en miembro). Idempotente."""
+    if 'admin_sales_commercial_contacts' in getattr(app, 'view_functions', {}):
+        return
+    from flask import flash, redirect, url_for
+
+    from app import admin_required
+
+    @app.route('/admin/sales/commercial-contacts', methods=['GET', 'POST'])
+    @admin_required
+    def admin_sales_commercial_contacts():
+        flash(
+            'Los vendedores se configuran en Usuarios: abra el miembro y active «Es vendedor».',
+            'info',
+        )
+        return redirect(url_for('admin_users'), code=302)
+
+    @app.route('/admin/sales/commercial-contacts/<int:cid>/edit', methods=['GET', 'POST'])
+    @admin_required
+    def admin_sales_commercial_contact_edit(cid):
+        flash('Los vendedores se configuran en Usuarios.', 'info')
+        return redirect(url_for('admin_users'), code=302)

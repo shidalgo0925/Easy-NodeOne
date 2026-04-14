@@ -46,6 +46,55 @@
                            value="{{ form.get('subdomain', '') if form else (org.subdomain if org else '') }}">
                     <div class="form-text">Minúsculas; se resuelve como <code>subdominio.tudominio.com</code>.</div>
                 </div>
+                <hr>
+                <h6 class="mb-3">Perfil fiscal (emisor en cotizaciones y facturas)</h6>
+                <div class="mb-3">
+                    <label class="form-label">Razón social</label>
+                    <input type="text" name="legal_name" class="form-control" maxlength="200"
+                           value="{{ form.get('legal_name', '') if form else ((org.legal_name or '') if org else '') }}">
+                </div>
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">RUC / NIT / ID fiscal</label>
+                        <input type="text" name="tax_id" class="form-control" maxlength="80"
+                               value="{{ form.get('tax_id', '') if form else ((org.tax_id or '') if org else '') }}">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Régimen fiscal</label>
+                        <input type="text" name="tax_regime" class="form-control" maxlength="120" placeholder="General, Simplificado..."
+                               value="{{ form.get('tax_regime', '') if form else ((org.tax_regime or '') if org else '') }}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Dirección fiscal</label>
+                        <input type="text" name="fiscal_address" class="form-control" maxlength="255"
+                               value="{{ form.get('fiscal_address', '') if form else ((org.fiscal_address or '') if org else '') }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Ciudad</label>
+                        <input type="text" name="fiscal_city" class="form-control" maxlength="120"
+                               value="{{ form.get('fiscal_city', '') if form else ((org.fiscal_city or '') if org else '') }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Provincia / Estado</label>
+                        <input type="text" name="fiscal_state" class="form-control" maxlength="120"
+                               value="{{ form.get('fiscal_state', '') if form else ((org.fiscal_state or '') if org else '') }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">País</label>
+                        <input type="text" name="fiscal_country" class="form-control" maxlength="120"
+                               value="{{ form.get('fiscal_country', '') if form else ((org.fiscal_country or '') if org else '') }}">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Teléfono fiscal</label>
+                        <input type="text" name="fiscal_phone" class="form-control" maxlength="60"
+                               value="{{ form.get('fiscal_phone', '') if form else ((org.fiscal_phone or '') if org else '') }}">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Email fiscal</label>
+                        <input type="email" name="fiscal_email" class="form-control" maxlength="200"
+                               value="{{ form.get('fiscal_email', '') if form else ((org.fiscal_email or '') if org else '') }}">
+                    </div>
+                </div>
                 <div class="mb-3">
                     {% if org and org.id == 1 %}
                     <input type="hidden" name="is_active" value="1">

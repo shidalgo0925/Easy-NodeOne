@@ -104,6 +104,27 @@ def register_admin_platform_org_routes(app):
             return False
         return s
 
+    def _org_fiscal_payload_from_form(form):
+        return {
+            'legal_name': (form.get('legal_name') or '').strip() or None,
+            'tax_id': (form.get('tax_id') or '').strip() or None,
+            'tax_regime': (form.get('tax_regime') or '').strip() or None,
+            'fiscal_address': (form.get('fiscal_address') or '').strip() or None,
+            'fiscal_city': (form.get('fiscal_city') or '').strip() or None,
+            'fiscal_state': (form.get('fiscal_state') or '').strip() or None,
+            'fiscal_country': (form.get('fiscal_country') or '').strip() or None,
+            'fiscal_phone': (form.get('fiscal_phone') or '').strip() or None,
+            'fiscal_email': (form.get('fiscal_email') or '').strip() or None,
+        }
+
+    def _ensure_org_fiscal_columns():
+        try:
+            from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
+
+            ensure_saas_organization_fiscal_columns(db, db.engine)
+        except Exception:
+            current_app.logger.exception('ensure_saas_organization_fiscal_columns en admin_platform_org')
+
     @app.route('/admin/guide-img/<filename>')
     @admin_required
     def admin_guide_product_image(filename):
@@ -128,6 +149,7 @@ def register_admin_platform_org_routes(app):
     @app.route('/admin/organizations')
     @platform_admin_required
     def admin_organizations_list():
+        _ensure_org_fiscal_columns()
         from utils.organization import platform_visible_organization_ids
 
         orgs = SaasOrganization.query.order_by(SaasOrganization.id).all()
@@ -139,11 +161,13 @@ def register_admin_platform_org_routes(app):
     @app.route('/admin/organizations/new', methods=['GET', 'POST'])
     @platform_admin_required
     def admin_organization_new():
+        _ensure_org_fiscal_columns()
         show_rail = request.args.get('guide') == '1'
         if request.method == 'POST':
             name = (request.form.get('name') or '').strip()
             sub_raw = _normalize_org_subdomain(request.form.get('subdomain'))
             is_active = request.form.get('is_active') == '1'
+            fiscal = _org_fiscal_payload_from_form(request.form)
             if not name:
                 flash('El nombre es obligatorio.', 'error')
                 return render_template('admin/organization_form.html', org=None, form=request.form, show_onboarding_rail=show_rail)
@@ -153,7 +177,7 @@ def register_admin_platform_org_routes(app):
             if sub_raw and SaasOrganization.query.filter_by(subdomain=sub_raw).first():
                 flash('Ese subdominio ya esta en uso.', 'error')
                 return render_template('admin/organization_form.html', org=None, form=request.form, show_onboarding_rail=show_rail)
-            o = SaasOrganization(name=name, subdomain=sub_raw, is_active=is_active)
+            o = SaasOrganization(name=name, subdomain=sub_raw, is_active=is_active, **fiscal)
             db.session.add(o)
             try:
                 db.session.commit()
@@ -178,12 +202,14 @@ def register_admin_platform_org_routes(app):
     @app.route('/admin/organizations/<int:oid>/edit', methods=['GET', 'POST'])
     @platform_admin_required
     def admin_organization_edit(oid):
+        _ensure_org_fiscal_columns()
         o = SaasOrganization.query.get_or_404(oid)
         show_rail = request.args.get('guide') == '1'
         if request.method == 'POST':
             name = (request.form.get('name') or '').strip()
             sub_raw = _normalize_org_subdomain(request.form.get('subdomain'))
             is_active = True if oid == 1 else request.form.get('is_active') == '1'
+            fiscal = _org_fiscal_payload_from_form(request.form)
             if not name:
                 flash('El nombre es obligatorio.', 'error')
                 return render_template('admin/organization_form.html', org=o, form=request.form, show_onboarding_rail=show_rail)
@@ -198,6 +224,8 @@ def register_admin_platform_org_routes(app):
             o.name = name
             o.subdomain = sub_raw
             o.is_active = is_active
+            for k, v in fiscal.items():
+                setattr(o, k, v)
             try:
                 db.session.commit()
                 flash('Empresa actualizada.', 'success')

@@ -262,6 +262,23 @@ def apply_email_config_from_db():
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
 
+
+@login_manager.unauthorized_handler
+def _login_unauthorized_api_json():
+    """Evita redirigir a HTML en APIs JSON (p. ej. DELETE cotización con sesión caducada)."""
+    try:
+        p = request.path or ''
+        if p.startswith('/api/'):
+            return jsonify(
+                {
+                    'error': 'unauthorized',
+                    'user_message': 'Sesión caducada o no autenticado. Recargue la página e inicie sesión.',
+                }
+            ), 401
+    except Exception:
+        pass
+    return redirect(url_for(login_manager.login_view, next=request.url))
+
 # OAuth (login social): Google, Facebook, LinkedIn
 # State OAuth en SQLite (compartido entre workers Gunicorn). El usuario del servicio debe poder
 # escribir el fichero (p. ej. nodeone:nodeone en instance/). Ver OAUTH_STATE_SQLITE_PATH.
@@ -2597,6 +2614,24 @@ def bootstrap_nodeone_schema():
         ensure_service_organization_id_column()
         ensure_certificate_event_organization_id_column()
         ensure_certificate_template_organization_id_column()
+        try:
+            from nodeone.services.invoices_schema import ensure_invoices_model_columns
+
+            ensure_invoices_model_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_invoices_model_columns: {e}')
+        try:
+            from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
+
+            ensure_saas_organization_fiscal_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_fiscal_columns: {e}')
+        try:
+            from nodeone.services.crm_tenant_contact_schema import ensure_crm_salesperson_and_quotation_columns
+
+            ensure_crm_salesperson_and_quotation_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_crm_salesperson_and_quotation_columns: {e}')
         try:
             CertificateEvent.__table__.create(db.engine, checkfirst=True)
             Certificate.__table__.create(db.engine, checkfirst=True)

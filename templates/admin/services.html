@@ -11,6 +11,17 @@
                     <i class="fas fa-th-large"></i> Gestión de Servicios
                 </h1>
                 <div class="d-flex flex-wrap gap-2 align-items-center">
+                    {% if current_user.is_authenticated and current_user.has_permission('services.view') %}
+                    {# Rutas fijas: evitan BuildError en Jinja si el worker aún no tiene el blueprint actualizado. #}
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Exportar catálogo">
+                        <a href="/api/admin/services/export.csv" class="btn btn-outline-success" title="Exportar servicios CSV"><i class="fas fa-file-csv"></i> CSV</a>
+                        <a href="/api/admin/services/export.xlsx" class="btn btn-outline-success" title="Exportar servicios Excel"><i class="fas fa-file-excel"></i> Excel</a>
+                        <a href="/api/admin/services/import-template.csv" class="btn btn-outline-secondary" title="Plantilla para importar"><i class="fas fa-file-download"></i> Plantilla</a>
+                    </div>
+                    {% endif %}
+                    {% if current_user.is_admin %}
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importServicesModal" title="Importar desde CSV o XLSX"><i class="fas fa-file-upload"></i> Importar</button>
+                    {% endif %}
                     {% if current_user.has_permission('reports.export') %}
                     <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
                     <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
@@ -47,6 +58,7 @@
                                 <li><strong>Filtros</strong>: estado y búsqueda por nombre.</li>
                                 <li><strong>Citas</strong>: si el servicio requiere cita, enlazá tipos de cita y agenda desde <strong>Citas</strong> o la columna Asesores.</li>
                                 <li><strong>Multi-tenant</strong>: si el catálogo va por empresa, el contexto de organización aplica a este listado.</li>
+                                <li><strong>Importar / exportar</strong>: CSV o Excel con las mismas columnas; sin <code>id</code> se crean filas; con <code>id</code> de esta organización se actualizan. Categoría por nombre (<code>category_name</code>). Solo administradores pueden importar.</li>
                             </ul>
                             <p class="mb-0 fw-semibold text-body">Categorías</p>
                             <p class="mb-0 mt-1">Para agrupar en el sitio, usá <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}">Categorías servicios</a>.</p>
@@ -350,6 +362,31 @@
         </div>
     </div>
 </div>
+
+{% if current_user.is_admin %}
+<div class="modal fade" id="importServicesModal" tabindex="-1" aria-labelledby="importServicesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importServicesModalLabel"><i class="fas fa-file-upload me-2"></i>Importar servicios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Archivo <strong>.csv</strong> o <strong>.xlsx</strong> con la misma cabecera que la plantilla o un export. Respeta la <strong>organización activa</strong> del selector de empresa.</p>
+                <div class="mb-3">
+                    <label for="importServicesFile" class="form-label">Archivo</label>
+                    <input type="file" class="form-control" id="importServicesFile" accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
+                </div>
+                <div id="importServicesResult" class="small d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="importServicesSubmit"><i class="fas fa-upload me-1"></i>Importar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <script>
 let editingServiceId = null;
@@ -742,6 +779,58 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
             var url = pdfLink.getAttribute('href');
             if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
             window.open(url, '_blank');
+        });
+    }
+
+    var importBtn = document.getElementById('importServicesSubmit');
+    var importFile = document.getElementById('importServicesFile');
+    var importResult = document.getElementById('importServicesResult');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function () {
+            if (!importFile.files || !importFile.files[0]) {
+                alert('Elegí un archivo CSV o XLSX.');
+                return;
+            }
+            importBtn.disabled = true;
+            if (importResult) {
+                importResult.classList.add('d-none');
+                importResult.textContent = '';
+                importResult.className = 'small d-none';
+            }
+            var fd = new FormData();
+            fd.append('file', importFile.files[0]);
+            fetch('/api/admin/services/import', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, json: j }; }); })
+                .then(function (res) {
+                    importBtn.disabled = false;
+                    if (!importResult) return;
+                    importResult.classList.remove('d-none');
+                    if (res.ok && res.json.success) {
+                        importResult.classList.add('alert', 'alert-success');
+                        importResult.textContent = res.json.message || 'Listo.';
+                        setTimeout(function () { window.location.reload(); }, 1200);
+                    } else {
+                        importResult.classList.add('alert', 'alert-danger');
+                        var msg = (res.json && res.json.error) ? res.json.error : 'Error al importar';
+                        if (res.json && res.json.details && res.json.details.length) {
+                            msg += ' — fila ' + res.json.details[0].row + ': ' + res.json.details[0].message;
+                            if (res.json.details.length > 1) msg += ' (y ' + (res.json.details.length - 1) + ' más)';
+                        }
+                        importResult.textContent = msg;
+                    }
+                })
+                .catch(function () {
+                    importBtn.disabled = false;
+                    if (importResult) {
+                        importResult.classList.remove('d-none');
+                        importResult.classList.add('alert', 'alert-danger');
+                        importResult.textContent = 'Error de red o respuesta inválida.';
+                    }
+                });
         });
     }
 </script>

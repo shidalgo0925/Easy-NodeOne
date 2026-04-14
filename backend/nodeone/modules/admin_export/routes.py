@@ -31,6 +31,7 @@ EXPORT_FIELD_REGISTRY = {
         {'key': 'is_active', 'label': 'Activo', 'type': 'boolean'},
         {'key': 'is_admin', 'label': 'Admin', 'type': 'boolean'},
         {'key': 'is_advisor', 'label': 'Asesor', 'type': 'boolean'},
+        {'key': 'is_salesperson', 'label': 'Vendedor', 'type': 'boolean'},
     ],
 }
 

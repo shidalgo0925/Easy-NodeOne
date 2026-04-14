@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Taller — Orden | {{ get_nav_brand_name() }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=27">
 {% endblock %}
 {% block content %}
 <div class="container-fluid py-3 workshop-order-page" id="workshopOrderPage" data-order-id="{{ order_id }}">
@@ -10,28 +11,34 @@
         <a class="btn btn-light btn-sm border" href="{{ url_for('admin_workshop_orders') }}">← Órdenes</a>
         <h1 class="h4 mb-0">Orden <span id="woCode">…</span></h1>
         <span class="badge text-bg-secondary" id="woStatus">—</span>
-        <button type="button" class="btn btn-primary btn-sm ms-auto" id="btnWoSave">Guardar</button>
-        <a class="btn btn-outline-primary btn-sm d-none" id="woQuotationLink" href="#" target="_blank">Abrir cotización</a>
-        {% if saas_module_enabled('sales') %}
-        <button type="button" class="btn btn-success btn-sm" id="btnWoQuote">Generar cotización</button>
-        {% endif %}
+        <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnWoMapToggle" aria-expanded="true" title="Ocultar el mapa de la derecha y ampliar líneas">
+                <span class="wo-map-toggle-label">Ocultar mapa</span>
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnWoSave">Guardar</button>
+            <a class="btn btn-outline-primary btn-sm d-none" id="woQuotationLink" href="#" target="_blank">Abrir cotización</a>
+            {% if saas_module_enabled('sales') %}
+            <button type="button" class="btn btn-success btn-sm" id="btnWoQuote">Generar cotización</button>
+            {% endif %}
+        </div>
     </div>
 
-    <div class="row g-3">
-        <div class="col-lg-7">
+    <div class="row g-3 wo-order-row">
+        <div class="col-lg-7" id="woMainColumn">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white fw-semibold">Cliente y vehículo</div>
                 <div class="card-body">
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-8 position-relative">
-                            <label class="form-label small">Cliente (buscar o ID abajo)</label>
-                            <input type="text" class="form-control form-control-sm" id="custSearch" placeholder="Nombre o correo…" autocomplete="off">
-                            <div class="position-absolute border rounded bg-white shadow-sm w-100 mt-1 d-none" style="z-index:30;max-height:220px;overflow:auto" id="custMenu"></div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Cliente</label>
+                        <div class="odoo-m2o" id="woCustomerM2o">
+                            <div class="d-flex align-items-stretch odoo-m2o-input-wrap">
+                                <input type="text" id="custSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Contacto…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Clientes de la organización">
+                                <button type="button" class="btn btn-sm btn-link odoo-m2o-toggle wo-cust-toggle px-2" tabindex="-1" title="Mostrar contactos">🔍</button>
+                            </div>
+                            <input type="hidden" id="custId" value="">
+                            <div id="custMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">ID cliente</label>
-                            <input type="number" class="form-control form-control-sm" id="custId" min="1" placeholder="User ID">
-                        </div>
+                        <p class="small text-muted mb-0 mt-1 wo-cust-field-hint">Escriba para filtrar, elija un contacto o use <strong>Crear</strong> / <strong>Crear y editar</strong> en el desplegable.</p>
                     </div>
                     <div class="row g-2">
                         <div class="col-md-3"><label class="form-label small">Placa</label><input class="form-control form-control-sm" id="vehPlate"></div>
@@ -46,29 +53,39 @@
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white fw-semibold">Checklist rápido (recepción)</div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0">
-                            <thead class="table-light">
-                                <tr><th>Ítem</th><th>Condición</th><th>Notas</th></tr>
-                            </thead>
-                            <tbody id="woChecklistBody"></tbody>
-                        </table>
+            <div class="card border-0 shadow-sm mb-3 wo-checklist-section">
+                <div class="card-header wo-checklist-header p-0 border-bottom">
+                    <button type="button" class="btn w-100 text-start d-flex align-items-center fw-semibold border-0 rounded-0 py-2 px-3 wo-checklist-toggle"
+                            data-bs-toggle="collapse" data-bs-target="#woChecklistCollapse"
+                            aria-expanded="false" aria-controls="woChecklistCollapse"
+                            title="Mostrar u ocultar el checklist de recepción">
+                        <span>Checklist rápido (recepción)</span>
+                        <i class="fas fa-chevron-down small ms-auto wo-checklist-chevron" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div id="woChecklistCollapse" class="collapse">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Ítem</th><th>Condición</th><th>Notas</th></tr>
+                                </thead>
+                                <tbody id="woChecklistBody"></tbody>
+                            </table>
+                        </div>
+                        <p class="small text-muted px-3 py-2 mb-0">Se guarda al pulsar <strong>Guardar</strong> (junto al resto de la orden).</p>
                     </div>
-                    <p class="small text-muted px-3 py-2 mb-0">Se guarda al pulsar <strong>Guardar</strong> (junto al resto de la orden).</p>
                 </div>
             </div>
 
             <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white d-flex align-items-center">
+                <div class="card-header bg-white d-flex align-items-center flex-wrap gap-2">
                     <span class="fw-semibold">Líneas de servicio (detailing)</span>
                     <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btnWoAddLine">+ Línea</button>
                 </div>
                 <div class="card-body line-items-wrap p-0">
                     <table class="table table-sm mb-0">
-                        <thead class="table-light"><tr><th>Producto</th><th>Descripción</th><th class="text-end">Cant.</th><th class="text-end">Precio</th><th>Imp.</th><th class="text-end">Total</th><th></th></tr></thead>
+                        <thead class="table-light"><tr><th style="min-width:14rem">Producto / servicio</th><th>Descripción</th><th class="text-end">Cant.</th><th class="text-end">Precio</th><th>Imp.</th><th class="text-end">Total</th><th></th></tr></thead>
                         <tbody id="wolLines"></tbody>
                     </table>
                 </div>
@@ -133,11 +150,11 @@
             </div>
         </div>
 
-        <div class="col-lg-5">
+        <div class="col-lg-5" id="woInspectionColumn">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white fw-semibold">Mapa de inspección (vista superior)</div>
                 <div class="card-body">
-                    <p class="small text-muted">Pulse una zona para registrar daño, severidad y foto.</p>
+                    <p class="small text-muted mb-2">Pulse una zona para registrar daño, severidad, <strong>notas</strong> y foto. Las notas aparecen en la lista debajo; use <strong>Editar</strong> para cambiarlas. Para <strong>otro</strong> daño en la misma zona, pulse otra vez esa zona en el mapa.</p>
                     <div class="workshop-body-map-wrap">
                         <svg class="workshop-body-map-svg" viewBox="0 0 400 880" xmlns="http://www.w3.org/2000/svg" aria-label="Vista superior vehículo">
                             <!-- Capó -->
@@ -172,15 +189,57 @@
     </div>
 </div>
 
-<div class="modal fade" id="woDamageModal" tabindex="-1">
+<div class="modal fade" id="woNewCustomerModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Daño — <span id="woModalZoneLabel"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title">Nuevo cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="woModalZone">
+                <p class="small text-muted">Se crea un usuario en su organización (contraseña aleatoria; puede usar recuperación de acceso después). Si creó con <strong>Crear «…»</strong> solo con nombre, se asigna un correo técnico; puede cambiarlo en <a href="/admin/users" target="_blank" rel="noopener">Usuarios</a>.</p>
+                <div class="mb-2">
+                    <label class="form-label small">Correo <span class="text-danger">*</span></label>
+                    <input type="email" class="form-control form-control-sm" id="woNewCustEmail" autocomplete="email" placeholder="cliente@ejemplo.com">
+                </div>
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small">Nombre</label>
+                        <input type="text" class="form-control form-control-sm" id="woNewCustFirst" placeholder="Nombre">
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small">Apellido</label>
+                        <input type="text" class="form-control form-control-sm" id="woNewCustLast" placeholder="Apellido">
+                    </div>
+                </div>
+                <div class="mb-0 mt-2">
+                    <label class="form-label small">Teléfono (opcional)</label>
+                    <input type="text" class="form-control form-control-sm" id="woNewCustPhone" placeholder="+507 …">
+                </div>
+                <div id="woNewCustErr" class="small text-danger mt-2 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnWoNewCustSave">Crear y seleccionar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="woDamageModal" tabindex="-1" aria-labelledby="woDamageModalTitle">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-break" id="woDamageModalTitle"><span id="woDamageModalAction">Registrar</span> daño — <span id="woModalZoneLabel">…</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="woModalPointId" value="">
+                <div class="mb-2">
+                    <label class="form-label small">Zona del vehículo</label>
+                    <select class="form-select form-select-sm" id="woModalZonePick"></select>
+                    <p class="small text-muted mb-0 mt-1">Al pulsar el mapa se rellena esta zona; puede cambiarla al editar.</p>
+                </div>
                 <div class="mb-2">
                     <label class="form-label small">Tipo</label>
                     <select class="form-select form-select-sm" id="woModalDamage">
@@ -203,8 +262,13 @@
                     <label class="form-label small">Notas</label>
                     <textarea class="form-control form-control-sm" id="woModalNotes" rows="2"></textarea>
                 </div>
-                <div>
-                    <label class="form-label small">Foto (opcional)</label>
+                <div class="mb-2 d-none" id="woModalExistingPhotosWrap">
+                    <label class="form-label small">Fotos guardadas</label>
+                    <div class="d-flex flex-wrap gap-2" id="woModalExistingPhotos"></div>
+                    <p class="small text-muted mb-0 mt-1">El archivo de abajo sirve para <strong>añadir</strong> otra imagen (el navegador no muestra aquí la foto ya subida).</p>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label small">Añadir foto (opcional)</label>
                     <input type="file" class="form-control form-control-sm" id="woModalPhoto" accept="image/*">
                 </div>
             </div>
@@ -216,5 +280,5 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/modules/workshop/order_detail.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/modules/workshop/order_detail.js') }}?v=27"></script>
 {% endblock %}

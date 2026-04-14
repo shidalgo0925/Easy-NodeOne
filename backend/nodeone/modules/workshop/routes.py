@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import os
+import re
+import secrets
 import uuid
 from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
+from sqlalchemy import or_
+from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
+from sqlalchemy.exc import IntegrityError
+
 from nodeone.core.db import db
+from models.catalog import Service
 from models.users import User
+from nodeone.services.user_organization import ensure_membership, user_has_active_membership, user_in_org_clause
 from nodeone.modules.accounting.models import Invoice, Tax
 from nodeone.modules.sales.models import Quotation
 from nodeone.modules.workshop.models import (
@@ -29,17 +37,51 @@ from nodeone.modules.workshop import service as workshop_svc
 
 workshop_api_bp = Blueprint('workshop_api', __name__, url_prefix='/api/workshop')
 
+# Misma lógica de tenant que enforce_saas_module_or_response (tenant_data_organization_id).
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+$')
+
 
 def _org_id():
-    from app import admin_data_scope_organization_id, default_organization_id, get_current_organization_id
+    from app import admin_data_scope_organization_id, default_organization_id, tenant_data_organization_id
 
-    oid = get_current_organization_id()
-    if oid is None:
-        try:
-            oid = admin_data_scope_organization_id()
-        except Exception:
-            oid = default_organization_id()
-    return int(oid)
+    try:
+        return int(tenant_data_organization_id())
+    except Exception:
+        pass
+    try:
+        return int(admin_data_scope_organization_id())
+    except Exception:
+        return int(default_organization_id())
+
+
+_WORKSHOP_BODY_MAP_ZONES = (
+    ('hood', 'Capó'),
+    ('roof', 'Techo'),
+    ('trunk', 'Maletero'),
+    ('front_bumper', 'Parachoques delantero'),
+    ('rear_bumper', 'Parachoques trasero'),
+    ('door_left', 'Puerta izquierda'),
+    ('door_right', 'Puerta derecha'),
+    ('fender_left', 'Salpicadera izquierda'),
+    ('fender_right', 'Salpicadera derecha'),
+    ('mirror_left', 'Espejo izquierdo'),
+    ('mirror_right', 'Espejo derecho'),
+)
+
+
+def _ensure_vehicle_zones_catalog():
+    """Catálogo global vehicle_zones (mismos códigos que el SVG del mapa). Idempotente."""
+    added = False
+    for code, name in _WORKSHOP_BODY_MAP_ZONES:
+        if not VehicleZone.query.filter_by(code=code).first():
+            db.session.add(VehicleZone(code=code, name=name))
+            added = True
+    if not added:
+        return
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
 
 
 def _ensure_tables():
@@ -55,6 +97,7 @@ def _ensure_tables():
     WorkshopInspection.__table__.create(db.engine, checkfirst=True)
     VehicleInspectionPoint.__table__.create(db.engine, checkfirst=True)
     VehicleInspectionPhoto.__table__.create(db.engine, checkfirst=True)
+    _ensure_vehicle_zones_catalog()
 
 
 def _order_query(org_id: int, oid: int):
@@ -88,6 +131,21 @@ def _serialize_line(ln: WorkshopLine) -> dict:
         'tax_amount': float(ln.tax_amount or 0),
         'total': float(ln.total or 0),
     }
+
+
+def _serialize_order_lines(org_id: int, order_id: int) -> list:
+    line_rows = WorkshopLine.query.filter_by(order_id=order_id).order_by(WorkshopLine.id).all()
+    pids = list({ln.product_id for ln in line_rows if ln.product_id})
+    svc_by_id: dict = {}
+    if pids:
+        for s in Service.query.filter(Service.id.in_(pids), Service.organization_id == org_id).all():
+            svc_by_id[s.id] = s.name or ''
+    out = []
+    for ln in line_rows:
+        d = _serialize_line(ln)
+        d['product_name'] = svc_by_id.get(ln.product_id, '') if ln.product_id else ''
+        out.append(d)
+    return out
 
 
 def _serialize_order(
@@ -135,7 +193,7 @@ def _serialize_order(
         'invoice_id': o.invoice_id,
         'photos_count': photos_count,
         'inspection_points_count': pts,
-        'lines': [_serialize_line(ln) for ln in WorkshopLine.query.filter_by(order_id=o.id).order_by(WorkshopLine.id).all()],
+        'lines': _serialize_order_lines(o.organization_id, o.id),
     }
     if include_photos:
         ph_rows = (
@@ -192,12 +250,159 @@ def _add_inspection_point_from_payload(insp: WorkshopInspection, data: dict):
     return p, None
 
 
+def _inspection_point_bad_request(err: str):
+    msg = (
+        'Zona del mapa no válida o catálogo de zonas vacío. Recargue la página.'
+        if err == 'invalid_zone'
+        else err
+    )
+    return jsonify({'error': err, 'detail': msg}), 400
+
+
 @workshop_api_bp.route('/zones', methods=['GET'])
 @login_required
 def api_zones_list():
     _ensure_tables()
     rows = VehicleZone.query.order_by(VehicleZone.code).all()
     return jsonify([{'code': z.code, 'name': z.name} for z in rows])
+
+
+@workshop_api_bp.route('/customers/search', methods=['GET'])
+@login_required
+def api_workshop_customers_search():
+    _ensure_tables()
+    oid = _org_id()
+    q = str(request.args.get('q') or '').strip()
+    try:
+        lim = int(request.args.get('limit') or 20)
+    except (TypeError, ValueError):
+        lim = 20
+    lim = max(1, min(lim, 100))
+    query = User.query.filter(user_in_org_clause(User, oid), User.is_active.is_(True))
+    if q:
+        like = f'%{q}%'
+        conds = [
+            User.email.ilike(like),
+            User.first_name.ilike(like),
+            User.last_name.ilike(like),
+        ]
+        if q.isdigit():
+            try:
+                conds.append(User.id == int(q))
+            except (ValueError, OverflowError):
+                pass
+        query = query.filter(or_(*conds))
+    rows = query.order_by(User.last_name.asc(), User.first_name.asc()).limit(lim).all()
+    return jsonify(
+        [
+            {
+                'id': u.id,
+                'name': f'{(u.first_name or "").strip()} {(u.last_name or "").strip()}'.strip() or u.email,
+                'email': u.email or '',
+            }
+            for u in rows
+        ]
+    )
+
+
+@workshop_api_bp.route('/customers', methods=['POST'])
+@login_required
+def api_workshop_customers_create():
+    _ensure_tables()
+    oid = _org_id()
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    quick = (data.get('quick_create_name') or '').strip()
+    first_name = (data.get('first_name') or '').strip()
+    last_name = (data.get('last_name') or '').strip()
+    phone = (data.get('phone') or '').strip() or None
+    if quick and not email:
+        email = f'taller.{secrets.token_hex(8)}@sin-correo.invalid'
+        if not first_name:
+            first_name = quick[:50]
+        if not last_name:
+            last_name = '.'
+    if not email or not _EMAIL_RE.match(email):
+        return jsonify({'error': 'invalid_email', 'detail': 'Correo electrónico obligatorio y válido.'}), 400
+    if not first_name:
+        fn = email.split('@', 1)[0].replace('.', ' ').replace('_', ' ')
+        first_name = (fn[:50] if fn else 'Cliente').strip() or 'Cliente'
+    if not last_name:
+        last_name = '.'
+    existing = User.query.filter(db.func.lower(User.email) == email).first()
+    if existing:
+        if not user_has_active_membership(existing, oid):
+            ensure_membership(existing.id, oid, role='user')
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+        u = User.query.filter(db.func.lower(User.email) == email).first() or existing
+    else:
+        pwd = secrets.token_urlsafe(24)
+        u = User(
+            email=email,
+            first_name=first_name[:50],
+            last_name=last_name[:50],
+            phone=phone,
+            password_hash=generate_password_hash(pwd),
+            organization_id=oid,
+            is_active=True,
+            is_admin=False,
+            is_advisor=False,
+        )
+        db.session.add(u)
+        try:
+            db.session.flush()
+            ensure_membership(u.id, oid, role='user')
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            u = User.query.filter(db.func.lower(User.email) == email).first()
+            if not u:
+                return jsonify({'error': 'email_exists', 'detail': 'No se pudo crear ni reutilizar el correo.'}), 409
+            if not user_has_active_membership(u, oid):
+                ensure_membership(u.id, oid, role='user')
+            db.session.commit()
+    name = f'{(u.first_name or "").strip()} {(u.last_name or "").strip()}'.strip() or u.email
+    return jsonify({'id': u.id, 'name': name, 'email': u.email or ''})
+
+
+@workshop_api_bp.route('/products/search', methods=['GET'])
+@login_required
+def api_workshop_products_search():
+    _ensure_tables()
+    oid = _org_id()
+    q = str(request.args.get('q') or '').strip()
+    query = Service.query.filter_by(is_active=True, organization_id=oid)
+    if q:
+        like = f'%{q}%'
+        conds = [Service.name.ilike(like), Service.description.ilike(like)]
+        if q.isdigit():
+            try:
+                conds.append(Service.id == int(q))
+            except (ValueError, OverflowError):
+                pass
+        query = query.filter(or_(*conds))
+    try:
+        lim = int(request.args.get('limit') or 20)
+    except (TypeError, ValueError):
+        lim = 20
+    lim = max(1, min(lim, 500))
+    rows = query.order_by(Service.name.asc()).limit(lim).all()
+    return jsonify(
+        [
+            {
+                'id': s.id,
+                'name': s.name,
+                'code': str(s.id),
+                'description': s.description or '',
+                'price_unit': float(getattr(s, 'base_price', 0.0) or 0.0),
+                'default_tax_id': int(getattr(s, 'default_tax_id', None) or 0) or None,
+            }
+            for s in rows
+        ]
+    )
 
 
 @workshop_api_bp.route('/orders', methods=['GET'])
@@ -460,12 +665,17 @@ def api_order_inspection_point_post(order_id: int):
     if not o:
         return jsonify({'error': 'not_found'}), 404
     if o.status in ('delivered', 'cancelled'):
-        return jsonify({'error': 'order_locked'}), 400
+        return jsonify(
+            {
+                'error': 'order_locked',
+                'detail': 'La orden está entregada o cancelada; no se puede añadir inspección.',
+            }
+        ), 400
     insp = workshop_svc.get_or_create_inspection(o, getattr(current_user, 'id', None))
     data = request.get_json() or {}
     p, err = _add_inspection_point_from_payload(insp, data)
     if err:
-        return jsonify({'error': err}), 400
+        return _inspection_point_bad_request(err)
     db.session.commit()
     return jsonify({'id': p.id, 'inspection_id': insp.id}), 201
 
@@ -500,31 +710,69 @@ def api_inspection_point_post(inspection_id: int):
     if not o:
         return jsonify({'error': 'forbidden'}), 403
     if o.status in ('delivered', 'cancelled'):
-        return jsonify({'error': 'order_locked'}), 400
+        return jsonify(
+            {
+                'error': 'order_locked',
+                'detail': 'La orden está entregada o cancelada; no se puede añadir inspección.',
+            }
+        ), 400
     data = request.get_json() or {}
     p, err = _add_inspection_point_from_payload(insp, data)
     if err:
-        return jsonify({'error': err}), 400
+        return _inspection_point_bad_request(err)
     db.session.commit()
     return jsonify({'id': p.id}), 201
 
 
-@workshop_api_bp.route('/inspection-points/<int:point_id>', methods=['DELETE'])
-@login_required
-def api_inspection_point_delete(point_id: int):
-    _ensure_tables()
-    org = _org_id()
+def _inspection_point_and_order(point_id: int):
+    """Punto + orden del tenant; (None, None, resp_tuple) si error (resp_tuple = (jsonify(...), status))."""
     p = VehicleInspectionPoint.query.get(point_id)
     if not p:
-        return jsonify({'error': 'not_found'}), 404
+        return None, None, (jsonify({'error': 'not_found'}), 404)
     insp = WorkshopInspection.query.get(p.inspection_id)
+    org = _org_id()
     o = WorkshopOrder.query.filter_by(id=insp.order_id, organization_id=org).first() if insp else None
     if not o:
-        return jsonify({'error': 'forbidden'}), 403
-    VehicleInspectionPhoto.query.filter_by(point_id=p.id).delete()
-    db.session.delete(p)
+        return None, None, (jsonify({'error': 'forbidden'}), 403)
+    return p, o, None
+
+
+@workshop_api_bp.route('/inspection-points/<int:point_id>', methods=['DELETE', 'PATCH', 'PUT'])
+@login_required
+def api_inspection_point_item(point_id: int):
+    _ensure_tables()
+    p, o, err_resp = _inspection_point_and_order(point_id)
+    if err_resp is not None:
+        return err_resp
+
+    if request.method == 'DELETE':
+        VehicleInspectionPhoto.query.filter_by(point_id=p.id).delete()
+        db.session.delete(p)
+        db.session.commit()
+        return jsonify({'ok': True})
+
+    if o.status in ('delivered', 'cancelled'):
+        return jsonify(
+            {
+                'error': 'order_locked',
+                'detail': 'La orden está entregada o cancelada; no se puede editar la inspección.',
+            }
+        ), 400
+    data = request.get_json() or {}
+    if 'damage_type' in data:
+        p.damage_type = str(data.get('damage_type') or 'scratch').strip() or 'scratch'
+    if 'severity' in data:
+        p.severity = str(data.get('severity') or 'low').strip() or 'low'
+    if 'notes' in data:
+        p.notes = str(data.get('notes') or '').strip() or None
+    if 'zone_code' in data:
+        zc = str(data.get('zone_code') or '').strip()
+        if zc and VehicleZone.query.filter_by(code=zc).first():
+            p.zone_code = zc
+        elif zc:
+            return _inspection_point_bad_request('invalid_zone')
     db.session.commit()
-    return jsonify({'ok': True})
+    return jsonify({'id': p.id, 'ok': True})
 
 
 @workshop_api_bp.route('/orders/<int:order_id>/photos', methods=['POST'])

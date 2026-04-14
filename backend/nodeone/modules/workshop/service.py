@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from nodeone.core.db import db
+from models.users import User
 from nodeone.modules.accounting.models import Tax
 from nodeone.modules.sales.models import Quotation, QuotationLine
 from nodeone.modules.workshop.models import (
@@ -17,6 +18,7 @@ from nodeone.modules.workshop.models import (
     WorkshopVehicle,
 )
 from nodeone.services.tax_calculation import compute_line_amounts
+from nodeone.services.user_organization import user_in_org_clause
 
 
 def _recompute_quotation_totals(quotation: Quotation) -> None:
@@ -164,10 +166,25 @@ def create_quotation_from_workshop_order(order: WorkshopOrder, user_id: Optional
     if not lines:
         raise ValueError('no_lines')
 
+    sp_uid = None
+    if user_id:
+        u = (
+            User.query.filter(
+                user_in_org_clause(User, order.organization_id),
+                User.id == int(user_id),
+                User.is_salesperson == True,  # noqa: E712
+                User.is_active == True,  # noqa: E712
+            )
+            .first()
+        )
+        if u:
+            sp_uid = u.id
+
     q = Quotation(
         organization_id=order.organization_id,
         number=next_quotation_number(order.organization_id),
         customer_id=order.customer_id,
+        salesperson_user_id=sp_uid,
         date=datetime.utcnow(),
         status='draft',
         created_by=user_id,

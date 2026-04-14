@@ -21,6 +21,11 @@ def enforce_saas_module_or_response(module_code):
     if getattr(current_user, 'is_admin', False):
         return None
 
+    path = request.path or ''
+    bp = getattr(request, 'blueprint', '') or ''
+    # Calcular antes de resolver org: si falla el tenant, las APIs no deben redirigir a HTML (login/dashboard).
+    is_api = path.startswith('/api/') or bp.endswith('_api') or 'api' in bp
+
     # Misma org que beneficios / catálogo / tenant_data (sesión, última elegida, etc.).
     from app import (
         default_organization_id,
@@ -36,11 +41,15 @@ def enforce_saas_module_or_response(module_code):
         try:
             org_id = int(getattr(current_user, 'organization_id', None) or default_organization_id())
         except Exception:
+            if is_api or request.is_json:
+                return jsonify(
+                    {
+                        'error': 'organization_context_lost',
+                        'user_message': 'Sesión o contexto de organización inválido. Recargue e inicie sesión.',
+                    }
+                ), 403
             flash('Tu sesión perdió el contexto de organización. Inicia sesión de nuevo.', 'error')
             return redirect(url_for('auth.login'))
-    bp = getattr(request, 'blueprint', '') or ''
-    path = request.path or ''
-    is_api = path.startswith('/api/') or bp.endswith('_api') or 'api' in bp
 
     if org_id is None:
         if is_api or request.is_json:

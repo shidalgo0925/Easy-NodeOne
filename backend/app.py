@@ -2605,6 +2605,12 @@ def bootstrap_nodeone_schema():
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra
         ensure_benefit_icon_color_columns()
         ensure_canonical_saas_organization_usable()
+        try:
+            from nodeone.services.pg_sequence_sync import ensure_saas_organization_id_sequence_postgresql
+
+            ensure_saas_organization_id_sequence_postgresql(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_id_sequence_postgresql: {e}')
         ensure_benefit_organization_id_column()
         ensure_membership_plan_organization_id_column()
         ensure_membership_plan_table()

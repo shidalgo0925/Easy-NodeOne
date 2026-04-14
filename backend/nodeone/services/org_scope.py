@@ -106,7 +106,12 @@ def admin_data_scope_organization_id():
     if M.has_request_context() and getattr(M.current_user, 'is_authenticated', False):
         if M.single_tenant_default_only() and not getattr(M.current_user, 'is_admin', False):
             return int(getattr(M.current_user, 'organization_id', None) or M.default_organization_id())
-    oid = M.get_current_organization_id()
+    oid = None
+    try:
+        oid = M.get_current_organization_id()
+    except RuntimeError:
+        # Multi-tenant: sesión sin organization_id (sesión antigua / flujo incompleto).
+        oid = None
     if oid is not None:
         return int(oid)
     return int(M.default_organization_id())

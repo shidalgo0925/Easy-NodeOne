@@ -284,6 +284,7 @@ def register_admin_users_roles_routes(app):
         user.is_active = bool(request.form.get('is_active'))
         if can_manage_platform_superuser_fields(current_user):
             user.is_admin = bool(request.form.get('is_admin'))
+        user.is_salesperson = bool(request.form.get('is_salesperson'))
         wants_advisor = bool(request.form.get('is_advisor'))
 
         if wants_advisor and not user.is_advisor:
@@ -324,6 +325,7 @@ def register_admin_users_roles_routes(app):
                 else False
             )
             is_advisor = bool(request.form.get('is_advisor'))
+            is_salesperson = bool(request.form.get('is_salesperson'))
             tags = request.form.get('tags', '').strip() or None
             user_group = request.form.get('user_group', '').strip() or None
         
@@ -376,6 +378,7 @@ def register_admin_users_roles_routes(app):
                 is_active=is_active,
                 is_admin=is_admin,
                 is_advisor=is_advisor,
+                is_salesperson=is_salesperson,
                 organization_id=admin_data_scope_organization_id(),
             )
             db.session.add(new_user)

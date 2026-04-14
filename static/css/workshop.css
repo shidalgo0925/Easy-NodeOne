@@ -1,4 +1,26 @@
-/* Taller — body map y ficha orden */
+/* Taller — body map y ficha orden (mapa: botón #btnWoMapToggle en barra de la orden) */
+.workshop-order-page #btnWoMapToggle {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Checklist recepción: encabezado colapsable */
+.workshop-order-page .wo-checklist-header .wo-checklist-toggle {
+  background-color: #cfe2ff;
+  color: #052c65;
+}
+.workshop-order-page .wo-checklist-header .wo-checklist-toggle:hover,
+.workshop-order-page .wo-checklist-header .wo-checklist-toggle:focus {
+  background-color: #b6d4fe;
+  color: #052c65;
+}
+.workshop-order-page .wo-checklist-toggle .wo-checklist-chevron {
+  transition: transform 0.2s ease;
+}
+.workshop-order-page .wo-checklist-toggle[aria-expanded="true"] .wo-checklist-chevron {
+  transform: rotate(180deg);
+}
+
 .workshop-order-page .car-zone {
   fill: #e8ecf4;
   stroke: #5c6bc0;
@@ -23,4 +45,46 @@
 }
 .workshop-order-page .line-items-wrap {
   overflow-x: auto;
+}
+/* M2O (cliente y producto): compacto dentro de tabla taller */
+.workshop-order-page .odoo-m2o {
+  min-width: 12rem;
+}
+.workshop-order-page #wolLines .odoo-m2o .li-product-search {
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.5rem;
+  min-height: 2rem;
+}
+.workshop-order-page #woCustomerM2o .odoo-m2o-input-wrap {
+  min-height: 2.25rem;
+}
+/* Evita que la tarjeta recorte el desplegable del cliente */
+.workshop-order-page .card .card-body {
+  overflow: visible;
+}
+.workshop-order-page #woCustomerM2o .odoo-m2o-dropdown.show {
+  z-index: 1080;
+  display: block !important;
+}
+.workshop-order-page #wolLines .odoo-m2o-dropdown.show {
+  display: block !important;
+  z-index: 1070;
+}
+/* Líneas estilo Odoo (crear / editar) en M2O cliente */
+.workshop-order-page .wo-cust-odoo-create {
+  color: #0d6efd !important;
+  font-weight: 600;
+}
+.workshop-order-page .wo-cust-odoo-create:hover {
+  background: #e7f1ff !important;
+}
+.workshop-order-page .wo-cust-field-hint {
+  font-style: italic;
+}
+.workshop-order-page .wo-point-photo-thumb {
+  flex-shrink: 0;
+}
+.workshop-order-page .wo-point-photo-thumb:focus-visible {
+  outline: 2px solid var(--bs-primary, #0d6efd);
+  outline-offset: 2px;
 }

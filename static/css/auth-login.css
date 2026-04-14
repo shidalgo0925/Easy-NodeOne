@@ -1,9 +1,19 @@
 /* Login — usa tokens :root de base.html (identidad por tenant / tema claro-oscuro) */
+/* Sin centrar en vertical: evita el hueco grande entre navbar y la tarjeta. */
+#main-content .container:has(> .auth-login-page) {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Sin min-height: evita el hueco enorme entre la versión y el footer. */
 .auth-login-page {
-    padding: 1.75rem 0 3rem;
-    min-height: calc(100vh - 5.5rem);
+    padding: 0;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+}
+
+#main-content:has(.auth-login-page) footer.footer {
+    margin-top: 0;
 }
 
 .auth-login-page__inner {

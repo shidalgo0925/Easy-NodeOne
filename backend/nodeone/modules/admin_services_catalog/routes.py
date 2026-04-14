@@ -1,12 +1,21 @@
 """Admin: catálogo de servicios y categorías (CRUD páginas + API)."""
 
+import io
 import re
 from datetime import datetime
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, send_file
 
 import app as M
 from nodeone.modules.accounting.models import Tax
+
+from .catalog_io import (
+    EXPORT_COLUMNS,
+    apply_import_rows,
+    rows_from_upload,
+    service_to_row,
+    validate_import_rows,
+)
 
 admin_services_catalog_bp = Blueprint('admin_services_catalog', __name__)
 
@@ -399,4 +408,110 @@ def admin_service_categories_list():
             'categories': [cat.to_dict() for cat in categories]
         })
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _services_export_rows():
+    oid = _admin_catalog_org_id()
+    services = M.Service.query.filter_by(organization_id=oid).order_by(
+        M.Service.display_order, M.Service.name
+    ).all()
+    return [service_to_row(s) for s in services]
+
+
+@admin_services_catalog_bp.route('/api/admin/services/export.csv')
+@M.require_permission('services.view')
+def admin_services_export_csv():
+    """Exportar catálogo de la organización activa en CSV (UTF-8 con BOM)."""
+    try:
+        import pandas as pd
+    except ImportError:
+        return jsonify({'success': False, 'error': 'pandas no disponible'}), 500
+    rows = _services_export_rows()
+    df = pd.DataFrame(rows, columns=EXPORT_COLUMNS)
+    buf = io.BytesIO()
+    buf.write(df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'))
+    buf.seek(0)
+    ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f'servicios_catalogo_{ts}.csv',
+        mimetype='text/csv; charset=utf-8',
+    )
+
+
+@admin_services_catalog_bp.route('/api/admin/services/export.xlsx')
+@M.require_permission('services.view')
+def admin_services_export_xlsx():
+    """Exportar catálogo en Excel (.xlsx)."""
+    try:
+        import pandas as pd
+    except ImportError:
+        return jsonify({'success': False, 'error': 'pandas no disponible'}), 500
+    rows = _services_export_rows()
+    df = pd.DataFrame(rows, columns=EXPORT_COLUMNS)
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='servicios')
+    buf.seek(0)
+    ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f'servicios_catalogo_{ts}.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@admin_services_catalog_bp.route('/api/admin/services/import-template.csv')
+@M.require_permission('services.view')
+def admin_services_import_template_csv():
+    """Plantilla CSV solo con cabeceras (mismas columnas que export)."""
+    try:
+        import pandas as pd
+    except ImportError:
+        return jsonify({'success': False, 'error': 'pandas no disponible'}), 500
+    df = pd.DataFrame(columns=EXPORT_COLUMNS)
+    buf = io.BytesIO()
+    buf.write(df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'))
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name='plantilla_importar_servicios.csv',
+        mimetype='text/csv; charset=utf-8',
+    )
+
+
+@admin_services_catalog_bp.route('/api/admin/services/import', methods=['POST'])
+@M.admin_required
+def admin_services_import():
+    """Importar servicios desde CSV o XLSX (crear / actualizar por id de la org)."""
+    f = request.files.get('file')
+    if not f or not (f.filename or '').strip():
+        return jsonify({'success': False, 'error': 'No se recibió ningún archivo'}), 400
+    rows, err = rows_from_upload(f)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    if not rows:
+        return jsonify({'success': False, 'error': 'El archivo no tiene filas de datos'}), 400
+    oid = _admin_catalog_org_id()
+    val_errors = validate_import_rows(rows, oid)
+    if val_errors:
+        return jsonify({
+            'success': False,
+            'error': 'Errores de validación',
+            'details': [{'row': r, 'message': m} for r, m in val_errors],
+        }), 400
+    try:
+        created, updated = apply_import_rows(rows, oid)
+        return jsonify({
+            'success': True,
+            'message': f'Importación lista: {created} creado(s), {updated} actualizado(s).',
+            'created': created,
+            'updated': updated,
+        })
+    except Exception as e:
+        M.db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500

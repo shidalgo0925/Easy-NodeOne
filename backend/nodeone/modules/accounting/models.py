@@ -42,6 +42,18 @@ class Invoice(db.Model):
     date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     status = db.Column(db.String(20), nullable=False, default='draft')  # draft|posted|paid|cancelled
     origin_quotation_id = db.Column(db.Integer, db.ForeignKey('quotations.id', ondelete='SET NULL'), index=True)
+    salesperson_contact_id = db.Column(
+        db.Integer,
+        db.ForeignKey('tenant_crm_contact.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+    salesperson_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
     # Sin FK ORM a enrollments (evita orden circular en CREATE TABLE); integridad en capa de dominio.
     enrollment_id = db.Column(db.Integer, nullable=True, index=True)
     due_date = db.Column(db.DateTime, nullable=True)

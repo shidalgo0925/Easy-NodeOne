@@ -29,7 +29,8 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)  # Campo para administradores
     is_advisor = db.Column(db.Boolean, default=False)  # Campo para asesores que atienden citas
-    
+    is_salesperson = db.Column(db.Boolean, default=False, nullable=False)  # Vendedor en cotizaciones (miembros de la org)
+
     # Verificación de email
     email_verified = db.Column(db.Boolean, default=False)
     email_verification_token = db.Column(db.String(100), unique=True, nullable=True)

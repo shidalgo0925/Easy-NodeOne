@@ -177,6 +177,14 @@ def register_admin_platform_org_routes(app):
             if sub_raw and SaasOrganization.query.filter_by(subdomain=sub_raw).first():
                 flash('Ese subdominio ya esta en uso.', 'error')
                 return render_template('admin/organization_form.html', org=None, form=request.form, show_onboarding_rail=show_rail)
+            try:
+                from nodeone.services.pg_sequence_sync import (
+                    ensure_saas_organization_id_sequence_postgresql,
+                )
+
+                ensure_saas_organization_id_sequence_postgresql(db, db.engine)
+            except Exception:
+                current_app.logger.exception('ensure_saas_organization_id_sequence_postgresql antes de crear org')
             o = SaasOrganization(name=name, subdomain=sub_raw, is_active=is_active, **fiscal)
             db.session.add(o)
             try:

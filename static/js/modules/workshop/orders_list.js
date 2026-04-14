@@ -34,9 +34,22 @@
   }
 
   async function api(url) {
-    const r = await fetch(url, { credentials: 'same-origin' });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || d.detail || r.status);
+    const r = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    const text = await r.text().catch(() => '');
+    const t = text.trim();
+    if (t.startsWith('<')) {
+      throw new Error('Sesión caducada o respuesta HTML. Recargue la página.');
+    }
+    let d;
+    if (!t) d = {};
+    else {
+      try {
+        d = JSON.parse(text);
+      } catch {
+        throw new Error(`Respuesta no JSON (HTTP ${r.status})`);
+      }
+    }
+    if (!r.ok) throw new Error((d && (d.error || d.detail)) || String(r.status));
     return d;
   }
 

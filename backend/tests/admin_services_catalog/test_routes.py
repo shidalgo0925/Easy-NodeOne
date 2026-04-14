@@ -16,6 +16,10 @@ class TestAdminServicesCatalogBlueprint(unittest.TestCase):
         self.assertIn('admin_services_catalog.admin_service_categories', endpoints)
         self.assertIn('admin_services_catalog.admin_services_create', endpoints)
         self.assertIn('admin_services_catalog.admin_service_categories_list', endpoints)
+        self.assertIn('admin_services_catalog.admin_services_export_csv', endpoints)
+        self.assertIn('admin_services_catalog.admin_services_export_xlsx', endpoints)
+        self.assertIn('admin_services_catalog.admin_services_import_template_csv', endpoints)
+        self.assertIn('admin_services_catalog.admin_services_import', endpoints)
 
     def test_paths(self):
         from app import app
@@ -23,6 +27,8 @@ class TestAdminServicesCatalogBlueprint(unittest.TestCase):
         by_ep = {r.endpoint: str(r.rule) for r in app.url_map.iter_rules()}
         self.assertEqual(by_ep.get('admin_services_catalog.admin_services'), '/admin/services')
         self.assertEqual(by_ep.get('admin_services_catalog.admin_service_categories'), '/admin/service-categories')
+        self.assertEqual(by_ep.get('admin_services_catalog.admin_services_export_csv'), '/api/admin/services/export.csv')
+        self.assertEqual(by_ep.get('admin_services_catalog.admin_services_import'), '/api/admin/services/import')
 
 
 if __name__ == '__main__':

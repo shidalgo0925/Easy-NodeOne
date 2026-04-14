@@ -235,6 +235,7 @@
                                     data-active="{{ '1' if user.is_active else '0' }}"
                                     data-admin="{{ '1' if user.is_admin else '0' }}"
                                     data-advisor="{{ '1' if user.is_advisor else '0' }}"
+                                    data-salesperson="{{ '1' if user.is_salesperson else '0' }}"
                                     data-display-name="{{ (user.first_name ~ ' ' ~ user.last_name)|e }}">
                                     <td class="text-nowrap">{{ user.id }}</td>
                                     <td class="text-truncate" style="max-width:140px;" title="{{ user.first_name }} {{ user.last_name }}">{{ user.first_name }} {{ user.last_name }}</td>
@@ -244,6 +245,7 @@
                                         <span class="badge bg-{{ 'success' if user.is_active else 'danger' }}">{{ 'Activo' if user.is_active else 'Inactivo' }}</span>
                                         {% if user.is_admin %}<span class="badge bg-warning text-dark">Admin</span>{% endif %}
                                         {% if user.is_advisor %}<span class="badge bg-info">Asesor</span>{% endif %}
+                                        {% if user.is_salesperson %}<span class="badge bg-success">Vendedor</span>{% endif %}
                                     </td>
                                     <td class="text-nowrap small">
                                         {% set um = user_memberships.get(user.id) %}
@@ -462,6 +464,13 @@
                                 <label class="form-check-label" for="create_is_advisor">Es Asesor</label>
                             </div>
                         </div>
+                        <div class="col-12 col-md-4 mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="create_is_salesperson" name="is_salesperson">
+                                <label class="form-check-label" for="create_is_salesperson">Es vendedor</label>
+                            </div>
+                            <small class="text-muted d-block">Aparece en cotizaciones (Ventas).</small>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -609,6 +618,13 @@
                                 <label class="form-check-label" for="edit_is_advisor">Es Asesor</label>
                             </div>
                         </div>
+                        <div class="col-12 col-md-4 mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="edit_is_salesperson" name="is_salesperson">
+                                <label class="form-check-label" for="edit_is_salesperson">Es vendedor</label>
+                            </div>
+                            <small class="text-muted d-block">Selector de vendedor en cotizaciones.</small>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -657,6 +673,8 @@ document.addEventListener('DOMContentLoaded', function() {
             var editAdm = document.getElementById('edit_is_admin');
             if (editAdm) editAdm.checked = tr.dataset.admin === '1';
             document.getElementById('edit_is_advisor').checked = tr.dataset.advisor === '1';
+            var edSp = document.getElementById('edit_is_salesperson');
+            if (edSp) edSp.checked = tr.dataset.salesperson === '1';
             document.getElementById('editUserForm').action = '/admin/users/' + id + '/update';
             new bootstrap.Modal(document.getElementById('editUserModal')).show();
         });

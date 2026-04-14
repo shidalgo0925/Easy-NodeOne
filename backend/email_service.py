@@ -5,6 +5,7 @@ Maneja el envío de correos con reintentos y manejo de errores
 """
 
 import logging
+import mimetypes
 from flask_mail import Message
 from datetime import datetime
 from functools import wraps
@@ -32,8 +33,8 @@ class EmailService:
         self.retry_delay = retry_delay
     
     def send_email(self, subject, recipients, html_content, text_content=None, sender=None, reply_to=None,
-                   email_type=None, related_entity_type=None, related_entity_id=None, 
-                   recipient_id=None, recipient_name=None):
+                   email_type=None, related_entity_type=None, related_entity_id=None,
+                   recipient_id=None, recipient_name=None, attachments=None):
         """
         Enviar correo electrónico con reintentos automáticos y registro en EmailLog
         
@@ -48,6 +49,7 @@ class EmailService:
             related_entity_id: ID de la entidad relacionada
             recipient_id: ID del usuario destinatario (opcional)
             recipient_name: Nombre del destinatario (opcional)
+            attachments: Lista opcional de dicts {'filename': str, 'content_type': str, 'data': bytes}
         
         Returns:
             bool: True si se envió exitosamente, False en caso contrario
@@ -81,6 +83,18 @@ class EmailService:
                     sender=sender,
                     reply_to=reply_to if isinstance(reply_to, list) else ([reply_to] if reply_to else None)
                 )
+                if attachments:
+                    for att in attachments:
+                        if not isinstance(att, dict):
+                            continue
+                        fn = (att.get('filename') or 'adjunto').strip() or 'adjunto'
+                        data = att.get('data')
+                        if not data or not isinstance(data, (bytes, bytearray)):
+                            continue
+                        ct = (att.get('content_type') or '').strip()
+                        if not ct:
+                            ct = mimetypes.guess_type(fn)[0] or 'application/octet-stream'
+                        msg.attach(fn, ct, bytes(data))
                 
                 self.mail.send(msg)
                 logger.info(f"Email enviado exitosamente a {recipients} - Asunto: {subject}")

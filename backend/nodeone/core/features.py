@@ -239,9 +239,13 @@ def register_admin_sales_accounting_routes(app):
     if 'admin_sales_quotations' in getattr(app, 'view_functions', {}):
         return
     try:
-        from nodeone.modules.admin_sales_accounting.routes import register_admin_sales_quotations_invoices_routes as _reg_qi
+        from nodeone.modules.admin_sales_accounting.routes import (
+            register_admin_sales_commercial_contacts_routes as _reg_cc,
+            register_admin_sales_quotations_invoices_routes as _reg_qi,
+        )
 
         _reg_qi(app)
+        _reg_cc(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar rutas admin sales/accounting: {e}')
 
@@ -731,7 +735,7 @@ def _register_tax_api_blueprints(app):
 
 
 def register_sales_accounting_blueprints(app):
-    """Cotizaciones (/quotations), facturas (/invoices) e impuestos (/taxes); guard SaaS unificado: sales."""
+    """Cotizaciones JSON (/api/sales/quotations), facturas (/invoices) e impuestos (/taxes); guard SaaS: sales."""
     if os.environ.get('NODEONE_SKIP_SALES_ACCOUNTING_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         _register_tax_api_blueprints(app)
         return

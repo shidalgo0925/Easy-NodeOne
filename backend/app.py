@@ -2663,6 +2663,12 @@ def bootstrap_nodeone_schema():
             apply_platform_org_allowlist()
         except Exception as e:
             print(f'⚠️ ensure_saas_catalog_full / org allowlist: {e}')
+        try:
+            from nodeone.services.platform_sa_seed import ensure_platform_sa_user
+
+            ensure_platform_sa_user()
+        except Exception as e:
+            print(f'⚠️ ensure_platform_sa_user: {e}')
         apply_email_config_from_db()
 
 

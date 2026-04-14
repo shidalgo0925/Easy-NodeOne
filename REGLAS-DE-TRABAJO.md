@@ -159,3 +159,4 @@ Código Python, templates, estáticos del proyecto, migraciones, scripts del rep
 ## Documentos relacionados
 
 - **Checklist al desplegar y al comunicar a clientes:** [`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md)
+- **RBAC, roles SA/AD y cómo asignarlos en el panel:** [`docs/RBAC_Y_ROLES.md`](docs/RBAC_Y_ROLES.md)

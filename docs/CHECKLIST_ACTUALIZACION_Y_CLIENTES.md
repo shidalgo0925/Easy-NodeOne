@@ -52,3 +52,35 @@ Si notan algún inconveniente, [canal de soporte acordado].
 ## Resumen en una frase
 
 **No avisar a clientes hasta** que staging esté validado, prod actualizado y verificado; **dejar escrito** qué versión salió y qué les comunicaste.
+
+---
+
+## Lecciones (para que no vuelva a pasar)
+
+### 1. “En dev se ve distinto que en staging/prod”
+
+- **Causa:** cambios **solo en el disco de `dev/app`**, sin **commit + push** a Git (y merge a `main` si el silo consume `main`).
+- **Regla:** lo que no está en el remoto **no existe** para staging/prod. Reiniciar servicios **no** copia trabajo local.
+- **Check:** antes de desplegar, `git status` limpio en dev y el commit deseado en `origin/main`.
+
+### 2. “`git pull` + reinicio y el servicio no arranca” (`UndefinedColumn`, etc.)
+
+- **Causa:** el **código (modelos SQLAlchemy)** ya espera columnas/tablas nuevas, pero **PostgreSQL del silo** aún no las tiene. El unit suele ejecutar `bootstrap_nodeone.py` en `ExecStartPre`; si falla ahí, Gunicorn no levanta.
+- **Qué hacer:**
+  - Ver log: `journalctl -u easynodeone-<silo>.service -n 80 --no-pager`.
+  - Si aparece **`column ... does not exist`**: aplicar el **DDL / bootstrap** que corresponda al cambio (en el repo suele haber funciones idempotentes llamadas desde `bootstrap_nodeone_schema` en `app.py`), o ejecutar el script/migración documentado para ese release.
+  - Volver a **reiniciar** el servicio y confirmar `active (running)`.
+- **Prevención:** en releases con **cambios de modelo**, asumir siempre **paso explícito de esquema** además del pull (aunque muchas veces lo cubra el bootstrap; hay que **verificar el primer arranque** tras el deploy).
+
+### 3. Orden del bootstrap
+
+- Hubo un caso donde se consultaba `saas_organization` **antes** de crear columnas fiscales en BD, y el arranque fallaba. En código quedó corregido el **orden** del DDL en `bootstrap_nodeone_schema` (fiscal / facturas / CRM **antes** de lógica que carga orgs).
+- **Regla general:** al añadir columnas a tablas que el **bootstrap o el arranque** lean enseguida, el **DDL idempotente** debe ejecutarse **antes** de esa lectura.
+
+### 4. Checklist mínima tras cada deploy en un silo
+
+1. `git pull` al commit acordado.  
+2. `pip install` solo si cambió `requirements.txt` / lock.  
+3. **Reinicio** del servicio.  
+4. **`systemctl status`** + **últimas líneas de `journalctl`** (confirmar `ExecStartPre` OK).  
+5. Prueba rápida en UI (login + una pantalla tocada por el release).

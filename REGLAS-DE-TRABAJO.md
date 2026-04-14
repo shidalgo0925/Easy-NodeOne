@@ -50,7 +50,9 @@ cd /opt/easynodeone/staging/app
 git pull origin main
 ```
 
-Luego: instalar dependencias si aplica, migraciones si aplica, reiniciar servicio, validar.
+Luego: instalar dependencias si aplica, migraciones / DDL si aplica, reiniciar servicio, validar.
+
+**Importante:** si el servicio no arranca tras el pull, revisar `journalctl` del unit: a menudo es **esquema PostgreSQL desalineado** (columnas nuevas). Detalle y checklist en [`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) → *Lecciones*.
 
 ### Prod
 
@@ -61,7 +63,7 @@ cd /opt/easynodeone/prod/app
 git pull origin main
 ```
 
-Luego: migraciones si aplica, reinicio, verificación.
+Luego: migraciones / DDL si aplica, reinicio, verificación (y `journalctl` si el reinicio falla). Misma guía *Lecciones* en el checklist de despliegue.
 
 ### Relatic
 

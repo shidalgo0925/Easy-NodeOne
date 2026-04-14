@@ -15,6 +15,21 @@ def register_public_auth_legacy_routes(app):
 
     from app import db, Membership, SocialAuth, User, VALID_COUNTRIES, validate_cedula_or_passport, validate_country, validate_email_format
 
+    def _oauth_redirect_base() -> str:
+        """
+        URL pública para redirect_uri OAuth (debe coincidir con Google Console).
+        Si OAUTH_USE_REQUEST_BASE=1 y Nginx envía X-Forwarded-Proto / X-Forwarded-Host,
+        se usa el host con el que entró el usuario (varios subdominios, un solo silo).
+        Si no, se usa BASE_URL (un solo dominio público).
+        """
+        flag = (os.environ.get('OAUTH_USE_REQUEST_BASE') or '').strip().lower()
+        if flag in ('1', 'true', 'yes', 'on'):
+            proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or 'https').split(',')[0].strip()
+            host = (request.headers.get('X-Forwarded-Host') or request.host or '').split(',')[0].strip()
+            if host:
+                return f'{proto}://{host}'.rstrip('/')
+        return (os.environ.get('BASE_URL') or '').strip().rstrip('/')
+
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         """Registro de nuevos usuarios"""
@@ -479,7 +494,7 @@ def register_public_auth_legacy_routes(app):
         n = safe_next_path(request.args.get('next'))
         if n:
             session['oauth_post_login_next'] = n
-        base = (os.environ.get('BASE_URL') or '').strip().rstrip('/')
+        base = _oauth_redirect_base()
         if base:
             redirect_uri = f'{base}/auth/{provider}/callback'
         else:

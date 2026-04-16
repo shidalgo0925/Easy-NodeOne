@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
 {% block title %}Códigos de Descuento - Easy NodeOne{% endblock %}
 
@@ -24,11 +25,10 @@
         </div>
     </div>
 
-    <!-- Filtros -->
+    {% set dc_filters_open = (search or '')|trim|length > 0 or (status_filter|default('all') != 'all') %}
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            {% call admin_filter_collapse('adminFiltersCodigosDescuento', 'Filtros de búsqueda', expanded=dc_filters_open, margin_class='mb-0') %}
                     <form method="GET" action="{{ url_for('admin_discount_codes.admin_discount_codes') }}" class="row g-3">
                         <div class="col-12 col-md-4">
                             <label for="search" class="form-label">Buscar</label>
@@ -48,8 +48,7 @@
                             <a href="{{ url_for('admin_discount_codes.admin_discount_codes') }}" class="btn btn-sm btn-outline-secondary ms-2"><i class="fas fa-times"></i> Limpiar</a>
                         </div>
                     </form>
-                </div>
-            </div>
+            {% endcall %}
         </div>
     </div>
 

@@ -674,6 +674,16 @@
   margin-top: 0.35rem;
 }
 
+/* Bloque orden de taller en vista previa (fuera del .quote-doc-preview principal) */
+#quotePreviewBody .wo-doc-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+#quotePreviewBody .wo-doc-photo-cell img {
+  max-height: 220px;
+}
+
 @media print {
   @page {
     margin: 12mm;
@@ -683,31 +693,39 @@
     visibility: hidden !important;
   }
   #quotePreviewModal.show,
-  #quotePreviewModal.show * {
+  #quotePreviewModal.show *,
+  #woPreviewModal.show,
+  #woPreviewModal.show * {
     visibility: visible !important;
   }
-  #quotePreviewModal {
+  #quotePreviewModal,
+  #woPreviewModal {
     position: fixed !important;
     inset: 0 !important;
     z-index: 9999 !important;
     overflow: visible !important;
     background: #fff !important;
   }
-  #quotePreviewModal .modal-dialog {
+  #quotePreviewModal .modal-dialog,
+  #woPreviewModal .modal-dialog {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;
     height: auto !important;
   }
-  #quotePreviewModal .modal-content {
+  #quotePreviewModal .modal-content,
+  #woPreviewModal .modal-content {
     border: none !important;
     box-shadow: none !important;
   }
   #quotePreviewModal .quote-preview-modal-header,
-  #quotePreviewModal .quote-preview-modal-footer {
+  #quotePreviewModal .quote-preview-modal-footer,
+  #woPreviewModal .quote-preview-modal-header,
+  #woPreviewModal .quote-preview-modal-footer {
     display: none !important;
   }
-  #quotePreviewModal .modal-body {
+  #quotePreviewModal .modal-body,
+  #woPreviewModal .modal-body {
     background: #fff !important;
     padding: 0 !important;
   }

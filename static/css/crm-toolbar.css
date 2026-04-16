@@ -1,0 +1,107 @@
+/* Vista tipo Odoo: conmutador de vistas por iconos */
+.crm-view-toolbar {
+  gap: 0.35rem;
+}
+
+.crm-view-toolbar .crm-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  color: #495057;
+  background: #fff;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.crm-view-toolbar .crm-view-btn:hover {
+  background: #f8f9fa;
+  color: #212529;
+}
+
+.crm-view-toolbar .crm-view-btn.is-active {
+  border-color: #0d6efd;
+  background: #e7f1ff;
+  color: #0d6efd;
+}
+
+.crm-view-toolbar .crm-view-btn.crm-view-btn--settings {
+  margin-left: 0.25rem;
+  border-color: #dee2e6;
+}
+
+/* Calendario CRM */
+.crm-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  background: #dee2e6;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.crm-cal-dow {
+  background: #f8f9fa;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.35rem 0.2rem;
+  color: #6c757d;
+}
+
+.crm-cal-cell {
+  min-height: 5rem;
+  background: #fff;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+  vertical-align: top;
+}
+
+.crm-cal-cell--muted {
+  background: #f8f9fa;
+  color: #adb5bd;
+}
+
+.crm-cal-cell--today {
+  outline: 2px solid #0d6efd;
+  outline-offset: -2px;
+}
+
+.crm-cal-daynum {
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
+.crm-cal-chip {
+  display: block;
+  padding: 0.1rem 0.2rem;
+  margin-bottom: 0.1rem;
+  border-radius: 0.15rem;
+  background: #e7f1ff;
+  color: #084298;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font-size: 0.68rem;
+}
+
+.crm-cal-chip:hover {
+  background: #cfe2ff;
+}
+
+@media (max-width: 767.98px) {
+  .crm-cal-cell {
+    min-height: 3.5rem;
+  }
+  .crm-cal-chip {
+    display: none;
+  }
+}

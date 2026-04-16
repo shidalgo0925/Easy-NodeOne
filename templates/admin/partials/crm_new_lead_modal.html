@@ -1,0 +1,113 @@
+{# Modal Nuevo Lead: cliente (M2O como Taller: /api/workshop/customers/*) + prospecto. Requiere crm-new-lead-modal.css + new_lead_modal.js #}
+<div class="modal fade" id="newLeadModal" tabindex="-1" aria-labelledby="newLeadModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <form class="modal-content" id="newLeadForm" data-workshop-api-base="/api/workshop" autocomplete="off">
+      <div class="modal-header">
+        <h5 class="modal-title" id="newLeadModalLabel">Nuevo Lead</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="leadTitle">Título</label>
+          <input class="form-control" id="leadTitle" name="name" required maxlength="255" placeholder="Ej. Oportunidad corporativa ACME">
+        </div>
+
+        <div class="mb-3 pb-2 border-bottom">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+            <span class="crm-new-lead-section-title">Cliente (miembro de la organización)</span>
+            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" id="leadClearMemberPick">Quitar selección</button>
+          </div>
+          <p class="crm-new-lead-prospect-hint mb-2">Misma búsqueda y creación que en <strong>Taller</strong>: escriba para filtrar, elija un contacto o use <strong>Crear «…»</strong> / <strong>Crear y editar…</strong> en el desplegable.</p>
+          <input type="hidden" id="leadSelectedUserId" value="" aria-hidden="true">
+          <div class="odoo-m2o" id="leadCustomerM2o">
+            <label class="form-label small mb-1" for="leadCustomerSearch">Cliente</label>
+            <div class="d-flex align-items-stretch odoo-m2o-input-wrap border rounded px-1 bg-white">
+              <input type="text" id="leadCustomerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Contacto…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="leadCustomerMenu" aria-autocomplete="list">
+              <button type="button" class="btn btn-sm btn-link odoo-m2o-toggle crm-cust-toggle px-2" tabindex="-1" title="Mostrar contactos">🔍</button>
+            </div>
+            <div id="leadCustomerMenu" class="odoo-m2o-dropdown" role="listbox"></div>
+          </div>
+          <p class="small text-muted mb-0 mt-1">Si no necesita vincular un miembro, deje el campo vacío y complete solo <strong>Prospecto</strong> abajo.</p>
+        </div>
+
+        <div class="mb-2">
+          <span class="crm-new-lead-section-title d-block">Prospecto (datos del lead)</span>
+          <p class="crm-new-lead-prospect-hint mb-2">Para guardar el lead hace falta al menos <strong>email</strong> o <strong>teléfono</strong>. Si eligió un cliente arriba, los datos se rellenan y puede ajustarlos.</p>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="leadContactName">Nombre contacto</label>
+          <input class="form-control" id="leadContactName" name="contact_name" maxlength="255" autocomplete="name">
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="leadCompanyName">Empresa</label>
+          <input class="form-control" id="leadCompanyName" name="company_name" maxlength="255" autocomplete="organization">
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-6">
+            <label class="form-label" for="leadEmail">Email</label>
+            <input type="email" class="form-control" id="leadEmail" name="email" maxlength="255" autocomplete="email">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="leadPhone">Teléfono</label>
+            <input class="form-control" id="leadPhone" name="phone" maxlength="80" autocomplete="tel">
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label" for="leadSource">Fuente</label>
+            <input class="form-control" id="leadSource" name="source" value="web" maxlength="80">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="leadPriority">Prioridad</label>
+            <select class="form-select" id="leadPriority" name="priority">
+              <option value="low">low</option>
+              <option value="medium" selected>medium</option>
+              <option value="high">high</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="crmNewCustomerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nuevo cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">Se crea un usuario en su organización (misma lógica que en <strong>Taller</strong>). Si creó con <strong>Crear «…»</strong> solo con nombre, el sistema puede asignar un correo técnico; puede cambiarlo en <a href="/admin/users" target="_blank" rel="noopener">Usuarios</a>.</p>
+        <div class="mb-2">
+          <label class="form-label small">Correo <span class="text-danger">*</span></label>
+          <input type="email" class="form-control form-control-sm" id="crmNewCustEmail" autocomplete="email" placeholder="cliente@ejemplo.com">
+        </div>
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <label class="form-label small">Nombre</label>
+            <input type="text" class="form-control form-control-sm" id="crmNewCustFirst" placeholder="Nombre">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small">Apellido</label>
+            <input type="text" class="form-control form-control-sm" id="crmNewCustLast" placeholder="Apellido">
+          </div>
+        </div>
+        <div class="mb-0 mt-2">
+          <label class="form-label small">Teléfono (opcional)</label>
+          <input type="text" class="form-control form-control-sm" id="crmNewCustPhone" placeholder="+507 …">
+        </div>
+        <div id="crmNewCustErr" class="small text-danger mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnCrmNewCustSave">Crear y seleccionar</button>
+      </div>
+    </div>
+  </div>
+</div>

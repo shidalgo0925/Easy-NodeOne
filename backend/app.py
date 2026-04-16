@@ -1265,6 +1265,25 @@ def get_nav_brand_name():
     return _fn()
 
 
+@app.template_global()
+def has_view_endpoint(endpoint: str) -> bool:
+    """Evita url_for() hacia blueprints opcionales no registrados (p. ej. sales con SKIP)."""
+    try:
+        return endpoint in app.view_functions
+    except Exception:
+        return False
+
+
+@app.route('/favicon.ico')
+def favicon_ico():
+    """Los navegadores piden /favicon.ico por defecto; servimos el SVG del producto."""
+    return send_from_directory(
+        os.path.join(app.static_folder, 'images'),
+        'favicon.svg',
+        mimetype='image/svg+xml',
+    )
+
+
 @app.route('/manifest.webmanifest')
 def web_app_manifest():
     """PWA mínimo: manifest JSON con nombre e icono según branding (sesión/tenant)."""
@@ -2719,6 +2738,12 @@ def bootstrap_nodeone_schema():
             ensure_platform_sa_user()
         except Exception as e:
             print(f'⚠️ ensure_platform_sa_user: {e}')
+        try:
+            from nodeone.services.analytics_permissions import ensure_analytics_view_permission
+
+            ensure_analytics_view_permission(db, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_analytics_view_permission: {e}')
         try:
             from nodeone.services.default_taxes import ensure_default_percent_taxes
 

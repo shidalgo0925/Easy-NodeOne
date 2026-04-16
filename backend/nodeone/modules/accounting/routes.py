@@ -441,6 +441,12 @@ def invoices_post():
         grand_total=0.0,
         created_by=getattr(current_user, 'id', None),
     )
+    date_raw = data.get('date')
+    if date_raw:
+        try:
+            inv.date = datetime.fromisoformat(str(date_raw).replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            pass
     db.session.add(inv)
     db.session.flush()
 

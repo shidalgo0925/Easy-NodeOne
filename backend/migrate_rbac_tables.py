@@ -26,6 +26,7 @@ def _seed_rbac_core(conn, trans, role_t, permission_t, role_permission_t):
         'memberships.view', 'memberships.assign', 'memberships.suspend',
         'payments.view', 'payments.manage', 'payments.refund',
         'reports.view', 'reports.export',
+        'analytics.view',
         'integrations.view', 'integrations.manage', 'api.keys.create', 'api.keys.revoke',
         'system.settings.view', 'system.settings.update', 'audit.logs.view',
     ]
@@ -62,7 +63,7 @@ def _seed_rbac_core(conn, trans, role_t, permission_t, role_permission_t):
             conn.execute(insert(role_permission_t).values(role_id=role_ids['AD'], permission_id=pid))
     print("Rol AD: permisos asignados (sin users.delete, roles.delete, system.settings.update).")
 
-    st_perms = {'users.view', 'users.create', 'users.update', 'services.view', 'memberships.view', 'memberships.assign', 'payments.view', 'reports.view', 'integrations.view'}
+    st_perms = {'users.view', 'users.create', 'users.update', 'services.view', 'memberships.view', 'memberships.assign', 'payments.view', 'reports.view', 'analytics.view', 'integrations.view'}
     for code in st_perms:
         if code in perm_ids:
             conn.execute(insert(role_permission_t).values(role_id=role_ids['ST'], permission_id=perm_ids[code]))

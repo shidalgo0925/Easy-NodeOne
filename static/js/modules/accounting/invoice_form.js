@@ -10,9 +10,12 @@
     return;
   }
 
-  const iid = Number(root.dataset.invoiceId);
+  let iid = Number(root.dataset.invoiceId);
+  if (!Number.isFinite(iid)) iid = 0;
+  const isNewDraft = root.dataset.isNew === '1' || iid === 0;
   const INV_BASE = String(root.dataset.invApiBase || '/invoices').replace(/\/$/, '');
   const SALES_Q_BASE = '/api/sales/quotations';
+  const WORKSHOP_API_BASE = String(root.dataset.workshopApiBase || '/api/workshop').replace(/\/$/, '');
 
   const err = document.getElementById('invFormError');
   const lineItems = document.getElementById('invLineItems');
@@ -76,18 +79,24 @@
     if (btnExtras) btnExtras.disabled = !editable;
 
     const st = String(inv.status || '');
+    const idNum = Number(root.dataset.invoiceId) || 0;
     const btnSave = document.getElementById('invBtnSave');
     const btnPost = document.getElementById('invBtnPost');
     const btnPay = document.getElementById('invBtnPay');
     const btnCancel = document.getElementById('invBtnCancel');
     const btnDelete = document.getElementById('invBtnDelete');
     if (btnSave) btnSave.disabled = !editable;
-    if (btnPost) btnPost.disabled = st !== 'draft';
+    if (btnPost) btnPost.disabled = st !== 'draft' || idNum < 1;
     if (btnPay) btnPay.disabled = st !== 'posted';
-    if (btnCancel) btnCancel.disabled = st === 'cancelled' || st === 'paid';
+    if (btnCancel) btnCancel.disabled = st === 'cancelled' || st === 'paid' || idNum < 1;
     if (btnDelete) {
-      btnDelete.disabled = st !== 'draft';
-      btnDelete.title = st === 'draft' ? 'Eliminar borrador' : 'Solo en borrador';
+      if (idNum < 1) {
+        btnDelete.disabled = false;
+        btnDelete.title = 'Salir al listado sin crear factura';
+      } else {
+        btnDelete.disabled = st !== 'draft';
+        btnDelete.title = st === 'draft' ? 'Eliminar borrador' : 'Solo en borrador';
+      }
     }
   }
 
@@ -345,25 +354,51 @@
   }
 
   function setCustomerHighlight(menu, index) {
-    const opts = [...menu.querySelectorAll('.cust-m2o-opt')];
+    const opts = [...menu.querySelectorAll('.quote-cust-kbd-opt')];
     opts.forEach((el, i) => el.classList.toggle('odoo-m2o-item-active', i === index));
     if (opts[index]) opts[index].scrollIntoView({ block: 'nearest' });
     return opts;
   }
 
-  function buildCustomerDropdownHtml(users) {
-    const body = users
+  /** Mismo desplegable que cotizaciones / Taller: búsqueda + Crear «…» + Crear y editar. */
+  function buildCustomerDropdownHtml(users, qRaw) {
+    const q = (qRaw || '').trim();
+    let head = '';
+    if (q) {
+      const qDisp = escHtml(q);
+      const qAttr = escAttr(q);
+      head =
+        `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-quick-create border-0 w-100 text-start" data-q="${qAttr}">Crear "${qDisp}"</button>` +
+        `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-open-edit border-0 w-100 text-start">Crear y editar…</button>`;
+    }
+    const body = (users || [])
       .map((u) => {
         const title = escHtml(u.name || u.email || '');
         const em =
           u.email && String(u.email) !== String(u.name || '')
             ? `<span class="odoo-m2o-item-meta">${escHtml(u.email)}</span>`
             : '';
-        return `<button type="button" class="odoo-m2o-item cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
+        return `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
       })
       .join('');
-    const empty = '<div class="px-3 py-2 small text-muted">Sin resultados</div>';
-    return `${users.length ? body : empty}<div class="odoo-m2o-hint">Miembros activos</div>`;
+    let mid = '';
+    if (users && users.length) {
+      mid = body;
+    } else {
+      mid = `<div class="px-3 py-2 small text-muted">${q ? 'Sin coincidencias en esta organización' : 'No hay contactos en el listado reciente'}</div>`;
+    }
+    const footer =
+      '<div class="odoo-m2o-footer border-top">' +
+      '<a href="/admin/users" target="_blank" rel="noopener" class="odoo-m2o-more">Buscar más…</a>' +
+      '</div>';
+    const hint = '<div class="odoo-m2o-hint">Empiece a escribir…</div>';
+    return `${head}${mid}${footer}${hint}`;
+  }
+
+  async function fetchWorkshopCustomers(q, limit) {
+    return fetchJsonAbsolute(
+      `${WORKSHOP_API_BASE}/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    );
   }
 
   async function renderCustomerDropdown(q, limit) {
@@ -375,15 +410,97 @@
     customerMenu.classList.add('show');
     customerSearch.setAttribute('aria-expanded', 'true');
     try {
-      const users = await salesApi(`/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+      const users = await fetchWorkshopCustomers(q, limit);
       if (fid !== root._custFetch) return;
       const list = Array.isArray(users) ? users : [];
-      customerMenu.innerHTML = buildCustomerDropdownHtml(list);
-      root._custM2oIndex = list.length ? 0 : -1;
-      setCustomerHighlight(customerMenu, root._custM2oIndex);
+      customerMenu.innerHTML = buildCustomerDropdownHtml(list, q);
+      const kbd = [...customerMenu.querySelectorAll('.quote-cust-kbd-opt')];
+      root._custM2oIndex = kbd.length ? 0 : -1;
+      if (kbd.length) setCustomerHighlight(customerMenu, root._custM2oIndex);
     } catch (e) {
       if (fid !== root._custFetch) return;
-      customerMenu.innerHTML = `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>`;
+      customerMenu.innerHTML =
+        `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>` +
+        '<div class="odoo-m2o-hint small px-3 pb-2">Si el módulo Taller está desactivado, puede no haber API de clientes.</div>';
+    }
+  }
+
+  async function quickCreateCustomerFromTypedLabel(raw) {
+    const t = String(raw || '').trim();
+    if (!t) return;
+    clearError();
+    try {
+      let res;
+      if (t.includes('@')) {
+        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { email: t.toLowerCase() });
+      } else {
+        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { quick_create_name: t });
+      }
+      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      closeCustomerMenu();
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+
+  function openInvNewCustomerModal(prefillOverride) {
+    closeCustomerMenu();
+    const raw =
+      prefillOverride != null && String(prefillOverride).trim() !== ''
+        ? String(prefillOverride).trim()
+        : customerSearch && customerSearch.value
+          ? customerSearch.value.trim()
+          : '';
+    const em = document.getElementById('invNewCustEmail');
+    const fn = document.getElementById('invNewCustFirst');
+    const ln = document.getElementById('invNewCustLast');
+    const ph = document.getElementById('invNewCustPhone');
+    const er = document.getElementById('invNewCustErr');
+    if (em) em.value = raw.includes('@') ? raw : '';
+    if (fn) {
+      if (raw.includes('@')) {
+        const local = raw.split('@')[0].replace(/[._+-]/g, ' ').trim();
+        fn.value = local.slice(0, 50);
+      } else {
+        fn.value = raw.slice(0, 50);
+      }
+    }
+    if (ln) ln.value = '';
+    if (ph) ph.value = '';
+    if (er) {
+      er.textContent = '';
+      er.classList.add('d-none');
+    }
+    const modalEl = document.getElementById('invNewCustomerModal');
+    if (window.bootstrap && modalEl) window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  async function submitInvNewCustomer() {
+    const em = document.getElementById('invNewCustEmail');
+    const fn = document.getElementById('invNewCustFirst');
+    const ln = document.getElementById('invNewCustLast');
+    const ph = document.getElementById('invNewCustPhone');
+    const er = document.getElementById('invNewCustErr');
+    const payload = {
+      email: (em && em.value.trim()) || '',
+      first_name: (fn && fn.value.trim()) || '',
+      last_name: (ln && ln.value.trim()) || '',
+      phone: (ph && ph.value.trim()) || '',
+    };
+    try {
+      const res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', payload);
+      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      const modalEl = document.getElementById('invNewCustomerModal');
+      if (window.bootstrap && modalEl) window.bootstrap.Modal.getInstance(modalEl)?.hide();
+      if (er) {
+        er.textContent = '';
+        er.classList.add('d-none');
+      }
+    } catch (e) {
+      if (er) {
+        er.textContent = e.message || 'No se pudo crear el cliente';
+        er.classList.remove('d-none');
+      }
     }
   }
 
@@ -506,6 +623,82 @@
         .join('') || '<tr><td class="text-muted small p-2" colspan="3">Sin coincidencias</td></tr>';
   }
 
+  function todayYmd() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  function addDaysYmd(ymd, days) {
+    const parts = String(ymd || '').split('-').map(Number);
+    if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return todayYmd();
+    const t = new Date(parts[0], parts[1] - 1, parts[2] + days);
+    const m = String(t.getMonth() + 1).padStart(2, '0');
+    const day = String(t.getDate()).padStart(2, '0');
+    return `${t.getFullYear()}-${m}-${day}`;
+  }
+
+  async function maybeApplyDefaultSalespersonInv() {
+    if (!canEditContent() || !salespersonUserId || (salespersonUserId.value || '').trim() !== '') return;
+    try {
+      const d = await salesApi('/salespersons/default');
+      if (d && d.id) {
+        await applySalespersonPick(d);
+      }
+    } catch (_) {
+      /* sin vendedor por defecto */
+    }
+  }
+
+  async function startNewInvoice() {
+    clearError();
+    inv = {
+      status: 'draft',
+      lines: [
+        {
+          description: '',
+          quantity: 1,
+          price_unit: 0,
+          tax_id: null,
+          product_id: null,
+          is_note: false,
+        },
+      ],
+    };
+    root.dataset.status = 'draft';
+    document.getElementById('invNumber').textContent = 'Nueva factura';
+    customerId.value = '';
+    if (customerSearch) {
+      customerSearch.value = '';
+      delete customerSearch.dataset.lockedLabel;
+    }
+    if (salespersonUserId) salespersonUserId.value = '';
+    if (salespersonSearch) {
+      salespersonSearch.value = '';
+      delete salespersonSearch.dataset.lockedLabel;
+    }
+    const td = todayYmd();
+    if (invDate) invDate.value = td;
+    if (invDueDate) invDueDate.value = addDaysYmd(td, 30);
+    if (invOriginLabel) invOriginLabel.value = 'Factura independiente (sin cotización)';
+    const invOrgFiscalText = document.getElementById('invOrgFiscalText');
+    if (invOrgFiscalText) {
+      const on = String(root.dataset.invoiceOrgName || '').trim();
+      invOrgFiscalText.textContent = on
+        ? `${on} — al guardar se mostrarán los datos fiscales del emisor según configuración.`
+        : 'Sin datos fiscales configurados.';
+    }
+    document.getElementById('invSubtotalLbl').textContent = fmt(0);
+    document.getElementById('invTaxLbl').textContent = fmt(0);
+    document.getElementById('invGrandLbl').textContent = fmt(0);
+    setStatus('draft');
+    window.QuotationLinesComponent.mount(lineItems, inv.lines || [], taxes, { readOnly: false });
+    applyEditMode();
+    recalcUiTotals();
+    await maybeApplyDefaultSalespersonInv();
+  }
+
   async function loadInvoice() {
     clearError();
     const row = await invApi(`/${iid}`);
@@ -585,6 +778,38 @@
     const silent = opts.silent === true;
     if (!inv) {
       showError('Factura no cargada.');
+      return;
+    }
+    const idNum = Number(root.dataset.invoiceId) || 0;
+    if (idNum < 1) {
+      if (!canEditContent()) return;
+      const spRawNew = salespersonUserId ? Number(salespersonUserId.value) : null;
+      const spPayloadNew =
+        spRawNew && !Number.isNaN(spRawNew) && spRawNew > 0 ? spRawNew : null;
+      const linesNew = window.QuotationLinesComponent.collect(lineItems);
+      const cidNew = Number(customerId.value) || 0;
+      if (cidNew < 1) {
+        showError('Seleccione un cliente.');
+        return;
+      }
+      const payloadNew = {
+        customer_id: cidNew,
+        due_date:
+          invDueDate && invDueDate.value
+            ? new Date(`${invDueDate.value}T12:00:00`).toISOString()
+            : null,
+        lines: linesNew,
+        salesperson_user_id: spPayloadNew,
+      };
+      if (invDate && invDate.value) {
+        payloadNew.date = new Date(`${invDate.value}T12:00:00`).toISOString();
+      }
+      const created = await fetchJsonAbsolute(INV_BASE, 'POST', payloadNew);
+      if (created && created.id) {
+        window.location.replace(`/admin/accounting/invoices/${created.id}`);
+        return;
+      }
+      showError('No se pudo crear la factura.');
       return;
     }
     const spRaw = salespersonUserId ? Number(salespersonUserId.value) : null;
@@ -683,7 +908,11 @@
   if (customerSearch && customerMenu) {
     customerSearch.addEventListener('focusin', () => {
       if (!canEditContent()) return;
-      renderCustomerDropdown((customerSearch.value || '').trim(), 20);
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
+    });
+    customerSearch.addEventListener('click', () => {
+      if (!canEditContent()) return;
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
     });
     customerSearch.addEventListener('input', () => {
       if (!canEditContent()) return;
@@ -693,7 +922,7 @@
       }
       const q = (customerSearch.value || '').trim();
       clearTimeout(root._custDeb);
-      root._custDeb = setTimeout(() => renderCustomerDropdown(q, 20), CUST_DEBOUNCE_MS);
+      root._custDeb = setTimeout(() => renderCustomerDropdown(q, 15), CUST_DEBOUNCE_MS);
     });
     customerSearch.addEventListener('keydown', (e) => {
       if (!canEditContent()) return;
@@ -701,11 +930,11 @@
       if (!menu.classList.contains('show')) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          renderCustomerDropdown((customerSearch.value || '').trim(), 20);
+          renderCustomerDropdown((customerSearch.value || '').trim(), 15);
         }
         return;
       }
-      const opts = [...menu.querySelectorAll('.cust-m2o-opt')];
+      const opts = [...menu.querySelectorAll('.quote-cust-kbd-opt')];
       if (!opts.length) {
         if (e.key === 'Escape') {
           e.preventDefault();
@@ -732,16 +961,40 @@
         closeCustomerMenu();
       }
     });
-    document.getElementById('invCustomerM2o').addEventListener('click', (e) => {
-      const btn = e.target.closest && e.target.closest('.cust-m2o-opt');
-      if (!btn) return;
-      applyCustomerPick({
-        id: btn.dataset.id,
-        name: btn.dataset.name,
-        email: btn.dataset.email,
-      });
+    document.getElementById('invCustomerM2o')?.addEventListener('click', (e) => {
+      const qc = e.target.closest && e.target.closest('.quote-cust-quick-create');
+      if (qc) {
+        e.preventDefault();
+        quickCreateCustomerFromTypedLabel(qc.getAttribute('data-q') || '');
+        return;
+      }
+      const ed = e.target.closest && e.target.closest('.quote-cust-open-edit');
+      if (ed) {
+        e.preventDefault();
+        openInvNewCustomerModal();
+        return;
+      }
+      const btn = e.target.closest && e.target.closest('.quote-cust-m2o-opt');
+      if (btn && btn.dataset.id) {
+        e.preventDefault();
+        applyCustomerPick({
+          id: btn.dataset.id,
+          name: btn.dataset.name,
+          email: btn.dataset.email,
+        });
+      }
+    });
+    document.querySelector('#invCustomerM2o .quote-cust-toggle')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      customerSearch.focus();
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
     });
   }
+
+  document.getElementById('invBtnNewCustSave')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    void submitInvNewCustomer();
+  });
 
   const spM2oRoot = document.getElementById('invSalespersonM2o');
   if (salespersonSearch && salespersonMenu && spM2oRoot) {
@@ -993,6 +1246,11 @@
   });
 
   document.getElementById('invBtnDelete')?.addEventListener('click', async () => {
+    if ((Number(root.dataset.invoiceId) || 0) < 1) {
+      if (!window.confirm('¿Salir al listado? Los datos no guardados se perderán.')) return;
+      window.location.href = '/admin/accounting/invoices';
+      return;
+    }
     if (!window.confirm('¿Eliminar este borrador de forma permanente?')) return;
     try {
       clearError();
@@ -1006,7 +1264,11 @@
   (async function init() {
     try {
       await loadTaxes();
-      await loadInvoice();
+      if (isNewDraft && (Number(root.dataset.invoiceId) || 0) < 1) {
+        await startNewInvoice();
+      } else {
+        await loadInvoice();
+      }
     } catch (e) {
       showError(e.message || String(e));
     }

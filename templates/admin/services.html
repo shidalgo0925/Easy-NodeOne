@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
 {% block title %}Gestión de Servicios - Easy NodeOne{% endblock %}
 
@@ -69,9 +70,9 @@
         </div>
     </div>
 
-    <!-- Búsqueda + filtros -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-3">
+    {% set svc_filters_open = (search or '')|trim|length > 0 or (current_status|default('all') != 'all') %}
+    <!-- Búsqueda + filtros (colapsable) -->
+    {% call admin_filter_collapse('adminFiltersServiciosCatalogo', 'Filtros de búsqueda', expanded=svc_filters_open, margin_class='mb-4') %}
             <form method="GET" class="d-flex flex-column flex-lg-row gap-3 align-items-stretch align-items-lg-end">
                 <div class="flex-grow-1 services-search-shell">
                     <label class="form-label small text-muted mb-1" for="svcSearchInput">Buscar</label>
@@ -94,8 +95,7 @@
                     <a href="{{ url_for('admin_services_catalog.admin_services') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i> Limpiar</a>
                 </div>
             </form>
-        </div>
-    </div>
+    {% endcall %}
 
     <div class="row mb-3">
         <div class="col-12">

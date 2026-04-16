@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Cotización | {{ get_nav_brand_name() }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=5">
 {% endblock %}
 {% block content %}
-<div class="container-fluid py-3 quote-odoo-page" id="odooQuotationForm" data-quotation-id="{{ quotation_id }}" data-initial-status="{{ quotation_status or '' }}" data-sales-api-base="{{ url_for('sales.quotations_get') }}" data-quote-brand="{{ get_nav_brand_name()|e }}" data-quote-org-name="{{ (quotation_org_name|default('', true))|e }}" data-quote-logo-url="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
+<div class="container-fluid py-3 quote-odoo-page" id="odooQuotationForm" data-quotation-id="{{ quotation_id }}" data-initial-status="{{ quotation_status or '' }}" data-sales-api-base="{{ url_for('sales.quotations_get') }}" data-workshop-api-base="/api/workshop" data-quote-brand="{{ get_nav_brand_name()|e }}" data-quote-org-name="{{ (quotation_org_name|default('', true))|e }}" data-quote-logo-url="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
     <div id="formError" class="alert alert-danger d-none"></div>
     <div id="quoteReadonlyBanner" class="alert alert-light border mb-3 py-2 small d-none" role="status">
         <strong>Solo lectura.</strong> Fuera de borrador no puede editar líneas ni cabecera. Use <strong>Cancelar</strong> si aplica, o cree una cotización nueva.
@@ -42,12 +42,14 @@
                     <label class="quote-odoo-field quote-odoo-field-customer">
                         <span class="quote-odoo-label">Cliente</span>
                         <div class="odoo-m2o quote-customer-m2o" id="quoteCustomerM2o">
-                            <div class="d-flex align-items-stretch odoo-m2o-input-wrap">
-                                <input type="text" id="customerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Buscar por nombre, correo o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Miembros de esta organización">
+                            <div class="d-flex align-items-stretch odoo-m2o-input-wrap quote-odoo-input border rounded px-1 bg-white">
+                                <input type="text" id="customerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Contacto…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Misma búsqueda y alta que en Taller">
+                                <button type="button" class="btn btn-sm btn-link odoo-m2o-toggle quote-cust-toggle px-2" tabindex="-1" title="Mostrar contactos">🔍</button>
                             </div>
                             <input type="hidden" id="customerId" value="">
                             <div id="customerMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                         </div>
+                        <p class="small text-muted mb-0 mt-1">Escriba para filtrar, elija un contacto o use <strong>Crear «…»</strong> / <strong>Crear y editar…</strong> (igual que en recepción de taller).</p>
                     </label>
                     <label class="quote-odoo-field quote-odoo-field-salesperson flex-grow-1" style="min-width:14rem;max-width:22rem">
                         <span class="quote-odoo-label">Vendedor</span>
@@ -136,6 +138,42 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="quoteNewCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Se crea un usuario en su organización (misma lógica que en <strong>Taller</strong>). Si creó solo con nombre desde el desplegable, puede asignar correo en <a href="/admin/users" target="_blank" rel="noopener">Usuarios</a>.</p>
+                <div class="mb-2">
+                    <label class="form-label small">Correo <span class="text-danger">*</span></label>
+                    <input type="email" class="form-control form-control-sm" id="quoteNewCustEmail" autocomplete="email" placeholder="cliente@ejemplo.com">
+                </div>
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small">Nombre</label>
+                        <input type="text" class="form-control form-control-sm" id="quoteNewCustFirst" placeholder="Nombre">
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small">Apellido</label>
+                        <input type="text" class="form-control form-control-sm" id="quoteNewCustLast" placeholder="Apellido">
+                    </div>
+                </div>
+                <div class="mb-0 mt-2">
+                    <label class="form-label small">Teléfono (opcional)</label>
+                    <input type="text" class="form-control form-control-sm" id="quoteNewCustPhone" placeholder="+507 …">
+                </div>
+                <div id="quoteNewCustErr" class="small text-danger mt-2 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnQuoteNewCustSave">Crear y seleccionar</button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="serviceCatalogModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -158,8 +196,12 @@
 <div class="modal fade" id="quotePreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header quote-preview-modal-header">
-                <h5 class="modal-title">Vista previa de cotización</h5>
+            <div class="modal-header quote-preview-modal-header flex-wrap align-items-center gap-2">
+                <h5 class="modal-title me-auto">Vista previa de cotización</h5>
+                <div class="form-check form-check-inline ms-md-2 d-none" id="quotePreviewWorkshopWrap">
+                    <input class="form-check-input" type="checkbox" id="quotePreviewAttachWorkshop" checked>
+                    <label class="form-check-label small" for="quotePreviewAttachWorkshop">Adjuntar orden de trabajo</label>
+                </div>
                 <div class="d-flex gap-2 align-items-center">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="btnQuotePreviewPrint" title="Imprimir o guardar PDF">Imprimir / PDF</button>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -197,6 +239,10 @@
                         <input class="form-check-input" type="checkbox" id="quoteMailAttachPdf" checked>
                         <label class="form-check-label" for="quoteMailAttachPdf">Adjuntar PDF de la cotización</label>
                     </div>
+                    <div class="form-check mt-2 d-none" id="quoteMailWorkshopWrap">
+                        <input class="form-check-input" type="checkbox" id="quoteMailAttachWorkshop" checked>
+                        <label class="form-check-label" for="quoteMailAttachWorkshop">Adjuntar orden de trabajo (detalle, checklist, inspección y fotos)</label>
+                    </div>
                     <div class="small text-muted mt-2 mb-0" id="quoteMailPdfName">—</div>
                 </div>
             </div>
@@ -212,5 +258,5 @@
 {# Tras bootstrap.bundle (defer) en base.html — si no, Modal.show() no existe y el diálogo no abre. #}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=11"></script>
-<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=24"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=28"></script>
 {% endblock %}

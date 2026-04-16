@@ -107,6 +107,8 @@ def perform_quotation_send(quotation, customer, organization_id: int, data: dict
             log = getattr(current_app, 'logger', None) or logger
             log.warning('Adjunto PDF de cotización omitido', exc_info=True)
 
+    attach_wo = bool(data.get('attach_workshop_order', True))
+
     ok, err = send_quotation_email(
         quotation,
         customer,
@@ -114,6 +116,7 @@ def perform_quotation_send(quotation, customer, organization_id: int, data: dict
         subject=subject,
         recipients=recipients,
         extra_attachments=extra_att or None,
+        attach_workshop_order=attach_wo,
     )
     if ok:
         return True, None

@@ -11,6 +11,7 @@
   }
   const qid = Number(root.dataset.quotationId);
   const Q_BASE = String(root.dataset.salesApiBase || '/api/sales/quotations').replace(/\/$/, '');
+  const WORKSHOP_API_BASE = String(root.dataset.workshopApiBase || '/api/workshop').replace(/\/$/, '');
   const err = document.getElementById('formError');
   const lineItems = document.getElementById('lineItems');
   if (!lineItems) return;
@@ -303,6 +304,202 @@
     </div>`;
   }
 
+  const WO_ST_PREV = {
+    draft: 'Borrador',
+    inspected: 'Inspeccionado',
+    quoted: 'Cotizado',
+    approved: 'Aprobado',
+    in_progress: 'En proceso',
+    qc: 'Control calidad',
+    done: 'Terminado',
+    delivered: 'Entregado',
+    cancelled: 'Cancelada',
+  };
+  const WO_COND_PREV = { ok: 'OK', leve: 'Leve', medio: 'Medio', severo: 'Severo' };
+  const WO_DMG_PREV = {
+    scratch: 'Rayón',
+    swirl: 'Swirl',
+    dent: 'Golpe / abolladura',
+    stain: 'Mancha',
+    chip: 'Descascarado',
+  };
+  const WO_SEV_PREV = { low: 'baja', medium: 'media', high: 'alta' };
+
+  function _woSafeImgUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    const path = raw.split('?')[0];
+    return escAttr(path.startsWith('http') ? path : path.startsWith('/') ? path : `/${path}`);
+  }
+
+  function buildQuoteWorkshopPreviewSection(bundle) {
+    const o = bundle.order || {};
+    const zl = bundle.zone_labels || {};
+    const inv = bundle.inspection || {};
+    const chkItems = (bundle.checklist && bundle.checklist.items) || [];
+    const code = escHtml(o.code || '—');
+    const stLab = escHtml(WO_ST_PREV[o.status] || o.status || '—');
+    const entryIso = o.entry_date ? String(o.entry_date) : '';
+
+    const veh = o.vehicle || {};
+    const vehLines = [];
+    if (veh.plate) vehLines.push(`<strong>Placa:</strong> ${escHtml(veh.plate)}`);
+    const brandModel = [veh.brand, veh.model].filter(Boolean).join(' ').trim();
+    if (brandModel) vehLines.push(escHtml(brandModel));
+    if (veh.year != null && veh.year !== '') vehLines.push(`<strong>Año:</strong> ${escHtml(String(veh.year))}`);
+    if (veh.color) vehLines.push(`<strong>Color:</strong> ${escHtml(veh.color)}`);
+    if (veh.mileage != null && Number(veh.mileage) > 0) vehLines.push(`<strong>Km:</strong> ${escHtml(String(veh.mileage))}`);
+    if (veh.vin) vehLines.push(`<strong>VIN:</strong> ${escHtml(veh.vin)}`);
+    const vehBlock = vehLines.length ? vehLines.join('<br>') : '<span class="text-muted">—</span>';
+
+    let notesHtml = '';
+    if ((o.notes || '').trim()) notesHtml += `<p class="mb-1"><strong>Notas orden:</strong> ${nlToBr(o.notes)}</p>`;
+    if ((o.qc_notes || '').trim()) notesHtml += `<p class="mb-0"><strong>Notas control de calidad:</strong> ${nlToBr(o.qc_notes)}</p>`;
+
+    const wlines = Array.isArray(o.lines) ? o.lines : [];
+    const lineRows = wlines
+      .map((ln) => {
+        const desc = (ln.description || '').trim() || '—';
+        return `<tr>
+          <td class="qd-col-desc">${nlToBr(desc)}</td>
+          <td class="qd-col-num">${Number(ln.quantity || 0).toFixed(2)}</td>
+          <td class="qd-col-num">${Number(ln.price_unit || 0).toFixed(2)}</td>
+          <td class="qd-col-money">${fmt(ln.total)}</td>
+        </tr>`;
+      })
+      .join('');
+    const linesBlock =
+      wlines.length > 0
+        ? `<div class="quote-doc-table-wrap mt-3">
+        <table class="quote-doc-table">
+          <thead><tr><th class="qd-col-desc">Descripción</th><th class="qd-col-num">Cant.</th><th class="qd-col-num">P. unit.</th><th class="qd-col-money">Total</th></tr></thead>
+          <tbody>${lineRows}</tbody>
+        </table>
+      </div>
+      <p class="small text-muted mt-2 mb-0">Total estimado orden: <strong>${fmt(o.total_estimated)}</strong></p>`
+        : '';
+
+    const chkRows = chkItems
+      .map((c) => {
+        const ck = (c.condition || 'ok').toLowerCase();
+        const condRaw =
+          WO_COND_PREV[ck] != null ? WO_COND_PREV[ck] : String(c.condition || '').trim() || '—';
+        const nt = (c.notes || '').trim();
+        return `<tr><td>${escHtml(c.item || '')}</td><td>${escHtml(condRaw)}</td><td>${nt ? nlToBr(nt) : '—'}</td></tr>`;
+      })
+      .join('');
+    const chkBlock =
+      chkRows.length > 0
+        ? `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Checklist de recepción</h3>
+        <div class="quote-doc-table-wrap"><table class="quote-doc-table">
+          <thead><tr><th>Ítem</th><th>Condición</th><th>Notas</th></tr></thead>
+          <tbody>${chkRows}</tbody>
+        </table></div>`
+        : '';
+
+    const pts = Array.isArray(inv.points) ? inv.points : [];
+    const inspRows = pts
+      .map((p) => {
+        const zlab = escHtml(zl[p.zone_code] || p.zone_code || '');
+        const dt = escHtml(WO_DMG_PREV[(p.damage_type || '').toLowerCase()] || p.damage_type || '—');
+        const sv = escHtml(WO_SEV_PREV[(p.severity || 'low').toLowerCase()] || p.severity || '—');
+        const nt = (p.notes || '').trim();
+        return `<tr><td>${zlab}</td><td>${dt}</td><td>${sv}</td><td>${nt ? nlToBr(nt) : '—'}</td></tr>`;
+      })
+      .join('');
+    let inspBlock = '';
+    if (inspRows.length) {
+      inspBlock = `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Inspección (body map)</h3>
+        <div class="quote-doc-table-wrap"><table class="quote-doc-table">
+          <thead><tr><th>Zona</th><th>Tipo</th><th>Severidad</th><th>Notas</th></tr></thead>
+          <tbody>${inspRows}</tbody>
+        </table></div>`;
+    }
+    if ((inv.notes || '').trim()) {
+      inspBlock += `<p class="small mt-2 mb-0"><strong>Notas inspección:</strong> ${nlToBr(inv.notes)}</p>`;
+    }
+
+    const phKind = { entrada: 'Entrada', proceso: 'Proceso', salida: 'Salida' };
+    const orderPhotos = Array.isArray(o.photos) ? o.photos : [];
+    const opCells = orderPhotos
+      .map((p) => {
+        const su = _woSafeImgUrl(p.url);
+        if (!su) return '';
+        const k = escHtml(phKind[p.kind] || p.kind || 'Foto');
+        return `<div class="wo-doc-photo-cell" style="break-inside:avoid"><div class="border rounded overflow-hidden bg-white h-100">
+          <img src="${su}" alt="" style="width:100%;max-height:220px;object-fit:cover;display:block"/>
+          <div class="small text-muted px-2 py-1">${k}</div>
+        </div></div>`;
+      })
+      .filter(Boolean)
+      .join('');
+    const opBlock = opCells
+      ? `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Fotos de la orden</h3><div class="wo-doc-photo-grid">${opCells}</div>`
+      : '';
+
+    const ipCells = [];
+    pts.forEach((p) => {
+      const zlab = escHtml(zl[p.zone_code] || p.zone_code || 'Zona');
+      (p.photos || []).forEach((ph, idx) => {
+        const su = _woSafeImgUrl(ph.url);
+        if (!su) return;
+        ipCells.push(`<div class="wo-doc-photo-cell" style="break-inside:avoid"><div class="border rounded overflow-hidden bg-white h-100">
+          <img src="${su}" alt="" style="width:100%;max-height:220px;object-fit:cover;display:block"/>
+          <div class="small text-muted px-2 py-1">${zlab} · ${idx + 1}</div>
+        </div></div>`);
+      });
+    });
+    const ipBlock = ipCells.length
+      ? `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Fotos de inspección</h3><div class="wo-doc-photo-grid">${ipCells.join('')}</div>`
+      : '';
+
+    return `<div class="quote-wo-addon mt-4 pt-4" style="border-top:2px solid #1a3dcc">
+      <h2 style="font-size:1.15rem;color:#1a3dcc;margin-bottom:0.75rem">Orden de trabajo ${code}</h2>
+      <p class="mb-2"><strong>Estado:</strong> ${stLab} · <strong>Ingreso:</strong> ${formatDateEs(entryIso)}</p>
+      <p class="mb-2"><strong>Vehículo</strong><br>${vehBlock}</p>
+      ${notesHtml}
+      ${linesBlock}
+      ${chkBlock}
+      ${inspBlock}
+      ${opBlock}
+      ${ipBlock}
+    </div>`;
+  }
+
+  function syncQuotePreviewWorkshopWrap() {
+    const wrap = document.getElementById('quotePreviewWorkshopWrap');
+    const chk = document.getElementById('quotePreviewAttachWorkshop');
+    if (!wrap || !chk) return;
+    const hasWo = quote && quote.workshop_order_code;
+    wrap.classList.toggle('d-none', !hasWo);
+    chk.checked = !!hasWo;
+  }
+
+  async function refreshQuotePreviewInner() {
+    if (!previewBody) return;
+    const lines = getLinesForPreview();
+    const baseHtml = buildQuotePreviewDocumentHtml(lines);
+    const wrap = document.getElementById('quotePreviewWorkshopWrap');
+    const chk = document.getElementById('quotePreviewAttachWorkshop');
+    let extra = '';
+    const wantWo =
+      wrap &&
+      !wrap.classList.contains('d-none') &&
+      chk &&
+      chk.checked &&
+      quote &&
+      quote.workshop_order_code;
+    if (wantWo) {
+      try {
+        const bundle = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/by-quotation/${qid}`);
+        extra = buildQuoteWorkshopPreviewSection(bundle);
+      } catch (e) {
+        extra = `<div class="alert alert-warning mt-4 mb-0" role="alert">${escHtml(e.message || 'No se pudo cargar la orden de trabajo.')}</div>`;
+      }
+    }
+    previewBody.innerHTML = `<div class="p-3 p-md-4">${baseHtml}${extra}</div>`;
+  }
+
   function closeCustomerMenu() {
     if (!customerMenu) return;
     customerMenu.classList.remove('show');
@@ -410,26 +607,51 @@
   }
 
   function setCustomerHighlight(menu, index) {
-    const opts = [...menu.querySelectorAll('.cust-m2o-opt')];
+    const opts = [...menu.querySelectorAll('.quote-cust-kbd-opt')];
     opts.forEach((el, i) => el.classList.toggle('odoo-m2o-item-active', i === index));
     if (opts[index]) opts[index].scrollIntoView({ block: 'nearest' });
     return opts;
   }
 
-  function buildCustomerDropdownHtml(users) {
-    const body = users
+  /** Mismo desplegable que Taller: búsqueda + Crear «…» + Crear y editar + Buscar más. */
+  function buildCustomerDropdownHtml(users, qRaw) {
+    const q = (qRaw || '').trim();
+    let head = '';
+    if (q) {
+      const qDisp = escHtml(q);
+      const qAttr = escAttr(q);
+      head =
+        `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-quick-create border-0 w-100 text-start" data-q="${qAttr}">Crear "${qDisp}"</button>` +
+        `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-open-edit border-0 w-100 text-start">Crear y editar…</button>`;
+    }
+    const body = (users || [])
       .map((u) => {
         const title = escHtml(u.name || u.email || '');
-        const em = u.email && String(u.email) !== String(u.name || '') ? `<span class="odoo-m2o-item-meta">${escHtml(u.email)}</span>` : '';
-        return `<button type="button" class="odoo-m2o-item cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
+        const em =
+          u.email && String(u.email) !== String(u.name || '')
+            ? `<span class="odoo-m2o-item-meta">${escHtml(u.email)}</span>`
+            : '';
+        return `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
       })
       .join('');
-    const empty = '<div class="px-3 py-2 small text-muted">Sin resultados</div>';
-    return `${users.length ? body : empty}<div class="odoo-m2o-hint">Miembros activos de la organización</div>`;
+    let mid = '';
+    if (users && users.length) {
+      mid = body;
+    } else {
+      mid = `<div class="px-3 py-2 small text-muted">${q ? 'Sin coincidencias en esta organización' : 'No hay contactos en el listado reciente'}</div>`;
+    }
+    const footer =
+      '<div class="odoo-m2o-footer border-top">' +
+      '<a href="/admin/users" target="_blank" rel="noopener" class="odoo-m2o-more">Buscar más…</a>' +
+      '</div>';
+    const hint = '<div class="odoo-m2o-hint">Empiece a escribir…</div>';
+    return `${head}${mid}${footer}${hint}`;
   }
 
   async function fetchCustomers(q, limit) {
-    return api(`/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+    return fetchJsonAbsolute(
+      `${WORKSHOP_API_BASE}/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    );
   }
 
   async function renderCustomerDropdown(q, limit) {
@@ -444,12 +666,15 @@
       const users = await fetchCustomers(q, limit);
       if (fid !== root._custFetch) return;
       const list = Array.isArray(users) ? users : [];
-      customerMenu.innerHTML = buildCustomerDropdownHtml(list);
-      root._custM2oIndex = list.length ? 0 : -1;
-      setCustomerHighlight(customerMenu, root._custM2oIndex);
+      customerMenu.innerHTML = buildCustomerDropdownHtml(list, q);
+      const kbd = [...customerMenu.querySelectorAll('.quote-cust-kbd-opt')];
+      root._custM2oIndex = kbd.length ? 0 : -1;
+      if (kbd.length) setCustomerHighlight(customerMenu, root._custM2oIndex);
     } catch (e) {
       if (fid !== root._custFetch) return;
-      customerMenu.innerHTML = `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>`;
+      customerMenu.innerHTML =
+        `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>` +
+        '<div class="odoo-m2o-hint small px-3 pb-2">Si el módulo Taller está desactivado, no hay API de clientes.</div>';
     }
   }
 
@@ -459,6 +684,83 @@
     customerSearch.value = disp;
     customerSearch.dataset.lockedLabel = disp;
     closeCustomerMenu();
+  }
+
+  async function quickCreateCustomerFromTypedLabel(raw) {
+    const t = String(raw || '').trim();
+    if (!t) return;
+    clearError();
+    try {
+      let res;
+      if (t.includes('@')) {
+        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { email: t.toLowerCase() });
+      } else {
+        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { quick_create_name: t });
+      }
+      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      closeCustomerMenu();
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+
+  function openQuoteNewCustomerModal(prefillOverride) {
+    closeCustomerMenu();
+    const raw =
+      prefillOverride != null && String(prefillOverride).trim() !== ''
+        ? String(prefillOverride).trim()
+        : (customerSearch && customerSearch.value ? customerSearch.value.trim() : '');
+    const em = document.getElementById('quoteNewCustEmail');
+    const fn = document.getElementById('quoteNewCustFirst');
+    const ln = document.getElementById('quoteNewCustLast');
+    const ph = document.getElementById('quoteNewCustPhone');
+    const er = document.getElementById('quoteNewCustErr');
+    if (em) em.value = raw.includes('@') ? raw : '';
+    if (fn) {
+      if (raw.includes('@')) {
+        const local = raw.split('@')[0].replace(/[._+-]/g, ' ').trim();
+        fn.value = local.slice(0, 50);
+      } else {
+        fn.value = raw.slice(0, 50);
+      }
+    }
+    if (ln) ln.value = '';
+    if (ph) ph.value = '';
+    if (er) {
+      er.textContent = '';
+      er.classList.add('d-none');
+    }
+    const modalEl = document.getElementById('quoteNewCustomerModal');
+    if (window.bootstrap && modalEl) window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  async function submitQuoteNewCustomer() {
+    const em = document.getElementById('quoteNewCustEmail');
+    const fn = document.getElementById('quoteNewCustFirst');
+    const ln = document.getElementById('quoteNewCustLast');
+    const ph = document.getElementById('quoteNewCustPhone');
+    const er = document.getElementById('quoteNewCustErr');
+    const payload = {
+      email: (em && em.value.trim()) || '',
+      first_name: (fn && fn.value.trim()) || '',
+      last_name: (ln && ln.value.trim()) || '',
+      phone: (ph && ph.value.trim()) || '',
+    };
+    try {
+      const res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', payload);
+      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      const modalEl = document.getElementById('quoteNewCustomerModal');
+      if (window.bootstrap && modalEl) window.bootstrap.Modal.getInstance(modalEl)?.hide();
+      if (er) {
+        er.textContent = '';
+        er.classList.add('d-none');
+      }
+    } catch (e) {
+      if (er) {
+        er.textContent = e.message || 'No se pudo crear el cliente';
+        er.classList.remove('d-none');
+      }
+    }
   }
 
   function closeAllServiceMenus(exceptTr = null) {
@@ -834,6 +1136,7 @@
     applyEditMode();
     recalcUiTotals();
     maybeApplyDefaultSalesperson();
+    syncQuotePreviewWorkshopWrap();
   }
 
   async function saveQuotation(extra = {}, opts = {}) {
@@ -977,7 +1280,11 @@
   if (customerSearch && customerMenu) {
     customerSearch.addEventListener('focusin', () => {
       if (!canEditContent()) return;
-      renderCustomerDropdown((customerSearch.value || '').trim(), 20);
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
+    });
+    customerSearch.addEventListener('click', () => {
+      if (!canEditContent()) return;
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
     });
     customerSearch.addEventListener('input', () => {
       if (!canEditContent()) return;
@@ -987,7 +1294,7 @@
       }
       const q = (customerSearch.value || '').trim();
       clearTimeout(root._custDeb);
-      root._custDeb = setTimeout(() => renderCustomerDropdown(q, 20), CUST_DEBOUNCE_MS);
+      root._custDeb = setTimeout(() => renderCustomerDropdown(q, 15), CUST_DEBOUNCE_MS);
     });
     customerSearch.addEventListener('keydown', (e) => {
       if (!canEditContent()) return;
@@ -995,13 +1302,16 @@
       if (!menu.classList.contains('show')) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          renderCustomerDropdown((customerSearch.value || '').trim(), 20);
+          renderCustomerDropdown((customerSearch.value || '').trim(), 15);
         }
         return;
       }
-      const opts = [...menu.querySelectorAll('.cust-m2o-opt')];
+      const opts = [...menu.querySelectorAll('.quote-cust-kbd-opt')];
       if (!opts.length) {
-        if (e.key === 'Escape') { e.preventDefault(); closeCustomerMenu(); }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeCustomerMenu();
+        }
         return;
       }
       let idx = typeof root._custM2oIndex === 'number' ? root._custM2oIndex : 0;
@@ -1023,16 +1333,40 @@
         closeCustomerMenu();
       }
     });
-    document.getElementById('quoteCustomerM2o').addEventListener('click', (e) => {
-      const btn = e.target.closest && e.target.closest('.cust-m2o-opt');
-      if (!btn) return;
-      applyCustomerPick({
-        id: btn.dataset.id,
-        name: btn.dataset.name,
-        email: btn.dataset.email,
-      });
+    document.getElementById('quoteCustomerM2o')?.addEventListener('click', (e) => {
+      const qc = e.target.closest && e.target.closest('.quote-cust-quick-create');
+      if (qc) {
+        e.preventDefault();
+        quickCreateCustomerFromTypedLabel(qc.getAttribute('data-q') || '');
+        return;
+      }
+      const ed = e.target.closest && e.target.closest('.quote-cust-open-edit');
+      if (ed) {
+        e.preventDefault();
+        openQuoteNewCustomerModal();
+        return;
+      }
+      const btn = e.target.closest && e.target.closest('.quote-cust-m2o-opt');
+      if (btn && btn.dataset.id) {
+        e.preventDefault();
+        applyCustomerPick({
+          id: btn.dataset.id,
+          name: btn.dataset.name,
+          email: btn.dataset.email,
+        });
+      }
+    });
+    document.querySelector('#quoteCustomerM2o .quote-cust-toggle')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      customerSearch.focus();
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
     });
   }
+
+  document.getElementById('btnQuoteNewCustSave')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    submitQuoteNewCustomer();
+  });
 
   const spM2oRoot = document.getElementById('quoteSalespersonM2o');
   if (salespersonSearch && salespersonMenu && spM2oRoot) {
@@ -1270,6 +1604,8 @@
     const bodyEl = document.getElementById('quoteMailBody');
     const pdfNameEl = document.getElementById('quoteMailPdfName');
     const attChk = document.getElementById('quoteMailAttachPdf');
+    const woWrap = document.getElementById('quoteMailWorkshopWrap');
+    const woChk = document.getElementById('quoteMailAttachWorkshop');
     if (!toEl || !subEl || !bodyEl) return;
     const em = quote && quote.customer_email ? String(quote.customer_email).trim() : '';
     toEl.value = em;
@@ -1296,6 +1632,12 @@
       pdfNameEl.textContent = `Cotizacion-${safeNum}.pdf`;
     }
     if (attChk) attChk.checked = true;
+    const hasWo = quote && quote.workshop_order_code;
+    if (woWrap && woChk) {
+      woWrap.classList.toggle('d-none', !hasWo);
+      woChk.checked = !!hasWo;
+      woChk.disabled = !hasWo;
+    }
   }
 
   const btnSend = document.getElementById('btnSend');
@@ -1328,14 +1670,21 @@
       const subEl = document.getElementById('quoteMailSubject');
       const bodyEl = document.getElementById('quoteMailBody');
       const attChk = document.getElementById('quoteMailAttachPdf');
+      const woWrap = document.getElementById('quoteMailWorkshopWrap');
+      const woChk = document.getElementById('quoteMailAttachWorkshop');
       if (!toEl || !subEl || !bodyEl) return;
       btnQuoteMailSubmit.disabled = true;
       try {
+        let attachWo = false;
+        if (woWrap && !woWrap.classList.contains('d-none') && woChk && !woChk.disabled) {
+          attachWo = !!woChk.checked;
+        }
         const payload = {
           to: String(toEl.value || '').trim(),
           subject: String(subEl.value || '').trim(),
           body_text: String(bodyEl.value || ''),
           attach_pdf: !!(attChk && attChk.checked),
+          attach_workshop_order: attachWo,
         };
         await api(`/${qid}/send`, 'POST', payload);
         const mailModalEl = document.getElementById('quoteMailModal');
@@ -1398,18 +1747,24 @@
   const btnPreview = document.getElementById('btnPreview');
   if (btnPreview) {
     btnPreview.addEventListener('click', async () => {
-    try {
-      if (canEditContent()) await saveQuotation({}, { silent: true });
-      const lines = getLinesForPreview();
-      previewBody.innerHTML = `<div class="p-3 p-md-4">${buildQuotePreviewDocumentHtml(lines)}</div>`;
-      if (window.bootstrap && window.bootstrap.Modal) {
-        window.bootstrap.Modal.getOrCreateInstance(previewModal).show();
-      } else {
-        previewModal.classList.remove('d-none');
+      try {
+        if (canEditContent()) await saveQuotation({}, { silent: true });
+        syncQuotePreviewWorkshopWrap();
+        await refreshQuotePreviewInner();
+        if (window.bootstrap && window.bootstrap.Modal) {
+          window.bootstrap.Modal.getOrCreateInstance(previewModal).show();
+        } else if (previewModal) {
+          previewModal.classList.remove('d-none');
+        }
+      } catch (e) {
+        showError(e.message);
       }
-    } catch (e) { showError(e.message); }
     });
   }
+
+  document.getElementById('quotePreviewAttachWorkshop')?.addEventListener('change', () => {
+    void refreshQuotePreviewInner();
+  });
 
   document.getElementById('btnQuotePreviewPrint')?.addEventListener('click', () => {
     window.print();

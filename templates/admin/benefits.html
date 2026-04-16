@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
 {% block title %}Gestión de Beneficios{% endblock %}
 
@@ -15,8 +16,8 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-2">
+    {% set ben_filters_open = (current_status|default('all') != 'all') or (current_plan or '')|trim|length > 0 %}
+    {% call admin_filter_collapse('adminFiltersBeneficios', 'Filtros', expanded=ben_filters_open, margin_class='mb-4') %}
             <div class="w-100 mobile-scroll-x pb-1">
             <form method="GET" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                 <div class="flex-shrink-0">
@@ -45,8 +46,7 @@
                 </div>
             </form>
             </div>
-        </div>
-    </div>
+    {% endcall %}
 
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">

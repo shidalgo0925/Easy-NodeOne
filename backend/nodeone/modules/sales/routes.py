@@ -211,9 +211,24 @@ def _serialize_quotation(q, user_by_id=None):
             sp_name = f'{getattr(sp, "first_name", "") or ""} {getattr(sp, "last_name", "") or ""}'.strip()
             sp_email = getattr(sp, 'email', '') or ''
     org = SaasOrganization.query.get(q.organization_id)
+    workshop_order_code = None
+    try:
+        from nodeone.modules.workshop.models import WorkshopOrder
+
+        wo_row = (
+            WorkshopOrder.query.filter_by(quotation_id=q.id, organization_id=q.organization_id)
+            .order_by(WorkshopOrder.id.desc())
+            .first()
+        )
+        if wo_row:
+            workshop_order_code = wo_row.code or None
+    except Exception:
+        workshop_order_code = None
+
     return {
         'id': q.id,
         'number': q.number,
+        'workshop_order_code': workshop_order_code,
         'customer_id': q.customer_id,
         'customer_name': name,
         'customer_email': email,
@@ -643,6 +658,7 @@ def customers_search():
                 'id': u.id,
                 'name': f'{(u.first_name or "").strip()} {(u.last_name or "").strip()}'.strip() or u.email,
                 'email': u.email or '',
+                'phone': (getattr(u, 'phone', None) or '') or '',
             }
             for u in rows
         ]

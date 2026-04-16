@@ -282,6 +282,7 @@ def send_quotation_email(
     subject=None,
     recipients=None,
     extra_attachments=None,
+    attach_workshop_order: bool = True,
 ):
     import app as M
 
@@ -298,7 +299,10 @@ def send_quotation_email(
         f"<p style='color:#6c757d;font-size:0.9em'>— Este mensaje se envió automáticamente desde la plataforma.</p>"
     )
 
-    extra_html, attachments, limit_note = _workshop_addon_html_and_attachments(quotation)
+    if attach_workshop_order:
+        extra_html, attachments, limit_note = _workshop_addon_html_and_attachments(quotation)
+    else:
+        extra_html, attachments, limit_note = '', [], ''
     body = base + extra_html + limit_note
 
     rec = recipients if recipients else [customer.email]

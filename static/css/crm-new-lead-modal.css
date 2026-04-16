@@ -1,0 +1,38 @@
+/* Modal Nuevo Lead: M2O cliente (misma UX que Taller) + prospecto manual. */
+#newLeadModal .modal-dialog {
+  max-width: 36rem;
+}
+
+#newLeadModal .modal-body {
+  overflow: visible;
+}
+
+#newLeadModal #leadCustomerM2o .odoo-m2o-dropdown {
+  z-index: 1070;
+}
+
+#crmNewCustomerModal {
+  z-index: 1060;
+}
+
+#newLeadModal .crm-new-lead-section-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--quote-muted, #6c757d);
+  margin-bottom: 0.35rem;
+}
+
+#newLeadModal .crm-new-lead-prospect-hint {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+[data-theme='dark'] #newLeadModal .crm-new-lead-prospect-hint {
+  color: #adb5bd;
+}
+
+[data-theme='dark'] #newLeadModal .crm-new-lead-section-title {
+  color: #adb5bd;
+}

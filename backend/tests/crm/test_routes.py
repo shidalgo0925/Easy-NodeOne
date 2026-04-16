@@ -25,6 +25,13 @@ class TestCrmApiBlueprint(unittest.TestCase):
             'crm_api.crm_stages_get',
             'crm_api.crm_stages_post',
             'crm_api.crm_reports_get',
+            'crm_api.crm_lost_reasons_list',
+            'crm_api.crm_lost_reasons_post',
+            'crm_api.crm_lost_reasons_patch',
+            'crm_api.crm_activity_types_list',
+            'crm_api.crm_activity_types_post',
+            'crm_api.crm_activity_types_patch',
+            'crm_api.crm_activity_feed_get',
         }
         missing = required - endpoints
         self.assertFalse(missing, f'Faltan endpoints CRM: {sorted(missing)}')
@@ -36,6 +43,9 @@ class TestCrmApiBlueprint(unittest.TestCase):
         self.assertEqual(by_ep.get('crm_api.crm_leads_get'), '/crm/leads')
         self.assertEqual(by_ep.get('crm_api.crm_lead_lost'), '/crm/leads/<int:lead_id>/lost')
         self.assertEqual(by_ep.get('crm_api.crm_reports_get'), '/crm/reports')
+        self.assertEqual(by_ep.get('crm_api.crm_lost_reasons_list'), '/crm/lost-reasons')
+        self.assertEqual(by_ep.get('crm_api.crm_activity_types_list'), '/crm/activity-types')
+        self.assertEqual(by_ep.get('crm_api.crm_activity_feed_get'), '/crm/activity-feed')
 
     def test_requires_auth(self):
         from app import app

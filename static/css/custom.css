@@ -2850,3 +2850,17 @@ button[data-bs-target="#serviceCategoriesExplain"][aria-expanded="true"] .collap
     outline: 2px solid var(--color-primary, #2563eb);
     outline-offset: 2px;
 }
+
+/* Filtros admin colapsables (macro admin_filter_collapse) */
+.admin-filter-collapsible .admin-filter-chevron {
+    transition: transform 0.2s ease;
+}
+.admin-filter-collapsible .admin-filter-collapse-toggle.collapsed .admin-filter-chevron {
+    transform: rotate(0deg);
+}
+.admin-filter-collapsible .admin-filter-collapse-toggle:not(.collapsed) .admin-filter-chevron {
+    transform: rotate(-180deg);
+}
+[data-theme='dark'] .admin-filter-collapsible .admin-filter-collapse-toggle {
+    color: var(--gray-100, #f3f4f6) !important;
+}

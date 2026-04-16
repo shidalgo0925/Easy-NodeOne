@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
 {% block title %}Normativas (Políticas){% endblock %}
 
@@ -15,8 +16,8 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-2">
+    {% set pol_filters_open = (current_status|default('all') != 'all') %}
+    {% call admin_filter_collapse('adminFiltersPoliticas', 'Filtros', expanded=pol_filters_open, margin_class='mb-4') %}
             <div class="w-100 mobile-scroll-x pb-1">
             <form method="GET" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                 <div class="flex-shrink-0">
@@ -31,8 +32,7 @@
                 <a href="{{ url_for('admin_policies') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
             </form>
             </div>
-        </div>
-    </div>
+    {% endcall %}
 
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">

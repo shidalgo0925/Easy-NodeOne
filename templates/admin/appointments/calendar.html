@@ -66,18 +66,10 @@
                         </div>
                         <div class="flex-shrink-0">
                             <label for="advisor_id" class="form-label form-label-sm mb-0">Asesor <span class="text-danger">*</span></label>
-                            <select name="advisor_id" id="advisor_id" class="form-select form-select-sm" style="min-width:160px" required>
-                                <option value="">Seleccione un asesor...</option>
-                                {% for advisor in advisors %}
-                                    <option value="{{ advisor.id }}">
-                                        {% if advisor.user %}
-                                            {{ advisor.user.first_name }} {{ advisor.user.last_name }}
-                                        {% else %}
-                                            Asesor #{{ advisor.id }}
-                                        {% endif %}
-                                    </option>
-                                {% endfor %}
+                            <select name="advisor_id" id="advisor_id" class="form-select form-select-sm" style="min-width:160px" disabled>
+                                <option value="">Primero elegí un servicio</option>
                             </select>
+                            <p id="advisorFilterHint" class="small text-muted mb-0 mt-1" role="status"></p>
                         </div>
                         <div class="flex-shrink-0">
                             <button type="button" id="calendarLimpiar" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i> Limpiar</button>
@@ -191,9 +183,64 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const ADVISORS_BY_SERVICE = {{ advisors_by_service_json | tojson }};
+    const HAS_ORG_ADVISORS = {{ 'true' if advisors else 'false' }};
+
     let calendar = null;
     let currentServiceId = null;
     let currentAdvisorId = null;
+
+    function populateAdvisorsForService(serviceId) {
+        const advisorSelect = document.getElementById('advisor_id');
+        const hint = document.getElementById('advisorFilterHint');
+        if (!advisorSelect) {
+            return;
+        }
+        advisorSelect.innerHTML = '';
+        const opt0 = document.createElement('option');
+        opt0.value = '';
+        if (!serviceId) {
+            opt0.textContent = 'Primero elegí un servicio';
+            advisorSelect.appendChild(opt0);
+            advisorSelect.disabled = true;
+            advisorSelect.removeAttribute('required');
+            if (hint) {
+                hint.textContent = '';
+            }
+            return;
+        }
+        const list = (ADVISORS_BY_SERVICE && ADVISORS_BY_SERVICE[String(serviceId)]) || [];
+        opt0.textContent = list.length ? 'Seleccione un asesor...' : 'Sin asesores asignados a este servicio';
+        advisorSelect.appendChild(opt0);
+        list.forEach(function(a) {
+            const o = document.createElement('option');
+            o.value = String(a.id);
+            o.textContent = a.name;
+            advisorSelect.appendChild(o);
+        });
+        advisorSelect.disabled = list.length === 0;
+        if (list.length > 0) {
+            advisorSelect.setAttribute('required', 'required');
+        } else {
+            advisorSelect.removeAttribute('required');
+        }
+        if (hint) {
+            if (!list.length) {
+                hint.textContent = HAS_ORG_ADVISORS
+                    ? 'Ningún asesor está asignado a este tipo de cita. En Gestión de citas, en la fila del servicio, pulsá Asignar todos (o editá el servicio y los asesores).'
+                    : 'No hay asesores en esta empresa. Creálos en Asesores o en Usuarios (casilla Es asesor); luego asignalos al servicio.';
+                hint.classList.remove('text-muted');
+                hint.classList.add('text-danger');
+            } else {
+                hint.textContent = '';
+                hint.classList.add('text-muted');
+                hint.classList.remove('text-danger');
+            }
+        }
+        if (list.length === 1) {
+            advisorSelect.value = String(list[0].id);
+        }
+    }
     
     // Inicializar calendario deshabilitado
     const calendarEl = document.getElementById('adminCalendar');
@@ -340,20 +387,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners para selectores
     const serviceSelect = document.getElementById('service_id');
     const advisorSelect = document.getElementById('advisor_id');
-    
+
+    populateAdvisorsForService(serviceSelect && serviceSelect.value ? serviceSelect.value : '');
+
     if (serviceSelect) {
-        serviceSelect.addEventListener('change', loadAvailability);
+        serviceSelect.addEventListener('change', function() {
+            populateAdvisorsForService(serviceSelect.value);
+            loadAvailability();
+        });
     }
-    
+
     if (advisorSelect) {
         advisorSelect.addEventListener('change', loadAvailability);
     }
-    
+
     const limpiarBtn = document.getElementById('calendarLimpiar');
     if (limpiarBtn) {
         limpiarBtn.addEventListener('click', function() {
-            if (serviceSelect) serviceSelect.value = '';
-            if (advisorSelect) advisorSelect.value = '';
+            if (serviceSelect) {
+                serviceSelect.value = '';
+            }
+            populateAdvisorsForService('');
             loadAvailability();
         });
     }

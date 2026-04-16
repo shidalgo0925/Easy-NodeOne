@@ -362,9 +362,26 @@ def register_admin_users_roles_routes(app):
             if User.query.filter_by(email=email.lower()).first():
                 flash('El email ya está registrado.', 'error')
                 return redirect(url_for('admin_users'))
-        
-            # Crear usuario
+
+            # Organización: scope del admin; si el modal envía organization_id (admin plataforma), usarla.
+            org_for_user = int(admin_data_scope_organization_id())
+            if can_manage_platform_superuser_fields(current_user):
+                from utils.organization import platform_visible_organization_ids
+
+                form_oid = request.form.get('organization_id', type=int)
+                if form_oid and form_oid > 0:
+                    allow = platform_visible_organization_ids()
+                    if allow is not None and form_oid not in allow:
+                        flash('Organización no permitida para tu cuenta de administración.', 'error')
+                        return redirect(url_for('admin_users'))
+                    if not SaasOrganization.query.filter_by(id=form_oid, is_active=True).first():
+                        flash('La organización seleccionada no existe o está inactiva.', 'error')
+                        return redirect(url_for('admin_users'))
+                    org_for_user = form_oid
+
+            # Crear usuario + membresía + perfil asesor en un solo commit (evita is_advisor sin fila Advisor).
             from werkzeug.security import generate_password_hash
+
             new_user = User(
                 first_name=first_name,
                 last_name=last_name,
@@ -379,24 +396,22 @@ def register_admin_users_roles_routes(app):
                 is_admin=is_admin,
                 is_advisor=is_advisor,
                 is_salesperson=is_salesperson,
-                organization_id=admin_data_scope_organization_id(),
+                organization_id=org_for_user,
             )
             db.session.add(new_user)
             db.session.flush()
-            ensure_membership(new_user.id, int(admin_data_scope_organization_id()))
-            db.session.commit()
-        
-            # Si es asesor, crear perfil
+            ensure_membership(new_user.id, int(org_for_user))
             if is_advisor:
-                new_profile = Advisor(
-                    user_id=new_user.id,
-                    headline='Asesor Easy NodeOne',
-                    specializations='',
-                    meeting_url=''
+                db.session.add(
+                    Advisor(
+                        user_id=new_user.id,
+                        headline='Asesor Easy NodeOne',
+                        specializations='',
+                        meeting_url='',
+                    )
                 )
-                db.session.add(new_profile)
-                db.session.commit()
-        
+            db.session.commit()
+
             flash(f'Usuario {first_name} {last_name} creado correctamente.', 'success')
         except Exception as e:
             db.session.rollback()

@@ -73,8 +73,8 @@
                         <details class="mt-3 auth-login-meta">
                             <summary class="text-muted" style="cursor: pointer;">¿No carga el inicio con Google?</summary>
                             <p class="text-muted small mt-2 mb-0">
-                                Revisa la configuración OAuth (Google) en el servidor.
-                                <a href="{{ url_for('member_pages.help_page') }}#oauth-config" class="alert-link">Guía de configuración</a>
+                                Si el botón de Google no responde, probá más tarde o usá correo y contraseña.
+                                <a href="{{ url_for('member_pages.help_page') }}#oauth-config" class="alert-link">Ayuda</a>
                             </p>
                         </details>
 
@@ -85,9 +85,11 @@
                         </div>
                     </div>
                 </div>
+                {% if show_public_app_version %}
                 <p class="text-center text-muted small mt-3 mb-0">
                     <span class="opacity-75">v{{ nodeone_app_version }}</span>
                 </p>
+                {% endif %}
             </div>
         </div>
     </div>

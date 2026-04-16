@@ -1358,12 +1358,34 @@ def list_service_availability():
         if key not in availability_map:
             availability_map[key] = []
         availability_map[key].append(av)
-    
+
+    # Solo pares con asignación activa (AppointmentAdvisor); evita filas engañosas asesor×tipo sin vínculo.
+    advisor_ids = [a.id for a in advisors]
+    type_ids = [t.id for t in appointment_types]
+    assigned_pairs = []
+    if advisor_ids and type_ids:
+        adv_by_id = {a.id: a for a in advisors}
+        type_by_id = {t.id: t for t in appointment_types}
+        for aa in (
+            AppointmentAdvisor.query.filter(
+                AppointmentAdvisor.is_active == True,
+                AppointmentAdvisor.advisor_id.in_(advisor_ids),
+                AppointmentAdvisor.appointment_type_id.in_(type_ids),
+            )
+            .order_by(AppointmentAdvisor.appointment_type_id, AppointmentAdvisor.advisor_id)
+            .all()
+        ):
+            adv = adv_by_id.get(aa.advisor_id)
+            at = type_by_id.get(aa.appointment_type_id)
+            if adv and at:
+                assigned_pairs.append((adv, at))
+
     return render_template(
         'admin/appointments/service_availability.html',
         appointment_types=appointment_types,
         advisors=advisors,
         availability_map=availability_map,
+        assigned_pairs=assigned_pairs,
     )
 
 
@@ -1556,7 +1578,50 @@ def calendar_view():
         Service.appointment_type_id.is_(None),
     ).order_by(Service.display_order, Service.name).limit(50).all()
 
-    # Obtener asesores activos (tenant / plataforma)
+    # Asesores por servicio (solo los asignados al tipo de cita; coincide con validación al guardar).
+    from collections import defaultdict
+
+    from nodeone.services.user_organization import user_in_org_clause
+
+    type_ids = list({s.appointment_type_id for s in services if s.appointment_type_id})
+    by_type_id = defaultdict(list)
+    if type_ids:
+        seen_pairs = set()
+        for aa in (
+            AppointmentAdvisor.query.filter(
+                AppointmentAdvisor.appointment_type_id.in_(type_ids),
+                AppointmentAdvisor.is_active == True,
+            )
+            .join(Advisor, AppointmentAdvisor.advisor_id == Advisor.id)
+            .filter(Advisor.is_active == True)
+            .join(User, Advisor.user_id == User.id)
+            .filter(user_in_org_clause(User, _coid))
+            .all()
+        ):
+            adv = aa.advisor
+            if not adv or not getattr(adv, 'user', None):
+                continue
+            pair = (aa.appointment_type_id, adv.id)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            by_type_id[aa.appointment_type_id].append(adv)
+
+    advisors_by_service_json = {}
+    for s in services:
+        tid = s.appointment_type_id
+        if not tid:
+            continue
+        advisors_by_service_json[str(s.id)] = [
+            {
+                'id': adv.id,
+                'name': (
+                    f'{adv.user.first_name or ""} {adv.user.last_name or ""}'.strip() or f'Asesor #{adv.id}'
+                ),
+            }
+            for adv in by_type_id.get(tid, [])
+        ]
+
     advisors = _advisors_scoped_query().filter_by(is_active=True).order_by(Advisor.created_at.desc()).all()
 
     return render_template(
@@ -1564,6 +1629,7 @@ def calendar_view():
         services=services,
         services_missing_appointment_type=services_missing_appointment_type,
         advisors=advisors,
+        advisors_by_service_json=advisors_by_service_json,
     )
 
 

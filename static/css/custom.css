@@ -252,9 +252,18 @@
 .navbar-brand .navbar-logo {
     height: 40px;
     max-height: 40px;
+    max-width: min(200px, 46vw);
     width: auto;
     object-fit: contain;
+    object-position: left center;
     display: block;
+    flex-shrink: 0;
+}
+
+/* Nombre junto al logo (misma fila); evita que un logo muy ancho deje el texto fuera de vista */
+.navbar-landing .navbar-brand > span {
+    min-width: 0;
+    line-height: 1.2;
 }
 
 /* Tres zonas: marca | navegación principal (compacta a la izquierda) | iconos y perfil (derecha) */

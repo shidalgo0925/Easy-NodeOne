@@ -89,25 +89,76 @@ def get_nav_logo_cache_key():
 
 
 def get_nav_brand_name():
-    """Una sola regla: BRAND_MODE GLOBAL vs TENANT (sesión)."""
+    """
+    Texto de marca en la barra superior: nombre de la empresa (SaasOrganization) del contexto activo
+    (subdominio / sesión vía resolve_current_organization). Así se muestra p. ej. «Relatic» en lugar del
+    nombre genérico del producto cuando corresponde.
+
+    Forzar siempre la marca del producto (APP_BRAND_NAME): NODEONE_NAV_FORCE_PRODUCT_NAME=1
+    """
     import app as M
+
+    if os.environ.get('NODEONE_NAV_FORCE_PRODUCT_NAME', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
+
+    def _name_for_org_id(oid):
+        if oid is None:
+            return None
+        try:
+            oid = int(oid)
+        except (TypeError, ValueError):
+            return None
+        if oid < 1:
+            return None
+        org = M.SaasOrganization.query.get(oid)
+        if org is None or not (org.name or '').strip():
+            return None
+        return (org.name or '').strip()
+
+    try:
+        if M.has_request_context():
+            from flask import request
+            from flask_login import current_user
+
+            from utils.organization import resolve_current_organization
+
+            # Admin de plataforma: el nombre debe coincidir con el selector de empresa (sesión), no con el
+            # subdominio del host (p. ej. dev con tonydev.* mientras trabaja sobre otra org en el panel).
+            if getattr(current_user, 'is_authenticated', False) and getattr(current_user, 'is_admin', False):
+                n = _name_for_org_id(resolve_current_organization())
+                if n:
+                    return n
+            else:
+                try:
+                    host_oid = M._organization_id_from_request_host(request)
+                except Exception:
+                    host_oid = None
+                n = _name_for_org_id(host_oid)
+                if n:
+                    return n
+                n = _name_for_org_id(resolve_current_organization())
+                if n:
+                    return n
+    except Exception:
+        pass
 
     try:
         mode = (M.app.config.get('BRAND_MODE') or 'GLOBAL').strip().upper()
-        if mode == 'GLOBAL':
-            return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
-        if M.single_tenant_default_only() and not (
-            getattr(M.current_user, 'is_authenticated', False) and getattr(M.current_user, 'is_admin', False)
-        ):
-            oid = M.default_organization_id()
-        else:
-            oid = M.get_current_organization_id()
-        if oid is None:
-            return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
-        org = M.SaasOrganization.query.get(oid)
-        if org and (org.name or '').strip():
-            return (org.name or '').strip()
+        if mode != 'GLOBAL':
+            if M.single_tenant_default_only() and not (
+                getattr(M.current_user, 'is_authenticated', False) and getattr(M.current_user, 'is_admin', False)
+            ):
+                n = _name_for_org_id(M.default_organization_id())
+            else:
+                try:
+                    oid = M.get_current_organization_id()
+                except RuntimeError:
+                    oid = None
+                n = _name_for_org_id(oid)
+            if n:
+                return n
     except Exception:
         pass
+
     return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
 

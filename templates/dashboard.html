@@ -3,14 +3,14 @@
 {% block title %}Dashboard - Easy NodeOne{% endblock %}
 
 {% block page_content %}
-<!-- Encabezado del Dashboard -->
-<div class="dashboard-header bg-white border-bottom mb-2">
-    <div class="container-fluid py-2">
-        <div class="row align-items-center g-3">
-            <div class="col-12 col-md-6">
+<!-- Encabezado del Dashboard (compacto) -->
+<div class="dashboard-header bg-white border-bottom mb-1">
+    <div class="container-fluid py-1 px-2 px-sm-3">
+        <div class="row align-items-center g-2">
+            <div class="col-12 col-lg-7">
                 <div class="d-flex align-items-center flex-wrap gap-2">
-                    <img src="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}" alt="{{ get_nav_brand_name() }}" height="32" class="flex-shrink-0 me-md-3" decoding="async" onerror="this.src='{{ url_for('static', filename=get_platform_logo()) }}?v={{ get_logo_cache_key() }}';">
-                    <nav class="dashboard-nav flex-grow-1 min-w-0">
+                    <img src="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}" alt="{{ get_nav_brand_name() }}" height="28" class="flex-shrink-0 me-md-2" decoding="async" onerror="this.src='{{ url_for('static', filename=get_platform_logo()) }}?v={{ get_logo_cache_key() }}';">
+                    <nav class="dashboard-nav dashboard-nav-compact flex-grow-1 min-w-0">
                         <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link active">Inicio</a>
                         {% if saas_module_enabled('appointments') %}
                         <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Contenido</a>
@@ -20,26 +20,28 @@
                     </nav>
                 </div>
             </div>
-            <div class="col-12 col-md-6 text-md-end d-flex flex-column align-items-start align-items-md-end justify-content-center gap-2">
-                <div>
-                    <span class="fw-bold">Bienvenido de vuelta, {{ current_user.first_name }}</span>
-                    <span class="text-muted small d-none d-md-inline ms-1">· Aquí está lo nuevo para ti hoy</span>
+            <div class="col-12 col-lg-5">
+                <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
+                    <span class="small mb-0 text-lg-end">
+                        <span class="fw-semibold">Hola, {{ current_user.first_name }}</span>
+                        <span class="text-muted d-none d-xl-inline"> · Novedades de hoy</span>
+                    </span>
+                    {% if membership %}
+                    <span class="badge bg-primary px-2 py-1">
+                        <i class="fas fa-crown me-1"></i>Plan {{ membership.membership_type|upper }}
+                    </span>
+                    {% else %}
+                    <a href="{{ url_for('membership') }}" class="btn btn-sm btn-outline-primary text-nowrap py-1">
+                        <i class="fas fa-crown me-1"></i>Ver Planes
+                    </a>
+                    {% endif %}
                 </div>
-                {% if membership %}
-                <span class="badge bg-primary px-3 py-2">
-                    <i class="fas fa-crown me-1"></i>Plan {{ membership.membership_type|upper }}
-                </span>
-                {% else %}
-                <a href="{{ url_for('membership') }}" class="btn btn-sm btn-outline-primary text-nowrap">
-                    <i class="fas fa-crown me-1"></i>Ver Planes
-                </a>
-                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
-<div class="container-fluid py-2">
+<div class="container-fluid py-1 px-2 px-sm-3 dashboard-layout-tight">
     <!-- Advertencia de Email No Verificado -->
     {% if not current_user.email_verified %}
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
@@ -57,10 +59,10 @@
     
     <!-- Panel de Acciones Pendientes -->
     {% if user_status and user_status.action_required %}
-    <div class="row mb-4">
+    <div class="row mb-3">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header bg-primary text-white py-2">
                     <h5 class="mb-0">
                         <i class="fas fa-tasks me-2"></i>
                         Acciones Pendientes
@@ -93,30 +95,34 @@
     </div>
     {% endif %}
     
-    <div class="row g-4">
+    <div class="row g-2 g-lg-3">
         <!-- Columna Principal -->
         <div class="col-12 col-lg-8">
             <!-- Calendario Visual de Eventos (PRIMERO) -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
-                        <h5 class="card-title mb-0">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-2 gap-2">
+                        <h5 class="card-title mb-0 fs-6">
                             <i class="fas fa-calendar-alt me-2 text-danger"></i>Calendario
                         </h5>
-                        <a href="{{ url_for('events.list_events') }}" class="btn btn-sm btn-outline-danger text-nowrap align-self-stretch align-self-sm-auto">Ver todos los eventos</a>
+                        <a href="{{ url_for('events.list_events') }}" class="btn btn-sm btn-outline-danger text-nowrap align-self-stretch align-self-sm-auto py-1">Ver todos los eventos</a>
                     </div>
-                    {% if user_confirmed_appointments %}
-                    <p class="small text-muted mb-2"><span class="badge bg-success me-1">Citas</span> Tus citas confirmadas por el asesor</p>
+                    {% if user_calendar_appointments %}
+                    <p class="small text-muted mb-2">
+                        <span class="badge bg-success me-1">Confirmada</span>
+                        <span class="badge bg-warning text-dark me-1">Pendiente</span>
+                        Citas próximas en el calendario (confirmadas y pendientes de confirmación).
+                    </p>
                     {% endif %}
                     <div id="events-calendar"></div>
                 </div>
             </div>
 
             <!-- Mis Recursos Recientes (SEGUNDO) -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
-                        <h5 class="card-title mb-0">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-2 gap-2">
+                        <h5 class="card-title mb-0 fs-6">
                             <i class="fas fa-history me-2 text-info"></i>Mis Recursos Recientes
                         </h5>
                         {% if saas_module_enabled('appointments') %}
@@ -124,7 +130,7 @@
                         {% endif %}
                     </div>
                     <div class="recent-resources-list">
-                        <div class="resource-item d-flex align-items-center mb-3 p-2 border rounded">
+                        <div class="resource-item d-flex align-items-center mb-2 p-2 border rounded">
                             <div class="resource-icon bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
                                 <i class="fas fa-newspaper"></i>
                             </div>
@@ -136,7 +142,7 @@
                                 <i class="fas fa-external-link-alt"></i>
                             </a>
                         </div>
-                        <div class="resource-item d-flex align-items-center mb-3 p-2 border rounded">
+                        <div class="resource-item d-flex align-items-center mb-2 p-2 border rounded">
                             <div class="resource-icon bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
                                 <i class="fas fa-graduation-cap"></i>
                             </div>
@@ -148,7 +154,7 @@
                                 <i class="fas fa-external-link-alt"></i>
                             </a>
                         </div>
-                        <div class="resource-item d-flex align-items-center mb-3 p-2 border rounded">
+                        <div class="resource-item d-flex align-items-center mb-2 p-2 border rounded">
                             <div class="resource-icon bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
                                 <i class="fas fa-book"></i>
                             </div>
@@ -183,9 +189,9 @@
             </div>
 
             <!-- Mensajes / Avisos del Sistema -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <h5 class="card-title mb-2 fs-6">
                         <i class="fas fa-bell me-2 text-warning"></i>Mensajes y Avisos
                     </h5>
                     <div class="notifications-list">
@@ -224,21 +230,21 @@
         <div class="col-12 col-lg-4">
             <!-- Resumen rápido (compacto en columna derecha) -->
             {% if user_status %}
-            <div class="card border-0 shadow-sm mb-4">
+            <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body py-2 px-3">
-                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-1 mb-1">
                         <span class="text-muted small">Pagos pend.</span>
                         <span class="fw-bold text-primary">{{ user_status.pending_payments|length }}</span>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-1 mb-1">
                         <span class="text-muted small">Eventos próximos</span>
                         <span class="fw-bold text-success">{{ user_status.upcoming_events|length }}</span>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-1 mb-1">
                         <span class="text-muted small">Citas próximas</span>
                         <span class="fw-bold text-info">{{ user_status.upcoming_appointments|length }}</span>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center py-1">
                         <span class="text-muted small">Bandeja (pendientes)</span>
                         <span class="fw-bold text-warning">{{ user_status.pending_notifications|length }}</span>
                     </div>
@@ -248,9 +254,9 @@
 
             <!-- Anuncios de Administradores (Imágenes) -->
             {% if active_announcements %}
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <h5 class="card-title mb-2 fs-6">
                         <i class="fas fa-bullhorn me-2 text-primary"></i>Anuncios
                     </h5>
                     <div class="row g-3">
@@ -283,13 +289,13 @@
             {% endif %}
 
             <!-- Mi Agenda -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
-                        <h5 class="card-title mb-0">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-2 gap-2">
+                        <h5 class="card-title mb-0 fs-6">
                             <i class="fas fa-calendar me-2 text-primary"></i>Mi Agenda
                         </h5>
-                        <a href="{{ url_for('appointments.appointments_home') }}" class="btn btn-sm btn-outline-primary text-nowrap align-self-stretch align-self-sm-auto">Ver todas</a>
+                        <a href="{{ url_for('appointments.appointments_home') }}" class="btn btn-sm btn-outline-primary text-nowrap align-self-stretch align-self-sm-auto py-1">Ver todas</a>
                     </div>
                     {% if upcoming_appointments or upcoming_events %}
                     <div class="agenda-list">
@@ -327,9 +333,9 @@
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">No tienes eventos o citas programadas</p>
+                    <div class="text-center py-2 px-1 agenda-empty-compact">
+                        <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
+                        <p class="text-muted small mb-2 mb-md-0">No tienes eventos o citas programadas</p>
                         <a href="{{ url_for('events.list_events') }}" class="btn btn-sm btn-primary">Explorar eventos</a>
                     </div>
                     {% endif %}
@@ -337,10 +343,10 @@
             </div>
 
             <!-- Comunidad -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
-                        <h5 class="card-title mb-0">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-2 gap-2">
+                        <h5 class="card-title mb-0 fs-6">
                             <i class="fas fa-users me-2 text-primary"></i>Comunidad
                         </h5>
                         <div class="w-100 w-sm-auto min-w-0 mobile-scroll-x pb-1">
@@ -363,7 +369,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="community-item mt-3">
+                        <div class="community-item mt-2">
                             <div class="d-flex align-items-start">
                                 <div class="community-avatar bg-success">
                                     <i class="fas fa-user-friends"></i>
@@ -380,13 +386,13 @@
             </div>
 
             <!-- Zona de Soporte -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body text-center">
-                    <div class="support-icon mb-3">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body text-center py-2 px-3">
+                    <div class="support-icon support-icon-compact mb-2">
                         <i class="fas fa-life-ring"></i>
                     </div>
-                    <h5 class="mb-2">¿Necesitas ayuda?</h5>
-                    <p class="text-muted small mb-3">Estamos aquí para ayudarte con cualquier duda o problema</p>
+                    <h5 class="mb-1 fs-6">¿Necesitas ayuda?</h5>
+                    <p class="text-muted small mb-2">Estamos aquí para ayudarte con cualquier duda o problema</p>
                     <a href="{{ url_for('member_pages.help_page') }}" class="btn btn-primary btn-sm w-100 mb-2">
                         <i class="fas fa-question-circle me-1"></i>Ver guías rápidas
                     </a>
@@ -397,10 +403,10 @@
             </div>
 
             <!-- Mi Progreso -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-3 gap-2">
-                        <h5 class="card-title mb-0">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center mb-2 gap-2">
+                        <h5 class="card-title mb-0 fs-6">
                             <i class="fas fa-tasks me-2 text-primary"></i>Mi Progreso
                         </h5>
                         <a href="{{ url_for('membership') }}" class="btn btn-sm btn-primary text-nowrap align-self-stretch align-self-sm-auto">Seguir mi plan</a>
@@ -449,7 +455,7 @@
 </div>
 
 <!-- Pie de Página del Dashboard -->
-<div class="dashboard-footer bg-light border-top mt-5 py-4">
+<div class="dashboard-footer bg-light border-top mt-3 py-2">
     <div class="container-fluid">
         <div class="row">
             <div class="col-12 col-md-6">
@@ -484,6 +490,15 @@
     display: flex;
     gap: 20px;
     align-items: center;
+}
+
+.dashboard-nav-compact {
+    gap: 12px;
+}
+
+.dashboard-nav-compact .dashboard-nav-link {
+    padding: 5px 0;
+    font-size: 13px;
 }
 
 .dashboard-nav-link {
@@ -570,15 +585,15 @@
 
 /* Progreso */
 .progress-section {
-    padding: 20px 0;
+    padding: 10px 0;
 }
 
 .stat-item {
-    padding: 10px;
+    padding: 6px;
 }
 
 .stat-value {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     line-height: 1;
 }
@@ -630,18 +645,24 @@
     margin: 0 auto;
 }
 
+/* Layout compacto del dashboard */
+.dashboard-layout-tight .card.border-0.shadow-sm > .card-body {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
 /* Agenda */
 .agenda-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
 }
 
 .agenda-item {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 12px;
+    gap: 10px;
+    padding: 8px;
     background: #f8f9fa;
     border-radius: 8px;
     transition: all 0.2s ease;
@@ -652,16 +673,16 @@
 }
 
 .agenda-time {
-    min-width: 60px;
+    min-width: 52px;
     text-align: center;
     background: #008ee2;
     color: white;
-    border-radius: 8px;
-    padding: 8px;
+    border-radius: 6px;
+    padding: 6px;
 }
 
 .agenda-date {
-    font-size: 20px;
+    font-size: 17px;
     font-weight: 700;
     line-height: 1;
 }
@@ -674,6 +695,14 @@
 
 .agenda-content {
     flex: 1;
+}
+
+.agenda-empty-compact .fa-calendar-times {
+    margin-bottom: 0.35rem !important;
+}
+
+.agenda-empty-compact p {
+    line-height: 1.25;
 }
 
 /* Notificaciones */
@@ -691,11 +720,11 @@
 
 /* Comunidad */
 .community-preview {
-    padding: 10px 0;
+    padding: 6px 0;
 }
 
 .community-item {
-    padding: 16px;
+    padding: 10px;
     background: #f8f9fa;
     border-radius: 8px;
 }
@@ -738,6 +767,12 @@
     color: white;
     font-size: 28px;
     margin: 0 auto;
+}
+
+.support-icon.support-icon-compact {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
 }
 
 /* Estilo Canvas - Servicios Circulares */
@@ -968,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar calendario de eventos
     const calendarEl = document.getElementById('events-calendar');
     if (calendarEl) {
-        // Preparar eventos para FullCalendar (eventos públicos + citas confirmadas del usuario)
+        // Preparar eventos para FullCalendar (eventos públicos + citas próximas: pendientes y confirmadas)
         const calendarEvents = [
             {% if all_public_events %}
             {% for event in all_public_events %}
@@ -989,20 +1024,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }{% if not loop.last %},{% endif %}
             {% endfor %}
             {% endif %}
-            {% if user_confirmed_appointments %}
-            {% for apt in user_confirmed_appointments %}
+            {% if user_calendar_appointments %}
+            {% for apt in user_calendar_appointments %}
             {% if apt.start_datetime and apt.end_datetime %}
             {% if loop.first and all_public_events %},{% endif %}
+            {% set _st = (apt.status or '')|lower %}
+            {% set _confirmed = _st in ('confirmed', 'confirmada') %}
             {
                 id: 'appointment-{{ apt.id }}',
-                title: {{ ('Cita: ' ~ (apt.related_service.name if apt.related_service else (apt.appointment_type.name if apt.appointment_type else 'Cita')))|tojson }},
+                title: {{ ((_confirmed and 'Cita: ' or 'Cita (pendiente): ') ~ (apt.related_service.name if apt.related_service else (apt.appointment_type.name if apt.appointment_type else 'Cita')))|tojson }},
                 start: {{ apt.start_datetime.isoformat()|tojson }},
                 end: {{ apt.end_datetime.isoformat()|tojson }},
                 url: {{ url_for('appointments.appointments_home')|tojson }},
-                backgroundColor: '#28a745',
-                borderColor: '#28a745',
+                backgroundColor: {{ ('#28a745' if _confirmed else '#fd7e14')|tojson }},
+                borderColor: {{ ('#28a745' if _confirmed else '#fd7e14')|tojson }},
                 textColor: '#ffffff',
-                extendedProps: { type: 'appointment', reference: {{ (apt.reference or '')|tojson }} }
+                extendedProps: {
+                    type: 'appointment',
+                    reference: {{ (apt.reference or '')|tojson }},
+                    appointment_status: {{ (apt.status or '')|tojson }},
+                    is_pending: {{ (not _confirmed)|tojson }}
+                }
             }{% if not loop.last %},{% endif %}
             {% endif %}
             {% endfor %}
@@ -1026,14 +1068,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             },
             eventMouseEnter: function(info) {
-                // Mostrar tooltip con información adicional
                 const tooltip = document.createElement('div');
                 tooltip.className = 'event-tooltip';
-                tooltip.innerHTML = `
+                let tipBody = '';
+                if (info.event.extendedProps.type === 'appointment') {
+                    const st = info.event.extendedProps.appointment_status || '';
+                    const ref = info.event.extendedProps.reference || '';
+                    tipBody = '<strong>' + info.event.title + '</strong><br>';
+                    if (st) {
+                        tipBody += '<span class="badge ' + (info.event.extendedProps.is_pending ? 'bg-warning text-dark' : 'bg-success') + '">' + st + '</span><br>';
+                    }
+                    if (ref) {
+                        tipBody += '<small>Ref: ' + ref + '</small>';
+                    }
+                } else {
+                    tipBody = `
                     <strong>${info.event.title}</strong><br>
                     ${info.event.extendedProps.location ? '<i class="fas fa-map-marker-alt"></i> ' + info.event.extendedProps.location + '<br>' : ''}
                     ${info.event.extendedProps.is_virtual ? '<span class="badge bg-info">Virtual</span>' : ''}
                 `;
+                }
+                tooltip.innerHTML = tipBody;
                 document.body.appendChild(tooltip);
                 const rect = info.el.getBoundingClientRect();
                 tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 10) + 'px';
@@ -1047,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             height: 'auto',
             contentHeight: 'auto',
-            aspectRatio: 1.8
+            aspectRatio: 2.15
         });
 
         calendar.render();
@@ -1076,16 +1131,21 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 2px 4px;
 }
 
+#events-calendar .fc-col-header-cell-cushion {
+    padding: 0.35rem 0.25rem;
+    font-size: 0.8rem;
+}
+
 #events-calendar .fc-toolbar-title {
-    font-size: 1.5rem;
+    font-size: 1.15rem;
     font-weight: 600;
 }
 
 #events-calendar .fc-button {
     background-color: #008ee2;
     border-color: #008ee2;
-    font-size: 0.875rem;
-    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.55rem;
 }
 
 #events-calendar .fc-button:hover {

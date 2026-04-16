@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 
 from flask import Blueprint, jsonify, render_template, request, send_file
+from sqlalchemy import or_
 
 import app as M
 from nodeone.modules.accounting.models import Tax
@@ -54,7 +55,10 @@ def admin_services():
     elif status == 'inactive':
         q = q.filter_by(is_active=False)
     if search:
-        q = q.filter(M.Service.name.ilike(f'%{search}%'))
+        like = f'%{search}%'
+        q = q.filter(
+            or_(M.Service.name.ilike(like), M.Service.description.ilike(like))
+        )
     services = q.order_by(M.Service.display_order, M.Service.name).all()
     return render_template('admin/services.html', services=services, current_status=status, search=search)
 

@@ -88,6 +88,8 @@ class Subscription(db.Model):
     
     def is_currently_active(self):
         """Verificar si la suscripción está actualmente activa"""
+        if self.end_date is None:
+            return self.status == 'active'
         return self.status == 'active' and datetime.utcnow() <= self.end_date
     
     @property

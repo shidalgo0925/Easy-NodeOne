@@ -9,10 +9,10 @@ def register_admin_messaging_routes(app):
     from flask import flash, jsonify, redirect, render_template, request, url_for
     from sqlalchemy import func
 
-    from app import admin_required, db, EmailLog, Notification
+    from app import db, EmailLog, Notification, require_permission
 
     @app.route('/admin/messaging')
-    @admin_required
+    @require_permission('reports.view')
     def admin_messaging():
         """Lista de todos los emails enviados"""
         page = request.args.get('page', 1, type=int)
@@ -61,14 +61,14 @@ def register_admin_messaging_routes(app):
         )
 
     @app.route('/admin/messaging/<int:email_id>')
-    @admin_required
+    @require_permission('reports.view')
     def admin_messaging_detail(email_id):
         """Detalle de un email específico"""
         email_log = EmailLog.query.get_or_404(email_id)
         return render_template('admin/messaging_detail.html', email_log=email_log)
 
     @app.route('/admin/messaging/<int:email_id>/resend', methods=['POST'])
-    @admin_required
+    @require_permission('reports.view')
     def admin_messaging_resend(email_id):
         """Reenviar un email que falló"""
         email_log = EmailLog.query.get_or_404(email_id)
@@ -111,7 +111,7 @@ def register_admin_messaging_routes(app):
         return redirect(url_for('admin_messaging_detail', email_id=email_id))
 
     @app.route('/admin/messaging/<int:email_id>/delete', methods=['POST'])
-    @admin_required
+    @require_permission('reports.view')
     def admin_messaging_delete(email_id):
         """Eliminar un registro de email"""
         email_log = EmailLog.query.get_or_404(email_id)
@@ -125,7 +125,7 @@ def register_admin_messaging_routes(app):
         return redirect(url_for('admin_messaging'))
 
     @app.route('/api/admin/messaging/stats')
-    @admin_required
+    @require_permission('reports.view')
     def api_messaging_stats():
         """API para obtener estadísticas de mensajería"""
         total = EmailLog.query.count()

@@ -113,6 +113,11 @@ except ImportError:
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 # Detrás de Nginx/Cloudflare: confiar en X-Forwarded-Proto y X-Forwarded-For
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1, x_host=1)
+
+from nodeone.services.security_headers import init_security_headers
+
+init_security_headers(app)
+
 # Branding unificado (GLOBAL = misma marca en topbar; TENANT = nombre de org activa en sesión)
 app.config['APP_BRAND_NAME'] = (os.environ.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
 _brand_mode = (os.environ.get('BRAND_MODE') or 'GLOBAL').strip().upper()
@@ -153,6 +158,11 @@ def _load_or_create_secret_key():
 
 
 app.config['SECRET_KEY'] = _load_or_create_secret_key()
+# Cookies de sesión endurecidas en HTTPS (prod detrás de TLS). En local HTTP dejar sin NODEONE_SESSION_COOKIE_SECURE.
+if os.environ.get('NODEONE_SESSION_COOKIE_SECURE', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 _db_uri = (os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL') or '').strip()
 if _db_uri:
     if _db_uri.startswith('postgres://'):
@@ -621,6 +631,9 @@ def inject_logo():
         scoped_query=scoped_query,
         single_tenant_default_only=single_tenant_default_only,
         nodeone_app_version=get_app_version(),
+        show_public_app_version=(
+            os.environ.get('NODEONE_SHOW_APP_VERSION_IN_UI', '').strip().lower() in ('1', 'true', 'yes', 'on')
+        ),
     )
 
 # Context processor: design tokens de identidad por cliente (organization_settings)
@@ -1274,7 +1287,7 @@ def web_app_manifest():
         'id': '/',
         'name': brand,
         'short_name': short,
-        'description': 'Membresías, servicios y panel de miembro',
+        'description': 'Portal de miembros y servicios',
         'lang': 'es',
         'dir': 'ltr',
         'start_url': '/',
@@ -1350,6 +1363,21 @@ def inject_saas_module_template_helper():
     )
 
 
+def _nav_can_permission(perm_code: str) -> bool:
+    """
+    Plantillas: mostrar ítems de menú solo si el usuario puede la acción (RBAC).
+    is_admin de plataforma ve todo; el resto según has_permission.
+    """
+    try:
+        if not getattr(current_user, 'is_authenticated', False):
+            return False
+        if getattr(current_user, 'is_admin', False):
+            return True
+        return bool(current_user.has_permission(perm_code))
+    except Exception:
+        return False
+
+
 @app.context_processor
 def inject_admin_nav_context():
     """
@@ -1368,9 +1396,11 @@ def inject_admin_nav_context():
         'member_organizations_nav': [],
     }
     if not has_request_context():
+        out['nav_can'] = _nav_can_permission
         return out
     try:
         if not getattr(current_user, 'is_authenticated', False):
+            out['nav_can'] = _nav_can_permission
             return out
         if session.get('require_org_selection'):
             out['show_tenant_admin_menu'] = False
@@ -1380,6 +1410,7 @@ def inject_admin_nav_context():
             out['catalog_admin_context_org_name'] = None
             out['show_member_organization_switcher'] = False
             out['member_organizations_nav'] = []
+            out['nav_can'] = _nav_can_permission
             return out
         is_flag_admin = bool(getattr(current_user, 'is_admin', False))
         rbac_admin = False
@@ -1445,6 +1476,7 @@ def inject_admin_nav_context():
             pass
     except Exception:
         pass
+    out['nav_can'] = _nav_can_permission
     return out
 
 
@@ -1599,7 +1631,11 @@ def _organization_id_for_public_registration():
     host = (request.host or '').split(':')[0].lower()
     parts = host.split('.')
     if len(parts) >= 3:
-        sub = _tenant_subdomain_from_host_label(parts[0])
+        first = (parts[0] or '').strip().lower()
+        if first in ('app', 'www') and len(parts) >= 3:
+            sub = _tenant_subdomain_from_host_label(parts[1])
+        else:
+            sub = _tenant_subdomain_from_host_label(parts[0])
         if sub and sub not in ('www', 'app', 'mail', 'web', 'cdn'):
             org = (
                 SaasOrganization.query.filter_by(is_active=True)
@@ -1614,14 +1650,22 @@ def _organization_id_for_public_registration():
 
 
 def _organization_id_from_request_host(req):
-    """Resolver org activa por subdominio del host; None si no aplica."""
+    """Resolver org activa por subdominio del host; None si no aplica.
+
+    Soporta ``app.detailingserviceve.site`` / ``www.<slug>.dominio``: el slug de tenant es el
+    segmento *siguiente* a app/www, no el primero (coincide con ``saas_organization.subdomain``).
+    """
     host = ((getattr(req, 'host', '') or '').split(':')[0] or '').lower().strip()
     if not host:
         return None
     parts = host.split('.')
     if len(parts) < 3:
         return None
-    sub = _tenant_subdomain_from_host_label(parts[0])
+    first = (parts[0] or '').strip().lower()
+    if first in ('app', 'www') and len(parts) >= 3:
+        sub = _tenant_subdomain_from_host_label(parts[1])
+    else:
+        sub = _tenant_subdomain_from_host_label(parts[0])
     if not sub or sub in ('www', 'app', 'mail', 'web', 'cdn'):
         return None
     org = (
@@ -1809,9 +1853,14 @@ def process_cart_after_payment(cart, payment):
                         membership = user.get_active_membership() if user else None
                         membership_type = membership.membership_type if membership else 'basic'
                         
-                        # Calcular precios
-                        pricing = service.pricing_for_membership(membership_type)
-                        final_price = pricing['final_price']
+                        # Precios: respetar lo pactado en el carrito (p. ej. primera cita gratis)
+                        pricing_calc = service.pricing_for_membership(membership_type)
+                        base_price = float(metadata.get('base_price', pricing_calc['base_price']))
+                        if metadata.get('final_price') is not None:
+                            final_price = float(metadata['final_price'])
+                        else:
+                            final_price = float(pricing_calc['final_price'])
+                        discount_applied_meta = max(0.0, base_price - final_price)
                         
                         # Determinar estado de pago
                         deposit_amount = metadata.get('deposit_amount', final_price)
@@ -1823,6 +1872,7 @@ def process_cart_after_payment(cart, payment):
                         # Crear Appointment (flujo agendable: slot + pago → confirmación directa)
                         appointment = Appointment(
                             appointment_type_id=appointment_type_id,
+                            organization_id=int(getattr(service, 'organization_id', None) or 1),
                             advisor_id=advisor_id,
                             slot_id=slot.id,
                             service_id=service.id,
@@ -1833,9 +1883,9 @@ def process_cart_after_payment(cart, payment):
                             end_datetime=slot.end_datetime,
                             status='CONFIRMADA',
                             is_initial_consult=False,
-                            base_price=pricing['base_price'],
+                            base_price=base_price,
                             final_price=final_price,
-                            discount_applied=pricing['base_price'] - pricing['final_price'],
+                            discount_applied=discount_applied_meta,
                             payment_status=payment_status,
                             payment_method=payment.payment_method,
                             user_notes=case_description
@@ -2669,6 +2719,14 @@ def bootstrap_nodeone_schema():
             ensure_platform_sa_user()
         except Exception as e:
             print(f'⚠️ ensure_platform_sa_user: {e}')
+        try:
+            from nodeone.services.default_taxes import ensure_default_percent_taxes
+
+            ntax = ensure_default_percent_taxes(printfn=lambda m: print(f'📋 {m}'))
+            if ntax:
+                print(f'📋 taxes estándar (0%%, 7%%): {ntax} fila(s) nueva(s)')
+        except Exception as e:
+            print(f'⚠️ ensure_default_percent_taxes: {e}')
         apply_email_config_from_db()
 
 

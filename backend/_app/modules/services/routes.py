@@ -26,6 +26,7 @@ def list():
         categories=data['categories'],
         user_membership_type=data['user_membership_type'],
         membership_type=data['membership_type'],
+        plan_slugs_ordered=data['plan_slugs_ordered'],
     )
 
 
@@ -68,8 +69,9 @@ def request_appointment_submit(service_id):
         redirect_url, msg, category = err
         flash(msg, category)
         return redirect(redirect_url)
-    redirect_target, _, _ = result
-    flash('Servicio agregado al carrito exitosamente. Puedes continuar con el proceso de pago desde tu carrito.', 'success')
+    redirect_target, flash_msg, flash_category = result
+    if flash_msg:
+        flash(flash_msg, flash_category or 'success')
     return redirect(url_for(redirect_target))
 
 

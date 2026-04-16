@@ -181,9 +181,13 @@ def process_cart_after_payment(cart, payment):
                         membership = user.get_active_membership() if user else None
                         membership_type = membership.membership_type if membership else 'basic'
                         
-                        # Calcular precios
-                        pricing = service.pricing_for_membership(membership_type)
-                        final_price = pricing['final_price']
+                        pricing_calc = service.pricing_for_membership(membership_type)
+                        base_price = float(metadata.get('base_price', pricing_calc['base_price']))
+                        if metadata.get('final_price') is not None:
+                            final_price = float(metadata['final_price'])
+                        else:
+                            final_price = float(pricing_calc['final_price'])
+                        discount_applied_meta = max(0.0, base_price - final_price)
                         
                         # Determinar estado de pago
                         deposit_amount = metadata.get('deposit_amount', final_price)
@@ -195,6 +199,7 @@ def process_cart_after_payment(cart, payment):
                         # Crear Appointment (flujo agendable: slot + pago → confirmación directa)
                         appointment = M.Appointment(
                             appointment_type_id=appointment_type_id,
+                            organization_id=int(getattr(service, 'organization_id', None) or 1),
                             advisor_id=advisor_id,
                             slot_id=slot.id,
                             service_id=service.id,
@@ -205,9 +210,9 @@ def process_cart_after_payment(cart, payment):
                             end_datetime=slot.end_datetime,
                             status='CONFIRMADA',
                             is_initial_consult=False,
-                            base_price=pricing['base_price'],
+                            base_price=base_price,
                             final_price=final_price,
-                            discount_applied=pricing['base_price'] - pricing['final_price'],
+                            discount_applied=discount_applied_meta,
                             payment_status=payment_status,
                             payment_method=payment.payment_method,
                             user_notes=case_description

@@ -114,5 +114,11 @@ def admin_data_scope_organization_id():
         oid = None
     if oid is not None:
         return int(oid)
-    return int(M.default_organization_id())
+    # Sin org en sesión: misma resolución que paneles admin por host (p. ej. apps.relatic.org → org Relatic).
+    try:
+        from utils.organization import get_admin_effective_organization_id
+
+        return int(get_admin_effective_organization_id())
+    except Exception:
+        return int(M.default_organization_id())
 

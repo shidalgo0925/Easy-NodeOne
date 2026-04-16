@@ -2,28 +2,34 @@
 
 {% block title %}Ayuda - Easy NodeOne{% endblock %}
 
+{% block head_extra %}
+<link href="{{ url_for('static', filename='css/help-page.css') }}?v=help-ui-1" rel="stylesheet">
+{% endblock %}
+
 {% block page_content %}
-<div class="container py-4">
+<div class="help-page-unified">
+<div class="container py-3 py-md-4">
     <div class="row">
         <div class="col-12">
-            <h1 class="h3 mb-3">
-                <i class="fas fa-question-circle"></i> Centro de Ayuda
+            <h1 class="app-page-title mb-2">
+                <i class="fas fa-question-circle text-primary me-2"></i>Centro de Ayuda
             </h1>
-            <p class="text-muted mb-0">Encuentra respuestas a tus preguntas y obtén soporte</p>
+            <p class="help-lead mb-3 mb-md-4">Encuentra respuestas a tus preguntas y obtén soporte.</p>
         </div>
     </div>
 
     <!-- Búsqueda -->
-    <div class="row mb-4">
+    <div class="row mb-3 mb-md-4">
         <div class="col-12 col-lg-8 mx-auto">
             <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="input-group input-group-lg flex-nowrap mobile-scroll-x pb-1">
-                        <span class="input-group-text bg-primary text-white">
-                            <i class="fas fa-search"></i>
-                        </span>
-                        <input type="text" class="form-control" placeholder="Buscar en el centro de ayuda..." id="helpSearch">
-                        <button class="btn btn-primary" type="button">Buscar</button>
+                <div class="card-body py-3">
+                    <label for="helpSearch" class="form-label small text-muted mb-2">Buscar en el centro de ayuda</label>
+                    <div class="d-flex flex-column flex-sm-row gap-2 align-items-stretch">
+                        <div class="app-search-wrap flex-grow-1 min-w-0">
+                            <i class="fas fa-search search-icon" aria-hidden="true"></i>
+                            <input type="search" class="form-control app-search-input" placeholder="Palabras clave, tema o paso…" id="helpSearch" autocomplete="off">
+                        </div>
+                        <button class="btn btn-primary text-nowrap px-3" type="button" id="helpSearchBtn">Buscar</button>
                     </div>
                 </div>
             </div>
@@ -31,70 +37,70 @@
     </div>
 
     <!-- Categorías -->
-    <div class="row g-4 mb-4">
+    <div class="row g-3 g-md-4 mb-3 mb-md-4">
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 text-center hover-shadow">
-                <div class="card-body">
-                    <div class="bg-primary rounded-circle p-3 d-inline-block mb-3">
+            <div class="card border-0 shadow-sm h-100 text-center help-category-card">
+                <div class="card-body py-3">
+                    <div class="bg-primary rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3">
                         <i class="fas fa-user fa-2x text-white"></i>
                     </div>
-                    <h5>Cuenta y Perfil</h5>
-                    <p class="text-muted small">Gestiona tu cuenta y perfil de usuario</p>
+                    <h6 class="mb-2">Cuenta y Perfil</h6>
+                    <p class="text-muted small mb-0">Gestiona tu cuenta y perfil de usuario</p>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 text-center hover-shadow">
-                <div class="card-body">
-                    <div class="bg-success rounded-circle p-3 d-inline-block mb-3">
+            <div class="card border-0 shadow-sm h-100 text-center help-category-card">
+                <div class="card-body py-3">
+                    <div class="bg-success rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3">
                         <i class="fas fa-crown fa-2x text-white"></i>
                     </div>
-                    <h5>Membresía</h5>
-                    <p class="text-muted small">Información sobre membresías y pagos</p>
+                    <h6 class="mb-2">Membresía</h6>
+                    <p class="text-muted small mb-0">Información sobre membresías y pagos</p>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 text-center hover-shadow">
-                <div class="card-body">
-                    <div class="bg-info rounded-circle p-3 d-inline-block mb-3">
+            <div class="card border-0 shadow-sm h-100 text-center help-category-card">
+                <div class="card-body py-3">
+                    <div class="bg-info rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3">
                         <i class="fas fa-star fa-2x text-white"></i>
                     </div>
-                    <h5>Beneficios</h5>
-                    <p class="text-muted small">Cómo acceder a tus beneficios</p>
+                    <h6 class="mb-2">Beneficios</h6>
+                    <p class="text-muted small mb-0">Cómo acceder a tus beneficios</p>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 text-center hover-shadow">
-                <div class="card-body">
-                    <div class="bg-warning rounded-circle p-3 d-inline-block mb-3">
+            <div class="card border-0 shadow-sm h-100 text-center help-category-card">
+                <div class="card-body py-3">
+                    <div class="bg-warning rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3">
                         <i class="fas fa-cog fa-2x text-white"></i>
                     </div>
-                    <h5>Técnico</h5>
-                    <p class="text-muted small">Soporte técnico y solución de problemas</p>
+                    <h6 class="mb-2">Técnico</h6>
+                    <p class="text-muted small mb-0">Soporte técnico y solución de problemas</p>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 text-center hover-shadow" style="cursor: pointer;" onclick="document.getElementById('admin16').scrollIntoView({behavior: 'smooth'}); setTimeout(function(){ var el = document.getElementById('admin16'); if(el) { var c = new bootstrap.Collapse(el, {toggle: true}); } }, 500);">
-                <div class="card-body">
-                    <div class="rounded-circle p-3 d-inline-block mb-3" style="background: #0d6efd;">
+            <div class="card border-0 shadow-sm h-100 text-center help-category-card" style="cursor: pointer;" onclick="document.getElementById('admin16').scrollIntoView({behavior: 'smooth'}); setTimeout(function(){ var el = document.getElementById('admin16'); if(el) { var c = new bootstrap.Collapse(el, {toggle: true}); } }, 500);">
+                <div class="card-body py-3">
+                    <div class="bg-primary rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3">
                         <i class="fas fa-bullhorn fa-2x text-white"></i>
                     </div>
-                    <h5>Email Marketing</h5>
-                    <p class="text-muted small">Campañas, segmentos y filtros (administradores)</p>
+                    <h6 class="mb-2">Email Marketing</h6>
+                    <p class="text-muted small mb-0">Campañas, segmentos y filtros (administradores)</p>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 text-center hover-shadow" style="cursor: pointer;" onclick="document.getElementById('help-certificados-usuario').scrollIntoView({behavior: 'smooth'}); setTimeout(function(){ var el = document.getElementById('proc12'); if(el && typeof bootstrap !== 'undefined') { new bootstrap.Collapse(el, {toggle: true}); } }, 400);">
-                <div class="card-body">
-                    <div class="rounded-circle p-3 d-inline-block mb-3" style="background: #6f42c1;">
+            <div class="card border-0 shadow-sm h-100 text-center help-category-card" style="cursor: pointer;" onclick="document.getElementById('help-certificados-usuario').scrollIntoView({behavior: 'smooth'}); setTimeout(function(){ var el = document.getElementById('proc12'); if(el && typeof bootstrap !== 'undefined') { new bootstrap.Collapse(el, {toggle: true}); } }, 400);">
+                <div class="card-body py-3">
+                    <div class="rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3" style="background: #6f42c1;">
                         <i class="fas fa-award fa-2x text-white"></i>
                     </div>
-                    <h5>Certificados</h5>
-                    <p class="text-muted small">Solicitar PDF, plantillas y requisitos (miembros y admin)</p>
+                    <h6 class="mb-2">Certificados</h6>
+                    <p class="text-muted small mb-0">Solicitar PDF, plantillas y requisitos (miembros y admin)</p>
                 </div>
             </div>
         </div>
@@ -104,7 +110,7 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-header help-visual-header py-3">
                     <h5 class="mb-0 text-white">
                         <i class="fas fa-video me-2"></i> Guía Visual Interactiva
                         <span class="badge bg-light text-dark ms-2">Nuevo</span>
@@ -2133,20 +2139,21 @@ export LINKEDIN_CLIENT_SECRET="tu-client-secret"</code></pre>
     <!-- Contacto -->
     <div class="row mt-4">
         <div class="col-12 col-lg-8 mx-auto">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center p-5">
+            <div class="card border-0 shadow-sm help-contact-card">
+                <div class="card-body text-center">
                     <i class="fas fa-headset fa-3x text-primary mb-3"></i>
-                    <h4>¿No encuentras lo que buscas?</h4>
-                    <p class="text-muted mb-4">Nuestro equipo de soporte está listo para ayudarte</p>
+                    <h4 class="fs-5 fw-semibold">¿No encontrás lo que buscás?</h4>
+                    <p class="text-muted mb-3">Nuestro equipo de soporte está listo para ayudarte.</p>
                     <div class="d-flex justify-content-center gap-3 flex-wrap">
                         <a href="mailto:info@example.com" class="btn btn-primary">
-                            <i class="fas fa-envelope"></i> Enviar Email
+                            <i class="fas fa-envelope me-1"></i>Enviar correo
                         </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
 
@@ -2765,26 +2772,38 @@ function toggleAudioMode() {
 }
 
 // Búsqueda mejorada
-document.getElementById('helpSearch')?.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        const searchTerm = this.value.toLowerCase();
-        // Buscar en las guías visuales
-        for (const [key, guide] of Object.entries(visualGuides)) {
-            if (guide.title.toLowerCase().includes(searchTerm)) {
+function runHelpSearch() {
+    const input = document.getElementById('helpSearch');
+    if (!input) return;
+    const raw = (input.value || '').trim();
+    if (!raw) {
+        alert('Escribí un término de búsqueda.');
+        return;
+    }
+    const searchTerm = raw.toLowerCase();
+    for (const [key, guide] of Object.entries(visualGuides)) {
+        if (guide.title.toLowerCase().includes(searchTerm)) {
+            showVisualGuide(key);
+            return;
+        }
+        for (const step of guide.steps) {
+            if (step.title.toLowerCase().includes(searchTerm) ||
+                step.description.toLowerCase().includes(searchTerm)) {
                 showVisualGuide(key);
                 return;
             }
-            // Buscar en los pasos
-            for (const step of guide.steps) {
-                if (step.title.toLowerCase().includes(searchTerm) || 
-                    step.description.toLowerCase().includes(searchTerm)) {
-                    showVisualGuide(key);
-                    return;
-                }
-            }
         }
-        alert('No se encontraron resultados para: ' + this.value);
     }
+    alert('No se encontraron resultados para: ' + raw);
+}
+document.getElementById('helpSearch')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        runHelpSearch();
+    }
+});
+document.getElementById('helpSearchBtn')?.addEventListener('click', function() {
+    runHelpSearch();
 });
 </script>
 {% endblock %}

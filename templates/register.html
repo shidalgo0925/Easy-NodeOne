@@ -48,7 +48,7 @@
                         <div class="mb-3">
                             <label for="cedula_or_passport" class="form-label">Cédula / DNI / Pasaporte <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="cedula_or_passport" name="cedula_or_passport" 
-                                   placeholder="Ej: 8-123-456 (Panamá) o A12345678 (Pasaporte)" required>
+                                   placeholder="Ej: 8-123-4567 (Panamá) o A12345678 (Pasaporte)" required>
                             <small class="form-text text-muted">Ingrese su cédula, DNI o número de pasaporte</small>
                         </div>
                         <div class="mb-3">
@@ -82,8 +82,8 @@
                         <details class="mt-3 small text-muted">
                             <summary style="cursor: pointer;">¿No funciona Google?</summary>
                             <p class="mt-2 mb-0">
-                                Configura las credenciales OAuth en el servidor.
-                                <a href="{{ url_for('member_pages.help_page') }}#oauth-config" class="alert-link">Guía</a>
+                                Si el registro con Google no está disponible, usá el formulario de arriba o probá más tarde.
+                                <a href="{{ url_for('member_pages.help_page') }}#oauth-config" class="alert-link">Ayuda</a>
                             </p>
                         </details>
                     </div>
@@ -115,11 +115,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!cedulaValue || !countryValue) return true;
         
-        // Panamá: 8 dígitos (formato: 8-123-456 o 12345678)
+        // Panamá: 8 dígitos (ej. 8-123-4567 o 81234567; guiones/espacios se ignoran)
         if (countryValue === 'Panamá') {
             const cleaned = cedulaValue.replace(/[-\s]/g, '');
             if (!/^\d{8}$/.test(cleaned)) {
-                cedulaOrPassport.setCustomValidity('La cédula panameña debe tener 8 dígitos (formato: 8-123-456 o 12345678)');
+                cedulaOrPassport.setCustomValidity(
+                    'La cédula panameña debe tener exactamente 8 dígitos (ej.: 8-123-4567 o 81234567)'
+                );
                 return false;
             }
         }

@@ -406,6 +406,71 @@ class Service(db.Model):
             'discount_percentage': discount_percentage,
             'is_included': is_included
         }
+
+    def count_prior_booked_slot_appointments(self, user_id):
+        """Citas ya confirmadas/completadas con slot (flujo AGENDABLE) para este usuario y este servicio."""
+        if not user_id:
+            return 0
+        from app import Appointment
+
+        return int(
+            Appointment.query.filter(
+                Appointment.user_id == int(user_id),
+                Appointment.service_id == self.id,
+                Appointment.slot_id.isnot(None),
+                Appointment.status.in_(('CONFIRMADA', 'confirmed', 'COMPLETADA', 'completed')),
+            ).count()
+        )
+
+    def pricing_for_appointment_booking(self, user_membership_type, user_id):
+        """
+        Precio para reservar cita con calendario (slot). La primera cita con slot por usuario y servicio es $0
+        aunque el catálogo tenga precio (no afecta la compra directa del servicio sin cita).
+        """
+        out = dict(self.pricing_for_membership(user_membership_type))
+        out['first_appointment_free_applied'] = False
+        if not user_id or not self.requires_appointment():
+            return out
+        if self.count_prior_booked_slot_appointments(int(user_id)) > 0:
+            return out
+        fp = float(out.get('final_price') or 0.0)
+        if fp > 0.0:
+            out['first_appointment_free_applied'] = True
+            out['final_price'] = 0.0
+            bp = float(out.get('base_price') or 0.0)
+            out['discount_percentage'] = 100.0 if bp > 0 else float(out.get('discount_percentage') or 0.0)
+            out['is_included'] = True
+        return out
+
+    def calculate_deposit_from_pricing(self, pricing):
+        """Igual que calculate_deposit pero usando un dict pricing ya calculado (p. ej. primera cita gratis)."""
+        if not pricing:
+            return {
+                'deposit_amount': 0.0,
+                'final_price': 0.0,
+                'remaining_balance': 0.0,
+                'requires_full_payment': False,
+            }
+        final_price = float(pricing.get('final_price') or 0.0)
+        if final_price <= 0:
+            return {
+                'deposit_amount': 0.0,
+                'final_price': 0.0,
+                'remaining_balance': 0.0,
+                'requires_full_payment': False,
+            }
+        deposit_amount = final_price
+        if self.deposit_amount:
+            deposit_amount = min(self.deposit_amount, final_price)
+        elif self.deposit_percentage:
+            deposit_amount = final_price * float(self.deposit_percentage)
+        remaining_balance = max(0.0, final_price - deposit_amount)
+        return {
+            'deposit_amount': deposit_amount,
+            'final_price': final_price,
+            'remaining_balance': remaining_balance,
+            'requires_full_payment': (remaining_balance == 0.0),
+        }
     
     def calculate_deposit(self, user_membership_type=None):
         """

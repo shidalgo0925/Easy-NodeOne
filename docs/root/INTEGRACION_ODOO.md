@@ -73,7 +73,7 @@ El sistema envía un payload JSON según el contrato v1.0:
   "member": {
     "email": "usuario@email.com",
     "name": "Juan Pérez",
-    "vat": "8-123-456",
+    "vat": "8-123-4567",
     "phone": "+507-6123-4567"
   },
   "items": [

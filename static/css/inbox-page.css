@@ -1,0 +1,89 @@
+/* Bandeja /communications/inbox: mismo lenguaje visual que ayuda y app-ui-unified. */
+#main-content .inbox-page-unified {
+  max-width: 100%;
+}
+
+#main-content .inbox-page-unified .inbox-lead {
+  font-size: 0.95rem;
+  color: var(--gray-600, #64748b);
+  max-width: 42rem;
+}
+
+#main-content .inbox-page-unified .inbox-stat-row .badge {
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.45em 0.75em;
+  border-radius: 0.65rem;
+}
+
+#main-content .inbox-page-unified .inbox-stat-row .badge.bg-primary {
+  background: color-mix(in srgb, var(--color-primary, #2563eb) 92%, #0f172a) !important;
+}
+
+#main-content .inbox-page-unified .inbox-stat-row .badge.bg-warning {
+  background: color-mix(in srgb, #f59e0b 85%, #fff) !important;
+  color: #78350f !important;
+}
+
+[data-theme='dark'] #main-content .inbox-page-unified .inbox-stat-row .badge.bg-warning {
+  background: color-mix(in srgb, #f59e0b 35%, #1f2937) !important;
+  color: #fde68a !important;
+}
+
+#main-content .inbox-page-unified .inbox-filter-card .card-body,
+#main-content .inbox-page-unified .inbox-list-card .card-body {
+  border-radius: inherit;
+}
+
+#main-content .inbox-page-unified .notification-item {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  border-left: 3px solid transparent;
+}
+
+#main-content .inbox-page-unified .notification-item[data-status='unread'] {
+  background-color: color-mix(in srgb, var(--color-primary, #2563eb) 6%, transparent);
+  border-left-color: var(--color-primary, #2563eb);
+}
+
+[data-theme='dark'] #main-content .inbox-page-unified .notification-item[data-status='unread'] {
+  background-color: color-mix(in srgb, var(--color-primary, #3b82f6) 12%, transparent);
+}
+
+#main-content .inbox-page-unified .notification-item:hover {
+  background-color: color-mix(in srgb, var(--gray-500, #64748b) 8%, transparent);
+}
+
+#main-content .inbox-page-unified .notification-item[data-status='unread']:hover {
+  background-color: color-mix(in srgb, var(--color-primary, #2563eb) 10%, transparent);
+}
+
+#main-content .inbox-page-unified .notification-item:last-child {
+  border-bottom: none !important;
+}
+
+#main-content .inbox-page-unified .notification-item .rounded-circle {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#main-content .inbox-page-unified .notification-item h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-900, #0f172a);
+}
+
+[data-theme='dark'] #main-content .inbox-page-unified .notification-item h6 {
+  color: var(--gray-50, #f9fafb);
+}
+
+#main-content .inbox-page-unified .inbox-empty-state {
+  border-radius: 0 0 0.85rem 0.85rem;
+}
+
+#main-content .inbox-page-unified .inbox-empty-state .fa-bell-slash {
+  opacity: 0.65;
+}

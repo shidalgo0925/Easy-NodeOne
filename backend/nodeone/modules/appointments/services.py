@@ -84,11 +84,17 @@ def get_admin_availability_payload(
 
 
 def tenant_org_appt():
-    from app import get_current_organization_id
-    oid = get_current_organization_id()
-    if oid is None:
-        raise RuntimeError('tenant_org_appt: sin organization_id en sesión')
-    return int(oid)
+    """
+    Organización operativa del módulo de citas.
+
+    Debe coincidir con ``get_admin_effective_organization_id()`` (resolve_current_organization):
+    en single-tenant, un admin de empresa sin flag ``is_admin`` puede operar con la org
+    elegida en sesión; ``get_current_organization_id()`` solo miraba ``user.organization_id``
+    y dejaba el listado de asesores vacío aunque el servicio sí apareciera.
+    """
+    from utils.organization import resolve_current_organization
+
+    return int(resolve_current_organization())
 
 
 def appt_platform_admin():

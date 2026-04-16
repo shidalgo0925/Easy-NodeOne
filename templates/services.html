@@ -3,162 +3,167 @@
 {% block title %}Servicios - Easy NodeOne{% endblock %}
 
 {% block page_content %}
-<div class="container py-4">
-    <div class="row mb-4">
-        <div class="col-12 text-center">
-            <h1 class="h3 mb-3">
-                <i class="fas fa-th-large"></i> Catálogo de Servicios
-            </h1>
-            <p class="text-muted">Cada plan desbloquea herramientas especializadas para impulsar tus investigaciones.</p>
+{%- macro plan_filter_icon(slug) -%}
+{%- set s = (slug|string)|lower -%}
+{%- if s == 'basic' -%}fa-layer-group
+{%- elif s == 'pro' -%}fa-rocket
+{%- elif s == 'premium' -%}fa-star
+{%- elif s == 'deluxe' -%}fa-gem
+{%- elif s == 'corporativo' -%}fa-building
+{%- elif s == 'admin' -%}fa-user-shield
+{%- else -%}fa-tag
+{%- endif -%}
+{%- endmacro -%}
+{%- macro plan_chip_label(slug) -%}
+{%- set s = (slug|string)|lower -%}
+{%- if s == 'basic' -%}Básico
+{%- elif s == 'pro' -%}Pro
+{%- elif s == 'premium' -%}Premium
+{%- elif s == 'deluxe' -%}DeLuxe
+{%- elif s == 'corporativo' -%}Corp.
+{%- elif s == 'admin' -%}Admin
+{%- else -%}{{ slug|replace('_', ' ')|title }}
+{%- endif -%}
+{%- endmacro -%}
+<div class="container py-4 services-catalog-page public-services-catalog-page">
+    {% if services_by_plan and plans_info %}
+    <div class="services-hero-toolbar row g-3 align-items-start mb-4">
+        <div class="col-12 col-lg">
+            <h1 class="services-page-title mb-1">Servicios</h1>
+            <p class="text-muted small mb-0">Buscá por nombre o descripción. Filtrá por plan con los accesos de la derecha.</p>
+        </div>
+        <div class="col-12 col-lg-auto">
+            <p class="small text-muted mb-1 d-lg-none">Planes</p>
+            <div class="services-plan-toolbar mobile-scroll-x" role="toolbar" aria-label="Filtrar catálogo por plan de membresía">
+                <button type="button" class="filter-btn filter-chip active" data-filter="all" title="Ver todos los planes" aria-pressed="true">
+                    <span class="filter-chip-icon" aria-hidden="true"><i class="fas fa-th"></i></span>
+                    <span class="filter-chip-label">Todos</span>
+                </button>
+                {% for plan_type in plan_slugs_ordered %}
+                {% set pinfo = plans_info.get(plan_type, {'name': plan_type|upper, 'badge': '', 'price': '', 'color': 'bg-secondary'}) %}
+                <button type="button" class="filter-btn filter-chip" data-filter="{{ plan_type }}"
+                        title="{{ pinfo.name }}{% if pinfo.badge %} — {{ pinfo.badge }}{% elif pinfo.price %} — {{ pinfo.price }}{% endif %}"
+                        aria-pressed="false">
+                    <span class="filter-chip-icon" aria-hidden="true"><i class="fas {{ plan_filter_icon(plan_type) }}"></i></span>
+                    <span class="filter-chip-label">{{ plan_chip_label(plan_type) }}</span>
+                </button>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
-    {# Buscador y Filtros: solo si hay servicios en BD #}
-    {% if services_by_plan and plans_info %}
     <div class="row mb-4">
-        <div class="col-12 col-md-8 mx-auto">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-3">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0">
-                            <i class="fas fa-search text-muted"></i>
-                        </span>
-                        <input type="text" id="serviceSearch" class="form-control border-start-0" placeholder="Buscar servicios por nombre o descripción...">
-                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
-                            <i class="fas fa-times"></i>
-                        </button>
+        <div class="col-12">
+            <label class="form-label small text-muted mb-1" for="serviceSearch">Buscar</label>
+            <div class="services-search-shell">
+                <div class="d-flex flex-column flex-sm-row gap-2 align-items-stretch align-items-sm-end">
+                    <div class="services-search-wrap flex-grow-1">
+                        <i class="fas fa-search search-icon" aria-hidden="true"></i>
+                        <input type="search" id="serviceSearch" class="form-control services-search-input"
+                               placeholder="Nombre o descripción…" autocomplete="off" aria-label="Buscar servicios">
                     </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSearch" title="Limpiar búsqueda">
+                        <i class="fas fa-times me-1"></i>Limpiar
+                    </button>
                 </div>
             </div>
         </div>
     </div>
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="mobile-scroll-x pb-1">
-            <div class="d-flex flex-nowrap flex-md-wrap gap-2 justify-content-start justify-content-md-center">
-                <button class="btn btn-sm btn-outline-primary filter-btn active" data-filter="all">
-                    <i class="fas fa-th"></i> Todos
-                </button>
-                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="basic">
-                    <i class="fas fa-tag"></i> Básico
-                </button>
-                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="pro">
-                    <i class="fas fa-tag"></i> Pro
-                </button>
-                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="premium">
-                    <i class="fas fa-tag"></i> Premium
-                </button>
-                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="deluxe">
-                    <i class="fas fa-tag"></i> DeLuxe
-                </button>
-                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="corporativo">
-                    <i class="fas fa-tag"></i> Corporativo
-                </button>
-            </div>
-            </div>
+    {% else %}
+    <div class="row mb-4 align-items-start">
+        <div class="col-12 col-lg-8">
+            <h1 class="services-page-title mb-1">Servicios</h1>
+            <p class="text-muted small mb-0">Catálogo de tu organización.</p>
         </div>
     </div>
     {% endif %}
 
-    {# Contenido: desde BD o estado vacío #}
     {% if services_by_plan and plans_info %}
-        {# Datos desde BD #}
-        {% set plan_types = ['basic', 'pro', 'premium', 'deluxe', 'corporativo'] %}
-        {% for plan_type in plan_types %}
+        {% for plan_type in plan_slugs_ordered %}
             {% if plan_type in services_by_plan %}
-                {% set plan = plans_info[plan_type] %}
+                {% set plan = plans_info.get(plan_type, {'name': plan_type|upper, 'badge': '', 'price': '—', 'color': 'bg-secondary'}) %}
                 {% set plan_services = services_by_plan[plan_type] %}
     <div class="plan-section mb-5" data-plan="{{ plan_type }}">
-        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3 pb-2 border-bottom">
             <div>
-                <h2 class="h4 mb-1">{{ plan.name }}</h2>
+                <h2 class="plan-section-title mb-1">{{ plan.name }}</h2>
                 <small class="text-muted">{{ plan.badge }}</small>
             </div>
-            <span class="badge {{ plan.color }} px-3 py-2 mt-3 mt-md-0">{{ plan.price }}</span>
+            <span class="badge {{ plan.color }} px-3 py-2 mt-2 mt-md-0">{{ plan.price }}</span>
         </div>
-        <div class="row g-4">
+        <div class="services-card-grid">
             {% for service in plan_services %}
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm service-detail-card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="service-icon-circle bg-blue me-3">
-                                <i class="{{ service.icon }}"></i>
-                            </div>
-                            <h6 class="mb-0 fw-bold">{{ service.name }}</h6>
-                        </div>
-                        <p class="text-muted mb-3 small">{{ service.description }}</p>
-                        {# Asesores asignados a este servicio (tipo de cita) — visible si tiene tipo de cita principal o de diagnóstico #}
-                        {% if (service.appointment_type_id is defined and service.appointment_type_id) or (service.diagnostic_appointment_type_id is defined and service.diagnostic_appointment_type_id) %}
-                        <p class="text-muted small mb-2">
-                            <i class="fas fa-user-tie me-1"></i><strong>Asesores:</strong>
-                            {% if service.advisors is defined and service.advisors %}
-                            {% for a in service.advisors %}{{ a.name }}{% if not loop.last %}, {% endif %}{% endfor %}
-                            {% else %}
-                            <span class="fst-italic">Por asignar</span>
-                            {% endif %}
-                        </p>
+            <article class="service-template-card public-service-card h-100">
+                <div class="service-card-top">
+                    <div class="service-card-icon" aria-hidden="true">
+                        <i class="{{ service.icon or 'fas fa-layer-group' }}"></i>
+                    </div>
+                </div>
+                <h3 class="service-card-title">{{ service.name }}</h3>
+                <p class="service-card-desc">{% if service.description %}{{ service.description }}{% else %}Sin descripción.{% endif %}</p>
+                {% if (service.appointment_type_id is defined and service.appointment_type_id) or (service.diagnostic_appointment_type_id is defined and service.diagnostic_appointment_type_id) %}
+                <p class="service-card-advisors mb-0">
+                    <i class="fas fa-user-tie me-1"></i><strong>Asesores:</strong>
+                    {% if service.advisors is defined and service.advisors %}
+                        {% for a in service.advisors %}{{ a.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}
+                        <span class="fst-italic">Por asignar</span>
+                    {% endif %}
+                </p>
+                {% endif %}
+                <div class="service-card-footer">
+                    <div class="d-flex flex-column gap-2 w-100">
+                        {% if service.external_link %}
+                        <a href="{{ service.external_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary align-self-start">
+                            Ver más <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
                         {% endif %}
-                        <div class="d-flex gap-2 flex-wrap">
-                            {% if service.external_link %}
-                            <a href="{{ service.external_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
-                                Ver más <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            {% endif %}
-                            {# Fase 2: Un botón según service_type. CONSULTIVO = primera reunión → propuesta. AGENDABLE = calendario → pago. #}
-                            {% if service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
-                                {% if current_user.is_authenticated %}
+                        {% if service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
+                            {% if current_user.is_authenticated %}
                                 {% if service.service_type == 'CONSULTIVO' %}
-                                <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary w-100 mb-2">
+                                <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
                                     <i class="fas fa-handshake me-1"></i>Solicitar primera reunión
                                 </a>
-                                <small class="d-block text-muted small mb-2">Propones fecha; asesor confirma → luego propuesta y pago</small>
+                                <small class="text-muted small">Proponés fecha; el asesor confirma y luego propuesta y pago.</small>
                                 {% else %}
-                                <a href="{{ url_for('services.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary w-100 mb-2">
+                                <a href="{{ url_for('services.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
                                     <i class="fas fa-calendar-check me-1"></i>Solicitar cita
                                 </a>
-                                <small class="d-block text-muted small mb-2">Elegir horario en calendario{% if service.pricing.final_price > 0 %} y pagar{% endif %}</small>
+                                <small class="text-muted small">Elegí horario en el calendario{% if service.pricing.final_price > 0 %} y pagá{% endif %}.</small>
                                 {% endif %}
-                                {% else %}
-                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary w-100 mb-2">
-                                    <i class="fas fa-sign-in-alt me-1"></i>Inicia sesión para reservar
+                            {% else %}
+                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Iniciá sesión para reservar
                                 </a>
-                                <small class="d-block text-muted small mb-2">Necesitas una cuenta para solicitar cita o primera reunión.</small>
-                                {% endif %}
+                                <small class="text-muted small">Necesitás cuenta para solicitar cita o primera reunión.</small>
                             {% endif %}
-                            
-                            {# Mostrar información de precio e inclusión, pero sin botón de carrito #}
-                            {# El botón "Agregar al Carrito" solo está disponible dentro del flujo de "Solicitar Cita" #}
-                            {% if plan_type != 'basic' %}
-                                {% if service.pricing.is_included and service.pricing.final_price == 0 %}
-                                <span class="badge bg-success">Incluido en tu plan</span>
-                                {% else %}
+                        {% endif %}
+                        {% if plan_type != 'basic' %}
+                            {% if service.pricing.is_included and service.pricing.final_price == 0 %}
+                            <span class="badge bg-success align-self-start">Incluido en tu plan</span>
+                            {% else %}
                                 {% if service.pricing.discount_percentage > 0 %}
-                                <div class="mb-2">
-                                    <div class="text-muted small mb-1">
-                                        <span class="text-decoration-line-through">${{ "%.2f"|format(service.pricing.base_price) }}</span>
-                                        <span class="badge bg-info ms-1">{{ membership_type|upper }}</span>
-                                        <span class="badge bg-success ms-1">-{{ "%.0f"|format(service.pricing.discount_percentage) }}%</span>
-                                    </div>
+                                <div class="text-muted small">
+                                    <span class="text-decoration-line-through">${{ "%.2f"|format(service.pricing.base_price) }}</span>
+                                    <span class="badge bg-info ms-1">{{ membership_type|upper }}</span>
+                                    <span class="badge bg-success ms-1">-{{ "%.0f"|format(service.pricing.discount_percentage) }}%</span>
                                 </div>
                                 {% endif %}
                                 <div class="text-muted small">
                                     <strong>${{ "%.2f"|format(service.pricing.final_price) }}</strong>
-                                    <small class="d-block mt-1">Usa "Solicitar Cita" para agregar al carrito</small>
+                                    <small class="d-block mt-1">Usá «Solicitar cita» para agregar al carrito.</small>
                                 </div>
-                                {% endif %}
                             {% endif %}
-                        </div>
+                        {% endif %}
                     </div>
                 </div>
-            </div>
+            </article>
             {% endfor %}
         </div>
     </div>
             {% endif %}
         {% endfor %}
     {% else %}
-        {# No hay servicios en la BD: mostrar estado vacío, sin datos inventados #}
         <div class="row justify-content-center">
             <div class="col-12 col-md-8 col-lg-6">
                 <div class="card border-0 shadow-sm">
@@ -182,80 +187,94 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearBtn = document.getElementById('clearSearch');
     const filterBtns = document.querySelectorAll('.filter-btn');
     const planSections = document.querySelectorAll('.plan-section');
-    const serviceCards = document.querySelectorAll('.service-detail-card');
 
-    // Función de búsqueda
-    function performSearch() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+    if (!searchInput || !planSections.length) {
+        return;
+    }
 
-        planSections.forEach(section => {
-            const planName = section.dataset.plan;
-            const services = section.querySelectorAll('.service-detail-card');
-            let hasVisibleServices = false;
-
-            services.forEach(card => {
-                const title = card.querySelector('h6').textContent.toLowerCase();
-                const description = card.querySelector('p').textContent.toLowerCase();
-                const matchesSearch = !searchTerm || title.includes(searchTerm) || description.includes(searchTerm);
-                // Mapear filtros: basico -> basic, deluxe -> deluxe, corporativo -> corporativo
-                const filterMap = {'basico': 'basic', 'basic': 'basic', 'pro': 'pro', 'premium': 'premium', 'deluxe': 'deluxe', 'corporativo': 'corporativo'};
-                const normalizedFilter = filterMap[activeFilter] || activeFilter;
-                const matchesFilter = activeFilter === 'all' || planName === normalizedFilter || planName.includes(normalizedFilter);
-
-                if (matchesSearch && matchesFilter) {
-                    card.closest('.col-md-6').style.display = '';
-                    hasVisibleServices = true;
-                } else {
-                    card.closest('.col-md-6').style.display = 'none';
-                }
-            });
-
-            // Mostrar/ocultar sección completa
-            section.style.display = hasVisibleServices ? '' : 'none';
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            performSearch();
         });
     }
 
-    // Event listeners
-    searchInput.addEventListener('input', performSearch);
-    clearBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        performSearch();
-    });
+    function cardTitleText(card) {
+        const el = card.querySelector('.service-card-title');
+        return el ? el.textContent.toLowerCase() : '';
+    }
 
-    filterBtns.forEach(btn => {
+    function cardDescText(card) {
+        const el = card.querySelector('.service-card-desc');
+        return el ? el.textContent.toLowerCase() : '';
+    }
+
+    function performSearch() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const activeBtn = document.querySelector('.filter-btn.active');
+        const activeFilter = activeBtn ? activeBtn.dataset.filter : 'all';
+
+        planSections.forEach(function(section) {
+            const planName = section.dataset.plan;
+            const cards = section.querySelectorAll('.public-service-card');
+            let hasVisible = false;
+
+            cards.forEach(function(card) {
+                const title = cardTitleText(card);
+                const description = cardDescText(card);
+                const matchesSearch = !searchTerm || title.includes(searchTerm) || description.includes(searchTerm);
+                const matchesFilter = activeFilter === 'all' || planName === activeFilter;
+
+                if (matchesSearch && matchesFilter) {
+                    card.style.display = '';
+                    hasVisible = true;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            section.style.display = hasVisible ? '' : 'none';
+        });
+    }
+
+    searchInput.addEventListener('input', performSearch);
+
+    function syncFilterAria(activeBtn) {
+        filterBtns.forEach(function(b) {
+            var on = b === activeBtn;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+
+    filterBtns.forEach(function(btn) {
         btn.addEventListener('click', function() {
-            filterBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
+            syncFilterAria(btn);
             performSearch();
         });
     });
 });
 
 function addServiceToCart(serviceName, serviceDescription, serviceId) {
-    // Generar ID numérico único basado en el string
     function stringToId(str) {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32bit integer
+            hash = hash & hash;
         }
         return Math.abs(hash) % 1000000;
     }
-    
-    // Si serviceId es numérico, usarlo directamente; sino generar hash
+
     let numericId;
-    if (typeof serviceId === 'number' || !isNaN(parseInt(serviceId))) {
-        numericId = parseInt(serviceId);
+    if (typeof serviceId === 'number' || !isNaN(parseInt(serviceId, 10))) {
+        numericId = parseInt(serviceId, 10);
     } else {
         numericId = stringToId(serviceId);
     }
-    
-    // Obtener precio base del servicio (puedes ajustar esto según tus necesidades)
-    // Por ahora usamos un precio base de ejemplo, deberías obtenerlo de la base de datos o configuración
-    const basePrice = 50.00; // Precio base en USD
-    
+
+    const basePrice = 50.00;
+
     const data = {
         product_type: 'service',
         product_id: numericId,
@@ -264,27 +283,22 @@ function addServiceToCart(serviceName, serviceDescription, serviceId) {
         service_description: serviceDescription,
         quantity: 1
     };
-    
+
     fetch('/cart/add', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     })
-    .then(response => {
-        // Verificar si la respuesta es JSON
+    .then(function(response) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             return response.json();
-        } else {
-            // Si no es JSON, leer como texto para ver qué pasó
-            return response.text().then(text => {
-                throw new Error('Respuesta no válida del servidor. Por favor, verifica tu sesión.');
-            });
         }
+        return response.text().then(function() {
+            throw new Error('Respuesta no válida del servidor. Verificá tu sesión.');
+        });
     })
-    .then(data => {
+    .then(function(data) {
         if (data.success) {
             const cartBadge = document.getElementById('cart-count-badge');
             if (cartBadge) {
@@ -294,35 +308,26 @@ function addServiceToCart(serviceName, serviceDescription, serviceId) {
             showServiceNotification('Servicio agregado al carrito', 'success');
         } else {
             if (data.requires_verification) {
-                showServiceNotification('Por favor, verifica tu correo electrónico antes de continuar.', 'error');
-                // Opcional: redirigir a la página de verificación
-                setTimeout(() => {
-                    window.location.href = '/verify-email';
-                }, 2000);
+                showServiceNotification('Verificá tu correo electrónico antes de continuar.', 'error');
+                setTimeout(function() { window.location.href = '/verify-email'; }, 2000);
             } else {
                 showServiceNotification('Error: ' + (data.error || 'Error desconocido'), 'error');
             }
         }
     })
-    .catch(error => {
+    .catch(function(error) {
         console.error('Error:', error);
-        showServiceNotification('Ocurrió un error al agregar el servicio al carrito: ' + error.message, 'error');
+        showServiceNotification('Error al agregar al carrito: ' + error.message, 'error');
     });
 }
 
-function showServiceNotification(message, type = 'info') {
+function showServiceNotification(message, type) {
     const notification = document.createElement('div');
-    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.className = 'alert alert-' + (type === 'success' ? 'success' : 'danger') + ' alert-dismissible fade show position-fixed';
     notification.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
-    notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+    notification.innerHTML = message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
     document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
+    setTimeout(function() { notification.remove(); }, 3000);
 }
 </script>
 {% endblock %}

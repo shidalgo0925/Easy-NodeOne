@@ -1,0 +1,85 @@
+/* Centro de ayuda (/help): mismo lenguaje visual que el resto de la app (app-ui-unified). */
+#main-content .help-page-unified {
+  max-width: 100%;
+}
+
+#main-content .help-page-unified .help-lead {
+  font-size: 0.95rem;
+  color: var(--gray-600, #64748b);
+  max-width: 42rem;
+}
+
+#main-content .help-page-unified .help-category-card {
+  border-radius: 0.85rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+#main-content .help-page-unified .help-category-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 22%, transparent) !important;
+}
+
+#main-content .help-page-unified .help-category-card .rounded-circle {
+  width: 3.25rem;
+  height: 3.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#main-content .help-page-unified .help-category-card h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-900, #0f172a);
+}
+
+[data-theme='dark'] #main-content .help-page-unified .help-category-card h6 {
+  color: var(--gray-50, #f9fafb);
+}
+
+#main-content .help-page-unified .help-visual-header {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary, #2563eb) 0%,
+    color-mix(in srgb, var(--color-primary, #2563eb) 55%, #312e81) 100%
+  );
+  border: none;
+  border-radius: 0.85rem 0.85rem 0 0;
+}
+
+#main-content .help-page-unified .help-contact-card .card-body {
+  padding: 2rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  #main-content .help-page-unified .help-contact-card .card-body {
+    padding: 2.25rem 2rem;
+  }
+}
+
+#main-content .help-page-unified .accordion-item {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+}
+
+#main-content .help-page-unified .accordion-button:not(.collapsed) {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--gray-900, #0f172a);
+}
+
+[data-theme='dark'] #main-content .help-page-unified .accordion-button:not(.collapsed) {
+  color: var(--gray-50, #f9fafb);
+}
+
+#main-content .help-page-unified .visual-guide-card {
+  border-radius: 0.75rem;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+#main-content .help-page-unified .visual-guide-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
+}

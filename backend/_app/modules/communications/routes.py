@@ -34,9 +34,15 @@ def notifications_page():
 def api_notifications():
     notification_type = request.args.get('type', 'all')
     status = request.args.get('status', 'all')
-    limit = min(int(request.args.get('limit', 50)), 100)
-    data = service.list_notifications(current_user.id, notification_type, status, limit)
-    return jsonify(data)
+    try:
+        limit = min(int(request.args.get('limit', 50)), 100)
+    except (TypeError, ValueError):
+        limit = 50
+    try:
+        data = service.list_notifications(current_user.id, notification_type, status, limit)
+        return jsonify(data)
+    except Exception:
+        return jsonify({'unread_count': 0, 'total': 0, 'notifications': []})
 
 
 @communications_bp.route('/api/notifications/<int:notification_id>/read', methods=['POST'])

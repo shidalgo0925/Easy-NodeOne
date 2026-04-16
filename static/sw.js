@@ -1,6 +1,6 @@
-/* Easy NodeOne — PWA + /static/: red primero (JS/CSS siempre actuales), caché si offline. */
-var CACHE = 'nodeone-offline-v1';
-var STATIC_CACHE = 'nodeone-static-v2';
+/* PWA: /static/ con red primero; caché genérica para offline (nombres neutros). */
+var CACHE = 'app-offline-v1';
+var STATIC_CACHE = 'app-static-v3';
 var OFFLINE_URL = '/static/offline.html';
 
 self.addEventListener('install', function (event) {
@@ -20,7 +20,9 @@ self.addEventListener('activate', function (event) {
       .then(function (keys) {
         return Promise.all(
           keys.map(function (k) {
-            if (k === 'nodeone-static-v1') return caches.delete(k);
+            if (k === 'nodeone-static-v1' || k === 'nodeone-static-v2' || k === 'nodeone-offline-v1') {
+              return caches.delete(k);
+            }
             return Promise.resolve();
           })
         );

@@ -7,8 +7,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <!-- Content Security Policy para permitir métodos de pago (Stripe, PayPal, Yappy, Banco General) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; worker-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.stripe.com https://merchant-ui-api.stripe.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://www.paypal.com https://www.sandbox.paypal.com https://api.cybersource.com https://api.yappy.im https://cdn.jsdelivr.net; frame-src 'self' https://*.easynodeone.com http://*.easynodeone.com https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://www.sandbox.paypal.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com; upgrade-insecure-requests;">
+    {# CSP: cabecera HTTP ``Content-Security-Policy`` (nodeone.services.security_headers), no meta duplicado. #}
     <title>{% block title %}{{ get_nav_brand_name() }}{% endblock %}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
@@ -21,6 +20,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-1" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
@@ -187,9 +187,10 @@
                             <li><a class="dropdown-item" href="{{ url_for('member_pages.settings_communications') }}"><i class="fas fa-sliders-h me-2"></i> Comunicaciones (preferencias)</a></li>
                             {% endif %}
                             {% if show_tenant_admin_menu %}
-                            {% if saas_module_enabled('payments') %}
+                            {% if saas_module_enabled('payments') and nav_can('payments.manage') %}
                             <li><a class="dropdown-item" href="{{ url_for('payments_admin.admin_payments') }}"><i class="fas fa-credit-card me-2"></i> Pagos (integración)</a></li>
                             {% endif %}
+                            {% if nav_can('system.settings.view') %}
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header text-muted mb-0 small">Sitio</h6></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_identity') }}"><i class="fas fa-palette me-2"></i> Branding</a></li>
@@ -200,7 +201,8 @@
                             {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
                             {% endif %}
-                            {% if show_tenant_admin_menu or show_platform_admin_nav %}
+                            {% endif %}
+                            {% if (show_tenant_admin_menu and nav_can('system.settings.view')) or current_user.is_admin %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_configuration_taxes') }}"><i class="fas fa-percent me-2"></i> Impuestos</a></li>
                             {% endif %}
                         </ul>
@@ -308,7 +310,10 @@
                         {% endif %}
 
                         {% if show_tenant_admin_menu %}
-                        {# 👥 Clientes #}
+                        {# 👥 Clientes: CRM alineado a users.view; Miembros a memberships.view #}
+                        {% set _nav_clientes_crm = (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and nav_can('users.view') %}
+                        {% set _nav_clientes_mem = nav_can('memberships.view') %}
+                        {% if _nav_clientes_crm or _nav_clientes_mem %}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_tenant_contacts', 'admin_memberships', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_reports'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Clientes">
                                 <i class="menu-icon fa fa-handshake"></i>
@@ -316,19 +321,22 @@
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
-                                {% if saas_module_enabled('crm_contacts') or saas_module_enabled('crm') %}
+                                {% if _nav_clientes_crm %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint in ['admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_reports'] %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a>
                                 </li>
                                 {% endif %}
+                                {% if _nav_clientes_mem %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_memberships' %}active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a>
                                 </li>
+                                {% endif %}
                             </ul>
                         </li>
                         {% endif %}
+                        {% endif %}
 
-                        {% if show_tenant_admin_menu and (saas_module_enabled('sales') or saas_module_enabled('workshop')) %}
+                        {% if show_tenant_admin_menu and (saas_module_enabled('sales') or saas_module_enabled('workshop')) and nav_can('payments.view') %}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_sales_quotations', 'admin_accounting_invoices', 'admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}show{% endif %}" data-nav-group-key="sales_ventas">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Ventas">
                                 <i class="menu-icon fa fa-file-invoice-dollar"></i>
@@ -418,7 +426,7 @@
                                     <a class="nav-link {% if request.endpoint == 'appointments.advisor_queue' %}active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}">Solicitudes pendientes</a>
                                 </li>
                                 {% endif %}
-                                {% if show_tenant_admin_menu %}
+                                {% if show_tenant_admin_menu and nav_can('services.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint in ['admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type'] %}active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Tipos de cita</a>
                                 </li>
@@ -440,7 +448,7 @@
                                 <span class="menu-title-text">Correo</span>
                             </a>
                         </li>
-                        {% elif show_tenant_admin_menu %}
+                        {% elif show_tenant_admin_menu and nav_can('integrations.view') %}
                         <li class="nav-item nav-group {% if (office365_module_enabled and request.blueprint == 'integrations') or request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'admin_communications.admin_communications_settings'] or (office365_module_enabled and request.endpoint == 'office365_admin.admin_office365_requests') %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Comunicación">
                                 <i class="menu-icon fa fa-comments"></i>
@@ -509,6 +517,9 @@
                         </li>
                             {% endif %}
                         {% else %}
+                        {% set _nav_prod_evt = saas_module_enabled('events') and nav_can('reports.view') %}
+                        {% set _nav_prod_pay = nav_can('payments.view') %}
+                        {% if nav_can('memberships.view') or nav_can('services.view') or _nav_prod_evt or _nav_prod_pay %}
                         <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories'] or request.blueprint in ['events', 'admin_events'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos">
                                 <i class="menu-icon fa fa-store"></i>
@@ -516,34 +527,43 @@
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
+                                {% if nav_can('memberships.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}">Ver beneficios</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_benefits' %}active{% endif %}" href="{{ url_for('admin_benefits') }}">Gestionar beneficios</a>
                                 </li>
+                                {% endif %}
+                                {% if nav_can('services.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_services_catalog.admin_services' %}active{% endif %}" href="{{ url_for('admin_services_catalog.admin_services') }}">Servicios (catálogo)</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_services_catalog.admin_service_categories' %}active{% endif %}" href="{{ url_for('admin_services_catalog.admin_service_categories') }}">Categorías servicios</a>
                                 </li>
-                                {% if saas_module_enabled('events') %}
+                                {% endif %}
+                                {% if saas_module_enabled('events') and _nav_prod_evt %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}">Ver eventos</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'admin_events' and request.endpoint != 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.admin_events_index') }}">Gestión eventos</a>
                                 </li>
+                                {% endif %}
+                                {% if saas_module_enabled('events') and _nav_prod_pay %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.discounts_index') }}">Descuentos eventos</a>
                                 </li>
                                 {% endif %}
+                                {% if _nav_prod_pay %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_discount_codes.admin_discount_codes' %}active{% endif %}" href="{{ url_for('admin_discount_codes.admin_discount_codes') }}">Códigos promocionales</a>
                                 </li>
+                                {% endif %}
                             </ul>
                         </li>
+                        {% endif %}
                         {% endif %}
 
                         {% if saas_module_enabled('certificates') or saas_module_enabled('policies') %}
@@ -616,6 +636,7 @@
                         {# ⚙️ Configuración (Impuestos, Branding, Email, Multimedia, IA, Guía): solo menú engranaje superior #}
 
                         {# 👤 Organización #}
+                        {% if nav_can('users.view') or nav_can('roles.view') %}
                         <li class="nav-item nav-group {% if request.endpoint == 'admin_users' or request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Organización">
                                 <i class="menu-icon fa fa-sitemap"></i>
@@ -623,18 +644,22 @@
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
+                                {% if nav_can('users.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}">Usuarios</a>
                                 </li>
-                                {% if current_user.has_permission('roles.view') %}
+                                {% endif %}
+                                {% if nav_can('roles.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}">Roles</a>
                                 </li>
                                 {% endif %}
                             </ul>
                         </li>
+                        {% endif %}
 
                         {# 💳 Plan #}
+                        {% if nav_can('memberships.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_plans' %}active{% endif %}" href="{{ url_for('admin_plans') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía">
                                 <i class="menu-icon fa fa-crown"></i>
@@ -642,10 +667,11 @@
                             </a>
                         </li>
                         {% endif %}
+                        {% endif %}
 
-                        {% if show_platform_admin_nav %}
+                        {% if show_platform_admin_nav and current_user.is_admin %}
                         <li class="sidebar-menu-divider"><hr class="border-secondary"></li>
-                        {# 🧩 Plataforma #}
+                        {# 🧩 Plataforma (solo is_admin; rutas con platform_admin_required) #}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page'] or request.endpoint in ['admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Plataforma">
                                 <i class="menu-icon fa fa-cloud"></i>
@@ -668,18 +694,22 @@
 
                         {% if show_tenant_admin_menu %}
                         {# 🛠 Sistema (enlaces directos) #}
+                        {% if nav_can('reports.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' %}active{% endif %}" href="{{ url_for('admin_messaging') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Logs">
                                 <i class="menu-icon fa fa-stream"></i>
                                 <span class="menu-title-text">Logs</span>
                             </a>
                         </li>
+                        {% endif %}
+                        {% if nav_can('system.settings.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_backup.admin_backup' %}active{% endif %}" href="{{ url_for('admin_backup.admin_backup') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Respaldos">
                                 <i class="menu-icon fa fa-database"></i>
                                 <span class="menu-title-text">Respaldos</span>
                             </a>
                         </li>
+                        {% endif %}
                         {% endif %}
                     </ul>
                 </div>

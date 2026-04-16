@@ -373,10 +373,10 @@
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_sales_quotations' %}active{% endif %}" href="{{ url_for('admin_sales_quotations') }}">Cotizaciones</a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_sales_quotations' %}active{% endif %}" href="/admin/sales/quotations">Cotizaciones</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}active{% endif %}" href="{{ url_for('admin_accounting_invoices') }}">Facturas</a>
+                                    <a class="nav-link {% if request.endpoint in ['admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}active{% endif %}" href="/admin/accounting/invoices">Facturas</a>
                                 </li>
                             </ul>
                         </li>

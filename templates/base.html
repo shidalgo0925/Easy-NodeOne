@@ -299,7 +299,7 @@
                             </a>
                         </li>
                         {% endif %}
-                        {% if show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') and 'admin_analytics' in current_app.view_functions %}
+                        {% if show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') and has_view_endpoint('admin_analytics') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint in ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}active{% endif %}" href="{{ url_for('admin_analytics') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="KPIs y tableros">
                                 <i class="menu-icon fa fa-chart-line"></i>

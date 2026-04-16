@@ -208,6 +208,21 @@ def register_admin_analytics_routes(app):
         _register(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar rutas analytics: {e}')
+        # Fallback: evita 404/500 si alguien navega manualmente a /admin/analytics
+        # en despliegues donde el módulo analytics no está presente.
+        try:
+            from flask import flash, redirect, url_for
+            from flask_login import login_required
+
+            if 'admin_analytics' not in getattr(app, 'view_functions', {}):
+
+                @app.route('/admin/analytics')
+                @login_required
+                def admin_analytics():
+                    flash('Analítica no está disponible en este entorno.', 'warning')
+                    return redirect(url_for('dashboard'))
+        except Exception as fallback_err:
+            print(f'Warning: No se pudo registrar fallback de analytics: {fallback_err}')
 
 
 def register_admin_workshop_pages(app):

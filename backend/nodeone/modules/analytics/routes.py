@@ -16,7 +16,7 @@ def register_admin_analytics_routes(app):
 
     from flask import jsonify, render_template, request
 
-    from app import admin_data_scope_organization_id, require_permission
+    from app import admin_data_scope_organization_id, admin_required
     from saas_features import enforce_saas_module_or_response
 
     from nodeone.modules.analytics import service as analytics_svc
@@ -34,7 +34,7 @@ def register_admin_analytics_routes(app):
         return wrapped
 
     @app.route('/admin/analytics')
-    @require_permission('analytics.view')
+    @admin_required
     @require_saas_analytics_module
     def admin_analytics():
         oid = admin_data_scope_organization_id()
@@ -53,7 +53,7 @@ def register_admin_analytics_routes(app):
         )
 
     @app.route('/admin/analytics/sales')
-    @require_permission('analytics.view')
+    @admin_required
     @require_saas_analytics_module
     def admin_analytics_sales():
         oid = admin_data_scope_organization_id()
@@ -73,7 +73,7 @@ def register_admin_analytics_routes(app):
         )
 
     @app.route('/admin/analytics/crm')
-    @require_permission('analytics.view')
+    @admin_required
     @require_saas_analytics_module
     def admin_analytics_crm():
         oid = admin_data_scope_organization_id()
@@ -94,7 +94,7 @@ def register_admin_analytics_routes(app):
         )
 
     @app.route('/admin/analytics/members')
-    @require_permission('analytics.view')
+    @admin_required
     @require_saas_analytics_module
     def admin_analytics_members():
         oid = admin_data_scope_organization_id()
@@ -113,7 +113,7 @@ def register_admin_analytics_routes(app):
         )
 
     @app.route('/admin/analytics/registrations')
-    @require_permission('analytics.view')
+    @admin_required
     @require_saas_analytics_module
     def admin_analytics_registrations():
         oid = admin_data_scope_organization_id()
@@ -132,14 +132,14 @@ def register_admin_analytics_routes(app):
         )
 
     @app.route('/api/admin/analytics/realtime')
-    @require_permission('analytics.view')
+    @admin_required
     @require_saas_analytics_module
     def api_admin_analytics_realtime():
         oid = admin_data_scope_organization_id()
         return jsonify(analytics_svc.build_realtime_24h(oid))
 
     @app.route('/api/admin/analytics/summary')
-    @require_permission('analytics.view')
+    @admin_required
     @require_saas_analytics_module
     def api_admin_analytics_summary():
         oid = admin_data_scope_organization_id()

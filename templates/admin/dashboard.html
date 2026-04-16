@@ -37,6 +37,7 @@
         {% endif %}
         {% if saas_module_enabled('workshop') %}
         <a href="{{ url_for('admin_workshop_orders') }}" class="btn btn-outline-dark"><i class="fas fa-car-side me-1"></i> Taller / recepción</a>
+        <a href="{{ url_for('admin_workshop_process_config') }}" class="btn btn-outline-secondary"><i class="fas fa-stopwatch me-1"></i> Procesos SLA</a>
         {% endif %}
         <a href="{{ url_for('admin_users') }}" class="btn btn-outline-primary"><i class="fas fa-user-plus me-1"></i> Gestionar usuarios</a>
         <a href="{{ url_for('admin_certificate_events') }}" class="btn btn-outline-primary"><i class="fas fa-calendar-plus me-1"></i> Crear evento</a>
@@ -103,6 +104,11 @@
             <div class="module-icon"><i class="fas fa-car-side"></i></div>
             <h3>Taller</h3>
             <p>Recepción de vehículos, inspección (body map) y órdenes de detailing.</p>
+        </a>
+        <a href="{{ url_for('admin_workshop_process_config') }}" class="module-card" style="border-left:4px solid #6610f2;">
+            <div class="module-icon"><i class="fas fa-stopwatch"></i></div>
+            <h3>Procesos SLA</h3>
+            <p>Tiempos objetivo por etapa, overrides por servicio y seguimiento operativo.</p>
         </a>
         {% endif %}
         <a href="{{ url_for('admin_certificate_templates') }}" class="module-card">

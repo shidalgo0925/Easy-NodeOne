@@ -88,3 +88,33 @@
   outline: 2px solid var(--bs-primary, #0d6efd);
   outline-offset: 2px;
 }
+
+/* Vista previa / impresión: rejilla de fotos en el documento tipo cotización */
+.quote-doc-preview .wo-doc-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+.quote-doc-preview .wo-doc-photo-cell img {
+  max-height: 220px;
+}
+
+/* Monitor listado taller — tarjetas SLA */
+.workshop-orders-monitor .wo-sla-card {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+.workshop-orders-monitor .wo-sla-card:hover {
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12) !important;
+  transform: translateY(-1px);
+}
+.workshop-orders-monitor .wo-sla-progress {
+  height: 4px;
+}
+.workshop-orders-monitor .wo-sla-time {
+  font-variant-numeric: tabular-nums;
+}
+.workshop-orders-monitor .wo-alerts-panel {
+  max-height: min(70vh, 520px);
+  overflow: auto;
+}

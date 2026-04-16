@@ -70,6 +70,11 @@ class WorkshopOrder(db.Model):
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id', ondelete='SET NULL'), nullable=True, index=True)
     qc_notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    # SLA por etapa (alineado a status del flujo)
+    sla_stage_started_at = db.Column(db.DateTime, nullable=True)
+    sla_expected_minutes = db.Column(db.Integer, nullable=True)
+    sla_paused = db.Column(db.Boolean, nullable=False, default=False)
+    sla_paused_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (db.UniqueConstraint('organization_id', 'code', name='uq_workshop_orders_org_code'),)
 
@@ -174,3 +179,71 @@ class VehicleInspectionPhoto(db.Model):
     )
     url = db.Column(db.String(500), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class WorkshopProcessStageConfig(db.Model):
+    """Tiempos objetivo (SLA) por etapa del flujo taller — configurable por organización."""
+
+    __tablename__ = 'workshop_process_stage_config'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer,
+        db.ForeignKey('saas_organization.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    stage_key = db.Column(db.String(32), nullable=False)
+    stage_name = db.Column(db.String(120), nullable=False)
+    sequence = db.Column(db.Integer, nullable=False, default=0)
+    expected_duration_minutes = db.Column(db.Integer, nullable=False, default=30)
+    color = db.Column(db.String(40), nullable=False, default='#0d6efd')
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    service_type_tag = db.Column(db.String(80), nullable=True)
+    allow_skip = db.Column(db.Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'stage_key', name='uq_workshop_proc_stage_org_key'),
+    )
+
+
+class WorkshopServiceProcessConfig(db.Model):
+    """Override de SLA por servicio del catálogo y etapa."""
+
+    __tablename__ = 'workshop_service_process_config'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer,
+        db.ForeignKey('saas_organization.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id', ondelete='CASCADE'), nullable=False, index=True)
+    stage_key = db.Column(db.String(32), nullable=False)
+    expected_duration_minutes = db.Column(db.Integer, nullable=False, default=30)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'service_id', 'stage_key', name='uq_workshop_svc_proc_org_svc_stage'),
+    )
+
+
+class WorkshopOrderProcessLog(db.Model):
+    """Historial de permanencia en cada etapa (duración real vs esperada)."""
+
+    __tablename__ = 'workshop_order_process_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(
+        db.Integer,
+        db.ForeignKey('workshop_orders.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    stage_key = db.Column(db.String(32), nullable=False)
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    duration_minutes = db.Column(db.Float, nullable=True)
+    expected_minutes = db.Column(db.Float, nullable=True)
+    is_delayed = db.Column(db.Boolean, nullable=False, default=False)
+    delay_minutes = db.Column(db.Float, nullable=True)

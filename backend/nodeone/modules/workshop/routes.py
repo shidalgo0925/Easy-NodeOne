@@ -30,12 +30,60 @@ from nodeone.modules.workshop.models import (
     WorkshopInspection,
     WorkshopLine,
     WorkshopOrder,
+    WorkshopOrderProcessLog,
     WorkshopPhoto,
+    WorkshopProcessStageConfig,
+    WorkshopServiceProcessConfig,
     WorkshopVehicle,
 )
 from nodeone.modules.workshop import service as workshop_svc
+from nodeone.modules.workshop import sla_service as workshop_sla
 
 workshop_api_bp = Blueprint('workshop_api', __name__, url_prefix='/api/workshop')
+
+
+def register_workshop_saas_default_org_link(bp):
+    """
+    Debe registrarse ANTES del guard SaaS del blueprint.
+    Si no hay fila saas_org_module para workshop en la org actual, crea enabled=True
+    (evita 403 y desbloquea API tras despliegues sin ensure_saas_catalog_full).
+    No modifica vínculos existentes (respeta taller apagado explícitamente).
+    """
+
+    @bp.before_request
+    def _workshop_saas_default_org_link():
+        from flask_login import current_user
+
+        if not current_user.is_authenticated:
+            return None
+        if getattr(current_user, 'is_admin', False):
+            return None
+        try:
+            oid = int(_org_id())
+        except Exception:
+            return None
+        try:
+            from app import SaasModule, SaasOrgModule
+
+            m = SaasModule.query.filter_by(code='workshop').first()
+            if m is None:
+                return None
+            if SaasOrgModule.query.filter_by(organization_id=oid, module_id=m.id).first() is not None:
+                return None
+            db.session.add(SaasOrgModule(organization_id=oid, module_id=m.id, enabled=True))
+            db.session.commit()
+        except IntegrityError:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        return None
+
 
 # Misma lógica de tenant que enforce_saas_module_or_response (tenant_data_organization_id).
 _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+$')
@@ -66,6 +114,19 @@ _WORKSHOP_BODY_MAP_ZONES = (
     ('fender_right', 'Salpicadera derecha'),
     ('mirror_left', 'Espejo izquierdo'),
     ('mirror_right', 'Espejo derecho'),
+    # Interior (nuevo mapa cabina)
+    ('dashboard', 'Tablero'),
+    ('steering_wheel', 'Volante'),
+    ('center_console', 'Consola central'),
+    ('front_left_seat', 'Asiento delantero izquierdo'),
+    ('front_right_seat', 'Asiento delantero derecho'),
+    ('rear_left_seat', 'Asiento trasero izquierdo'),
+    ('rear_right_seat', 'Asiento trasero derecho'),
+    ('rear_center_seat', 'Asiento trasero central'),
+    ('door_panel_left', 'Panel puerta izquierda'),
+    ('door_panel_right', 'Panel puerta derecha'),
+    ('headliner', 'Techo interior'),
+    ('trunk_interior', 'Baúl interior'),
 )
 
 
@@ -97,6 +158,15 @@ def _ensure_tables():
     WorkshopInspection.__table__.create(db.engine, checkfirst=True)
     VehicleInspectionPoint.__table__.create(db.engine, checkfirst=True)
     VehicleInspectionPhoto.__table__.create(db.engine, checkfirst=True)
+    WorkshopProcessStageConfig.__table__.create(db.engine, checkfirst=True)
+    WorkshopServiceProcessConfig.__table__.create(db.engine, checkfirst=True)
+    WorkshopOrderProcessLog.__table__.create(db.engine, checkfirst=True)
+    try:
+        from nodeone.services.workshop_sla_schema import ensure_workshop_sla_schema
+
+        ensure_workshop_sla_schema(db, db.engine, printfn=None)
+    except Exception:
+        pass
     _ensure_vehicle_zones_catalog()
 
 
@@ -131,6 +201,18 @@ def _serialize_line(ln: WorkshopLine) -> dict:
         'tax_amount': float(ln.tax_amount or 0),
         'total': float(ln.total or 0),
     }
+
+
+def _safe_dt_iso(dt) -> str | None:
+    """Serializa fechas del taller sin tumbar la API (tipos raros / aware)."""
+    if dt is None:
+        return None
+    try:
+        if hasattr(dt, 'isoformat'):
+            return dt.isoformat()
+    except Exception:
+        return None
+    return None
 
 
 def _serialize_order_lines(org_id: int, order_id: int) -> list:
@@ -182,8 +264,8 @@ def _serialize_order(
         'vehicle_id': o.vehicle_id,
         'vehicle': _serialize_vehicle(vehicle) if vehicle else None,
         'status': o.status,
-        'entry_date': o.entry_date.isoformat() if o.entry_date else None,
-        'promised_date': o.promised_date.isoformat() if o.promised_date else None,
+        'entry_date': _safe_dt_iso(o.entry_date),
+        'promised_date': _safe_dt_iso(o.promised_date),
         'advisor_id': o.advisor_id,
         'notes': o.notes or '',
         'qc_notes': o.qc_notes or '',
@@ -194,7 +276,10 @@ def _serialize_order(
         'photos_count': photos_count,
         'inspection_points_count': pts,
         'lines': _serialize_order_lines(o.organization_id, o.id),
+        'sla_paused': bool(getattr(o, 'sla_paused', False)),
+        'allowed_next_statuses': _allowed_next_safe(o),
     }
+    out['sla'] = workshop_sla.compute_sla_payload(o)
     if include_photos:
         ph_rows = (
             WorkshopPhoto.query.filter_by(order_id=o.id).order_by(WorkshopPhoto.id.desc()).limit(80).all()
@@ -204,11 +289,75 @@ def _serialize_order(
                 'id': p.id,
                 'url': p.url,
                 'kind': p.kind or 'entrada',
-                'created_at': p.created_at.isoformat() if p.created_at else None,
+                'created_at': _safe_dt_iso(p.created_at),
             }
             for p in ph_rows
         ]
     return out
+
+
+def _allowed_next_safe(o: WorkshopOrder) -> list:
+    try:
+        return workshop_svc.allowed_next_statuses(o)
+    except Exception:
+        return []
+
+
+def _serialize_order_loose(o: WorkshopOrder, **kwargs) -> dict:
+    """Serializa orden; si falla (datos raros), devuelve payload mínimo para no tumbar GET /orders."""
+    try:
+        return _serialize_order(o, **kwargs)
+    except Exception:
+        current_app.logger.exception('workshop _serialize_order order_id=%s', getattr(o, 'id', None))
+        try:
+            sla = workshop_sla.compute_sla_payload(o)
+        except Exception:
+            sla = {
+                'applicable': False,
+                'state': 'gray',
+                'label': 'SLA no disponible',
+                'stage_key': getattr(o, 'status', None) or 'draft',
+            }
+        return {
+            'id': o.id,
+            'code': getattr(o, 'code', '') or '',
+            'customer_id': getattr(o, 'customer_id', None),
+            'customer_name': '',
+            'customer_email': '',
+            'vehicle_id': getattr(o, 'vehicle_id', None),
+            'vehicle': None,
+            'status': getattr(o, 'status', 'draft'),
+            'entry_date': _safe_dt_iso(getattr(o, 'entry_date', None)),
+            'promised_date': _safe_dt_iso(getattr(o, 'promised_date', None)),
+            'advisor_id': getattr(o, 'advisor_id', None),
+            'notes': '',
+            'qc_notes': '',
+            'total_estimated': float(getattr(o, 'total_estimated', 0) or 0),
+            'total_final': float(getattr(o, 'total_final', 0) or 0),
+            'quotation_id': getattr(o, 'quotation_id', None),
+            'invoice_id': getattr(o, 'invoice_id', None),
+            'photos_count': 0,
+            'inspection_points_count': 0,
+            'lines': [],
+            'sla_paused': bool(getattr(o, 'sla_paused', False)),
+            'sla': sla,
+            'allowed_next_statuses': _allowed_next_safe(o),
+        }
+
+
+def _workshop_transition_user_message(err: str) -> str:
+    if err == 'quotation_required':
+        return 'Para pasar a Cotizado o Aprobado hace falta crear o vincular una cotización.'
+    if err == 'deliver_requires_done':
+        return 'Solo se puede pasar a Entregado desde el estado Terminado.'
+    if err == 'invalid_status':
+        return 'Estado no válido.'
+    if err.startswith('transition_not_allowed:'):
+        return (
+            'Ese salto de estado no está permitido. Orden típico: '
+            'Borrador → Inspeccionado → Cotizado → Aprobado → En proceso → Control calidad → Terminado → Entregado.'
+        )
+    return err
 
 
 def _uploads_workshop_dir(org_id: int) -> str:
@@ -410,6 +559,10 @@ def api_workshop_products_search():
 def api_orders_list():
     _ensure_tables()
     oid = _org_id()
+    try:
+        workshop_sla.ensure_default_process_stages(oid)
+    except Exception:
+        pass
     status = (request.args.get('status') or '').strip().lower()
     q = WorkshopOrder.query.filter_by(organization_id=oid)
     if status and status in workshop_svc.ORDER_STATUSES:
@@ -420,7 +573,7 @@ def api_orders_list():
     if cids:
         for u in User.query.filter(User.id.in_(cids)).all():
             user_by_id[u.id] = u
-    return jsonify([_serialize_order(q, user_by_id=user_by_id) for q in qs])
+    return jsonify([_serialize_order_loose(q, user_by_id=user_by_id) for q in qs])
 
 
 @workshop_api_bp.route('/orders/<int:order_id>', methods=['GET'])
@@ -431,7 +584,67 @@ def api_order_get(order_id: int):
     o = _order_query(oid, order_id)
     if not o:
         return jsonify({'error': 'not_found'}), 404
-    return jsonify(_serialize_order(o, include_photos=True))
+    return jsonify(_serialize_order_loose(o, include_photos=True))
+
+
+@workshop_api_bp.route('/by-quotation/<int:quotation_id>', methods=['GET'])
+@login_required
+def api_workshop_bundle_by_quotation(quotation_id: int):
+    """Orden de taller + inspección + checklist vinculados a una cotización (vista previa en Ventas)."""
+    _ensure_tables()
+    oid = _org_id()
+    qrow = Quotation.query.filter_by(id=quotation_id, organization_id=oid).first()
+    if not qrow:
+        return jsonify({'error': 'not_found', 'user_message': 'Cotización no encontrada.'}), 404
+    o = WorkshopOrder.query.filter_by(organization_id=oid, quotation_id=quotation_id).order_by(
+        WorkshopOrder.id.desc()
+    ).first()
+    if not o:
+        return jsonify({'error': 'no_workshop_order', 'user_message': 'No hay orden de taller vinculada.'}), 404
+
+    order_payload = _serialize_order_loose(o, include_photos=True)
+
+    insp = WorkshopInspection.query.filter_by(order_id=o.id).first()
+    insp_payload: dict = {'inspection_id': None, 'notes': '', 'points': []}
+    if insp:
+        points = (
+            VehicleInspectionPoint.query.filter_by(inspection_id=insp.id)
+            .order_by(VehicleInspectionPoint.id)
+            .all()
+        )
+        out_pts = []
+        for p in points:
+            photos = [
+                {'id': ph.id, 'url': ph.url}
+                for ph in VehicleInspectionPhoto.query.filter_by(point_id=p.id).all()
+            ]
+            out_pts.append(
+                {
+                    'id': p.id,
+                    'zone_code': p.zone_code,
+                    'damage_type': p.damage_type,
+                    'severity': p.severity,
+                    'notes': p.notes or '',
+                    'photos': photos,
+                }
+            )
+        insp_payload = {'inspection_id': insp.id, 'notes': insp.notes or '', 'points': out_pts}
+
+    ch_rows = WorkshopChecklistItem.query.filter_by(order_id=o.id).order_by(WorkshopChecklistItem.id).all()
+    checklist_items = [
+        {'id': r.id, 'item': r.item, 'condition': r.condition, 'notes': r.notes or ''} for r in ch_rows
+    ]
+
+    zone_labels = {z.code: (z.name or z.code) for z in VehicleZone.query.all()}
+
+    return jsonify(
+        {
+            'order': order_payload,
+            'inspection': insp_payload,
+            'checklist': {'items': checklist_items},
+            'zone_labels': zone_labels,
+        }
+    )
 
 
 @workshop_api_bp.route('/orders', methods=['POST'])
@@ -492,6 +705,10 @@ def api_orders_post():
         )
         db.session.add(ln)
     workshop_svc.recompute_workshop_order_totals(order)
+    try:
+        workshop_sla.bootstrap_new_order(order)
+    except Exception:
+        pass
     for row in data.get('checklist') or []:
         if not isinstance(row, dict):
             continue
@@ -504,7 +721,7 @@ def api_orders_post():
             )
         )
     db.session.commit()
-    return jsonify(_serialize_order(order, include_photos=True)), 201
+    return jsonify(_serialize_order_loose(order, include_photos=True)), 201
 
 
 @workshop_api_bp.route('/orders/<int:order_id>', methods=['PATCH', 'PUT'])
@@ -538,6 +755,12 @@ def api_order_patch(order_id: int):
         else:
             o.invoice_id = None
 
+    if 'sla_paused' in data:
+        try:
+            workshop_sla.apply_sla_pause(o, bool(data.get('sla_paused')))
+        except Exception:
+            pass
+
     if 'vehicle' in data and data['vehicle']:
         veh = WorkshopVehicle.query.filter_by(id=o.vehicle_id, organization_id=org).first()
         if veh:
@@ -567,10 +790,11 @@ def api_order_patch(order_id: int):
     if 'status' in data and data.get('status'):
         err = workshop_svc.apply_transition(o, str(data['status']).strip())
         if err:
-            return jsonify({'error': err, 'detail': err}), 400
+            um = _workshop_transition_user_message(err)
+            return jsonify({'error': err, 'detail': um, 'user_message': um}), 400
 
     db.session.commit()
-    return jsonify(_serialize_order(o, include_photos=True))
+    return jsonify(_serialize_order_loose(o, include_photos=True))
 
 
 @workshop_api_bp.route('/vehicles', methods=['POST'])
@@ -882,6 +1106,238 @@ def api_checklist_get(order_id: int):
     )
 
 
+def _serialize_process_stage(r: WorkshopProcessStageConfig) -> dict:
+    return {
+        'id': r.id,
+        'stage_key': r.stage_key,
+        'stage_name': r.stage_name,
+        'sequence': r.sequence,
+        'expected_duration_minutes': int(r.expected_duration_minutes or 1),
+        'color': r.color or '#0d6efd',
+        'active': bool(r.active),
+        'service_type_tag': (r.service_type_tag or '').strip(),
+        'allow_skip': bool(r.allow_skip),
+    }
+
+
+def _serialize_service_process_row(r: WorkshopServiceProcessConfig) -> dict:
+    return {
+        'id': r.id,
+        'service_id': r.service_id,
+        'stage_key': r.stage_key,
+        'expected_duration_minutes': int(r.expected_duration_minutes or 1),
+    }
+
+
+@workshop_api_bp.route('/sla/monitor', methods=['GET'])
+@login_required
+def api_sla_monitor():
+    _ensure_tables()
+    oid = _org_id()
+    workshop_sla.ensure_default_process_stages(oid)
+    orders = (
+        WorkshopOrder.query.filter_by(organization_id=oid).order_by(WorkshopOrder.id.desc()).limit(400).all()
+    )
+    return jsonify(workshop_sla.sla_monitor_bundle(oid, orders))
+
+
+@workshop_api_bp.route('/process-stages', methods=['GET'])
+@login_required
+def api_process_stages_list():
+    _ensure_tables()
+    oid = _org_id()
+    workshop_sla.ensure_default_process_stages(oid)
+    rows = (
+        WorkshopProcessStageConfig.query.filter_by(organization_id=oid)
+        .order_by(WorkshopProcessStageConfig.sequence, WorkshopProcessStageConfig.id)
+        .all()
+    )
+    return jsonify([_serialize_process_stage(r) for r in rows])
+
+
+@workshop_api_bp.route('/process-stages', methods=['PUT'])
+@login_required
+def api_process_stages_bulk_put():
+    _ensure_tables()
+    oid = _org_id()
+    workshop_sla.ensure_default_process_stages(oid)
+    data = request.get_json() or {}
+    items = data.get('items')
+    if not isinstance(items, list):
+        return jsonify({'error': 'items_required'}), 400
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        sid = int(it.get('id') or 0)
+        if sid < 1:
+            continue
+        row = WorkshopProcessStageConfig.query.filter_by(id=sid, organization_id=oid).first()
+        if not row:
+            continue
+        if 'stage_name' in it:
+            row.stage_name = str(it.get('stage_name') or '').strip() or row.stage_name
+        if 'sequence' in it:
+            try:
+                row.sequence = int(it['sequence'])
+            except (TypeError, ValueError):
+                pass
+        if 'expected_duration_minutes' in it:
+            try:
+                row.expected_duration_minutes = max(1, int(it.get('expected_duration_minutes') or 1))
+            except (TypeError, ValueError):
+                pass
+        if 'color' in it:
+            c = str(it.get('color') or '').strip()
+            if c:
+                row.color = c[:40]
+        if 'active' in it:
+            row.active = bool(it.get('active'))
+        if 'allow_skip' in it:
+            row.allow_skip = bool(it.get('allow_skip'))
+        if 'service_type_tag' in it:
+            v = str(it.get('service_type_tag') or '').strip()
+            row.service_type_tag = v or None
+    db.session.commit()
+    rows = (
+        WorkshopProcessStageConfig.query.filter_by(organization_id=oid)
+        .order_by(WorkshopProcessStageConfig.sequence, WorkshopProcessStageConfig.id)
+        .all()
+    )
+    return jsonify([_serialize_process_stage(r) for r in rows])
+
+
+@workshop_api_bp.route('/process-stages/<int:stage_id>', methods=['PATCH'])
+@login_required
+def api_process_stage_patch(stage_id: int):
+    _ensure_tables()
+    oid = _org_id()
+    workshop_sla.ensure_default_process_stages(oid)
+    row = WorkshopProcessStageConfig.query.filter_by(id=stage_id, organization_id=oid).first()
+    if not row:
+        return jsonify({'error': 'not_found'}), 404
+    data = request.get_json() or {}
+    if 'stage_name' in data:
+        row.stage_name = str(data.get('stage_name') or '').strip() or row.stage_name
+    if 'sequence' in data:
+        try:
+            row.sequence = int(data['sequence'])
+        except (TypeError, ValueError):
+            pass
+    if 'expected_duration_minutes' in data:
+        try:
+            row.expected_duration_minutes = max(1, int(data.get('expected_duration_minutes') or 1))
+        except (TypeError, ValueError):
+            pass
+    if 'color' in data:
+        c = str(data.get('color') or '').strip()
+        if c:
+            row.color = c[:40]
+    if 'active' in data:
+        row.active = bool(data.get('active'))
+    if 'allow_skip' in data:
+        row.allow_skip = bool(data.get('allow_skip'))
+    if 'service_type_tag' in data:
+        v = str(data.get('service_type_tag') or '').strip()
+        row.service_type_tag = v or None
+    db.session.commit()
+    return jsonify(_serialize_process_stage(row))
+
+
+@workshop_api_bp.route('/service-process-config', methods=['GET'])
+@login_required
+def api_service_process_config_get():
+    _ensure_tables()
+    oid = _org_id()
+    try:
+        sid = int(request.args.get('service_id') or 0)
+    except (TypeError, ValueError):
+        sid = 0
+    if sid < 1:
+        return jsonify({'error': 'service_id_required'}), 400
+    svc = Service.query.filter_by(id=sid, organization_id=oid).first()
+    if not svc:
+        return jsonify({'error': 'service_not_found'}), 404
+    rows = WorkshopServiceProcessConfig.query.filter_by(organization_id=oid, service_id=sid).all()
+    return jsonify({'service_id': sid, 'items': [_serialize_service_process_row(r) for r in rows]})
+
+
+@workshop_api_bp.route('/service-process-config', methods=['PUT'])
+@login_required
+def api_service_process_config_put():
+    _ensure_tables()
+    oid = _org_id()
+    data = request.get_json() or {}
+    try:
+        sid = int(data.get('service_id') or 0)
+    except (TypeError, ValueError):
+        sid = 0
+    if sid < 1:
+        return jsonify({'error': 'service_id_required'}), 400
+    svc = Service.query.filter_by(id=sid, organization_id=oid).first()
+    if not svc:
+        return jsonify({'error': 'service_not_found'}), 404
+    items = data.get('items')
+    if not isinstance(items, list):
+        return jsonify({'error': 'items_required'}), 400
+    from nodeone.modules.workshop import service as workshop_svc
+
+    seen = set()
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        sk = str(it.get('stage_key') or '').strip()
+        if not sk or sk not in workshop_svc.ORDER_STATUSES:
+            continue
+        key = (sid, sk)
+        if key in seen:
+            continue
+        seen.add(key)
+        raw_mins = it.get('expected_duration_minutes')
+        if raw_mins is None:
+            row = WorkshopServiceProcessConfig.query.filter_by(
+                organization_id=oid, service_id=sid, stage_key=sk
+            ).first()
+            if row:
+                db.session.delete(row)
+            continue
+        try:
+            mins = max(1, int(raw_mins))
+        except (TypeError, ValueError):
+            continue
+        row = WorkshopServiceProcessConfig.query.filter_by(
+            organization_id=oid, service_id=sid, stage_key=sk
+        ).first()
+        if row:
+            row.expected_duration_minutes = mins
+        else:
+            db.session.add(
+                WorkshopServiceProcessConfig(
+                    organization_id=oid,
+                    service_id=sid,
+                    stage_key=sk,
+                    expected_duration_minutes=mins,
+                )
+            )
+    db.session.commit()
+    rows = WorkshopServiceProcessConfig.query.filter_by(organization_id=oid, service_id=sid).all()
+    return jsonify({'service_id': sid, 'items': [_serialize_service_process_row(r) for r in rows]})
+
+
+@workshop_api_bp.route('/service-process-config/<int:row_id>', methods=['DELETE'])
+@login_required
+def api_service_process_config_delete(row_id: int):
+    _ensure_tables()
+    oid = _org_id()
+    row = WorkshopServiceProcessConfig.query.filter_by(id=row_id, organization_id=oid).first()
+    if not row:
+        return jsonify({'error': 'not_found'}), 404
+    sid = row.service_id
+    db.session.delete(row)
+    db.session.commit()
+    rows = WorkshopServiceProcessConfig.query.filter_by(organization_id=oid, service_id=sid).all()
+    return jsonify({'service_id': sid, 'items': [_serialize_service_process_row(r) for r in rows]})
+
+
 def register_admin_workshop_routes(app):
     if 'admin_workshop_orders' in getattr(app, 'view_functions', {}):
         return
@@ -899,6 +1355,15 @@ def register_admin_workshop_routes(app):
             return redirect(url_for('dashboard'))
         return render_template('admin/workshop_orders_list.html')
 
+    @app.route('/admin/workshop/process-config')
+    @admin_required
+    def admin_workshop_process_config():
+        oid = admin_data_scope_organization_id()
+        if not has_saas_module_enabled(oid, 'workshop'):
+            flash('El módulo Taller no está habilitado para esta organización.', 'error')
+            return redirect(url_for('dashboard'))
+        return render_template('admin/workshop_process_config.html')
+
     @app.route('/admin/workshop/orders/new')
     @admin_required
     def admin_workshop_order_new():
@@ -906,7 +1371,15 @@ def register_admin_workshop_routes(app):
         if not has_saas_module_enabled(oid, 'workshop'):
             flash('El módulo Taller no está habilitado para esta organización.', 'error')
             return redirect(url_for('dashboard'))
-        return render_template('admin/workshop_order_detail.html', order_id=0)
+        from models.saas import SaasOrganization
+
+        org_row = SaasOrganization.query.get(oid)
+        workshop_org_name = (org_row.name or '').strip() if org_row else ''
+        return render_template(
+            'admin/workshop_order_detail.html',
+            order_id=0,
+            workshop_org_name=workshop_org_name,
+        )
 
     @app.route('/admin/workshop/orders/<int:order_id>')
     @admin_required
@@ -915,4 +1388,12 @@ def register_admin_workshop_routes(app):
         if not has_saas_module_enabled(oid, 'workshop'):
             flash('El módulo Taller no está habilitado para esta organización.', 'error')
             return redirect(url_for('dashboard'))
-        return render_template('admin/workshop_order_detail.html', order_id=order_id)
+        from models.saas import SaasOrganization
+
+        org_row = SaasOrganization.query.get(oid)
+        workshop_org_name = (org_row.name or '').strip() if org_row else ''
+        return render_template(
+            'admin/workshop_order_detail.html',
+            order_id=order_id,
+            workshop_org_name=workshop_org_name,
+        )

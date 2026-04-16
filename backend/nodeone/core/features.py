@@ -33,6 +33,7 @@ import os
 # NODEONE_SKIP_MEMBER_COMMUNITY_BLUEPRINT=1 — no registrar /foros ni /grupos.
 # NODEONE_SKIP_MEMBER_PAGES_BLUEPRINT=1 — no registrar /settings ni /help.
 # NODEONE_SKIP_ADMIN_SERVICES_CATALOG_BLUEPRINT=1 — no registrar /admin/services* ni /admin/service-categories* (catálogo).
+# NODEONE_SKIP_ANALYTICS_MODULE=1 — no registrar /admin/analytics* ni /api/admin/analytics/* (KPIs / tableros).
 # NODEONE_SKIP_CRM_API_BLUEPRINT=1 — no registrar /crm/* (leads, stages, activities, reportes).
 # NODEONE_SKIP_ADMIN_SALES_ACCOUNTING_ROUTES=1 — no registrar /admin/sales/quotations ni /admin/accounting/invoices.
 # NODEONE_SKIP_WORKSHOP_MODULE=1 — no registrar /api/workshop ni /admin/workshop (taller / recepción).
@@ -199,6 +200,16 @@ def register_admin_crm_routes(app):
         print(f'Warning: No se pudieron registrar vistas admin CRM: {e}')
 
 
+def register_admin_analytics_routes(app):
+    """Analytics / KPIs: /admin/analytics* y /api/admin/analytics/*."""
+    try:
+        from nodeone.modules.analytics.routes import register_admin_analytics_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas analytics: {e}')
+
+
 def register_admin_workshop_pages(app):
     """Vistas /admin/workshop/* (órdenes de taller)."""
     if os.environ.get('NODEONE_SKIP_WORKSHOP_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
@@ -216,10 +227,11 @@ def register_workshop_blueprints(app):
     if os.environ.get('NODEONE_SKIP_WORKSHOP_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
         return
     try:
-        from nodeone.modules.workshop.routes import workshop_api_bp
+        from nodeone.modules.workshop.routes import register_workshop_saas_default_org_link, workshop_api_bp
         from saas_features import register_simple_saas_guard
 
         if 'workshop_api' not in app.blueprints:
+            register_workshop_saas_default_org_link(workshop_api_bp)
             register_simple_saas_guard(workshop_api_bp, 'workshop')
             app.register_blueprint(workshop_api_bp)
     except ImportError as e:
@@ -236,16 +248,17 @@ def register_admin_sales_accounting_routes(app):
         print(f'Warning: No se pudieron registrar rutas admin configuración impuestos: {e}')
     if os.environ.get('NODEONE_SKIP_ADMIN_SALES_ACCOUNTING_ROUTES', '').strip().lower() in ('1', 'true', 'yes'):
         return
-    if 'admin_sales_quotations' in getattr(app, 'view_functions', {}):
-        return
     try:
         from nodeone.modules.admin_sales_accounting.routes import (
+            register_admin_accounting_invoice_new_route as _reg_inv_new,
             register_admin_sales_commercial_contacts_routes as _reg_cc,
             register_admin_sales_quotations_invoices_routes as _reg_qi,
         )
 
         _reg_qi(app)
         _reg_cc(app)
+        # Rutas añadidas tras el bloque idempotente de cotizaciones (despliegues parciales sin reinicio limpio).
+        _reg_inv_new(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar rutas admin sales/accounting: {e}')
 
@@ -782,6 +795,7 @@ def register_modules(app):
     register_admin_saas_pages_routes(app)
     register_saas_admin_blueprint(app)
     register_admin_crm_routes(app)
+    register_admin_analytics_routes(app)
     register_admin_sales_accounting_routes(app)
     register_admin_workshop_pages(app)
     register_admin_notifications_identity_routes(app)

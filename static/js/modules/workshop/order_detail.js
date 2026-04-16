@@ -12,6 +12,7 @@
   const CUST_DEBOUNCE_MS = 300;
   const SVC_DEBOUNCE_MS = 300;
   const LS_WORKSHOP_INSP_HIDDEN = 'workshop_order_inspection_hidden';
+  const LS_WORKSHOP_MAP_VIEW = 'workshop_order_map_view';
 
   let order = null;
   let zones = [];
@@ -47,6 +48,20 @@
     chip: 'Descascarado',
   };
   const SEV_LABELS = { low: 'baja', medium: 'media', high: 'alta' };
+  const INTERIOR_ZONES = new Set([
+    'dashboard',
+    'steering_wheel',
+    'center_console',
+    'front_left_seat',
+    'front_right_seat',
+    'rear_left_seat',
+    'rear_center_seat',
+    'rear_right_seat',
+    'door_panel_left',
+    'door_panel_right',
+    'headliner',
+    'trunk_interior',
+  ]);
 
   function escAttr(s) {
     return String(s == null ? '' : s)
@@ -60,6 +75,294 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function nlToBr(s) {
+    return escHtml(s).replace(/\n/g, '<br>');
+  }
+
+  function formatDateEs(iso) {
+    if (!iso || String(iso).trim() === '') return '—';
+    const p = String(iso).slice(0, 10).split('-');
+    if (p.length === 3 && p[0].length === 4) return `${p[2]}/${p[1]}/${p[0]}`;
+    return escHtml(String(iso));
+  }
+
+  const WO_STATUS_ES = {
+    draft: 'Borrador',
+    inspected: 'Inspeccionado',
+    quoted: 'Cotizado',
+    approved: 'Aprobado',
+    in_progress: 'En proceso',
+    qc: 'Control calidad',
+    done: 'Terminado',
+    delivered: 'Entregado',
+    cancelled: 'Cancelada',
+  };
+
+  function getWorkshopOrgFiscalParts() {
+    const orgName = String(root.dataset.woOrgName || '').trim();
+    return {
+      displayName: orgName || '—',
+      taxId: '',
+      regime: '',
+      address: '',
+      location: '',
+      contact: '',
+    };
+  }
+
+  function priceIncludedTax(tax) {
+    if (!tax) return false;
+    if (tax.price_included != null) return !!tax.price_included;
+    return tax.type === 'included';
+  }
+
+  function computationModeTax(tax) {
+    const c = tax.computation || 'percent';
+    return c === 'fixed' ? 'fixed' : 'percent';
+  }
+
+  function formatTaxPreview(t) {
+    if (!t) return 'Sin impuesto';
+    if (computationModeTax(t) === 'fixed') return `${t.name} (${Number(t.amount_fixed || 0)} fijo/u)`;
+    return `${t.name} (${Number(t.rate != null ? t.rate : t.percentage || 0)}%)`;
+  }
+
+  /** Misma lógica que cotización / factura para totales con impuestos. */
+  function computePreviewLine(line) {
+    const qty = Number(line.quantity || 0);
+    const pu = Number(line.price_unit || 0);
+    const amount = qty * pu;
+    const tax = taxes.find((x) => Number(x.id) === Number(line.tax_id)) || null;
+    if (!tax) return { subtotal: amount, tax: 0, total: amount };
+    const inc = priceIncludedTax(tax);
+    const comp = computationModeTax(tax);
+    const rate = Number(tax.rate != null ? tax.rate : tax.percentage || 0);
+    const fixed = Number(tax.amount_fixed || 0);
+    if (comp === 'fixed') {
+      const taxAmt = fixed * qty;
+      if (inc) {
+        const subtotal = Math.max(0, amount - taxAmt);
+        return { subtotal, tax: taxAmt, total: amount };
+      }
+      return { subtotal: amount, tax: taxAmt, total: amount + taxAmt };
+    }
+    if (inc) {
+      const subtotal = rate > 0 ? amount / (1 + rate / 100) : amount;
+      return { subtotal, tax: amount - subtotal, total: amount };
+    }
+    const taxAmt = amount * (rate / 100);
+    return { subtotal: amount, tax: taxAmt, total: amount + taxAmt };
+  }
+
+  function condLabel(v) {
+    const m = { ok: 'OK', leve: 'Leve', medio: 'Medio', severo: 'Severo' };
+    return m[v] || v || '—';
+  }
+
+  function buildOrderPhotosPreviewSection() {
+    const photos = order && Array.isArray(order.photos) ? order.photos : [];
+    if (!photos.length) return '';
+    const KIND = { entrada: 'Entrada', proceso: 'Proceso', salida: 'Salida' };
+    const cells = photos
+      .map((p) => {
+        const raw = String(p.url || '').trim();
+        if (!raw) return '';
+        const path = raw.split('?')[0];
+        const safe = escAttr(path.startsWith('http') ? path : path.startsWith('/') ? path : `/${path}`);
+        const k = escHtml(KIND[p.kind] || p.kind || 'Foto');
+        return `<div class="wo-doc-photo-cell" style="break-inside:avoid">
+          <div class="border rounded overflow-hidden bg-white h-100">
+            <img src="${safe}" alt="" style="width:100%;max-height:220px;object-fit:cover;display:block"/>
+            <div class="small text-muted px-2 py-1">${k}</div>
+          </div>
+        </div>`;
+      })
+      .filter(Boolean)
+      .join('');
+    if (!cells) return '';
+    return `<div class="wo-doc-photos-block mt-4">
+      <h3 style="font-size:1rem;margin-bottom:0.75em;color:var(--qd-blue)">Fotos de la orden</h3>
+      <div class="wo-doc-photo-grid">${cells}</div>
+    </div>`;
+  }
+
+  function buildInspectionPhotosPreviewSection() {
+    const pts = inspection && Array.isArray(inspection.points) ? inspection.points : [];
+    const cells = [];
+    pts.forEach((p) => {
+      const zlab = escHtml(zoneLabels[p.zone_code] || p.zone_code || 'Zona');
+      (p.photos || []).forEach((ph, idx) => {
+        const raw = String(ph.url || '').trim();
+        if (!raw) return;
+        const path = raw.split('?')[0];
+        const safe = escAttr(path.startsWith('http') ? path : path.startsWith('/') ? path : `/${path}`);
+        cells.push(`<div class="wo-doc-photo-cell" style="break-inside:avoid">
+          <div class="border rounded overflow-hidden bg-white h-100">
+            <img src="${safe}" alt="" style="width:100%;max-height:220px;object-fit:cover;display:block"/>
+            <div class="small text-muted px-2 py-1">${zlab} · ${idx + 1}</div>
+          </div>
+        </div>`);
+      });
+    });
+    if (!cells.length) return '';
+    return `<div class="wo-doc-photos-block mt-4">
+      <h3 style="font-size:1rem;margin-bottom:0.75em;color:var(--qd-blue)">Fotos de inspección (body map)</h3>
+      <div class="wo-doc-photo-grid">${cells.join('')}</div>
+    </div>`;
+  }
+
+  function buildWorkshopPreviewDocumentHtml(lines) {
+    const brand = (root.dataset.woBrand || '').trim() || '—';
+    const orgFiscal = getWorkshopOrgFiscalParts();
+    const logoUrl = (root.dataset.woLogoUrl || '').trim();
+    const woCode = (document.getElementById('woCode') && document.getElementById('woCode').textContent.trim()) || '—';
+    const custBlock = (customerSearch && customerSearch.value.trim()) || '—';
+    const stRaw = order && order.status ? String(order.status) : '';
+    const stLabel = WO_STATUS_ES[stRaw] || stRaw || '—';
+    const entryIso = order && order.entry_date ? String(order.entry_date) : '';
+    const promisedIso = order && order.promised_date ? String(order.promised_date) : '';
+
+    const plate = (document.getElementById('vehPlate') && document.getElementById('vehPlate').value.trim()) || '';
+    const vBrand = (document.getElementById('vehBrand') && document.getElementById('vehBrand').value.trim()) || '';
+    const vModel = (document.getElementById('vehModel') && document.getElementById('vehModel').value.trim()) || '';
+    const vYear = (document.getElementById('vehYear') && document.getElementById('vehYear').value.trim()) || '';
+    const vColor = (document.getElementById('vehColor') && document.getElementById('vehColor').value.trim()) || '';
+    const vVin = (document.getElementById('vehVin') && document.getElementById('vehVin').value.trim()) || '';
+    const vMile = (document.getElementById('vehMileage') && document.getElementById('vehMileage').value.trim()) || '';
+    const vNick = (document.getElementById('vehNick') && document.getElementById('vehNick').value.trim()) || '';
+    const vehParts = [];
+    if (plate) vehParts.push(`<strong>Placa:</strong> ${escHtml(plate)}`);
+    if (vBrand) vehParts.push(`<strong>Marca:</strong> ${escHtml(vBrand)}`);
+    if (vModel) vehParts.push(`<strong>Modelo:</strong> ${escHtml(vModel)}`);
+    if (vYear) vehParts.push(`<strong>Año:</strong> ${escHtml(vYear)}`);
+    if (vColor) vehParts.push(`<strong>Color:</strong> ${escHtml(vColor)}`);
+    if (vVin) vehParts.push(`<strong>VIN:</strong> ${escHtml(vVin)}`);
+    if (vMile) vehParts.push(`<strong>Km:</strong> ${escHtml(vMile)}`);
+    if (vNick) vehParts.push(`<strong>Apodo:</strong> ${escHtml(vNick)}`);
+    const vehBlock =
+      vehParts.length > 0 ? vehParts.join('<br>') : '<span class="text-muted">Sin datos de vehículo</span>';
+
+    let subtotalT = 0;
+    let taxT = 0;
+    let grandT = 0;
+    const bodyRows = lines
+      .map((ln) => {
+        const c = computePreviewLine(ln);
+        subtotalT += c.subtotal;
+        taxT += c.tax;
+        grandT += c.total;
+        const t = taxes.find((x) => Number(x.id) === Number(ln.tax_id)) || null;
+        const taxLabel = formatTaxPreview(t);
+        const taxShow = taxLabel === 'Sin impuesto' ? '—' : escHtml(taxLabel);
+        const desc = (ln.description || '').trim() || '—';
+        return `<tr>
+          <td class="qd-col-desc">${nlToBr(desc)}</td>
+          <td class="qd-col-num">${Number(ln.quantity || 0).toFixed(2)}</td>
+          <td class="qd-col-num">${Number(ln.price_unit || 0).toFixed(2)}</td>
+          <td class="qd-col-num">${taxShow}</td>
+          <td class="qd-col-money">${fmt(c.total)}</td>
+        </tr>`;
+      })
+      .join('');
+
+    const checklistRows = collectChecklist()
+      .filter((r) => r && r.item)
+      .map((r) => {
+        const n = (r.notes || '').trim();
+        return `<tr>
+          <td>${escHtml(r.item)}</td>
+          <td>${escHtml(condLabel(r.condition))}</td>
+          <td>${n ? nlToBr(n) : '—'}</td>
+        </tr>`;
+      })
+      .join('');
+    const checklistSection =
+      checklistRows.length > 0
+        ? `<div class="quote-doc-preview__meta-box mt-3">
+             <div class="fw-semibold mb-2">Checklist de recepción</div>
+             <div class="quote-doc-table-wrap">
+               <table class="quote-doc-table">
+                 <thead><tr><th>Ítem</th><th>Condición</th><th>Notas</th></tr></thead>
+                 <tbody>${checklistRows}</tbody>
+               </table>
+             </div>
+           </div>`
+        : '';
+
+    const notes = (document.getElementById('woNotes') && document.getElementById('woNotes').value.trim()) || '';
+    const qcNotes = (document.getElementById('woQcNotes') && document.getElementById('woQcNotes').value.trim()) || '';
+    const notesSection =
+      notes || qcNotes
+        ? `<div class="quote-doc-terms mt-3">
+             ${notes ? `<div><strong>Notas internas</strong><br>${nlToBr(notes)}</div>` : ''}
+             ${qcNotes ? `<div class="mt-2"><strong>Control de calidad</strong><br>${nlToBr(qcNotes)}</div>` : ''}
+           </div>`
+        : '';
+
+    const orderPhotosBlock = buildOrderPhotosPreviewSection();
+    const inspPhotosBlock = buildInspectionPhotosPreviewSection();
+
+    const brandCaps = escHtml(brand.toUpperCase());
+    const logoBlock = logoUrl
+      ? `<img class="quote-doc-preview__logo" src="${escAttr(logoUrl)}" alt=""><div class="quote-doc-preview__brand-name">${brandCaps}</div>`
+      : `<div class="quote-doc-preview__brand-name">${brandCaps}</div>`;
+
+    return `<div class="quote-doc-preview">
+      <div class="quote-doc-preview__header">
+        <div class="quote-doc-preview__wave" aria-hidden="true"></div>
+        <div class="quote-doc-preview__header-grid">
+          <div class="quote-doc-preview__brand">${logoBlock}</div>
+          <div class="quote-doc-preview__company">
+            <div class="quote-doc-preview__company-name">${escHtml(orgFiscal.displayName || brand)}</div>
+            <div class="small text-muted">Orden de taller · Servicios / detailing</div>
+          </div>
+        </div>
+      </div>
+      <div class="quote-doc-preview__client-row">
+        <div class="quote-doc-preview__client">${nlToBr(custBlock)}</div>
+        <div class="quote-doc-preview__order-num">
+          <span>Orden</span>
+          ${escHtml(woCode)}
+        </div>
+      </div>
+      <div class="quote-doc-preview__meta-box">
+        <div><strong>Vehículo</strong><br>${vehBlock}</div>
+        <div><strong>Estado</strong><br>${escHtml(stLabel)}</div>
+        <div><strong>Fecha de ingreso</strong><br>${formatDateEs(entryIso)}</div>
+        <div><strong>Prometido</strong><br>${formatDateEs(promisedIso)}</div>
+      </div>
+      ${checklistSection}
+      <div class="quote-doc-table-wrap mt-3">
+        <table class="quote-doc-table">
+          <thead>
+            <tr>
+              <th class="qd-col-desc">Descripción</th>
+              <th class="qd-col-num">Cantidad</th>
+              <th class="qd-col-num">Precio unit.</th>
+              <th class="qd-col-num">Impuestos</th>
+              <th class="qd-col-money text-end">Importe</th>
+            </tr>
+          </thead>
+          <tbody>${bodyRows || '<tr><td colspan="5" class="text-muted">Sin líneas</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="quote-doc-totals-wrap">
+        <table class="quote-doc-totals">
+          <tr><td>Subtotal</td><td>${fmt(subtotalT)}</td></tr>
+          <tr><td>Impuestos</td><td>${fmt(taxT)}</td></tr>
+          <tr class="quote-doc-totals-grand"><td>Total estimado</td><td>${fmt(grandT)}</td></tr>
+        </table>
+      </div>
+      ${orderPhotosBlock}
+      ${inspPhotosBlock}
+      ${notesSection}
+      <div class="quote-doc-footer">
+        <div>${escHtml(brand)} · Taller</div>
+        <div class="quote-doc-footer__page">Página 1 / 1</div>
+      </div>
+    </div>`;
   }
 
   function applyInspectionMapLayout(hidden) {
@@ -118,6 +421,43 @@
       }
       applyInspectionMapLayout(!mapVisible);
       syncInspectionMapToggleButton(mapVisible);
+    });
+  }
+
+  function setMapView(view) {
+    const exterior = document.getElementById('woMapExteriorWrap');
+    const interior = document.getElementById('woMapInteriorWrap');
+    if (!exterior || !interior) return;
+    const v = view === 'interior' ? 'interior' : 'exterior';
+    exterior.classList.toggle('d-none', v !== 'exterior');
+    interior.classList.toggle('d-none', v !== 'interior');
+    document.querySelectorAll('#woMapViewTabs [data-map-view]').forEach((btn) => {
+      const on = btn.dataset.mapView === v;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    try {
+      localStorage.setItem(LS_WORKSHOP_MAP_VIEW, v);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function preferredMapViewForZone(zoneCode) {
+    return INTERIOR_ZONES.has(String(zoneCode || '').trim()) ? 'interior' : 'exterior';
+  }
+
+  function initMapViewTabs() {
+    let v = 'exterior';
+    try {
+      const sv = localStorage.getItem(LS_WORKSHOP_MAP_VIEW);
+      if (sv === 'interior' || sv === 'exterior') v = sv;
+    } catch (_) {
+      /* ignore */
+    }
+    setMapView(v);
+    document.querySelectorAll('#woMapViewTabs [data-map-view]').forEach((btn) => {
+      btn.addEventListener('click', () => setMapView(btn.dataset.mapView || 'exterior'));
     });
   }
 
@@ -875,6 +1215,7 @@
     } else {
       syncModalZoneTitle(zoneCode);
     }
+    if (zoneCode) setMapView(preferredMapViewForZone(zoneCode));
     clearModalExistingPhotos();
     document.getElementById('woModalDamage').value = 'scratch';
     document.getElementById('woModalSeverity').value = 'low';
@@ -899,6 +1240,7 @@
     } else {
       syncModalZoneTitle(zc);
     }
+    setMapView(preferredMapViewForZone(zc));
     fillModalExistingPhotos(p);
     const dmg = document.getElementById('woModalDamage');
     if (dmg) dmg.value = p.damage_type || 'scratch';
@@ -993,9 +1335,29 @@
       '</div>';
   }
 
+  function syncTransitionButtons(o) {
+    const allowed = o && Array.isArray(o.allowed_next_statuses) ? o.allowed_next_statuses : null;
+    document.querySelectorAll('.wo-trans').forEach((btn) => {
+      const st = btn.dataset.status;
+      if (!st) return;
+      if (allowed === null) {
+        btn.classList.remove('d-none');
+        btn.disabled = false;
+        return;
+      }
+      const ok = allowed.includes(st);
+      btn.classList.toggle('d-none', !ok);
+      btn.disabled = !ok;
+    });
+  }
+
   function fillForm(o) {
     document.getElementById('woCode').textContent = o.code || '—';
-    document.getElementById('woStatus').textContent = o.status || '';
+    {
+      const stRaw = o.status ? String(o.status) : '';
+      document.getElementById('woStatus').textContent = WO_STATUS_ES[stRaw] || stRaw || '—';
+    }
+    syncTransitionButtons(o);
     if (customerId) customerId.value = o.customer_id || '';
     if (customerSearch) {
       if (o.customer_name || o.customer_email) {
@@ -1127,9 +1489,32 @@
   bindLineItemsM2o();
 
   initInspectionMapToggle();
+  initMapViewTabs();
 
   document.getElementById('btnWoNewCustSave')?.addEventListener('click', () => {
     submitNewCustomer().catch(() => {});
+  });
+
+  const woPreviewBody = document.getElementById('woPreviewBody');
+  const woPreviewModal = document.getElementById('woPreviewModal');
+  document.getElementById('btnWoPreview')?.addEventListener('click', () => {
+    try {
+      clearErr();
+      const lines = collectLines();
+      if (woPreviewBody) {
+        woPreviewBody.innerHTML = `<div class="p-3 p-md-4">${buildWorkshopPreviewDocumentHtml(lines)}</div>`;
+      }
+      if (window.bootstrap && window.bootstrap.Modal && woPreviewModal) {
+        window.bootstrap.Modal.getOrCreateInstance(woPreviewModal).show();
+      } else if (woPreviewModal) {
+        woPreviewModal.classList.remove('d-none');
+      }
+    } catch (e) {
+      showErr(e.message || String(e));
+    }
+  });
+  document.getElementById('btnWoPreviewPrint')?.addEventListener('click', () => {
+    window.print();
   });
 
   document.getElementById('btnWoSave')?.addEventListener('click', saveOrder);

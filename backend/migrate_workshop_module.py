@@ -38,6 +38,19 @@ ZONES = (
     ('fender_right', 'Salpicadera derecha'),
     ('mirror_left', 'Espejo izquierdo'),
     ('mirror_right', 'Espejo derecho'),
+    # Interior
+    ('dashboard', 'Tablero'),
+    ('steering_wheel', 'Volante'),
+    ('center_console', 'Consola central'),
+    ('front_left_seat', 'Asiento delantero izquierdo'),
+    ('front_right_seat', 'Asiento delantero derecho'),
+    ('rear_left_seat', 'Asiento trasero izquierdo'),
+    ('rear_center_seat', 'Asiento trasero central'),
+    ('rear_right_seat', 'Asiento trasero derecho'),
+    ('door_panel_left', 'Panel puerta izquierda'),
+    ('door_panel_right', 'Panel puerta derecha'),
+    ('headliner', 'Techo interior'),
+    ('trunk_interior', 'Baúl interior'),
 )
 
 
@@ -77,15 +90,13 @@ def main():
             link = SaasOrgModule.query.filter_by(organization_id=oid, module_id=wmod.id).first()
             if link is not None:
                 continue
-            en = False
-            if sales_mod:
-                sl = SaasOrgModule.query.filter_by(organization_id=oid, module_id=sales_mod.id).first()
-                en = bool(sl and sl.enabled)
+            # Taller usable de forma independiente; el guard SaaS exige vínculo ON para /api/workshop/*.
+            en = True
             db.session.add(SaasOrgModule(organization_id=oid, module_id=wmod.id, enabled=en))
             linked += 1
         if linked:
             db.session.commit()
-        print(f'✅ saas_org_module workshop: +{linked} enlaces (enabled si ventas activo)')
+        print(f'✅ saas_org_module workshop: +{linked} enlaces (enabled=True)')
 
 
 if __name__ == '__main__':

@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Taller — Orden | {{ get_nav_brand_name() }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=27">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=29">
 {% endblock %}
 {% block content %}
-<div class="container-fluid py-3 workshop-order-page" id="workshopOrderPage" data-order-id="{{ order_id }}">
+<div class="container-fluid py-3 workshop-order-page" id="workshopOrderPage" data-order-id="{{ order_id }}"
+     data-wo-brand="{{ get_nav_brand_name()|e }}"
+     data-wo-logo-url="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}"
+     data-wo-org-name="{{ (workshop_org_name|default('', true))|e }}">
     <div id="woErr" class="alert alert-danger d-none"></div>
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
         <a class="btn btn-light btn-sm border" href="{{ url_for('admin_workshop_orders') }}">← Órdenes</a>
@@ -15,6 +18,7 @@
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btnWoMapToggle" aria-expanded="true" title="Ocultar el mapa de la derecha y ampliar líneas">
                 <span class="wo-map-toggle-label">Ocultar mapa</span>
             </button>
+            <button type="button" class="btn btn-light border btn-sm" id="btnWoPreview" title="Documento imprimible como la cotización">Vista previa</button>
             <button type="button" class="btn btn-primary btn-sm" id="btnWoSave">Guardar</button>
             <a class="btn btn-outline-primary btn-sm d-none" id="woQuotationLink" href="#" target="_blank">Abrir cotización</a>
             {% if saas_module_enabled('sales') %}
@@ -114,6 +118,7 @@
                     <div class="d-flex flex-wrap gap-1">
                         <span class="small text-muted me-2 align-self-center">Cambiar estado:</span>
                         <button type="button" class="btn btn-sm btn-outline-secondary wo-trans" data-status="inspected">Inspeccionado</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary wo-trans" data-status="quoted">Cotizado</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary wo-trans" data-status="approved">Aprobado</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary wo-trans" data-status="in_progress">En proceso</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary wo-trans" data-status="qc">Control calidad</button>
@@ -152,38 +157,81 @@
 
         <div class="col-lg-5" id="woInspectionColumn">
             <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white fw-semibold">Mapa de inspección (vista superior)</div>
+                <div class="card-header bg-white fw-semibold">Mapa de inspección (exterior / interior)</div>
                 <div class="card-body">
                     <p class="small text-muted mb-2">Pulse una zona para registrar daño, severidad, <strong>notas</strong> y foto. Las notas aparecen en la lista debajo; use <strong>Editar</strong> para cambiarlas. Para <strong>otro</strong> daño en la misma zona, pulse otra vez esa zona en el mapa.</p>
+                    <div class="btn-group btn-group-sm mb-2" id="woMapViewTabs" role="group" aria-label="Vista del mapa">
+                        <button type="button" class="btn btn-outline-secondary active" data-map-view="exterior">Exterior</button>
+                        <button type="button" class="btn btn-outline-secondary" data-map-view="interior">Interior</button>
+                    </div>
                     <div class="workshop-body-map-wrap">
-                        <svg class="workshop-body-map-svg" viewBox="0 0 400 880" xmlns="http://www.w3.org/2000/svg" aria-label="Vista superior vehículo">
-                            <!-- Capó -->
-                            <rect id="hood" class="car-zone" x="100" y="20" width="200" height="130" rx="14"/>
-                            <!-- Parachoques delantero -->
-                            <rect id="front_bumper" class="car-zone" x="110" y="0" width="180" height="36" rx="8"/>
-                            <!-- Techo -->
-                            <rect id="roof" class="car-zone" x="115" y="160" width="170" height="200" rx="12"/>
-                            <!-- Puerta izq -->
-                            <rect id="door_left" class="car-zone" x="40" y="200" width="65" height="140" rx="8"/>
-                            <!-- Puerta der -->
-                            <rect id="door_right" class="car-zone" x="295" y="200" width="65" height="140" rx="8"/>
-                            <!-- Espejos -->
-                            <rect id="mirror_left" class="car-zone" x="5" y="230" width="28" height="44" rx="6"/>
-                            <rect id="mirror_right" class="car-zone" x="367" y="230" width="28" height="44" rx="6"/>
-                            <!-- Salpicaderas -->
-                            <rect id="fender_left" class="car-zone" x="50" y="150" width="55" height="55" rx="8"/>
-                            <rect id="fender_right" class="car-zone" x="295" y="150" width="55" height="55" rx="8"/>
-                            <!-- Maletero -->
-                            <rect id="trunk" class="car-zone" x="105" y="380" width="190" height="120" rx="14"/>
-                            <!-- Parachoques trasero -->
-                            <rect id="rear_bumper" class="car-zone" x="115" y="505" width="180" height="36" rx="8"/>
-                            <text x="200" y="95" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Capó</text>
-                            <text x="200" y="265" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Techo</text>
-                            <text x="200" y="450" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Maletero</text>
-                        </svg>
+                        <div id="woMapExteriorWrap">
+                            <svg class="workshop-body-map-svg" viewBox="0 0 400 880" xmlns="http://www.w3.org/2000/svg" aria-label="Vista superior vehículo exterior">
+                                <!-- Capó -->
+                                <rect id="hood" class="car-zone" x="100" y="20" width="200" height="130" rx="14"/>
+                                <!-- Parachoques delantero -->
+                                <rect id="front_bumper" class="car-zone" x="110" y="0" width="180" height="36" rx="8"/>
+                                <!-- Techo -->
+                                <rect id="roof" class="car-zone" x="115" y="160" width="170" height="200" rx="12"/>
+                                <!-- Puerta izq -->
+                                <rect id="door_left" class="car-zone" x="40" y="200" width="65" height="140" rx="8"/>
+                                <!-- Puerta der -->
+                                <rect id="door_right" class="car-zone" x="295" y="200" width="65" height="140" rx="8"/>
+                                <!-- Espejos -->
+                                <rect id="mirror_left" class="car-zone" x="5" y="230" width="28" height="44" rx="6"/>
+                                <rect id="mirror_right" class="car-zone" x="367" y="230" width="28" height="44" rx="6"/>
+                                <!-- Salpicaderas -->
+                                <rect id="fender_left" class="car-zone" x="50" y="150" width="55" height="55" rx="8"/>
+                                <rect id="fender_right" class="car-zone" x="295" y="150" width="55" height="55" rx="8"/>
+                                <!-- Maletero -->
+                                <rect id="trunk" class="car-zone" x="105" y="380" width="190" height="120" rx="14"/>
+                                <!-- Parachoques trasero -->
+                                <rect id="rear_bumper" class="car-zone" x="115" y="505" width="180" height="36" rx="8"/>
+                                <text x="200" y="95" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Capó</text>
+                                <text x="200" y="265" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Techo</text>
+                                <text x="200" y="450" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Maletero</text>
+                            </svg>
+                        </div>
+                        <div id="woMapInteriorWrap" class="d-none">
+                            <svg class="workshop-body-map-svg" viewBox="0 0 400 620" xmlns="http://www.w3.org/2000/svg" aria-label="Vista interior vehículo">
+                                <rect x="40" y="20" width="320" height="570" rx="36" fill="#f8f9fb" stroke="#c8d2e5" stroke-width="3"/>
+                                <rect id="dashboard" class="car-zone" x="95" y="42" width="210" height="56" rx="10"/>
+                                <circle id="steering_wheel" class="car-zone" cx="125" cy="125" r="34"/>
+                                <rect id="center_console" class="car-zone" x="175" y="120" width="52" height="170" rx="10"/>
+                                <rect id="front_left_seat" class="car-zone" x="90" y="175" width="72" height="125" rx="12"/>
+                                <rect id="front_right_seat" class="car-zone" x="238" y="175" width="72" height="125" rx="12"/>
+                                <rect id="rear_left_seat" class="car-zone" x="90" y="335" width="72" height="125" rx="12"/>
+                                <rect id="rear_center_seat" class="car-zone" x="164" y="335" width="72" height="125" rx="12"/>
+                                <rect id="rear_right_seat" class="car-zone" x="238" y="335" width="72" height="125" rx="12"/>
+                                <rect id="door_panel_left" class="car-zone" x="52" y="160" width="28" height="305" rx="8"/>
+                                <rect id="door_panel_right" class="car-zone" x="320" y="160" width="28" height="305" rx="8"/>
+                                <rect id="headliner" class="car-zone" x="102" y="305" width="206" height="22" rx="8"/>
+                                <rect id="trunk_interior" class="car-zone" x="120" y="492" width="160" height="74" rx="10"/>
+                                <text x="200" y="77" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Tablero</text>
+                                <text x="200" y="540" text-anchor="middle" fill="#333" font-size="11" pointer-events="none">Baúl interior</text>
+                            </svg>
+                        </div>
                     </div>
                     <ul class="list-unstyled mt-3 mb-0" id="woPointsList"><li class="text-muted small">Cargando…</li></ul>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="woPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header quote-preview-modal-header">
+                <h5 class="modal-title">Vista previa — orden de taller</h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnWoPreviewPrint" title="Imprimir o guardar PDF">Imprimir / PDF</button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0 bg-light" id="woPreviewBody"></div>
+            <div class="modal-footer quote-preview-modal-footer d-print-none">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -280,5 +328,5 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/modules/workshop/order_detail.js') }}?v=27"></script>
+<script src="{{ url_for('static', filename='js/modules/workshop/order_detail.js') }}?v=31"></script>
 {% endblock %}

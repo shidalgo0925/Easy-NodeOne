@@ -119,6 +119,17 @@ def recompute_workshop_order_totals(order: WorkshopOrder) -> None:
     order.total_final = grand
 
 
+def allowed_next_statuses(order: WorkshopOrder) -> list[str]:
+    """Destinos de estado permitidos desde el estado actual (respeta cotización obligatoria, etc.)."""
+    cur = (order.status or 'draft').strip()
+    out: list[str] = []
+    for ns in _TRANSITIONS.get(cur, ()):
+        ok, _ = can_transition(order, ns)
+        if ok:
+            out.append(ns)
+    return out
+
+
 def can_transition(order: WorkshopOrder, new_status: str) -> tuple[bool, str]:
     cur = (order.status or 'draft').strip()
     if new_status not in ORDER_STATUSES:
@@ -138,10 +149,20 @@ def can_transition(order: WorkshopOrder, new_status: str) -> tuple[bool, str]:
 
 
 def apply_transition(order: WorkshopOrder, new_status: str) -> Optional[str]:
+    ns = (new_status or '').strip()
+    old = (order.status or 'draft').strip()
+    if old == ns:
+        return None
     ok, err = can_transition(order, new_status)
     if not ok:
         return err
-    order.status = new_status
+    order.status = ns
+    try:
+        from nodeone.modules.workshop import sla_service
+
+        sla_service.on_status_changed(order, old, ns)
+    except Exception:
+        pass
     return None
 
 

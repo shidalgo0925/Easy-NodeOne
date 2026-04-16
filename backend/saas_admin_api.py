@@ -131,6 +131,18 @@ def list_saas_modules():
     if SaasOrganization.query.get(org_id) is None:
         return jsonify({'success': False, 'error': 'Organización no encontrada'}), 404
 
+    # Autocorregir catálogo/vínculos para que módulos nuevos (ej. workshop/SLA) aparezcan aquí.
+    try:
+        from nodeone.services.saas_catalog_defaults import (
+            ensure_saas_module_catalog,
+            ensure_toggleable_tenant_module_links,
+        )
+
+        ensure_saas_module_catalog()
+        ensure_toggleable_tenant_module_links(organization_id=org_id)
+    except Exception:
+        pass
+
     mods = SaasModule.query.order_by(SaasModule.id).all()
     out = []
     for m in mods:

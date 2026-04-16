@@ -37,6 +37,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         False,
     ),
     (
+        'analytics',
+        'Analítica',
+        'KPIs, tableros por área y APIs de resumen (permiso analytics.view).',
+        False,
+    ),
+    (
         'accounting',
         'Contabilidad',
         'Reservado para contabilidad avanzada (sin guard SaaS en facturas).',
@@ -44,8 +50,8 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
     ),
     (
         'workshop',
-        'Taller',
-        'Recepción de vehículos, inspección (body map), órdenes y enlace a cotización.',
+        'Taller + SLA',
+        'Recepción de vehículos, inspección (body map), monitor operativo y configuración de procesos SLA.',
         False,
     ),
     (
@@ -146,6 +152,7 @@ def ensure_sales_org_module_links(printfn=None) -> None:
 
 # Módulos que el admin puede encender/apagar por empresa (deben tener is_core=False en SAAS_CATALOG_MODULES).
 TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
+    'analytics',
     'appointments',
     'crm',
     'crm_contacts',
@@ -157,6 +164,7 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'marketing_email',
     'policies',
     'academic',
+    'workshop',
 )
 
 
@@ -232,6 +240,27 @@ def ensure_academic_module_dependency(printfn=None) -> None:
     db.session.commit()
 
 
+def ensure_workshop_org_modules_on(printfn=None) -> None:
+    """
+    Enciende saas_org_module para `workshop` donde estaba en off (p. ej. migración que copió ventas apagado).
+    Omitir con NODEONE_WORKSHOP_KEEP_DEFAULT_OFF=1.
+    """
+    if os.environ.get('NODEONE_WORKSHOP_KEEP_DEFAULT_OFF', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    from app import SaasModule, SaasOrgModule, db
+
+    m = SaasModule.query.filter_by(code='workshop').first()
+    if m is None:
+        return
+    n = 0
+    for link in SaasOrgModule.query.filter_by(module_id=m.id, enabled=False).all():
+        link.enabled = True
+        n += 1
+    if n:
+        db.session.commit()
+        _log(printfn, f'* saas_org_module: workshop → on ({n} vínculo(s))')
+
+
 def ensure_academic_org_modules_on(printfn=None) -> None:
     """
     Enciende saas_org_module para `academic` donde estaba en off (instalación inicial lo dejó apagado).
@@ -259,6 +288,7 @@ def ensure_saas_catalog_full(printfn=None) -> None:
     ensure_academic_module_dependency(printfn=printfn)
     ensure_sales_org_module_links(printfn=printfn)
     ensure_toggleable_tenant_module_links(printfn=printfn)
+    ensure_workshop_org_modules_on(printfn=printfn)
     ensure_academic_org_modules_on(printfn=printfn)
 
 

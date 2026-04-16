@@ -1,0 +1,29 @@
+/* Tableros Analytics / KPIs (admin) */
+.analytics-kpi-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.35rem;
+  background: var(--bs-body-bg);
+  padding: 0.85rem 1rem;
+  height: 100%;
+}
+.analytics-kpi-card .kpi-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bs-secondary-color);
+  margin-bottom: 0.25rem;
+}
+.analytics-kpi-card .kpi-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--bs-emphasis-color);
+}
+.analytics-kpi-card .kpi-hint {
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+  margin-top: 0.35rem;
+}
+.analytics-board-nav .nav-link.active {
+  font-weight: 600;
+}

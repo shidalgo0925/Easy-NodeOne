@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
+
+{% block title %}Analítica y KPIs | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics-dashboard.css') }}?v=1">
+{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 analytics-dashboard-page">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h4 mb-1">Analítica y KPIs</h1>
+            <p class="text-muted small mb-0">Indicadores por período y área. Los datos respetan la empresa activa en sesión.</p>
+        </div>
+    </div>
+
+    <ul class="nav nav-pills flex-wrap gap-1 analytics-board-nav mb-3">
+        <li class="nav-item">
+            <a class="nav-link py-1 px-2 {% if board == 'executive' %}active{% endif %}" href="{{ url_for('admin_analytics') }}">Ejecutivo</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link py-1 px-2 {% if board == 'sales' %}active{% endif %}" href="{{ url_for('admin_analytics_sales') }}">Ventas</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link py-1 px-2 {% if board == 'crm' %}active{% endif %}" href="{{ url_for('admin_analytics_crm') }}">CRM</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link py-1 px-2 {% if board == 'members' %}active{% endif %}" href="{{ url_for('admin_analytics_members') }}">Miembros</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link py-1 px-2 {% if board == 'registrations' %}active{% endif %}" href="{{ url_for('admin_analytics_registrations') }}">Registros</a>
+        </li>
+    </ul>
+
+    {% call admin_filter_collapse('adminAnalyticsFilters', 'Filtros de período', expanded=True, margin_class='mb-3') %}
+    <form method="get" action="{{ request.path }}" class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+            <label class="form-label small mb-0" for="analyticsStart">Desde</label>
+            <input type="date" class="form-control form-control-sm" id="analyticsStart" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="col-12 col-md-3">
+            <label class="form-label small mb-0" for="analyticsEnd">Hasta</label>
+            <input type="date" class="form-control form-control-sm" id="analyticsEnd" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="col-12 col-md-6 d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ request.path }}">Mes en curso</a>
+        </div>
+    </form>
+    {% endcall %}
+
+    {% if board == 'executive' %}
+    {% set k = snapshot.kpis %}
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Ventas confirmadas (valor)</div>
+                <div class="kpi-value text-primary">{{ k.sales_month }}</div>
+                <div class="kpi-hint">Cotiz. confirmadas / facturadas en período</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Facturación (emitida)</div>
+                <div class="kpi-value">{{ k.invoicing_posted }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Facturas pagadas</div>
+                <div class="kpi-value text-success">{{ k.invoices_paid_sum }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Pagos recibidos</div>
+                <div class="kpi-value">{{ k.payments_received }}</div>
+                <div class="kpi-hint">{{ k.payments_count }} pago(s) exitoso(s)</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Cotizaciones</div>
+                <div class="kpi-value">{{ k.quotations_count }}</div>
+                <div class="kpi-hint">Total {{ k.quotations_sum }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Conversión</div>
+                <div class="kpi-value">{{ k.conversion_rate_pct }}%</div>
+                <div class="kpi-hint">Confirmadas / total en período</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Facturas emitidas</div>
+                <div class="kpi-value">{{ k.invoices_issued }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Saldo por cobrar (posted)</div>
+                <div class="kpi-value text-warning">{{ k.balance_receivable }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Ticket medio / cliente</div>
+                <div class="kpi-value">{{ k.avg_revenue_per_customer }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Citas (período)</div>
+                <div class="kpi-value">{{ k.appointments_scheduled }}</div>
+                <div class="kpi-hint">{{ k.appointments_completed }} completadas</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Nuevos miembros (usuarios)</div>
+                <div class="kpi-value">{{ k.new_members }}</div>
+                <div class="kpi-hint">{{ k.new_org_links }} vínculos org · {{ k.memberships_new }} membresías</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">CRM — oportunidades abiertas</div>
+                <div class="kpi-value">{{ k.crm_open_opportunities }}</div>
+                <div class="kpi-hint">Pipeline ~ {{ k.crm_pipeline_value }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Leads nuevos</div>
+                <div class="kpi-value">{{ k.crm_leads_new }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Cotiz. pendientes</div>
+                <div class="kpi-value">{{ k.quotations_pending }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Facturas vencidas</div>
+                <div class="kpi-value text-danger">{{ k.invoices_overdue_count }}</div>
+                <div class="kpi-hint">{{ k.invoices_overdue_sum }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 col-xl-2">
+            <div class="analytics-kpi-card">
+                <div class="kpi-label">Actividades CRM vencidas</div>
+                <div class="kpi-value">{{ k.crm_overdue_activities }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header py-2"><strong>Facturación por mes</strong> <span class="text-muted small">(últimos meses con movimiento)</span></div>
+                <div class="card-body">
+                    <canvas id="chartInvoicing" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header py-2"><strong>Cotizaciones por estado</strong> <span class="text-muted small">(período)</span></div>
+                <div class="card-body">
+                    <canvas id="chartQuotationsStatus" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <strong>Top clientes</strong>
+                    <a class="small" href="{{ url_for('admin_accounting_invoices') }}">Ir a facturas</a>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Cliente</th><th class="text-end">Facturado</th></tr></thead>
+                        <tbody>
+                            {% for row in snapshot.top_clients %}
+                            <tr><td>{{ row.label }}</td><td class="text-end">B/. {{ '%.2f'|format(row.total) }}</td></tr>
+                            {% else %}
+                            <tr><td colspan="2" class="text-muted px-3 py-2">Sin datos en el período.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <strong>Próximas citas</strong>
+                    <a class="small" href="{{ url_for('appointments.appointments_home') }}">Agenda</a>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Inicio</th><th>Estado</th></tr></thead>
+                        <tbody>
+                            {% for a in snapshot.upcoming_appointments %}
+                            <tr>
+                                <td>{% if a.start %}{{ a.start[:16]|replace('T',' ') }}{% else %}—{% endif %}</td>
+                                <td>{{ a.status or '—' }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2" class="text-muted px-3 py-2">No hay citas futuras.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-primary mb-3">
+        <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-bolt me-1"></i> Actividad reciente (24 h)</span>
+            <span class="badge bg-light text-primary" id="analyticsRealtimeStamp">…</span>
+        </div>
+        <div class="card-body py-2">
+            <div class="row g-2 text-center small">
+                <div class="col-6 col-md-3"><div class="text-muted">Usuarios nuevos</div><div class="fs-5 fw-semibold" id="rtNewUsers">—</div></div>
+                <div class="col-6 col-md-3"><div class="text-muted">Membresías nuevas</div><div class="fs-5 fw-semibold" id="rtNewMem">—</div></div>
+                <div class="col-6 col-md-3"><div class="text-muted">Pagos (mov.)</div><div class="fs-5 fw-semibold" id="rtNewPay">—</div></div>
+                <div class="col-6 col-md-3"><div class="text-muted">Ingresos cobrados</div><div class="fs-5 fw-semibold" id="rtRev">—</div></div>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted small mb-0">
+        Exportación CSV/Excel/PDF y tableros adicionales se irán conectando por área. API resumen:
+        <code>/api/admin/analytics/summary</code> (mismos filtros <code>start_date</code>, <code>end_date</code>).
+    </p>
+    {% endif %}
+
+    {% if board == 'sales' %}
+    {% set k = snapshot.kpis %}
+    <div class="alert alert-light border mb-3">
+        <strong>Ventas</strong> — Cotizaciones, conversión y ranking de vendedores en el período.
+        <a href="{{ url_for('admin_sales_quotations') }}" class="alert-link ms-2">Cotizaciones</a>
+        · <a href="{{ url_for('admin_accounting_invoices') }}" class="alert-link">Facturas</a>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Cotizaciones</div><div class="kpi-value">{{ k.quotations_count }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Conversión</div><div class="kpi-value">{{ k.conversion_rate_pct }}%</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Facturación emitida</div><div class="kpi-value">{{ k.invoicing_posted }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Ticket medio</div><div class="kpi-value">{{ k.avg_revenue_per_customer }}</div></div></div>
+    </div>
+    <div class="card shadow-sm">
+        <div class="card-header py-2"><strong>Ventas por vendedor</strong></div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Vendedor</th><th class="text-end">Cotizaciones</th><th class="text-end">Total cotizado</th></tr></thead>
+                <tbody>
+                    {% for row in sales_extra['by_salesperson'] %}
+                    <tr>
+                        <td>{{ row.name }}</td>
+                        <td class="text-end">{{ row.count }}</td>
+                        <td class="text-end">B/. {{ '%.2f'|format(row.total) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="text-muted px-3 py-2">Sin vendedor asignado o sin movimientos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if board == 'crm' %}
+    {% set c = crm_board %}
+    <div class="alert alert-light border mb-3">
+        <strong>CRM</strong> — Embudo y actividades.
+        <a href="{{ url_for('admin_crm_dashboard') }}" class="alert-link ms-2">Abrir CRM</a>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Leads nuevos</div><div class="kpi-value">{{ c.leads_new }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Oportunidades abiertas</div><div class="kpi-value">{{ c.opportunities_open }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Ganadas (período)</div><div class="kpi-value text-success">{{ c.opportunities_won_period }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Perdidas (período)</div><div class="kpi-value text-danger">{{ c.opportunities_lost_period }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Actividades vencidas</div><div class="kpi-value">{{ c.activities_overdue }}</div></div></div>
+    </div>
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header py-2"><strong>Cotizaciones por estado</strong> <span class="text-muted small">(período, cruce ventas)</span></div>
+                <div class="card-body"><canvas id="chartQuotationsStatusCrm" height="160"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header py-2"><strong>Valor pipeline (abierto)</strong></div>
+                <div class="card-body">
+                    <p class="mb-0 fs-4">{{ snapshot.kpis.crm_pipeline_value }}</p>
+                    <p class="text-muted small mb-0">Suma aproximada ingreso esperado × probabilidad en oportunidades no ganadas/perdidas.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if board == 'members' %}
+    {% set m = metrics.memberships %}
+    <div class="alert alert-info mb-3 py-2 small">
+        <strong>Miembros</strong> — Resumen desde membresías y vínculos de usuario. Reportes detallados (planes, renovaciones) se añadirán como vistas enlazadas.
+    </div>
+    <div class="row g-2">
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Miembros (vínculos activos)</div><div class="kpi-value">{{ snapshot.kpis.active_memberships_links }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Usuarios en la org</div><div class="kpi-value">{{ snapshot.kpis.total_users_org }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Nuevas membresías (período)</div><div class="kpi-value">{{ m.new_memberships }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="analytics-kpi-card"><div class="kpi-label">Membresías activas (filas)</div><div class="kpi-value">{{ m.active_memberships }}</div></div></div>
+    </div>
+    {% if m.by_type %}
+    <ul class="list-unstyled small mt-3">
+        {% for t, n in m.by_type.items() %}
+        <li><span class="badge bg-secondary">{{ t }}</span> — {{ n }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endif %}
+
+    {% if board == 'registrations' %}
+    <div class="alert alert-info mb-3 py-2 small">
+        <strong>Registros</strong> — Altas de usuarios y vínculos a la organización en el período seleccionado.
+    </div>
+    <div class="row g-2">
+        <div class="col-6 col-md-4"><div class="analytics-kpi-card"><div class="kpi-label">Nuevos usuarios (org)</div><div class="kpi-value">{{ metrics.users.new_users }}</div></div></div>
+        <div class="col-6 col-md-4"><div class="analytics-kpi-card"><div class="kpi-label">Usuarios activos</div><div class="kpi-value">{{ metrics.users.active_users }}</div></div></div>
+        <div class="col-6 col-md-4"><div class="analytics-kpi-card"><div class="kpi-label">Nuevos vínculos org</div><div class="kpi-value">{{ snapshot.kpis.new_org_links }}</div></div></div>
+    </div>
+    {% endif %}
+</div>
+
+{% if board == 'executive' or board == 'crm' %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  const qsData = {{ snapshot.quotations_by_status | tojson }};
+  const labels = Object.keys(qsData);
+  const values = Object.values(qsData);
+  const inv = {{ snapshot.charts.invoicing_by_month | tojson }};
+
+  var elInv = document.getElementById('chartInvoicing');
+  if (elInv && inv && inv.length) {
+    new Chart(elInv, {
+      type: 'bar',
+      data: {
+        labels: inv.map(function (d) { return d.month; }),
+        datasets: [{ label: 'Facturación B/.', data: inv.map(function (d) { return d.total; }), backgroundColor: 'rgba(13, 110, 253, 0.35)', borderColor: 'rgba(13, 110, 253, 1)', borderWidth: 1 }]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+  }
+  function doughnutOn(id) {
+    var el = document.getElementById(id);
+    if (!el || !labels.length) return;
+    new Chart(el, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{ data: values, backgroundColor: ['#6c757d','#0d6efd','#198754','#fd7e14','#dc3545','#6610f2'] }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+  doughnutOn('chartQuotationsStatus');
+  doughnutOn('chartQuotationsStatusCrm');
+})();
+</script>
+{% endif %}
+
+{% if board == 'executive' %}
+<script>
+(function(){
+  function tick() {
+    fetch('{{ url_for("api_admin_analytics_realtime") }}', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.last_24h) return;
+        var elU = document.getElementById('rtNewUsers');
+        if (elU) elU.textContent = data.last_24h.new_users || 0;
+        var elM = document.getElementById('rtNewMem');
+        if (elM) elM.textContent = data.last_24h.new_memberships || 0;
+        var elP = document.getElementById('rtNewPay');
+        if (elP) elP.textContent = data.last_24h.new_payments || 0;
+        var elR = document.getElementById('rtRev');
+        if (elR) elR.textContent = 'B/. ' + (data.last_24h.revenue_24h || 0).toFixed(2);
+        var st = document.getElementById('analyticsRealtimeStamp');
+        if (st && data.timestamp) st.textContent = data.timestamp.replace('T', ' ').slice(0, 19);
+      })
+      .catch(function () {});
+  }
+  tick();
+  setInterval(tick, 60000);
+})();
+</script>
+{% endif %}
+{% endblock %}

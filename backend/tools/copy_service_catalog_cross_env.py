@@ -207,7 +207,7 @@ def main() -> int:
                 )
 
             st = (r['service_type'] or 'AGENDABLE').upper()
-            if st not in ('AGENDABLE', 'CONSULTIVO'):
+            if st not in ('AGENDABLE', 'CONSULTIVO', 'CV_REGISTRATION'):
                 st = 'AGENDABLE'
 
             new_id = conn.execute(

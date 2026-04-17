@@ -330,8 +330,8 @@ class Service(db.Model):
     base_price = db.Column(db.Float, default=50.0)  # Precio base en USD
     is_active = db.Column(db.Boolean, default=True)
     display_order = db.Column(db.Integer, default=0)  # Orden de visualización
-    # CONSULTIVO = primera reunión → propuesta → pago. AGENDABLE = calendario → pago → confirmado.
-    service_type = db.Column(db.String(20), nullable=False, default='AGENDABLE')  # CONSULTIVO | AGENDABLE
+    # CONSULTIVO | AGENDABLE | CV_REGISTRATION (formulario público de hoja de vida, sin cita).
+    service_type = db.Column(db.String(20), nullable=False, default='AGENDABLE')
     # Campos para cita de diagnóstico
     requires_diagnostic_appointment = db.Column(db.Boolean, default=False)  # Si requiere cita diagnóstico antes de usar
     diagnostic_appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=True)  # Tipo de cita de diagnóstico
@@ -516,6 +516,8 @@ class Service(db.Model):
     
     def requires_appointment(self):
         """Verifica si el servicio requiere cita."""
+        if (getattr(self, 'service_type', None) or '').strip().upper() == 'CV_REGISTRATION':
+            return False
         return self.appointment_type_id is not None and self.is_active
     
     def is_free_service(self, user_membership_type=None):

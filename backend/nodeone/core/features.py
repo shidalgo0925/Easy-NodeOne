@@ -410,6 +410,18 @@ def register_public_auth_legacy_routes(app):
         print(f'Warning: No se pudieron registrar rutas public auth legacy: {e}')
 
 
+def register_cv_application_routes(app):
+    """Formulario público /cv/registro y listado admin /admin/cv-applications."""
+    if 'cv_registro' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.cv_applications.routes import register_cv_application_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas CV applications: {e}')
+
+
 def register_public_api_blueprint(app):
     if os.environ.get('NODEONE_SKIP_PUBLIC_API_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -824,6 +836,7 @@ def register_modules(app):
     register_public_and_org_switch_routes(app)
     register_public_membership_routes(app)
     register_public_auth_legacy_routes(app)
+    register_cv_application_routes(app)
     register_public_api_blueprint(app)
     register_ai_api_blueprint(app)
     register_admin_email_api_blueprint(app)

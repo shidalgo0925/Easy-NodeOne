@@ -5,10 +5,31 @@ Complementa la política técnica de [`REGLAS-DE-TRABAJO.md`](../REGLAS-DE-TRABA
 
 ---
 
+## Antes de tocar código
+
+**Antes de tocar código**, leé [`REGLAS-DE-TRABAJO.md`](../REGLAS-DE-TRABAJO.md) en la raíz del repo (`/opt/easynodeone/dev/app`): único punto de edición manual, ramas (`develop` / `main`), prohibiciones en staging/prod/relatic y flujo Git.
+
+---
+
+## Norma: desplegar solo versión acordada (tag o commit)
+
+Esta norma aplica a **staging**, **prod** y **relatic** (cualquier silo que no sea `dev/app`).
+
+1. **No** actualizar contra “lo último de `develop`” ni hacer `git pull` a ciegas sin saber **qué revisión** queda en el servidor.
+2. Cada despliegue va contra un **tag** (p. ej. `v3.0.2`) o **commit** explícito que te indiquen. Si no te pasan referencia, **parar** y pedirla antes de tocar el silo.
+3. Flujo típico: `git fetch origin --tags` y luego dejar el checkout en el **tag** o **commit** acordado (p. ej. `git checkout vX.Y.Z`, o avanzar `main` con merge/`--ff-only` hasta ese commit, según procedimiento del equipo).
+4. **No** machacar `.env` ni secretos con el repo: solo código desde Git; configuración **por entorno** local al silo.
+
+**Frase para el equipo:** *Solo se despliega el tag o el commit que te den; nunca “el último de develop” sin etiqueta.*
+
+Detalle de release (ejemplo operativo): [`PLAN_RELEASE_3.0.1_OPERACION.md`](PLAN_RELEASE_3.0.1_OPERACION.md).
+
+---
+
 ## Antes de tocar producción
 
-1. **Código** mergeado y pusheado según el flujo acordado (p. ej. `develop` → `main`).
-2. **Staging** actualizado (`git pull` en `staging/app`), dependencias y **migraciones** aplicadas si corresponde, **servicio reiniciado**.
+1. **Código** mergeado y pusheado según el flujo acordado (p. ej. `develop` → `main`) y **referencia de despliegue** acordada (tag o commit).
+2. **Staging** actualizado en `staging/app` **al commit/tag acordado** (`git fetch`, luego checkout/merge según procedimiento), dependencias y **migraciones** aplicadas si corresponde, **servicio reiniciado**.
 3. **Validación en staging** hecha (flujos críticos que usan los clientes afectados).
 4. Anotar **commit o tag** que vas a llevar a prod (para rastreo y rollback mental).
 

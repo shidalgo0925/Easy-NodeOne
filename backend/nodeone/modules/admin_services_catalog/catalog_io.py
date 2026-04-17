@@ -33,7 +33,7 @@ EXPORT_COLUMNS = [
 ]
 
 _MEMBERSHIP_ALLOWED = frozenset({'basic', 'pro', 'premium', 'deluxe', 'corporativo'})
-_SERVICE_TYPES = frozenset({'AGENDABLE', 'CONSULTIVO'})
+_SERVICE_TYPES = frozenset({'AGENDABLE', 'CONSULTIVO', 'CV_REGISTRATION'})
 
 
 def _is_blank(v: Any) -> bool:
@@ -211,20 +211,21 @@ def validate_import_rows(rows: list[dict[str, Any]], oid: int) -> list[tuple[int
             )
         st = (_cell_str(row.get('service_type')) or 'AGENDABLE').upper()
         if st not in _SERVICE_TYPES:
-            errors.append((i, f'service_type inválido: {st}. Use AGENDABLE o CONSULTIVO'))
+            errors.append((i, f'service_type inválido: {st}. Use AGENDABLE, CONSULTIVO o CV_REGISTRATION'))
         cat_name = _cell_str(row.get('category_name'))
         if cat_name and _resolve_category_id(cat_name) is None:
             errors.append((i, f'Categoría no encontrada: {cat_name}'))
 
-        aid = _parse_optional_int(row.get('appointment_type_id'))
-        err = _validate_appointment_type(aid, oid)
-        if err:
-            errors.append((i, err))
+        if st != 'CV_REGISTRATION':
+            aid = _parse_optional_int(row.get('appointment_type_id'))
+            err = _validate_appointment_type(aid, oid)
+            if err:
+                errors.append((i, err))
 
-        did = _parse_optional_int(row.get('diagnostic_appointment_type_id'))
-        err = _validate_appointment_type(did, oid)
-        if err:
-            errors.append((i, f'Diagnóstico: {err}'))
+            did = _parse_optional_int(row.get('diagnostic_appointment_type_id'))
+            err = _validate_appointment_type(did, oid)
+            if err:
+                errors.append((i, f'Diagnóstico: {err}'))
 
         dtid = _parse_optional_int(row.get('default_tax_id'))
         err = _validate_tax(dtid, oid)
@@ -281,6 +282,9 @@ def apply_import_rows(rows: list[dict[str, Any]], oid: int) -> tuple[int, int]:
             'diagnostic_appointment_type_id': _parse_optional_int(row.get('diagnostic_appointment_type_id')),
             'default_tax_id': _parse_optional_int(row.get('default_tax_id')),
         }
+        if payload['service_type'] == 'CV_REGISTRATION':
+            payload['appointment_type_id'] = None
+            payload['diagnostic_appointment_type_id'] = None
 
         if service:
             service.name = payload['name']

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Hoja de vida — {{ service.name }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth-login.css') }}">
+{% endblock %}
+
+{% block page_content %}
+{% macro fv(name, default='') -%}
+{%- if form is not none -%}{{ form.get(name, default) }}{%- else -%}{{ default }}{%- endif -%}
+{%- endmacro %}
+<div class="container auth-login-page py-3 py-md-4">
+    <div class="row justify-content-center auth-login-page__inner">
+        <div class="col-12 col-lg-10 col-xl-9">
+            <div class="card auth-login-card auth-sheet-compact shadow-sm">
+                <div class="card-header text-white">
+                    <h2 class="mb-0"><i class="fas fa-file-alt me-2"></i>Hoja de vida</h2>
+                    <p class="auth-login-sub mb-0">{{ service.name }}</p>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show py-2 small" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                    {% endwith %}
+
+                    <form method="post" action="{{ url_for('cv_registro', service=service.id) }}" class="auth-sheet-material" novalidate>
+                        <input type="hidden" name="service" value="{{ service.id }}">
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-4 auth-sheet-field">
+                                <label class="form-label" for="cv_salutation">Tratamiento</label>
+                                <select class="form-select" id="cv_salutation" name="salutation">
+                                    <option value="">—</option>
+                                    <option value="Sr." {% if fv('salutation') == 'Sr.' %}selected{% endif %}>Sr.</option>
+                                    <option value="Sra." {% if fv('salutation') == 'Sra.' %}selected{% endif %}>Sra.</option>
+                                    <option value="Otro" {% if fv('salutation') == 'Otro' %}selected{% endif %}>Otro</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4 auth-sheet-field">
+                                <label class="form-label" for="cv_first_name">Nombre <span class="text-danger">*</span></label>
+                                <input class="form-control" id="cv_first_name" name="first_name" required autocomplete="given-name" value="{{ fv('first_name') }}">
+                            </div>
+                            <div class="col-12 col-md-4 auth-sheet-field">
+                                <label class="form-label" for="cv_last_name">Apellidos <span class="text-danger">*</span></label>
+                                <input class="form-control" id="cv_last_name" name="last_name" required autocomplete="family-name" value="{{ fv('last_name') }}">
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-4 auth-sheet-field">
+                                <label class="form-label" for="cv_birth_date">Fecha de nacimiento</label>
+                                <input class="form-control" type="date" id="cv_birth_date" name="birth_date" value="{{ fv('birth_date') }}">
+                            </div>
+                            <div class="col-12 col-md-4 auth-sheet-field">
+                                <label class="form-label" for="cv_gender">Género</label>
+                                <select class="form-select" id="cv_gender" name="gender">
+                                    <option value="">—</option>
+                                    <option value="Femenino" {% if fv('gender') == 'Femenino' %}selected{% endif %}>Femenino</option>
+                                    <option value="Masculino" {% if fv('gender') == 'Masculino' %}selected{% endif %}>Masculino</option>
+                                    <option value="Otro / prefiero no decir" {% if fv('gender') == 'Otro / prefiero no decir' %}selected{% endif %}>Otro / prefiero no decir</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4 auth-sheet-field">
+                                <label class="form-label" for="cv_phone">Teléfono</label>
+                                <input class="form-control" id="cv_phone" name="phone" type="tel" autocomplete="tel" value="{{ fv('phone') }}">
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_email">Correo electrónico <span class="text-danger">*</span></label>
+                                <input class="form-control" id="cv_email" name="email" type="email" required autocomplete="email" value="{{ fv('email') }}">
+                            </div>
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_email_confirm">Confirmar correo <span class="text-danger">*</span></label>
+                                <input class="form-control" id="cv_email_confirm" name="email_confirm" type="email" required autocomplete="email" value="{{ fv('email_confirm') }}">
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_country">País de residencia</label>
+                                <input class="form-control" id="cv_country" name="country_residence" autocomplete="country-name" value="{{ fv('country_residence') }}">
+                            </div>
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_province">Provincia / región</label>
+                                <input class="form-control" id="cv_province" name="province" value="{{ fv('province') }}">
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_education">Nivel de estudios</label>
+                                <input class="form-control" id="cv_education" name="education_level" value="{{ fv('education_level') }}">
+                            </div>
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_sector">Sector de interés</label>
+                                <input class="form-control" id="cv_sector" name="preferred_sector" value="{{ fv('preferred_sector') }}">
+                            </div>
+                        </div>
+
+                        <div class="auth-sheet-field">
+                            <label class="form-label" for="cv_langs">Otros idiomas</label>
+                            <textarea class="form-control" id="cv_langs" name="other_languages" rows="2">{{ fv('other_languages') }}</textarea>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_years">Años de experiencia en el sector</label>
+                                <input class="form-control" id="cv_years" name="years_experience_sector" value="{{ fv('years_experience_sector') }}">
+                            </div>
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_referral">¿Cómo nos conociste?</label>
+                                <input class="form-control" id="cv_referral" name="referral_source" value="{{ fv('referral_source') }}">
+                            </div>
+                        </div>
+
+                        <div class="auth-sheet-field">
+                            <label class="form-label" for="cv_comments">Comentarios adicionales</label>
+                            <textarea class="form-control" id="cv_comments" name="additional_comments" rows="3">{{ fv('additional_comments') }}</textarea>
+                        </div>
+
+                        <p class="form-text small mb-2">Los campos marcados con <span class="text-danger">*</span> son obligatorios. Tus datos se usan solo para procesos de selección asociados a este servicio.</p>
+
+                        <div class="d-flex flex-wrap gap-2 align-items-center pt-1">
+                            <button type="submit" class="btn btn-primary">Enviar</button>
+                            <a href="{{ url_for('services.list') }}" class="btn btn-link btn-sm text-decoration-none">Volver al catálogo</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

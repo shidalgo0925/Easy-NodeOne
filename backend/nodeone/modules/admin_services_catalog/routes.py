@@ -81,8 +81,10 @@ def admin_services_create():
                     return jsonify({'success': False, 'error': 'Tipo de cita no encontrado'}), 400
 
         service_type = (data.get('service_type') or 'AGENDABLE').strip().upper()
-        if service_type not in ('CONSULTIVO', 'AGENDABLE'):
+        if service_type not in ('CONSULTIVO', 'AGENDABLE', 'CV_REGISTRATION'):
             service_type = 'AGENDABLE'
+        if service_type == 'CV_REGISTRATION':
+            appointment_type_id = None
         oid = _admin_catalog_org_id()
         try:
             dtid = _coerce_default_tax_id(data, oid)
@@ -172,19 +174,23 @@ def admin_services_update(service_id):
         service.display_order = int(data.get('display_order', service.display_order))
 
         service_type = (data.get('service_type') or getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE').strip().upper()
-        if service_type in ('CONSULTIVO', 'AGENDABLE'):
+        if service_type in ('CONSULTIVO', 'AGENDABLE', 'CV_REGISTRATION'):
             service.service_type = service_type
-
-        appointment_type_id = data.get('appointment_type_id')
-        if appointment_type_id == '' or appointment_type_id is None:
+        if service_type == 'CV_REGISTRATION':
             service.appointment_type_id = None
-        else:
-            appointment_type_id = int(appointment_type_id) if appointment_type_id else None
-            if appointment_type_id:
-                appointment_type = M.AppointmentType.query.get(appointment_type_id)
-                if not appointment_type:
-                    return jsonify({'success': False, 'error': 'Tipo de cita no encontrado'}), 400
-            service.appointment_type_id = appointment_type_id
+            service.diagnostic_appointment_type_id = None
+
+        if (service.service_type or '').strip().upper() != 'CV_REGISTRATION':
+            appointment_type_id = data.get('appointment_type_id')
+            if appointment_type_id == '' or appointment_type_id is None:
+                service.appointment_type_id = None
+            else:
+                appointment_type_id = int(appointment_type_id) if appointment_type_id else None
+                if appointment_type_id:
+                    appointment_type = M.AppointmentType.query.get(appointment_type_id)
+                    if not appointment_type:
+                        return jsonify({'success': False, 'error': 'Tipo de cita no encontrado'}), 400
+                service.appointment_type_id = appointment_type_id
 
         service.updated_at = datetime.utcnow()
 

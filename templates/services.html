@@ -118,7 +118,12 @@
                             Ver más <i class="fas fa-arrow-right ms-1"></i>
                         </a>
                         {% endif %}
-                        {% if service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
+                        {% if (service.service_type or '') == 'CV_REGISTRATION' %}
+                        <a href="{{ url_for('cv_registro', service=service.id) }}" class="btn btn-sm btn-primary align-self-start">
+                            <i class="fas fa-file-alt me-1"></i>Enviar hoja de vida
+                        </a>
+                        <small class="text-muted small">Formulario público; no requiere iniciar sesión.</small>
+                        {% elif service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
                             {% if current_user.is_authenticated %}
                                 {% if service.service_type == 'CONSULTIVO' %}
                                 <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
@@ -151,7 +156,9 @@
                                 {% endif %}
                                 <div class="text-muted small">
                                     <strong>${{ "%.2f"|format(service.pricing.final_price) }}</strong>
+                                    {% if (service.service_type or '') != 'CV_REGISTRATION' %}
                                     <small class="d-block mt-1">Usá «Solicitar cita» para agregar al carrito.</small>
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         {% endif %}

@@ -41,9 +41,13 @@ def get_active_services(organization_id=None):
     oid = _member_org_id(organization_id)
     if oid is None:
         return []
-    return Service.query.filter_by(organization_id=oid, is_active=True).order_by(
-        Service.display_order, Service.name
-    ).all()
+    # COURSE: programas con convocatorias; la venta principal es el landing + API pública, no el catálogo de citas.
+    return (
+        Service.query.filter_by(organization_id=oid, is_active=True)
+        .filter(Service.service_type != 'COURSE')
+        .order_by(Service.display_order, Service.name)
+        .all()
+    )
 
 
 def get_service_or_404(service_id, organization_id=None):

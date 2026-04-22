@@ -18,7 +18,7 @@ try:
 except ImportError:
     get_office365_request_email = None
 
-OFFICE365_PRO_OR_ABOVE = ('admin', 'pro', 'premium', 'deluxe', 'corporativo')
+OFFICE365_PRO_OR_ABOVE = ('admin', 'personal', 'emprendedor', 'ejecutivo')
 
 
 def _policies_module_enabled_for_user(user) -> bool:

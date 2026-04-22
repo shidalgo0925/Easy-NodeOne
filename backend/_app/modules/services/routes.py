@@ -22,6 +22,7 @@ def list():
         'services.html',
         membership=data['membership'],
         services_by_plan=data['services_by_plan'],
+        services_unique=data['services_unique'],
         plans_info=data['plans_info'],
         categories=data['categories'],
         user_membership_type=data['user_membership_type'],

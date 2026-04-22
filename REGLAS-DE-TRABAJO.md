@@ -2,6 +2,8 @@
 
 Documento fijo para programadores y operación. Política **obligatoria** salvo acuerdo explícito por escrito del responsable del proyecto.
 
+**Antes de tocar código:** leé **este documento** completo. Para **cada despliegue** o comunicación a clientes, consultá también el checklist [`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) (incluye la norma de **tag o commit explícito** en silos que no son dev).
+
 ---
 
 ## Regla oficial (absoluta)
@@ -45,9 +47,15 @@ No se programa ahí. Solo reciben el código ya versionado.
 
 ### Staging
 
+El silo suele seguir la rama **`main`**, pero el código desplegado debe ser siempre una **revisión acordada** (tag o commit), no “lo último” sin confirmación. Ver norma en [`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md).
+
 ```bash
 cd /opt/easynodeone/staging/app
-git pull origin main
+git fetch origin --tags
+# Ejemplo: dejar el árbol exactamente en el release acordado
+# git checkout vX.Y.Z
+# O, si el equipo avanza main hasta un commit conocido:
+# git pull origin main   # solo si ese pull deja el hash/tag acordado
 ```
 
 Luego: instalar dependencias si aplica, migraciones / DDL si aplica, reiniciar servicio, validar.
@@ -56,23 +64,25 @@ Luego: instalar dependencias si aplica, migraciones / DDL si aplica, reiniciar s
 
 ### Prod
 
-Solo después de aprobar staging:
+Solo después de aprobar staging, y **misma revisión** (tag/commit) que validaste, salvo que el release doc diga lo contrario:
 
 ```bash
 cd /opt/easynodeone/prod/app
-git pull origin main
+git fetch origin --tags
+# git checkout vX.Y.Z   # u operación equivalente acordada con el equipo
 ```
 
 Luego: migraciones / DDL si aplica, reinicio, verificación (y `journalctl` si el reinicio falla). Misma guía *Lecciones* en el checklist de despliegue.
 
 ### Relatic
 
-Igual; sin tocar código a mano:
+Igual; sin tocar código a mano; **misma norma de versión explícita** (tag/commit acordado):
 
 ```bash
 cd /opt/easynodeone/relatic/app
-git pull origin main
-# o, si existe política explícita: git pull origin relatic
+git fetch origin --tags
+# git checkout vX.Y.Z
+# o rama explícita solo si política acordada: git pull origin relatic
 ```
 
 ---

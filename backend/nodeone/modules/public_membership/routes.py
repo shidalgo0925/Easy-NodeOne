@@ -132,9 +132,9 @@ def register_public_membership_routes(app):
         pricing_monthly = {p.slug: float(p.price_monthly or 0) for p in plans}
         pricing_yearly = {p.slug: float(p.price_yearly or 0) for p in plans}
         if not pricing_monthly:
-            pricing_monthly = {'basic': 0, 'pro': 5, 'premium': 10, 'deluxe': 15, 'corporativo': 25}
+            pricing_monthly = {'basic': 0, 'personal': 12.42, 'emprendedor': 37.42, 'ejecutivo': 79.08}
         if not pricing_yearly:
-            pricing_yearly = {'basic': 0, 'pro': 60, 'premium': 120, 'deluxe': 200, 'corporativo': 300}
+            pricing_yearly = {'basic': 0, 'personal': 149, 'emprendedor': 449, 'ejecutivo': 949}
     
         # Servicios activos solo de la empresa del usuario (no mezclar con otras orgs)
         _svc_org = tenant_data_organization_id()
@@ -146,9 +146,9 @@ def register_public_membership_routes(app):
         try:
             membership_hierarchy = MembershipPlan.get_hierarchy()
             if not membership_hierarchy:
-                membership_hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4}
+                membership_hierarchy = {'basic': 0, 'personal': 1, 'emprendedor': 2, 'ejecutivo': 3}
         except Exception:
-            membership_hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4}
+            membership_hierarchy = {'basic': 0, 'personal': 1, 'emprendedor': 2, 'ejecutivo': 3}
     
         # Para cada servicio, determinar en qué planes está disponible
         # Esto se usará en el template para mostrar checkmarks
@@ -163,10 +163,18 @@ def register_public_membership_routes(app):
             available_plans = []
         
             # SIEMPRE incluir el membership_type base del servicio (CRÍTICO)
-            # Esto asegura que un servicio con membership_type='corporativo' siempre aparezca en corporativo
+            # Esto asegura que un servicio con membership_type='ejecutivo' aparezca en esa columna, etc.
             if service.membership_type:
-                if service.membership_type not in available_plans:
-                    available_plans.append(service.membership_type)
+                smt = (service.membership_type or '').strip().lower()
+                # ``basic`` en el servicio = disponible para todos los planes de pago (no hay fila de venta ``basic``).
+                if smt == 'basic':
+                    for slug, tier in membership_hierarchy.items():
+                        if slug in ('admin', 'basic'):
+                            continue
+                        if tier > 0 and slug not in available_plans:
+                            available_plans.append(slug)
+                elif smt not in available_plans:
+                    available_plans.append(smt)
         
             # Si tiene reglas de precio, agregar también esos planes
             # Las pricing_rules permiten que un servicio aparezca en múltiples planes
@@ -177,13 +185,10 @@ def register_public_membership_routes(app):
             else:
                 # Si no tiene reglas, agregar también a todos los planes superiores (jerarquía)
                 # Esto permite que servicios básicos aparezcan en todos los planes superiores
-                # IMPORTANTE: Excluir 'corporativo' de la herencia automática
-                # Solo servicios explícitamente marcados como corporativo aparecen en ese plan
                 service_tier = membership_hierarchy.get(service.membership_type, -1)
                 if service_tier >= 0:  # Solo si el tier es válido
                     for plan_type, tier in membership_hierarchy.items():
-                        # Excluir corporativo de la herencia automática
-                        if tier > service_tier and plan_type != 'corporativo' and plan_type not in available_plans:
+                        if tier > service_tier and plan_type not in available_plans:
                             available_plans.append(plan_type)
         
             services_with_plans.append({
@@ -191,7 +196,8 @@ def register_public_membership_routes(app):
                 'available_plans': available_plans
             })
     
-        plans_display = [p for p in plans if (p.slug or '') != 'admin']
+        # Solo los planes de pago (sin ``admin`` ni fila técnica ``basic`` si existiera).
+        plans_display = [p for p in plans if (p.slug or '') not in ('admin', 'basic')]
         # Certificado de membresía: evento activo "Certificado de Membresía" o code_prefix MEM (emitir desde esta página)
         membership_cert_event_id = None
         membership_cert_issued = False
@@ -265,9 +271,9 @@ def register_public_membership_routes(app):
         try:
             hierarchy = MembershipPlan.get_hierarchy()
             if not hierarchy:
-                hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4, 'admin': 5}
+                hierarchy = {'basic': 0, 'personal': 1, 'emprendedor': 2, 'ejecutivo': 3, 'admin': 99}
         except Exception:
-            hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4, 'admin': 5}
+            hierarchy = {'basic': 0, 'personal': 1, 'emprendedor': 2, 'ejecutivo': 3, 'admin': 99}
         user_level = hierarchy.get(mt, 0)
         allowed_types = [p for p, level in hierarchy.items() if level <= user_level]
         if not allowed_types:

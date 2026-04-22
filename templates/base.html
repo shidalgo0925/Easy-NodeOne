@@ -146,6 +146,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}">Planes</a>
+                    </li>
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav navbar-nav-right">
@@ -289,6 +292,12 @@
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
                                 <i class="menu-icon fa fa-tachometer-alt"></i>
                                 <span class="menu-title-text">🏠 Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'membership' %}active{% endif %}" href="{{ url_for('membership') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Planes de membresía y comparativa">
+                                <i class="menu-icon fa fa-crown"></i>
+                                <span class="menu-title-text">Planes</span>
                             </a>
                         </li>
                         {% else %}

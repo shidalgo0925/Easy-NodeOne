@@ -636,19 +636,77 @@ def inject_logo():
         ),
     )
 
+
+def _env_brand_hex(key: str):
+    """Lee #RRGGBB desde env (NODEONE_BRAND_*). Devuelve None si falta o es inválido."""
+    raw = (os.environ.get(key) or '').strip()
+    if not raw:
+        return None
+    if not raw.startswith('#'):
+        raw = '#' + raw.lstrip('#')
+    if len(raw) != 7:
+        return None
+    try:
+        int(raw[1:], 16)
+    except ValueError:
+        return None
+    return raw
+
+
+_IIUS_BRAND_PRESET_KEYS = frozenset(
+    ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
+)
+
+
+def resolve_theme_tokens():
+    """
+    Design tokens: organization_settings (BD) + capa opcional de marca.
+    Orden: valores de sesión/org → preset NODEONE_BRAND_PRESET (IIUS) → overrides NODEONE_BRAND_*.
+    """
+    try:
+        s = OrganizationSettings.get_settings_for_session()
+        out = {
+            'theme_primary': s.primary_color or '#2563EB',
+            'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
+            'theme_accent': s.accent_color or '#06B6D4',
+            'theme_logo_url': s.logo_url or '',
+            'theme_favicon_url': s.favicon_url or '',
+        }
+    except Exception:
+        out = {
+            'theme_primary': '#2563EB',
+            'theme_primary_dark': '#1E3A8A',
+            'theme_accent': '#06B6D4',
+            'theme_logo_url': '',
+            'theme_favicon_url': '',
+        }
+
+    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
+    if preset in _IIUS_BRAND_PRESET_KEYS:
+        # IIUS: morado = botones/CTA; azul marino = fondos y bloques (primary_dark en custom.css / .bg-dark-blue)
+        # Dorado suave = acentos secundarios (borde/highlight), alineado al sitio público
+        out['theme_primary'] = '#8B60AA'
+        out['theme_primary_dark'] = '#00042D'
+        out['theme_accent'] = '#E6BF75'
+
+    ep = _env_brand_hex('NODEONE_BRAND_PRIMARY')
+    ed = _env_brand_hex('NODEONE_BRAND_PRIMARY_DARK')
+    ea = _env_brand_hex('NODEONE_BRAND_ACCENT')
+    if ep:
+        out['theme_primary'] = ep
+    if ed:
+        out['theme_primary_dark'] = ed
+    if ea:
+        out['theme_accent'] = ea
+    return out
+
+
 # Context processor: design tokens de identidad por cliente (organization_settings)
 @app.context_processor
 def inject_theme():
     """Inyectar colores y URLs de identidad para :root CSS y logo/favicon."""
     try:
-        s = OrganizationSettings.get_settings_for_session()
-        return {
-            'theme_primary': s.primary_color or '#2563EB',
-            'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
-            'theme_accent': s.accent_color or '#06B6D4',
-            'theme_logo_url': s.logo_url or '',   # vacío = usar get_system_logo()
-            'theme_favicon_url': s.favicon_url or '',
-        }
+        return resolve_theme_tokens()
     except Exception:
         return {
             'theme_primary': '#2563EB',
@@ -1288,8 +1346,8 @@ def favicon_ico():
 def web_app_manifest():
     """PWA mínimo: manifest JSON con nombre e icono según branding (sesión/tenant)."""
     try:
-        s = OrganizationSettings.get_settings_for_session()
-        theme_hex = (s.primary_color or '#2563EB').strip()
+        t = resolve_theme_tokens()
+        theme_hex = (t.get('theme_primary') or '#2563EB').strip()
     except Exception:
         theme_hex = '#2563EB'
     if theme_hex and not theme_hex.startswith('#'):
@@ -1632,6 +1690,43 @@ def _tenant_subdomain_from_host_label(first_label):
     return sub
 
 
+def _request_host_maps_to_apps_mirror(host_no_port):
+    """Hosts listados en EASYNODEONE_DEV_APPS_HOST(S) se tratan como apps (p. ej. dev.apex en Cloudflare)."""
+    h = (host_no_port or '').split(':')[0].strip().lower()
+    if not h:
+        return False
+    raw = (os.environ.get('EASYNODEONE_DEV_APPS_HOSTS') or os.environ.get('EASYNODEONE_DEV_APPS_HOST') or '').strip().lower()
+    if not raw:
+        return False
+    for token in raw.replace(',', ' ').split():
+        if token and h == token:
+            return True
+    return False
+
+
+def _tenant_slug_from_host_parts(host_no_port):
+    """
+    Slug de tenant a partir del host (sin puerto).
+    Hosts en EASYNODEONE_DEV_APPS_HOST: mismo tenant que apps.
+    dev.apps.dominio → mismo slug que apps.dominio.
+    """
+    h = (host_no_port or '').split(':')[0].strip().lower()
+    if not h:
+        return None
+    parts = h.split('.')
+    if len(parts) < 3:
+        return None
+    if _request_host_maps_to_apps_mirror(h):
+        return _tenant_subdomain_from_host_label('apps')
+    raw_first = (parts[0] or '').strip().lower()
+    raw_second = (parts[1] or '').strip().lower()
+    if len(parts) >= 4 and raw_second == 'apps' and raw_first in ('dev', 'staging', 'test', 'preview'):
+        return _tenant_subdomain_from_host_label('apps')
+    if raw_first in ('app', 'www'):
+        return _tenant_subdomain_from_host_label(parts[1])
+    return _tenant_subdomain_from_host_label(parts[0])
+
+
 def _organization_id_for_public_registration():
     """organization_id para /register y OAuth nuevo usuario: form/query, subdominio en saas_organization, o default."""
     raw = (
@@ -1650,11 +1745,7 @@ def _organization_id_for_public_registration():
     host = (request.host or '').split(':')[0].lower()
     parts = host.split('.')
     if len(parts) >= 3:
-        first = (parts[0] or '').strip().lower()
-        if first in ('app', 'www') and len(parts) >= 3:
-            sub = _tenant_subdomain_from_host_label(parts[1])
-        else:
-            sub = _tenant_subdomain_from_host_label(parts[0])
+        sub = _tenant_slug_from_host_parts(host)
         if sub and sub not in ('www', 'app', 'mail', 'web', 'cdn'):
             org = (
                 SaasOrganization.query.filter_by(is_active=True)
@@ -1680,11 +1771,7 @@ def _organization_id_from_request_host(req):
     parts = host.split('.')
     if len(parts) < 3:
         return None
-    first = (parts[0] or '').strip().lower()
-    if first in ('app', 'www') and len(parts) >= 3:
-        sub = _tenant_subdomain_from_host_label(parts[1])
-    else:
-        sub = _tenant_subdomain_from_host_label(parts[0])
+    sub = _tenant_slug_from_host_parts(host)
     if not sub or sub in ('www', 'app', 'mail', 'web', 'cdn'):
         return None
     org = (
@@ -2227,8 +2314,8 @@ def create_sample_data():
     benefits = [
         Benefit(name='Acceso a Revistas', description='Acceso completo a la biblioteca de revistas especializadas', membership_type='basic', organization_id=1),
         Benefit(name='Base de Datos', description='Acceso a bases de datos de investigación', membership_type='basic', organization_id=1),
-        Benefit(name='Asesoría de Publicación', description='Sesiones de asesoría para publicaciones académicas', membership_type='premium', organization_id=1),
-        Benefit(name='Soporte Prioritario', description='Soporte técnico prioritario', membership_type='premium', organization_id=1),
+        Benefit(name='Asesoría de Publicación', description='Sesiones de asesoría para publicaciones académicas', membership_type='ejecutivo', organization_id=1),
+        Benefit(name='Soporte Prioritario', description='Soporte técnico prioritario', membership_type='ejecutivo', organization_id=1),
     ]
     
     for benefit in benefits:
@@ -2300,11 +2387,9 @@ def ensure_membership_plan_table():
         MembershipPlan.__table__.create(db.engine, checkfirst=True)
         if MembershipPlan.query.count() == 0:
             defaults = [
-                {'slug': 'basic', 'name': 'Básico', 'price_yearly': 0, 'price_monthly': 0, 'display_order': 0, 'level': 0, 'badge': 'Incluido con la membresía gratuita', 'color': 'bg-success', 'organization_id': 1},
-                {'slug': 'pro', 'name': 'Pro', 'price_yearly': 60, 'price_monthly': 5, 'display_order': 1, 'level': 1, 'badge': 'Plan recomendado', 'color': 'bg-info', 'organization_id': 1},
-                {'slug': 'premium', 'name': 'Premium', 'price_yearly': 120, 'price_monthly': 10, 'display_order': 2, 'level': 2, 'badge': 'Más beneficios', 'color': 'bg-primary', 'organization_id': 1},
-                {'slug': 'deluxe', 'name': 'De Luxe', 'price_yearly': 200, 'price_monthly': 17, 'display_order': 3, 'level': 3, 'badge': 'Experiencia completa', 'color': 'bg-warning text-dark', 'organization_id': 1},
-                {'slug': 'corporativo', 'name': 'Corporativo', 'price_yearly': 300, 'price_monthly': 25, 'display_order': 4, 'level': 4, 'badge': 'Para empresas', 'color': 'bg-dark text-white', 'organization_id': 1},
+                {'slug': 'personal', 'name': 'Membresía Personal', 'price_yearly': 149, 'price_monthly': round(149 / 12, 2), 'display_order': 10, 'level': 1, 'badge': 'Inicia tu crecimiento', 'color': 'bg-success', 'organization_id': 1},
+                {'slug': 'emprendedor', 'name': 'Membresía Emprendedor', 'price_yearly': 449, 'price_monthly': round(449 / 12, 2), 'display_order': 20, 'level': 2, 'badge': 'Desarrolla tu negocio', 'color': 'bg-info', 'organization_id': 1},
+                {'slug': 'ejecutivo', 'name': 'Membresía Ejecutivo', 'price_yearly': 949, 'price_monthly': round(949 / 12, 2), 'display_order': 30, 'level': 3, 'badge': 'Liga Empresarial', 'color': 'bg-primary', 'organization_id': 1},
                 {'slug': 'admin', 'name': 'Admin', 'price_yearly': 0, 'price_monthly': 0, 'display_order': 99, 'level': 99, 'badge': 'Acceso administrador', 'color': 'bg-secondary', 'organization_id': 1},
             ]
             for d in defaults:
@@ -2697,6 +2782,18 @@ def bootstrap_nodeone_schema():
             ensure_crm_salesperson_and_quotation_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_crm_salesperson_and_quotation_columns: {e}')
+        try:
+            from nodeone.services.cv_application_schema import ensure_cv_application_columns
+
+            ensure_cv_application_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_cv_application_columns: {e}')
+        try:
+            from nodeone.services.course_program_schema import ensure_course_program_schema
+
+            ensure_course_program_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_course_program_schema: {e}')
         ensure_canonical_saas_organization_usable()
         ensure_benefit_organization_id_column()
         ensure_membership_plan_organization_id_column()

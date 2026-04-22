@@ -134,7 +134,7 @@ def main() -> int:
             cid = row['category_id']
             new_cat = cat_map.get(int(cid)) if cid is not None else None
             st = (row['service_type'] or 'AGENDABLE').strip().upper()
-            if st not in ('AGENDABLE', 'CONSULTIVO'):
+            if st not in ('AGENDABLE', 'CONSULTIVO', 'CV_REGISTRATION'):
                 st = 'AGENDABLE'
             s = M.Service(
                 name=row['name'],

@@ -1,6 +1,7 @@
 # Lógica de servicios (usuario): listado, solicitud de cita, calendario API.
 from datetime import datetime, timedelta
 import json
+import os
 
 from app import (
     Service,
@@ -17,13 +18,31 @@ from sqlalchemy.orm import joinedload
 from . import repository
 
 
+def _absolute_public_external_link(href):
+    """
+    Catálogo / services: si ``external_link`` es ruta en el mismo sitio (/...) y existe env
+    ``BASE_URL`` (portal NodeOne público), devolver URL absoluta. Así los CTAs no apuntan
+    por error a Moodle u otro host donde /inscripcion/ no existe en esta app.
+    """
+    if not href:
+        return href
+    h = str(href).strip()
+    if h.startswith('//') or h.startswith('http://') or h.startswith('https://'):
+        return h
+    base = (os.environ.get('BASE_URL') or '').strip().rstrip('/')
+    if not base:
+        return h
+    if h.startswith('/'):
+        return base + h
+    return f'{base}/{h}'
+
+
 # Fallback cuando no hay tabla membership_plan
 PLANS_INFO_FALLBACK = {
-    'basic': {'name': 'GRATIS / BÁSICO', 'price': '$0', 'badge': 'Incluido con la membresía gratuita', 'color': 'bg-success'},
-    'pro': {'name': 'PRO', 'price': '$60/año', 'badge': 'Plan recomendado', 'color': 'bg-info'},
-    'premium': {'name': 'PREMIUM', 'price': '$120/año', 'badge': 'Más beneficios', 'color': 'bg-primary'},
-    'deluxe': {'name': 'DE LUXE', 'price': '$200/año', 'badge': 'Experiencia completa', 'color': 'bg-warning text-dark'},
-    'corporativo': {'name': 'CORPORATIVO', 'price': '$300/año', 'badge': 'Para empresas', 'color': 'bg-dark text-white'},
+    'personal': {'name': 'PERSONAL', 'price': '$149/año', 'badge': 'Inicia tu crecimiento', 'color': 'bg-success'},
+    'emprendedor': {'name': 'EMPRENDEDOR', 'price': '$449/año', 'badge': 'Desarrolla tu negocio', 'color': 'bg-info'},
+    'ejecutivo': {'name': 'EJECUTIVO', 'price': '$949/año', 'badge': 'Liga Empresarial', 'color': 'bg-primary'},
+    'admin': {'name': 'ADMIN', 'price': '$0', 'badge': 'Plataforma', 'color': 'bg-secondary'},
 }
 
 
@@ -68,6 +87,21 @@ def get_services_page_data(user=None, organization_id=None):
 
     categories = repository.get_active_categories(**org_kw)
     all_services = repository.get_active_services(**org_kw)
+    from app import MembershipPlan, default_organization_id
+
+    _oid_mp = int(organization_id) if organization_id is not None else int(
+        getattr(user, 'organization_id', None) or default_organization_id()
+    )
+    _paid_slugs = [
+        p.slug
+        for p in MembershipPlan.query.filter_by(organization_id=_oid_mp, is_active=True).order_by(
+            MembershipPlan.display_order, MembershipPlan.level
+        )
+        if (p.level or 0) > 0 and (p.slug or '') not in ('admin', 'basic')
+    ]
+    if not _paid_slugs:
+        _paid_slugs = ['personal', 'emprendedor', 'ejecutivo']
+
     services_by_plan = {}
     for service in all_services:
         pricing_rules = ServicePricingRule.query.filter_by(
@@ -75,7 +109,12 @@ def get_services_page_data(user=None, organization_id=None):
         ).all()
         available_plans = set()
         if service.membership_type:
-            available_plans.add(service.membership_type)
+            smt = (service.membership_type or '').strip().lower()
+            if smt == 'basic':
+                for ps in _paid_slugs:
+                    available_plans.add(ps)
+            else:
+                available_plans.add(service.membership_type)
         for rule in pricing_rules:
             available_plans.add(rule.membership_type)
         if not available_plans:
@@ -98,7 +137,7 @@ def get_services_page_data(user=None, organization_id=None):
             'name': service.name,
             'description': service.description,
             'icon': service.icon or 'fas fa-cog',
-            'external_link': service.external_link,
+            'external_link': _absolute_public_external_link(service.external_link),
             'base_price': service.base_price,
             'pricing': user_pricing,
             'requires_diagnostic_appointment': service.requires_diagnostic_appointment if service.requires_diagnostic_appointment is not None else False,
@@ -118,16 +157,28 @@ def get_services_page_data(user=None, organization_id=None):
         oid_plans = getattr(user, 'organization_id', None)
 
     # Orden estable para secciones y chips de filtro (planes con servicios primero por canon, luego el resto)
-    _canonical_plan_order = ('basic', 'pro', 'premium', 'deluxe', 'corporativo', 'admin')
+    _canonical_plan_order = ('personal', 'emprendedor', 'ejecutivo', 'admin')
     _present = list(services_by_plan.keys())
     plan_slugs_ordered = [s for s in _canonical_plan_order if s in _present]
     for s in sorted(_present):
         if s not in plan_slugs_ordered:
             plan_slugs_ordered.append(s)
 
+    # Una entrada por servicio (orden: primer plan donde aparece). Evita triplicar tarjetas en la vista «Todos».
+    _seen_service_ids = set()
+    services_unique = []
+    for _slug in plan_slugs_ordered:
+        for _svc in services_by_plan.get(_slug) or []:
+            _sid = _svc.get('id')
+            if _sid is None or _sid in _seen_service_ids:
+                continue
+            _seen_service_ids.add(_sid)
+            services_unique.append(_svc)
+
     return {
         'membership': active_membership,
         'services_by_plan': services_by_plan,
+        'services_unique': services_unique,
         'plans_info': _get_plans_info(user, organization_id=oid_plans),
         'categories': categories,
         'user_membership_type': membership_type,

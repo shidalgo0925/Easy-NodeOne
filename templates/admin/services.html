@@ -13,6 +13,7 @@
         <div class="col-12 col-lg ms-lg-auto">
             <div class="d-flex flex-wrap gap-2 justify-content-lg-end align-items-center">
                     {% if current_user.is_authenticated and current_user.has_permission('services.view') %}
+                    <a href="/admin/cv-applications" class="btn btn-sm btn-outline-secondary" title="Postulaciones por servicios tipo CV"><i class="fas fa-file-alt me-1"></i>Hojas de vida</a>
                     {# Rutas fijas: evitan BuildError en Jinja si el worker aún no tiene el blueprint actualizado. #}
                     <div class="btn-group btn-group-sm" role="group" aria-label="Exportar catálogo">
                         <a href="/api/admin/services/export.csv" class="btn btn-outline-success" title="Exportar servicios CSV"><i class="fas fa-file-csv"></i> CSV</a>
@@ -35,12 +36,12 @@
 
     <div class="mb-3">
         <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 w-100 w-md-auto" type="button"
-                data-bs-toggle="collapse" data-bs-target="#servicesCatalogExplain" aria-expanded="true" aria-controls="servicesCatalogExplain">
+                data-bs-toggle="collapse" data-bs-target="#servicesCatalogExplain" aria-expanded="false" aria-controls="servicesCatalogExplain">
             <i class="fas fa-info-circle" aria-hidden="true"></i>
             <span>Para qué sirve esta pantalla</span>
             <i class="fas fa-chevron-down small ms-auto collapse-chevron-svc" aria-hidden="true"></i>
         </button>
-        <div class="collapse show mt-2" id="servicesCatalogExplain">
+        <div class="collapse mt-2" id="servicesCatalogExplain">
             <div class="card border shadow-sm overflow-hidden">
                 <div class="row g-0">
                     <div class="col-12 col-lg-5 bg-light d-flex flex-column align-items-center justify-content-center p-3 p-lg-4 border-bottom services-explain-visual">
@@ -154,7 +155,12 @@
                                     <span class="badge bg-light text-dark border">{{ service.membership_type|upper }}</span>
                                 {% endif %}
                                 <span class="service-card-price">${{ "%.2f"|format(service.base_price) }}</span>
-                                {% if service.requires_appointment() %}
+                                {% if (service.service_type or 'AGENDABLE') == 'COURSE' %}
+                                <span class="badge bg-dark"><i class="fas fa-graduation-cap me-1"></i>COURSE</span>
+                                <a href="{{ url_for('admin_course_cohort_list', service_id=service.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2">Convocatorias</a>
+                                {% elif (service.service_type or 'AGENDABLE') == 'CV_REGISTRATION' %}
+                                <span class="badge bg-secondary"><i class="fas fa-file-alt me-1"></i>CV</span>
+                                {% elif service.requires_appointment() %}
                                 <span class="badge bg-info text-dark"><i class="fas fa-calendar-check me-1"></i>Cita</span>
                                 <span class="badge {{ 'bg-warning text-dark' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'bg-primary' }}">{{ service.service_type or 'AGENDABLE' }}</span>
                                 {% endif %}
@@ -274,7 +280,8 @@
                     
                     <div class="mb-3">
                         <label for="serviceExternalLink" class="form-label">Enlace Externo (opcional)</label>
-                        <input type="url" class="form-control" id="serviceExternalLink" name="external_link" placeholder="https://...">
+                        {# type="text": evita que checkValidity() bloquee Guardar si el valor no es URL absoluta válida (p. ej. borrador o rutas de archivo). #}
+                        <input type="text" class="form-control" id="serviceExternalLink" name="external_link" placeholder="https://..." inputmode="url" autocomplete="off">
                     </div>
                     
                     <div class="mb-3">
@@ -295,6 +302,15 @@
                             <small class="text-muted d-block">Si está marcado, el servicio requerirá agendar una cita antes de usarlo</small>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="serviceCvRegistration" name="cv_registration">
+                            <label class="form-check-label" for="serviceCvRegistration">
+                                <strong>Registro de hoja de vida (sin cita)</strong>
+                            </label>
+                            <small class="text-muted d-block">El catálogo público mostrará enlace al formulario de CV para este servicio.</small>
+                        </div>
+                    </div>
                     
                     <div class="mb-3" id="appointmentTypeContainer" style="display: none;">
                         <label for="serviceAppointmentType" class="form-label">Tipo de Cita *</label>
@@ -312,8 +328,15 @@
                         <select class="form-select" id="serviceType" name="service_type">
                             <option value="AGENDABLE">AGENDABLE — Solicitar cita (calendario y pago)</option>
                             <option value="CONSULTIVO">CONSULTIVO — Solicitar primera reunión (propón fecha, asesor confirma)</option>
+                            <option value="CV_REGISTRATION">CV_REGISTRATION — Formulario público de hoja de vida</option>
+                            <option value="COURSE">COURSE — Programa con convocatorias (API landing + checkout por cohorte)</option>
                         </select>
-                        <small class="text-muted">CONSULTIVO: el cliente propone fecha y el asesor confirma; luego propuesta y pago. AGENDABLE: el cliente elige horario en calendario y paga.</small>
+                        <small class="text-muted">CONSULTIVO / AGENDABLE: flujos con cita. CV_REGISTRATION: postulación sin cita. COURSE: diplomados con fechas en API pública.</small>
+                    </div>
+                    <div class="mb-3 d-none" id="programSlugContainer">
+                        <label for="serviceProgramSlug" class="form-label">program_slug <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="serviceProgramSlug" name="program_slug" placeholder="ej. neuro-liderazgo-intercultural" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" autocomplete="off">
+                        <small class="text-muted">URL pública: <code>/api/public/programs/<strong>este-valor</strong>/cohorts</code></small>
                     </div>
                 </form>
             </div>
@@ -438,21 +461,47 @@ function fillForm(service) {
     document.getElementById('serviceExternalLink').value = service.external_link || '';
     document.getElementById('serviceIsActive').checked = service.is_active !== false && service.is_active !== 'false';
     
-    // Manejar "Requiere cita"
-    const requiresAppointment = service.appointment_type_id !== null && service.appointment_type_id !== undefined;
+    // Manejar "Requiere cita" y CV (mutuamente excluyentes con cita)
+    const requiresAppointmentFromDb = service.appointment_type_id !== null && service.appointment_type_id !== undefined;
+    const isCvType = (service.service_type || '') === 'CV_REGISTRATION';
+    const isCourseType = (service.service_type || '') === 'COURSE';
+    const cvCb = document.getElementById('serviceCvRegistration');
+    if (cvCb) cvCb.checked = isCvType;
+
     const requiresAppointmentCheckbox = document.getElementById('serviceRequiresAppointment');
     const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
     const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
-    
-    requiresAppointmentCheckbox.checked = requiresAppointment;
     const serviceTypeContainer = document.getElementById('serviceTypeContainer');
     const serviceTypeSelect = document.getElementById('serviceType');
-    if (requiresAppointment) {
+    const programSlugContainer = document.getElementById('programSlugContainer');
+    const programSlugInput = document.getElementById('serviceProgramSlug');
+    if (programSlugContainer && !isCourseType) programSlugContainer.classList.add('d-none');
+    if (programSlugInput && !isCourseType) programSlugInput.value = '';
+
+    const requiresAppointment = !isCvType && !isCourseType && requiresAppointmentFromDb;
+    requiresAppointmentCheckbox.checked = requiresAppointment;
+
+    if (isCourseType) {
+        if (cvCb) cvCb.checked = false;
+        requiresAppointmentCheckbox.checked = false;
+        appointmentTypeContainer.style.display = 'none';
+        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+        appointmentTypeSelect.required = false;
+        appointmentTypeSelect.value = '';
+        if (serviceTypeSelect) serviceTypeSelect.value = 'COURSE';
+        if (programSlugContainer) programSlugContainer.classList.remove('d-none');
+        if (programSlugInput) programSlugInput.value = service.program_slug || '';
+    } else if (isCvType) {
+        appointmentTypeContainer.style.display = 'none';
+        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+        appointmentTypeSelect.required = false;
+        appointmentTypeSelect.value = '';
+        if (serviceTypeSelect) serviceTypeSelect.value = 'CV_REGISTRATION';
+    } else if (requiresAppointment) {
         appointmentTypeContainer.style.display = 'block';
         if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
         appointmentTypeSelect.required = true;
         if (serviceTypeSelect) serviceTypeSelect.value = (service.service_type === 'CONSULTIVO' ? 'CONSULTIVO' : 'AGENDABLE');
-        // Asegurar que los tipos de cita estén cargados antes de establecer el valor
         if (appointmentTypeSelect.options.length <= 1) {
             loadAppointmentTypes().then(() => {
                 appointmentTypeSelect.value = service.appointment_type_id || '';
@@ -465,7 +514,7 @@ function fillForm(service) {
         if (serviceTypeContainer) serviceTypeContainer.style.display = 'none';
         appointmentTypeSelect.required = false;
         appointmentTypeSelect.value = '';
-        if (serviceTypeSelect) serviceTypeSelect.value = 'AGENDABLE';
+        if (serviceTypeSelect) serviceTypeSelect.value = (service.service_type === 'CONSULTIVO' ? 'CONSULTIVO' : 'AGENDABLE');
     }
     
     // Limpiar todos los checkboxes primero
@@ -514,8 +563,23 @@ function saveService() {
         return;
     }
     
-    // Obtener appointment_type_id si el checkbox está marcado
-    const requiresAppointment = document.getElementById('serviceRequiresAppointment').checked;
+    const serviceTypeEl = document.getElementById('serviceType');
+    let serviceType = (serviceTypeEl && serviceTypeEl.value) ? serviceTypeEl.value : 'AGENDABLE';
+    const cvCb = document.getElementById('serviceCvRegistration');
+    const isCv = (cvCb && cvCb.checked) || serviceType === 'CV_REGISTRATION';
+    if (isCv) {
+        serviceType = 'CV_REGISTRATION';
+    }
+    if (serviceType === 'COURSE') {
+        const ps = document.getElementById('serviceProgramSlug');
+        const raw = ps ? ps.value.trim().toLowerCase() : '';
+        if (!raw) {
+            alert('Indica el program_slug (solo minúsculas, números y guiones). Lo usa la API pública del landing.');
+            return;
+        }
+    }
+
+    const requiresAppointment = serviceType !== 'COURSE' && !isCv && document.getElementById('serviceRequiresAppointment').checked;
     let appointmentTypeId = null;
     if (requiresAppointment) {
         const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
@@ -525,9 +589,6 @@ function saveService() {
             return;
         }
     }
-    
-    const serviceTypeEl = document.getElementById('serviceType');
-    const serviceType = (serviceTypeEl && serviceTypeEl.value) ? serviceTypeEl.value : 'AGENDABLE';
     const catEl = document.getElementById('serviceCategory');
     const categoryId = catEl && catEl.value ? catEl.value : null;
     const formData = {
@@ -547,6 +608,11 @@ function saveService() {
     if (taxSel) {
         formData.default_tax_id = taxSel.value === '' ? null : parseInt(taxSel.value, 10);
     }
+    if (serviceType === 'COURSE') {
+        const ps = document.getElementById('serviceProgramSlug');
+        formData.program_slug = ps ? ps.value.trim().toLowerCase() : '';
+        formData.appointment_type_id = null;
+    }
     
     const serviceId = document.getElementById('serviceId').value;
     const url = serviceId ? `/api/admin/services/update/${serviceId}` : '/api/admin/services/create';
@@ -559,7 +625,19 @@ function saveService() {
         },
         body: JSON.stringify(formData)
     })
-    .then(response => response.json())
+    .then(async (response) => {
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (e) {
+            data = {};
+        }
+        if (!response.ok) {
+            const msg = data.error || data.message || ('HTTP ' + response.status);
+            throw new Error(msg);
+        }
+        return data;
+    })
     .then(data => {
         if (data.success) {
             alert('Servicio guardado exitosamente');
@@ -570,7 +648,7 @@ function saveService() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al guardar el servicio');
+        alert('Error al guardar el servicio: ' + (error && error.message ? error.message : error));
     });
 }
 
@@ -638,8 +716,13 @@ document.getElementById('serviceRequiresAppointment').addEventListener('change',
     const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
     const serviceTypeContainer = document.getElementById('serviceTypeContainer');
     const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
-    
+    const cvCb = document.getElementById('serviceCvRegistration');
+    const st = document.getElementById('serviceType');
+
     if (this.checked) {
+        if (cvCb) cvCb.checked = false;
+        if (st && st.value === 'CV_REGISTRATION') st.value = 'AGENDABLE';
+        if (st && st.value === 'COURSE') st.value = 'AGENDABLE';
         appointmentTypeContainer.style.display = 'block';
         if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
         appointmentTypeSelect.required = true;
@@ -650,6 +733,53 @@ document.getElementById('serviceRequiresAppointment').addEventListener('change',
         appointmentTypeSelect.value = '';
     }
 });
+
+(function syncCvRegistrationUi() {
+    const cvCb = document.getElementById('serviceCvRegistration');
+    const st = document.getElementById('serviceType');
+    if (!cvCb || !st) return;
+    cvCb.addEventListener('change', function () {
+        if (!this.checked) return;
+        const reqCb = document.getElementById('serviceRequiresAppointment');
+        if (reqCb) reqCb.checked = false;
+        document.getElementById('appointmentTypeContainer').style.display = 'none';
+        const apt = document.getElementById('serviceAppointmentType');
+        apt.required = false;
+        apt.value = '';
+        const stc = document.getElementById('serviceTypeContainer');
+        if (stc) stc.style.display = 'block';
+        st.value = 'CV_REGISTRATION';
+        const psc = document.getElementById('programSlugContainer');
+        if (psc) psc.classList.add('d-none');
+    });
+    st.addEventListener('change', function () {
+        const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
+        const serviceTypeContainer = document.getElementById('serviceTypeContainer');
+        const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
+        const reqCb = document.getElementById('serviceRequiresAppointment');
+        const psc = document.getElementById('programSlugContainer');
+        if (this.value === 'CV_REGISTRATION') {
+            cvCb.checked = true;
+            if (reqCb) reqCb.checked = false;
+            appointmentTypeContainer.style.display = 'none';
+            if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+            appointmentTypeSelect.required = false;
+            appointmentTypeSelect.value = '';
+            if (psc) psc.classList.add('d-none');
+        } else if (this.value === 'COURSE') {
+            cvCb.checked = false;
+            if (reqCb) reqCb.checked = false;
+            appointmentTypeContainer.style.display = 'none';
+            if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+            appointmentTypeSelect.required = false;
+            appointmentTypeSelect.value = '';
+            if (psc) psc.classList.remove('d-none');
+        } else {
+            cvCb.checked = false;
+            if (psc) psc.classList.add('d-none');
+        }
+    });
+})();
 
 function loadAppointmentTypes() {
     return fetch('/api/admin/appointment-types')
@@ -748,8 +878,14 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     if (stc) stc.style.display = 'none';
     document.getElementById('serviceAppointmentType').value = '';
     document.getElementById('serviceAppointmentType').required = false;
+    const cvReg = document.getElementById('serviceCvRegistration');
+    if (cvReg) cvReg.checked = false;
     const st = document.getElementById('serviceType');
     if (st) st.value = 'AGENDABLE';
+    const psc = document.getElementById('programSlugContainer');
+    if (psc) psc.classList.add('d-none');
+    const psIn = document.getElementById('serviceProgramSlug');
+    if (psIn) psIn.value = '';
 });
 
     var reportTitleEl = document.getElementById('report_title');

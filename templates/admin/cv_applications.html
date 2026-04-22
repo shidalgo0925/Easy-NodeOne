@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Hojas de vida recibidas{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h4 mb-1">Postulaciones / hojas de vida</h1>
+            <p class="text-muted small mb-0">Últimas 500 entradas de la organización activa (org. {{ organization_id }}).</p>
+        </div>
+        <a href="{{ url_for('admin_services_catalog.admin_services') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Catálogo de servicios</a>
+    </div>
+
+    {% if not applications %}
+    <div class="alert alert-light border">No hay postulaciones registradas todavía.</div>
+    {% else %}
+    <div class="table-responsive shadow-sm rounded border bg-body">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Id</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Servicio</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Correo</th>
+                    <th scope="col">Teléfono</th>
+                    <th scope="col">Archivos</th>
+                    <th scope="col">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in applications %}
+                <tr>
+                    <td class="text-muted">{{ a.id }}</td>
+                    <td class="text-nowrap small">{{ a.created_at.strftime('%Y-%m-%d %H:%M') if a.created_at else '—' }}</td>
+                    <td class="small">
+                        {% if a.service %}
+                        <span title="Servicio #{{ a.service_id }}">{{ a.service.name }}</span>
+                        {% elif a.service_id %}
+                        <span class="text-muted">#{{ a.service_id }}</span>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td>{{ a.first_name }} {{ a.last_name }}</td>
+                    <td class="small"><a href="mailto:{{ a.email }}">{{ a.email }}</a></td>
+                    <td class="small">{{ a.phone or '—' }}</td>
+                    <td class="small text-nowrap">
+                        {% if a.cv_document_relative_path %}
+                        <a href="{{ url_for('admin_cv_application_download', application_id=a.id, kind='cv') }}" class="btn btn-sm btn-outline-primary py-0" title="Descargar CV"><i class="fas fa-file-pdf"></i> CV</a>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                        {% if a.photo_relative_path %}
+                        <a href="{{ url_for('admin_cv_application_download', application_id=a.id, kind='photo') }}" class="btn btn-sm btn-outline-secondary py-0 ms-1" title="Descargar foto"><i class="fas fa-image"></i></a>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-secondary text-uppercase">{{ a.status or 'pending' }}</span></td>
+                </tr>
+                {% set show_detail = a.country_residence or a.province or a.preferred_sector or a.education_level or a.referral_source or a.other_languages or a.additional_comments or a.desired_salary or a.professional_status or a.native_language or a.years_experience_sector %}
+                {% if show_detail %}
+                <tr class="border-0">
+                    <td colspan="8" class="pt-0 pb-3 small text-muted border-0">
+                        {% if a.country_residence or a.province %}
+                        <span class="me-2"><i class="fas fa-map-marker-alt me-1"></i>{{ a.country_residence or '' }}{% if a.province %}{% if a.country_residence %}, {% endif %}{{ a.province }}{% endif %}</span>
+                        {% endif %}
+                        {% if a.desired_salary %}<span class="me-2"><strong>Salario:</strong> {{ cv_labels.salary.get(a.desired_salary, a.desired_salary) }}</span>{% endif %}
+                        {% if a.professional_status %}<span class="me-2"><strong>Situación:</strong> {{ cv_labels.professional.get(a.professional_status, a.professional_status) }}</span>{% endif %}
+                        {% if a.native_language %}<span class="me-2"><strong>Idioma nativo:</strong> {{ cv_labels.native_lang.get(a.native_language, a.native_language) }}</span>{% endif %}
+                        {% if a.preferred_sector %}<span class="me-2"><strong>Sector:</strong> {{ cv_labels.sector.get(a.preferred_sector, a.preferred_sector) }}</span>{% endif %}
+                        {% if a.years_experience_sector %}<span class="me-2"><strong>Experiencia:</strong> {{ cv_labels.years.get(a.years_experience_sector, a.years_experience_sector) }}</span>{% endif %}
+                        {% if a.education_level %}<span class="me-2"><strong>Estudios:</strong> {{ cv_labels.education.get(a.education_level, a.education_level) }}</span>{% endif %}
+                        {% if a.referral_source %}<span class="me-2"><strong>Origen:</strong> {{ cv_labels.referral.get(a.referral_source, a.referral_source) }}</span>{% endif %}
+                        {% if a.other_languages %}
+                        <div class="mt-1"><strong>Otros idiomas:</strong> {{ a.other_languages }}</div>
+                        {% endif %}
+                        {% if a.additional_comments %}
+                        <div class="mt-1 fst-italic">{{ a.additional_comments }}</div>
+                        {% endif %}
+                        {% if a.legal_accepted is not none %}
+                        <div class="mt-1 small"><span class="badge bg-light text-dark border">Aceptación legal: {% if a.legal_accepted %}sí{% else %}no{% endif %}</span></div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

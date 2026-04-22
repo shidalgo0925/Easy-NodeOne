@@ -236,6 +236,21 @@ def register_simple_saas_guard(bp, module_code):
         return enforce_saas_module_or_response(module_code)
 
 
+def register_payments_blueprint_saas_guard(bp):
+    """
+    Módulo ``payments`` para carrito/checkout — excepto landings públicos de diplomados,
+    visibles aunque el usuario tenga sesión y el módulo de pagos esté desactivado en SaaS
+    (vitrina / compartir enlace; el checkout sigue protegido).
+    """
+
+    @bp.before_request
+    def _guard_payments_module():
+        ep = getattr(request, 'endpoint', None) or ''
+        if ep == 'payments.diplomado_landing':
+            return None
+        return enforce_saas_module_or_response('payments')
+
+
 def register_payments_checkout_saas_guard(payments_checkout_bp):
     """Módulo payments; excluye webhook Stripe (sin sesión / firma propia)."""
 

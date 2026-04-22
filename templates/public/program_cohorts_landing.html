@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}{{ payload.program.name }} — Convocatorias — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block head_extra %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet" />
+<style>
+  .prog-landing-wrap {
+    margin: -1rem -0.5rem 0;
+    min-height: 70vh;
+    background: linear-gradient(165deg, #0f172a 0%, #1e293b 42%, #312e81 100%);
+    color: #e2e8f0;
+    padding: 2rem 0.75rem 3rem;
+  }
+  .prog-landing-wrap h1 {
+    color: #fbbf24;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+  }
+  .prog-landing-wrap .prog-sub {
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 1rem;
+    max-width: 42rem;
+  }
+  .prog-landing-wrap .prog-desc {
+    color: rgba(226, 232, 240, 0.92);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    max-width: 48rem;
+  }
+  .prog-card {
+    background: #fff;
+    color: #0f172a;
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.35);
+    overflow: hidden;
+  }
+  .prog-card .row { min-height: 420px; }
+  .prog-cal-col {
+    border-right: 1px solid #e2e8f0;
+    padding: 1rem 0.75rem 1.25rem;
+  }
+  @media (max-width: 767.98px) {
+    .prog-cal-col { border-right: none; border-bottom: 1px solid #e2e8f0; }
+  }
+  .prog-side-col {
+    padding: 1rem 1rem 1.25rem;
+    background: #fafafa;
+  }
+  .prog-side-col h2 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+  }
+  #programCohortCalendar {
+    --fc-border-color: #e2e8f0;
+    --fc-button-bg-color: #f1f5f9;
+    --fc-button-border-color: #cbd5e1;
+    --fc-button-text-color: #334155;
+    --fc-today-bg-color: rgba(251, 191, 36, 0.12);
+  }
+  #programCohortCalendar .fc-toolbar-title { font-size: 1rem !important; }
+  .cohort-pill {
+    font-size: 0.78rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    background: #e0e7ff;
+    color: #3730a3;
+  }
+  .cohort-list-stack .btn-inscribe {
+    font-weight: 600;
+  }
+  .no-date-cohort {
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.5rem;
+    background: #fff;
+  }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="prog-landing-wrap" id="main-content">
+  <div class="container" style="max-width: 1100px;">
+    <header class="mb-4">
+      <h1>{{ payload.program.name }}</h1>
+      {% if payload.get('registration_only') %}
+      <p class="prog-sub mb-2">La fecha de inicio se anunciará pronto. Registrate para recibir novedades y completar la inscripción cuando abramos la convocatoria.</p>
+      {% else %}
+      <p class="prog-sub mb-2">Elegí una fecha de inicio cuando esté publicada, o revisá las opciones sin fecha fija.</p>
+      {% endif %}
+      {% if payload.program.description %}
+      <p class="prog-desc mb-0">{{ payload.program.description }}</p>
+      {% endif %}
+    </header>
+
+    {% if not payload.cohorts %}
+    <div class="alert alert-light border shadow-sm text-dark">
+      No hay convocatorias abiertas por ahora. Volvé a intentar más tarde o contactá al equipo.
+    </div>
+    {% elif payload.get('registration_only') %}
+    <div class="prog-card p-3 p-md-4">
+      <h2 class="h6 text-dark fw-bold mb-3">Próxima convocatoria</h2>
+      {% for c in payload.cohorts %}
+      <div class="no-date-cohort mb-3">
+        <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+          <strong class="small">{{ c.label or ('Convocatoria #' ~ c.id) }}</strong>
+          <span class="cohort-pill">{% if (c.modality or 'virtual')|lower == 'presential' %}Presencial{% elif (c.modality or '')|lower == 'hybrid' %}Híbrido{% else %}En línea{% endif %}</span>
+        </div>
+        <p class="small text-muted mb-2 mb-md-3">Cupos: sin tope definido · Precio por definir</p>
+        <a class="btn btn-primary btn-sm btn-inscribe" href="{{ url_for('register', next=request.path) }}">Registrarme</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+
+    <div class="prog-card">
+      <div class="row g-0">
+        <div class="col-lg-7 prog-cal-col">
+          <div id="programCohortCalendar"></div>
+        </div>
+        <div class="col-lg-5 prog-side-col">
+          <h2 id="cohortPanelTitle">Convocatorias del día</h2>
+          <p class="text-muted small mb-2" id="cohortPanelHint">Tocá una fecha resaltada o un evento en el calendario.</p>
+          <div id="cohortPanelEmpty" class="small text-muted py-3 d-none">No hay convocatorias que empiecen en esta fecha.</div>
+          <div id="cohortPanelList" class="cohort-list-stack"></div>
+
+          <div id="noDateCohortsBlock" class="mt-3 d-none">
+            <h2 class="h6 text-dark fw-bold">Sin fecha de inicio fija</h2>
+            <div id="noDateCohortsInner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% endif %}
+  </div>
+</div>
+
+<script type="application/json" id="program-landing-payload">{{ payload | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+{% if payload.cohorts and not payload.get('registration_only') %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales-all.global.min.js"></script>
+<script>
+(function () {
+  var el = document.getElementById('program-landing-payload');
+  if (!el || !window.FullCalendar) return;
+  var data = JSON.parse(el.textContent || '{}');
+  var program = data.program || {};
+  var cohorts = data.cohorts || [];
+  var registerBase = {{ url_for('register') | tojson }};
+  var programPath = {{ request.path | tojson }};
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]);
+    });
+  }
+
+  function modalityLabel(m) {
+    var x = (m || 'virtual').toLowerCase();
+    if (x === 'presential') return 'Presencial';
+    if (x === 'hybrid') return 'Híbrido';
+    return 'En línea';
+  }
+
+  function formatPrice(cohort) {
+    if (cohort.price_cents != null && cohort.price_cents !== undefined) {
+      return 'USD ' + (cohort.price_cents / 100).toFixed(2);
+    }
+    var base = parseFloat(program.base_price || 0);
+    if (base <= 0) return 'Precio por definir';
+    return 'USD ' + base.toFixed(2);
+  }
+
+  function spotsLine(cohort) {
+    var a = cohort.spots_available;
+    if (a === null || a === undefined) return 'Cupos: sin tope definido';
+    if (a <= 0) return 'Sin cupos disponibles';
+    return 'Cupos disponibles: ' + a;
+  }
+
+  function enrollHref(cohortId) {
+    return '/checkout/course?service_id=' + encodeURIComponent(program.id) + '&cohort_id=' + encodeURIComponent(cohortId);
+  }
+
+  function registerHref() {
+    return registerBase + '?next=' + encodeURIComponent(programPath || '/');
+  }
+
+  function renderCohortCard(c) {
+    var disabled = (c.spots_available !== null && c.spots_available !== undefined && c.spots_available <= 0);
+    var label = c.label || ('Convocatoria #' + c.id);
+    var sd = c.start_date ? c.start_date : 'Fecha por confirmar';
+    var noDate = !c.start_date;
+    var href = noDate ? registerHref() : enrollHref(c.id);
+    var btnLabel = noDate ? 'Registrarme' : 'Inscribirme';
+    var btn = disabled
+      ? '<button type="button" class="btn btn-secondary btn-sm w-100 mt-2" disabled>Completo</button>'
+      : '<a class="btn btn-primary btn-sm w-100 mt-2 btn-inscribe" href="' + href + '">' + btnLabel + '</a>';
+    return (
+      '<div class="no-date-cohort mb-2">' +
+        '<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">' +
+          '<strong class="small">' + esc(label) + '</strong>' +
+          '<span class="cohort-pill">' + modalityLabel(c.modality) + '</span>' +
+        '</div>' +
+        '<div class="small text-muted mt-1">' + sd + ' · ' + spotsLine(c) + ' · ' + formatPrice(c) + '</div>' +
+        btn +
+      '</div>'
+    );
+  }
+
+  var withDate = cohorts.filter(function (c) { return !!c.start_date; });
+  var noDate = cohorts.filter(function (c) { return !c.start_date; });
+
+  if (noDate.length) {
+    var ndBlock = document.getElementById('noDateCohortsBlock');
+    var ndInner = document.getElementById('noDateCohortsInner');
+    if (ndBlock && ndInner) {
+      ndBlock.classList.remove('d-none');
+      ndInner.innerHTML = noDate.map(renderCohortCard).join('');
+    }
+  }
+
+  var calEl = document.getElementById('programCohortCalendar');
+  var titleEl = document.getElementById('cohortPanelTitle');
+  var hintEl = document.getElementById('cohortPanelHint');
+  var emptyEl = document.getElementById('cohortPanelEmpty');
+  var listEl = document.getElementById('cohortPanelList');
+
+  function showCohortsForDate(isoDate) {
+    var list = withDate.filter(function (c) { return c.start_date === isoDate; });
+    if (titleEl) titleEl.textContent = 'Convocatorias — ' + isoDate;
+    if (hintEl) hintEl.classList.add('d-none');
+    if (!list.length) {
+      if (emptyEl) emptyEl.classList.remove('d-none');
+      if (listEl) listEl.innerHTML = '';
+      return;
+    }
+    if (emptyEl) emptyEl.classList.add('d-none');
+    if (listEl) listEl.innerHTML = list.map(renderCohortCard).join('');
+  }
+
+  var events = withDate.map(function (c) {
+    return {
+      title: c.label || 'Convocatoria',
+      start: c.start_date,
+      allDay: true,
+      extendedProps: { cohortId: c.id }
+    };
+  });
+
+  var calendar = new FullCalendar.Calendar(calEl, {
+    initialView: 'dayGridMonth',
+    locale: 'es',
+    firstDay: 1,
+    height: 'auto',
+    headerToolbar: { left: 'prev', center: 'title', right: 'next' },
+    events: events,
+    eventClick: function (info) {
+      var cid = info.event.extendedProps.cohortId;
+      var c = cohorts.filter(function (x) { return x.id === cid; })[0];
+      if (c && c.start_date) showCohortsForDate(c.start_date);
+    },
+    dateClick: function (arg) {
+      var iso = arg.dateStr.slice(0, 10);
+      var has = withDate.some(function (c) { return c.start_date === iso; });
+      if (has) showCohortsForDate(iso);
+    }
+  });
+  calendar.render();
+
+  if (withDate.length) {
+    var first = withDate.slice().sort(function (a, b) { return (a.start_date > b.start_date) ? 1 : -1; })[0];
+    if (first && first.start_date) showCohortsForDate(first.start_date);
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

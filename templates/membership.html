@@ -79,16 +79,8 @@
                         <strong>Descuentos activos:</strong> 
                         {% if membership.membership_type == 'admin' %}
                         <strong>Acceso completo</strong> como administrador. Tienes acceso a todas las funcionalidades sin restricciones.
-                        {% elif membership.membership_type == 'pro' %}
-                        Disfrutas de <strong>10% de descuento</strong> en servicios y eventos.
-                        {% elif membership.membership_type == 'premium' %}
-                        Disfrutas de <strong>20% de descuento</strong> en servicios y eventos.
-                        {% elif membership.membership_type == 'deluxe' %}
-                        Disfrutas de <strong>30% de descuento</strong> en servicios y eventos.
-                        {% elif membership.membership_type == 'corporativo' %}
-                        Disfrutas de <strong>40% de descuento</strong> en servicios y eventos.
                         {% else %}
-                        Los servicios y eventos se aplican con precios estándar.
+                        Los descuentos y beneficios dependen de tu plan (Personal, Emprendedor o Ejecutivo) y de las reglas configuradas en la plataforma. Revisá la página de <a href="{{ url_for('benefits') }}">Beneficios</a>.
                         {% endif %}
                     </div>
                     

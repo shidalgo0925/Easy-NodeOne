@@ -59,8 +59,8 @@ html[data-theme="auto"] .auth-login-card {
 }
 
 .auth-login-card .btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    border-color: var(--color-primary-dark);
+    background-color: color-mix(in srgb, var(--color-primary) 82%, #000000);
+    border-color: color-mix(in srgb, var(--color-primary) 82%, #000000);
     filter: none;
 }
 
@@ -123,4 +123,144 @@ html[data-theme="auto"] .auth-login-card {
 html[data-theme="dark"] .auth-login-divider,
 html[data-theme="auto"] .auth-login-divider {
     color: #9ca3af;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Login + registro: misma tarjeta compacta y campos “material” (solo UI)   */
+/* Uso: .auth-login-card.auth-sheet-compact + form.auth-sheet-material        */
+/* -------------------------------------------------------------------------- */
+
+.auth-login-card.auth-sheet-compact .card-header {
+    padding: 0.45rem 0.85rem;
+}
+
+.auth-login-card.auth-sheet-compact .card-header h2 {
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: normal;
+}
+
+.auth-login-card.auth-sheet-compact .card-header .auth-login-sub {
+    font-size: 0.72rem;
+    margin-top: 0.05rem;
+    line-height: 1.2;
+    opacity: 0.92;
+}
+
+.auth-login-card.auth-sheet-compact .card-body {
+    padding: 0.45rem 0.75rem 0.5rem !important;
+}
+
+@media (min-width: 768px) {
+    .auth-login-card.auth-sheet-compact .card-body {
+        padding: 0.5rem 1rem 0.55rem !important;
+    }
+}
+
+.auth-login-card.auth-sheet-compact .form-label {
+    font-size: 0.78rem;
+    margin-bottom: 0.05rem;
+    line-height: 1.15;
+}
+
+.auth-login-card.auth-sheet-compact .auth-sheet-field {
+    margin-bottom: 0.32rem;
+}
+
+.auth-login-card.auth-sheet-compact .auth-login-divider {
+    margin: 0.4rem 0 0.3rem;
+    font-size: 0.65rem;
+}
+
+/* Botones sin .btn-lg (registro compacto); login mantiene btn-lg sin pisar */
+.auth-login-card.auth-sheet-compact .btn-primary:not(.btn-lg) {
+    padding: 0.32rem 0.65rem;
+    font-size: 0.88rem;
+}
+
+.auth-login-card.auth-sheet-compact .auth-login-oauth .btn:not(.btn-lg) {
+    padding-top: 0.28rem !important;
+    padding-bottom: 0.28rem !important;
+}
+
+.auth-login-card.auth-sheet-compact details.auth-login-meta {
+    margin-top: 0.2rem !important;
+}
+
+.auth-login-card.auth-sheet-compact .card-body > hr {
+    margin-top: 0.4rem !important;
+    margin-bottom: 0.4rem !important;
+}
+
+.auth-login-card.auth-sheet-compact .form-text {
+    font-size: 0.65rem;
+    line-height: 1.15;
+    margin-top: 0.08rem;
+    margin-bottom: 0;
+}
+
+.auth-login-card.auth-sheet-compact .form-check-label {
+    font-size: 0.78rem;
+}
+
+/* Campos material: solo línea inferior (anula caja / glow del .auth-login-card) */
+.auth-login-card .auth-sheet-material .form-control,
+.auth-login-card .auth-sheet-material .form-select {
+    border: none;
+    border-bottom: 1px solid var(--color-border, #ced4da);
+    border-radius: 0 !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    padding-left: 0.15rem;
+    padding-right: 0.15rem;
+}
+
+.auth-login-card .auth-sheet-material .form-control:focus,
+.auth-login-card .auth-sheet-material .form-select:focus {
+    border-bottom-color: var(--color-primary, #0d6efd);
+    border-bottom-width: 2px;
+    box-shadow: none !important;
+    outline: none;
+}
+
+.auth-login-card .auth-sheet-material .form-select {
+    background-position: right 0.1rem center;
+    padding-right: 1.75rem;
+}
+
+.auth-login-card .auth-sheet-material .input-group {
+    border-bottom: 1px solid var(--color-border, #ced4da);
+    border-radius: 0;
+    flex-wrap: nowrap;
+}
+
+.auth-login-card .auth-sheet-material .input-group:focus-within {
+    border-bottom-color: var(--color-primary, #0d6efd);
+    border-bottom-width: 2px;
+}
+
+.auth-login-card .auth-sheet-material .input-group .form-control {
+    border: none !important;
+    border-bottom: none !important;
+}
+
+.auth-login-card .auth-sheet-material .input-group .btn {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--gray-600, #6c757d);
+}
+
+.auth-login-card .auth-sheet-material .input-group .btn:hover,
+.auth-login-card .auth-sheet-material .input-group .btn:focus {
+    background: color-mix(in srgb, var(--color-primary, #0d6efd) 8%, transparent) !important;
+    color: var(--color-primary, #0d6efd);
+}
+
+.auth-login-card.auth-sheet-compact .auth-sheet-material .form-control,
+.auth-login-card.auth-sheet-compact .auth-sheet-material .form-select {
+    padding-top: 0.12rem;
+    padding-bottom: 0.12rem;
 }

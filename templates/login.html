@@ -20,24 +20,24 @@
     <div class="auth-login-page__inner">
         <div class="row justify-content-center">
             <div class="col-12 col-sm-11 col-md-8 col-lg-6 col-xl-5">
-                <div class="card auth-login-card">
+                <div class="card auth-login-card auth-sheet-compact">
                     <div class="card-header text-white text-center">
                         <h2 class="mb-0"><i class="fas fa-sign-in-alt me-2" aria-hidden="true"></i>Iniciar sesión</h2>
                         <p class="auth-login-sub mb-0">{{ get_nav_brand_name() }}</p>
                     </div>
-                    <div class="card-body p-4 p-md-5">
-                        <form method="POST" action="{{ url_for('auth.login', **request.args) }}" id="login-form" novalidate>
+                    <div class="card-body">
+                        <form method="POST" action="{{ url_for('auth.login', **request.args) }}" id="login-form" class="auth-sheet-material" novalidate>
                             {% if next_val %}
                             <input type="hidden" name="next" value="{{ next_val }}">
                             {% endif %}
-                            <div class="mb-3">
+                            <div class="auth-sheet-field">
                                 <label for="email" class="form-label">Correo electrónico</label>
                                 <input type="email" class="form-control form-control-lg" id="email" name="email"
                                        value="{{ login_email or '' }}" required autocomplete="username"
                                        inputmode="email" autocapitalize="none" spellcheck="false"
                                        placeholder="tu@correo.com">
                             </div>
-                            <div class="mb-3">
+                            <div class="auth-sheet-field">
                                 <label for="password" class="form-label">Contraseña</label>
                                 <div class="input-group input-group-lg">
                                     <input type="password" class="form-control" id="password" name="password" required

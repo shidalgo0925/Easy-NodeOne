@@ -346,7 +346,7 @@ def register_public_auth_legacy_routes(app):
     @app.route('/auth/<provider>/callback')
     def oauth_callback(provider):
         """Callback OAuth: intercambia código por token, obtiene userinfo, crea/vincula usuario y hace login."""
-        if not M.OAUTH_AVAILABLE or provider not in ('google', 'facebook', 'linkedin'):
+        if not M.OAUTH_AVAILABLE or provider not in ('google',):
             flash('Login social no disponible para este proveedor.', 'error')
             return redirect(url_for('auth.login'))
         oauth_err = request.args.get('error')
@@ -364,26 +364,8 @@ def register_public_auth_legacy_routes(app):
         try:
             client = getattr(M.oauth, provider)
             token = client.authorize_access_token()
-            # Google/OpenID: userinfo suele venir en token['userinfo']; Facebook/LinkedIN a veces hay que pedirlo
+            # Google/OpenID: userinfo suele venir en token['userinfo']
             userinfo = token.get('userinfo')
-            if not userinfo and provider in ('facebook', 'linkedin'):
-                ep = {
-                    'facebook': 'https://graph.facebook.com/v18.0/me?fields=id,name,email,first_name,last_name',
-                    'linkedin': 'https://api.linkedin.com/v2/userinfo',
-                }
-                resp = client.get(ep[provider], token=token)
-                if resp and getattr(resp, 'status_code', 0) == 200:
-                    raw = resp.json()
-                    if provider == 'facebook':
-                        userinfo = {
-                            'sub': str(raw.get('id', '')),
-                            'email': raw.get('email', ''),
-                            'name': raw.get('name', ''),
-                            'given_name': raw.get('first_name', ''),
-                            'family_name': raw.get('last_name', ''),
-                        }
-                    else:
-                        userinfo = raw
             if not userinfo:
                 flash('No se pudo obtener la información del perfil.', 'error')
                 return redirect(url_for('auth.login'))
@@ -500,8 +482,8 @@ def register_public_auth_legacy_routes(app):
 
     @app.route('/auth/<provider>')
     def oauth_login(provider):
-        """Redirige al proveedor OAuth (Google, Facebook, LinkedIn)."""
-        if not M.OAUTH_AVAILABLE or provider not in ('google', 'facebook', 'linkedin'):
+        """Redirige al proveedor OAuth (solo Google; Facebook/LinkedIn desactivados)."""
+        if not M.OAUTH_AVAILABLE or provider not in ('google',):
             flash('Login social no disponible.', 'error')
             return redirect(url_for('auth.login'))
         client = getattr(M.oauth, provider, None)

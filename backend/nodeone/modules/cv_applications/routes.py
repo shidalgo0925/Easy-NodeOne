@@ -280,6 +280,18 @@ def register_cv_application_routes(app):
 
         return render_template('cv/register.html', **_form_template_kwargs(service, oid, None))
 
+    # Listado y descargas en /admin/cv-applications (permiso services.view).
+    # Con NODEONE_SKIP_CV_ADMIN_ROUTES=1 solo queda el formulario público /cv/registro
+    # (útil si revisáis postulaciones por SQL/export externo y no queréis esas URLs admin).
+    _skip_cv_admin = os.environ.get('NODEONE_SKIP_CV_ADMIN_ROUTES', '').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+        'on',
+    )
+    if _skip_cv_admin:
+        return
+
     @app.route('/admin/cv-applications/<int:application_id>/download/<kind>')
     @M.login_required
     @M.require_permission('services.view')

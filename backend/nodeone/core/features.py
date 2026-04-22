@@ -411,7 +411,7 @@ def register_public_auth_legacy_routes(app):
 
 
 def register_cv_application_routes(app):
-    """Formulario público /cv/registro y listado admin /admin/cv-applications."""
+    """Formulario público /cv/registro; admin /admin/cv-applications salvo NODEONE_SKIP_CV_ADMIN_ROUTES."""
     if 'cv_registro' in getattr(app, 'view_functions', {}):
         return
     try:

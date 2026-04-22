@@ -13,7 +13,7 @@
                     <nav class="dashboard-nav dashboard-nav-compact flex-grow-1 min-w-0">
                         <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link active">Inicio</a>
                         {% if saas_module_enabled('appointments') %}
-                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Contenido</a>
+                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Servicios</a>
                         {% endif %}
                         <a href="{{ url_for('member_community.foros') }}" class="dashboard-nav-link">Comunidad</a>
                         <a href="{{ url_for('members.profile') }}" class="dashboard-nav-link">Perfil</a>
@@ -90,6 +90,25 @@
                     </div>
                     {% endfor %}
                 </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not show_tenant_admin_menu %}
+    <div class="card border-0 shadow-sm mb-3 bg-light">
+        <div class="card-body py-2 px-3">
+            <h6 class="text-muted text-uppercase small mb-2 mb-md-0 me-md-3 d-md-inline">Accesos rápidos</h6>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('membership') }}"><i class="fas fa-crown me-1"></i>Mi plan</a>
+                {% if saas_module_enabled('appointments') %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.list') }}"><i class="fas fa-th-large me-1"></i>Mis servicios</a>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('appointments.appointments_home') }}"><i class="fas fa-calendar-alt me-1"></i>Mis citas</a>
+                {% endif %}
+                {% if saas_module_enabled('payments') %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('payments_checkout.payments_history') }}"><i class="fas fa-receipt me-1"></i>Pagos</a>
+                {% endif %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('benefits') }}"><i class="fas fa-gift me-1"></i>Beneficios</a>
             </div>
         </div>
     </div>

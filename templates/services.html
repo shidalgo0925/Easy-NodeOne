@@ -25,6 +25,15 @@
 {%- else -%}{{ slug|replace('_', ' ')|title }}
 {%- endif -%}
 {%- endmacro -%}
+{# Enlaces relativos (/ruta) → URL absoluta del mismo sitio (evita 404 al pegar en otro dominio). #}
+{%- macro abs_service_external_url(href) -%}
+{%- set l = (href or '')|trim -%}
+{%- if l.startswith('http://') or l.startswith('https://') or l.startswith('//') -%}{{ l }}
+{%- elif l.startswith('/') -%}{{ request.url_root.rstrip('/') }}{{ l }}
+{%- elif l -%}{{ request.url_root.rstrip('/') }}/{{ l }}
+{%- else -%}{{ l }}
+{%- endif -%}
+{%- endmacro -%}
 <div class="container py-4 services-catalog-page public-services-catalog-page">
     {% if services_by_plan and plans_info %}
     <div class="services-hero-toolbar row g-3 align-items-start mb-4">
@@ -79,6 +88,92 @@
     {% endif %}
 
     {% if services_by_plan and plans_info %}
+        {% if services_unique %}
+    <div class="plan-section mb-5" data-plan="all">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3 pb-2 border-bottom">
+            <div>
+                <h2 class="plan-section-title mb-1">Catálogo</h2>
+                <small class="text-muted">Un servicio por tarjeta · Filtrá por plan con los accesos arriba</small>
+            </div>
+        </div>
+        <div class="services-card-grid">
+            {% for service in services_unique %}
+            <article class="service-template-card public-service-card h-100">
+                <div class="service-card-top">
+                    <div class="service-card-icon" aria-hidden="true">
+                        <i class="{{ service.icon or 'fas fa-layer-group' }}"></i>
+                    </div>
+                </div>
+                <h3 class="service-card-title">{{ service.name }}</h3>
+                <p class="service-card-desc">{% if service.description %}{{ service.description }}{% else %}Sin descripción.{% endif %}</p>
+                {% if (service.appointment_type_id is defined and service.appointment_type_id) or (service.diagnostic_appointment_type_id is defined and service.diagnostic_appointment_type_id) %}
+                <p class="service-card-advisors mb-0">
+                    <i class="fas fa-user-tie me-1"></i><strong>Asesores:</strong>
+                    {% if service.advisors is defined and service.advisors %}
+                        {% for a in service.advisors %}{{ a.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}
+                        <span class="fst-italic">Por asignar</span>
+                    {% endif %}
+                </p>
+                {% endif %}
+                <div class="service-card-footer">
+                    <div class="d-flex flex-column gap-2 w-100">
+                        {% if service.external_link %}
+                        <a href="{{ abs_service_external_url(service.external_link) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary align-self-start">
+                            Ver más <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                        {% endif %}
+                        {% if (service.service_type or '') == 'CV_REGISTRATION' %}
+                        <a href="{{ url_for('cv_registro', service=service.id) }}" class="btn btn-sm btn-primary align-self-start">
+                            <i class="fas fa-file-alt me-1"></i>Enviar hoja de vida
+                        </a>
+                        <small class="text-muted small">Formulario público; no requiere iniciar sesión.</small>
+                        {% elif service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
+                            {% if current_user.is_authenticated %}
+                                {% if service.service_type == 'CONSULTIVO' %}
+                                <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-handshake me-1"></i>Solicitar primera reunión
+                                </a>
+                                <small class="text-muted small">Proponés fecha; el asesor confirma y luego propuesta y pago.</small>
+                                {% else %}
+                                <a href="{{ url_for('services.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-calendar-check me-1"></i>Solicitar cita
+                                </a>
+                                <small class="text-muted small">Elegí horario en el calendario{% if service.pricing.final_price > 0 %} y pagá{% endif %}.</small>
+                                {% endif %}
+                            {% else %}
+                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Iniciá sesión para reservar
+                                </a>
+                                <small class="text-muted small">Necesitás cuenta para solicitar cita o primera reunión.</small>
+                            {% endif %}
+                        {% endif %}
+                        {% if (membership_type or 'basic') != 'basic' %}
+                            {% if service.pricing.is_included and service.pricing.final_price == 0 %}
+                            <span class="badge bg-success align-self-start">Incluido en tu plan</span>
+                            {% else %}
+                                {% if service.pricing.discount_percentage > 0 %}
+                                <div class="text-muted small">
+                                    <span class="text-decoration-line-through">${{ "%.2f"|format(service.pricing.base_price) }}</span>
+                                    <span class="badge bg-info ms-1">{{ membership_type|upper }}</span>
+                                    <span class="badge bg-success ms-1">-{{ "%.0f"|format(service.pricing.discount_percentage) }}%</span>
+                                </div>
+                                {% endif %}
+                                <div class="text-muted small">
+                                    <strong>${{ "%.2f"|format(service.pricing.final_price) }}</strong>
+                                    {% if (service.service_type or '') != 'CV_REGISTRATION' %}
+                                    <small class="d-block mt-1">Usá «Solicitar cita» para agregar al carrito.</small>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+        {% endif %}
         {% for plan_type in plan_slugs_ordered %}
             {% if plan_type in services_by_plan %}
                 {% set plan = plans_info.get(plan_type, {'name': plan_type|upper, 'badge': '', 'price': '—', 'color': 'bg-secondary'}) %}
@@ -114,7 +209,7 @@
                 <div class="service-card-footer">
                     <div class="d-flex flex-column gap-2 w-100">
                         {% if service.external_link %}
-                        <a href="{{ service.external_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary align-self-start">
+                        <a href="{{ abs_service_external_url(service.external_link) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary align-self-start">
                             Ver más <i class="fas fa-arrow-right ms-1"></i>
                         </a>
                         {% endif %}
@@ -220,19 +315,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchTerm = searchInput.value.toLowerCase().trim();
         const activeBtn = document.querySelector('.filter-btn.active');
         const activeFilter = activeBtn ? activeBtn.dataset.filter : 'all';
+        const hasUnified = document.querySelector('.plan-section[data-plan="all"]') !== null;
 
         planSections.forEach(function(section) {
             const planName = section.dataset.plan;
             const cards = section.querySelectorAll('.public-service-card');
             let hasVisible = false;
 
+            var sectionMatchesFilter;
+            if (activeFilter === 'all') {
+                sectionMatchesFilter = hasUnified ? planName === 'all' : true;
+            } else {
+                sectionMatchesFilter = planName === activeFilter;
+            }
+
             cards.forEach(function(card) {
                 const title = cardTitleText(card);
                 const description = cardDescText(card);
                 const matchesSearch = !searchTerm || title.includes(searchTerm) || description.includes(searchTerm);
-                const matchesFilter = activeFilter === 'all' || planName === activeFilter;
 
-                if (matchesSearch && matchesFilter) {
+                if (matchesSearch && sectionMatchesFilter) {
                     card.style.display = '';
                     hasVisible = true;
                 } else {
@@ -260,6 +362,8 @@ document.addEventListener('DOMContentLoaded', function() {
             performSearch();
         });
     });
+
+    performSearch();
 });
 
 function addServiceToCart(serviceName, serviceDescription, serviceId) {

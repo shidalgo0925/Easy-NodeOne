@@ -33,5 +33,13 @@ class CvApplication(db.Model):
     referral_source = db.Column(db.String(300), nullable=True)
     additional_comments = db.Column(db.Text, nullable=True)
 
+    desired_salary = db.Column(db.String(120), nullable=True)
+    professional_status = db.Column(db.String(120), nullable=True)
+    native_language = db.Column(db.String(80), nullable=True)
+    # Rutas relativas al directorio static (p. ej. uploads/cv/1/abc.pdf)
+    photo_relative_path = db.Column(db.String(500), nullable=True)
+    cv_document_relative_path = db.Column(db.String(500), nullable=True)
+    legal_accepted = db.Column(db.Boolean, nullable=False, default=False)
+
     status = db.Column(db.String(32), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

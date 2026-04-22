@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{% if cohort %}Editar{% else %}Nueva{% endif %} convocatoria — {{ service.name }}{% endblock %}
+
+{% block page_content %}
+{% macro fv(name, default='') -%}
+{%- if form is defined and form is not none -%}{{ form.get(name, default) }}{%- else -%}{{ default }}{%- endif -%}
+{%- endmacro %}
+<div class="container py-4" style="max-width: 640px;">
+    <h1 class="h4 mb-3">{% if cohort %}Editar convocatoria{% else %}Nueva convocatoria{% endif %}</h1>
+    <p class="text-muted small">Programa: <strong>{{ service.name }}</strong></p>
+
+    <form method="post" class="card card-body border shadow-sm">
+        <div class="mb-3">
+            <label class="form-label" for="label">Nombre / etiqueta</label>
+            <input class="form-control" id="label" name="label" value="{% if cohort %}{{ cohort.label or '' }}{% else %}{{ fv('label') }}{% endif %}" placeholder="Ej. Mayo 2026 · Virtual">
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="slug">Slug corto (opcional)</label>
+            <input class="form-control" id="slug" name="slug" value="{% if cohort %}{{ cohort.slug or '' }}{% else %}{{ fv('slug') }}{% endif %}" placeholder="2026-05-virtual">
+            <div class="form-text">Para referencias internas; la API usa siempre el <code>id</code> de cohorte en el checkout.</div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="start_date">Fecha inicio</label>
+                <input class="form-control" type="date" id="start_date" name="start_date" value="{% if cohort and cohort.start_date %}{{ cohort.start_date.strftime('%Y-%m-%d') }}{% else %}{{ fv('start_date') }}{% endif %}">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="end_date">Fecha fin</label>
+                <input class="form-control" type="date" id="end_date" name="end_date" value="{% if cohort and cohort.end_date %}{{ cohort.end_date.strftime('%Y-%m-%d') }}{% else %}{{ fv('end_date') }}{% endif %}">
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="weeks_duration">Duración (semanas)</label>
+            <input class="form-control" type="number" min="0" id="weeks_duration" name="weeks_duration" value="{% if cohort and cohort.weeks_duration %}{{ cohort.weeks_duration }}{% else %}{{ fv('weeks_duration', '') }}{% endif %}" placeholder="12">
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="modality">Modalidad</label>
+            <select class="form-select" id="modality" name="modality">
+                {% set mod = (cohort.modality if cohort else fv('modality', 'virtual')) %}
+                <option value="virtual" {% if mod == 'virtual' %}selected{% endif %}>Virtual</option>
+                <option value="hybrid" {% if mod == 'hybrid' %}selected{% endif %}>Híbrido</option>
+                <option value="presential" {% if mod == 'presential' %}selected{% endif %}>Presencial</option>
+            </select>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="capacity_total">Cupos totales</label>
+                <input class="form-control" type="number" min="0" id="capacity_total" name="capacity_total" value="{% if cohort %}{{ cohort.capacity_total }}{% else %}{{ fv('capacity_total', '0') }}{% endif %}">
+                <div class="form-text">0 = sin tope (no recomendado si vendés plaza limitada).</div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="capacity_reserved">Ya reservados / vendidos</label>
+                <input class="form-control" type="number" min="0" id="capacity_reserved" name="capacity_reserved" value="{% if cohort %}{{ cohort.capacity_reserved }}{% else %}{{ fv('capacity_reserved', '0') }}{% endif %}">
+                <div class="form-text">Ajuste manual; tras pagos confirmados NodeOne incrementa este valor.</div>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="price_override">Precio override (USD)</label>
+            <input class="form-control" type="text" id="price_override" name="price_override" value="{% if cohort and cohort.price_override_cents is not none %}{{ '%.2f'|format(cohort.price_override_cents / 100) }}{% else %}{{ fv('price_override', '') }}{% endif %}" placeholder="Vacío = usar precio base del programa">
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="display_order">Orden</label>
+            <input class="form-control" type="number" id="display_order" name="display_order" value="{% if cohort %}{{ cohort.display_order }}{% else %}{{ fv('display_order', '0') }}{% endif %}">
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="is_active" value="1" id="is_active" {% if not cohort or cohort.is_active %}checked{% endif %}>
+            <label class="form-check-label" for="is_active">Convocatoria activa (visible en API si la fecha lo permite)</label>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('admin_course_cohort_list', service_id=service.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -90,7 +90,8 @@ def select_organization():
     orgs = organizations_for_session_after_login(current_user)
     if len(orgs) <= 1:
         session.pop('require_org_selection', None)
-        return redirect(url_for('dashboard'))
+        next_page = service.safe_next_path(request.args.get('next'))
+        return redirect(next_page) if next_page else redirect(url_for('dashboard'))
     cards = [{'id': int(o.id), 'name': (o.name or '').strip() or 'Empresa', 'logo': resolved_logo_url_for_org_card(int(o.id))} for o in orgs]
     next_page = service.safe_next_path(request.args.get('next'))
     return render_template(

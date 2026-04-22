@@ -36,12 +36,12 @@
 
     <div class="mb-3">
         <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 w-100 w-md-auto" type="button"
-                data-bs-toggle="collapse" data-bs-target="#servicesCatalogExplain" aria-expanded="true" aria-controls="servicesCatalogExplain">
+                data-bs-toggle="collapse" data-bs-target="#servicesCatalogExplain" aria-expanded="false" aria-controls="servicesCatalogExplain">
             <i class="fas fa-info-circle" aria-hidden="true"></i>
             <span>Para qué sirve esta pantalla</span>
             <i class="fas fa-chevron-down small ms-auto collapse-chevron-svc" aria-hidden="true"></i>
         </button>
-        <div class="collapse show mt-2" id="servicesCatalogExplain">
+        <div class="collapse mt-2" id="servicesCatalogExplain">
             <div class="card border shadow-sm overflow-hidden">
                 <div class="row g-0">
                     <div class="col-12 col-lg-5 bg-light d-flex flex-column align-items-center justify-content-center p-3 p-lg-4 border-bottom services-explain-visual">
@@ -155,7 +155,10 @@
                                     <span class="badge bg-light text-dark border">{{ service.membership_type|upper }}</span>
                                 {% endif %}
                                 <span class="service-card-price">${{ "%.2f"|format(service.base_price) }}</span>
-                                {% if (service.service_type or 'AGENDABLE') == 'CV_REGISTRATION' %}
+                                {% if (service.service_type or 'AGENDABLE') == 'COURSE' %}
+                                <span class="badge bg-dark"><i class="fas fa-graduation-cap me-1"></i>COURSE</span>
+                                <a href="{{ url_for('admin_course_cohort_list', service_id=service.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2">Convocatorias</a>
+                                {% elif (service.service_type or 'AGENDABLE') == 'CV_REGISTRATION' %}
                                 <span class="badge bg-secondary"><i class="fas fa-file-alt me-1"></i>CV</span>
                                 {% elif service.requires_appointment() %}
                                 <span class="badge bg-info text-dark"><i class="fas fa-calendar-check me-1"></i>Cita</span>
@@ -326,8 +329,14 @@
                             <option value="AGENDABLE">AGENDABLE — Solicitar cita (calendario y pago)</option>
                             <option value="CONSULTIVO">CONSULTIVO — Solicitar primera reunión (propón fecha, asesor confirma)</option>
                             <option value="CV_REGISTRATION">CV_REGISTRATION — Formulario público de hoja de vida</option>
+                            <option value="COURSE">COURSE — Programa con convocatorias (API landing + checkout por cohorte)</option>
                         </select>
-                        <small class="text-muted">CONSULTIVO / AGENDABLE: flujos con cita. CV_REGISTRATION: postulación sin cita (solo con la casilla arriba o al elegir este valor).</small>
+                        <small class="text-muted">CONSULTIVO / AGENDABLE: flujos con cita. CV_REGISTRATION: postulación sin cita. COURSE: diplomados con fechas en API pública.</small>
+                    </div>
+                    <div class="mb-3 d-none" id="programSlugContainer">
+                        <label for="serviceProgramSlug" class="form-label">program_slug <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="serviceProgramSlug" name="program_slug" placeholder="ej. neuro-liderazgo-intercultural" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" autocomplete="off">
+                        <small class="text-muted">URL pública: <code>/api/public/programs/<strong>este-valor</strong>/cohorts</code></small>
                     </div>
                 </form>
             </div>
@@ -455,6 +464,7 @@ function fillForm(service) {
     // Manejar "Requiere cita" y CV (mutuamente excluyentes con cita)
     const requiresAppointmentFromDb = service.appointment_type_id !== null && service.appointment_type_id !== undefined;
     const isCvType = (service.service_type || '') === 'CV_REGISTRATION';
+    const isCourseType = (service.service_type || '') === 'COURSE';
     const cvCb = document.getElementById('serviceCvRegistration');
     if (cvCb) cvCb.checked = isCvType;
 
@@ -463,11 +473,25 @@ function fillForm(service) {
     const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
     const serviceTypeContainer = document.getElementById('serviceTypeContainer');
     const serviceTypeSelect = document.getElementById('serviceType');
+    const programSlugContainer = document.getElementById('programSlugContainer');
+    const programSlugInput = document.getElementById('serviceProgramSlug');
+    if (programSlugContainer && !isCourseType) programSlugContainer.classList.add('d-none');
+    if (programSlugInput && !isCourseType) programSlugInput.value = '';
 
-    const requiresAppointment = !isCvType && requiresAppointmentFromDb;
+    const requiresAppointment = !isCvType && !isCourseType && requiresAppointmentFromDb;
     requiresAppointmentCheckbox.checked = requiresAppointment;
 
-    if (isCvType) {
+    if (isCourseType) {
+        if (cvCb) cvCb.checked = false;
+        requiresAppointmentCheckbox.checked = false;
+        appointmentTypeContainer.style.display = 'none';
+        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+        appointmentTypeSelect.required = false;
+        appointmentTypeSelect.value = '';
+        if (serviceTypeSelect) serviceTypeSelect.value = 'COURSE';
+        if (programSlugContainer) programSlugContainer.classList.remove('d-none');
+        if (programSlugInput) programSlugInput.value = service.program_slug || '';
+    } else if (isCvType) {
         appointmentTypeContainer.style.display = 'none';
         if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
         appointmentTypeSelect.required = false;
@@ -546,8 +570,16 @@ function saveService() {
     if (isCv) {
         serviceType = 'CV_REGISTRATION';
     }
+    if (serviceType === 'COURSE') {
+        const ps = document.getElementById('serviceProgramSlug');
+        const raw = ps ? ps.value.trim().toLowerCase() : '';
+        if (!raw) {
+            alert('Indica el program_slug (solo minúsculas, números y guiones). Lo usa la API pública del landing.');
+            return;
+        }
+    }
 
-    const requiresAppointment = !isCv && document.getElementById('serviceRequiresAppointment').checked;
+    const requiresAppointment = serviceType !== 'COURSE' && !isCv && document.getElementById('serviceRequiresAppointment').checked;
     let appointmentTypeId = null;
     if (requiresAppointment) {
         const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
@@ -575,6 +607,11 @@ function saveService() {
     const taxSel = document.getElementById('serviceDefaultTax');
     if (taxSel) {
         formData.default_tax_id = taxSel.value === '' ? null : parseInt(taxSel.value, 10);
+    }
+    if (serviceType === 'COURSE') {
+        const ps = document.getElementById('serviceProgramSlug');
+        formData.program_slug = ps ? ps.value.trim().toLowerCase() : '';
+        formData.appointment_type_id = null;
     }
     
     const serviceId = document.getElementById('serviceId').value;
@@ -685,6 +722,7 @@ document.getElementById('serviceRequiresAppointment').addEventListener('change',
     if (this.checked) {
         if (cvCb) cvCb.checked = false;
         if (st && st.value === 'CV_REGISTRATION') st.value = 'AGENDABLE';
+        if (st && st.value === 'COURSE') st.value = 'AGENDABLE';
         appointmentTypeContainer.style.display = 'block';
         if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
         appointmentTypeSelect.required = true;
@@ -711,12 +749,15 @@ document.getElementById('serviceRequiresAppointment').addEventListener('change',
         const stc = document.getElementById('serviceTypeContainer');
         if (stc) stc.style.display = 'block';
         st.value = 'CV_REGISTRATION';
+        const psc = document.getElementById('programSlugContainer');
+        if (psc) psc.classList.add('d-none');
     });
     st.addEventListener('change', function () {
         const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
         const serviceTypeContainer = document.getElementById('serviceTypeContainer');
         const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
         const reqCb = document.getElementById('serviceRequiresAppointment');
+        const psc = document.getElementById('programSlugContainer');
         if (this.value === 'CV_REGISTRATION') {
             cvCb.checked = true;
             if (reqCb) reqCb.checked = false;
@@ -724,8 +765,18 @@ document.getElementById('serviceRequiresAppointment').addEventListener('change',
             if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
             appointmentTypeSelect.required = false;
             appointmentTypeSelect.value = '';
+            if (psc) psc.classList.add('d-none');
+        } else if (this.value === 'COURSE') {
+            cvCb.checked = false;
+            if (reqCb) reqCb.checked = false;
+            appointmentTypeContainer.style.display = 'none';
+            if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+            appointmentTypeSelect.required = false;
+            appointmentTypeSelect.value = '';
+            if (psc) psc.classList.remove('d-none');
         } else {
             cvCb.checked = false;
+            if (psc) psc.classList.add('d-none');
         }
     });
 })();
@@ -831,6 +882,10 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     if (cvReg) cvReg.checked = false;
     const st = document.getElementById('serviceType');
     if (st) st.value = 'AGENDABLE';
+    const psc = document.getElementById('programSlugContainer');
+    if (psc) psc.classList.add('d-none');
+    const psIn = document.getElementById('serviceProgramSlug');
+    if (psIn) psIn.value = '';
 });
 
     var reportTitleEl = document.getElementById('report_title');

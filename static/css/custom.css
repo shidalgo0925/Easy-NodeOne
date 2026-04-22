@@ -44,8 +44,8 @@
 }
 
 .btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    border-color: var(--color-primary-dark);
+    background-color: color-mix(in srgb, var(--color-primary) 82%, #000000);
+    border-color: color-mix(in srgb, var(--color-primary) 82%, #000000);
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 }
@@ -348,7 +348,7 @@
 }
 .navbar-landing .nav-btn-login:hover,
 .nav-btn-login:hover {
-    background-color: var(--color-primary-dark) !important;
+    background-color: color-mix(in srgb, var(--color-primary) 82%, #000000) !important;
     color: #ffffff !important;
 }
 

@@ -84,10 +84,13 @@ class MembershipPlan(db.Model):
         from app import tenant_data_organization_id  # noqa: WPS433
 
         oid = int(organization_id) if organization_id is not None else tenant_data_organization_id()
-        return {
+        out = {
             p.slug: p.level
             for p in MembershipPlan.query.filter_by(is_active=True, organization_id=oid).order_by(MembershipPlan.level).all()
         }
+        # ``basic`` no es un plan de catálogo: es “sin membresía paga” / mínimo lógico para servicios y descuentos.
+        out.setdefault('basic', 0)
+        return out
 
     @staticmethod
     def get_plans_info(organization_id=None):

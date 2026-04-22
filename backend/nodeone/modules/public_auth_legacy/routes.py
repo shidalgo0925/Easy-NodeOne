@@ -33,6 +33,9 @@ def register_public_auth_legacy_routes(app):
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         """Registro de nuevos usuarios"""
+        from _app.modules.auth.service import safe_next_path
+
+        register_next = safe_next_path(request.form.get('next') or request.args.get('next'))
         if request.method == 'POST':
             email = request.form.get('email', '').strip()
             password = request.form.get('password', '')
@@ -49,6 +52,7 @@ def register_public_auth_legacy_routes(app):
                     'register.html',
                     valid_countries=VALID_COUNTRIES,
                     invite_token=session.get('pending_invite_token'),
+                    register_next=register_next,
                 )
 
             # Validar país
@@ -60,6 +64,7 @@ def register_public_auth_legacy_routes(app):
                         'register.html',
                         valid_countries=VALID_COUNTRIES,
                         invite_token=session.get('pending_invite_token'),
+                        register_next=register_next,
                     )
 
             # Validar cédula o pasaporte
@@ -71,6 +76,7 @@ def register_public_auth_legacy_routes(app):
                         'register.html',
                         valid_countries=VALID_COUNTRIES,
                         invite_token=session.get('pending_invite_token'),
+                        register_next=register_next,
                     )
         
             # Validar formato de email
@@ -81,6 +87,7 @@ def register_public_auth_legacy_routes(app):
                     'register.html',
                     valid_countries=VALID_COUNTRIES,
                     invite_token=session.get('pending_invite_token'),
+                    register_next=register_next,
                 )
 
             from nodeone.services.organization_invites import (
@@ -100,6 +107,7 @@ def register_public_auth_legacy_routes(app):
                     'register.html',
                     valid_countries=VALID_COUNTRIES,
                     invite_token=invite_token,
+                    register_next=register_next,
                 )
             target_org_id = (
                 int(invite.organization_id) if invite else M._organization_id_for_public_registration()
@@ -115,11 +123,13 @@ def register_public_auth_legacy_routes(app):
                         'register.html',
                         valid_countries=VALID_COUNTRIES,
                         invite_token=invite_token,
+                        register_next=register_next,
                     )
                 if user_has_active_membership(existing, target_org_id):
                     flash('Tu cuenta ya está en esta organización. Inicia sesión.', 'info')
                     session.pop('pending_invite_token', None)
-                    return redirect(url_for('auth.login'))
+                    _ln = register_next or url_for('membership')
+                    return redirect(url_for('auth.login', next=_ln))
                 ensure_membership(existing.id, target_org_id)
                 if invite_token:
                     inv2 = get_valid_invite_by_token(invite_token)
@@ -128,7 +138,8 @@ def register_public_auth_legacy_routes(app):
                 db.session.commit()
                 session.pop('pending_invite_token', None)
                 flash('Te has unido a esta organización. Inicia sesión con tu correo y contraseña.', 'success')
-                return redirect(url_for('auth.login'))
+                _ln = register_next or url_for('membership')
+                return redirect(url_for('auth.login', next=_ln))
 
             # Nuevo usuario (empresa: subdominio, form saas_organization_id o default)
             user = User(
@@ -221,7 +232,8 @@ def register_public_auth_legacy_routes(app):
                 pass
 
             flash('Registro exitoso. Por favor, verifica tu email para acceder a todas las funciones. Revisa tu bandeja de entrada (y spam).', 'success')
-            return redirect(url_for('auth.login'))
+            _ln = register_next or url_for('membership')
+            return redirect(url_for('auth.login', next=_ln))
 
         it = (request.args.get('invite') or '').strip()
         if it:
@@ -234,6 +246,7 @@ def register_public_auth_legacy_routes(app):
             'register.html',
             valid_countries=VALID_COUNTRIES,
             invite_token=session.get('pending_invite_token'),
+            register_next=register_next,
         )
 
     @app.route('/verify-email/<token>')
@@ -257,8 +270,8 @@ def register_public_auth_legacy_routes(app):
             if user.email_verified:
                 flash('Tu email ya está verificado. Puedes iniciar sesión normalmente.', 'info')
                 if current_user.is_authenticated and current_user.id == user.id:
-                    return redirect(url_for('dashboard'))
-                return redirect(url_for('auth.login'))
+                    return redirect(url_for('membership'))
+                return redirect(url_for('auth.login', next=url_for('membership')))
         
             # Verificar si el token expiró
             if user.email_verification_token_expires:
@@ -281,15 +294,15 @@ def register_public_auth_legacy_routes(app):
         
             # Si el usuario no está logueado, redirigir al login con mensaje claro
             if not current_user.is_authenticated:
-                return redirect(url_for('auth.login'))
+                return redirect(url_for('auth.login', next=url_for('membership')))
         
             # Si está logueado pero es otro usuario, cerrar sesión y redirigir
             if current_user.id != user.id:
                 logout_user()
                 flash('Por favor, inicia sesión con tu cuenta.', 'info')
-                return redirect(url_for('auth.login'))
+                return redirect(url_for('auth.login', next=url_for('membership')))
         
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('membership'))
         
         except Exception as e:
             print(f"❌ Error en verify_email: {e}")
@@ -403,7 +416,9 @@ def register_public_auth_legacy_routes(app):
                 user = User.query.get(social.user_id)
             else:
                 user = User.query.filter_by(email=email).first()
+            oauth_new_user = False
             if not user:
+                oauth_new_user = True
                 user = User(
                     email=email,
                     first_name=given_name or 'Usuario',
@@ -457,7 +472,11 @@ def register_public_auth_legacy_routes(app):
                 safe_next_path(session.pop('oauth_post_login_next', None))
                 or safe_next_path(request.args.get('next'))
             )
-            return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+            if next_page:
+                return redirect(next_page)
+            if oauth_new_user:
+                return redirect(url_for('membership'))
+            return redirect(url_for('dashboard'))
         except Exception as e:
             print(f"❌ OAuth callback error ({provider}): {e}")
             import traceback

@@ -49,6 +49,9 @@
                     </div>
                     <div class="card-body">
                         <form method="POST" id="registerForm" class="auth-sheet-material" novalidate>
+                            {% if register_next %}
+                            <input type="hidden" name="next" value="{{ register_next }}">
+                            {% endif %}
                             {% if invite_token %}
                             <input type="hidden" name="invite_token" value="{{ invite_token }}">
                             <div class="alert alert-info py-1 px-2 mb-1 small" role="alert">

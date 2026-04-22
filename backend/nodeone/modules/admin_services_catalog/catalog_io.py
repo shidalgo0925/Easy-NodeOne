@@ -32,8 +32,13 @@ EXPORT_COLUMNS = [
     'default_tax_id',
 ]
 
-_MEMBERSHIP_ALLOWED = frozenset({'basic', 'pro', 'premium', 'deluxe', 'corporativo'})
-_SERVICE_TYPES = frozenset({'AGENDABLE', 'CONSULTIVO', 'CV_REGISTRATION'})
+_SERVICE_TYPES = frozenset({'AGENDABLE', 'CONSULTIVO', 'CV_REGISTRATION', 'COURSE'})
+
+
+def _membership_slugs_allowed_for_org(oid: int) -> set[str]:
+    """Slugs de planes activos en ``membership_plan`` (import catálogo)."""
+    rows = M.MembershipPlan.query.filter_by(organization_id=int(oid), is_active=True).all()
+    return {str(r.slug or '').strip().lower() for r in rows if (r.slug or '').strip()}
 
 
 def _is_blank(v: Any) -> bool:
@@ -204,19 +209,22 @@ def validate_import_rows(rows: list[dict[str, Any]], oid: int) -> list[tuple[int
         if not name:
             errors.append((i, 'El campo name es obligatorio'))
             continue
-        mt = _cell_str(row.get('membership_type')).lower() or 'basic'
-        if mt not in _MEMBERSHIP_ALLOWED:
+        mt = _cell_str(row.get('membership_type')).lower() or 'personal'
+        allowed_mt = _membership_slugs_allowed_for_org(oid)
+        if not allowed_mt:
+            allowed_mt = {'personal', 'emprendedor', 'ejecutivo'}
+        if mt not in allowed_mt:
             errors.append(
-                (i, f'membership_type inválido: {mt}. Use: {", ".join(sorted(_MEMBERSHIP_ALLOWED))}')
+                (i, f'membership_type inválido: {mt}. Slugs activos en esta org: {", ".join(sorted(allowed_mt))}')
             )
         st = (_cell_str(row.get('service_type')) or 'AGENDABLE').upper()
         if st not in _SERVICE_TYPES:
-            errors.append((i, f'service_type inválido: {st}. Use AGENDABLE, CONSULTIVO o CV_REGISTRATION'))
+            errors.append((i, f'service_type inválido: {st}. Use AGENDABLE, CONSULTIVO, CV_REGISTRATION o COURSE'))
         cat_name = _cell_str(row.get('category_name'))
         if cat_name and _resolve_category_id(cat_name) is None:
             errors.append((i, f'Categoría no encontrada: {cat_name}'))
 
-        if st != 'CV_REGISTRATION':
+        if st not in ('CV_REGISTRATION', 'COURSE'):
             aid = _parse_optional_int(row.get('appointment_type_id'))
             err = _validate_appointment_type(aid, oid)
             if err:
@@ -256,7 +264,7 @@ def apply_import_rows(rows: list[dict[str, Any]], oid: int) -> tuple[int, int]:
         cat_name = _cell_str(row.get('category_name'))
         category_id = _resolve_category_id(cat_name) if cat_name else None
 
-        membership_type = _cell_str(row.get('membership_type')).lower() or 'basic'
+        membership_type = _cell_str(row.get('membership_type')).lower() or 'personal'
         service_type = (_cell_str(row.get('service_type')) or 'AGENDABLE').upper()
 
         payload = {
@@ -282,7 +290,7 @@ def apply_import_rows(rows: list[dict[str, Any]], oid: int) -> tuple[int, int]:
             'diagnostic_appointment_type_id': _parse_optional_int(row.get('diagnostic_appointment_type_id')),
             'default_tax_id': _parse_optional_int(row.get('default_tax_id')),
         }
-        if payload['service_type'] == 'CV_REGISTRATION':
+        if payload['service_type'] in ('CV_REGISTRATION', 'COURSE'):
             payload['appointment_type_id'] = None
             payload['diagnostic_appointment_type_id'] = None
 

@@ -13,5 +13,6 @@ from .certificates import *  # noqa: F403
 from .appointments import *  # noqa: F403
 from .catalog import *  # noqa: F403
 from .cv_application import *  # noqa: F403
+from .course_cohort import *  # noqa: F403
 from .communication_rules import *  # noqa: F403
 from .academic import *  # noqa: F403

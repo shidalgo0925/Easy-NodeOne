@@ -59,8 +59,8 @@ html[data-theme="auto"] .auth-login-card {
 }
 
 .auth-login-card .btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    border-color: var(--color-primary-dark);
+    background-color: color-mix(in srgb, var(--color-primary) 82%, #000000);
+    border-color: color-mix(in srgb, var(--color-primary) 82%, #000000);
     filter: none;
 }
 

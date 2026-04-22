@@ -4,12 +4,17 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-login.css') }}">
+{% if recaptcha_site_key %}
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{% endif %}
 {% endblock %}
 
 {% block page_content %}
 {% macro fv(name, default='') -%}
 {%- if form is not none -%}{{ form.get(name, default) }}{%- else -%}{{ default }}{%- endif -%}
 {%- endmacro %}
+{% macro cur(name) %}{% if form is not none %}{{ form.get(name, '') }}{% else %}{% endif %}{% endmacro %}
+
 <div class="container auth-login-page py-3 py-md-4">
     <div class="row justify-content-center auth-login-page__inner">
         <div class="col-12 col-lg-10 col-xl-9">
@@ -30,17 +35,20 @@
                     {% endif %}
                     {% endwith %}
 
-                    <form method="post" action="{{ url_for('cv_registro', service=service.id) }}" class="auth-sheet-material" novalidate>
+                    <form method="post" enctype="multipart/form-data" action="{{ url_for('cv_registro', service=service.id) }}" class="auth-sheet-material" novalidate>
                         <input type="hidden" name="service" value="{{ service.id }}">
 
+                        <p class="small text-muted mb-3">Los datos se usan solo para procesos de selección vinculados a este servicio. Campos con <span class="text-danger">*</span> son obligatorios.</p>
+
+                        <h3 class="h6 text-body-secondary border-bottom pb-2 mb-3">Datos personales</h3>
                         <div class="row g-2">
                             <div class="col-12 col-md-4 auth-sheet-field">
                                 <label class="form-label" for="cv_salutation">Tratamiento</label>
                                 <select class="form-select" id="cv_salutation" name="salutation">
                                     <option value="">—</option>
-                                    <option value="Sr." {% if fv('salutation') == 'Sr.' %}selected{% endif %}>Sr.</option>
-                                    <option value="Sra." {% if fv('salutation') == 'Sra.' %}selected{% endif %}>Sra.</option>
-                                    <option value="Otro" {% if fv('salutation') == 'Otro' %}selected{% endif %}>Otro</option>
+                                    <option value="Sr." {% if cur('salutation') == 'Sr.' %}selected{% endif %}>Sr.</option>
+                                    <option value="Sra." {% if cur('salutation') == 'Sra.' %}selected{% endif %}>Sra.</option>
+                                    <option value="Otro" {% if cur('salutation') == 'Otro' %}selected{% endif %}>Otro</option>
                                 </select>
                             </div>
                             <div class="col-12 col-md-4 auth-sheet-field">
@@ -53,7 +61,7 @@
                             </div>
                         </div>
 
-                        <div class="row g-2">
+                        <div class="row g-2 mt-1">
                             <div class="col-12 col-md-4 auth-sheet-field">
                                 <label class="form-label" for="cv_birth_date">Fecha de nacimiento</label>
                                 <input class="form-control" type="date" id="cv_birth_date" name="birth_date" value="{{ fv('birth_date') }}">
@@ -62,9 +70,9 @@
                                 <label class="form-label" for="cv_gender">Género</label>
                                 <select class="form-select" id="cv_gender" name="gender">
                                     <option value="">—</option>
-                                    <option value="Femenino" {% if fv('gender') == 'Femenino' %}selected{% endif %}>Femenino</option>
-                                    <option value="Masculino" {% if fv('gender') == 'Masculino' %}selected{% endif %}>Masculino</option>
-                                    <option value="Otro / prefiero no decir" {% if fv('gender') == 'Otro / prefiero no decir' %}selected{% endif %}>Otro / prefiero no decir</option>
+                                    <option value="Femenino" {% if cur('gender') == 'Femenino' %}selected{% endif %}>Femenino</option>
+                                    <option value="Masculino" {% if cur('gender') == 'Masculino' %}selected{% endif %}>Masculino</option>
+                                    <option value="Otro / prefiero no decir" {% if cur('gender') == 'Otro / prefiero no decir' %}selected{% endif %}>Otro / prefiero no decir</option>
                                 </select>
                             </div>
                             <div class="col-12 col-md-4 auth-sheet-field">
@@ -73,21 +81,15 @@
                             </div>
                         </div>
 
-                        <div class="row g-2">
+                        <div class="row g-2 mt-1">
                             <div class="col-12 col-md-6 auth-sheet-field">
-                                <label class="form-label" for="cv_email">Correo electrónico <span class="text-danger">*</span></label>
-                                <input class="form-control" id="cv_email" name="email" type="email" required autocomplete="email" value="{{ fv('email') }}">
-                            </div>
-                            <div class="col-12 col-md-6 auth-sheet-field">
-                                <label class="form-label" for="cv_email_confirm">Confirmar correo <span class="text-danger">*</span></label>
-                                <input class="form-control" id="cv_email_confirm" name="email_confirm" type="email" required autocomplete="email" value="{{ fv('email_confirm') }}">
-                            </div>
-                        </div>
-
-                        <div class="row g-2">
-                            <div class="col-12 col-md-6 auth-sheet-field">
-                                <label class="form-label" for="cv_country">País de residencia</label>
-                                <input class="form-control" id="cv_country" name="country_residence" autocomplete="country-name" value="{{ fv('country_residence') }}">
+                                <label class="form-label" for="cv_country">País <span class="text-danger">*</span></label>
+                                <select class="form-select" id="cv_country" name="country_residence" required>
+                                    <option value="">Seleccionar…</option>
+                                    {% for c in valid_countries %}
+                                    <option value="{{ c }}" {% if cur('country_residence') == c %}selected{% endif %}>{{ c }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                             <div class="col-12 col-md-6 auth-sheet-field">
                                 <label class="form-label" for="cv_province">Provincia / región</label>
@@ -95,42 +97,127 @@
                             </div>
                         </div>
 
+                        <h3 class="h6 text-body-secondary border-bottom pb-2 mb-3 mt-4">Contacto</h3>
                         <div class="row g-2">
                             <div class="col-12 col-md-6 auth-sheet-field">
-                                <label class="form-label" for="cv_education">Nivel de estudios</label>
-                                <input class="form-control" id="cv_education" name="education_level" value="{{ fv('education_level') }}">
+                                <label class="form-label" for="cv_email">Correo electrónico <span class="text-danger">*</span></label>
+                                <input class="form-control" id="cv_email" name="email" type="email" required autocomplete="email" value="{{ fv('email') }}">
                             </div>
                             <div class="col-12 col-md-6 auth-sheet-field">
-                                <label class="form-label" for="cv_sector">Sector de interés</label>
-                                <input class="form-control" id="cv_sector" name="preferred_sector" value="{{ fv('preferred_sector') }}">
+                                <label class="form-label" for="cv_email_confirm">Repita su correo electrónico <span class="text-danger">*</span></label>
+                                <input class="form-control" id="cv_email_confirm" name="email_confirm" type="email" required autocomplete="email" value="{{ fv('email_confirm') }}">
                             </div>
                         </div>
 
-                        <div class="auth-sheet-field">
-                            <label class="form-label" for="cv_langs">Otros idiomas</label>
-                            <textarea class="form-control" id="cv_langs" name="other_languages" rows="2">{{ fv('other_languages') }}</textarea>
-                        </div>
-
+                        <h3 class="h6 text-body-secondary border-bottom pb-2 mb-3 mt-4">Perfil profesional</h3>
                         <div class="row g-2">
                             <div class="col-12 col-md-6 auth-sheet-field">
-                                <label class="form-label" for="cv_years">Años de experiencia en el sector</label>
-                                <input class="form-control" id="cv_years" name="years_experience_sector" value="{{ fv('years_experience_sector') }}">
+                                <label class="form-label" for="cv_salary">Salario deseado (bruto anual aprox.)</label>
+                                <select class="form-select" id="cv_salary" name="desired_salary">
+                                    {% for val, lab in salary_choices %}
+                                    <option value="{{ val }}" {% if cur('desired_salary') == val %}selected{% endif %}>{{ lab }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                             <div class="col-12 col-md-6 auth-sheet-field">
-                                <label class="form-label" for="cv_referral">¿Cómo nos conociste?</label>
-                                <input class="form-control" id="cv_referral" name="referral_source" value="{{ fv('referral_source') }}">
+                                <label class="form-label" for="cv_prof">Situación profesional</label>
+                                <select class="form-select" id="cv_prof" name="professional_status">
+                                    {% for val, lab in professional_status_choices %}
+                                    <option value="{{ val }}" {% if cur('professional_status') == val %}selected{% endif %}>{{ lab }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_native">Idioma nativo</label>
+                                <select class="form-select" id="cv_native" name="native_language">
+                                    {% for val, lab in native_language_choices %}
+                                    <option value="{{ val }}" {% if cur('native_language') == val %}selected{% endif %}>{{ lab }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_langs">Otros idiomas</label>
+                                <textarea class="form-control" id="cv_langs" name="other_languages" rows="2" placeholder="p. ej. Inglés B2, Francés…">{{ fv('other_languages') }}</textarea>
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_sector">¿En qué sector te gustaría trabajar?</label>
+                                <select class="form-select" id="cv_sector" name="preferred_sector">
+                                    {% for val, lab in sector_choices %}
+                                    <option value="{{ val }}" {% if cur('preferred_sector') == val %}selected{% endif %}>{{ lab }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_years">Años de experiencia en el área</label>
+                                <select class="form-select" id="cv_years" name="years_experience_sector">
+                                    {% for val, lab in years_experience_choices %}
+                                    <option value="{{ val }}" {% if cur('years_experience_sector') == val %}selected{% endif %}>{{ lab }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_edu">Nivel de estudios</label>
+                                <select class="form-select" id="cv_edu" name="education_level">
+                                    {% for val, lab in education_choices %}
+                                    <option value="{{ val }}" {% if cur('education_level') == val %}selected{% endif %}>{{ lab }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6 auth-sheet-field">
+                                <label class="form-label" for="cv_referral">¿Cómo conociste nuestra empresa?</label>
+                                <select class="form-select" id="cv_referral" name="referral_source">
+                                    {% for val, lab in referral_choices %}
+                                    <option value="{{ val }}" {% if cur('referral_source') == val %}selected{% endif %}>{{ lab }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
 
-                        <div class="auth-sheet-field">
-                            <label class="form-label" for="cv_comments">Comentarios adicionales</label>
-                            <textarea class="form-control" id="cv_comments" name="additional_comments" rows="3">{{ fv('additional_comments') }}</textarea>
+                        <div class="auth-sheet-field mt-2">
+                            <label class="form-label" for="cv_comments">Comentarios opcionales</label>
+                            <textarea class="form-control" id="cv_comments" name="additional_comments" rows="3" placeholder="Carta de motivación, disponibilidad, etc.">{{ fv('additional_comments') }}</textarea>
                         </div>
 
-                        <p class="form-text small mb-2">Los campos marcados con <span class="text-danger">*</span> son obligatorios. Tus datos se usan solo para procesos de selección asociados a este servicio.</p>
+                        <h3 class="h6 text-body-secondary border-bottom pb-2 mb-3 mt-4">Archivos</h3>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="cv_photo">Tu foto <span class="text-muted">(opcional)</span></label>
+                                <input class="form-control" type="file" id="cv_photo" name="photo" accept=".jpg,.jpeg,.png,.gif,image/jpeg,image/png,image/gif">
+                                <div class="form-text">JPG, PNG o GIF. Máx. 10&nbsp;MB.</div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="cv_doc">Tu curriculum vitae <span class="text-danger">*</span></label>
+                                <input class="form-control" type="file" id="cv_doc" name="cv_document" accept=".pdf,.doc,.docx,.rtf,application/pdf,application/msword" required>
+                                <div class="form-text">PDF, Word o RTF. Máx. 10&nbsp;MB.</div>
+                            </div>
+                        </div>
 
-                        <div class="d-flex flex-wrap gap-2 align-items-center pt-1">
-                            <button type="submit" class="btn btn-primary">Enviar</button>
+                        <div class="d-none" aria-hidden="true">
+                            <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off" value=""></label>
+                        </div>
+
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" value="1" name="legal_accept" id="cvLegal" required>
+                            <label class="form-check-label small" for="cvLegal">
+                                Acepto el <strong>aviso legal</strong>, las <strong>condiciones de uso</strong> y la <strong>política de privacidad</strong> relativos al tratamiento de mis datos para este proceso de selección.
+                            </label>
+                        </div>
+
+                        {% if recaptcha_site_key %}
+                        <div class="mt-3">
+                            <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                            <p class="form-text small mb-0">Si no ves la casilla de verificación, revisa bloqueadores o inténtalo en otra red.</p>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex flex-wrap gap-2 align-items-center pt-3 mt-2">
+                            <button type="submit" class="btn btn-primary px-4">Enviar solicitud</button>
                             <a href="{{ url_for('services.list') }}" class="btn btn-link btn-sm text-decoration-none">Volver al catálogo</a>
                         </div>
                     </form>

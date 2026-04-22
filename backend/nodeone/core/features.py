@@ -422,6 +422,19 @@ def register_cv_application_routes(app):
         print(f'Warning: No se pudieron registrar rutas CV applications: {e}')
 
 
+def register_public_program_routes(app):
+    """API GET /api/public/programs/<slug>/cohorts y página HTML /programs/<slug>."""
+    _vfs = getattr(app, 'view_functions', {})
+    if 'public_program_cohorts' in _vfs and 'public_program_landing' in _vfs:
+        return
+    try:
+        from nodeone.modules.public_programs.routes import register_public_program_api_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas programas/cohortes públicos: {e}')
+
+
 def register_public_api_blueprint(app):
     if os.environ.get('NODEONE_SKIP_PUBLIC_API_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -610,6 +623,18 @@ def register_admin_services_catalog_blueprint(app):
         print(f'Warning: No se pudo registrar admin_services_catalog_bp: {e}')
 
 
+def register_admin_course_cohort_routes(app):
+    """HTML admin: /admin/services/<id>/cohorts (convocatorias COURSE)."""
+    if 'admin_course_cohort_list' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.admin_course_cohorts.routes import register_admin_course_cohort_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas admin course cohorts: {e}')
+
+
 def register_member_community_blueprint(app):
     if os.environ.get('NODEONE_SKIP_MEMBER_COMMUNITY_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -639,10 +664,10 @@ def register_payments_blueprint(app):
         return
     try:
         from _app.modules.payments.routes import payments_bp
-        from saas_features import register_simple_saas_guard as _reg_pay_guard
+        from saas_features import register_payments_blueprint_saas_guard as _reg_pay_guard
 
         if 'payments' not in app.blueprints:
-            _reg_pay_guard(payments_bp, 'payments')
+            _reg_pay_guard(payments_bp)
             app.register_blueprint(payments_bp)
     except ImportError as e:
         print(f'Warning: No se pudo registrar payments_bp: {e}')
@@ -837,6 +862,7 @@ def register_modules(app):
     register_public_membership_routes(app)
     register_public_auth_legacy_routes(app)
     register_cv_application_routes(app)
+    register_public_program_routes(app)
     register_public_api_blueprint(app)
     register_ai_api_blueprint(app)
     register_admin_email_api_blueprint(app)
@@ -858,6 +884,7 @@ def register_modules(app):
     register_admin_discount_codes_blueprint(app)
     register_admin_membership_discounts_blueprint(app)
     register_admin_services_catalog_blueprint(app)
+    register_admin_course_cohort_routes(app)
     register_appointments_blueprints(app)
     register_events_blueprints(app)
     register_certificates_blueprints(app)

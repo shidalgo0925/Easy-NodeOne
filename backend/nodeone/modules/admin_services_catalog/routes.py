@@ -81,10 +81,15 @@ def admin_services_create():
                     return jsonify({'success': False, 'error': 'Tipo de cita no encontrado'}), 400
 
         service_type = (data.get('service_type') or 'AGENDABLE').strip().upper()
-        if service_type not in ('CONSULTIVO', 'AGENDABLE', 'CV_REGISTRATION'):
+        if service_type not in ('CONSULTIVO', 'AGENDABLE', 'CV_REGISTRATION', 'COURSE'):
             service_type = 'AGENDABLE'
-        if service_type == 'CV_REGISTRATION':
+        if service_type in ('CV_REGISTRATION', 'COURSE'):
             appointment_type_id = None
+        program_slug = (data.get('program_slug') or '').strip().lower() or None
+        if service_type == 'COURSE' and not program_slug:
+            return jsonify({'success': False, 'error': 'Los programas COURSE requieren program_slug (URL pública).'}), 400
+        if service_type != 'COURSE':
+            program_slug = None
         oid = _admin_catalog_org_id()
         try:
             dtid = _coerce_default_tax_id(data, oid)
@@ -120,6 +125,7 @@ def admin_services_create():
             service_type=service_type,
             organization_id=oid,
             default_tax_id=dtid,
+            program_slug=program_slug,
         )
 
         M.db.session.add(service)
@@ -154,7 +160,7 @@ def admin_services_update(service_id):
         try:
             membership_hierarchy = M.MembershipPlan.get_hierarchy()
         except Exception:
-            membership_hierarchy = {'basic': 0, 'pro': 1, 'premium': 2, 'deluxe': 3, 'corporativo': 4}
+            membership_hierarchy = {'basic': 0, 'personal': 1, 'emprendedor': 2, 'ejecutivo': 3}
         base_plan = min(membership_plans, key=lambda p: membership_hierarchy.get(p, 999))
 
         category_id = data.get('category_id')
@@ -174,11 +180,18 @@ def admin_services_update(service_id):
         service.display_order = int(data.get('display_order', service.display_order))
 
         service_type = (data.get('service_type') or getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE').strip().upper()
-        if service_type in ('CONSULTIVO', 'AGENDABLE', 'CV_REGISTRATION'):
+        if service_type in ('CONSULTIVO', 'AGENDABLE', 'CV_REGISTRATION', 'COURSE'):
             service.service_type = service_type
-        if service_type == 'CV_REGISTRATION':
+        if service_type in ('CV_REGISTRATION', 'COURSE'):
             service.appointment_type_id = None
             service.diagnostic_appointment_type_id = None
+        if service_type == 'COURSE':
+            ps = (data.get('program_slug') or '').strip().lower() or None
+            if not ps:
+                return jsonify({'success': False, 'error': 'Los programas COURSE requieren program_slug (URL pública).'}), 400
+            service.program_slug = ps
+        else:
+            service.program_slug = None
 
         if (service.service_type or '').strip().upper() != 'CV_REGISTRATION':
             appointment_type_id = data.get('appointment_type_id')

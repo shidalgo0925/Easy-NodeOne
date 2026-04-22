@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Inscripción — Neuro-Liderazgo Intercultural — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  .ii-checkout-landing { --ii-navy: #1a2744; --ii-gold: #c9a227; --ii-green: #0f766e; --ii-bg: #f4f6f9; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--ii-bg); margin: -1rem -0.5rem 0; padding: 1.5rem 0.75rem 2.5rem; }
+  .ii-checkout-grid { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+  @media (min-width: 900px) { .ii-checkout-grid { grid-template-columns: 38% 1fr; gap: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 40px rgba(26,39,68,.12); } }
+  .ii-checkout-summary { background: linear-gradient(165deg, #0d5c56 0%, var(--ii-green) 45%, #0a4f4a 100%); color: #fff; padding: 1.5rem 1.35rem; }
+  .ii-checkout-summary h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 .35rem; opacity: .95; }
+  .ii-checkout-summary .ii-title { font-size: 1.35rem; font-weight: 600; line-height: 1.35; margin: 0 0 1rem; }
+  .ii-checkout-summary .ii-price { font-size: 1.75rem; font-weight: 700; margin: .25rem 0; }
+  .ii-checkout-summary .ii-note { font-size: .8rem; opacity: .9; line-height: 1.45; margin-top: 1rem; }
+  .ii-checkout-summary ul { list-style: none; padding: 0; margin: 1rem 0 0; font-size: .88rem; opacity: .95; }
+  .ii-checkout-summary li { display: flex; justify-content: space-between; padding: .35rem 0; border-bottom: 1px solid rgba(255,255,255,.18); }
+  .ii-checkout-main { background: #fff; padding: 1.5rem 1.35rem 2rem; }
+  .ii-checkout-main h2 { font-size: 1.1rem; color: var(--ii-navy); margin: 0 0 .75rem; }
+  .ii-checkout-main p { color: #334155; font-size: .92rem; line-height: 1.55; margin: 0 0 1rem; }
+  .ii-plan-cards { display: grid; gap: .75rem; margin-top: 1rem; }
+  @media (min-width: 520px) { .ii-plan-cards { grid-template-columns: repeat(3, 1fr); } }
+  .ii-plan-card { border: 2px solid #e2e8f0; border-radius: 10px; padding: .9rem .75rem; text-align: center; transition: border-color .15s, box-shadow .15s; background: #fafbfc; }
+  .ii-plan-card:hover { border-color: var(--ii-gold); box-shadow: 0 4px 14px rgba(201,162,39,.2); }
+  .ii-plan-card strong { display: block; color: var(--ii-navy); font-size: .88rem; margin-bottom: .35rem; }
+  .ii-plan-card .ii-amt { font-size: 1.15rem; font-weight: 700; color: var(--ii-navy); }
+  .ii-plan-card .ii-sub { font-size: .72rem; color: #64748b; margin-top: .35rem; line-height: 1.35; }
+  .ii-plan-card a { display: block; margin-top: .65rem; padding: .5rem .5rem; border-radius: 6px; background: var(--ii-navy); color: #fff !important; text-decoration: none; font-size: .82rem; font-weight: 600; }
+  .ii-plan-card a:hover { background: #243352; color: #fff !important; }
+  .ii-foot { font-size: .78rem; color: #64748b; margin-top: 1.25rem; line-height: 1.45; }
+  .ii-brand { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+  .ii-brand span { font-weight: 700; letter-spacing: .06em; font-size: .72rem; color: rgba(255,255,255,.92); }
+</style>
+{% endblock %}
+
+{% block page_content %}
+{% set slug = diplomado_slug %}
+<div class="ii-checkout-landing">
+  <div class="ii-checkout-grid">
+    <aside class="ii-checkout-summary">
+      <div class="ii-brand">
+        <span>International Institute US</span>
+      </div>
+      <h1>Diplomado</h1>
+      <p class="ii-title">Neuro-Liderazgo y Coaching Ejecutivo Intercultural</p>
+      <p class="ii-price" id="ii-selected-label">Desde USD 1,949</p>
+      <ul>
+        <li><span>Modalidad</span><span>100% online</span></li>
+        <li><span>Duración</span><span>10 meses · 240 h</span></li>
+        <li><span>Idioma</span><span>Español</span></li>
+      </ul>
+      <p class="ii-note">El cargo en la pasarela corresponde al <strong>total del plan</strong> que elijas (contado o plan de cuotas según descripción comercial). Tras el pago, el equipo confirma acceso al aula y siguientes pasos.</p>
+    </aside>
+    <section class="ii-checkout-main">
+      <h2>Elegí tu forma de pago</h2>
+      <p>Seleccioná una opción. Si aún no tenés cuenta, podés <a href="{{ url_for('register', next=url_for('payments.diplomado_continuar', slug=slug, plan='full')) }}">registrarte</a> o <a href="{{ url_for('auth.login') }}">iniciar sesión</a>; después te llevamos al checkout seguro.</p>
+      <div class="ii-plan-cards">
+        <div class="ii-plan-card">
+          <strong>Pago completo</strong>
+          <div class="ii-amt">USD 1,949</div>
+          <div class="ii-sub">20% dto. incluido · un solo cargo</div>
+          {% if current_user.is_authenticated %}
+          <a href="{{ url_for('payments.diplomado_continuar', slug=slug, plan='full') }}">Continuar</a>
+          {% else %}
+          <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan='full')) }}">Continuar</a>
+          {% endif %}
+        </div>
+        <div class="ii-plan-card">
+          <strong>Plan 6 cuotas</strong>
+          <div class="ii-amt">USD 2,300</div>
+          <div class="ii-sub">Total programa · referencia 6 × USD 383</div>
+          {% if current_user.is_authenticated %}
+          <a href="{{ url_for('payments.diplomado_continuar', slug=slug, plan='6') }}">Continuar</a>
+          {% else %}
+          <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan='6')) }}">Continuar</a>
+          {% endif %}
+        </div>
+        <div class="ii-plan-card">
+          <strong>Plan 10 cuotas</strong>
+          <div class="ii-amt">USD 2,690</div>
+          <div class="ii-sub">Total programa · referencia 10 × USD 269</div>
+          {% if current_user.is_authenticated %}
+          <a href="{{ url_for('payments.diplomado_continuar', slug=slug, plan='10') }}">Continuar</a>
+          {% else %}
+          <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan='10')) }}">Continuar</a>
+          {% endif %}
+        </div>
+      </div>
+      <p class="ii-foot">Debes tener el <strong>correo verificado</strong> para completar el pago en el checkout. Si recién te registraste, revisá tu bandeja (y spam) y el enlace de verificación.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

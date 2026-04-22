@@ -1,11 +1,62 @@
 # Rutas del carrito y checkout.
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, abort
 from flask_login import login_required, current_user
 
 from app import email_verified_required, flash
 from . import service as svc
 
 payments_bp = Blueprint('payments', __name__, url_prefix='')
+
+# Slug → plantilla de landing (debe coincidir con claves de ``DIPLOMADOS_IIUS`` en service).
+DIPLOMADO_LANDING_TEMPLATES = {
+    'neuro-liderazgo-intercultural': 'public/inscription_neuro_liderazgo.html',
+    'neuro-descodificacion-psicogenealogia-pnl': 'public/inscription_neuro_descodificacion.html',
+    'neuro-teologia-coaching-cristiano-transgeneracional': 'public/inscription_neuro_teologia_cristiana.html',
+    'neuro-heuristica-coaching-vida': 'public/inscription_neuro_heuristica.html',
+}
+
+
+@payments_bp.route('/inscripcion/<slug>')
+def diplomado_landing(slug):
+    """Landing público previo al checkout (planes y resumen)."""
+    slug = (slug or '').strip().lower()
+    tpl = DIPLOMADO_LANDING_TEMPLATES.get(slug)
+    if not tpl or slug not in svc.DIPLOMADOS_IIUS:
+        abort(404)
+    return render_template(tpl, diplomado_slug=slug)
+
+
+@payments_bp.route('/inscripcion/<slug>/continuar/<plan>')
+@login_required
+def diplomado_continuar(slug, plan):
+    """Añade el diplomado al carrito y envía al checkout (requiere sesión y email verificado en /checkout)."""
+    slug = (slug or '').strip().lower()
+    ok, err = svc.add_diplomado_to_cart(current_user.id, slug, plan)
+    if not ok:
+        flash(err or 'No se pudo preparar el pago.', 'error')
+        if slug in DIPLOMADO_LANDING_TEMPLATES:
+            return redirect(url_for('payments.diplomado_landing', slug=slug))
+        return redirect(url_for('services.list'))
+    flash('Plan añadido al carrito. Completa el pago en el siguiente paso.', 'success')
+    return redirect(url_for('payments.checkout'))
+
+
+@payments_bp.route('/checkout/course')
+@login_required
+def checkout_course():
+    """Inscripción a una cohorte concreta (desde landing). Query: service_id, cohort_id."""
+    try:
+        sid = int(request.args.get('service_id', 0))
+        cid = int(request.args.get('cohort_id', 0))
+    except (TypeError, ValueError):
+        flash('Enlace de inscripción no válido.', 'error')
+        return redirect(url_for('services.list'))
+    ok, err = svc.add_course_cohort_to_cart(current_user.id, sid, cid)
+    if not ok:
+        flash(err or 'No se pudo preparar la inscripción.', 'error')
+        return redirect(url_for('services.list'))
+    flash('Inscripción añadida al carrito. Completa el pago en el siguiente paso.', 'success')
+    return redirect(url_for('payments.checkout'))
 
 
 @payments_bp.route('/cart')

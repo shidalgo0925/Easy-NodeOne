@@ -283,6 +283,19 @@ def process_cart_after_payment(cart, payment):
                         # No fallar el pago si falla la creación de la cita
                         # Se puede crear manualmente después
         
+        elif item.product_type == 'course':
+            metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+            cohort_id = metadata.get('cohort_id')
+            if cohort_id:
+                try:
+                    coh = M.CourseCohort.query.get(int(cohort_id))
+                    if coh:
+                        coh.capacity_reserved = int(coh.capacity_reserved or 0) + int(item.quantity or 1)
+                        M.db.session.add(coh)
+                        print(f"✅ Cupo registrado para cohorte {cohort_id} (course)")
+                except Exception as e:
+                    print(f"⚠️ Error actualizando cupo de cohorte: {e}")
+
         elif item.product_type == 'proposal':
             # Fase 8: Pago de propuesta aceptada (flujo consultivo)
             metadata = json.loads(item.item_metadata) if item.item_metadata else {}

@@ -330,8 +330,10 @@ class Service(db.Model):
     base_price = db.Column(db.Float, default=50.0)  # Precio base en USD
     is_active = db.Column(db.Boolean, default=True)
     display_order = db.Column(db.Integer, default=0)  # Orden de visualización
-    # CONSULTIVO | AGENDABLE | CV_REGISTRATION (formulario público de hoja de vida, sin cita).
+    # CONSULTIVO | AGENDABLE | CV_REGISTRATION | COURSE (programa con convocatorias / cohortes).
     service_type = db.Column(db.String(20), nullable=False, default='AGENDABLE')
+    # Slug público del programa para API / landing (único por organización en lógica de negocio).
+    program_slug = db.Column(db.String(120), nullable=True, index=True)
     # Campos para cita de diagnóstico
     requires_diagnostic_appointment = db.Column(db.Boolean, default=False)  # Si requiere cita diagnóstico antes de usar
     diagnostic_appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=True)  # Tipo de cita de diagnóstico
@@ -516,7 +518,8 @@ class Service(db.Model):
     
     def requires_appointment(self):
         """Verifica si el servicio requiere cita."""
-        if (getattr(self, 'service_type', None) or '').strip().upper() == 'CV_REGISTRATION':
+        st = (getattr(self, 'service_type', None) or '').strip().upper()
+        if st in ('CV_REGISTRATION', 'COURSE'):
             return False
         return self.appointment_type_id is not None and self.is_active
     
@@ -557,6 +560,7 @@ class Service(db.Model):
             'deposit_amount': float(self.deposit_amount) if self.deposit_amount else None,
             'deposit_percentage': float(self.deposit_percentage) if self.deposit_percentage else None,
             'service_type': getattr(self, 'service_type', 'AGENDABLE') or 'AGENDABLE',
+            'program_slug': (getattr(self, 'program_slug', None) or '') or '',
             'organization_id': int(getattr(self, 'organization_id', None) or 1),
             'default_tax_id': int(getattr(self, 'default_tax_id', None) or 0) or None,
         }

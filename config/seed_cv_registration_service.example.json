@@ -1,0 +1,19 @@
+{
+  "_comment": "Copiar a seed_cv_registration_service.json y ajustar. program_slug es la clave estable para upsert (mismo org + mismo slug = actualización).",
+  "organization_id": 1,
+  "program_slug": "iius_cv_registration",
+  "service": {
+    "name": "Registro de Hoja de Vida",
+    "description": "Formulario público para recibir datos de contacto y perfil profesional (postulación).",
+    "icon": "fas fa-file-alt",
+    "membership_type": "basic",
+    "category_id": null,
+    "external_link": "",
+    "base_price": 50.0,
+    "is_active": true,
+    "display_order": 1,
+    "service_type": "CV_REGISTRATION",
+    "requires_diagnostic_appointment": false,
+    "requires_payment_before_appointment": false
+  }
+}

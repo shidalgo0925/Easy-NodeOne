@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Servicio de integración con Odoo 18
-Envía webhooks a Odoo cuando se confirma un pago en membresia-relatic
+Envía webhooks a Odoo cuando se confirma un pago en NodeOne
 """
 
 import os
@@ -18,11 +18,12 @@ class OdooIntegrationService:
     """Servicio para enviar webhooks a Odoo"""
     
     def __init__(self):
-        self.api_url = os.getenv('ODOO_API_URL', 'https://odoo.relatic.org/api/relatic/v1/sale')
+        self.api_url = (os.getenv('ODOO_API_URL') or '').strip()
         self.api_key = os.getenv('ODOO_API_KEY', '')
         self.hmac_secret = os.getenv('ODOO_HMAC_SECRET', '')
         self.environment = os.getenv('ODOO_ENVIRONMENT', 'prod')
         self.enabled = os.getenv('ODOO_INTEGRATION_ENABLED', 'false').lower() == 'true'
+        self._signature_header = (os.getenv('ODOO_WEBHOOK_SIGNATURE_HEADER') or 'X-NodeOne-Signature').strip()
     
     def _generate_hmac_signature(self, payload: str) -> str:
         """Genera firma HMAC del payload"""
@@ -43,7 +44,7 @@ class OdooIntegrationService:
         return f"ORD-{year}-{payment_id:05d}"
     
     def _get_payment_method_odoo(self, payment_method: str) -> str:
-        """Mapea método de pago de membresia-relatic a formato Odoo"""
+        """Mapea método de pago de NodeOne a formato Odoo"""
         mapping = {
             'yappy': 'YAPPY',
             'paypal': 'TARJETA',  # PayPal se procesa como tarjeta
@@ -162,7 +163,7 @@ class OdooIntegrationService:
         payload = {
             'meta': {
                 'version': '1.0',
-                'source': 'membresia-relatic',
+                'source': 'nodeone',
                 'environment': self.environment,
                 'timestamp': datetime.utcnow().isoformat() + 'Z'
             },
@@ -204,6 +205,10 @@ class OdooIntegrationService:
             return False, "Integración deshabilitada", None
         
         # Verificar configuración
+        if not self.api_url:
+            print("⚠️ ODOO_API_URL no configurada")
+            return False, "URL de API Odoo no configurada", None
+
         if not self.api_key:
             print("⚠️ ODOO_API_KEY no configurada")
             return False, "API Key no configurada", None
@@ -225,7 +230,7 @@ class OdooIntegrationService:
             # Preparar headers
             headers = {
                 'Authorization': f'Bearer {self.api_key}',
-                'X-Relatic-Signature': signature,
+                self._signature_header: signature,
                 'Content-Type': 'application/json'
             }
             

@@ -86,8 +86,67 @@ def get_current_organization_id():
     return _clamp_org_id(raw)
 
 
+def resolve_current_organization():
+    """
+    Fuente única de verdad para org operativa en la petición (catálogo, guards SaaS, datos tenant).
+
+    Prioridad:
+    1. Anónimo: subdominio (host) → default.
+    2. Admin: sesión (selector) → host → default.
+    3. Miembro: host si tiene acceso a ese tenant; si no, sesión → last_selected → organization_id.
+    """
+    if not has_request_context():
+        return int(default_organization_id())
+
+    from flask import request
+
+    def _host_org_id():
+        from app import _organization_id_from_request_host
+
+        return _organization_id_from_request_host(request)
+
+    host_oid = _host_org_id()
+
+    if not getattr(current_user, 'is_authenticated', False):
+        return int(host_oid) if host_oid is not None else int(default_organization_id())
+
+    if getattr(current_user, 'is_admin', False):
+        raw = session.get('organization_id')
+        if raw is not None and raw != '':
+            return _clamp_org_id(raw)
+        if host_oid is not None:
+            return int(host_oid)
+        return int(default_organization_id())
+
+    if host_oid is not None and user_has_access_to_organization(current_user, int(host_oid)):
+        return int(host_oid)
+    try:
+        sid = session.get('organization_id')
+        sid = int(sid) if sid not in (None, '') else None
+    except (TypeError, ValueError):
+        sid = None
+    if sid is not None and user_has_access_to_organization(current_user, sid):
+        return sid
+    last = getattr(current_user, 'last_selected_organization_id', None)
+    try:
+        lid = int(last) if last is not None else None
+    except (TypeError, ValueError):
+        lid = None
+    if lid is not None and user_has_access_to_organization(current_user, lid):
+        return lid
+    return int(getattr(current_user, 'organization_id', None) or default_organization_id())
+
+
+def get_admin_effective_organization_id():
+    """
+    Paneles admin (catálogo servicios, tipos de cita, APIs asociadas).
+    Delega en resolve_current_organization() (misma fuente que catálogo / guards).
+    """
+    return int(resolve_current_organization())
+
+
 def user_has_access_to_organization(user, org_id):
-    """Admin plataforma: cualquier org. Resto: solo su organization_id en BD."""
+    """Admin plataforma: cualquier org. Resto: membresía en user_organization o compat organization_id."""
     if user is None or not getattr(user, 'is_authenticated', False):
         return False
     try:
@@ -96,9 +155,13 @@ def user_has_access_to_organization(user, org_id):
         return False
     if getattr(user, 'is_admin', False):
         return True
+    from nodeone.services.user_organization import active_organization_ids_for_user
+
+    if oid in active_organization_ids_for_user(user):
+        return True
     if single_tenant_default_only():
         return oid == int(getattr(user, 'organization_id', None) or default_organization_id())
-    return int(getattr(user, 'organization_id', None) or 1) == oid
+    return False
 
 
 def scoped_query(model):

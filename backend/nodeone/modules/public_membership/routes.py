@@ -75,13 +75,22 @@ def register_public_membership_routes(app):
             Event.start_date.isnot(None)
         ).order_by(Event.start_date.asc()).all()
     
-        # Citas confirmadas del usuario para el calendario (confirmadas por asesor)
+        # Citas confirmadas (leyenda bajo el calendario)
         user_confirmed_appointments = Appointment.query.filter(
             Appointment.user_id == current_user.id,
             Appointment.status.in_(['CONFIRMADA', 'confirmed']),
             Appointment.start_datetime.isnot(None),
             Appointment.start_datetime >= now
         ).order_by(Appointment.start_datetime.asc()).all()
+
+        # Citas en el calendario del dashboard: pendiente + confirmada (misma idea que «Mi Agenda»)
+        user_calendar_appointments = Appointment.query.filter(
+            Appointment.user_id == current_user.id,
+            Appointment.status.in_(['pending', 'confirmed', 'PENDIENTE', 'CONFIRMADA']),
+            Appointment.start_datetime.isnot(None),
+            Appointment.end_datetime.isnot(None),
+            Appointment.start_datetime >= now,
+        ).order_by(Appointment.start_datetime.asc()).limit(120).all()
     
         # Detectar si es un usuario nuevo (creado en las últimas 24 horas)
         is_new_user = False
@@ -105,6 +114,7 @@ def register_public_membership_routes(app):
                              registered_events_count=registered_events_count,
                              all_public_events=all_public_events,
                              user_confirmed_appointments=user_confirmed_appointments,
+                             user_calendar_appointments=user_calendar_appointments,
                              show_onboarding=show_onboarding,
                              is_new_user=is_new_user,
                              user_status=user_status)  # Pasar estado del usuario al template

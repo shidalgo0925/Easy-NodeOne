@@ -1,4 +1,4 @@
-# Modelo Win-Win: Plataforma RELATIC
+# Modelo Win-Win: Plataforma Easy NodeOne
 > Modelos de negocio donde TÚ ganas y TUS CLIENTES ganan
 
 ---

@@ -6,26 +6,12 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">Facturas</h3>
         <div class="d-flex gap-2">
-            <button id="btnCreateInvoice" class="btn btn-primary">Crear factura</button>
+            <a class="btn btn-primary" href="{{ url_for('admin_accounting_invoice_new') }}">Nueva factura</a>
             <a class="btn btn-outline-primary" href="{{ url_for('admin_sales_quotations') }}">Ir a cotizaciones</a>
         </div>
     </div>
 
-    <div class="card mb-3">
-        <div class="card-body">
-            <form id="invoiceForm" class="row g-2">
-                <div class="col-md-2">
-                    <input class="form-control" name="customer_id" type="number" placeholder="customer_id" required>
-                </div>
-                <div class="col-md-3">
-                    <input class="form-control" name="origin_quotation_id" type="number" placeholder="origin_quotation_id (opcional)">
-                </div>
-                <div class="col-md-7 text-muted small d-flex align-items-center">
-                    Puedes crear factura sin cotización (origin_quotation_id vacío).
-                </div>
-            </form>
-        </div>
-    </div>
+    <p class="text-muted small mb-3">Las facturas se crean con el mismo formulario que las cotizaciones (cliente, líneas, impuestos). Use <strong>Nueva factura</strong> para un borrador independiente de cotización.</p>
 
     <div class="table-responsive">
         <table class="table table-sm table-striped">
@@ -58,7 +44,7 @@ function clearError(){
 async function api(url, method='GET', body=null){
   const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):null});
   const data = await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error || data.detail || 'request_failed');
+  if(!res.ok) throw new Error(data.user_message || data.detail || data.error || 'request_failed');
   return data;
 }
 async function loadInvoices(){
@@ -69,12 +55,13 @@ async function loadInvoices(){
   rows.forEach(r=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${r.number}</td>
+      <td><a class="fw-semibold" href="/admin/accounting/invoices/${r.id}">${r.number}</a></td>
       <td>${r.customer_id}</td>
       <td>${r.status}</td>
       <td>$${(r.grand_total||0).toFixed(2)}</td>
       <td>${r.origin_quotation_id || '-'}</td>
       <td>
+        <a class="btn btn-sm btn-primary me-1" href="/admin/accounting/invoices/${r.id}">Editar</a>
         <button class="btn btn-sm btn-outline-primary me-1" onclick="postInvoice(${r.id})">Post</button>
         <button class="btn btn-sm btn-outline-success me-1" onclick="payInvoice(${r.id})">Pagar</button>
         <button class="btn btn-sm btn-outline-danger" onclick="cancelInvoice(${r.id})">Cancelar</button>
@@ -85,22 +72,6 @@ async function loadInvoices(){
 async function postInvoice(id){ try { await api(`/invoices/${id}/post`,'POST'); await loadInvoices(); } catch(e){ showError(e.message); } }
 async function payInvoice(id){ try { await api(`/invoices/${id}/pay`,'POST'); await loadInvoices(); } catch(e){ showError(e.message); } }
 async function cancelInvoice(id){ try { await api(`/invoices/${id}/cancel`,'POST'); await loadInvoices(); } catch(e){ showError(e.message); } }
-document.getElementById('btnCreateInvoice').addEventListener('click', async ()=>{
-  try {
-    clearError();
-    const f = document.getElementById('invoiceForm');
-    const fd = new FormData(f);
-    const body = {
-      customer_id: Number(fd.get('customer_id')),
-      origin_quotation_id: fd.get('origin_quotation_id') ? Number(fd.get('origin_quotation_id')) : null,
-      lines: [{description:'Factura manual', quantity:1, price_unit:100, tax_id:null}]
-    };
-    await api('/invoices','POST',body);
-    await loadInvoices();
-  } catch(e){
-    showError(e.message);
-  }
-});
 loadInvoices().catch(e => showError(e.message));
 </script>
 {% endblock %}

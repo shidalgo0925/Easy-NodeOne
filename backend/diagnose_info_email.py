@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Diagnóstico para info@relaticpanama.org
+Diagnóstico para info@example.com
 Verifica si es Gmail o Office 365 y configura correctamente
 """
 
@@ -32,13 +32,13 @@ def test_smtp_connection(server, port, use_tls=True):
         return False
 
 def diagnose_info_email():
-    """Diagnosticar configuración de info@relaticpanama.org"""
+    """Diagnosticar configuración de info@example.com"""
     parser = argparse.ArgumentParser(description='Diagnóstico cuenta info / SMTP')
     parser.add_argument('--org-id', type=int, default=None, help='Tenant para EmailConfig')
     args = parser.parse_args()
 
     print('=' * 60)
-    print('DIAGNÓSTICO: info@relaticpanama.org')
+    print('DIAGNÓSTICO: info@example.com')
     if args.org_id is not None:
         print(f'  (EmailConfig org: {args.org_id})')
     print('=' * 60)
@@ -58,11 +58,11 @@ def diagnose_info_email():
         
         # Verificar qué tipo de cuenta es
         print("\n🔍 DETERMINANDO TIPO DE CUENTA...")
-        print("\n   Para determinar si info@relaticpanama.org es Gmail o Office 365:")
-        print("   1. ¿Puedes iniciar sesión en https://mail.google.com con info@relaticpanama.org?")
+        print("\n   Para determinar si info@example.com es Gmail o Office 365:")
+        print("   1. ¿Puedes iniciar sesión en https://mail.google.com con info@example.com?")
         print("      → Si SÍ: Es Gmail (Google Workspace)")
         print("      → Si NO: Probablemente es Office 365")
-        print("\n   2. ¿Puedes iniciar sesión en https://outlook.office.com con info@relaticpanama.org?")
+        print("\n   2. ¿Puedes iniciar sesión en https://outlook.office.com con info@example.com?")
         print("      → Si SÍ: Es Office 365")
         
         # Probar conexiones
@@ -122,7 +122,7 @@ def diagnose_info_email():
         print("   3. Si es Office 365:")
         print("      - Verifica que la contraseña sea correcta")
         print("      - Actualiza en /admin/email si es necesario")
-        print("   4. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+        print("   4. Reinicia el servicio: sudo systemctl restart nodeone.service")
         print("   5. Prueba el envío desde /admin/email")
         
         print("\n" + "=" * 60)

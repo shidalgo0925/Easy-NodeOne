@@ -53,10 +53,10 @@ def test_welcome_email():
             
             # Mostrar URL del logo que se generó
             try:
-                logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
+                logo_url = get_public_image_url('emails/logos/logo-primary.png', absolute=True)
                 print(f"\n🖼️  URL del logo generada: {logo_url}")
                 print(f"   ⚠️  Nota: Asegúrate de que el logo esté en:")
-                print(f"      static/public/emails/logos/logo-relatic.png")
+                print(f"      static/public/emails/logos/logo-primary.png")
             except Exception as e:
                 print(f"\n⚠️  Error al generar URL del logo: {e}")
             

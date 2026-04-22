@@ -45,6 +45,14 @@ class TestAppSmokeE2E(unittest.TestCase):
         ):
             self.assertIn(required, names, f'Falta blueprint {required}')
 
+    def test_communications_inbox_route(self):
+        by_ep = {r.endpoint: r.rule for r in self.app.url_map.iter_rules()}
+        self.assertEqual(
+            by_ep.get('communications.communications_inbox'),
+            '/communications/inbox',
+        )
+        self.assertEqual(by_ep.get('communications.notifications_page'), '/notifications')
+
 
 if __name__ == '__main__':
     unittest.main()

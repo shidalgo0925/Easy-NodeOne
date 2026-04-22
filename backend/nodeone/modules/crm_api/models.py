@@ -121,6 +121,28 @@ class CrmActivity(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class CrmActivityType(db.Model):
+    """Tipos de actividad configurables por organización (valor de crm_activity.type = code)."""
+
+    __tablename__ = 'crm_activity_type'
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer,
+        db.ForeignKey('saas_organization.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    code = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    sequence = db.Column(db.Integer, nullable=False, default=10)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'code', name='uq_crm_activity_type_org_code'),
+    )
+
+
 class CrmLeadLog(db.Model):
     __tablename__ = 'crm_lead_log'
     id = db.Column(db.Integer, primary_key=True)

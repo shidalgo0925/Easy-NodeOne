@@ -13,11 +13,11 @@ from pathlib import Path
 # Ruta a la base de datos (misma lógica que app.py)
 backend_dir = Path(__file__).parent
 project_dir = backend_dir.parent
-db_path = project_dir / 'instance' / 'relaticpanama.db'
+db_path = project_dir / 'instance' / 'membership_legacy.db'
 
 # También intentar rutas alternativas
 if not db_path.exists():
-    db_path = backend_dir / 'instance' / 'relaticpanama.db'
+    db_path = backend_dir / 'instance' / 'membership_legacy.db'
 
 if not db_path.exists():
     print(f"❌ Error: No se encontró la base de datos en {db_path}")

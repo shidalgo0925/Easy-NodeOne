@@ -32,7 +32,7 @@ Se ha implementado un sistema completo de verificación de email híbrida que ba
 
 ### 4. Template de Email de Verificación
 - ✅ Template HTML profesional
-- ✅ Incluye logo de RELATIC
+- ✅ Incluye logo de Easy NodeOne
 - ✅ Instrucciones claras
 - ✅ Enlace de verificación destacado
 - ✅ Información sobre expiración

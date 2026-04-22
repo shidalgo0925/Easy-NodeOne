@@ -19,6 +19,7 @@ def cart():
 @login_required
 @email_verified_required
 def cart_add():
+    """Precio y nombre: siempre vía ``resolve_product_for_cart`` (servidor); no confiar en base_price del cliente."""
     try:
         data = request.get_json() if request.is_json else request.form
         product_type = data.get('product_type')
@@ -93,11 +94,14 @@ def cart_update(item_id):
 @payments_bp.route('/cart/count', methods=['GET'])
 @login_required
 def cart_count():
-    cart = svc.get_or_create_cart(current_user.id)
-    return jsonify({
-        'count': cart.get_items_count(),
-        'total': cart.get_total()
-    })
+    try:
+        cart = svc.get_or_create_cart(current_user.id)
+        return jsonify({
+            'count': cart.get_items_count(),
+            'total': cart.get_total()
+        })
+    except Exception:
+        return jsonify({'count': 0, 'total': 0})
 
 
 @payments_bp.route('/checkout')

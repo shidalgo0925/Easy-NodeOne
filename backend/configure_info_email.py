@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script para configurar email con info@relaticpanama.org
+Script para configurar email con info@example.com
 """
 
 import sys
@@ -13,9 +13,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app import app, db, EmailConfig
 
 def configure_info_email():
-    """Configurar email con info@relaticpanama.org"""
+    """Configurar email con info@example.com"""
     print("=" * 60)
-    print("CONFIGURACIÓN DE EMAIL: info@relaticpanama.org")
+    print("CONFIGURACIÓN DE EMAIL: info@example.com")
     print("=" * 60)
     
     with app.app_context():
@@ -31,20 +31,20 @@ def configure_info_email():
         
         # Configurar para Office 365 (más común para dominios personalizados)
         print("\n📧 Configurando para Office 365...")
-        print("   Si info@relaticpanama.org es Gmail, cambia manualmente el servidor")
+        print("   Si info@example.com es Gmail, cambia manualmente el servidor")
         
         config.mail_server = 'smtp.office365.com'
         config.mail_port = 587
         config.mail_use_tls = True
         config.mail_use_ssl = False
-        config.mail_username = 'info@relaticpanama.org'
-        config.mail_default_sender = 'info@relaticpanama.org'
+        config.mail_username = 'info@example.com'
+        config.mail_default_sender = 'info@example.com'
         config.use_environment_variables = False  # Usar BD, no variables de entorno
         config.is_active = True
         config.updated_at = datetime.utcnow()
         
         # Pedir contraseña
-        print("\n🔐 Ingresa la contraseña para info@relaticpanama.org")
+        print("\n🔐 Ingresa la contraseña para info@example.com")
         print("   (Si es Office 365, usa tu contraseña normal o contraseña de aplicación)")
         print("   (Si es Gmail, DEBES usar contraseña de aplicación de 16 caracteres)")
         password = input("   Contraseña: ").strip()
@@ -70,8 +70,8 @@ def configure_info_email():
             print(f"   Contraseña:      {'*' * 16 if app.config.get('MAIL_PASSWORD') else '(no configurada)'}")
             
             print("\n💡 NOTAS:")
-            print("   - Si info@relaticpanama.org es Gmail, cambia el servidor a smtp.gmail.com")
-            print("   - Reinicia el servicio después de configurar: sudo systemctl restart membresia-relatic.service")
+            print("   - Si info@example.com es Gmail, cambia el servidor a smtp.gmail.com")
+            print("   - Reinicia el servicio después de configurar: sudo systemctl restart nodeone.service")
             print("   - Prueba el envío desde /admin/email")
             
         except Exception as e:

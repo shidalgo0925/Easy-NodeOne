@@ -26,12 +26,12 @@ Este documento explica cómo configurar el login social con Google, Facebook y L
 2. Haz clic en **Create Credentials** > **OAuth client ID**
 3. Selecciona **Web application**
 4. Configura:
-   - **Name**: RelaticPanama Login
+   - **Name**: Easy NodeOne Login
    - **Authorized JavaScript origins**: 
-     - `https://miembros.relatic.org`
+     - `https://app.example.com`
      - `http://localhost:9000` (para desarrollo)
    - **Authorized redirect URIs**:
-     - `https://miembros.relatic.org/auth/google/callback`
+     - `https://app.example.com/auth/google/callback`
      - `http://localhost:9000/auth/google/callback` (para desarrollo)
 
 #### **Paso 3: Obtener Credenciales**
@@ -57,7 +57,7 @@ export GOOGLE_CLIENT_SECRET="tu-client-secret"
 1. En el dashboard, agrega el producto **Facebook Login**
 2. Configura:
    - **Valid OAuth Redirect URIs**:
-     - `https://miembros.relatic.org/auth/facebook/callback`
+     - `https://app.example.com/auth/facebook/callback`
      - `http://localhost:9000/auth/facebook/callback` (para desarrollo)
 
 #### **Paso 3: Obtener Credenciales**
@@ -83,7 +83,7 @@ export FACEBOOK_CLIENT_SECRET="tu-app-secret"
 #### **Paso 2: Configurar Redirect URLs**
 1. Ve a **Auth** en la configuración de tu app
 2. Agrega **Redirect URLs**:
-   - `https://miembros.relatic.org/auth/linkedin/callback`
+   - `https://app.example.com/auth/linkedin/callback`
    - `http://localhost:9000/auth/linkedin/callback` (para desarrollo)
 
 #### **Paso 3: Obtener Credenciales**
@@ -118,7 +118,7 @@ LINKEDIN_CLIENT_ID=tu-client-id
 LINKEDIN_CLIENT_SECRET=tu-client-secret
 
 # Base URL (importante para callbacks)
-BASE_URL=https://miembros.relatic.org
+BASE_URL=https://app.example.com
 ```
 
 ### **Opción 2: Configuración Directa en app.py**
@@ -137,7 +137,7 @@ app.config['GOOGLE_CLIENT_SECRET'] = 'tu-client-secret'
 
 ### **1. Verificar Instalación**
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python -c "import authlib; print('✅ Authlib instalado')"
 ```

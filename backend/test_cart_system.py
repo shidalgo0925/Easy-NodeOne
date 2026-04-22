@@ -10,10 +10,10 @@ def test_cart_tables():
     """Verificar que las tablas del carrito existen"""
     
     db_paths = [
-        'relaticpanama.db',
-        'instance/relaticpanama.db',
-        '../relaticpanama.db',
-        '../instance/relaticpanama.db'
+        'membership_legacy.db',
+        'instance/membership_legacy.db',
+        '../membership_legacy.db',
+        '../instance/membership_legacy.db'
     ]
     
     db_path = None

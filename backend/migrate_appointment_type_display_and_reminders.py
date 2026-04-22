@@ -11,7 +11,7 @@ def column_exists(cursor, table, col):
 
 def main():
     db_path = os.environ.get('NODEONE_SQLITE') or os.path.join(
-        os.path.dirname(__file__), '..', 'instance', 'nodeone.db'
+        os.path.dirname(__file__), '..', 'instance', 'NodeOne.db'
     )
     db_path = os.path.abspath(db_path)
     if not os.path.isfile(db_path):

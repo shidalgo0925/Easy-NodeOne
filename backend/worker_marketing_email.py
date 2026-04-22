@@ -9,6 +9,7 @@ backend_dir = Path(__file__).parent
 sys.path.insert(0, str(backend_dir))
 
 import app as ap
+from sqlalchemy import or_
 
 BATCH = 100
 
@@ -40,8 +41,15 @@ with ap.app.app_context():
         print('Flask-Mail o EmailService no disponibles')
         sys.exit(1)
 
+    now = datetime.utcnow()
     raw = (
         ap.EmailQueueItem.query.filter_by(status='pending')
+        .filter(
+            or_(
+                ap.EmailQueueItem.send_after.is_(None),
+                ap.EmailQueueItem.send_after <= now,
+            )
+        )
         .order_by(ap.EmailQueueItem.id)
         .limit(500)
         .all()

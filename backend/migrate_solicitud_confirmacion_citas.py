@@ -9,7 +9,7 @@ import sqlite3
 
 _basedir = os.path.dirname(os.path.abspath(__file__))
 _project_root = os.path.dirname(_basedir)
-DB_PATH = os.path.join(_project_root, 'instance', 'relaticpanama.db')
+DB_PATH = os.path.join(_project_root, 'instance', 'membership_legacy.db')
 
 
 def column_exists(cursor, table, col):

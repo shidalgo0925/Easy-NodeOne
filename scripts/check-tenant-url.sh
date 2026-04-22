@@ -22,9 +22,9 @@ for port in 80; do
 done
 
 echo ""
-echo "=== 3) Flask directo (9001), sin Nginx ==="
-code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:9001/" -H "Host: ${FQDN}" --connect-timeout 3 || echo "000")
-echo "  9001 Host=${FQDN} → HTTP ${code} (302/login esperable si app vive)"
+echo "=== 3) Gunicorn directo (8000), sin Nginx ==="
+code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8000/" -H "Host: ${FQDN}" --connect-timeout 3 || echo "000")
+echo "  8000 Host=${FQDN} → HTTP ${code} (302/login esperable si app vive)"
 
 echo ""
 echo "=== 4) Checklist manual ==="

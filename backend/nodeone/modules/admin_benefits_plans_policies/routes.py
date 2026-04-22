@@ -13,6 +13,7 @@ def register_admin_benefits_plans_policies_routes(app):
         has_saas_module_enabled,
         MembershipPlan,
         Policy,
+        require_permission,
     )
 
     def _policies_module_guard():
@@ -129,7 +130,7 @@ def register_admin_benefits_plans_policies_routes(app):
     # ==================== RUTAS ADMIN PARA PLANES DE MEMBRESÍA ====================
 
     @app.route('/admin/plans')
-    @admin_required
+    @require_permission('memberships.view')
     def admin_plans():
         """Panel de administración de planes de membresía"""
         oid = admin_data_scope_organization_id()
@@ -139,7 +140,7 @@ def register_admin_benefits_plans_policies_routes(app):
         return render_template('admin/plans.html', plans=plans)
 
     @app.route('/api/admin/plans/create', methods=['POST'])
-    @admin_required
+    @require_permission('memberships.view')
     def admin_plans_create():
         """Crear plan"""
         try:
@@ -171,7 +172,7 @@ def register_admin_benefits_plans_policies_routes(app):
             return jsonify({'success': False, 'error': str(e)}), 400
 
     @app.route('/api/admin/plans/update/<int:plan_id>', methods=['PUT'])
-    @admin_required
+    @require_permission('memberships.view')
     def admin_plans_update(plan_id):
         """Actualizar plan"""
         try:
@@ -194,7 +195,7 @@ def register_admin_benefits_plans_policies_routes(app):
             return jsonify({'success': False, 'error': str(e)}), 400
 
     @app.route('/api/admin/plans/<int:plan_id>', methods=['GET'])
-    @admin_required
+    @require_permission('memberships.view')
     def admin_plans_get(plan_id):
         """Obtener un plan"""
         oid = admin_data_scope_organization_id()
@@ -202,7 +203,7 @@ def register_admin_benefits_plans_policies_routes(app):
         return jsonify({'success': True, 'plan': p.to_dict()})
 
     @app.route('/api/admin/plans/delete/<int:plan_id>', methods=['DELETE'])
-    @admin_required
+    @require_permission('memberships.view')
     def admin_plans_delete(plan_id):
         """Eliminar plan (cuidado: suscripciones/beneficios pueden seguir referenciando el slug)"""
         try:

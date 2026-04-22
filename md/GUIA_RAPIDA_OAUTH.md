@@ -11,11 +11,11 @@
 5. Si es la primera vez, configura la pantalla de consentimiento OAuth
 6. Selecciona **Web application**
 7. Configura:
-   - **Name**: RelaticPanama
+   - **Name**: Easy NodeOne
    - **Authorized JavaScript origins**: 
-     - `https://miembros.relatic.org`
+     - `https://app.example.com`
    - **Authorized redirect URIs**:
-     - `https://miembros.relatic.org/auth/google/callback`
+     - `https://app.example.com/auth/google/callback`
 
 8. Copia el **Client ID** y **Client Secret**
 
@@ -30,12 +30,12 @@ Agrega al archivo `.env` en la raíz del proyecto:
 ```bash
 GOOGLE_CLIENT_ID=tu-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=tu-client-secret
-BASE_URL=https://miembros.relatic.org
+BASE_URL=https://app.example.com
 ```
 
 Luego reinicia el servicio:
 ```bash
-sudo systemctl restart membresia-relatic.service
+sudo systemctl restart nodeone.service
 ```
 
 #### **Opción B: Configuración Directa en app.py**

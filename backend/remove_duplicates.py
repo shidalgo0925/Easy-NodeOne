@@ -7,9 +7,9 @@ import os
 from datetime import datetime
 
 # Usar la base de datos principal
-db_path = 'instance/relaticpanama.db'
+db_path = 'instance/membership_legacy.db'
 if not os.path.exists(db_path):
-    db_path = '../instance/relaticpanama.db'
+    db_path = '../instance/membership_legacy.db'
 
 if not os.path.exists(db_path):
     print("❌ No se encontró la base de datos")

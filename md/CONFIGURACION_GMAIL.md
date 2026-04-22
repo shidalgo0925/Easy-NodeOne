@@ -22,7 +22,7 @@ Si aún no tienes la verificación en 2 pasos habilitada:
 2. Inicia sesión si es necesario
 3. En **"Seleccionar app"**, elige **"Correo"**
 4. En **"Seleccionar dispositivo"**, elige **"Otro (nombre personalizado)"**
-5. Escribe: `RelaticPanama` o el nombre que prefieras
+5. Escribe: `Easy NodeOne` o el nombre que prefieras
 6. Haz clic en **"Generar"**
 7. **Copia la contraseña de 16 caracteres** (aparecerá en pantalla)
 
@@ -33,7 +33,7 @@ Si aún no tienes la verificación en 2 pasos habilitada:
 Ejecuta el script de configuración:
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 configure_gmail.py
 ```
 
@@ -80,7 +80,7 @@ with app.app_context():
 Después de configurar, reinicia el servicio:
 
 ```bash
-sudo systemctl restart membresia-relatic.service
+sudo systemctl restart nodeone.service
 ```
 
 ### 5. Probar el Envío
@@ -122,7 +122,7 @@ python3 backend/test_email_send.py
 
 - Revisa la carpeta de spam
 - Verifica que el email de destino sea correcto
-- Revisa los logs del servidor: `sudo journalctl -u membresia-relatic.service -n 50`
+- Revisa los logs del servidor: `sudo journalctl -u nodeone.service -n 50`
 
 ## Notas Importantes
 

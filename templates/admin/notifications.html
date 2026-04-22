@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Configuración de Notificaciones - RelaticPanama{% endblock %}
+{% block title %}Configuración de Notificaciones - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 <div class="container py-4">
@@ -11,6 +11,13 @@
             </h1>
             <p class="text-muted">Activa o desactiva los diferentes tipos de notificaciones por email del sistema</p>
         </div>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm mb-4" role="status">
+        <strong>Motor unificado.</strong> Las reglas por evento y canal (email, in-app) están en
+        <a href="{{ url_for('admin_communications.admin_communications_settings') }}" class="alert-link">Reglas de comunicación</a>.
+        Al cambiar un interruptor aquí, si existe un <code>communication_event</code> con el mismo código (<code>welcome</code>, <code>membership_payment</code>, etc.),
+        se actualiza también el estado <em>activo</em> de esas reglas. Si editas reglas en el otro panel y hay fila legacy con el mismo código, el interruptor de aquí pasa a reflejar si <em>alguna</em> regla sigue activa. Los envíos transaccionales siguen usando este panel hasta migración completa.
     </div>
 
     <!-- Alertas -->

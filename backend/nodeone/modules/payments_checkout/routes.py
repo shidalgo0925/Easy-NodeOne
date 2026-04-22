@@ -803,7 +803,13 @@ def handle_successful_payment(payment_intent, event_type=None):
             
             # Enviar notificación y email de confirmación
             M.NotificationEngine.notify_membership_payment(payment.user, payment, subscription)
-            
+            try:
+                from nodeone.services.communication_dispatch import dispatch_membership_payment_confirmation
+
+                dispatch_membership_payment_confirmation(payment.user, payment, subscription)
+            except Exception:
+                pass
+
             # Enviar webhook a Odoo (no bloquea si falla)
             try:
                 cart = M.get_or_create_cart(payment.user_id)

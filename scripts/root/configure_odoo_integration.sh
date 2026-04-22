@@ -18,8 +18,8 @@ read -p "¿Habilitar integración con Odoo? (true/false) [false]: " ENABLED
 ENABLED=${ENABLED:-false}
 
 if [ "$ENABLED" = "true" ]; then
-    read -p "URL del API de Odoo [https://odoo.relatic.org/api/relatic/v1/sale]: " API_URL
-    API_URL=${API_URL:-https://odoo.relatic.org/api/relatic/v1/sale}
+    read -p "URL del API de Odoo [https://odoo.example.com/api/v1/sale]: " API_URL
+    API_URL=${API_URL:-https://odoo.example.com/api/v1/sale
     
     read -p "API Key de Odoo: " API_KEY
     if [ -z "$API_KEY" ]; then

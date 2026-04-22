@@ -5,7 +5,7 @@ Esta carpeta contiene los logos que se usarán en los templates de email.
 ## 📋 Archivos Requeridos
 
 ### Logo Principal
-**Archivo**: `logo-relatic.png`
+**Archivo**: `logo-primary.png`
 
 **Requisitos**:
 - Formato: PNG (mejor compatibilidad con clientes de email)
@@ -21,7 +21,7 @@ Esta carpeta contiene los logos que se usarán en los templates de email.
 4. Verificar que el peso sea < 50KB
 
 ### Logo Blanco (Opcional)
-**Archivo**: `logo-relatic-white.png`
+**Archivo**: `logo-primary-white.png`
 
 **Cuándo usar**: Para fondos oscuros en headers de email
 
@@ -37,24 +37,24 @@ Esta carpeta contiene los logos que se usarán en los templates de email.
 2. **Subir a la carpeta**:
    ```bash
    # Coloca tu archivo aquí:
-   static/public/emails/logos/logo-relatic.png
+   static/public/emails/logos/logo-primary.png
    ```
 
 3. **Verificar**:
-   - El archivo debe estar accesible en: `/static/public/emails/logos/logo-relatic.png`
-   - Puedes probarlo accediendo a: `https://miembros.relatic.org/static/public/emails/logos/logo-relatic.png`
+   - El archivo debe estar accesible en: `/static/public/emails/logos/logo-primary.png`
+   - Puedes probarlo accediendo a: `https://app.example.com/static/public/emails/logos/logo-primary.png`
 
 ## 🔗 Uso en Templates
 
 Los templates usan automáticamente el logo mediante la función `get_public_image_url()`:
 
 ```python
-logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
+logo_url = get_public_image_url('emails/logos/logo-primary.png', absolute=True)
 ```
 
 Esto genera una URL absoluta como:
 ```
-https://miembros.relatic.org/static/public/emails/logos/logo-relatic.png
+https://app.example.com/static/public/emails/logos/logo-primary.png
 ```
 
 ## ✅ Checklist

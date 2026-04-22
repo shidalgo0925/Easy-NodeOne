@@ -5,8 +5,8 @@ echo "DIAGNÓSTICO DEL SISTEMA DE MEMBRESÍA"
 echo "=========================================="
 echo ""
 
-echo "1. Verificando servicio membresia-relatic..."
-sudo systemctl status membresia-relatic.service --no-pager -l | head -20
+echo "1. Verificando servicio nodeone..."
+sudo systemctl status nodeone.service --no-pager -l | head -20
 echo ""
 
 echo "2. Verificando si el puerto 9000 está en uso..."
@@ -18,7 +18,7 @@ ps aux | grep -E "python.*app.py|membresia" | grep -v grep || echo "❌ No hay p
 echo ""
 
 echo "4. Verificando logs del servicio (últimas 20 líneas)..."
-sudo journalctl -u membresia-relatic.service -n 20 --no-pager
+sudo journalctl -u nodeone.service -n 20 --no-pager
 echo ""
 
 echo "5. Verificando configuración de nginx..."
@@ -29,24 +29,24 @@ echo "6. Verificando si nginx está corriendo..."
 sudo systemctl status nginx --no-pager | head -10
 echo ""
 
-echo "7. Verificando configuración de dev.relatic.org..."
-grep -A 2 "proxy_pass" /etc/nginx/sites-enabled/01-dev.relatic.org | head -5
+echo "7. Verificando configuración de dev.app.example.com..."
+grep -A 2 "proxy_pass" /etc/nginx/sites-enabled/01-dev.app.example.com | head -5
 echo ""
 
 echo "8. Verificando archivo app.py..."
-if [ -f "/home/relaticpanama2025/projects/membresia-relatic/backend/app.py" ]; then
+if [ -f "/var/www/nodeone/backend/app.py" ]; then
     echo "✅ app.py existe"
     echo "Últimas líneas del archivo:"
-    tail -5 /home/relaticpanama2025/projects/membresia-relatic/backend/app.py
+    tail -5 /var/www/nodeone/backend/app.py
 else
     echo "❌ app.py NO existe"
 fi
 echo ""
 
 echo "9. Verificando entorno virtual..."
-if [ -d "/home/relaticpanama2025/projects/membresia-relatic/venv" ]; then
+if [ -d "/var/www/nodeone/venv" ]; then
     echo "✅ venv existe"
-    if [ -f "/home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3" ]; then
+    if [ -f "/var/www/nodeone/venv/bin/python3" ]; then
         echo "✅ Python en venv existe"
     else
         echo "❌ Python en venv NO existe"
@@ -57,9 +57,9 @@ fi
 echo ""
 
 echo "10. Intentando iniciar el servicio..."
-sudo systemctl start membresia-relatic.service
+sudo systemctl start nodeone.service
 sleep 2
-sudo systemctl status membresia-relatic.service --no-pager -l | head -15
+sudo systemctl status nodeone.service --no-pager -l | head -15
 echo ""
 
 echo "=========================================="

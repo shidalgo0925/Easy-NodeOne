@@ -9,18 +9,18 @@
 
 ### Sitios Habilitados (`/etc/nginx/sites-enabled/`)
 
-1. **01-dev.relatic.org** ✅
-   - **Subdominio:** dev.relatic.org
-   - **Puerto Backend:** 5173 (relatic-frontend - Vite)
+1. **01-dev.app.example.com** ✅
+   - **Subdominio:** dev.app.example.com
+   - **Puerto Backend:** 5173 (example-frontend - Vite)
    - **SSL:** ✅ Certificado Let's Encrypt
    - **Estado:** ✅ Configurado correctamente
    - **Proxy:** http://localhost:5173
    - **Headers:** WebSocket y HMR habilitados
    - **Buffering:** Desactivado (desarrollo)
 
-2. **02-miembros.relatic.org** ✅
-   - **Subdominio:** miembros.relatic.org
-   - **Puerto Backend:** 9000 (membresia-relatic - Flask)
+2. **02-app.example.com** ✅
+   - **Subdominio:** app.example.com
+   - **Puerto Backend:** 9000 (nodeone - Flask)
    - **SSL:** ✅ Certificado Let's Encrypt
    - **Estado:** ✅ Configurado correctamente
    - **Proxy:** http://localhost:9000
@@ -53,7 +53,7 @@
 
 ### Configuración de Cloudflare
 
-Todos los sitios de `relatic.org` tienen configurados:
+Todos los sitios de `example.org` tienen configurados:
 - **IPs de Cloudflare:** IPv4 e IPv6 ranges completos
 - **Real IP Header:** CF-Connecting-IP
 - **Headers Proxy:** CF-Ray, CF-Visitor, CF-Connecting-IP
@@ -70,12 +70,12 @@ Todos los sitios de `relatic.org` tienen configurados:
 
 ### Configuración Correcta
 
-1. **dev.relatic.org** → **relatic-frontend (5173)** ✅
+1. **dev.app.example.com** → **example-frontend (5173)** ✅
    - Proxy correcto
    - Headers WebSocket configurados
    - SSL funcionando
 
-2. **miembros.relatic.org** → **membresia-relatic (9000)** ✅
+2. **app.example.com** → **nodeone (9000)** ✅
    - Proxy correcto
    - Headers configurados
    - SSL funcionando
@@ -84,12 +84,12 @@ Todos los sitios de `relatic.org` tienen configurados:
 
 1. **Orden de Carga:**
    - Los archivos tienen prefijos numéricos (01-, 02-) para controlar el orden
-   - ✅ Orden correcto: dev.relatic.org primero, luego miembros.relatic.org
+   - ✅ Orden correcto: dev.app.example.com primero, luego app.example.com
 
 2. **Conflictos de Puerto:**
    - ✅ No hay conflictos: cada servicio usa puerto diferente
-   - 5173: relatic-frontend
-   - 9000: membresia-relatic
+   - 5173: example-frontend
+   - 9000: nodeone
    - 5001: apps.etsrv.site
 
 3. **Logs:**
@@ -104,8 +104,8 @@ Todos los sitios de `relatic.org` tienen configurados:
 
 1. **Verificar servicios corriendo:**
    ```bash
-   sudo systemctl status relatic-frontend.service
-   sudo systemctl status membresia-relatic.service
+   sudo systemctl status example-frontend.service
+   sudo systemctl status nodeone.service
    ```
 
 2. **Verificar puertos:**
@@ -140,8 +140,8 @@ Internet
 Cloudflare (SSL/TLS)
    ↓
 Nginx (Reverse Proxy)
-   ├── dev.relatic.org → localhost:5173 (relatic-frontend)
-   ├── miembros.relatic.org → localhost:9000 (membresia-relatic)
+   ├── dev.app.example.com → localhost:5173 (example-frontend)
+   ├── app.example.com → localhost:9000 (nodeone)
    └── apps.etsrv.site → localhost:5001
 ```
 
@@ -149,11 +149,11 @@ Nginx (Reverse Proxy)
 
 ## 🚨 Troubleshooting
 
-### Si dev.relatic.org no funciona:
+### Si dev.app.example.com no funciona:
 
-1. Verificar que relatic-frontend esté corriendo:
+1. Verificar que example-frontend esté corriendo:
    ```bash
-   sudo systemctl status relatic-frontend.service
+   sudo systemctl status example-frontend.service
    ```
 
 2. Verificar puerto 5173:
@@ -163,14 +163,14 @@ Nginx (Reverse Proxy)
 
 3. Ver logs de nginx:
    ```bash
-   sudo tail -f /var/log/nginx/dev.relatic.org.error.log
+   sudo tail -f /var/log/nginx/dev.app.example.com.error.log
    ```
 
-### Si miembros.relatic.org no funciona:
+### Si app.example.com no funciona:
 
-1. Verificar que membresia-relatic esté corriendo:
+1. Verificar que nodeone esté corriendo:
    ```bash
-   sudo systemctl status membresia-relatic.service
+   sudo systemctl status nodeone.service
    ```
 
 2. Verificar puerto 9000:
@@ -180,7 +180,7 @@ Nginx (Reverse Proxy)
 
 3. Ver logs de nginx:
    ```bash
-   sudo tail -f /var/log/nginx/miembros.relatic.org.error.log
+   sudo tail -f /var/log/nginx/app.example.com.error.log
    ```
 
 ---

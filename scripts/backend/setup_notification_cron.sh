@@ -13,7 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Directorios
-PROJECT_DIR="/home/relaticpanama2025/projects/membresia-relatic"
+PROJECT_DIR="/var/www/nodeone"
 BACKEND_DIR="$PROJECT_DIR/backend"
 VENV_PYTHON="$PROJECT_DIR/venv/bin/python"
 SCHEDULER_SCRIPT="$BACKEND_DIR/notification_scheduler.py"

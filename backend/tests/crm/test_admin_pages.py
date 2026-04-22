@@ -17,6 +17,10 @@ class TestAdminCrmPages(unittest.TestCase):
             'admin_crm_kanban',
             'admin_crm_leads',
             'admin_crm_reports',
+            'admin_crm_settings',
+            'admin_crm_calendar',
+            'admin_crm_table',
+            'admin_crm_activities',
         }
         missing = required - endpoints
         self.assertFalse(missing, f'Faltan endpoints admin CRM: {sorted(missing)}')
@@ -29,6 +33,10 @@ class TestAdminCrmPages(unittest.TestCase):
         self.assertEqual(by_ep.get('admin_crm_kanban'), '/admin/crm/kanban')
         self.assertEqual(by_ep.get('admin_crm_leads'), '/admin/crm/leads')
         self.assertEqual(by_ep.get('admin_crm_reports'), '/admin/crm/reports')
+        self.assertEqual(by_ep.get('admin_crm_settings'), '/admin/crm/settings')
+        self.assertEqual(by_ep.get('admin_crm_calendar'), '/admin/crm/calendar')
+        self.assertEqual(by_ep.get('admin_crm_table'), '/admin/crm/table')
+        self.assertEqual(by_ep.get('admin_crm_activities'), '/admin/crm/activities')
 
 
 if __name__ == '__main__':

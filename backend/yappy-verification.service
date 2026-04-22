@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py
-StandardOutput=append:/home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log
-StandardError=append:/home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log
-User=relaticpanama2025
-WorkingDirectory=/home/relaticpanama2025/projects/membresia-relatic/backend
+ExecStart=/var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py
+StandardOutput=append:/var/www/nodeone/logs/yappy_verification.log
+StandardError=append:/var/www/nodeone/logs/yappy_verification.log
+User=nodeone
+WorkingDirectory=/var/www/nodeone/backend
 
 [Install]
 WantedBy=multi-user.target

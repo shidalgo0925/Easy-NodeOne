@@ -1,6 +1,6 @@
 # FASE 0 — Inventario y análisis de seguridad
 
-**Proyecto:** miembros.relatic.org (membresia-relatic)  
+**Proyecto:** app.example.com (nodeone)  
 **Objetivo:** Conocer el estado actual antes de implementar RBAC por permisos.  
 **Fecha de inventario:** 2025-01-31
 

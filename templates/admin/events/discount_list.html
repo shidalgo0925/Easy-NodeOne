@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
-{% block title %}Gestionar Descuentos - RelaticPanama{% endblock %}
+{% block title %}Gestionar Descuentos - Easy NodeOne{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -23,9 +24,8 @@
         </div>
     </div>
 
-    <!-- Filtros en una línea -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-2">
+    {% set disc_filters_open = (search or '')|trim|length > 0 or (current_status|default('all') != 'all') or (current_type|default('all') != 'all') %}
+    {% call admin_filter_collapse('adminFiltersDescuentosEvento', 'Filtros', expanded=disc_filters_open, margin_class='mb-4') %}
             <div class="w-100 mobile-scroll-x pb-1">
             <form method="GET" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                 <div class="flex-shrink-0">
@@ -54,8 +54,7 @@
                 </div>
             </form>
             </div>
-        </div>
-    </div>
+    {% endcall %}
 
     <div class="row mb-3">
         <div class="col-12">

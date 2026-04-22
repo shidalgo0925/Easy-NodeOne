@@ -40,6 +40,12 @@ def check_expiring_memberships():
                         
                         if not existing_notification:
                             NotificationEngine.notify_membership_expiring(user, subscription, days_left)
+                            try:
+                                from nodeone.services.communication_dispatch import dispatch_membership_expiring
+
+                                dispatch_membership_expiring(user, subscription, days_left)
+                            except Exception:
+                                pass
                             print(f"✅ Notificación enviada a {user.email}: membresía expira en {days_left} días")
             
             # Verificar membresías expiradas
@@ -63,6 +69,12 @@ def check_expiring_memberships():
                     
                     if not existing_notification:
                         NotificationEngine.notify_membership_expired(user, subscription)
+                        try:
+                            from nodeone.services.communication_dispatch import dispatch_membership_expired
+
+                            dispatch_membership_expired(user, subscription)
+                        except Exception:
+                            pass
                         print(f"✅ Notificación enviada a {user.email}: membresía expirada")
             
             db.session.commit()
@@ -112,6 +124,14 @@ def check_appointment_reminders():
                     NotificationEngine.notify_appointment_reminder(
                         appointment, user, advisor_user, hours_before
                     )
+                    try:
+                        from nodeone.services.communication_dispatch import dispatch_appointment_reminder_member
+
+                        dispatch_appointment_reminder_member(
+                            appointment, user, advisor_user, hours_before, base_url=None
+                        )
+                    except Exception:
+                        pass
                     print(f"✅ Recordatorio ({hours_before}h) para {user.email} cita id={appointment.id}")
             
             db.session.commit()
@@ -206,6 +226,16 @@ def verify_yappy_payments():
                                     subscription = Subscription.query.filter_by(payment_id=payment.id).first()
                                     if subscription:
                                         NotificationEngine.notify_membership_payment(user, payment, subscription)
+                                        try:
+                                            from nodeone.services.communication_dispatch import (
+                                                dispatch_membership_payment_confirmation,
+                                            )
+
+                                            dispatch_membership_payment_confirmation(
+                                                user, payment, subscription
+                                            )
+                                        except Exception:
+                                            pass
                             except Exception as e:
                                 print(f"   ⚠️ Error enviando notificación: {e}")
                             
@@ -253,7 +283,19 @@ def verify_yappy_payments():
                                     if user:
                                         subscription = Subscription.query.filter_by(payment_id=matched_payment.id).first()
                                         if subscription:
-                                            NotificationEngine.notify_membership_payment(user, matched_payment, subscription)
+                                            NotificationEngine.notify_membership_payment(
+                                                user, matched_payment, subscription
+                                            )
+                                            try:
+                                                from nodeone.services.communication_dispatch import (
+                                                    dispatch_membership_payment_confirmation,
+                                                )
+
+                                                dispatch_membership_payment_confirmation(
+                                                    user, matched_payment, subscription
+                                                )
+                                            except Exception:
+                                                pass
                                 except Exception as e:
                                     print(f"   ⚠️ Error enviando notificación: {e}")
                                 
@@ -378,6 +420,16 @@ def verify_paypal_payments():
                                     subscription = Subscription.query.filter_by(payment_id=payment.id).first()
                                     if subscription:
                                         NotificationEngine.notify_membership_payment(user, payment, subscription)
+                                        try:
+                                            from nodeone.services.communication_dispatch import (
+                                                dispatch_membership_payment_confirmation,
+                                            )
+
+                                            dispatch_membership_payment_confirmation(
+                                                user, payment, subscription
+                                            )
+                                        except Exception:
+                                            pass
                                         print(f"   ✅ Notificación enviada a {user.email}")
                             except Exception as e:
                                 print(f"   ⚠️ Error enviando notificación: {e}")
@@ -476,6 +528,16 @@ def verify_stripe_payments():
                                     subscription = Subscription.query.filter_by(payment_id=payment.id).first()
                                     if subscription:
                                         NotificationEngine.notify_membership_payment(user, payment, subscription)
+                                        try:
+                                            from nodeone.services.communication_dispatch import (
+                                                dispatch_membership_payment_confirmation,
+                                            )
+
+                                            dispatch_membership_payment_confirmation(
+                                                user, payment, subscription
+                                            )
+                                        except Exception:
+                                            pass
                                         print(f"   ✅ Notificación enviada a {user.email}")
                             except Exception as e:
                                 print(f"   ⚠️ Error enviando notificación: {e}")

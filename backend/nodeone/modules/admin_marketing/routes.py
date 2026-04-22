@@ -8,6 +8,7 @@ import app as ap
 def register_admin_marketing_routes(app):
     """Mismos endpoints que el monolito (url_for compatible)."""
     from flask import flash, jsonify, redirect, render_template, request, url_for
+    from nodeone.services.communication_dispatch import request_base_url_optional
 
     from app import (
         admin_data_scope_organization_id,
@@ -77,7 +78,7 @@ def register_admin_marketing_routes(app):
                 mail_use_ssl=bool(data.get('mail_use_ssl', False)),
                 mail_username=(data.get('mail_username') or '').strip(),
                 mail_password=(data.get('mail_password') or '').strip() or None,
-                mail_default_sender=(data.get('mail_default_sender') or 'noreply@relaticpanama.org').strip(),
+                mail_default_sender=(data.get('mail_default_sender') or 'noreply@example.com').strip(),
                 use_environment_variables=bool(data.get('use_environment_variables', False)),
                 is_active=False,
                 use_for_marketing=False,
@@ -95,6 +96,9 @@ def register_admin_marketing_routes(app):
     def admin_marketing():
         """Panel de Email Marketing: campañas, segmentos, plantillas y estadísticas."""
         from sqlalchemy import func
+
+        from nodeone.services.user_organization import user_in_org_clause
+
         scope_oid = admin_data_scope_organization_id()
         campaigns = _scope_query_by_org(MarketingCampaign.query, MarketingCampaign, scope_oid).order_by(MarketingCampaign.created_at.desc()).limit(100).all()
         campaign_list = []
@@ -129,11 +133,39 @@ def register_admin_marketing_routes(app):
             campaign_list.append(item)
         segments = _scope_query_by_org(MarketingSegment.query, MarketingSegment, scope_oid).order_by(MarketingSegment.id).all()
         templates = _scope_query_by_org(MarketingTemplate.query, MarketingTemplate, scope_oid).order_by(MarketingTemplate.id).all()
-        total_sent = db.session.query(func.count(CampaignRecipient.id)).join(User, CampaignRecipient.user_id == User.id).filter(User.organization_id == scope_oid, CampaignRecipient.sent_at.isnot(None)).scalar() or 0
-        total_opened = db.session.query(func.count(CampaignRecipient.id)).join(User, CampaignRecipient.user_id == User.id).filter(User.organization_id == scope_oid, CampaignRecipient.opened_at.isnot(None)).scalar() or 0
-        total_clicked = db.session.query(func.count(CampaignRecipient.id)).join(User, CampaignRecipient.user_id == User.id).filter(User.organization_id == scope_oid, CampaignRecipient.clicked_at.isnot(None)).scalar() or 0
-        unsub_count = db.session.query(func.count(User.id)).filter(User.organization_id == scope_oid, User.email_marketing_status == 'unsubscribed').scalar() or 0
-        sub_count = db.session.query(func.count(User.id)).filter(User.organization_id == scope_oid, User.email_marketing_status == 'subscribed').scalar() or 0
+        total_sent = (
+            db.session.query(func.count(CampaignRecipient.id))
+            .join(User, CampaignRecipient.user_id == User.id)
+            .filter(user_in_org_clause(User, scope_oid), CampaignRecipient.sent_at.isnot(None))
+            .scalar()
+            or 0
+        )
+        total_opened = (
+            db.session.query(func.count(CampaignRecipient.id))
+            .join(User, CampaignRecipient.user_id == User.id)
+            .filter(user_in_org_clause(User, scope_oid), CampaignRecipient.opened_at.isnot(None))
+            .scalar()
+            or 0
+        )
+        total_clicked = (
+            db.session.query(func.count(CampaignRecipient.id))
+            .join(User, CampaignRecipient.user_id == User.id)
+            .filter(user_in_org_clause(User, scope_oid), CampaignRecipient.clicked_at.isnot(None))
+            .scalar()
+            or 0
+        )
+        unsub_count = (
+            db.session.query(func.count(User.id))
+            .filter(user_in_org_clause(User, scope_oid), User.email_marketing_status == 'unsubscribed')
+            .scalar()
+            or 0
+        )
+        sub_count = (
+            db.session.query(func.count(User.id))
+            .filter(user_in_org_clause(User, scope_oid), User.email_marketing_status == 'subscribed')
+            .scalar()
+            or 0
+        )
         stats = {
             'emails_sent': total_sent,
             'open_rate': (total_opened / total_sent * 100) if total_sent else 0,
@@ -315,7 +347,7 @@ def register_admin_marketing_routes(app):
         from _app.modules.marketing.service import render_template_html
         template = MarketingTemplate.query.get(c.template_id)
         body_source = (getattr(c, 'body_html', None) or '').strip() or (template.html if template else '')
-        base_url = request.host_url.rstrip('/') if request else ''
+        base_url = request_base_url_optional() or ''
         ctx = {'nombre': 'Prueba', 'email': test_email, 'user_id': None}
         html = render_template_html(body_source, getattr(template, 'variables', '[]') if template else '[]', ctx, base_url=base_url)
         oid_c = int(getattr(c, 'organization_id', None) or ap.default_organization_id())
@@ -744,14 +776,7 @@ def register_admin_marketing_routes(app):
         """Vista previa de plantilla: reemplaza variables con datos de ejemplo y devuelve HTML."""
         html = request.form.get('html') or (request.get_json(silent=True) or {}).get('html') or ''
         # URL base absoluta para que las imágenes (ej. flyer) carguen en el iframe
-        if request:
-            base_url = (request.host_url or request.url_root or '').rstrip('/')
-            if not base_url and request.url:
-                from urllib.parse import urlparse
-                p = urlparse(request.url)
-                base_url = f"{p.scheme}://{p.netloc}"
-        else:
-            base_url = ''
+        base_url = request_base_url_optional() or ''
         from _app.modules.marketing.service import render_template_html
         ctx = {
             'nombre': 'Usuario de ejemplo',

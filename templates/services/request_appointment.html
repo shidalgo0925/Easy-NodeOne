@@ -25,6 +25,12 @@
                     </h4>
                 </div>
                 <div class="card-body p-4">
+                    {% if pricing.first_appointment_free_applied %}
+                    <div class="alert alert-success mb-4" role="status">
+                        <i class="fas fa-gift me-2"></i>
+                        <strong>Primera cita sin costo</strong> para este servicio: al enviar el formulario se confirma la reserva sin pasar por el carrito.
+                    </div>
+                    {% endif %}
                     <form method="POST" action="{{ url_for('services.request_appointment_submit', service_id=service.id) }}" id="appointmentForm">
                         
                         <!-- Datos del Miembro (Solo Lectura) -->

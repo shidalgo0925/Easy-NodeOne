@@ -32,7 +32,7 @@ He realizado una verificación completa del sistema de confirmación de pagos de
   - Actualiza la referencia si encuentra coincidencia parcial
 
 **Requisitos**:
-- Yappy debe estar configurado para enviar webhooks a: `https://miembros.relatic.org/webhook/yappy`
+- Yappy debe estar configurado para enviar webhooks a: `https://app.example.com/webhook/yappy`
 - Variable de entorno `YAPPY_WEBHOOK_SECRET` (opcional, para verificación de firma)
 
 ---
@@ -56,7 +56,7 @@ He realizado una verificación completa del sistema de confirmación de pagos de
 
 **Uso**:
 ```bash
-curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify" \
+curl -X POST "https://app.example.com/api/payments/yappy/verify" \
   -H "Content-Type: application/json" \
   -d '{"reference": "EBOWR-38807178"}'
 ```
@@ -115,7 +115,7 @@ curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify" \
 
 **Configuración Cron**:
 ```bash
-*/5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1
+*/5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1
 ```
 
 ---
@@ -135,14 +135,14 @@ He mejorado el endpoint `/api/payments/yappy/verify` para que:
 ### Cómo Verificar el Pago
 **Opción 1: Usar el endpoint público** (Recomendado)
 ```bash
-curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify" \
+curl -X POST "https://app.example.com/api/payments/yappy/verify" \
   -H "Content-Type: application/json" \
   -d '{"reference": "EBOWR-38807178"}'
 ```
 
 **Opción 2: Usar el script de prueba**
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 ./scripts/backend/test_yappy_verification.sh EBOWR-38807178
 ```
 
@@ -186,7 +186,7 @@ cd /home/relaticpanama2025/projects/membresia-relatic
 ## 🚀 Recomendaciones
 
 1. **Configurar Webhook en Yappy** (CRÍTICO)
-   - URL: `https://miembros.relatic.org/webhook/yappy`
+   - URL: `https://app.example.com/webhook/yappy`
    - Esto asegura confirmación inmediata cuando Yappy procesa el pago
 
 2. **Verificar Cron Job**

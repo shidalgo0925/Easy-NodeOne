@@ -202,7 +202,7 @@
     background-color: var(--success-green) !important;
 }
 
-/* Navbar estilo landing (igual que relatic-frontend: fondo blanco, texto oscuro) */
+/* Navbar estilo landing (igual que example-frontend: fondo blanco, texto oscuro) */
 .navbar-landing {
     background-color: #ffffff !important;
     border-bottom: 1px solid #e2e8f0;
@@ -252,9 +252,18 @@
 .navbar-brand .navbar-logo {
     height: 40px;
     max-height: 40px;
+    max-width: min(200px, 46vw);
     width: auto;
     object-fit: contain;
+    object-position: left center;
     display: block;
+    flex-shrink: 0;
+}
+
+/* Nombre junto al logo (misma fila); evita que un logo muy ancho deje el texto fuera de vista */
+.navbar-landing .navbar-brand > span {
+    min-width: 0;
+    line-height: 1.2;
 }
 
 /* Tres zonas: marca | navegación principal (compacta a la izquierda) | iconos y perfil (derecha) */
@@ -422,7 +431,7 @@
     background: linear-gradient(90deg, transparent 0%, var(--secondary-blue) 50%, transparent 100%);
 }
 
-    /* Logo RELATIC PANAMÁ */
+    /* Logo Easy NodeOne */
     .logo-container {
         display: flex;
         flex-direction: column;
@@ -605,7 +614,7 @@ body.sidebar-collapsed .sidebar-brand-full {
     display: none !important;
 }
 
-/* Ocultar todos los textos de RELATIC PANAMÁ cuando está colapsado */
+/* Ocultar todos los textos de Easy NodeOne cuando está colapsado */
 body.sidebar-collapsed .sidebar-brand-text,
 body.sidebar-collapsed .sidebar-brand-text-small {
     display: none !important;
@@ -1331,6 +1340,130 @@ body.open #right-panel {
     padding: 20px 30px;
     min-height: calc(100vh - 56px);
     background: #f9fafb;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+/* Tipografía compacta — panel principal (#right-panel, app autenticada) */
+#right-panel .content h1,
+#right-panel .content .h1 {
+    font-size: 1.125rem;
+    line-height: 1.3;
+}
+
+#right-panel .content h2,
+#right-panel .content .h2 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+}
+
+#right-panel .content h3,
+#right-panel .content .h3 {
+    font-size: 0.9375rem;
+}
+
+#right-panel .content h4,
+#right-panel .content .h4,
+#right-panel .content h5,
+#right-panel .content .h5,
+#right-panel .content h6,
+#right-panel .content .h6 {
+    font-size: 0.875rem;
+}
+
+#right-panel .content .card-header,
+#right-panel .content .card-footer {
+    font-size: 0.8125rem;
+}
+
+#right-panel .content .table {
+    font-size: 0.75rem;
+}
+
+#right-panel .content .table th,
+#right-panel .content .table td {
+    font-size: inherit;
+}
+
+#right-panel .content .btn-sm {
+    font-size: 0.75rem;
+}
+
+#right-panel .content .btn:not(.btn-sm):not(.btn-lg) {
+    font-size: 0.8125rem;
+}
+
+#right-panel .content .form-label {
+    font-size: 0.75rem;
+}
+
+#right-panel .content .form-control-sm,
+#right-panel .content .form-select-sm {
+    font-size: 0.75rem;
+}
+
+#right-panel .content .form-control:not(.form-control-sm),
+#right-panel .content .form-select:not(.form-select-sm) {
+    font-size: 0.8125rem;
+}
+
+#right-panel .content .badge {
+    font-size: 0.65rem;
+}
+
+#right-panel .content .small,
+#right-panel .content small {
+    font-size: 0.7rem;
+}
+
+/* Sidebar — mismo escalado que el área de trabajo */
+aside.left-panel .navbar .navbar-nav li > a,
+aside.left-panel .navbar .navbar-nav .nav-link {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.navbar .navbar-nav li > a .menu-title-text {
+    font-size: 0.8125rem;
+}
+
+aside.left-panel .navbar .navbar-nav li > a .menu-icon {
+    font-size: 1rem;
+}
+
+aside.left-panel .navbar .menu-title {
+    font-size: 0.6875rem;
+}
+
+/* Modales (body); coherente con panel principal */
+.modal .modal-body {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.modal .modal-header .modal-title {
+    font-size: 1.05rem;
+}
+
+.modal .modal-footer {
+    font-size: 0.8125rem;
+}
+
+/* Barra superior solo cuando hay sidebar de app (no encoge marketing público) */
+body:has(aside.left-panel) .navbar-landing .navbar-brand {
+    font-size: 1.05rem;
+}
+
+body:has(aside.left-panel) .navbar-landing .nav-link {
+    font-size: 0.8125rem;
+}
+
+body:has(aside.left-panel) .navbar-landing .dropdown-item {
+    font-size: 0.8125rem;
+}
+
+body:has(aside.left-panel) .navbar-landing .nav-icon-link {
+    font-size: 1rem;
 }
 
 /* Móvil / tablet: menú lateral como drawer (Easy NodeOne modular, una sola app) */
@@ -1438,27 +1571,27 @@ body.open #right-panel {
         padding: 12px 14px;
     }
 
-    /* 4.3 Tipografía base en contenido app */
+    /* 4.3 Tipografía base en contenido app (compacta; inputs siguen ≥16px abajo para iOS) */
     #right-panel .content {
-        font-size: 15px;
-        line-height: 1.5;
+        font-size: 0.8125rem;
+        line-height: 1.45;
     }
 
     #right-panel .content h1,
     #right-panel .content .h1 {
-        font-size: 1.25rem;
+        font-size: 1.125rem;
         line-height: 1.3;
     }
 
     #right-panel .content h2,
     #right-panel .content .h2 {
-        font-size: 1.125rem;
+        font-size: 1.05rem;
         line-height: 1.35;
     }
 
     #right-panel .content h3,
     #right-panel .content .h3 {
-        font-size: 1.05rem;
+        font-size: 0.9375rem;
     }
 
     #right-panel .content .text-truncate,
@@ -2250,11 +2383,6 @@ aside.left-panel::-webkit-scrollbar-thumb:hover {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
-/* Mejoras para el contenido principal */
-#right-panel .content {
-    background: #f9fafb;
-}
-
 /* Ajustes para páginas sin sidebar */
 body:not(:has(.left-panel)) main {
     padding-top: 76px;
@@ -2721,4 +2849,18 @@ button[data-bs-target="#serviceCategoriesExplain"][aria-expanded="true"] .collap
     text-decoration: none;
     outline: 2px solid var(--color-primary, #2563eb);
     outline-offset: 2px;
+}
+
+/* Filtros admin colapsables (macro admin_filter_collapse) */
+.admin-filter-collapsible .admin-filter-chevron {
+    transition: transform 0.2s ease;
+}
+.admin-filter-collapsible .admin-filter-collapse-toggle.collapsed .admin-filter-chevron {
+    transform: rotate(0deg);
+}
+.admin-filter-collapsible .admin-filter-collapse-toggle:not(.collapsed) .admin-filter-chevron {
+    transform: rotate(-180deg);
+}
+[data-theme='dark'] .admin-filter-collapsible .admin-filter-collapse-toggle {
+    color: var(--gray-100, #f3f4f6) !important;
 }

@@ -23,7 +23,7 @@ static/public/announcements/
    
    O la URL completa:
    ```
-   https://miembros.relatic.org/static/public/announcements/promo-diciembre-2024.jpg
+   https://app.example.com/static/public/announcements/promo-diciembre-2024.jpg
    ```
 
 ### Opción 2: Usar Google Drive (URL directa de imagen)
@@ -75,6 +75,6 @@ Si subiste `promo-diciembre.jpg` a esta carpeta, usa:
 
 O la URL completa:
 ```
-https://miembros.relatic.org/static/public/announcements/promo-diciembre.jpg
+https://app.example.com/static/public/announcements/promo-diciembre.jpg
 ```
 

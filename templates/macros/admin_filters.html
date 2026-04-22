@@ -1,0 +1,24 @@
+{# Tarjeta de filtros colapsable (Bootstrap 5). Por defecto cerrada.
+   Uso:
+   {% from 'macros/admin_filters.html' import admin_filter_collapse %}
+   {% call admin_filter_collapse('idUnicoEnLaPagina', 'Filtros de Búsqueda', expanded=False, margin_class='mb-3') %}
+     ...contenido (formularios, etc.)...
+   {% endcall %}
+#}
+{% macro admin_filter_collapse(collapse_id, title, expanded=False, margin_class='mb-3') -%}
+<div class="card shadow-sm admin-filter-collapsible {{ margin_class }}">
+    <div class="card-header py-2">
+        <button class="btn btn-link text-decoration-none text-dark p-0 admin-filter-collapse-toggle w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#{{ collapse_id }}" aria-expanded="{{ 'true' if expanded else 'false' }}" aria-controls="{{ collapse_id }}">
+            <h6 class="mb-0 d-flex align-items-center justify-content-between gap-2">
+                <span><i class="fas fa-filter me-1"></i>{{ title }}</span>
+                <i class="fas fa-chevron-down small text-muted admin-filter-chevron flex-shrink-0"></i>
+            </h6>
+        </button>
+    </div>
+    <div id="{{ collapse_id }}" class="collapse {{ 'show' if expanded else '' }}">
+        <div class="card-body py-2">
+            {{ caller() }}
+        </div>
+    </div>
+</div>
+{%- endmacro %}

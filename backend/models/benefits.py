@@ -24,6 +24,8 @@ class Membership(db.Model):
     
     def is_currently_active(self):
         """Verificar si la membresía está actualmente activa"""
+        if self.end_date is None:
+            return bool(self.is_active)
         return self.is_active and datetime.utcnow() <= self.end_date
 
 class Benefit(db.Model):

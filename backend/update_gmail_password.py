@@ -20,7 +20,7 @@ def update_gmail_password():
     args = parser.parse_args()
 
     print('=' * 60)
-    print('ACTUALIZAR CONTRASEÑA: relaticpanama2025@gmail.com')
+    print('ACTUALIZAR CONTRASEÑA: nodeone@gmail.com')
     if args.org_id is not None:
         print(f'  (org: {args.org_id})')
     print('=' * 60)
@@ -32,7 +32,7 @@ def update_gmail_password():
             print("\n❌ No hay configuración activa")
             return False
         
-        if config.mail_username != 'relaticpanama2025@gmail.com':
+        if config.mail_username != 'nodeone@gmail.com':
             print(f"\n⚠️  La configuración es para: {config.mail_username}")
             return False
         
@@ -42,7 +42,7 @@ def update_gmail_password():
         print(f"   Longitud actual: {len(config.mail_password) if config.mail_password else 0} caracteres")
         
         # Actualizar contraseña
-        new_password = "Relatic2025"
+        new_password = "Easy NodeOne2025"
         config.mail_password = new_password
         config.updated_at = datetime.utcnow()
         
@@ -57,7 +57,7 @@ def update_gmail_password():
             print("\n📝 Para generar contraseña de aplicación:")
             print("   1. Ve a: https://myaccount.google.com/apppasswords")
             print("   2. Selecciona 'Correo' → 'Otro (nombre personalizado)'")
-            print("   3. Escribe: 'RelaticPanama'")
+            print("   3. Escribe: 'Easy NodeOne'")
             print("   4. Copia la contraseña de 16 caracteres")
             print("   5. Actualiza desde /admin/email")
         
@@ -66,7 +66,7 @@ def update_gmail_password():
             print(f"\n✅ Contraseña actualizada en la base de datos")
             
             print("\n💡 PRÓXIMOS PASOS:")
-            print("   1. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+            print("   1. Reinicia el servicio: sudo systemctl restart nodeone.service")
             print("   2. Prueba el envío desde /admin/email")
             print("   3. Si falla, genera una contraseña de aplicación de 16 caracteres")
             

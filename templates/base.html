@@ -7,8 +7,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <!-- Content Security Policy para permitir métodos de pago (Stripe, PayPal, Yappy, Banco General) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; worker-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.stripe.com https://merchant-ui-api.stripe.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://www.paypal.com https://www.sandbox.paypal.com https://api.cybersource.com https://api.yappy.im https://cdn.jsdelivr.net; frame-src 'self' https://*.easynodeone.com http://*.easynodeone.com https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://www.sandbox.paypal.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com; upgrade-insecure-requests;">
+    {# CSP: cabecera HTTP ``Content-Security-Policy`` (nodeone.services.security_headers), no meta duplicado. #}
     <title>{% block title %}{{ get_nav_brand_name() }}{% endblock %}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
@@ -20,7 +19,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-1" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
@@ -152,7 +152,7 @@
                     {% if current_user.is_authenticated %}
                     {% if saas_module_enabled('communications') %}
                     <li class="nav-item me-1 d-flex align-items-center">
-                        <a class="nav-link nav-icon-link position-relative" href="{{ url_for('communications.notifications_page') }}" title="Notificaciones">
+                        <a class="nav-link nav-icon-link position-relative" href="{{ url_for('communications.communications_inbox') }}" title="Bandeja">
                             <i class="fas fa-bell"></i>
                             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge" style="font-size: 0.6rem; display: none;">
                                 0
@@ -183,15 +183,16 @@
                             <li><h6 class="dropdown-header text-muted mb-0 small">Cuenta</h6></li>
                             <li><a class="dropdown-item" href="{{ url_for('member_pages.settings') }}"><i class="fas fa-sliders-h me-2"></i> Preferencias</a></li>
                             {% if saas_module_enabled('communications') %}
-                            <li><a class="dropdown-item" href="{{ url_for('communications.notifications_page') }}"><i class="fas fa-bell me-2"></i> Notificaciones</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('communications.communications_inbox') }}"><i class="fas fa-inbox me-2"></i> Bandeja</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('member_pages.settings_communications') }}"><i class="fas fa-sliders-h me-2"></i> Comunicaciones (preferencias)</a></li>
                             {% endif %}
                             {% if show_tenant_admin_menu %}
-                            {% if saas_module_enabled('payments') %}
+                            {% if saas_module_enabled('payments') and nav_can('payments.manage') %}
                             <li><a class="dropdown-item" href="{{ url_for('payments_admin.admin_payments') }}"><i class="fas fa-credit-card me-2"></i> Pagos (integración)</a></li>
                             {% endif %}
+                            {% if nav_can('system.settings.view') %}
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header text-muted mb-0 small">Sitio</h6></li>
-                            <li><a class="dropdown-item" href="{{ url_for('admin_configuration_taxes') }}"><i class="fas fa-percent me-2"></i> Impuestos</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_identity') }}"><i class="fas fa-palette me-2"></i> Branding</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_email') }}"><i class="fas fa-envelope me-2"></i> Email / SMTP</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('media_admin.admin_media') }}"><i class="fas fa-photo-video me-2"></i> Multimedia</a></li>
@@ -199,6 +200,10 @@
                             <li><a class="dropdown-item" href="{{ url_for('admin_ai') }}"><i class="fas fa-robot me-2"></i> IA</a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
+                            {% endif %}
+                            {% endif %}
+                            {% if (show_tenant_admin_menu and nav_can('system.settings.view')) or current_user.is_admin %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_configuration_taxes') }}"><i class="fas fa-percent me-2"></i> Impuestos</a></li>
                             {% endif %}
                         </ul>
                     </li>
@@ -213,8 +218,11 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                             <li><a class="dropdown-item" href="{{ url_for('members.profile') }}"><i class="fas fa-user me-2"></i>Perfil</a></li>
-                            {% if show_org_switcher_link %}
-                            <li><a class="dropdown-item" href="{{ url_for('auth.select_organization') }}"><i class="fas fa-building me-2"></i>Cambiar empresa</a></li>
+                            <li>
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#pwaInstallModal" id="pwaInstallMenuTrigger"><i class="fas fa-mobile-screen-button me-2"></i>Instalar aplicación</a>
+                            </li>
+                            {% if show_org_switcher_link or show_member_organization_switcher %}
+                            <li><a class="dropdown-item" href="{{ url_for('auth.select_organization', next=request.path) }}"><i class="fas fa-building me-2"></i>Cambiar empresa</a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('membership') }}"><i class="fas fa-crown me-2"></i>Membresía / planes</a></li>
                             {# <li><a class="dropdown-item" href="{{ url_for('wallet') }}"><i class="fas fa-wallet"></i> Wallet</a></li> #}
@@ -243,7 +251,8 @@
         
         <!-- Sidebar: operación (estructura SaaS: producto / tenant / plataforma) -->
         <aside id="left-panel" class="left-panel">
-            {% if show_platform_admin_nav and saas_organizations_nav and (not single_tenant_default_only() or current_user.is_admin) %}
+            {# Mostrar selector si hay más de una empresa, o modo multi-tenant / admin plataforma (evita ocultar en single-tenant cuando RBAC tiene varias orgs). #}
+            {% if show_platform_admin_nav and saas_organizations_nav and (saas_organizations_nav|length > 1 or not single_tenant_default_only() or current_user.is_admin) %}
             <div class="sidebar-org-bar px-2 py-2 border-bottom">
                 <label class="small text-muted d-block mb-1" for="sidebarOrgSelect">Empresa</label>
                 <form id="sidebarOrgForm" method="post" action="{{ url_for('admin_switch_organization') }}" class="d-flex flex-column gap-1" onsubmit="return window._submitSidebarOrganization(event);">
@@ -254,6 +263,16 @@
                     </select>
                     <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
                 </form>
+            </div>
+            {% elif show_member_organization_switcher %}
+            <div class="sidebar-org-bar px-2 py-2 border-bottom">
+                <span class="small text-muted d-block mb-1">Empresa activa</span>
+                {% if catalog_admin_context_org_name %}
+                <div class="small fw-semibold text-truncate mb-2" title="{{ catalog_admin_context_org_name }}">{{ catalog_admin_context_org_name }}</div>
+                {% endif %}
+                <a href="{{ url_for('auth.select_organization', next=request.path) }}" class="btn btn-sm btn-outline-primary w-100">
+                    <i class="fas fa-exchange-alt me-1"></i> Cambiar empresa
+                </a>
             </div>
             {% endif %}
             {% if multi_tenant_catalog_enabled and show_tenant_admin_menu and catalog_admin_context_org_name %}
@@ -280,49 +299,109 @@
                             </a>
                         </li>
                         {% endif %}
+                        {% if show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint in ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}active{% endif %}" href="/admin/analytics" data-bs-toggle="tooltip" data-bs-placement="right" title="KPIs y tableros">
+                                <i class="menu-icon fa fa-chart-line"></i>
+                                <span class="menu-title-text">Analítica</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {# Catálogo de servicios: primero para miembros y para admin de tenant (mismo orden de menú). #}
+                        {% if saas_module_enabled('appointments') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de servicios y reservas">
+                                <i class="menu-icon fa fa-th-large"></i>
+                                <span class="menu-title-text">Servicios</span>
+                            </a>
+                        </li>
+                        {% endif %}
 
                         {% if show_tenant_admin_menu %}
-                        {# 👥 Clientes #}
-                        <li class="nav-item nav-group {% if request.endpoint in ['admin_tenant_contacts', 'admin_memberships', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_reports'] %}show{% endif %}">
+                        {# 👥 Clientes: CRM alineado a users.view; Miembros a memberships.view #}
+                        {% set _nav_clientes_crm = (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and nav_can('users.view') %}
+                        {% set _nav_clientes_mem = nav_can('memberships.view') %}
+                        {% if _nav_clientes_crm or _nav_clientes_mem %}
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_tenant_contacts', 'admin_memberships', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Clientes">
                                 <i class="menu-icon fa fa-handshake"></i>
                                 <span class="menu-title-text">👥 Clientes</span>
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
-                                {% if saas_module_enabled('crm_contacts') or saas_module_enabled('crm') %}
+                                {% if _nav_clientes_crm %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_reports'] %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a>
+                                    <a class="nav-link {% if request.endpoint in ['admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a>
                                 </li>
                                 {% endif %}
+                                {% if _nav_clientes_mem %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_memberships' %}active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+                        {% endif %}
+
+                        {# Taller: grupo propio (no escondido dentro de Ventas) — monitor + Procesos SLA #}
+                        {% if show_tenant_admin_menu and saas_module_enabled('workshop') %}
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail', 'admin_workshop_process_config'] %}show{% endif %}" data-nav-group-key="workshop_taller">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Recepción y tiempos por etapa">
+                                <i class="menu-icon fa fa-car-side"></i>
+                                <span class="menu-title-text">🚗 Taller</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}active{% endif %}" href="{{ url_for('admin_workshop_orders') }}">Órdenes / monitor</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_workshop_process_config' %}active{% endif %}" href="{{ url_for('admin_workshop_process_config') }}">Procesos SLA</a>
                                 </li>
                             </ul>
                         </li>
                         {% endif %}
 
-                        {% if show_tenant_admin_menu and (saas_module_enabled('sales') or saas_module_enabled('workshop')) %}
-                        <li class="nav-item nav-group {% if request.endpoint in ['admin_sales_quotations', 'admin_accounting_invoices', 'admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}show{% endif %}" data-nav-group-key="sales_ventas">
+                        {# Ventas: cotizaciones y facturas #}
+                        {% if show_tenant_admin_menu and saas_module_enabled('sales') and nav_can('payments.view') %}
+                        <li class="nav-item nav-group {% if request.endpoint in ['admin_sales_quotations', 'admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}show{% endif %}" data-nav-group-key="sales_ventas">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Ventas">
                                 <i class="menu-icon fa fa-file-invoice-dollar"></i>
                                 <span class="menu-title-text">💼 Ventas</span>
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
-                                {% if saas_module_enabled('workshop') %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}active{% endif %}" href="{{ url_for('admin_workshop_orders') }}">Taller</a>
-                                </li>
-                                {% endif %}
-                                {% if saas_module_enabled('sales') %}
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_sales_quotations' %}active{% endif %}" href="{{ url_for('admin_sales_quotations') }}">Cotizaciones</a>
+                                    <a class="nav-link {% if request.endpoint == 'admin_sales_quotations' %}active{% endif %}" href="/admin/sales/quotations">Cotizaciones</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_accounting_invoices' %}active{% endif %}" href="{{ url_for('admin_accounting_invoices') }}">Facturas</a>
+                                    <a class="nav-link {% if request.endpoint in ['admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}active{% endif %}" href="/admin/accounting/invoices">Facturas</a>
                                 </li>
-                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        {% if show_tenant_admin_menu and show_academic_admin_nav %}
+                        <li class="nav-item nav-group {% if request.blueprint == 'academic_admin' %}show{% endif %}" data-nav-group-key="academic_lms">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Educación">
+                                <i class="menu-icon fa fa-graduation-cap"></i>
+                                <span class="menu-title-text">🎓 Educación</span>
+                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'academic_admin.admin_academic_students' %}active{% endif %}" href="{{ url_for('academic_admin.admin_academic_students') }}">Estudiantes</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'academic_admin.admin_academic_courses' %}active{% endif %}" href="{{ url_for('academic_admin.admin_academic_courses') }}">Cursos</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'academic_admin.admin_academic_enrollments' %}active{% endif %}" href="{{ url_for('academic_admin.admin_academic_enrollments') }}">Matrículas</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'academic_admin.admin_academic_moodle' %}active{% endif %}" href="{{ url_for('academic_admin.admin_academic_moodle') }}">Moodle</a>
+                                </li>
                             </ul>
                         </li>
                         {% endif %}
@@ -368,9 +447,12 @@
                                     <a class="nav-link {% if request.endpoint == 'appointments.advisor_queue' %}active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}">Solicitudes pendientes</a>
                                 </li>
                                 {% endif %}
-                                {% if show_tenant_admin_menu %}
+                                {% if show_tenant_admin_menu and nav_can('services.view') %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'admin_appointments' %}active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}">Disponibilidad</a>
+                                    <a class="nav-link {% if request.endpoint in ['admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type'] %}active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Tipos de cita</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint in ['admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability'] %}active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}">Disponibilidad</a>
                                 </li>
                                 {% endif %}
                             </ul>
@@ -380,15 +462,15 @@
 
                         {% if show_tenant_admin_menu or saas_module_enabled('communications') %}
                         {# 💬 Comunicación (miembro: solo enlace Correo si aplica) #}
-                        {% if not show_tenant_admin_menu and saas_module_enabled('communications') %}
+                        {% if not show_tenant_admin_menu and saas_module_enabled('communications') and office365_module_enabled %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.blueprint == 'integrations' %}active{% endif %}" href="{{ url_for('integrations.office365_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Correo / Office 365">
                                 <i class="menu-icon fa fa-envelope"></i>
                                 <span class="menu-title-text">Correo</span>
                             </a>
                         </li>
-                        {% elif show_tenant_admin_menu %}
-                        <li class="nav-item nav-group {% if request.blueprint == 'integrations' or request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'office365_admin.admin_office365_requests'] %}show{% endif %}">
+                        {% elif show_tenant_admin_menu and nav_can('integrations.view') %}
+                        <li class="nav-item nav-group {% if (office365_module_enabled and request.blueprint == 'integrations') or request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'admin_communications.admin_communications_settings'] or (office365_module_enabled and request.endpoint == 'office365_admin.admin_office365_requests') %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Comunicación">
                                 <i class="menu-icon fa fa-comments"></i>
                                 <span class="menu-title-text">💬 Comunicación</span>
@@ -398,7 +480,7 @@
                                 <li class="nav-item px-3 py-2">
                                     <small class="text-muted d-block"><i class="fab fa-whatsapp me-1"></i>WhatsApp <span class="badge bg-secondary">pronto</span></small>
                                 </li>
-                                {% if saas_module_enabled('communications') %}
+                                {% if saas_module_enabled('communications') and office365_module_enabled %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'integrations' %}active{% endif %}" href="{{ url_for('integrations.office365_page') }}">Correo</a>
                                 </li>
@@ -414,9 +496,12 @@
                                 </li>
                                 {% endif %}
                                 <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_communications.admin_communications_settings' %}active{% endif %}" href="{{ url_for('admin_communications.admin_communications_settings') }}">Reglas de comunicación</a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_notifications' %}active{% endif %}" href="{{ url_for('admin_notifications') }}">Notificaciones</a>
                                 </li>
-                                {% if saas_module_enabled('communications') %}
+                                {% if saas_module_enabled('communications') and office365_module_enabled %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'office365_admin.admin_office365_requests' %}active{% endif %}" href="{{ url_for('office365_admin.admin_office365_requests') }}">Solicitudes correo</a>
                                 </li>
@@ -453,6 +538,9 @@
                         </li>
                             {% endif %}
                         {% else %}
+                        {% set _nav_prod_evt = saas_module_enabled('events') and nav_can('reports.view') %}
+                        {% set _nav_prod_pay = nav_can('payments.view') %}
+                        {% if nav_can('memberships.view') or nav_can('services.view') or _nav_prod_evt or _nav_prod_pay %}
                         <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories'] or request.blueprint in ['events', 'admin_events'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos">
                                 <i class="menu-icon fa fa-store"></i>
@@ -460,34 +548,43 @@
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
+                                {% if nav_can('memberships.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}">Ver beneficios</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_benefits' %}active{% endif %}" href="{{ url_for('admin_benefits') }}">Gestionar beneficios</a>
                                 </li>
+                                {% endif %}
+                                {% if nav_can('services.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_services_catalog.admin_services' %}active{% endif %}" href="{{ url_for('admin_services_catalog.admin_services') }}">Servicios (catálogo)</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_services_catalog.admin_service_categories' %}active{% endif %}" href="{{ url_for('admin_services_catalog.admin_service_categories') }}">Categorías servicios</a>
                                 </li>
-                                {% if saas_module_enabled('events') %}
+                                {% endif %}
+                                {% if saas_module_enabled('events') and _nav_prod_evt %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}">Ver eventos</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'admin_events' and request.endpoint != 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.admin_events_index') }}">Gestión eventos</a>
                                 </li>
+                                {% endif %}
+                                {% if saas_module_enabled('events') and _nav_prod_pay %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.discounts_index') }}">Descuentos eventos</a>
                                 </li>
                                 {% endif %}
+                                {% if _nav_prod_pay %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_discount_codes.admin_discount_codes' %}active{% endif %}" href="{{ url_for('admin_discount_codes.admin_discount_codes') }}">Códigos promocionales</a>
                                 </li>
+                                {% endif %}
                             </ul>
                         </li>
+                        {% endif %}
                         {% endif %}
 
                         {% if saas_module_enabled('certificates') or saas_module_enabled('policies') %}
@@ -560,6 +657,7 @@
                         {# ⚙️ Configuración (Impuestos, Branding, Email, Multimedia, IA, Guía): solo menú engranaje superior #}
 
                         {# 👤 Organización #}
+                        {% if nav_can('users.view') or nav_can('roles.view') %}
                         <li class="nav-item nav-group {% if request.endpoint == 'admin_users' or request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Organización">
                                 <i class="menu-icon fa fa-sitemap"></i>
@@ -567,18 +665,22 @@
                                 <i class="menu-arrow fa fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
+                                {% if nav_can('users.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}">Usuarios</a>
                                 </li>
-                                {% if current_user.has_permission('roles.view') %}
+                                {% endif %}
+                                {% if nav_can('roles.view') %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}">Roles</a>
                                 </li>
                                 {% endif %}
                             </ul>
                         </li>
+                        {% endif %}
 
                         {# 💳 Plan #}
+                        {% if nav_can('memberships.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_plans' %}active{% endif %}" href="{{ url_for('admin_plans') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía">
                                 <i class="menu-icon fa fa-crown"></i>
@@ -586,10 +688,11 @@
                             </a>
                         </li>
                         {% endif %}
+                        {% endif %}
 
-                        {% if show_platform_admin_nav %}
+                        {% if show_platform_admin_nav and current_user.is_admin %}
                         <li class="sidebar-menu-divider"><hr class="border-secondary"></li>
-                        {# 🧩 Plataforma #}
+                        {# 🧩 Plataforma (solo is_admin; rutas con platform_admin_required) #}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page'] or request.endpoint in ['admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Plataforma">
                                 <i class="menu-icon fa fa-cloud"></i>
@@ -612,18 +715,22 @@
 
                         {% if show_tenant_admin_menu %}
                         {# 🛠 Sistema (enlaces directos) #}
+                        {% if nav_can('reports.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' %}active{% endif %}" href="{{ url_for('admin_messaging') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Logs">
                                 <i class="menu-icon fa fa-stream"></i>
                                 <span class="menu-title-text">Logs</span>
                             </a>
                         </li>
+                        {% endif %}
+                        {% if nav_can('system.settings.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_backup.admin_backup' %}active{% endif %}" href="{{ url_for('admin_backup.admin_backup') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Respaldos">
                                 <i class="menu-icon fa fa-database"></i>
                                 <span class="menu-title-text">Respaldos</span>
                             </a>
                         </li>
+                        {% endif %}
                         {% endif %}
                     </ul>
                 </div>
@@ -668,161 +775,11 @@
         {% endblock %}
         {% if current_user.is_authenticated and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
             </div>
-            <!-- Footer -->
-            <footer class="footer py-5 mt-4">
-                <div class="container">
-                    <div class="row gy-4">
-                        <div class="col-12 col-lg-5 col-md-6">
-                            <h5 class="text-uppercase mb-2">{{ get_nav_brand_name() }}</h5>
-                            <p class="text-light mb-3">
-                                Plataforma modular: miembros, servicios, pagos e integraciones en un solo ecosistema.
-                            </p>
-                            <div class="d-flex flex-column gap-2">
-                                <a href="mailto:info@easynodeone.com" class="text-light text-decoration-none">
-                                    <i class="fas fa-envelope me-2"></i> info@easynodeone.com
-                                </a>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-4 col-md-6">
-                            <h6 class="text-uppercase mb-3">Enlaces útiles</h6>
-                            <ul class="list-unstyled mb-0">
-                                <li class="mb-2">
-                                    <a href="{{ url_for('membership') }}" class="text-light text-decoration-none">
-                                        <i class="fas fa-crown me-2"></i>Planes de membresía
-                                    </a>
-                                </li>
-                                <li class="mb-2">
-                                    <a href="{{ url_for('benefits') }}" class="text-light text-decoration-none">
-                                        <i class="fas fa-star me-2"></i>Beneficios para miembros
-                                    </a>
-                                </li>
-                                {% if saas_module_enabled('appointments') %}
-                                <li class="mb-2">
-                                    <a href="{{ url_for('services.list') }}" class="text-light text-decoration-none">
-                                        <i class="fas fa-th-large me-2"></i>Servicios disponibles
-                                    </a>
-                                </li>
-                                {% endif %}
-                                <li class="mb-2">
-                                    <a href="{{ url_for('member_pages.help_page') }}" class="text-light text-decoration-none">
-                                        <i class="fas fa-life-ring me-2"></i>Centro de ayuda
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="col-12 col-lg-3">
-                            <h6 class="text-uppercase mb-3">Síguenos</h6>
-                            <p class="text-light small mb-3">Recibe actualizaciones de eventos y convocatorias.</p>
-                            <div class="d-flex gap-3">
-                                <a href="https://www.facebook.com" target="_blank" rel="noopener" class="text-light"><i class="fab fa-facebook-f fa-lg"></i></a>
-                                <a href="https://www.linkedin.com" target="_blank" rel="noopener" class="text-light"><i class="fab fa-linkedin-in fa-lg"></i></a>
-                                <a href="https://www.youtube.com" target="_blank" rel="noopener" class="text-light"><i class="fab fa-youtube fa-lg"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="border-top border-secondary mt-4 pt-4">
-                        <div class="row">
-                            <div class="col-12 col-md-8 text-center text-md-start">
-                                <p class="text-muted small mb-2">
-                                    &copy; 2025 {{ get_nav_brand_name() }}. Todos los derechos reservados.
-                                </p>
-                            </div>
-                            <div class="col-12 col-md-4 text-center text-md-end mt-3 mt-md-0">
-                                <div class="d-flex flex-wrap justify-content-center justify-content-md-end gap-3">
-                                    <a href="#" class="text-light text-decoration-none small" data-bs-toggle="modal" data-bs-target="#termsModal">
-                                        <i class="fas fa-file-contract me-1"></i>Términos y Condiciones
-                                    </a>
-                                    <a href="#" class="text-light text-decoration-none small" data-bs-toggle="modal" data-bs-target="#privacyModal">
-                                        <i class="fas fa-shield-alt me-1"></i>Privacidad
-                                    </a>
-                                    <a href="#" class="text-light text-decoration-none small" data-bs-toggle="modal" data-bs-target="#refundModal">
-                                        <i class="fas fa-undo me-1"></i>Política de Reembolso
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            {% include 'partials/site_footer.html' %}
         </div>
         {% else %}
         </div>
-        <!-- Footer -->
-        <footer class="footer py-5 mt-4">
-            <div class="container">
-                <div class="row gy-4">
-                    <div class="col-12 col-lg-5 col-md-6">
-                        <h5 class="text-uppercase mb-2">{{ get_nav_brand_name() }}</h5>
-                        <p class="text-light mb-3">
-                            Plataforma modular: miembros, servicios, pagos e integraciones en un solo ecosistema.
-                        </p>
-                        <div class="d-flex flex-column gap-2">
-                            <a href="mailto:info@easynodeone.com" class="text-light text-decoration-none">
-                                <i class="fas fa-envelope me-2"></i> info@easynodeone.com
-                            </a>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-4 col-md-6">
-                        <h6 class="text-uppercase mb-3">Enlaces útiles</h6>
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2">
-                                <a href="{{ url_for('membership') }}" class="text-light text-decoration-none">
-                                    <i class="fas fa-crown me-2"></i>Planes de membresía
-                                </a>
-                            </li>
-                            <li class="mb-2">
-                                <a href="{{ url_for('benefits') }}" class="text-light text-decoration-none">
-                                    <i class="fas fa-star me-2"></i>Beneficios para miembros
-                                </a>
-                            </li>
-                            {% if saas_module_enabled('appointments') %}
-                            <li class="mb-2">
-                                <a href="{{ url_for('services.list') }}" class="text-light text-decoration-none">
-                                    <i class="fas fa-th-large me-2"></i>Servicios disponibles
-                                </a>
-                            </li>
-                            {% endif %}
-                            <li class="mb-2">
-                                <a href="{{ url_for('member_pages.help_page') }}" class="text-light text-decoration-none">
-                                    <i class="fas fa-life-ring me-2"></i>Centro de ayuda
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="col-12 col-lg-3">
-                        <h6 class="text-uppercase mb-3">Síguenos</h6>
-                        <p class="text-light small mb-3">Recibe actualizaciones de eventos y convocatorias.</p>
-                        <div class="d-flex gap-3">
-                            <a href="https://www.facebook.com" target="_blank" rel="noopener" class="text-light"><i class="fab fa-facebook-f fa-lg"></i></a>
-                            <a href="https://www.linkedin.com" target="_blank" rel="noopener" class="text-light"><i class="fab fa-linkedin-in fa-lg"></i></a>
-                            <a href="https://www.youtube.com" target="_blank" rel="noopener" class="text-light"><i class="fab fa-youtube fa-lg"></i></a>
-                        </div>
-                    </div>
-                </div>
-                <div class="border-top border-secondary mt-4 pt-4">
-                    <div class="row">
-                        <div class="col-12 col-md-8 text-center text-md-start">
-                            <p class="text-muted small mb-2">
-                                &copy; 2025 {{ get_nav_brand_name() }}. Todos los derechos reservados.
-                            </p>
-                        </div>
-                        <div class="col-12 col-md-4 text-center text-md-end mt-3 mt-md-0">
-                            <div class="d-flex flex-wrap justify-content-center justify-content-md-end gap-3">
-                                <a href="#" class="text-light text-decoration-none small" data-bs-toggle="modal" data-bs-target="#termsModal">
-                                    <i class="fas fa-file-contract me-1"></i>Términos y Condiciones
-                                </a>
-                                <a href="#" class="text-light text-decoration-none small" data-bs-toggle="modal" data-bs-target="#privacyModal">
-                                    <i class="fas fa-shield-alt me-1"></i>Privacidad
-                                </a>
-                                <a href="#" class="text-light text-decoration-none small" data-bs-toggle="modal" data-bs-target="#refundModal">
-                                    <i class="fas fa-undo me-1"></i>Política de Reembolso
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </footer>
+        {% include 'partials/site_footer.html' %}
         {% endif %}
     </main>
 
@@ -1122,6 +1079,123 @@
         })();
     </script>
 
+    {% if current_user.is_authenticated %}
+    <!-- Instalación PWA (perfil): HTTPS + prompt del navegador cuando exista -->
+    <div class="modal fade" id="pwaInstallModal" tabindex="-1" aria-labelledby="pwaInstallModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pwaInstallModalLabel">
+                        <i class="fas fa-download me-2 text-primary"></i>Instalar aplicación
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">
+                        Añade <strong>{{ get_nav_brand_name() }}</strong> como aplicación en tu móvil o escritorio para abrirla desde el icono, pantalla completa y acceso más rápido.
+                    </p>
+                    <div class="alert alert-light border small mb-3" role="status">
+                        <i class="fas fa-lock text-success me-1"></i>
+                        <strong>Conexión verificada (HTTPS).</strong> Solo se instala desde esta dirección cifrada; el navegador comprueba la identidad del servidor (certificado / “firma” digital TLS), igual que en banca o correo seguro.
+                    </div>
+                    <div id="pwaInstallStateStandalone" class="d-none alert alert-success small mb-0">
+                        <i class="fas fa-check-circle me-1"></i>Ya estás usando la aplicación instalada o en modo app.
+                    </div>
+                    <div id="pwaInstallStatePrompt" class="d-none">
+                        <p class="small mb-2">Tu navegador permite instalar la app desde aquí:</p>
+                        <button type="button" class="btn btn-primary w-100" id="pwaInstallDoNow">
+                            <i class="fas fa-download me-1"></i>Instalar ahora
+                        </button>
+                    </div>
+                    <div id="pwaInstallStateIos" class="d-none small">
+                        <p class="fw-semibold mb-1">En iPhone o iPad (Safari)</p>
+                        <ol class="ps-3 mb-0">
+                            <li>Toca el botón <strong>Compartir</strong> <i class="fas fa-share-square"></i>.</li>
+                            <li>Elige <strong>Añadir a la pantalla de inicio</strong>.</li>
+                            <li>Confirma el nombre y toca <strong>Añadir</strong>.</li>
+                        </ol>
+                    </div>
+                    <div id="pwaInstallStateManual" class="d-none small">
+                        <p class="fw-semibold mb-1">En Chrome, Edge o Brave (escritorio o Android)</p>
+                        <p class="mb-1">Abre el menú del navegador <span class="text-muted">(⋮ o «Instalar aplicación»)</span> y elige instalar esta página.</p>
+                        <p class="text-muted mb-0">Si no aparece, puede que el sitio ya esté instalado o que el navegador no ofrezca PWA en este momento.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var deferredPrompt = null;
+            function isStandalone() {
+                try {
+                    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+                    if (window.navigator.standalone === true) return true;
+                } catch (e) {}
+                return false;
+            }
+            function isLikelyIos() {
+                return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            }
+            function refreshPwaInstallModal() {
+                var m = document.getElementById('pwaInstallModal');
+                if (!m) return;
+                var elS = document.getElementById('pwaInstallStateStandalone');
+                var elP = document.getElementById('pwaInstallStatePrompt');
+                var elI = document.getElementById('pwaInstallStateIos');
+                var elM = document.getElementById('pwaInstallStateManual');
+                [elS, elP, elI, elM].forEach(function (x) { if (x) x.classList.add('d-none'); });
+                if (isStandalone()) {
+                    if (elS) elS.classList.remove('d-none');
+                    return;
+                }
+                if (deferredPrompt) {
+                    if (elP) elP.classList.remove('d-none');
+                    return;
+                }
+                if (isLikelyIos()) {
+                    if (elI) elI.classList.remove('d-none');
+                } else {
+                    if (elM) elM.classList.remove('d-none');
+                }
+            }
+            window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault();
+                deferredPrompt = e;
+                refreshPwaInstallModal();
+            });
+            window.addEventListener('appinstalled', function () {
+                deferredPrompt = null;
+                refreshPwaInstallModal();
+            });
+            document.addEventListener('DOMContentLoaded', function () {
+                var modalEl = document.getElementById('pwaInstallModal');
+                var doBtn = document.getElementById('pwaInstallDoNow');
+                if (modalEl) {
+                    modalEl.addEventListener('show.bs.modal', refreshPwaInstallModal);
+                }
+                if (doBtn) {
+                    doBtn.addEventListener('click', function () {
+                        if (!deferredPrompt) return;
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then(function () {
+                            deferredPrompt = null;
+                            refreshPwaInstallModal();
+                            try {
+                                var modal = bootstrap.Modal.getInstance(modalEl);
+                                if (modal) modal.hide();
+                            } catch (err) {}
+                        });
+                    });
+                }
+            });
+        })();
+    </script>
+    {% endif %}
+
     <!-- Modales de Políticas -->
     <!-- Modal Términos y Condiciones -->
     <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
@@ -1265,7 +1339,7 @@ function refreshNavbarBadges() {
 }
 document.addEventListener('DOMContentLoaded', refreshNavbarBadges);
 </script>
-{% if current_user.is_authenticated and show_platform_admin_nav and saas_organizations_nav and (not single_tenant_default_only() or current_user.is_admin) %}
+{% if current_user.is_authenticated and show_platform_admin_nav and saas_organizations_nav and (saas_organizations_nav|length > 1 or not single_tenant_default_only() or current_user.is_admin) %}
 <script>
 window._submitSidebarOrganization = function (ev) {
   ev.preventDefault();

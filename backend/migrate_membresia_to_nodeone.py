@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migración DB membresía-relatic → NodeOne.
+Migración DB membresía legada → NodeOne.
 Uso: MEMBRESIA_SOURCE_DB=/ruta/a/membresia.db python3 migrate_membresia_to_nodeone.py [--dry-run]
 O:   python3 migrate_membresia_to_nodeone.py /ruta/a/membresia.db [--dry-run]
 """
@@ -11,7 +11,7 @@ import argparse
 
 # Destino NodeOne
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
-NODEONE_DB = os.path.join(os.path.dirname(BASEDIR), 'instance', 'nodeone.db')
+NODEONE_DB = os.path.join(os.path.dirname(BASEDIR), 'instance', 'NodeOne.db')
 
 
 def get_source_path():
@@ -472,7 +472,7 @@ def migrate(dry_run=True, source_db=None, only_services=False, only_benefits=Fal
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('source_db', nargs='?', default=None, help='Ruta a la DB de membresía-relatic')
+    ap.add_argument('source_db', nargs='?', default=None, help='Ruta a la DB de membresía legada')
     ap.add_argument('--dry-run', action='store_true', help='Solo mostrar qué se haría')
     ap.add_argument('--only', choices=['services', 'benefits'], help='Migrar solo: services o benefits')
     args = ap.parse_args()

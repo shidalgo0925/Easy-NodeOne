@@ -4,10 +4,8 @@ import os
 import shutil
 import traceback
 from datetime import datetime
-from functools import wraps
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, send_file, url_for
-from flask_login import current_user, login_required
+from flask import Blueprint, jsonify, render_template, send_file
 
 admin_backup_bp = Blueprint('admin_backup', __name__)
 
@@ -17,26 +15,15 @@ def _project_root():
     return os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
 
 
-def _admin_required_lazy(f):
-    """Igual que app.admin_required; importa app en request (evita ciclo)."""
-    @wraps(f)
-    @login_required
-    def decorated_function(*args, **kwargs):
-        import app as M
+def _system_settings_required(f):
+    """Misma regla que el ítem «Respaldos» en base.html (system.settings.view)."""
+    import app as M
 
-        if bool(getattr(current_user, 'must_change_password', False)):
-            flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
-            return redirect(url_for('auth.change_password'))
-        if not current_user.is_admin and not M._user_has_any_admin_permission(current_user):
-            flash('No tienes permisos para acceder a esta página.', 'error')
-            return redirect(url_for('dashboard'))
-        return f(*args, **kwargs)
-
-    return decorated_function
+    return M.require_permission('system.settings.view')(f)
 
 
 @admin_backup_bp.route('/admin/backup')
-@_admin_required_lazy
+@_system_settings_required
 def admin_backup():
     """Panel de respaldo de base de datos"""
     project_root = _project_root()
@@ -45,7 +32,7 @@ def admin_backup():
 
     if os.path.exists(backups_dir):
         for filename in sorted(os.listdir(backups_dir), reverse=True):
-            if filename.startswith('relaticpanama_backup_') and filename.endswith('.db'):
+            if filename.startswith('nodeone_backup_') and filename.endswith('.db'):
                 filepath = os.path.join(backups_dir, filename)
                 file_stat = os.stat(filepath)
                 backups.append({
@@ -60,12 +47,12 @@ def admin_backup():
 
 
 @admin_backup_bp.route('/admin/backup/create', methods=['POST'])
-@_admin_required_lazy
+@_system_settings_required
 def create_backup():
     """Crear respaldo de base de datos y devolverlo para descarga"""
     try:
         project_root = _project_root()
-        db_path = os.path.join(project_root, 'instance', 'relaticpanama.db')
+        db_path = os.path.join(project_root, 'instance', 'membership_legacy.db')
         backups_dir = os.path.join(project_root, 'backups')
 
         os.makedirs(backups_dir, exist_ok=True)
@@ -74,7 +61,7 @@ def create_backup():
             return jsonify({'success': False, 'error': 'Base de datos no encontrada'}), 404
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_filename = f'relaticpanama_backup_{timestamp}.db'
+        backup_filename = f'nodeone_backup_{timestamp}.db'
         backup_path = os.path.join(backups_dir, backup_filename)
 
         shutil.copy2(db_path, backup_path)
@@ -95,11 +82,11 @@ def create_backup():
 
 
 @admin_backup_bp.route('/admin/backup/download/<filename>')
-@_admin_required_lazy
+@_system_settings_required
 def download_backup(filename):
     """Descargar un respaldo existente"""
     try:
-        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+        if not filename.startswith('nodeone_backup_') or not filename.endswith('.db'):
             return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
 
         project_root = _project_root()
@@ -121,11 +108,11 @@ def download_backup(filename):
 
 
 @admin_backup_bp.route('/admin/backup/delete/<filename>', methods=['POST'])
-@_admin_required_lazy
+@_system_settings_required
 def delete_backup(filename):
     """Eliminar un respaldo"""
     try:
-        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+        if not filename.startswith('nodeone_backup_') or not filename.endswith('.db'):
             return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
 
         project_root = _project_root()
@@ -144,16 +131,16 @@ def delete_backup(filename):
 
 
 @admin_backup_bp.route('/admin/backup/restore/<filename>', methods=['POST'])
-@_admin_required_lazy
+@_system_settings_required
 def restore_backup(filename):
     """Restaurar base de datos desde un respaldo"""
     try:
-        if not filename.startswith('relaticpanama_backup_') or not filename.endswith('.db'):
+        if not filename.startswith('nodeone_backup_') or not filename.endswith('.db'):
             return jsonify({'success': False, 'error': 'Nombre de archivo inválido'}), 400
 
         project_root = _project_root()
         backup_path = os.path.join(project_root, 'backups', filename)
-        db_path = os.path.join(project_root, 'instance', 'relaticpanama.db')
+        db_path = os.path.join(project_root, 'instance', 'membership_legacy.db')
 
         if not os.path.exists(backup_path):
             return jsonify({'success': False, 'error': 'Respaldo no encontrado'}), 404

@@ -28,7 +28,7 @@ La autenticación SMTP está **deshabilitada** en el tenant de Office 365. Esto 
 
 3. **Habilitar SMTP AUTH para el usuario específico:**
    - Ve a **Usuarios activos**
-   - Selecciona el usuario `info@relaticpanama.org`
+   - Selecciona el usuario `info@example.com`
    - Ve a la pestaña **Correo**
    - Habilita **"Autenticación SMTP habilitada"**
 

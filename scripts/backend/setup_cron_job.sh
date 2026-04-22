@@ -17,7 +17,7 @@ if ! command -v crontab &> /dev/null; then
 fi
 
 # Directorios
-PROJECT_DIR="/home/relaticpanama2025/projects/membresia-relatic"
+PROJECT_DIR="/var/www/nodeone"
 BACKEND_DIR="$PROJECT_DIR/backend"
 VENV_PYTHON="$PROJECT_DIR/venv/bin/python3"
 LOG_FILE="$PROJECT_DIR/logs/payments_verification.log"

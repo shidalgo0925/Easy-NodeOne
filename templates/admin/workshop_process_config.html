@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Procesos SLA — Taller | {{ get_nav_brand_name() }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=30">
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <h1 class="h4 mb-0">Configuración de procesos de taller (SLA)</h1>
+        <a class="btn btn-outline-secondary btn-sm ms-auto" href="{{ url_for('admin_workshop_orders') }}">← Monitor</a>
+    </div>
+    <p class="text-muted small">Tiempos objetivo por etapa del flujo. Las órdenes nuevas usan estos valores; el historial en <code>order_process_log</code> conserva lo ocurrido al cambiar de etapa.</p>
+    <div id="woCfgErr" class="alert alert-danger d-none"></div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header py-2 d-flex align-items-center gap-2">
+            <span class="fw-semibold">Etapas del flujo</span>
+            <button type="button" class="btn btn-primary btn-sm ms-auto" id="woCfgSaveStages">Guardar cambios</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Orden</th>
+                        <th>Minutos</th>
+                        <th>Color</th>
+                        <th>Activo</th>
+                        <th>Permite salto</th>
+                        <th>Etiqueta tipo servicio</th>
+                    </tr>
+                </thead>
+                <tbody id="woCfgStagesBody"><tr><td colspan="8" class="text-muted small p-3">Cargando…</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header py-2 fw-semibold">Override por servicio del catálogo</div>
+        <div class="card-body">
+            <p class="small text-muted">Minutos distintos al valor por etapa para un servicio concreto (p. ej. diagnóstico más largo en ceramic coating). Dejar vacío y guardar quita el override.</p>
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-auto">
+                    <label class="small text-muted">ID servicio</label>
+                    <input type="number" min="1" class="form-control form-control-sm" id="woCfgServiceId" placeholder="ID" style="width:7rem">
+                </div>
+                <div class="col-auto">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="woCfgLoadSvc">Cargar</button>
+                </div>
+            </div>
+            <div id="woCfgSvcErr" class="alert alert-warning d-none small"></div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Etapa</th>
+                            <th>Default (min)</th>
+                            <th>Override (min)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="woCfgSvcBody"><tr><td colspan="3" class="text-muted small">Indique un ID de servicio y cargue.</td></tr></tbody>
+                </table>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm mt-2" id="woCfgSaveSvc" disabled>Guardar overrides</button>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/modules/workshop/process_config.js') }}?v=1"></script>
+{% endblock %}

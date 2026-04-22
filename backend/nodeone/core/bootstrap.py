@@ -17,7 +17,7 @@ def _sqlalchemy_uri(backend_dir):
         if raw.startswith('postgres://'):
             raw = raw.replace('postgres://', 'postgresql://', 1)
         return raw
-    db_path = os.path.join(os.path.dirname(backend_dir), 'instance', 'nodeone.db')
+    db_path = os.path.join(os.path.dirname(backend_dir), 'instance', 'NodeOne.db')
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     return f'sqlite:///{db_path}'
 
@@ -55,7 +55,7 @@ def init_monolith_flask_app(import_name, stripe_mod):
     app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'False').lower() == 'true'
     app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
     app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
-    app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+    app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@example.com')
 
     db.init_app(app)
 

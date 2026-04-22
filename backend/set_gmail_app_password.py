@@ -31,12 +31,12 @@ def set_gmail_app_password():
     
     print("\n🔐 PASOS PARA GENERAR LA CONTRASEÑA:")
     print("   1. Ve a: https://myaccount.google.com/apppasswords")
-    print("   2. Inicia sesión con: relaticpanama2025@gmail.com")
+    print("   2. Inicia sesión con: nodeone@gmail.com")
     print("   3. Si no tienes 2FA, actívalo primero (requerido)")
     print("   4. Selecciona:")
     print("      - App: 'Correo'")
     print("      - Device: 'Otro (nombre personalizado)'")
-    print("      - Escribe: 'RelaticPanama'")
+    print("      - Escribe: 'Easy NodeOne'")
     print("   5. Haz clic en 'Generar'")
     print("   6. Copia la contraseña de 16 caracteres (sin espacios)")
     
@@ -64,7 +64,7 @@ def set_gmail_app_password():
             print("\n❌ No hay configuración activa")
             return False
         
-        if config.mail_username != 'relaticpanama2025@gmail.com':
+        if config.mail_username != 'nodeone@gmail.com':
             print(f"\n⚠️  La configuración es para: {config.mail_username}")
             return False
         
@@ -81,7 +81,7 @@ def set_gmail_app_password():
             print(f"   Longitud: {len(app_password)} caracteres")
             
             print("\n💡 PRÓXIMOS PASOS:")
-            print("   1. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+            print("   1. Reinicia el servicio: sudo systemctl restart nodeone.service")
             print("   2. Prueba el envío desde /admin/email")
             print("   3. Debería funcionar correctamente ahora")
             

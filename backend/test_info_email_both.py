@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Probar configuración de info@relaticpanama.org con Gmail y Office 365
+Probar configuración de info@example.com con Gmail y Office 365
 """
 
 import argparse
@@ -20,7 +20,7 @@ def test_both_configs():
     args = parser.parse_args()
 
     print('=' * 60)
-    print('PRUEBA DE CONFIGURACIÓN: info@relaticpanama.org')
+    print('PRUEBA DE CONFIGURACIÓN: info@example.com')
     if args.org_id is not None:
         print(f'  (org: {args.org_id})')
     print('=' * 60)
@@ -40,27 +40,27 @@ def test_both_configs():
         print(f"   Contraseña: {'*' * 16 if current_password else '(no configurada)'}")
         
         print("\n💡 DADO QUE ANTES FUNCIONABA CON GMAIL:")
-        print("   Es muy probable que info@relaticpanama.org también sea Gmail (Google Workspace)")
+        print("   Es muy probable que info@example.com también sea Gmail (Google Workspace)")
         print("   Si es así, necesitas:")
         print("   1. Servidor: smtp.gmail.com")
         print("   2. Contraseña de aplicación (16 caracteres)")
         print("   3. Generar en: https://myaccount.google.com/apppasswords")
         
         print("\n🔧 CONFIGURACIÓN RECOMENDADA PARA GMAIL:")
-        print("   Si info@relaticpanama.org es Gmail, usa esta configuración:")
+        print("   Si info@example.com es Gmail, usa esta configuración:")
         print("   - Servidor: smtp.gmail.com")
         print("   - Puerto: 587")
         print("   - TLS: True")
-        print("   - Usuario: info@relaticpanama.org")
+        print("   - Usuario: info@example.com")
         print("   - Contraseña: [Contraseña de aplicación de 16 caracteres]")
-        print("   - Remitente: info@relaticpanama.org")
+        print("   - Remitente: info@example.com")
         
         print("\n📝 OPCIONES:")
         print("   1. Si es Gmail: Configurar con contraseña de aplicación")
         print("   2. Si es Office 365: Verificar contraseña actual")
         
         print("\n🔍 PARA VERIFICAR:")
-        print("   - Intenta iniciar sesión en https://mail.google.com con info@relaticpanama.org")
+        print("   - Intenta iniciar sesión en https://mail.google.com con info@example.com")
         print("   - Si funciona: Es Gmail → Necesitas contraseña de aplicación")
         print("   - Si no funciona: Es Office 365 → Usa contraseña normal")
         
@@ -80,8 +80,8 @@ def test_both_configs():
             config.mail_port = 587
             config.mail_use_tls = True
             config.mail_use_ssl = False
-            config.mail_username = 'info@relaticpanama.org'
-            config.mail_default_sender = 'info@relaticpanama.org'
+            config.mail_username = 'info@example.com'
+            config.mail_default_sender = 'info@example.com'
             config.use_environment_variables = False
             config.is_active = True
             config.updated_at = datetime.utcnow()
@@ -102,7 +102,7 @@ def test_both_configs():
                     print(f"   Remitente: {config.mail_default_sender}")
                     print(f"   Contraseña: {'*' * 16}")
                     print("\n💡 PRÓXIMOS PASOS:")
-                    print("   1. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+                    print("   1. Reinicia el servicio: sudo systemctl restart nodeone.service")
                     print("   2. Prueba el envío desde /admin/email")
                 except Exception as e:
                     db.session.rollback()

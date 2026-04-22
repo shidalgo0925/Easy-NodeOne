@@ -11,7 +11,7 @@ import subprocess
 # Cargar variables de entorno desde systemd
 try:
     result = subprocess.run(
-        ['systemctl', 'show', 'membresia-relatic.service'],
+        ['systemctl', 'show', 'nodeone.service'],
         capture_output=True,
         text=True
     )

@@ -1,4 +1,4 @@
-# Resumen Funcional - Sistema membresia-relatic
+# Resumen Funcional - Sistema nodeone
 
 > **Propósito**: Documento de referencia rápida para entender qué hace el sistema y cómo funciona.
 
@@ -6,7 +6,7 @@
 
 ## 🎯 Propósito del Sistema
 
-Sistema completo de gestión de membresías para RelaticPanama que incluye:
+Sistema completo de gestión de membresías para Easy NodeOne que incluye:
 - Gestión de usuarios y membresías
 - Sistema de pagos con Stripe
 - Gestión de eventos y citas
@@ -299,10 +299,10 @@ psycopg2-binary==2.9.7
 
 ## 🚀 Despliegue
 
-- **Servicio systemd**: `membresia-relatic.service`
+- **Servicio systemd**: `nodeone.service`
 - **Puerto**: 9000 (desarrollo) / 8080 (producción)
-- **Proxy**: Nginx (miembros.relatic.org)
-- **Base de datos**: SQLite en `backend/instance/relaticpanama.db`
+- **Proxy**: Nginx (app.example.com)
+- **Base de datos**: SQLite en `backend/instance/membership_legacy.db`
 
 ---
 

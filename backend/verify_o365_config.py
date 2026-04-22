@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Verificar y mostrar configuración de Office 365 para info@relaticpanama.org
+Verificar y mostrar configuración de Office 365 para info@example.com
 """
 
 import argparse
@@ -19,7 +19,7 @@ def verify_o365_config():
     args = parser.parse_args()
 
     print('=' * 60)
-    print('VERIFICACIÓN: info@relaticpanama.org (Office 365)')
+    print('VERIFICACIÓN: info@example.com (Office 365)')
     if args.org_id is not None:
         print(f'  (org: {args.org_id})')
     print('=' * 60)
@@ -60,12 +60,12 @@ def verify_o365_config():
         else:
             checks.append(("❌ TLS no habilitado", False))
         
-        if config.mail_username == 'info@relaticpanama.org':
+        if config.mail_username == 'info@example.com':
             checks.append(("✅ Usuario correcto", True))
         else:
             checks.append((f"❌ Usuario incorrecto: {config.mail_username}", False))
         
-        if config.mail_default_sender == 'info@relaticpanama.org':
+        if config.mail_default_sender == 'info@example.com':
             checks.append(("✅ Remitente correcto", True))
         else:
             checks.append((f"❌ Remitente incorrecto: {config.mail_default_sender}", False))
@@ -86,7 +86,7 @@ def verify_o365_config():
         if all_ok:
             print("\n✅ CONFIGURACIÓN COMPLETA Y CORRECTA")
             print("\n💡 PRÓXIMOS PASOS:")
-            print("   1. Reinicia el servicio: sudo systemctl restart membresia-relatic.service")
+            print("   1. Reinicia el servicio: sudo systemctl restart nodeone.service")
             print("   2. Prueba el envío desde /admin/email")
             print("   3. Si falla con error 535, actualiza la contraseña en /admin/email")
         else:

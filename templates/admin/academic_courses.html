@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Cursos académicos{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+  <h1 class="h4 mb-3"><i class="fas fa-book me-2"></i>Cursos académicos</h1>
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <h6 class="card-title">Nuevo curso</h6>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label small">Nombre</label><input type="text" id="c_name" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><label class="form-label small">Precio</label><input type="number" step="0.01" id="c_price" class="form-control form-control-sm" value="0"></div>
+        <div class="col-md-2"><label class="form-label small">Modalidad</label>
+          <select id="c_mod" class="form-select form-select-sm"><option value="online">online</option><option value="presencial">presencial</option></select>
+        </div>
+        <div class="col-md-2"><label class="form-label small">Estado</label>
+          <select id="c_st" class="form-select form-select-sm"><option value="draft">draft</option><option value="active">active</option></select>
+        </div>
+        <div class="col-md-2"><label class="form-label small">Moodle course id</label><input type="number" id="c_mid" class="form-control form-control-sm" placeholder="opcional"></div>
+        <div class="col-12"><label class="form-label small">Descripción</label><textarea id="c_desc" class="form-control form-control-sm" rows="2"></textarea></div>
+        <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm" id="c_btn">Crear</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="apiErr" class="alert alert-danger d-none"></div>
+  <div class="card shadow-sm">
+    <div class="card-header py-2">Listado</div>
+    <div class="card-body p-0 table-responsive">
+      <table class="table table-sm mb-0"><thead><tr><th>Nombre</th><th>Precio</th><th>Estado</th><th>Moodle ID</th><th></th></tr></thead><tbody id="tbl"></tbody></table>
+      <p id="emptyHint" class="text-muted small p-3 mb-0 d-none">Sin cursos. Crea uno arriba o revisa que el módulo Educación esté activo en Módulos SaaS.</p>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const API = '/api/admin/academic/courses';
+  function showErr(m){ var e=document.getElementById('apiErr'); e.textContent=m; e.classList.remove('d-none'); }
+  function hideErr(){ document.getElementById('apiErr').classList.add('d-none'); }
+  function load(){
+    hideErr();
+    fetch(API, {credentials:'same-origin'}).then(function(r){
+      if(r.status===404||r.status===403) return r.json().then(function(j){ throw new Error(j.error||('HTTP '+r.status)); });
+      return r.json();
+    }).then(function(j){
+      if(!j.success){ showErr(j.error||'Error'); return; }
+      const tb = document.getElementById('tbl'); tb.innerHTML='';
+      var list = j.courses||[];
+      document.getElementById('emptyHint').classList.toggle('d-none', list.length>0);
+      list.forEach(function(c){
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>'+c.name+'</td><td>'+c.price+' '+c.currency+'</td><td>'+c.status+'</td><td>'+(c.moodle_course_id||'—')+'</td><td><button class="btn btn-outline-secondary btn-sm" data-id="'+c.id+'">Crear en Moodle</button></td>';
+        tr.querySelector('button').onclick = function(){
+          fetch(API+'/'+c.id+'/create-in-moodle', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:'{}'}).then(r=>r.json()).then(x=>{ alert(x.success ? 'Moodle id: '+x.moodle_course_id : (x.error||'Error')); load(); });
+        };
+        tb.appendChild(tr);
+      });
+    }).catch(function(err){ showErr(err.message||'Error de red'); });
+  }
+  document.getElementById('c_btn').onclick = function(){
+    const mid = document.getElementById('c_mid').value;
+    fetch(API, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      name: document.getElementById('c_name').value,
+      description: document.getElementById('c_desc').value,
+      price: parseFloat(document.getElementById('c_price').value)||0,
+      modality: document.getElementById('c_mod').value,
+      status: document.getElementById('c_st').value,
+      moodle_course_id: mid ? parseInt(mid,10) : null
+    })}).then(r=>r.json()).then(j=>{ if(!j.success){ alert(j.error||'Error'); return;} load(); });
+  };
+  load();
+})();
+</script>
+{% endblock %}

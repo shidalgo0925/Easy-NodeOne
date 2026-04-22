@@ -102,12 +102,12 @@ Se encontraron **problemas críticos** que impiden la verificación automática 
 
 **Acción**: Configurar el webhook en el panel de Yappy para que notifique automáticamente cuando se confirme un pago.
 
-**URL del webhook**: `https://miembros.relatic.org/webhook/yappy`
+**URL del webhook**: `https://app.example.com/webhook/yappy`
 
 **Pasos**:
 1. Acceder al panel de administración de Yappy
 2. Ir a configuración de webhooks
-3. Agregar webhook con la URL: `https://miembros.relatic.org/webhook/yappy`
+3. Agregar webhook con la URL: `https://app.example.com/webhook/yappy`
 4. Seleccionar eventos: `APPROVED`, `PAID`, `COMPLETED`
 5. Guardar configuración
 
@@ -125,7 +125,7 @@ Se encontraron **problemas críticos** que impiden la verificación automática 
 crontab -e
 
 # Agregar esta línea (cada 5 minutos):
-*/5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1
+*/5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1
 ```
 
 **Nota**: Esto solo funcionará si la API de Yappy comienza a responder. Por ahora, el cron job intentará verificar pero fallará por timeout.
@@ -142,7 +142,7 @@ crontab -e
 
 **Opción B: Usando el endpoint API**
 ```bash
-curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify-by-code" \
+curl -X POST "https://app.example.com/api/payments/yappy/verify-by-code" \
   -H "Content-Type: application/json" \
   -H "Cookie: session=..." \
   -d '{
@@ -154,7 +154,7 @@ curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify-by-code" \
 **Opción C: Si el usuario tiene el código EBOWR**
 Si el usuario recibió un código tipo `EBOWR-38807178` de Yappy, puede usar:
 ```bash
-curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify" \
+curl -X POST "https://app.example.com/api/payments/yappy/verify" \
   -H "Content-Type: application/json" \
   -d '{"reference": "EBOWR-38807178"}'
 ```

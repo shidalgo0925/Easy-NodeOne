@@ -1,0 +1,89 @@
+/* UI unificado: importa estilos de catálogo/servicios y aplica superficie tipo “plantillas” al contenido principal. */
+@import url('services-template-cards.css');
+
+/* --- Tarjetas con sombra suave en todo el área de contenido (admin + público logueado) --- */
+#main-content #right-panel .content .card.shadow-sm,
+#main-content .content .card.shadow-sm,
+#main-content .container .card.shadow-sm,
+#main-content .container-fluid .card.shadow-sm {
+  border-radius: 0.85rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+#main-content #right-panel .content .card.shadow-sm:hover,
+#main-content .content .card.shadow-sm:hover,
+#main-content .container .card.shadow-sm:hover,
+#main-content .container-fluid .card.shadow-sm:hover {
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.09) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+[data-theme='dark'] #main-content #right-panel .content .card.shadow-sm,
+[data-theme='dark'] #main-content .content .card.shadow-sm,
+[data-theme='dark'] #main-content .container .card.shadow-sm,
+[data-theme='dark'] #main-content .container-fluid .card.shadow-sm {
+  border-color: var(--gray-600, #3a3f4b);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28) !important;
+}
+
+[data-theme='dark'] #main-content #right-panel .content .card.shadow-sm:hover,
+[data-theme='dark'] #main-content .content .card.shadow-sm:hover,
+[data-theme='dark'] #main-content .container .card.shadow-sm:hover,
+[data-theme='dark'] #main-content .container-fluid .card.shadow-sm:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+/* Tarjetas sin sombra explícita pero con borde 0 (paneles) */
+#main-content #right-panel .content .card.border-0.shadow-sm,
+#main-content .container .card.border-0.shadow-sm,
+#main-content .container-fluid .card.border-0.shadow-sm {
+  border: 1px solid var(--color-border, #e2e8f0) !important;
+}
+
+/* Títulos de página: misma jerarquía visual que “Servicios” (opcional con .app-page-title) */
+#main-content .app-page-title,
+#main-content .services-page-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--gray-900, #0f172a);
+}
+
+[data-theme='dark'] #main-content .app-page-title,
+[data-theme='dark'] #main-content .services-page-title {
+  color: var(--gray-50, #f9fafb);
+}
+
+/* Búsqueda con icono reutilizable fuera solo de .services-catalog-page */
+#main-content .app-search-wrap,
+#main-content .services-search-wrap {
+  position: relative;
+}
+
+#main-content .app-search-wrap .search-icon,
+#main-content .services-search-wrap .search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-600, #64748b);
+  pointer-events: none;
+  font-size: 0.9rem;
+}
+
+#main-content .app-search-input,
+#main-content .services-search-input {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  padding-left: 2.5rem;
+  background-color: #fff;
+}
+
+[data-theme='dark'] #main-content .app-search-input,
+[data-theme='dark'] #main-content .services-search-input {
+  background-color: var(--gray-800, #1f2937);
+  border-color: var(--gray-600, #4b5563);
+  color: #f3f4f6;
+}

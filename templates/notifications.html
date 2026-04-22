@@ -1,24 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}Notificaciones - RelaticPanama{% endblock %}
+{% block title %}Bandeja - Easy NodeOne{% endblock %}
+
+{% block head_extra %}
+<link href="{{ url_for('static', filename='css/inbox-page.css') }}?v=inbox-ui-1" rel="stylesheet">
+{% endblock %}
 
 {% block page_content %}
-<div class="container py-4">
+<div class="inbox-page-unified">
+<div class="container py-3 py-md-4">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-start gap-3 mb-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-start gap-3 mb-3 mb-md-4">
                 <div class="min-w-0">
-                    <h1 class="h3 mb-0">
-                        <i class="fas fa-bell"></i> Notificaciones
+                    <h1 class="app-page-title mb-2">
+                        <i class="fas fa-inbox text-primary me-2"></i>Bandeja
                     </h1>
-                    <p class="text-muted mb-0">Gestiona tus alertas y notificaciones</p>
-                    <!-- Contador mejorado -->
-                    <div class="mt-2 d-flex flex-wrap gap-2">
+                    <p class="inbox-lead mb-2 mb-md-3">Alertas dentro de la aplicación (in-app). Preferencias por evento en <a href="{{ url_for('member_pages.settings_communications') }}">Comunicaciones</a>.</p>
+                    <div class="inbox-stat-row mt-2 d-flex flex-wrap gap-2">
                         <span class="badge bg-primary">
-                            <i class="fas fa-bell"></i> Total: <span id="totalCount">{{ notifications|length }}</span>
+                            <i class="fas fa-bell me-1"></i>Total: <span id="totalCount">{{ notifications|length }}</span>
                         </span>
                         <span class="badge bg-warning">
-                            <i class="fas fa-envelope-open"></i> No leídas: <span id="unreadCount">{{ unread_count }}</span>
+                            <i class="fas fa-envelope-open me-1"></i>No leídas: <span id="unreadCount">{{ unread_count }}</span>
                         </span>
                     </div>
                 </div>
@@ -45,9 +49,9 @@
     </div>
 
     <!-- Filtros -->
-    <div class="row mb-4">
+    <div class="row mb-3 mb-md-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm inbox-filter-card">
                 <div class="card-body">
                     <div class="row align-items-center g-2">
                         <div class="col-12 col-md-4">
@@ -80,10 +84,9 @@
     <!-- Lista de Notificaciones -->
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm inbox-list-card overflow-hidden">
                 <div class="card-body p-0">
                     <div id="notificationsList">
-                        {% if notifications %}
                             {% for notification in notifications %}
                             <div class="notification-item border-bottom p-3" 
                                  data-type="{{ notification.notification_type }}" 
@@ -158,23 +161,17 @@
                                 </div>
                             </div>
                             {% endfor %}
-                        {% else %}
-                            <div id="noNotifications" class="text-center p-5">
-                                <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">No hay notificaciones disponibles</p>
-                            </div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Mensaje cuando no hay notificaciones -->
-                    <div id="noNotifications" class="text-center p-5" style="display: none;">
-                        <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">No hay notificaciones disponibles</p>
+                        <div id="noNotifications" class="inbox-empty-state text-center p-5"{% if notifications %} style="display: none;"{% endif %}>
+                            <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">No hay notificaciones disponibles</p>
+                            <p class="text-muted small mt-2 mb-0">Probá otro filtro o volvé más tarde.</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
 

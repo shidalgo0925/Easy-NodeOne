@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ event.title }} - Eventos Relatic{% endblock %}
+{% block title %}{{ event.title }} - Eventos Easy NodeOne{% endblock %}
 
 {% block page_content %}
 {% set cover = event.cover_url() %}
@@ -52,7 +52,7 @@
                     <div class="card-body p-4">
                         <h3 class="h5 mb-3"><i class="fas fa-certificate text-primary me-2"></i>Certificados</h3>
                         {% if event.has_certificate %}
-                        <p class="mb-0">Este evento incluye certificado digital emitido por RELATIC. Recibirás los pasos para descargarlo después de tu participación.</p>
+                        <p class="mb-0">Este evento incluye certificado digital emitido por Easy NodeOne. Recibirás los pasos para descargarlo después de tu participación.</p>
                         {% endif %}
                         {% if event.certificate_instructions %}
                         <div class="alert alert-info mt-3 mb-0">

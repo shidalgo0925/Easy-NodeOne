@@ -26,7 +26,7 @@ El sistema tiene **2 mecanismos automáticos** implementados y funcionando:
 **Ventaja**: Verificación **inmediata** (segundos después del pago)
 
 **Requisito**: Configurar webhook en el panel de Yappy:
-- URL: `https://miembros.relatic.org/webhook/yappy`
+- URL: `https://app.example.com/webhook/yappy`
 - Eventos: APPROVED, PAID, COMPLETED
 
 ---
@@ -60,7 +60,7 @@ El sistema tiene **2 mecanismos automáticos** implementados y funcionando:
 crontab -e
 
 # Agregar esta línea:
-*/5 * * * * /home/relaticpanama2025/projects/membresia-relatic/venv/bin/python3 /home/relaticpanama2025/projects/membresia-relatic/backend/verify_yappy_payments_cron.py >> /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log 2>&1
+*/5 * * * * /var/www/nodeone/venv/bin/python3 /var/www/nodeone/backend/verify_yappy_payments_cron.py >> /var/www/nodeone/logs/yappy_verification.log 2>&1
 ```
 
 ### Opción 2: Verificar si ya está configurado
@@ -72,7 +72,7 @@ crontab -l | grep yappy
 ### Opción 3: Probar manualmente
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic/backend
+cd /var/www/nodeone/backend
 python3 verify_yappy_payments_cron.py
 ```
 

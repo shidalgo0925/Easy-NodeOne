@@ -1,5 +1,5 @@
 /**
- * Tour guiado para administradores de RELATIC Panamá
+ * Tour guiado para administradores de Easy NodeOne
  * Incluye todas las funciones del tour de usuarios + funciones administrativas
  */
 
@@ -131,7 +131,7 @@
                 if (targetElement && targetElement.querySelector('#dontShowTourAgain')) {
                     const checkbox = targetElement.querySelector('#dontShowTourAgain');
                     if (checkbox && checkbox.checked) {
-                        localStorage.setItem('relatic_tour_admin_dont_show', 'true');
+                        localStorage.setItem('nodeone_tour_admin_dont_show', 'true');
                     }
                 }
             })
@@ -139,18 +139,18 @@
                 // Verificar si el usuario marcó "no mostrar más"
                 const checkbox = document.querySelector('#dontShowTourAgain');
                 if (checkbox && checkbox.checked) {
-                    localStorage.setItem('relatic_tour_admin_dont_show', 'true');
+                    localStorage.setItem('nodeone_tour_admin_dont_show', 'true');
                 }
                 
                 // Marcar el tour como completado
-                localStorage.setItem('relatic_tour_admin_completed', 'true');
+                localStorage.setItem('nodeone_tour_admin_completed', 'true');
                 showTourCompletionMessage();
             })
             .onexit(function() {
                 // Verificar si el usuario marcó "no mostrar más" al salir
                 const checkbox = document.querySelector('#dontShowTourAgain');
                 if (checkbox && checkbox.checked) {
-                    localStorage.setItem('relatic_tour_admin_dont_show', 'true');
+                    localStorage.setItem('nodeone_tour_admin_dont_show', 'true');
                 }
                 // Si el usuario sale del tour, no marcarlo como completado
             })

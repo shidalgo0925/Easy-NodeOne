@@ -2,8 +2,8 @@
 
 echo "Deteniendo servicios..."
 
-echo "1. Deteniendo membresia-relatic.service..."
-sudo systemctl stop membresia-relatic.service
+echo "1. Deteniendo nodeone.service..."
+sudo systemctl stop nodeone.service
 
 echo "2. Deteniendo nginx..."
 sudo systemctl stop nginx

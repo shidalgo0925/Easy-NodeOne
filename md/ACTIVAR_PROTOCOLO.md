@@ -1,11 +1,11 @@
-# 🚀 Activación de Protocolo - membresia-relatic
+# 🚀 Activación de Protocolo - nodeone
 
 ## Instrucción para Activar Protocolo
 
 **Copia y pega esto la próxima vez que entres:**
 
 ```
-activa protocolo membresia-relatic
+activa protocolo nodeone
 ```
 
 O simplemente di:
@@ -36,7 +36,7 @@ Cuando uses esta instrucción, el asistente:
 Si además quieres que lea TODO el código del proyecto:
 
 ```
-activa protocolo y lee todo el proyecto membresia-relatic
+activa protocolo y lee todo el proyecto nodeone
 ```
 
 Esto hará que:

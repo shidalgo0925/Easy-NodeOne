@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
-{% block title %}Analytics - RelaticPanama{% endblock %}
+{% block title %}Analytics - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 <div class="container-fluid py-4">
@@ -12,11 +13,7 @@
         </div>
     </div>
 
-    <!-- Filtros de Fecha -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+    {% call admin_filter_collapse('adminFiltersAnalytics', 'Filtros de fecha', expanded=False, margin_class='mb-4') %}
                     <form method="GET" action="{{ url_for('admin_analytics') }}" class="row g-3">
                         <div class="col-12 col-md-4">
                             <label for="start_date" class="form-label">Fecha Inicio</label>
@@ -37,10 +34,7 @@
                             </a>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-    </div>
+    {% endcall %}
 
     <!-- Métricas en Tiempo Real -->
     <div class="row mb-4">

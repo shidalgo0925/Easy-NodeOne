@@ -1,8 +1,8 @@
-# 📧 Plan de Gestión de Emails - Sistema RelaticPanama
+# 📧 Plan de Gestión de Emails - Sistema Easy NodeOne
 
 ## 🎯 Resumen Ejecutivo
 
-El sistema de gestión de emails de RelaticPanama es un sistema completo y automatizado que:
+El sistema de gestión de emails de Easy NodeOne es un sistema completo y automatizado que:
 - **Envía emails transaccionales** para notificar eventos importantes
 - **Registra todos los emails** en la base de datos para auditoría
 - **Maneja errores** con reintentos automáticos
@@ -70,7 +70,7 @@ class EmailService:
 
 **Responsabilidades:**
 - Plantillas HTML profesionales y responsive
-- Diseño consistente con branding de RelaticPanama
+- Diseño consistente con branding de Easy NodeOne
 - Templates específicos para cada tipo de notificación
 
 **Plantillas Disponibles:**
@@ -89,7 +89,7 @@ class EmailService:
 **Características del Template Base:**
 - Diseño responsive (móvil y desktop)
 - CSS inline para compatibilidad
-- Logo y branding de RelaticPanama
+- Logo y branding de Easy NodeOne
 - Botones de acción con enlaces
 - Footer con información de contacto
 
@@ -295,7 +295,7 @@ MAIL_PORT=587
 MAIL_USE_TLS=True
 MAIL_USERNAME=tu_email@gmail.com
 MAIL_PASSWORD=tu_app_password
-MAIL_DEFAULT_SENDER=noreply@relaticpanama.org
+MAIL_DEFAULT_SENDER=noreply@example.com
 ```
 
 ### Configurar Gmail
@@ -515,7 +515,7 @@ Para problemas o preguntas:
 
 ---
 
-**RelaticPanama** - Sistema de Gestión de Emails v1.0  
+**Easy NodeOne** - Sistema de Gestión de Emails v1.0  
 **Última actualización:** Diciembre 2025
 
 

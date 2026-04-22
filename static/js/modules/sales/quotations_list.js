@@ -19,11 +19,45 @@
 
   function showError(m) { err.textContent = String(m || 'Error'); err.classList.remove('d-none'); }
   function clearError() { err.classList.add('d-none'); err.textContent = ''; }
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
-  async function api(url, method = 'GET', body = null) {
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : null });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || data.detail || 'request_failed');
+  const Q_BASE = String(root.dataset.salesApiBase || '/api/sales/quotations').replace(/\/$/, '');
+
+  /** rel: '' lista, o ruta con / inicial (p. ej. '' para GET/POST raíz). */
+  async function api(rel, method = 'GET', body = null) {
+    const suffix = rel === '' || rel.startsWith('/') ? rel : `/${rel}`;
+    const headers = { Accept: 'application/json' };
+    if (body != null) headers['Content-Type'] = 'application/json';
+    const init = { method, credentials: 'same-origin', headers };
+    if (body != null) init.body = JSON.stringify(body);
+    const res = await fetch(Q_BASE + suffix, init);
+    const text = await res.text().catch(() => '');
+    const t = text.trim();
+    if (t.startsWith('<')) {
+      throw new Error(
+        'El servidor devolvió HTML en lugar de JSON (suele ser sesión caducada o URL mal enrutada). Recargue e inicie sesión.',
+      );
+    }
+    let data;
+    try {
+      data = t ? JSON.parse(t) : method === 'GET' && suffix === '' ? [] : {};
+    } catch {
+      throw new Error(`HTTP ${res.status}: la respuesta no es JSON válido.`);
+    }
+    if (!res.ok) {
+      const code = data && data.error;
+      let msg = (data && (data.detail || data.message || data.error)) || `HTTP ${res.status}`;
+      if (code === 'quotations_list_failed' && !(data && data.detail)) {
+        msg =
+          'Error interno al listar cotizaciones. Compruebe que el despliegue incluye los últimos cambios y revise los logs del servidor.';
+      }
+      throw new Error(msg);
+    }
+    if (method === 'GET' && suffix === '' && !Array.isArray(data)) {
+      throw new Error('Formato de lista inesperado');
+    }
     return data;
   }
 
@@ -38,7 +72,7 @@
         <td><a href="/admin/sales/quotations/${r.id}" class="fw-semibold text-decoration-none">${r.number}</a></td>
         <td>${(r.date || '').slice(0, 19).replace('T', ' ')}</td>
         <td>${r.customer_id || ''}</td>
-        <td><i class="fas fa-user-circle me-1 text-muted"></i> Administrador</td>
+        <td>${r.salesperson_name ? escHtml(r.salesperson_name) : '<span class="text-muted">—</span>'}</td>
         <td><i class="far fa-clock"></i></td>
         <td class="text-end">${fmt(r.grand_total)}</td>
         <td>${statusBadge(r.status)}</td>`;
@@ -49,13 +83,14 @@
 
   async function load() {
     clearError();
-    rowsCache = await api('/quotations');
+    rowsCache = await api('');
+    if (!Array.isArray(rowsCache)) rowsCache = [];
     render(rowsCache);
   }
 
   document.getElementById('btnNewQuotation').addEventListener('click', async () => {
     try {
-      const created = await api('/quotations', 'POST', {
+      const created = await api('', 'POST', {
         customer_id: 1,
         crm_lead_id: null,
         lines: [{ description: 'Nueva línea', quantity: 1, price_unit: 0, tax_id: null }],
@@ -69,7 +104,13 @@
   search.addEventListener('input', () => {
     const q = (search.value || '').toLowerCase().trim();
     if (!q) return render(rowsCache);
-    render(rowsCache.filter((r) => `${r.number} ${r.customer_id} ${r.status}`.toLowerCase().includes(q)));
+    render(
+      rowsCache.filter((r) =>
+        `${r.number} ${r.customer_id} ${r.status} ${r.salesperson_name || ''} ${r.salesperson_email || ''}`
+          .toLowerCase()
+          .includes(q),
+      ),
+    );
   });
 
   load().catch((e) => showError(e.message));

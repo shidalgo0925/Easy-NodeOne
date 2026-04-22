@@ -5,7 +5,19 @@ from datetime import datetime
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from nodeone.services.office365_module import is_office365_module_enabled_for_org
+
 office365_admin_bp = Blueprint('office365_admin', __name__)
+
+
+def _office365_admin_scope_org_enabled():
+    import app as M
+
+    try:
+        oid = int(M.admin_data_scope_organization_id())
+    except (TypeError, ValueError):
+        oid = int(M.default_organization_id())
+    return is_office365_module_enabled_for_org(oid), oid
 
 
 @office365_admin_bp.route('/admin/office365/requests')
@@ -14,6 +26,11 @@ def admin_office365_requests():
     """Listado de solicitudes Office 365 (solo admin)."""
     import app as M
 
+    ok_scope, _ = _office365_admin_scope_org_enabled()
+    if not ok_scope:
+        flash('El módulo Office 365 (correo) está desactivado para esta organización.', 'error')
+        return redirect(url_for('dashboard'))
+
     if not getattr(current_user, 'is_admin', False) and not (
         hasattr(current_user, 'has_permission') and current_user.has_permission('users.view')
     ):
@@ -21,10 +38,12 @@ def admin_office365_requests():
         return redirect(url_for('dashboard'))
     status_filter = request.args.get('status', 'all')
     scope_oid = M.admin_data_scope_organization_id()
+    from nodeone.services.user_organization import user_in_org_clause
+
     query = (
         M.Office365Request.query
         .join(M.User, M.Office365Request.user_id == M.User.id)
-        .filter(M.User.organization_id == scope_oid)
+        .filter(user_in_org_clause(M.User, scope_oid))
         .order_by(M.Office365Request.created_at.desc())
     )
     if status_filter and status_filter != 'all':
@@ -33,7 +52,7 @@ def admin_office365_requests():
     pending_count = (
         M.Office365Request.query
         .join(M.User, M.Office365Request.user_id == M.User.id)
-        .filter(M.User.organization_id == scope_oid, M.Office365Request.status == 'pending')
+        .filter(user_in_org_clause(M.User, scope_oid), M.Office365Request.status == 'pending')
         .count()
     )
     return render_template(
@@ -50,6 +69,10 @@ def admin_update_office365_request(request_id):
     """Aprobar o rechazar solicitud Office 365 y notificar al usuario por correo. Al aprobar, consume código si aplica."""
     import app as M
 
+    ok_scope, _ = _office365_admin_scope_org_enabled()
+    if not ok_scope:
+        return jsonify({'error': 'El módulo Office 365 (correo) no está activo para esta organización.'}), 404
+
     if not getattr(current_user, 'is_admin', False) and not (
         hasattr(current_user, 'has_permission') and current_user.has_permission('users.view')
     ):
@@ -60,10 +83,12 @@ def admin_update_office365_request(request_id):
     if new_status not in ('approved', 'rejected'):
         return jsonify({'error': 'Estado inválido. Use approved o rejected.'}), 400
     scope_oid = M.admin_data_scope_organization_id()
+    from nodeone.services.user_organization import user_in_org_clause
+
     req = (
         M.Office365Request.query
         .join(M.User, M.Office365Request.user_id == M.User.id)
-        .filter(M.Office365Request.id == request_id, M.User.organization_id == scope_oid)
+        .filter(M.Office365Request.id == request_id, user_in_org_clause(M.User, scope_oid))
         .first()
     )
     if not req:
@@ -94,7 +119,7 @@ def admin_update_office365_request(request_id):
     user_email = req.user.email if req.user else req.email
     if user_email and M.Mail and M.Message:
         subject = f'Solicitud Office 365 – {new_status.upper()}'
-        body_text = f"""Tu solicitud de acceso Office 365 (ID {req.id}) ha sido {new_status}.\n\nNotas del administrador:\n{admin_notes or 'Sin observaciones.'}\n\n— RelaticPanama"""
+        body_text = f"""Tu solicitud de acceso Office 365 (ID {req.id}) ha sido {new_status}.\n\nNotas del administrador:\n{admin_notes or 'Sin observaciones.'}\n\n— Easy NodeOne"""
         try:
             ok_smtp, _ = M.apply_transactional_smtp_for_organization(int(scope_oid))
             if ok_smtp and M.mail:

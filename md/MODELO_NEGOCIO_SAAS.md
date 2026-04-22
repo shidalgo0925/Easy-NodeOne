@@ -1,4 +1,4 @@
-# Modelo de Negocio SaaS - Plataforma RELATIC
+# Modelo de Negocio SaaS - Plataforma Easy NodeOne
 
 > Análisis completo para comercializar la plataforma de membresías como SaaS
 > Fecha: Enero 2025
@@ -89,7 +89,7 @@
 **Plan Gratuito**:
 - Hasta 50 miembros
 - Funcionalidades básicas
-- Branding de RELATIC
+- Branding de Easy NodeOne
 - Soporte comunitario
 
 **Plan Pro** ($79/mes):
@@ -251,7 +251,7 @@
    - Acceso a desarrolladores
 
 5. **White-Label**: +$99/mes
-   - Sin branding RELATIC
+   - Sin branding Easy NodeOne
    - Dominio propio
    - Personalización completa
 

@@ -1,0 +1,31 @@
+# =============================================================================
+# Registros DNS recomendados — easynodeone.com (Cloudflare)
+# Copiá manualmente en DNS → Records. Proxy naranja salvo MX/TXT.
+# No podemos editar tu panel desde el repo; esto es la plantilla alineada a Nginx.
+# =============================================================================
+
+# --- Origen NodeOne (136.112.128.239): apps y tenants ---
+Tipo   Nombre        Contenido          Proxy   Notas
+A      apps          136.112.128.239    Sí      Host principal NodeOne (no usar app.easynodeone.com en Nginx)
+A      tonysonax     136.112.128.239    Sí      Ya lo tenés
+A      babershop     136.112.128.239    Sí      Debe coincidir con saas_organization.subdomain en BD (si el slug es barbershop, corregir nombre en CF y DNS)
+
+# Opcional: apex si la landing o app usan https://easynodeone.com
+A      @             136.112.128.239    Sí
+
+# --- Origen 86.48.20.243 (otro VPS): app1 NodeOne (proxy :8000) si aplica ---
+A      app1          86.48.20.243       Sí      NodeOne: deploy-nginx-nodeone-app1.sh + nodeone.service
+
+# --- Web ---
+CNAME  www           easynodeone.com    Sí      Ya lo tenés
+
+# --- Cada nuevo tenant ---
+# A    <subdominio>  136.112.128.239    Sí
+# O un comodín (si tu plan Cloudflare y política lo permiten):
+# A    *             136.112.128.239    Sí
+
+# =============================================================================
+# Comprobación rápida desde un PC:
+#   dig +short apps.easynodeone.com
+# Tras proxy CF verás IPs de Cloudflare; en el panel CF debe mostrar el origen correcto.
+# =============================================================================

@@ -11,11 +11,11 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Crear directorio de logs si no existe
-mkdir -p /home/relaticpanama2025/projects/membresia-relatic/logs
-chown relaticpanama2025:relaticpanama2025 /home/relaticpanama2025/projects/membresia-relatic/logs
+mkdir -p /var/www/nodeone/logs
+chown nodeone:nodeone /var/www/nodeone/logs
 
 # Copiar archivos de servicio y timer
-SCRIPT_DIR="/home/relaticpanama2025/projects/membresia-relatic/backend"
+SCRIPT_DIR="/var/www/nodeone/backend"
 SYSTEMD_DIR="/etc/systemd/system"
 
 cp "$SCRIPT_DIR/yappy-verification.service" "$SYSTEMD_DIR/"
@@ -36,7 +36,7 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "🔍 Comandos útiles:"
     echo "   Ver estado: sudo systemctl status yappy-verification.timer"
-    echo "   Ver logs: tail -f /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log"
+    echo "   Ver logs: tail -f /var/www/nodeone/logs/yappy_verification.log"
     echo "   Ejecutar manualmente: sudo systemctl start yappy-verification.service"
     echo "   Detener: sudo systemctl stop yappy-verification.timer"
     echo "   Deshabilitar: sudo systemctl disable yappy-verification.timer"

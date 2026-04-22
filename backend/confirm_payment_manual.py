@@ -22,10 +22,10 @@ try:
     def find_database():
         """Encontrar la base de datos"""
         possible_paths = [
-            project_dir / 'instance' / 'relaticpanama.db',
-            backend_dir / 'instance' / 'relaticpanama.db',
-            backend_dir / 'relaticpanama.db',
-            project_dir / 'relaticpanama.db',
+            project_dir / 'instance' / 'membership_legacy.db',
+            backend_dir / 'instance' / 'membership_legacy.db',
+            backend_dir / 'membership_legacy.db',
+            project_dir / 'membership_legacy.db',
         ]
         
         for path in possible_paths:

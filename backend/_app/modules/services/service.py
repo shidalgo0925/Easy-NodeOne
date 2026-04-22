@@ -9,6 +9,8 @@ from app import (
     AppointmentAdvisor,
     AppointmentSlot,
     Advisor,
+    Appointment,
+    db,
 )
 from sqlalchemy.orm import joinedload
 
@@ -25,24 +27,47 @@ PLANS_INFO_FALLBACK = {
 }
 
 
-def _get_plans_info(user=None):
-    """Obtener plans_info desde BD (MembershipPlan) o fallback estático."""
+def _get_plans_info(user=None, organization_id=None):
+    """Etiquetas de planes para /services: BD (MembershipPlan) + fallback para slugs sin fila en BD."""
+    fb = PLANS_INFO_FALLBACK.copy()
     try:
         from app import MembershipPlan, _enable_multi_tenant_catalog
+
         oid = None
-        if user is not None and _enable_multi_tenant_catalog():
+        if organization_id is not None:
+            try:
+                oid = int(organization_id)
+            except (TypeError, ValueError):
+                oid = None
+        elif user is not None and _enable_multi_tenant_catalog():
             oid = int(getattr(user, 'organization_id', None) or 1)
-        return MembershipPlan.get_plans_info(organization_id=oid)
+        out = MembershipPlan.get_plans_info(organization_id=oid)
+        if not out:
+            return fb
+        merged = dict(fb)
+        merged.update(out)
+        return merged
     except Exception:
-        return PLANS_INFO_FALLBACK.copy()
+        return fb
 
 
-def get_services_page_data(user):
-    """Datos para la página /services."""
-    active_membership = user.get_active_membership()
+def get_services_page_data(user=None, organization_id=None):
+    """
+    Datos para la página /services.
+    organization_id: si se pasa (p. ej. visitante anónimo en subdominio tenant), filtra catálogo por esa org.
+    """
+    if user is not None and getattr(user, 'is_authenticated', False):
+        active_membership = user.get_active_membership()
+    else:
+        active_membership = None
     membership_type = active_membership.membership_type if active_membership else 'basic'
-    categories = repository.get_active_categories()
-    all_services = repository.get_active_services()
+
+    org_kw = {}
+    if organization_id is not None:
+        org_kw['organization_id'] = int(organization_id)
+
+    categories = repository.get_active_categories(**org_kw)
+    all_services = repository.get_active_services(**org_kw)
     services_by_plan = {}
     for service in all_services:
         pricing_rules = ServicePricingRule.query.filter_by(
@@ -53,6 +78,11 @@ def get_services_page_data(user):
             available_plans.add(service.membership_type)
         for rule in pricing_rules:
             available_plans.add(rule.membership_type)
+        if not available_plans:
+            mt = (getattr(service, 'membership_type', None) or 'basic')
+            if isinstance(mt, str):
+                mt = mt.strip()
+            available_plans.add(mt if mt else 'basic')
         user_pricing = service.pricing_for_membership(membership_type)
         at_id = service.appointment_type_id or getattr(service, 'diagnostic_appointment_type_id', None)
         advisors_list = []
@@ -83,13 +113,26 @@ def get_services_page_data(user):
             if plan_type not in services_by_plan:
                 services_by_plan[plan_type] = []
             services_by_plan[plan_type].append(service_data)
+    oid_plans = organization_id
+    if oid_plans is None and user is not None and getattr(user, 'is_authenticated', False):
+        oid_plans = getattr(user, 'organization_id', None)
+
+    # Orden estable para secciones y chips de filtro (planes con servicios primero por canon, luego el resto)
+    _canonical_plan_order = ('basic', 'pro', 'premium', 'deluxe', 'corporativo', 'admin')
+    _present = list(services_by_plan.keys())
+    plan_slugs_ordered = [s for s in _canonical_plan_order if s in _present]
+    for s in sorted(_present):
+        if s not in plan_slugs_ordered:
+            plan_slugs_ordered.append(s)
+
     return {
         'membership': active_membership,
         'services_by_plan': services_by_plan,
-        'plans_info': _get_plans_info(user),
+        'plans_info': _get_plans_info(user, organization_id=oid_plans),
         'categories': categories,
         'user_membership_type': membership_type,
         'membership_type': membership_type,
+        'plan_slugs_ordered': plan_slugs_ordered,
     }
 
 
@@ -107,13 +150,14 @@ def get_request_appointment_data(service_id, user, selected_advisor_id=None, ret
     if not membership:
         return None, (url_for('services.list'), 'Necesitas una membresía activa para solicitar citas.', 'warning')
     membership_type = membership.membership_type
-    if service.is_free_service(membership_type):
+    # Si el precio de catálogo es $0 pero el servicio sí requiere cita (agenda), permitir reservar.
+    if service.is_free_service(membership_type) and not service.requires_appointment():
         return None, (url_for('services.list'), 'Este servicio es gratuito y no requiere cita con pago.', 'info')
     appointment_type = repository.get_appointment_type(service.appointment_type_id)
     if not appointment_type or not appointment_type.is_active:
         return None, (url_for('services.list'), 'El tipo de cita asociado no está disponible.', 'error')
-    pricing = service.pricing_for_membership(membership_type)
-    deposit_info = service.calculate_deposit(membership_type)
+    pricing = service.pricing_for_appointment_booking(membership_type, user.id)
+    deposit_info = service.calculate_deposit_from_pricing(pricing)
     today = datetime.utcnow().date()
     future_date = today + timedelta(days=90)
     advisors_list = []
@@ -186,12 +230,71 @@ def get_request_appointment_data(service_id, user, selected_advisor_id=None, ret
     }, None
 
 
+def finalize_free_slot_appointment_booking(service, user, slot, case_description, membership_type, pricing):
+    """Primera cita con slot a $0: confirma cita y reserva hueco sin checkout."""
+    advisor_id = slot.advisor_id
+    appointment_type_id = service.appointment_type_id
+    base_price = float(pricing.get('base_price') or 0.0)
+    final_price = float(pricing.get('final_price') or 0.0)
+    discount_applied = max(0.0, base_price - final_price)
+
+    appointment = Appointment(
+        appointment_type_id=appointment_type_id,
+        organization_id=int(getattr(service, 'organization_id', None) or 1),
+        advisor_id=advisor_id,
+        slot_id=slot.id,
+        service_id=service.id,
+        payment_id=None,
+        user_id=user.id,
+        membership_type=membership_type,
+        start_datetime=slot.start_datetime,
+        end_datetime=slot.end_datetime,
+        status='CONFIRMADA',
+        is_initial_consult=False,
+        base_price=base_price,
+        final_price=final_price,
+        discount_applied=discount_applied,
+        payment_status='paid',
+        payment_method='free',
+        user_notes=case_description,
+    )
+    slot.reserved_seats = (slot.reserved_seats or 0) + 1
+    if slot.remaining_seats() == 0:
+        slot.is_available = False
+    db.session.add(appointment)
+    db.session.flush()
+    try:
+        from nodeone.services.notification_engine import NotificationEngine
+
+        advisor_user = None
+        if advisor_id:
+            advisor_obj = Advisor.query.get(advisor_id)
+            if advisor_obj and getattr(advisor_obj, 'user', None):
+                advisor_user = advisor_obj.user
+        NotificationEngine.notify_appointment_created(appointment, user, advisor_user, service)
+        if advisor_user:
+            NotificationEngine.notify_appointment_new_to_advisor(appointment, user, advisor_user, service)
+        NotificationEngine.notify_appointment_new_to_admins(appointment, user, advisor_user, service)
+        from nodeone.services.communication_dispatch import (
+            dispatch_appointment_slot_payment_communication_engine,
+        )
+
+        dispatch_appointment_slot_payment_communication_engine(appointment, user, advisor_user, service)
+    except Exception as e:
+        import traceback
+
+        print(f'⚠️ Notificaciones cita sin pago: {e}')
+        traceback.print_exc()
+    db.session.commit()
+    return True
+
+
 def submit_request_appointment(service_id, user, form):
     """
     Valida formulario y agrega al carrito. Devuelve (redirect_response, None) o (None, (redirect_url, flash_message, flash_category)).
     """
     from flask import url_for
-    from app import add_to_cart, db
+    from app import add_to_cart
     service = repository.get_service_or_404(service_id)
     if not service.is_active or not service.requires_appointment():
         return None, (url_for('services.list'), 'Este servicio no está disponible para citas.', 'error')
@@ -212,8 +315,23 @@ def submit_request_appointment(service_id, user, form):
     if not slot.is_available or slot.remaining_seats() <= 0:
         return None, (url_for('services.request_appointment', service_id=service_id), 'Este horario ya no está disponible. Por favor selecciona otro.', 'warning')
     membership_type = membership.membership_type
-    pricing = service.pricing_for_membership(membership_type)
-    final_price = pricing['final_price']
+    pricing = service.pricing_for_appointment_booking(membership_type, user.id)
+    final_price = float(pricing.get('final_price') or 0.0)
+    if final_price <= 0:
+        try:
+            finalize_free_slot_appointment_booking(
+                service, user, slot, case_description, membership_type, pricing
+            )
+        except Exception as e:
+            db.session.rollback()
+            return None, (url_for('services.request_appointment', service_id=service_id), str(e), 'error')
+        msg = (
+            'Primera cita reservada sin costo. Podés verla en Mis citas.'
+            if pricing.get('first_appointment_free_applied')
+            else 'Cita reservada sin costo. Podés verla en Mis citas.'
+        )
+        return ('appointments.appointments_home', msg, 'success'), None
+
     cart_metadata = {
         'service_id': service.id,
         'service_name': service.name,
@@ -221,10 +339,11 @@ def submit_request_appointment(service_id, user, form):
         'slot_datetime': slot.start_datetime.isoformat(),
         'case_description': case_description,
         'final_price': final_price,
+        'base_price': float(pricing.get('base_price') or 0.0),
         'appointment_type_id': service.appointment_type_id,
         'advisor_id': slot.advisor_id,
         'requires_appointment': True,
-        'slot_end_datetime': slot.end_datetime.isoformat() if slot.end_datetime else None
+        'slot_end_datetime': slot.end_datetime.isoformat() if slot.end_datetime else None,
     }
     try:
         add_to_cart(
@@ -232,12 +351,12 @@ def submit_request_appointment(service_id, user, form):
             product_type='service',
             product_id=service.id,
             product_name=f"{service.name} - Cita",
-            unit_price=int(final_price * 100),
+            unit_price=int(round(final_price * 100)),
             quantity=1,
             product_description=f"Servicio con cita agendada: {case_description[:100]}...",
             metadata=cart_metadata
         )
-        return ('payments.cart', None, None), None  # redirect to cart
+        return ('payments.cart', 'Servicio agregado al carrito. Continuá con el pago para confirmar la cita.', 'success'), None
     except Exception as e:
         db.session.rollback()
         return None, (url_for('services.request_appointment', service_id=service_id), str(e), 'error')

@@ -6,20 +6,20 @@
 
 ```bash
 # Desde Git Bash en Windows (usando la clave SSH)
-scp -i ~/.ssh/relatic-panama-key "C:\Users\shida\Documents\0. Tecnologia\10. Relatic\Imagenes\qr.JPG" relaticpanama2025@34.66.214.83:/home/relaticpanama2025/projects/membresia-relatic/static/images/yappy-qr-multiserviciostk.png
+scp -i ~/.ssh/deploy-key "C:\Users\shida\Documents\0. Tecnologia\10. Easy NodeOne\Imagenes\qr.JPG" nodeone@34.66.214.83:/var/www/nodeone/static/images/yappy-qr-multiserviciostk.png
 ```
 
-**Nota:** Si `~/.ssh/relatic-panama-key` no funciona, usa la ruta completa:
+**Nota:** Si `~/.ssh/deploy-key` no funciona, usa la ruta completa:
 ```bash
-scp -i /c/Users/shida/.ssh/relatic-panama-key "C:\Users\shida\Documents\0. Tecnologia\10. Relatic\Imagenes\qr.JPG" relaticpanama2025@34.66.214.83:/home/relaticpanama2025/projects/membresia-relatic/static/images/yappy-qr-multiserviciostk.png
+scp -i /c/Users/shida/.ssh/deploy-key "C:\Users\shida\Documents\0. Tecnologia\10. Easy NodeOne\Imagenes\qr.JPG" nodeone@34.66.214.83:/var/www/nodeone/static/images/yappy-qr-multiserviciostk.png
 ```
 
 ### Opción 2: Usando WinSCP (Interfaz Gráfica)
 
 1. Abre WinSCP
 2. Conecta al servidor: `34.66.214.83`
-3. Usuario: `relaticpanama2025`
-4. Navega a: `/home/relaticpanama2025/projects/membresia-relatic/static/images/`
+3. Usuario: `nodeone`
+4. Navega a: `/var/www/nodeone/static/images/`
 5. Arrastra el archivo `qr.JPG` desde tu carpeta
 6. Renómbralo a: `yappy-qr-multiserviciostk.png`
 
@@ -27,14 +27,14 @@ scp -i /c/Users/shida/.ssh/relatic-panama-key "C:\Users\shida\Documents\0. Tecno
 
 1. Abre FileZilla
 2. Conecta por SFTP a: `34.66.214.83`
-3. Usuario: `relaticpanama2025`
-4. Navega a: `/home/relaticpanama2025/projects/membresia-relatic/static/images/`
+3. Usuario: `nodeone`
+4. Navega a: `/var/www/nodeone/static/images/`
 5. Sube `qr.JPG` y renómbralo a `yappy-qr-multiserviciostk.png`
 
 ## Después de subir
 
 El archivo debe quedar en:
-`/home/relaticpanama2025/projects/membresia-relatic/static/images/yappy-qr-multiserviciostk.png`
+`/var/www/nodeone/static/images/yappy-qr-multiserviciostk.png`
 
 **Nota:** Si subes como JPG, el servidor lo convertirá automáticamente o puedes renombrarlo a .png (los navegadores aceptan JPG con extensión PNG).
 

@@ -1,6 +1,6 @@
 # FASE 3 — Autorización por permiso (backend)
 
-**Proyecto:** miembros.relatic.org (membresia-relatic)  
+**Proyecto:** app.example.com (nodeone)  
 **Objetivo:** Cumplir la regla clave: **el backend valida siempre por permiso, nunca por rol.**
 
 ---

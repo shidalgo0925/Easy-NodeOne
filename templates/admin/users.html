@@ -1,6 +1,10 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
-{% block title %}Gestionar Usuarios - RelaticPanama{% endblock %}
+{% block title %}Gestionar Usuarios - Easy NodeOne{% endblock %}
+
+{# Evita hueco en modales si el flag no llega desde la vista (Gunicorn antiguo, caché, etc.) #}
+{% set can_pa = can_filter_users_by_org|default(false) %}
 
 {% block page_content %}
 <div class="container py-4">
@@ -24,19 +28,20 @@
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
                         <i class="fas fa-plus"></i> Crear Usuario
                     </button>
+                    {% if current_user.has_permission('users.update') %}
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#inviteUserModal">
+                        <i class="fas fa-envelope"></i> Invitar por correo
+                    </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Filtros -->
+    {% set users_filters_open = (search or '')|trim|length > 0 or (request.args.get('tag')) or (request.args.get('organization_id')) or (status_filter|default('all') not in ('all', '', none)) or (admin_filter|default('all') != 'all') or (advisor_filter|default('all') != 'all') or (group_filter|default('all') != 'all' and group_filter) %}
     <div class="row mb-3">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h6>
-                </div>
-                <div class="card-body py-2">
+            {% call admin_filter_collapse('adminFiltersUsuarios', 'Filtros de Búsqueda', expanded=users_filters_open, margin_class='mb-0') %}
                     <div class="w-100 mobile-scroll-x pb-1">
                     <form method="GET" action="{{ url_for('admin_users') }}" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2" id="adminUsersFilterForm">
                         {% if show_onboarding_rail %}<input type="hidden" name="guide" value="1">{% endif %}
@@ -114,7 +119,7 @@
                                 <option value="100" {% if request.args.get('per_page', '10') == '100' %}selected{% endif %}>100</option>
                             </select>
                         </div>
-                        {% if can_filter_users_by_org and saas_organizations %}
+                        {% if can_pa and saas_organizations %}
                         <div class="flex-shrink-0">
                             <label for="filter_organization_id" class="form-label form-label-sm mb-0">Organización</label>
                             <select class="form-select form-select-sm" id="filter_organization_id" name="organization_id" style="min-width:140px;max-width:200px" onchange="this.form.submit()">
@@ -168,8 +173,7 @@
                         });
                     })();
                     </script>
-                </div>
-            </div>
+            {% endcall %}
         </div>
     </div>
 
@@ -227,6 +231,7 @@
                                     data-active="{{ '1' if user.is_active else '0' }}"
                                     data-admin="{{ '1' if user.is_admin else '0' }}"
                                     data-advisor="{{ '1' if user.is_advisor else '0' }}"
+                                    data-salesperson="{{ '1' if user.is_salesperson else '0' }}"
                                     data-display-name="{{ (user.first_name ~ ' ' ~ user.last_name)|e }}">
                                     <td class="text-nowrap">{{ user.id }}</td>
                                     <td class="text-truncate" style="max-width:140px;" title="{{ user.first_name }} {{ user.last_name }}">{{ user.first_name }} {{ user.last_name }}</td>
@@ -236,6 +241,7 @@
                                         <span class="badge bg-{{ 'success' if user.is_active else 'danger' }}">{{ 'Activo' if user.is_active else 'Inactivo' }}</span>
                                         {% if user.is_admin %}<span class="badge bg-warning text-dark">Admin</span>{% endif %}
                                         {% if user.is_advisor %}<span class="badge bg-info">Asesor</span>{% endif %}
+                                        {% if user.is_salesperson %}<span class="badge bg-success">Vendedor</span>{% endif %}
                                     </td>
                                     <td class="text-nowrap small">
                                         {% set um = user_memberships.get(user.id) %}
@@ -396,7 +402,7 @@
                         <div class="col-12 col-md-6 mb-3">
                             <label for="create_cedula_or_passport" class="form-label">Cédula / DNI / Pasaporte</label>
                             <input type="text" class="form-control" id="create_cedula_or_passport" name="cedula_or_passport" 
-                                   placeholder="Ej: 8-123-456 o A12345678">
+                                   placeholder="Ej: 8-123-4567 o A12345678">
                         </div>
                     </div>
                     <div class="row">
@@ -417,7 +423,7 @@
                             </datalist>
                         </div>
                     </div>
-                    {% if can_filter_users_by_org and saas_organizations %}
+                    {% if can_pa and saas_organizations %}
                     <div class="mb-3">
                         <label for="create_organization_id" class="form-label">Organización (tenant)</label>
                         <select class="form-select" id="create_organization_id" name="organization_id">
@@ -441,19 +447,25 @@
                                 <label class="form-check-label" for="create_is_active">Usuario Activo</label>
                             </div>
                         </div>
-                        {% if can_filter_users_by_org %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="create_is_admin" name="is_admin">
-                                <label class="form-check-label" for="create_is_admin">Es Administrador</label>
+                                <input class="form-check-input" type="checkbox" id="create_is_admin" name="is_admin" {% if not can_pa %}disabled{% endif %}>
+                                <label class="form-check-label" for="create_is_admin">Es Administrador (plataforma)</label>
                             </div>
+                            {% if not can_pa %}<small class="text-muted d-block">Solo cuentas con rol SA o flag admin de plataforma pueden activarlo.</small>{% endif %}
                         </div>
-                        {% endif %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="create_is_advisor" name="is_advisor">
                                 <label class="form-check-label" for="create_is_advisor">Es Asesor</label>
                             </div>
+                        </div>
+                        <div class="col-12 col-md-4 mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="create_is_salesperson" name="is_salesperson">
+                                <label class="form-check-label" for="create_is_salesperson">Es vendedor</label>
+                            </div>
+                            <small class="text-muted d-block">Aparece en cotizaciones (Ventas).</small>
                         </div>
                     </div>
                 </div>
@@ -465,6 +477,49 @@
         </div>
     </div>
 </div>
+
+{% if current_user.has_permission('users.update') %}
+<div class="modal fade" id="inviteUserModal" tabindex="-1" aria-labelledby="inviteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="inviteUserModalLabel"><i class="fas fa-envelope me-1"></i> Invitar a la organización</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="inviteUserForm">
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Se enviará un correo con un enlace para unirse a <strong>la empresa activa</strong> de tu sesión (selector de organización).</p>
+                    <div id="inviteUserAlert" class="alert d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="invite_email" class="form-label">Correo del invitado</label>
+                        <input type="email" class="form-control" id="invite_email" name="email" required autocomplete="email" placeholder="correo@ejemplo.org">
+                    </div>
+                    <div class="mb-3">
+                        <label for="invite_role" class="form-label">Rol en la organización</label>
+                        <select class="form-select" id="invite_role" name="role">
+                            <option value="user" selected>Miembro (usuario)</option>
+                            <option value="admin">Administrador de la empresa</option>
+                        </select>
+                    </div>
+                    <hr class="my-3">
+                    <h6 class="small text-muted mb-2"><i class="fas fa-clock me-1"></i> Invitaciones pendientes</h6>
+                    <div id="invitePendingList" class="small border rounded p-2 bg-light" style="min-height:3rem;max-height:220px;overflow:auto;">
+                        <span class="text-muted">Abre el modal para cargar…</span>
+                    </div>
+                    <h6 class="small text-muted mb-2 mt-3"><i class="fas fa-history me-1"></i> Historial reciente</h6>
+                    <div id="inviteHistoryList" class="small border rounded p-2 bg-white" style="max-height:180px;overflow:auto;">
+                        <span class="text-muted">—</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary" id="inviteUserSubmit"><i class="fas fa-paper-plane me-1"></i> Enviar invitación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Modal para editar usuario -->
 <div class="modal fade" id="editUserModal" tabindex="-1">
@@ -512,7 +567,7 @@
                         <div class="col-12 col-md-6 mb-3">
                             <label for="edit_cedula_or_passport" class="form-label">Cédula / DNI / Pasaporte</label>
                             <input type="text" class="form-control" id="edit_cedula_or_passport" name="cedula_or_passport" 
-                                   placeholder="Ej: 8-123-456 o A12345678">
+                                   placeholder="Ej: 8-123-4567 o A12345678">
                         </div>
                     </div>
                     <div class="row">
@@ -546,19 +601,25 @@
                                 <label class="form-check-label" for="edit_is_active">Usuario Activo</label>
                             </div>
                         </div>
-                        {% if can_filter_users_by_org %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="edit_is_admin" name="is_admin">
-                                <label class="form-check-label" for="edit_is_admin">Es Administrador</label>
+                                <input class="form-check-input" type="checkbox" id="edit_is_admin" name="is_admin" {% if not can_pa %}disabled{% endif %}>
+                                <label class="form-check-label" for="edit_is_admin">Es Administrador (plataforma)</label>
                             </div>
+                            {% if not can_pa %}<small class="text-muted d-block">Solo superadministradores pueden cambiar este valor.</small>{% endif %}
                         </div>
-                        {% endif %}
                         <div class="col-12 col-md-4 mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="edit_is_advisor" name="is_advisor">
                                 <label class="form-check-label" for="edit_is_advisor">Es Asesor</label>
                             </div>
+                        </div>
+                        <div class="col-12 col-md-4 mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="edit_is_salesperson" name="is_salesperson">
+                                <label class="form-check-label" for="edit_is_salesperson">Es vendedor</label>
+                            </div>
+                            <small class="text-muted d-block">Selector de vendedor en cotizaciones.</small>
                         </div>
                     </div>
                 </div>
@@ -608,6 +669,8 @@ document.addEventListener('DOMContentLoaded', function() {
             var editAdm = document.getElementById('edit_is_admin');
             if (editAdm) editAdm.checked = tr.dataset.admin === '1';
             document.getElementById('edit_is_advisor').checked = tr.dataset.advisor === '1';
+            var edSp = document.getElementById('edit_is_salesperson');
+            if (edSp) edSp.checked = tr.dataset.salesperson === '1';
             document.getElementById('editUserForm').action = '/admin/users/' + id + '/update';
             new bootstrap.Modal(document.getElementById('editUserModal')).show();
         });
@@ -647,6 +710,136 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
             window.open(url, '_blank');
         });
+    }
+
+    var inviteForm = document.getElementById('inviteUserForm');
+    if (inviteForm) {
+        var inviteAlert = document.getElementById('inviteUserAlert');
+        var inviteSubmit = document.getElementById('inviteUserSubmit');
+        var invitePendingList = document.getElementById('invitePendingList');
+        var inviteHistoryList = document.getElementById('inviteHistoryList');
+        function escapeInviteHtml(t) {
+            var d = document.createElement('div');
+            d.textContent = t || '';
+            return d.innerHTML;
+        }
+        function fmtInviteDate(s) {
+            if (!s) return '—';
+            try {
+                var d = new Date(s);
+                return isNaN(d.getTime()) ? s : d.toLocaleString();
+            } catch (e) { return s; }
+        }
+        function loadInviteHistory() {
+            if (!inviteHistoryList) return;
+            inviteHistoryList.innerHTML = '<span class="text-muted">Cargando…</span>';
+            fetch('/api/admin/organization-invites?status=all&limit=40', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data || !data.success) {
+                        inviteHistoryList.innerHTML = '<span class="text-danger">No se pudo cargar.</span>';
+                        return;
+                    }
+                    var list = data.invites || [];
+                    if (!list.length) {
+                        inviteHistoryList.innerHTML = '<span class="text-muted">Sin registros.</span>';
+                        return;
+                    }
+                    var rows = list.map(function(inv) {
+                        var st = (inv.status || '').toLowerCase();
+                        var label = st === 'pending' ? 'Pendiente' : (st === 'accepted' ? 'Aceptada' : (st === 'revoked' ? 'Anulada' : st));
+                        var when = inv.status === 'accepted' ? fmtInviteDate(inv.accepted_at) : fmtInviteDate(inv.expires_at);
+                        return '<tr><td>' + escapeInviteHtml(inv.email) + '</td><td>' + escapeInviteHtml(label) + '</td><td class="text-nowrap small">' + when + '</td></tr>';
+                    }).join('');
+                    inviteHistoryList.innerHTML = '<table class="table table-sm table-bordered mb-0"><thead><tr><th>Correo</th><th>Estado</th><th>Caduca / aceptada</th></tr></thead><tbody>' + rows + '</tbody></table>';
+                })
+                .catch(function() {
+                    inviteHistoryList.innerHTML = '<span class="text-danger">Error al cargar.</span>';
+                });
+        }
+        function loadPendingInvites() {
+            if (!invitePendingList) return;
+            invitePendingList.innerHTML = '<span class="text-muted">Cargando…</span>';
+            fetch('/api/admin/organization-invites?status=pending', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data || !data.success) {
+                        invitePendingList.innerHTML = '<span class="text-danger">No se pudo cargar la lista.</span>';
+                        return;
+                    }
+                    var list = data.invites || [];
+                    if (!list.length) {
+                        invitePendingList.innerHTML = '<span class="text-muted">No hay invitaciones pendientes.</span>';
+                        return;
+                    }
+                    var rows = list.map(function(inv) {
+                        return '<tr><td>' + escapeInviteHtml(inv.email) + '</td><td>' + escapeInviteHtml(inv.role) + '</td><td class="text-nowrap small">' + fmtInviteDate(inv.expires_at) + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger btn-revoke-invite" data-id="' + inv.id + '">Anular</button></td></tr>';
+                    }).join('');
+                    invitePendingList.innerHTML = '<table class="table table-sm table-bordered mb-0"><thead><tr><th>Correo</th><th>Rol</th><th>Caduca</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+                    invitePendingList.querySelectorAll('.btn-revoke-invite').forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            var id = this.getAttribute('data-id');
+                            if (!id || !confirm('¿Anular esta invitación?')) return;
+                            fetch('/api/admin/organization-invites/' + id, { method: 'DELETE', credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+                                .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+                                .then(function(res) {
+                                    if (res.ok && res.data && res.data.success) { loadPendingInvites(); loadInviteHistory(); }
+                                    else alert((res.data && res.data.error) || 'No se pudo anular');
+                                })
+                                .catch(function() { alert('Error de red'); });
+                        });
+                    });
+                })
+                .catch(function() {
+                    invitePendingList.innerHTML = '<span class="text-danger">Error al cargar la lista.</span>';
+                });
+        }
+        inviteForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!inviteAlert || !inviteSubmit) return;
+            inviteAlert.className = 'alert d-none';
+            inviteSubmit.disabled = true;
+            var email = (document.getElementById('invite_email') && document.getElementById('invite_email').value) || '';
+            var role = (document.getElementById('invite_role') && document.getElementById('invite_role').value) || 'user';
+            fetch('/api/admin/organization-invites', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ email: email.trim(), role: role })
+            }).then(function(r) { return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data }; }); })
+            .then(function(res) {
+                inviteSubmit.disabled = false;
+                if (res.ok && res.data && res.data.success) {
+                    var msg = 'Invitación creada.';
+                    if (res.data.email_sent) msg += ' Correo enviado.';
+                    else if (res.data.email_error) msg += ' No se pudo enviar el correo: ' + res.data.email_error;
+                    else msg += ' Revisa la configuración SMTP si el correo no llega.';
+                    inviteAlert.className = 'alert alert-success';
+                    inviteAlert.textContent = msg;
+                    inviteForm.reset();
+                    loadPendingInvites();
+                    loadInviteHistory();
+                } else {
+                    var err = (res.data && (res.data.error || res.data.message)) ? (res.data.error || res.data.message) : ('Error ' + (res.status || ''));
+                    inviteAlert.className = 'alert alert-danger';
+                    inviteAlert.textContent = err;
+                }
+            }).catch(function() {
+                inviteSubmit.disabled = false;
+                inviteAlert.className = 'alert alert-danger';
+                inviteAlert.textContent = 'Error de red o respuesta no válida.';
+            });
+        });
+        var inviteModal = document.getElementById('inviteUserModal');
+        if (inviteModal) {
+            inviteModal.addEventListener('show.bs.modal', function() {
+                loadPendingInvites();
+                loadInviteHistory();
+            });
+            inviteModal.addEventListener('hidden.bs.modal', function() {
+                if (inviteAlert) { inviteAlert.className = 'alert d-none'; inviteAlert.textContent = ''; }
+            });
+        }
     }
 });
 </script>

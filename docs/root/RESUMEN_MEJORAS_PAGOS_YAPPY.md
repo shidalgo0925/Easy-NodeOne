@@ -64,7 +64,7 @@ Se ha mejorado completamente el sistema de confirmación de pagos Yappy para que
 **Configuración:**
 - ✅ Timer systemd configurado y activo
 - ✅ Se ejecuta cada 5 minutos automáticamente
-- ✅ Logs en: `/home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log`
+- ✅ Logs en: `/var/www/nodeone/logs/yappy_verification.log`
 
 **Resultado:** ✅ Verificación automática funcionando
 
@@ -144,7 +144,7 @@ Se ha mejorado completamente el sistema de confirmación de pagos Yappy para que
 ## 📧 Correos de Confirmación Enviados
 
 ### Membresías
-- **Título:** "Confirmación de Pago - RelaticPanama"
+- **Título:** "Confirmación de Pago - Easy NodeOne"
 - **Contenido:** Detalles de la membresía, fecha de vencimiento, beneficios
 - **Método:** `NotificationEngine.notify_membership_payment()`
 
@@ -230,12 +230,12 @@ Se ha mejorado completamente el sistema de confirmación de pagos Yappy para que
    ```
 
 2. **Configurar webhook en Yappy:**
-   - URL: `https://miembros.relatic.org/webhook/yappy`
+   - URL: `https://app.example.com/webhook/yappy`
    - Esto permitirá confirmación inmediata
 
 3. **Monitorear logs:**
    ```bash
-   tail -f /home/relaticpanama2025/projects/membresia-relatic/logs/yappy_verification.log
+   tail -f /var/www/nodeone/logs/yappy_verification.log
    ```
 
 ---

@@ -2,7 +2,7 @@
 
 ## 📧 Descripción General
 
-Sistema completo de notificaciones y correos electrónicos para RelaticPanama que incluye:
+Sistema completo de notificaciones y correos electrónicos para Easy NodeOne que incluye:
 
 - **Motor de notificaciones** con múltiples tipos de eventos
 - **Plantillas HTML profesionales** para correos electrónicos
@@ -86,7 +86,7 @@ MAIL_PORT = 587
 MAIL_USE_TLS = True
 MAIL_USERNAME = os.getenv('MAIL_USERNAME')
 MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
-MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@example.com')
 ```
 
 ### Configurar Gmail
@@ -100,7 +100,7 @@ MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.or
 Las plantillas están en `backend/email_templates.py` e incluyen:
 
 - Diseño responsive y profesional
-- Logo y branding de RelaticPanama
+- Logo y branding de Easy NodeOne
 - Estilos CSS inline para compatibilidad
 - Botones de acción con enlaces
 - Información estructurada en cajas destacadas
@@ -248,5 +248,5 @@ Para problemas o preguntas sobre el sistema de notificaciones:
 
 ---
 
-**RelaticPanama** - Sistema de Notificaciones v1.0
+**Easy NodeOne** - Sistema de Notificaciones v1.0
 

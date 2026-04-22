@@ -519,7 +519,7 @@ def _get_certificate_html(event_like, sample_data, verification_url=None, use_fi
     # HTML/Jinja
     from jinja2 import Template
     template_html = getattr(event_like, 'template_html', None) or _default_template()
-    partner_org = getattr(event_like, 'partner_organization', None) or 'Relatic Panamá'
+    partner_org = getattr(event_like, 'partner_organization', None) or 'Easy NodeOne'
 
     def _abs(u):
         if not u:

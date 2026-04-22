@@ -6,6 +6,7 @@ Easy NodeOne - Backend Flask para gestión modular
 import sys
 import re
 import html as html_module
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file, abort, send_from_directory, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,10 +17,26 @@ import secrets
 from functools import wraps
 from sqlalchemy import text as sql_text
 
-# Sistema de licencias (módulo independiente)
 try:
-    sys.path.insert(0, '/home/relaticpanama2025/.shh/license-system')
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+except ImportError:
+    pass
+
+try:
+    from nodeone.config.settings import settings as _nodeone_settings
+except Exception:
+    _nodeone_settings = None
+
+# Sistema de licencias (módulo independiente; ruta vía LICENSE_PATH)
+try:
+    if _nodeone_settings:
+        _lic = Path(_nodeone_settings.LICENSE_PATH)
+        if _lic.is_dir():
+            sys.path.insert(0, str(_lic))
     from license_validator import LicenseValidator
+
     LICENSE_VALIDATOR = LicenseValidator('nodeone')
 except Exception as e:
     LICENSE_VALIDATOR = None
@@ -95,7 +112,12 @@ except ImportError:
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 # Detrás de Nginx/Cloudflare: confiar en X-Forwarded-Proto y X-Forwarded-For
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1, x_host=1)
+
+from nodeone.services.security_headers import init_security_headers
+
+init_security_headers(app)
+
 # Branding unificado (GLOBAL = misma marca en topbar; TENANT = nombre de org activa en sesión)
 app.config['APP_BRAND_NAME'] = (os.environ.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
 _brand_mode = (os.environ.get('BRAND_MODE') or 'GLOBAL').strip().upper()
@@ -136,13 +158,18 @@ def _load_or_create_secret_key():
 
 
 app.config['SECRET_KEY'] = _load_or_create_secret_key()
-_raw_db = (os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL') or '').strip()
-if _raw_db:
-    if _raw_db.startswith('postgres://'):
-        _raw_db = _raw_db.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = _raw_db
+# Cookies de sesión endurecidas en HTTPS (prod detrás de TLS). En local HTTP dejar sin NODEONE_SESSION_COOKIE_SECURE.
+if os.environ.get('NODEONE_SESSION_COOKIE_SECURE', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+_db_uri = (os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL') or '').strip()
+if _db_uri:
+    if _db_uri.startswith('postgres://'):
+        _db_uri = _db_uri.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = _db_uri
 else:
-    db_path = os.path.join(_instance_dir, 'nodeone.db')
+    db_path = os.path.join(_instance_dir, 'NodeOne.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -161,10 +188,11 @@ app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
 app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'False').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@example.com')
 
 # Inicialización de extensiones
 from nodeone.core.db import db
+from nodeone.core.app_version import get_app_version
 db.init_app(app)
 
 from models import *  # noqa: F403 — ORM (compat from app import Model)
@@ -244,10 +272,47 @@ def apply_email_config_from_db():
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
 
+
+@login_manager.unauthorized_handler
+def _login_unauthorized_api_json():
+    """Evita redirigir a HTML en APIs JSON (p. ej. DELETE cotización con sesión caducada)."""
+    try:
+        p = request.path or ''
+        if p.startswith('/api/'):
+            return jsonify(
+                {
+                    'error': 'unauthorized',
+                    'user_message': 'Sesión caducada o no autenticado. Recargue la página e inicie sesión.',
+                }
+            ), 401
+    except Exception:
+        pass
+    return redirect(url_for(login_manager.login_view, next=request.url))
+
 # OAuth (login social): Google, Facebook, LinkedIn
-oauth = OAuth(app) if OAUTH_AVAILABLE else None
+# State OAuth en SQLite (compartido entre workers Gunicorn). El usuario del servicio debe poder
+# escribir el fichero (p. ej. nodeone:nodeone en instance/). Ver OAUTH_STATE_SQLITE_PATH.
+_oauth_state_cache = None
+if OAUTH_AVAILABLE:
+    try:
+        from nodeone.services.oauth_state_cache import SqliteOAuthStateCache
+
+        _oauth_sqlite = (os.environ.get('OAUTH_STATE_SQLITE_PATH') or '').strip() or os.path.join(
+            _instance_dir,
+            'oauth_state.sqlite3',
+        )
+        _probe = SqliteOAuthStateCache(_oauth_sqlite)
+        _probe.set('__oauth_cache_probe', '{"data":{}}', 10)
+        if not _probe.get('__oauth_cache_probe'):
+            raise RuntimeError('SQLite OAuth probe get failed')
+        _probe.delete('__oauth_cache_probe')
+        _oauth_state_cache = _probe
+    except Exception as e:
+        print(f'⚠️ Caché OAuth state (SQLite) no disponible; se usa solo sesión: {e}')
+
+oauth = OAuth(app, cache=_oauth_state_cache) if OAUTH_AVAILABLE else None
 if oauth:
-    base_url = os.getenv('BASE_URL', '').rstrip('/')  # ej: https://miembros.relatic.org
+    base_url = os.getenv('BASE_URL', '').rstrip('/')  # ej: https://app.example.com
     app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '')
     app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET', '')
     app.config['FACEBOOK_CLIENT_ID'] = os.getenv('FACEBOOK_CLIENT_ID', '')
@@ -380,7 +445,7 @@ def ensure_session_organization():
 
     try:
         if getattr(current_user, 'is_authenticated', False):
-            _skip_org_coerce = session.get('require_org_selection') and getattr(current_user, 'is_admin', False)
+            _skip_org_coerce = bool(session.get('require_org_selection'))
             if _skip_org_coerce:
                 pass
             elif single_tenant_default_only():
@@ -426,7 +491,7 @@ def ensure_session_organization():
         app.logger.warning('ensure_session_organization (session): %s', e)
         try:
             if getattr(current_user, 'is_authenticated', False):
-                if session.get('require_org_selection') and getattr(current_user, 'is_admin', False):
+                if session.get('require_org_selection'):
                     pass
                 elif single_tenant_default_only():
                     if getattr(current_user, 'is_admin', False):
@@ -493,6 +558,12 @@ def from_json_filter(value):
     except:
         return {}
 
+def _logo_basename():
+    if _nodeone_settings:
+        return _nodeone_settings.LOGO_BASENAME
+    return 'logo-primary'
+
+
 # Helper function para obtener el logo del sistema
 def get_system_logo():
     """
@@ -503,36 +574,38 @@ def get_system_logo():
         URL relativa del logo (para usar con url_for o directamente)
     """
     import os
-    
+
+    bn = _logo_basename()
     # Buscar en la nueva ubicación (prioridad)
     logo_dir_public = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos')
-    logo_path_png = os.path.join(logo_dir_public, 'logo-relatic.png')
-    logo_path_svg = os.path.join(logo_dir_public, 'logo-relatic.svg')
+    logo_path_png = os.path.join(logo_dir_public, f'{bn}.png')
+    logo_path_svg = os.path.join(logo_dir_public, f'{bn}.svg')
     
     if os.path.exists(logo_path_png):
-        return 'public/emails/logos/logo-relatic.png'
+        return f'public/emails/logos/{bn}.png'
     elif os.path.exists(logo_path_svg):
-        return 'public/emails/logos/logo-relatic.svg'
+        return f'public/emails/logos/{bn}.svg'
     
     # Fallback a ubicación antigua
     logo_dir_old = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
-    logo_path_old = os.path.join(logo_dir_old, 'logo-relatic.svg')
+    logo_path_old = os.path.join(logo_dir_old, f'{bn}.svg')
     
     if os.path.exists(logo_path_old):
-        return 'images/logo-relatic.svg'
+        return f'images/{bn}.svg'
     
     # Si no existe ninguno, retornar la ruta por defecto
-    return 'images/logo-relatic.svg'
+    return f'images/{bn}.svg'
 
 def get_logo_cache_key():
     """Mtime del logo para cache-busting: al subir uno nuevo, la URL cambia."""
+    bn = _logo_basename()
     logo_dir_public = os.path.join(os.path.dirname(__file__), '..', 'static', 'public', 'emails', 'logos')
     logo_dir_old = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
     for path in (
-        os.path.join(logo_dir_public, 'logo-relatic.png'),
-        os.path.join(logo_dir_public, 'logo-relatic.svg'),
-        os.path.join(logo_dir_old, 'logo-relatic.png'),
-        os.path.join(logo_dir_old, 'logo-relatic.svg'),
+        os.path.join(logo_dir_public, f'{bn}.png'),
+        os.path.join(logo_dir_public, f'{bn}.svg'),
+        os.path.join(logo_dir_old, f'{bn}.png'),
+        os.path.join(logo_dir_old, f'{bn}.svg'),
     ):
         if os.path.exists(path):
             try:
@@ -557,6 +630,10 @@ def inject_logo():
         ORG_NONE=ORG_NONE,
         scoped_query=scoped_query,
         single_tenant_default_only=single_tenant_default_only,
+        nodeone_app_version=get_app_version(),
+        show_public_app_version=(
+            os.environ.get('NODEONE_SHOW_APP_VERSION_IN_UI', '').strip().lower() in ('1', 'true', 'yes', 'on')
+        ),
     )
 
 # Context processor: design tokens de identidad por cliente (organization_settings)
@@ -635,22 +712,12 @@ def get_public_image_url(filename, absolute=True):
     Obtener URL de imagen pública desde static/public/
     
     Args:
-        filename: Ruta relativa desde static/public/ 
-                 (ej: 'emails/logos/logo-relatic.png')
+        filename: Ruta relativa desde static/public/
         absolute: Si True, retorna URL absoluta (necesario para emails)
                  Si False, retorna URL relativa (para páginas web)
     
     Returns:
         URL completa de la imagen
-        
-    Ejemplo:
-        # Para emails (URL absoluta)
-        logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=True)
-        # → https://miembros.relatic.org/static/public/emails/logos/logo-relatic.png
-        
-        # Para páginas web (URL relativa)
-        logo_url = get_public_image_url('emails/logos/logo-relatic.png', absolute=False)
-        # → /static/public/emails/logos/logo-relatic.png
     """
     from flask import url_for, request
     
@@ -663,8 +730,7 @@ def get_public_image_url(filename, absolute=True):
         if request and hasattr(request, 'url_root'):
             base_url = request.url_root.rstrip('/')
         else:
-            # Fallback: usar variable de entorno o valor por defecto
-            base_url = os.getenv('BASE_URL', 'https://miembros.relatic.org')
+            base_url = (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
         return f"{base_url}{relative_url}"
     
     return relative_url
@@ -783,9 +849,11 @@ from utils.organization import (  # noqa: E402 — tras modelos SaaS
     ORG_HOME,
     ORG_NONE,
     default_organization_id,
+    get_admin_effective_organization_id,
     get_current_organization_id,
     get_user_home_organization_id,
     platform_visible_organization_ids,
+    resolve_current_organization,
     scoped_query,
     single_tenant_default_only,
     user_has_access_to_organization,
@@ -799,13 +867,13 @@ def ensure_canonical_saas_organization_usable():
     Nota: PK en SQLite es 1, 2, … — no existe organización id 0.
     """
     oid = default_organization_id()
+    extra = _nodeone_settings.LEGACY_SAAS_ORG_NAMES if _nodeone_settings else ()
     _legacy_default_org_names = (
         'organización principal',
         'default',
         'organización por defecto',
-        'relatic',
         '',
-    )
+    ) + extra
     org = SaasOrganization.query.get(oid)
     if org is not None and (org.name or '').strip().lower() in _legacy_default_org_names:
         org.name = 'Easy Demo'
@@ -1139,11 +1207,12 @@ def _admin_scope_user_ids_only():
 
 
 def _catalog_org_for_member_and_theme():
-    return get_current_organization_id()
+    """Catálogo /services, tema y carrito: org del miembro (user.organization_id) o sesión si es admin."""
+    return tenant_data_organization_id()
 
 
 def _catalog_org_for_admin_catalog_routes():
-    return get_current_organization_id()
+    return get_admin_effective_organization_id()
 
 
 def admin_data_scope_organization_id():
@@ -1155,18 +1224,10 @@ def admin_data_scope_organization_id():
 
 def tenant_data_organization_id():
     """
-    Datos de negocio por empresa (beneficios, planes en vista miembro).
-    - is_admin: sesión (selector).
-    - resto: user.organization_id (evita mezclar con org canónica de sesión en single-tenant).
+    Datos de negocio por empresa (beneficios, planes en vista miembro, catálogo /services).
+    Delega en resolve_current_organization() (misma fuente que guards SaaS y /services).
     """
-    if not has_request_context():
-        return int(default_organization_id())
-    if not getattr(current_user, 'is_authenticated', False):
-        return int(default_organization_id())
-    if getattr(current_user, 'is_admin', False):
-        oid = get_current_organization_id()
-        return int(oid) if oid is not None else int(default_organization_id())
-    return int(getattr(current_user, 'organization_id', None) or default_organization_id())
+    return int(resolve_current_organization())
 
 
 def _platform_nav_logo_relpath():
@@ -1204,6 +1265,25 @@ def get_nav_brand_name():
     return _fn()
 
 
+@app.template_global()
+def has_view_endpoint(endpoint: str) -> bool:
+    """Evita url_for() hacia blueprints opcionales no registrados (p. ej. sales con SKIP)."""
+    try:
+        return endpoint in app.view_functions
+    except Exception:
+        return False
+
+
+@app.route('/favicon.ico')
+def favicon_ico():
+    """Los navegadores piden /favicon.ico por defecto; servimos el SVG del producto."""
+    return send_from_directory(
+        os.path.join(app.static_folder, 'images'),
+        'favicon.svg',
+        mimetype='image/svg+xml',
+    )
+
+
 @app.route('/manifest.webmanifest')
 def web_app_manifest():
     """PWA mínimo: manifest JSON con nombre e icono según branding (sesión/tenant)."""
@@ -1226,7 +1306,7 @@ def web_app_manifest():
         'id': '/',
         'name': brand,
         'short_name': short,
-        'description': 'Membresías, servicios y panel de miembro',
+        'description': 'Portal de miembros y servicios',
         'lang': 'es',
         'dir': 'ltr',
         'start_url': '/',
@@ -1272,13 +1352,49 @@ def get_platform_logo():
 
 
 def saas_module_enabled(module_code):
-    """Para plantillas: {% if saas_module_enabled('appointments') %}. Incluye anónimos (org por defecto solo para el flag)."""
+    """Para plantillas: {% if saas_module_enabled('appointments') %}. Anónimos: org vía host/subdominio alineada con resolve."""
     return has_saas_module_enabled(_org_id_for_module_visibility(), module_code)
 
 
 @app.context_processor
 def inject_saas_module_template_helper():
-    return dict(saas_module_enabled=saas_module_enabled)
+    from flask import current_app, has_request_context
+    from flask_login import current_user
+
+    from nodeone.services.academic_module import is_academic_module_enabled_for_org
+    from nodeone.services.office365_module import is_office365_module_enabled_for_org
+
+    # Menú solo si el blueprint existe y el módulo SaaS `academic` está ON para la org (incl. is_admin).
+    show_academic_nav = False
+    if (
+        has_request_context()
+        and getattr(current_user, 'is_authenticated', False)
+        and 'academic_admin' in current_app.blueprints
+        and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+    ):
+        show_academic_nav = True
+
+    return dict(
+        saas_module_enabled=saas_module_enabled,
+        office365_module_enabled=is_office365_module_enabled_for_org(_org_id_for_module_visibility()),
+        academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
+        show_academic_admin_nav=show_academic_nav,
+    )
+
+
+def _nav_can_permission(perm_code: str) -> bool:
+    """
+    Plantillas: mostrar ítems de menú solo si el usuario puede la acción (RBAC).
+    is_admin de plataforma ve todo; el resto según has_permission.
+    """
+    try:
+        if not getattr(current_user, 'is_authenticated', False):
+            return False
+        if getattr(current_user, 'is_admin', False):
+            return True
+        return bool(current_user.has_permission(perm_code))
+    except Exception:
+        return False
 
 
 @app.context_processor
@@ -1295,11 +1411,15 @@ def inject_admin_nav_context():
         'catalog_admin_context_org_name': None,
         'effective_org_nav': None,
         'show_org_switcher_link': False,
+        'show_member_organization_switcher': False,
+        'member_organizations_nav': [],
     }
     if not has_request_context():
+        out['nav_can'] = _nav_can_permission
         return out
     try:
         if not getattr(current_user, 'is_authenticated', False):
+            out['nav_can'] = _nav_can_permission
             return out
         if session.get('require_org_selection'):
             out['show_tenant_admin_menu'] = False
@@ -1307,6 +1427,9 @@ def inject_admin_nav_context():
             out['saas_organizations_nav'] = []
             out['effective_org_nav'] = None
             out['catalog_admin_context_org_name'] = None
+            out['show_member_organization_switcher'] = False
+            out['member_organizations_nav'] = []
+            out['nav_can'] = _nav_can_permission
             return out
         is_flag_admin = bool(getattr(current_user, 'is_admin', False))
         rbac_admin = False
@@ -1323,24 +1446,28 @@ def inject_admin_nav_context():
         if show_org_switcher:
             out['show_platform_admin_nav'] = True
             try:
-                q = SaasOrganization.query.filter_by(is_active=True).order_by(
-                    SaasOrganization.name.asc(), SaasOrganization.id.asc()
-                )
-                rows = q.all()
-                allow = platform_visible_organization_ids()
-                if allow is not None:
-                    rows = [o for o in rows if int(o.id) in allow]
-                if single_tenant_default_only() and not is_flag_admin:
-                    def_oid = default_organization_id()
-                    out['saas_organizations_nav'] = [o for o in rows if int(o.id) == int(def_oid)]
-                else:
+                if is_flag_admin:
+                    q = SaasOrganization.query.filter_by(is_active=True).order_by(
+                        SaasOrganization.name.asc(), SaasOrganization.id.asc()
+                    )
+                    rows = q.all()
+                    allow = platform_visible_organization_ids()
+                    if allow is not None:
+                        rows = [o for o in rows if int(o.id) in allow]
                     out['saas_organizations_nav'] = rows
+                else:
+                    # Admin RBAC (tenant): mismas empresas que puede usar el usuario (no forzar solo default en single-tenant).
+                    from nodeone.services.post_login_organization import organizations_for_session_after_login
+
+                    out['saas_organizations_nav'] = organizations_for_session_after_login(current_user)
             except Exception:
                 out['saas_organizations_nav'] = []
-        if single_tenant_default_only() and not is_flag_admin:
-            oid = default_organization_id()
-        else:
+        try:
             oid = get_current_organization_id()
+        except RuntimeError:
+            oid = None
+        if oid is None:
+            oid = default_organization_id()
         if oid is not None:
             try:
                 out['effective_org_nav'] = int(oid)
@@ -1353,18 +1480,43 @@ def inject_admin_nav_context():
             except Exception:
                 pass
         try:
-            if is_flag_admin:
-                from nodeone.services.post_login_organization import organizations_for_session_after_login
+            from nodeone.services.post_login_organization import organizations_for_session_after_login
 
-                if len(organizations_for_session_after_login(current_user)) > 1:
-                    out['show_org_switcher_link'] = True
+            _picker_orgs = organizations_for_session_after_login(current_user)
+            if len(_picker_orgs) > 1:
+                out['show_org_switcher_link'] = True
+                has_admin_org_sidebar = bool(
+                    out.get('show_platform_admin_nav') and out.get('saas_organizations_nav')
+                )
+                if not has_admin_org_sidebar:
+                    out['show_member_organization_switcher'] = True
+                    out['member_organizations_nav'] = _picker_orgs
         except Exception:
             pass
     except Exception:
         pass
+    out['nav_can'] = _nav_can_permission
     return out
 
 
+@app.context_processor
+def inject_platform_user_form_flags():
+    """
+    Casilla «Es Administrador» en admin/users: flag coherente aunque una vista antigua
+    no pase can_filter_users_by_org (kwargs de render_template siguen teniendo prioridad).
+    """
+    out = {'can_filter_users_by_org': False}
+    try:
+        if not has_request_context():
+            return out
+        if not getattr(current_user, 'is_authenticated', False):
+            return out
+        from nodeone.modules.admin_users_roles.routes import can_manage_platform_superuser_fields
+
+        out['can_filter_users_by_org'] = bool(can_manage_platform_superuser_fields(current_user))
+    except Exception:
+        pass
+    return out
 
 
 # Función helper para validar archivos
@@ -1430,7 +1582,7 @@ def send_verification_email(user):
         if has_request_context() and request:
             base_url = request.url_root.rstrip('/')
         else:
-            base_url = os.getenv('BASE_URL', 'https://miembros.relatic.org')
+            base_url = (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
         
         verification_url = f"{base_url}/verify-email/{token}"
         
@@ -1439,7 +1591,7 @@ def send_verification_email(user):
         
         # Enviar email
         success = email_service.send_email(
-            subject='Verifica tu Email - RelaticPanama',
+            subject='Verifica tu Email - Easy NodeOne',
             recipients=[user.email],
             html_content=html_content,
             email_type='email_verification',
@@ -1465,6 +1617,21 @@ def send_verification_email(user):
         return False, err if err else "Error desconocido al enviar el correo."
 
 
+def _tenant_subdomain_from_host_label(first_label):
+    """
+    Subdominio usado para buscar SaasOrganization.subdomain.
+    Si el host es «apps» o «app1» y existe EASYNODEONE_APPS_ORG_SUBDOMAIN, usa ese slug
+    (mismo tenant que p. ej. tonysonax.easynodeone.com).
+    """
+    sub = (first_label or '').strip().lower()
+    if not sub:
+        return None
+    if sub in ('apps', 'app1'):
+        mirrored = (os.environ.get('EASYNODEONE_APPS_ORG_SUBDOMAIN') or '').strip().lower()
+        return mirrored if mirrored else None
+    return sub
+
+
 def _organization_id_for_public_registration():
     """organization_id para /register y OAuth nuevo usuario: form/query, subdominio en saas_organization, o default."""
     raw = (
@@ -1483,13 +1650,17 @@ def _organization_id_for_public_registration():
     host = (request.host or '').split(':')[0].lower()
     parts = host.split('.')
     if len(parts) >= 3:
-        sub = parts[0]
+        first = (parts[0] or '').strip().lower()
+        if first in ('app', 'www') and len(parts) >= 3:
+            sub = _tenant_subdomain_from_host_label(parts[1])
+        else:
+            sub = _tenant_subdomain_from_host_label(parts[0])
         if sub and sub not in ('www', 'app', 'mail', 'web', 'cdn'):
             org = (
                 SaasOrganization.query.filter_by(is_active=True)
                 .filter(SaasOrganization.subdomain.isnot(None))
                 .filter(SaasOrganization.subdomain != '')
-                .filter(db.func.lower(SaasOrganization.subdomain) == sub.lower())
+                .filter(db.func.lower(SaasOrganization.subdomain) == sub)
                 .first()
             )
             if org is not None:
@@ -1498,14 +1669,22 @@ def _organization_id_for_public_registration():
 
 
 def _organization_id_from_request_host(req):
-    """Resolver org activa por subdominio del host; None si no aplica."""
+    """Resolver org activa por subdominio del host; None si no aplica.
+
+    Soporta ``app.detailingserviceve.site`` / ``www.<slug>.dominio``: el slug de tenant es el
+    segmento *siguiente* a app/www, no el primero (coincide con ``saas_organization.subdomain``).
+    """
     host = ((getattr(req, 'host', '') or '').split(':')[0] or '').lower().strip()
     if not host:
         return None
     parts = host.split('.')
     if len(parts) < 3:
         return None
-    sub = (parts[0] or '').strip().lower()
+    first = (parts[0] or '').strip().lower()
+    if first in ('app', 'www') and len(parts) >= 3:
+        sub = _tenant_subdomain_from_host_label(parts[1])
+    else:
+        sub = _tenant_subdomain_from_host_label(parts[0])
     if not sub or sub in ('www', 'app', 'mail', 'web', 'cdn'):
         return None
     org = (
@@ -1693,9 +1872,14 @@ def process_cart_after_payment(cart, payment):
                         membership = user.get_active_membership() if user else None
                         membership_type = membership.membership_type if membership else 'basic'
                         
-                        # Calcular precios
-                        pricing = service.pricing_for_membership(membership_type)
-                        final_price = pricing['final_price']
+                        # Precios: respetar lo pactado en el carrito (p. ej. primera cita gratis)
+                        pricing_calc = service.pricing_for_membership(membership_type)
+                        base_price = float(metadata.get('base_price', pricing_calc['base_price']))
+                        if metadata.get('final_price') is not None:
+                            final_price = float(metadata['final_price'])
+                        else:
+                            final_price = float(pricing_calc['final_price'])
+                        discount_applied_meta = max(0.0, base_price - final_price)
                         
                         # Determinar estado de pago
                         deposit_amount = metadata.get('deposit_amount', final_price)
@@ -1707,6 +1891,7 @@ def process_cart_after_payment(cart, payment):
                         # Crear Appointment (flujo agendable: slot + pago → confirmación directa)
                         appointment = Appointment(
                             appointment_type_id=appointment_type_id,
+                            organization_id=int(getattr(service, 'organization_id', None) or 1),
                             advisor_id=advisor_id,
                             slot_id=slot.id,
                             service_id=service.id,
@@ -1717,9 +1902,9 @@ def process_cart_after_payment(cart, payment):
                             end_datetime=slot.end_datetime,
                             status='CONFIRMADA',
                             is_initial_consult=False,
-                            base_price=pricing['base_price'],
+                            base_price=base_price,
                             final_price=final_price,
-                            discount_applied=pricing['base_price'] - pricing['final_price'],
+                            discount_applied=discount_applied_meta,
                             payment_status=payment_status,
                             payment_method=payment.payment_method,
                             user_notes=case_description
@@ -1753,6 +1938,13 @@ def process_cart_after_payment(cart, payment):
                             
                             # Notificar a administradores
                             NotificationEngine.notify_appointment_new_to_admins(appointment, user, advisor_user, service)
+                            from nodeone.services.communication_dispatch import (
+                                dispatch_appointment_slot_payment_communication_engine,
+                            )
+
+                            dispatch_appointment_slot_payment_communication_engine(
+                                appointment, user, advisor_user, service
+                            )
                         except Exception as e:
                             print(f"⚠️ Error enviando notificaciones de cita: {e}")
                             import traceback
@@ -1841,21 +2033,30 @@ def process_cart_after_payment(cart, payment):
             }
             events_info.append(event_info)
 
+        from nodeone.services.communication_dispatch import (
+            dispatch_cart_checkout_communication_engine,
+            request_base_url_optional,
+        )
+
+        base_url = request_base_url_optional()
+
         # Automatización marketing
         try:
             from _app.modules.marketing.service import trigger_automation
-            base_url = None
-            try:
-                from flask import request as req
-                base_url = req.host_url.rstrip('/') if req else None
-            except Exception:
-                pass
+
             if subscriptions_created:
                 trigger_automation('membership_renewed', payment.user_id, base_url=base_url)
             for event_reg in events_registered:
                 trigger_automation('event_registered', event_reg.user_id, base_url=base_url, event_id=event_reg.event_id)
         except Exception as e:
             print(f"Marketing automation error: {e}")
+
+        dispatch_cart_checkout_communication_engine(
+            payment.user_id,
+            subscriptions_created,
+            events_registered,
+            base_url,
+        )
 
         HistoryLogger.log_user_action(
             user_id=payment.user_id,
@@ -2118,10 +2319,10 @@ def ensure_membership_plan_table():
 def _politica_correo_institucional_html():
     """Contenido HTML de la Política de Uso de Correo Institucional (versión 1.0)."""
     return """
-<p><strong>Relatic Panamá</strong><br>Versión 1.0</p>
+<p><strong>Easy NodeOne</strong><br>Versión 1.0</p>
 
 <h2>1. Naturaleza del Servicio</h2>
-<p>El correo institucional @relaticpanama.org es un beneficio otorgado por Relatic Panamá a sus miembros activos como parte de su ecosistema digital institucional.</p>
+<p>El correo institucional en el dominio configurado por su organización es un beneficio para miembros activos dentro de la plataforma.</p>
 <p>La asignación de la cuenta está sujeta a las condiciones establecidas en la presente política y podrá estar subsidiada total o parcialmente según campañas vigentes.</p>
 
 <h2>2. Vigencia</h2>
@@ -2142,7 +2343,7 @@ def _politica_correo_institucional_html():
 <li>Posteriormente, la cuenta será suspendida.</li>
 <li>Transcurridos hasta <strong>60 días adicionales</strong>, la cuenta podrá ser eliminada definitivamente.</li>
 </ul>
-<p>Relatic Panamá no garantiza la recuperación de información una vez eliminada la cuenta.</p>
+<p>La organización no garantiza la recuperación de información una vez eliminada la cuenta.</p>
 
 <h2>4. Uso Adecuado</h2>
 <p>El correo institucional debe utilizarse exclusivamente para fines académicos, institucionales o profesionales relacionados con la organización.</p>
@@ -2154,7 +2355,7 @@ def _politica_correo_institucional_html():
 <li>Compartir credenciales con terceros.</li>
 <li>Uso que afecte la reputación institucional.</li>
 </ul>
-<p>Relatic Panamá se reserva el derecho de suspender cuentas que incumplan estas disposiciones.</p>
+<p>La organización se reserva el derecho de suspender cuentas que incumplan estas disposiciones.</p>
 
 <h2>5. Seguridad</h2>
 <p>El usuario es responsable de:</p>
@@ -2163,14 +2364,14 @@ def _politica_correo_institucional_html():
 <li>Activar y mantener el doble factor de autenticación.</li>
 <li>Notificar cualquier acceso sospechoso.</li>
 </ul>
-<p>Relatic Panamá no se hace responsable por negligencia en la protección de credenciales.</p>
+<p>La organización no se hace responsable por negligencia en la protección de credenciales.</p>
 
 <h2>6. Costos y Renovación</h2>
 <p>El otorgamiento inicial del correo puede estar subsidiado como parte de campañas institucionales.</p>
-<p>Relatic Panamá podrá establecer en el futuro un cargo por gestión administrativa o mantenimiento del servicio, el cual será comunicado previamente.</p>
+<p>La organización podrá establecer en el futuro un cargo por gestión administrativa o mantenimiento del servicio, el cual será comunicado previamente.</p>
 
 <h2>7. Modificaciones</h2>
-<p>Relatic Panamá podrá actualizar esta política cuando lo considere necesario. Las modificaciones serán publicadas en el portal institucional.</p>
+<p>La organización podrá actualizar esta política cuando lo considere necesario. Las modificaciones serán publicadas en el portal institucional.</p>
 <p>El uso continuo del correo implica aceptación de las condiciones vigentes.</p>
 """
 
@@ -2472,6 +2673,30 @@ def bootstrap_nodeone_schema():
         ensure_user_last_selected_organization_id_column()
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra
         ensure_benefit_icon_color_columns()
+        try:
+            from nodeone.services.pg_sequence_sync import ensure_saas_organization_id_sequence_postgresql
+
+            ensure_saas_organization_id_sequence_postgresql(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_id_sequence_postgresql: {e}')
+        try:
+            from nodeone.services.invoices_schema import ensure_invoices_model_columns
+
+            ensure_invoices_model_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_invoices_model_columns: {e}')
+        try:
+            from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
+
+            ensure_saas_organization_fiscal_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_fiscal_columns: {e}')
+        try:
+            from nodeone.services.crm_tenant_contact_schema import ensure_crm_salesperson_and_quotation_columns
+
+            ensure_crm_salesperson_and_quotation_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_crm_salesperson_and_quotation_columns: {e}')
         ensure_canonical_saas_organization_usable()
         ensure_benefit_organization_id_column()
         ensure_membership_plan_organization_id_column()
@@ -2507,6 +2732,26 @@ def bootstrap_nodeone_schema():
             apply_platform_org_allowlist()
         except Exception as e:
             print(f'⚠️ ensure_saas_catalog_full / org allowlist: {e}')
+        try:
+            from nodeone.services.platform_sa_seed import ensure_platform_sa_user
+
+            ensure_platform_sa_user()
+        except Exception as e:
+            print(f'⚠️ ensure_platform_sa_user: {e}')
+        try:
+            from nodeone.services.analytics_permissions import ensure_analytics_view_permission
+
+            ensure_analytics_view_permission(db, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_analytics_view_permission: {e}')
+        try:
+            from nodeone.services.default_taxes import ensure_default_percent_taxes
+
+            ntax = ensure_default_percent_taxes(printfn=lambda m: print(f'📋 {m}'))
+            if ntax:
+                print(f'📋 taxes estándar (0%%, 7%%): {ntax} fila(s) nueva(s)')
+        except Exception as e:
+            print(f'⚠️ ensure_default_percent_taxes: {e}')
         apply_email_config_from_db()
 
 

@@ -7,11 +7,11 @@
 
 ## 🔐 Credenciales Configuradas
 
-### En membresia-relatic (Servidor Relatic):
+### En nodeone (Servidor Easy NodeOne):
 
-✅ **API_KEY:** `ETS_RELATIC_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K`  
+✅ **API_KEY:** `ETS_Easy NodeOne_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K`  
 ✅ **HMAC_SECRET:** `C7SoMRiKnsaKEuK2fxLkxH5mbFqNLp1KonUNIDspAc4ZuQlC9nUXejAyEPM3lSOc`  
-✅ **API_URL:** `https://odoo.relatic.org/api/relatic/v1/sale`  
+✅ **API_URL:** `https://odoo.example.com/api/v1/sale  
 ✅ **ENABLED:** `true`  
 ✅ **ENVIRONMENT:** `prod`
 
@@ -22,13 +22,13 @@
 1. **Ir a:** Configuración → Técnico → Parámetros → Parámetros del Sistema
 
 2. **Verificar/Crear:**
-   - **Clave:** `relatic_integration.api_key`  
-     **Valor:** `ETS_RELATIC_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K`
+   - **Clave:** `nodeone_integration.api_key`  
+     **Valor:** `ETS_Easy NodeOne_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K`
 
-   - **Clave:** `relatic_integration.hmac_secret`  
+   - **Clave:** `nodeone_integration.hmac_secret`  
      **Valor:** `C7SoMRiKnsaKEuK2fxLkxH5mbFqNLp1KonUNIDspAc4ZuQlC9nUXejAyEPM3lSOc`
 
-   - **Clave:** `relatic_integration.auto_create_product` (opcional)  
+   - **Clave:** `nodeone_integration.auto_create_product` (opcional)  
      **Valor:** `False`
 
 ## ✅ Verificación del Servicio
@@ -52,40 +52,40 @@ La prueba de conexión mostró un error de conectividad. Esto puede deberse a:
 ### 1. Verificar en Odoo
 
 Asegúrate de que:
-- [ ] El módulo `relatic_integration` esté instalado
+- [ ] El módulo `nodeone_integration` esté instalado
 - [ ] Los parámetros estén configurados con los valores correctos
-- [ ] El endpoint `/api/relatic/v1/sale` esté accesible
+- [ ] El endpoint `/api/nodeone/v1/sale` esté accesible
 
 ### 2. Probar con un Pago Real
 
 Una vez que Odoo esté configurado:
 
-1. Realizar un pago de prueba en membresia-relatic
+1. Realizar un pago de prueba en nodeone
 2. Verificar logs:
    ```bash
-   sudo journalctl -u membresia-relatic.service -f | grep -i odoo
+   sudo journalctl -u nodeone.service -f | grep -i odoo
    ```
 3. Verificar en Odoo:
-   - Contabilidad → Relatic Integration → Logs de Sincronización
+   - Contabilidad → NodeOne Integration → Logs de Sincronización
 
 ### 3. Monitoreo
 
 ```bash
 # Ver logs en tiempo real
-sudo journalctl -u membresia-relatic.service -f | grep -i odoo
+sudo journalctl -u nodeone.service -f | grep -i odoo
 
 # Ver últimos logs de Odoo
-sudo journalctl -u membresia-relatic.service --since "10 minutes ago" | grep -i odoo
+sudo journalctl -u nodeone.service --since "10 minutes ago" | grep -i odoo
 ```
 
 ## 🔍 Verificación de Configuración
 
 ```bash
 # Ver variables configuradas
-sudo systemctl show membresia-relatic.service | grep ODOO
+sudo systemctl show nodeone.service | grep ODOO
 
 # Verificar servicio
-sudo systemctl status membresia-relatic.service
+sudo systemctl status nodeone.service
 
 # Probar conexión (cuando Odoo esté listo)
 python3 test_odoo_connection.py
@@ -93,7 +93,7 @@ python3 test_odoo_connection.py
 
 ## 📝 Notas
 
-- ✅ Las credenciales están configuradas correctamente en membresia-relatic
+- ✅ Las credenciales están configuradas correctamente en nodeone
 - ⚠️ Verificar que coincidan exactamente en Odoo
 - ✅ El servicio está activo y funcionando
 - ✅ La integración se activará automáticamente cuando se confirme un pago
@@ -107,4 +107,4 @@ python3 test_odoo_connection.py
 
 ---
 
-**¡La integración está lista!** Los webhooks se enviarán automáticamente cuando se confirmen pagos en membresia-relatic.
+**¡La integración está lista!** Los webhooks se enviarán automáticamente cuando se confirmen pagos en nodeone.

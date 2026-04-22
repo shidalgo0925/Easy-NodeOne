@@ -95,6 +95,15 @@ class SaasOrganization(db.Model):
     __tablename__ = 'saas_organization'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
+    legal_name = db.Column(db.String(200), nullable=True)
+    tax_id = db.Column(db.String(80), nullable=True)
+    tax_regime = db.Column(db.String(120), nullable=True)
+    fiscal_address = db.Column(db.String(255), nullable=True)
+    fiscal_city = db.Column(db.String(120), nullable=True)
+    fiscal_state = db.Column(db.String(120), nullable=True)
+    fiscal_country = db.Column(db.String(120), nullable=True)
+    fiscal_phone = db.Column(db.String(60), nullable=True)
+    fiscal_email = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     subdomain = db.Column(db.String(128), unique=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
@@ -135,6 +144,11 @@ class TenantCrmContact(db.Model):
     company = db.Column(db.String(200))
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_salesperson = db.Column(db.Boolean, nullable=False, default=False)
+    salesperson_code = db.Column(db.String(64), nullable=True)
+    sales_commission_rate = db.Column(db.Float, nullable=True)
+    linked_user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True, index=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
 
 
 class SaasModuleDependency(db.Model):

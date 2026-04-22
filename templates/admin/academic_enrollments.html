@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Matrículas{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+  <h1 class="h4 mb-3"><i class="fas fa-clipboard-list me-2"></i>Matrículas</h1>
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <h6 class="card-title">Nueva matrícula</h6>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3"><label class="form-label small">ID estudiante</label><input type="number" id="e_sid" class="form-control form-control-sm"></div>
+        <div class="col-md-3"><label class="form-label small">ID curso</label><input type="number" id="e_cid" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm" id="e_btn">Crear</button></div>
+      </div>
+      <p class="text-muted small mt-2 mb-0">Tras crear: generar factura → publicar y marcar pagada en Facturas; entonces se activa la matrícula y se sincroniza Moodle.</p>
+    </div>
+  </div>
+  <div id="apiErr" class="alert alert-danger d-none"></div>
+  <div class="card shadow-sm">
+    <div class="card-header py-2">Listado</div>
+    <div class="card-body p-0 table-responsive">
+      <table class="table table-sm mb-0"><thead><tr><th>ID</th><th>Estudiante</th><th>Curso</th><th>Estado</th><th>Factura</th><th>Moodle</th><th></th></tr></thead><tbody id="tbl"></tbody></table>
+      <p id="emptyHint" class="text-muted small p-3 mb-0 d-none">Sin matrículas. Necesitas al menos un estudiante y un curso.</p>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const API = '/api/admin/academic/enrollments';
+  function showErr(m){ var e=document.getElementById('apiErr'); e.textContent=m; e.classList.remove('d-none'); }
+  function hideErr(){ document.getElementById('apiErr').classList.add('d-none'); }
+  function load(){
+    hideErr();
+    fetch(API, {credentials:'same-origin'}).then(function(r){
+      if(r.status===404||r.status===403) return r.json().then(function(j){ throw new Error(j.error||('HTTP '+r.status)); });
+      return r.json();
+    }).then(function(j){
+      if(!j.success){ showErr(j.error||'Error'); return; }
+      const tb = document.getElementById('tbl'); tb.innerHTML='';
+      var list = j.enrollments||[];
+      document.getElementById('emptyHint').classList.toggle('d-none', list.length>0);
+      list.forEach(function(e){
+        const tr = document.createElement('tr');
+        let btns = '<button class="btn btn-outline-primary btn-sm me-1" data-act="inv" data-id="'+e.id+'">Factura</button>';
+        if(e.status==='active') btns += '<button class="btn btn-outline-secondary btn-sm" data-act="sync" data-id="'+e.id+'">Sync Moodle</button>';
+        tr.innerHTML = '<td>'+e.id+'</td><td>'+e.student_code+' / '+e.user_email+'</td><td>'+e.course_name+'</td><td>'+e.status+'</td><td>'+(e.invoice_id||'—')+'</td><td>'+(e.moodle_sync_status||'—')+'</td><td>'+btns+'</td>';
+        tr.querySelectorAll('button').forEach(b=>{
+          b.onclick = function(){
+            const id = b.getAttribute('data-id');
+            if(b.getAttribute('data-act')==='inv'){
+              fetch(API+'/'+id+'/generate-invoice', {method:'POST', credentials:'same-origin'}).then(r=>r.json()).then(x=>{ alert(x.success ? 'Factura #'+x.invoice_id : (x.error||'Error')); load(); });
+            } else {
+              fetch(API+'/'+id+'/sync-moodle', {method:'POST', credentials:'same-origin'}).then(r=>r.json()).then(x=>{ alert(x.success ? 'OK' : (x.moodle_error_message||x.error||'Error')); load(); });
+            }
+          };
+        });
+        tb.appendChild(tr);
+      });
+    }).catch(function(err){ showErr(err.message||'Error de red'); });
+  }
+  document.getElementById('e_btn').onclick = function(){
+    fetch(API, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      student_id: parseInt(document.getElementById('e_sid').value,10),
+      academic_course_id: parseInt(document.getElementById('e_cid').value,10)
+    })}).then(r=>r.json()).then(j=>{ if(!j.success){ alert(j.error||'Error'); return;} load(); });
+  };
+  load();
+})();
+</script>
+{% endblock %}

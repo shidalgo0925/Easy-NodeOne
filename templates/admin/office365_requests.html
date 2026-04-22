@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
-{% block title %}Solicitudes Office 365 - RelaticPanama{% endblock %}
+{% block title %}Solicitudes Office 365 - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 <div class="container py-4">
@@ -13,10 +14,10 @@
         </div>
     </div>
 
+    {% set o365_filters_open = (status_filter|default('all') != 'all') %}
     <div class="row mb-3">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body py-2">
+            {% call admin_filter_collapse('adminFiltersOffice365', 'Filtros', expanded=o365_filters_open, margin_class='mb-0') %}
                     <div class="w-100 mobile-scroll-x pb-1">
                     <form method="GET" action="{{ url_for('office365_admin.admin_office365_requests') }}" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
                         <label for="status" class="form-label form-label-sm mb-0">Estado</label>
@@ -29,8 +30,7 @@
                         <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter"></i> Filtrar</button>
                     </form>
                     </div>
-                </div>
-            </div>
+            {% endcall %}
         </div>
     </div>
 

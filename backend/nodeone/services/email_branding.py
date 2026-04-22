@@ -50,7 +50,7 @@ def resolve_email_logo_absolute_url(organization_id=None, allow_fallback_to_plat
     if has_request_context() and request:
         base_url = request.url_root.rstrip('/')
     if not base_url:
-        base_url = (os.getenv('BASE_URL') or 'https://miembros.relatic.org').rstrip('/')
+        base_url = (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
 
     return f"{base_url}{relative_url}"
 
@@ -60,7 +60,7 @@ def email_preview_base_url():
 
     if has_request_context() and request:
         return request.url_root.rstrip('/')
-    return (os.getenv('BASE_URL') or 'https://miembros.relatic.org').rstrip('/')
+    return (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
 
 
 def email_branding_from_organization_id(organization_id):

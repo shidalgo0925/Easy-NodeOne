@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Configuración de Pagos - RelaticPanama{% endblock %}
+{% block title %}Configuración de Pagos - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 <div class="container py-4">
@@ -75,12 +75,12 @@
                             <div class="col-12 col-md-4">
                                 <label for="paypal_return_url" class="form-label">URL de Retorno</label>
                                 <input type="url" class="form-control" id="paypal_return_url" name="paypal_return_url" 
-                                       value="{% if payment_config %}{{ payment_config.paypal_return_url }}{% else %}https://miembros.relatic.org/payment/paypal/return{% endif %}">
+                                       value="{% if payment_config %}{{ payment_config.paypal_return_url }}{% else %}https://app.example.com/payment/paypal/return{% endif %}">
                             </div>
                             <div class="col-12 col-md-4">
                                 <label for="paypal_cancel_url" class="form-label">URL de Cancelación</label>
                                 <input type="url" class="form-control" id="paypal_cancel_url" name="paypal_cancel_url" 
-                                       value="{% if payment_config %}{{ payment_config.paypal_cancel_url }}{% else %}https://miembros.relatic.org/payment/paypal/cancel{% endif %}">
+                                       value="{% if payment_config %}{{ payment_config.paypal_cancel_url }}{% else %}https://app.example.com/payment/paypal/cancel{% endif %}">
                             </div>
                         </div>
                     </form>

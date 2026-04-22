@@ -3,6 +3,24 @@
 {% block title %}Citas y asesorías - Easy NodeOne{% endblock %}
 
 {% block page_content %}
+{% if saas_module_enabled('appointments') %}
+<section class="py-3 border-bottom bg-white" aria-label="Acceso al catálogo">
+    <div class="container">
+        <div class="row align-items-center gy-2">
+            <div class="col-12 col-lg-8">
+                <p class="text-uppercase text-primary fw-bold small mb-1">Paso recomendado</p>
+                <h2 class="h5 mb-1">Empieza por el catálogo de servicios</h2>
+                <p class="text-muted small mb-0">
+                    Ahí ves precios, beneficios de tu membresía y puedes solicitar cita o primera reunión. Luego puedes usar los tipos de cita de esta página si lo prefieres.
+                </p>
+            </div>
+            <div class="col-12 col-lg-4 text-lg-end">
+                <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-lg w-100 w-lg-auto"><i class="fas fa-th-large me-2"></i>Ir a Servicios</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
 <section class="py-3 bg-light" id="section-servicios">
     <div class="container">
         <div class="row align-items-center gy-3">

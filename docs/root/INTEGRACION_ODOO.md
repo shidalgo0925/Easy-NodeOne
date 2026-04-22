@@ -2,7 +2,7 @@
 
 ## 📋 Descripción
 
-Este documento explica cómo configurar la integración entre `membresia-relatic` y Odoo 18 para sincronizar automáticamente pagos confirmados.
+Este documento explica cómo configurar la integración entre `nodeone` y Odoo 18 para sincronizar automáticamente pagos confirmados.
 
 ## 🔧 Configuración
 
@@ -15,7 +15,7 @@ Agregar las siguientes variables de entorno al archivo `.env` o al sistema:
 ODOO_INTEGRATION_ENABLED=true
 
 # URL del endpoint de Odoo
-ODOO_API_URL=https://odoo.relatic.org/api/relatic/v1/sale
+ODOO_API_URL=https://odoo.example.com/api/v1/sale
 
 # API Key (debe coincidir con la configurada en Odoo)
 ODOO_API_KEY=tu_api_key_aqui
@@ -29,11 +29,11 @@ ODOO_ENVIRONMENT=prod
 
 ### Configuración en Odoo
 
-1. **Instalar el módulo** `relatic_integration` en Odoo
+1. **Instalar el módulo** `nodeone_integration` en Odoo
 2. **Configurar parámetros del sistema**:
-   - `relatic_integration.api_key`: Debe ser el mismo valor que `ODOO_API_KEY`
-   - `relatic_integration.hmac_secret`: Debe ser el mismo valor que `ODOO_HMAC_SECRET`
-   - `relatic_integration.auto_create_product`: `True` o `False` (opcional)
+   - `nodeone_integration.api_key`: Debe ser el mismo valor que `ODOO_API_KEY`
+   - `nodeone_integration.hmac_secret`: Debe ser el mismo valor que `ODOO_HMAC_SECRET`
+   - `nodeone_integration.auto_create_product`: `True` o `False` (opcional)
 
 3. **Crear diarios de pago** en Odoo:
    - YAPPY (tipo: banco)
@@ -48,7 +48,7 @@ ODOO_ENVIRONMENT=prod
 
 ## 🔄 Flujo de Integración
 
-1. **Cliente paga** en membresia-relatic
+1. **Cliente paga** en nodeone
 2. **Pago se confirma** (status = 'succeeded')
 3. **Sistema envía webhook** a Odoo automáticamente
 4. **Odoo procesa** el webhook y crea:
@@ -65,7 +65,7 @@ El sistema envía un payload JSON según el contrato v1.0:
 {
   "meta": {
     "version": "1.0",
-    "source": "membresia-relatic",
+    "source": "nodeone",
     "environment": "prod",
     "timestamp": "2026-01-20T10:30:00Z"
   },
@@ -73,7 +73,7 @@ El sistema envía un payload JSON según el contrato v1.0:
   "member": {
     "email": "usuario@email.com",
     "name": "Juan Pérez",
-    "vat": "8-123-456",
+    "vat": "8-123-4567",
     "phone": "+507-6123-4567"
   },
   "items": [
@@ -120,16 +120,16 @@ El webhook se envía automáticamente cuando:
 
 ### Error 401 - Invalid API Key
 
-- Verificar que `ODOO_API_KEY` en membresia-relatic coincida con `relatic_integration.api_key` en Odoo
+- Verificar que `ODOO_API_KEY` en nodeone coincida con `nodeone_integration.api_key` en Odoo
 
 ### Error 401 - Invalid Signature
 
-- Verificar que `ODOO_HMAC_SECRET` en membresia-relatic coincida con `relatic_integration.hmac_secret` en Odoo
+- Verificar que `ODOO_HMAC_SECRET` en nodeone coincida con `nodeone_integration.hmac_secret` en Odoo
 
 ### Error 422 - Product Not Found
 
 - Verificar que el producto con el SKU correspondiente exista en Odoo
-- O activar `relatic_integration.auto_create_product = True` en Odoo
+- O activar `nodeone_integration.auto_create_product = True` en Odoo
 
 ### Error 422 - Journal Not Found
 
@@ -137,17 +137,17 @@ El webhook se envía automáticamente cuando:
 
 ## 📊 Verificar Sincronización
 
-### En membresia-relatic
+### En nodeone
 
 Revisar logs del servidor:
 ```bash
-tail -f /var/log/membresia-relatic/app.log | grep Odoo
+tail -f /var/log/nodeone/app.log | grep Odoo
 ```
 
 ### En Odoo
 
 1. **Ver logs de sincronización**:
-   - Menú: Contabilidad → Relatic Integration → Logs de Sincronización
+   - Menú: Contabilidad → NodeOne Integration → Logs de Sincronización
    - Buscar por Order ID (ej: ORD-2026-00021)
 
 2. **Ver facturas creadas**:
@@ -156,7 +156,7 @@ tail -f /var/log/membresia-relatic/app.log | grep Odoo
 
 3. **Ver contactos**:
    - Menú: Contactos → Contactos
-   - Buscar por email o etiqueta "RELATIC_MIEMBRO"
+   - Buscar por email o etiqueta "NODEONE_MEMBER"
 
 ## 🔍 Testing
 
@@ -167,7 +167,7 @@ Para probar la integración:
    ODOO_ENVIRONMENT=test
    ```
 
-2. **Realizar un pago de prueba** en membresia-relatic
+2. **Realizar un pago de prueba** en nodeone
 
 3. **Verificar logs** en ambos sistemas
 
@@ -184,7 +184,7 @@ Para probar la integración:
 
 Para problemas o preguntas:
 1. Revisar logs de sincronización en Odoo
-2. Revisar logs del servidor de membresia-relatic
+2. Revisar logs del servidor de nodeone
 3. Verificar configuración de variables de entorno
 4. Verificar configuración en Odoo
 

@@ -1,8 +1,8 @@
-# Análisis del Sistema de Citas - RELATIC
+# Análisis del Sistema de Citas - Easy NodeOne
 
 ## 📋 Resumen Ejecutivo
 
-Este documento analiza los requisitos para implementar un sistema de citas (appointments) separado de los eventos, inspirado en Odoo pero adaptado a las necesidades específicas de RELATIC.
+Este documento analiza los requisitos para implementar un sistema de citas (appointments) separado de los eventos, inspirado en Odoo pero adaptado a las necesidades específicas de Easy NodeOne.
 
 ---
 

@@ -3,18 +3,13 @@
 
 def org_id_for_module_visibility():
     """
-    Solo para flags de módulo en plantillas y guards públicos (¿módulo encendido?).
-    No usar para queries de datos: ahí va get_current_organization_id() (anónimo = None).
+    Flags de módulo en plantillas y guards públicos (¿módulo encendido?).
+    Misma resolución que tenant_data / SaaS guards (host, sesión, membresía).
+    No usar para queries de datos filtradas por sesión: ahí va get_current_organization_id().
     """
-    import app as M
+    from utils.organization import resolve_current_organization
 
-    try:
-        oid = M.get_current_organization_id()
-    except RuntimeError:
-        oid = None
-    if oid is not None:
-        return oid
-    return M.default_organization_id()
+    return int(resolve_current_organization())
 
 
 def has_saas_module_enabled(organization_id, module_code):
@@ -95,8 +90,10 @@ def admin_scope_user_ids_only():
     """
     import app as M
 
+    from nodeone.services.user_organization import user_ids_query_in_organization
+
     scope_oid = int(M.admin_data_scope_organization_id())
-    q = M.db.session.query(M.User.id).filter(M.User.organization_id == scope_oid)
+    q = user_ids_query_in_organization(scope_oid)
     if not current_user_can_view_org_users():
         q = q.filter(M.User.id == int(getattr(M.current_user, 'id', 0) or 0))
     return q
@@ -109,8 +106,19 @@ def admin_data_scope_organization_id():
     if M.has_request_context() and getattr(M.current_user, 'is_authenticated', False):
         if M.single_tenant_default_only() and not getattr(M.current_user, 'is_admin', False):
             return int(getattr(M.current_user, 'organization_id', None) or M.default_organization_id())
-    oid = M.get_current_organization_id()
+    oid = None
+    try:
+        oid = M.get_current_organization_id()
+    except RuntimeError:
+        # Multi-tenant: sesión sin organization_id (sesión antigua / flujo incompleto).
+        oid = None
     if oid is not None:
         return int(oid)
-    return int(M.default_organization_id())
+    # Sin org en sesión: misma resolución que paneles admin por host (p. ej. apps.relatic.org → org Relatic).
+    try:
+        from utils.organization import get_admin_effective_organization_id
+
+        return int(get_admin_effective_organization_id())
+    except Exception:
+        return int(M.default_organization_id())
 

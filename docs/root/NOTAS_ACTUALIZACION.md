@@ -203,7 +203,7 @@ Estamos trabajando en:
 
 Si tienes preguntas o necesitas asistencia:
 
-- **Email**: soporte@relaticpanama.com
+- **Email**: soporte@example.com
 - **Chat**: Disponible en tu dashboard
 - **Ayuda**: Sección "Centro de Ayuda" en el menú
 
@@ -211,7 +211,7 @@ Si tienes preguntas o necesitas asistencia:
 
 ## 🙏 Agradecimientos
 
-Gracias por ser parte de RELATIC Panamá. Estas mejoras fueron diseñadas pensando en ti y en cómo podemos hacer tu experiencia más valiosa.
+Gracias por ser parte de Easy NodeOne. Estas mejoras fueron diseñadas pensando en ti y en cómo podemos hacer tu experiencia más valiosa.
 
 ---
 
@@ -221,4 +221,4 @@ Gracias por ser parte de RELATIC Panamá. Estas mejoras fueron diseñadas pensan
 
 ---
 
-*RELATIC Panamá - Impulsando la investigación y el desarrollo académico*
+*Easy NodeOne - Impulsando la investigación y el desarrollo académico*

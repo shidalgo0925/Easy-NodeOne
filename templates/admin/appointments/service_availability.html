@@ -19,11 +19,31 @@
     <div class="card shadow-sm border-0">
         <div class="card-body">
             <p class="text-muted mb-4">
-                Configure los horarios de disponibilidad de cada asesor para cada servicio/tipo de cita.
-                Los slots se generarán automáticamente desde estos horarios.
+                Solo se listan pares <strong>asesor + tipo de cita</strong> que ya estén vinculados en el sistema (misma regla que al pulsar Configurar).
+                Los horarios semanales generan slots automáticos cuando correspondan.
             </p>
 
-            {% if appointment_types %}
+            {% if not appointment_types %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No hay servicios/tipos de cita configurados.
+                <a href="{{ url_for('admin_appointments.create_appointment_type') }}">Crear uno nuevo</a>
+            </div>
+            {% elif not advisors %}
+            <div class="alert alert-warning mb-0">
+                <i class="fas fa-user-tie me-2"></i>
+                No hay asesores activos en esta empresa. Creá perfiles en
+                <a href="{{ url_for('admin_appointments.list_advisors') }}">Asesores</a>
+                o en <strong>Usuarios</strong> (casilla Es asesor).
+            </div>
+            {% elif not assigned_pairs %}
+            <div class="alert alert-warning mb-0">
+                <i class="fas fa-link me-2"></i>
+                Hay asesores y tipos de cita, pero <strong>ninguno está asignado a un servicio</strong>.
+                En <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Gestión de citas</a>,
+                en la fila de cada servicio, pulsá <strong>Asignar todos</strong> (o editá el tipo de cita y los asesores).
+            </div>
+            {% else %}
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
@@ -35,8 +55,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for advisor in advisors %}
-                            {% for appointment_type in appointment_types %}
+                        {% for advisor, appointment_type in assigned_pairs %}
                                 {% set key = (advisor.id, appointment_type.id) %}
                                 {% set availabilities = availability_map.get(key, []) %}
                                 <tr>
@@ -71,22 +90,15 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{{ url_for('admin_appointments.manage_service_availability', advisor_id=advisor.id, appointment_type_id=appointment_type.id) }}" 
+                                        <a href="{{ url_for('admin_appointments.manage_service_availability', advisor_id=advisor.id, appointment_type_id=appointment_type.id) }}"
                                            class="btn btn-sm btn-primary">
                                             <i class="fas fa-edit me-1"></i>Configurar
                                         </a>
                                     </td>
                                 </tr>
-                            {% endfor %}
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-            {% else %}
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                No hay servicios/tipos de cita configurados. 
-                <a href="{{ url_for('admin_appointments.create_appointment_type') }}">Crear uno nuevo</a>
             </div>
             {% endif %}
         </div>

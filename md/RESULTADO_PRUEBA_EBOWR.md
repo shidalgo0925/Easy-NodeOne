@@ -61,7 +61,7 @@ Verificar cada pago pendiente usando el código `EBOWR-38807178` para ver cuál 
 
 ```bash
 # Para cada pago pendiente, verificar con:
-curl -X POST "https://miembros.relatic.org/api/payments/yappy/verify-by-code" \
+curl -X POST "https://app.example.com/api/payments/yappy/verify-by-code" \
   -H "Content-Type: application/json" \
   -H "Cookie: session=..." \
   -d '{"receipt_code": "EBOWR-38807178", "payment_id": <payment_id>}'

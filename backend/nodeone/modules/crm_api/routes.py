@@ -1,11 +1,14 @@
+import re
 from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
+from sqlalchemy.exc import IntegrityError
 
 from nodeone.core.db import db
 from nodeone.modules.crm_api.models import (
     CrmActivity,
+    CrmActivityType,
     CrmLead,
     CrmLeadLog,
     CrmLeadTag,
@@ -13,6 +16,8 @@ from nodeone.modules.crm_api.models import (
     CrmStage,
     CrmTag,
 )
+
+_ACTIVITY_CODE_RE = re.compile(r'^[a-z][a-z0-9_]{0,19}$')
 
 crm_api_bp = Blueprint('crm_api', __name__, url_prefix='/crm')
 
@@ -24,6 +29,7 @@ def _ensure_tables():
     CrmTag.__table__.create(db.engine, checkfirst=True)
     CrmLeadTag.__table__.create(db.engine, checkfirst=True)
     CrmActivity.__table__.create(db.engine, checkfirst=True)
+    CrmActivityType.__table__.create(db.engine, checkfirst=True)
     CrmLeadLog.__table__.create(db.engine, checkfirst=True)
 
 
@@ -125,6 +131,45 @@ def _ensure_default_stages(org_id):
     db.session.commit()
 
 
+def _ensure_default_activity_types(org_id):
+    _ensure_tables()
+    if CrmActivityType.query.filter_by(organization_id=org_id).count() > 0:
+        return
+    defaults = [
+        {'code': 'call', 'name': 'Llamada', 'sequence': 10},
+        {'code': 'meeting', 'name': 'Reunión', 'sequence': 20},
+        {'code': 'task', 'name': 'Tarea', 'sequence': 30},
+        {'code': 'email', 'name': 'Email', 'sequence': 40},
+    ]
+    for row in defaults:
+        db.session.add(CrmActivityType(organization_id=org_id, active=True, **row))
+    db.session.commit()
+
+
+def _allowed_activity_type_codes(org_id):
+    _ensure_default_activity_types(org_id)
+    rows = CrmActivityType.query.filter_by(organization_id=org_id, active=True).all()
+    return {r.code.strip().lower() for r in rows}
+
+
+def _serialize_lost_reason(r):
+    return {
+        'id': r.id,
+        'name': r.name,
+        'active': bool(r.active),
+    }
+
+
+def _serialize_activity_type(t):
+    return {
+        'id': t.id,
+        'code': t.code,
+        'name': t.name,
+        'active': bool(t.active),
+        'sequence': int(t.sequence or 10),
+    }
+
+
 def _lead_query_in_scope(org_id):
     q = CrmLead.query.filter_by(organization_id=org_id)
     if not _can_view_all():
@@ -142,7 +187,9 @@ def _activity_query_in_scope(org_id):
 def _assign_round_robin(org_id):
     from app import User
 
-    candidates = User.query.filter_by(organization_id=org_id, is_active=True).all()
+    from nodeone.services.user_organization import user_in_org_clause
+
+    candidates = User.query.filter(user_in_org_clause(User, org_id), User.is_active.is_(True)).all()
     if not candidates:
         return int(getattr(current_user, 'id', 0) or 0)
     scored = []
@@ -464,7 +511,8 @@ def crm_lead_lost(lead_id):
 
 def _create_activity(org_id, lead_id, data):
     a_type = (data.get('type') or '').strip().lower()
-    if a_type not in ('call', 'meeting', 'email', 'task'):
+    allowed = _allowed_activity_type_codes(org_id)
+    if a_type not in allowed:
         return None, 'type inválido'
     summary = (data.get('summary') or '').strip()
     due = _parse_dt(data.get('due_date'))
@@ -569,6 +617,41 @@ def _send_activity_email_alert_now(org_id, activity):
     except Exception:
         # nunca romper alta de actividad por falla de email
         pass
+
+
+@crm_api_bp.route('/activity-feed', methods=['GET'])
+@login_required
+def crm_activity_feed_get():
+    """Lista actividades del alcance actual con nombre del lead (calendario / historial)."""
+    _ensure_tables()
+    org_id = _org_id_from_request()
+    if org_id is None:
+        return jsonify({'success': False, 'error': 'Organización no definida'}), 400
+    q = (
+        db.session.query(CrmActivity, CrmLead.name)
+        .join(CrmLead, CrmActivity.lead_id == CrmLead.id)
+        .filter(
+            CrmActivity.organization_id == org_id,
+            CrmLead.organization_id == org_id,
+            CrmLead.active.is_(True),
+        )
+    )
+    if not _can_view_all():
+        uid = int(getattr(current_user, 'id', 0) or 0)
+        q = q.filter(CrmActivity.assigned_to == uid)
+    fr = _parse_dt(request.args.get('from'))
+    until_dt = _parse_dt(request.args.get('to'))
+    if fr:
+        q = q.filter(CrmActivity.due_date >= fr)
+    if until_dt:
+        q = q.filter(CrmActivity.due_date < until_dt + timedelta(days=1))
+    rows = q.order_by(CrmActivity.due_date.asc()).limit(1000).all()
+    items = []
+    for activity, lead_name in rows:
+        d = _serialize_activity(activity)
+        d['lead_name'] = lead_name or ''
+        items.append(d)
+    return jsonify({'success': True, 'items': items})
 
 
 @crm_api_bp.route('/activities', methods=['POST'])
@@ -704,3 +787,129 @@ def crm_activities_alerts_get():
             },
         },
     })
+
+
+@crm_api_bp.route('/lost-reasons', methods=['GET'])
+@login_required
+def crm_lost_reasons_list():
+    _ensure_tables()
+    org_id = _org_id_from_request()
+    if org_id is None:
+        return jsonify({'success': False, 'error': 'Organización no definida'}), 400
+    rows = CrmLostReason.query.filter_by(organization_id=org_id).order_by(
+        CrmLostReason.active.desc(), CrmLostReason.name.asc()
+    ).all()
+    return jsonify({'success': True, 'items': [_serialize_lost_reason(x) for x in rows]})
+
+
+@crm_api_bp.route('/lost-reasons', methods=['POST'])
+@login_required
+def crm_lost_reasons_post():
+    _ensure_tables()
+    org_id = _org_id_from_request()
+    if org_id is None:
+        return jsonify({'success': False, 'error': 'Organización no definida'}), 400
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'name es obligatorio'}), 400
+    row = CrmLostReason(organization_id=org_id, name=name, active=bool(data.get('active', True)))
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Ya existe un motivo con ese nombre'}), 400
+    return jsonify({'success': True, 'item': _serialize_lost_reason(row)}), 201
+
+
+@crm_api_bp.route('/lost-reasons/<int:reason_id>', methods=['PATCH'])
+@login_required
+def crm_lost_reasons_patch(reason_id):
+    _ensure_tables()
+    org_id = _org_id_from_request()
+    if org_id is None:
+        return jsonify({'success': False, 'error': 'Organización no definida'}), 400
+    row = CrmLostReason.query.filter_by(organization_id=org_id, id=reason_id).first()
+    if row is None:
+        return jsonify({'success': False, 'error': 'No encontrado'}), 404
+    data = request.get_json(silent=True) or {}
+    if 'name' in data:
+        row.name = (data.get('name') or '').strip() or row.name
+    if 'active' in data:
+        row.active = bool(data.get('active'))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Ya existe un motivo con ese nombre'}), 400
+    return jsonify({'success': True, 'item': _serialize_lost_reason(row)})
+
+
+@crm_api_bp.route('/activity-types', methods=['GET'])
+@login_required
+def crm_activity_types_list():
+    _ensure_tables()
+    org_id = _org_id_from_request()
+    if org_id is None:
+        return jsonify({'success': False, 'error': 'Organización no definida'}), 400
+    _ensure_default_activity_types(org_id)
+    rows = CrmActivityType.query.filter_by(organization_id=org_id).order_by(
+        CrmActivityType.sequence.asc(), CrmActivityType.id.asc()
+    ).all()
+    return jsonify({'success': True, 'items': [_serialize_activity_type(x) for x in rows]})
+
+
+@crm_api_bp.route('/activity-types', methods=['POST'])
+@login_required
+def crm_activity_types_post():
+    _ensure_tables()
+    org_id = _org_id_from_request()
+    if org_id is None:
+        return jsonify({'success': False, 'error': 'Organización no definida'}), 400
+    _ensure_default_activity_types(org_id)
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip().lower()
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'name es obligatorio'}), 400
+    if not code or not _ACTIVITY_CODE_RE.match(code):
+        return jsonify({
+            'success': False,
+            'error': 'code inválido (minúsculas, letras/números/guion bajo, máx. 20)',
+        }), 400
+    row = CrmActivityType(
+        organization_id=org_id,
+        code=code,
+        name=name,
+        sequence=int(data.get('sequence') or 10),
+        active=bool(data.get('active', True)),
+    )
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Ya existe un tipo con ese código'}), 400
+    return jsonify({'success': True, 'item': _serialize_activity_type(row)}), 201
+
+
+@crm_api_bp.route('/activity-types/<int:type_id>', methods=['PATCH'])
+@login_required
+def crm_activity_types_patch(type_id):
+    _ensure_tables()
+    org_id = _org_id_from_request()
+    if org_id is None:
+        return jsonify({'success': False, 'error': 'Organización no definida'}), 400
+    row = CrmActivityType.query.filter_by(organization_id=org_id, id=type_id).first()
+    if row is None:
+        return jsonify({'success': False, 'error': 'No encontrado'}), 404
+    data = request.get_json(silent=True) or {}
+    if 'name' in data:
+        row.name = (data.get('name') or '').strip() or row.name
+    if 'active' in data:
+        row.active = bool(data.get('active'))
+    if 'sequence' in data and data.get('sequence') is not None:
+        row.sequence = int(data.get('sequence'))
+    db.session.commit()
+    return jsonify({'success': True, 'item': _serialize_activity_type(row)})

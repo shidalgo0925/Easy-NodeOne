@@ -1,5 +1,5 @@
 /**
- * Tour guiado para usuarios comunes de RELATIC Panamá
+ * Tour guiado para usuarios comunes de Easy NodeOne
  * Usa Intro.js para explicar las funcionalidades del sistema
  */
 
@@ -10,7 +10,7 @@
     const userTourSteps = [
         {
             element: '#left-panel',
-            intro: '<h3>¡Bienvenido a RELATIC Panamá!</h3><p>Este tour interactivo te enseñará cómo usar todas las funciones del sistema paso a paso.</p><p><strong>💡 Tip:</strong> Puedes iniciar este tour en cualquier momento desde el icono <i class="fas fa-route"></i> en el menú superior.</p><div class="mt-3"><label class="d-flex align-items-center"><input type="checkbox" id="dontShowTourAgain" class="me-2"> <span>No mostrar más este tour</span></label></div>',
+            intro: '<h3>¡Bienvenido a Easy NodeOne!</h3><p>Este tour interactivo te enseñará cómo usar todas las funciones del sistema paso a paso.</p><p><strong>💡 Tip:</strong> Puedes iniciar este tour en cualquier momento desde el icono <i class="fas fa-route"></i> en el menú superior.</p><div class="mt-3"><label class="d-flex align-items-center"><input type="checkbox" id="dontShowTourAgain" class="me-2"> <span>No mostrar más este tour</span></label></div>',
             position: 'right'
         },
         {
@@ -106,7 +106,7 @@
                 if (targetElement && targetElement.querySelector('#dontShowTourAgain')) {
                     const checkbox = targetElement.querySelector('#dontShowTourAgain');
                     if (checkbox && checkbox.checked) {
-                        localStorage.setItem('relatic_tour_user_dont_show', 'true');
+                        localStorage.setItem('nodeone_tour_user_dont_show', 'true');
                     }
                 }
             })
@@ -114,18 +114,18 @@
                 // Verificar si el usuario marcó "no mostrar más"
                 const checkbox = document.querySelector('#dontShowTourAgain');
                 if (checkbox && checkbox.checked) {
-                    localStorage.setItem('relatic_tour_user_dont_show', 'true');
+                    localStorage.setItem('nodeone_tour_user_dont_show', 'true');
                 }
                 
                 // Marcar el tour como completado
-                localStorage.setItem('relatic_tour_user_completed', 'true');
+                localStorage.setItem('nodeone_tour_user_completed', 'true');
                 showTourCompletionMessage();
             })
             .onexit(function() {
                 // Verificar si el usuario marcó "no mostrar más" al salir
                 const checkbox = document.querySelector('#dontShowTourAgain');
                 if (checkbox && checkbox.checked) {
-                    localStorage.setItem('relatic_tour_user_dont_show', 'true');
+                    localStorage.setItem('nodeone_tour_user_dont_show', 'true');
                 }
                 // Si el usuario sale del tour, no marcarlo como completado
                 // para que pueda iniciarlo de nuevo desde el menú de ayuda

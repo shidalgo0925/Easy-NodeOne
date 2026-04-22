@@ -19,6 +19,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from nodeone.services.communication_dispatch import request_base_url_optional
 from nodeone.modules.appointments.services import (
     appt_platform_admin as _svc_appt_platform_admin,
     appointment_types_scoped_query as _svc_appointment_types_scoped_query,
@@ -514,6 +515,15 @@ def request_appointment():
         advisor_user = User.query.get(advisor_user_id) if advisor_user_id else None
         if advisor_user:
             NotificationEngine.notify_appointment_new_to_advisor(appointment, current_user, advisor_user, service)
+            try:
+                from nodeone.services.communication_dispatch import dispatch_appointment_new_to_advisor
+
+                bu = request_base_url_optional()
+                dispatch_appointment_new_to_advisor(
+                    appointment, current_user, advisor_user, service, bu
+                )
+            except Exception:
+                pass
     except Exception as e:
         import traceback
         print(f"⚠️ Error enviando notificación/email al asesor por nueva solicitud: {e}")
@@ -602,6 +612,15 @@ def confirm_appointment(appointment_id):
         client_user = User.query.get(appointment.user_id)
         if client_user and advisor and advisor.user:
             NotificationEngine.notify_appointment_confirmation(appointment, client_user, advisor.user)
+            try:
+                from nodeone.services.communication_dispatch import dispatch_appointment_confirmation_member
+
+                bu = request_base_url_optional()
+                dispatch_appointment_confirmation_member(
+                    appointment, client_user, advisor.user, bu
+                )
+            except Exception:
+                pass
     except Exception as e:
         import traceback
         print(f"⚠️ Error enviando email de confirmación al cliente: {e}")
@@ -822,6 +841,19 @@ def cancel_appointment(appointment_id):
                 cancellation_reason=appointment.cancellation_reason,
                 cancelled_by=appointment.cancelled_by or 'member',
             )
+            try:
+                from nodeone.services.communication_dispatch import dispatch_appointment_cancellation_member
+
+                bu = request_base_url_optional()
+                dispatch_appointment_cancellation_member(
+                    appointment,
+                    client_user,
+                    bu,
+                    reason=appointment.cancellation_reason,
+                    cancelled_by=appointment.cancelled_by or 'member',
+                )
+            except Exception:
+                pass
     except Exception as _e:
         print(f'⚠️ notify_appointment_cancelled (miembro): {_e}')
 
@@ -836,7 +868,14 @@ def cancel_appointment(appointment_id):
 @admin_required
 def admin_appointments_dashboard():
     ensure_models()
-    types = _appointment_types_scoped_query().order_by(AppointmentType.display_order.asc()).all()
+    from utils.organization import get_admin_effective_organization_id
+
+    _oid = get_admin_effective_organization_id()
+    types = (
+        AppointmentType.query.filter_by(organization_id=_oid)
+        .order_by(AppointmentType.display_order.asc())
+        .all()
+    )
     advisors = _advisors_scoped_query().order_by(Advisor.created_at.desc()).all()
     upcoming = _slot_queryset().limit(15).all()
     waiting_confirmation = _appointments_scoped_query().filter(
@@ -883,6 +922,26 @@ def admin_confirm_appointment(appointment_id):
         request
     )
 
+    try:
+        from app import NotificationEngine, User
+
+        client_user = User.query.get(appointment.user_id)
+        advisor_row = Advisor.query.get(appointment.advisor_id) if appointment.advisor_id else None
+        advisor_user = advisor_row.user if advisor_row and getattr(advisor_row, 'user', None) else None
+        if client_user and advisor_user:
+            NotificationEngine.notify_appointment_confirmation(appointment, client_user, advisor_user)
+            try:
+                from nodeone.services.communication_dispatch import dispatch_appointment_confirmation_member
+
+                bu = request_base_url_optional()
+                dispatch_appointment_confirmation_member(
+                    appointment, client_user, advisor_user, bu
+                )
+            except Exception:
+                pass
+    except Exception as _e:
+        print(f'⚠️ admin_confirm_appointment notificación: {_e}')
+
     flash('La cita fue confirmada y se notificará al miembro.', 'success')
     return redirect(url_for('admin_appointments.admin_appointments_dashboard'))
 
@@ -926,6 +985,19 @@ def admin_cancel_appointment(appointment_id):
                 cancellation_reason=appointment.cancellation_reason,
                 cancelled_by='admin',
             )
+            try:
+                from nodeone.services.communication_dispatch import dispatch_appointment_cancellation_member
+
+                bu = request_base_url_optional()
+                dispatch_appointment_cancellation_member(
+                    appointment,
+                    client_user,
+                    bu,
+                    reason=appointment.cancellation_reason,
+                    cancelled_by='admin',
+                )
+            except Exception:
+                pass
     except Exception as _e:
         print(f'⚠️ notify_appointment_cancelled (admin): {_e}')
 
@@ -1286,12 +1358,34 @@ def list_service_availability():
         if key not in availability_map:
             availability_map[key] = []
         availability_map[key].append(av)
-    
+
+    # Solo pares con asignación activa (AppointmentAdvisor); evita filas engañosas asesor×tipo sin vínculo.
+    advisor_ids = [a.id for a in advisors]
+    type_ids = [t.id for t in appointment_types]
+    assigned_pairs = []
+    if advisor_ids and type_ids:
+        adv_by_id = {a.id: a for a in advisors}
+        type_by_id = {t.id: t for t in appointment_types}
+        for aa in (
+            AppointmentAdvisor.query.filter(
+                AppointmentAdvisor.is_active == True,
+                AppointmentAdvisor.advisor_id.in_(advisor_ids),
+                AppointmentAdvisor.appointment_type_id.in_(type_ids),
+            )
+            .order_by(AppointmentAdvisor.appointment_type_id, AppointmentAdvisor.advisor_id)
+            .all()
+        ):
+            adv = adv_by_id.get(aa.advisor_id)
+            at = type_by_id.get(aa.appointment_type_id)
+            if adv and at:
+                assigned_pairs.append((adv, at))
+
     return render_template(
         'admin/appointments/service_availability.html',
         appointment_types=appointment_types,
         advisors=advisors,
         availability_map=availability_map,
+        assigned_pairs=assigned_pairs,
     )
 
 
@@ -1468,22 +1562,74 @@ def generate_slots_from_service_availability(advisor_id, appointment_type_id):
 def calendar_view():
     """Vista de calendario visual para configurar disponibilidad (Servicio + Asesor + Hora)"""
     ensure_models()
-    
-    from app import _catalog_org_for_admin_catalog_routes
-    _coid = int(_catalog_org_for_admin_catalog_routes())
+    from utils.organization import get_admin_effective_organization_id
+
+    # Misma org que el resto del admin de citas (evita lista vacía si sesión difiere de efectiva).
+    _coid = int(get_admin_effective_organization_id())
     services = Service.query.filter(
         Service.organization_id == _coid,
         Service.is_active == True,
         Service.appointment_type_id.isnot(None)
     ).order_by(Service.display_order, Service.name).all()
-    
-    # Obtener asesores activos (tenant / plataforma)
+
+    services_missing_appointment_type = Service.query.filter(
+        Service.organization_id == _coid,
+        Service.is_active == True,
+        Service.appointment_type_id.is_(None),
+    ).order_by(Service.display_order, Service.name).limit(50).all()
+
+    # Asesores por servicio (solo los asignados al tipo de cita; coincide con validación al guardar).
+    from collections import defaultdict
+
+    from nodeone.services.user_organization import user_in_org_clause
+
+    type_ids = list({s.appointment_type_id for s in services if s.appointment_type_id})
+    by_type_id = defaultdict(list)
+    if type_ids:
+        seen_pairs = set()
+        for aa in (
+            AppointmentAdvisor.query.filter(
+                AppointmentAdvisor.appointment_type_id.in_(type_ids),
+                AppointmentAdvisor.is_active == True,
+            )
+            .join(Advisor, AppointmentAdvisor.advisor_id == Advisor.id)
+            .filter(Advisor.is_active == True)
+            .join(User, Advisor.user_id == User.id)
+            .filter(user_in_org_clause(User, _coid))
+            .all()
+        ):
+            adv = aa.advisor
+            if not adv or not getattr(adv, 'user', None):
+                continue
+            pair = (aa.appointment_type_id, adv.id)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            by_type_id[aa.appointment_type_id].append(adv)
+
+    advisors_by_service_json = {}
+    for s in services:
+        tid = s.appointment_type_id
+        if not tid:
+            continue
+        advisors_by_service_json[str(s.id)] = [
+            {
+                'id': adv.id,
+                'name': (
+                    f'{adv.user.first_name or ""} {adv.user.last_name or ""}'.strip() or f'Asesor #{adv.id}'
+                ),
+            }
+            for adv in by_type_id.get(tid, [])
+        ]
+
     advisors = _advisors_scoped_query().filter_by(is_active=True).order_by(Advisor.created_at.desc()).all()
 
     return render_template(
         'admin/appointments/calendar.html',
         services=services,
+        services_missing_appointment_type=services_missing_appointment_type,
         advisors=advisors,
+        advisors_by_service_json=advisors_by_service_json,
     )
 
 
@@ -2098,12 +2244,17 @@ def api_admin_availability():
 @appointments_http_legacy_bp.route('/api/admin/appointment-types', methods=['GET'])
 @admin_required
 def admin_appointment_types_list():
-    """Lista de tipos de cita (admin)."""
+    """Lista de tipos de cita (activos) para la misma org que /admin/services (selector/sesión)."""
     ensure_models()
     try:
-        appointment_types = AppointmentType.query.order_by(
-            AppointmentType.display_order, AppointmentType.name
-        ).all()
+        from utils.organization import get_admin_effective_organization_id
+
+        _oid = get_admin_effective_organization_id()
+        appointment_types = (
+            AppointmentType.query.filter_by(organization_id=_oid, is_active=True)
+            .order_by(AppointmentType.display_order, AppointmentType.name)
+            .all()
+        )
         types_list = [
             {
                 'id': at.id,

@@ -1,5 +1,5 @@
 # NodeOne Backend — Endpoints actuales (Prioridad 1 - Congelado)
-# Puerto: 9001 | Base: nodeone.db | Fecha inventario: refactor P1
+# Puerto: 9001 | Base: NodeOne.db | Fecha inventario: refactor P1
 
 === APP.PY (rutas directas) ===
 

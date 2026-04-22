@@ -78,6 +78,14 @@ try:
                         if subscription:
                             print(f"\n📧 Enviando notificación de membresía...")
                             NotificationEngine.notify_membership_payment(user, payment, subscription)
+                            try:
+                                from nodeone.services.communication_dispatch import (
+                                    dispatch_membership_payment_confirmation,
+                                )
+
+                                dispatch_membership_payment_confirmation(user, payment, subscription)
+                            except Exception:
+                                pass
                             print(f"✅ Correo de confirmación enviado a {user.email}")
                 except Exception as e:
                     print(f"⚠️ Error enviando notificación: {e}")

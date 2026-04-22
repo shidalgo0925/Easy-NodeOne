@@ -1,16 +1,28 @@
 {% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
-{% block title %}Gestión de Servicios - RelaticPanama{% endblock %}
+{% block title %}Gestión de Servicios - Easy NodeOne{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid px-0">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center flex-wrap gap-2">
-                <h1 class="h5 mb-2 mb-md-0">
-                    <i class="fas fa-th-large"></i> Gestión de Servicios
-                </h1>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
+<div class="container-fluid px-0 services-catalog-page">
+    <div class="row mb-4 align-items-start">
+        <div class="col-12 col-lg-auto mb-3 mb-lg-0">
+            <h1 class="services-page-title mb-1">Servicios</h1>
+            <p class="text-muted small mb-0">Catálogo de tu organización. Buscá por nombre o descripción.</p>
+        </div>
+        <div class="col-12 col-lg ms-lg-auto">
+            <div class="d-flex flex-wrap gap-2 justify-content-lg-end align-items-center">
+                    {% if current_user.is_authenticated and current_user.has_permission('services.view') %}
+                    {# Rutas fijas: evitan BuildError en Jinja si el worker aún no tiene el blueprint actualizado. #}
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Exportar catálogo">
+                        <a href="/api/admin/services/export.csv" class="btn btn-outline-success" title="Exportar servicios CSV"><i class="fas fa-file-csv"></i> CSV</a>
+                        <a href="/api/admin/services/export.xlsx" class="btn btn-outline-success" title="Exportar servicios Excel"><i class="fas fa-file-excel"></i> Excel</a>
+                        <a href="/api/admin/services/import-template.csv" class="btn btn-outline-secondary" title="Plantilla para importar"><i class="fas fa-file-download"></i> Plantilla</a>
+                    </div>
+                    {% endif %}
+                    {% if current_user.is_admin %}
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importServicesModal" title="Importar desde CSV o XLSX"><i class="fas fa-file-upload"></i> Importar</button>
+                    {% endif %}
                     {% if current_user.has_permission('reports.export') %}
                     <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
                     <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
@@ -43,10 +55,11 @@
                             <p class="mb-2 fw-semibold text-body">¿Qué es esta pantalla?</p>
                             <p class="mb-2">Acá administrás el <strong>catálogo de servicios</strong> que ofrece tu organización: nombre, descripción, precio, planes, si requiere <strong>cita</strong>, tipo (consultivo / agendable) y asesores.</p>
                             <ul class="mb-2 ps-3">
-                                <li><strong>Nuevo servicio</strong>: botón superior; podés editar desde la tabla.</li>
-                                <li><strong>Filtros</strong>: estado y búsqueda por nombre.</li>
-                                <li><strong>Citas</strong>: si el servicio requiere cita, enlazá tipos de cita y agenda desde <strong>Citas</strong> o la columna Asesores.</li>
+                                <li><strong>Nuevo servicio</strong>: botón superior; podés editar desde cada tarjeta (lápiz).</li>
+                                <li><strong>Filtros</strong>: estado y búsqueda por nombre o descripción.</li>
+                                <li><strong>Citas</strong>: si el servicio requiere cita, enlazá tipos de cita y agenda desde <strong>Citas</strong> o el enlace Asesores en la tarjeta.</li>
                                 <li><strong>Multi-tenant</strong>: si el catálogo va por empresa, el contexto de organización aplica a este listado.</li>
+                                <li><strong>Importar / exportar</strong>: CSV o Excel con las mismas columnas; sin <code>id</code> se crean filas; con <code>id</code> de esta organización se actualizan. Categoría por nombre (<code>category_name</code>). Solo administradores pueden importar.</li>
                             </ul>
                             <p class="mb-0 fw-semibold text-body">Categorías</p>
                             <p class="mb-0 mt-1">Para agrupar en el sitio, usá <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}">Categorías servicios</a>.</p>
@@ -57,31 +70,32 @@
         </div>
     </div>
 
-    <!-- Filtros en una línea -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-2">
-            <div class="w-100 mobile-scroll-x pb-1">
-            <form method="GET" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
-                <div class="flex-shrink-0">
-                    <label class="form-label form-label-sm mb-0">Estado</label>
-                    <select name="status" class="form-select form-select-sm" style="width:120px">
-                        <option value="all" {% if current_status == 'all' %}selected{% endif %}>Todos</option>
-                        <option value="active" {% if current_status == 'active' %}selected{% endif %}>Activos</option>
-                        <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactivos</option>
-                    </select>
+    {% set svc_filters_open = (search or '')|trim|length > 0 or (current_status|default('all') != 'all') %}
+    <!-- Búsqueda + filtros (colapsable) -->
+    {% call admin_filter_collapse('adminFiltersServiciosCatalogo', 'Filtros de búsqueda', expanded=svc_filters_open, margin_class='mb-4') %}
+            <form method="GET" class="d-flex flex-column flex-lg-row gap-3 align-items-stretch align-items-lg-end">
+                <div class="flex-grow-1 services-search-shell">
+                    <label class="form-label small text-muted mb-1" for="svcSearchInput">Buscar</label>
+                    <div class="services-search-wrap">
+                        <i class="fas fa-search search-icon" aria-hidden="true"></i>
+                        <input type="search" id="svcSearchInput" name="search" class="form-control services-search-input"
+                               value="{{ search }}" placeholder="Nombre o descripción…" autocomplete="off">
+                    </div>
                 </div>
-                <div class="flex-shrink-0">
-                    <label class="form-label form-label-sm mb-0">Buscar</label>
-                    <input type="text" name="search" class="form-control form-control-sm" value="{{ search }}" placeholder="Nombre..." style="width:160px">
-                </div>
-                <div class="flex-shrink-0">
-                    <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter me-1"></i> Filtrar</button>
-                    <a href="{{ url_for('admin_services_catalog.admin_services') }}" class="btn btn-sm btn-outline-secondary ms-1"><i class="fas fa-times"></i> Limpiar</a>
+                <div class="d-flex flex-wrap gap-2 align-items-end">
+                    <div>
+                        <label class="form-label small text-muted mb-1" for="svcStatusSelect">Estado</label>
+                        <select name="status" id="svcStatusSelect" class="form-select form-select-sm" style="min-width:9rem">
+                            <option value="all" {% if current_status == 'all' %}selected{% endif %}>Todos</option>
+                            <option value="active" {% if current_status == 'active' %}selected{% endif %}>Activos</option>
+                            <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactivos</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary px-3"><i class="fas fa-search me-1"></i> Buscar</button>
+                    <a href="{{ url_for('admin_services_catalog.admin_services') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i> Limpiar</a>
                 </div>
             </form>
-            </div>
-        </div>
-    </div>
+    {% endcall %}
 
     <div class="row mb-3">
         <div class="col-12">
@@ -97,103 +111,63 @@
     <!-- Lista de Servicios -->
     <div class="row">
         <div class="col-12">
-            <p class="text-muted small mb-2">Servicios que requieren cita tienen tipo de cita. Para que los usuarios puedan elegir asesor al solicitar cita, usa la columna <strong>Asesores → Gestionar</strong> o <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Citas → Servicios configurados</a>.</p>
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-list"></i> Servicios del Catálogo</h5>
-                </div>
-                <div class="card-body">
+            <p class="text-muted small mb-3">Los que requieren cita muestran el tipo de flujo. Para <strong>asesores</strong>, usá <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Citas → Servicios configurados</a> o editá el servicio.</p>
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3 p-md-4">
                     {% if services %}
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Orden</th>
-                                    <th>Icono</th>
-                                    <th>Nombre</th>
-                                    <th>Categoría</th>
-                                    <th>Descripción</th>
-                                    <th>Planes</th>
-                                    <th>Precio</th>
-                                    <th>Cita</th>
-                                    <th>Tipo</th>
-                                    <th>Asesores</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for service in services %}
-                                <tr>
-                                    <td>{{ service.display_order }}</td>
-                                    <td><i class="{{ service.icon or 'fas fa-cog' }}"></i></td>
-                                    <td><strong>{{ service.name }}</strong></td>
-                                    <td>{% if service.category %}<span class="badge bg-secondary">{{ service.category.name }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                                    <td>{{ service.description[:50] }}{% if service.description|length > 50 %}...{% endif %}</td>
-                                    <td>
-                                        {% set pricing_rules = service.pricing_rules|selectattr("is_active")|list %}
-                                        {% if pricing_rules %}
-                                            {% for rule in pricing_rules %}
-                                            <span class="badge bg-info me-1">{{ rule.membership_type|upper }}</span>
-                                            {% endfor %}
-                                        {% else %}
-                                            <span class="badge bg-secondary">{{ service.membership_type|upper }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>${{ "%.2f"|format(service.base_price) }}</td>
-                                    <td>
-                                        {% if service.requires_appointment() %}
-                                        <span class="badge bg-info" title="Requiere cita">
-                                            <i class="fas fa-calendar-check"></i> Sí
-                                        </span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">No</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if service.requires_appointment() %}
-                                        <span class="badge {{ 'bg-warning text-dark' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'bg-primary' }}" title="{{ 'Solicitar primera reunión' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'Solicitar cita (calendario)' }}">{{ service.service_type or 'AGENDABLE' }}</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">—</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if service.appointment_type_id %}
-                                        <a href="{{ url_for('admin_appointments.edit_appointment_type', type_id=service.appointment_type_id) }}" class="btn btn-sm btn-outline-secondary" title="Asignar o quitar asesores para este servicio de cita">
-                                            <i class="fas fa-user-tie me-1"></i>Gestionar
-                                        </a>
-                                        {% else %}
-                                        <span class="text-muted small">—</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if service.is_active %}
-                                        <span class="badge bg-success">Activo</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">Inactivo</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-primary" onclick="editService({{ service.id }})" title="Editar">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="btn btn-outline-info" onclick="duplicateService({{ service.id }}, '{{ service.name }}')" title="Duplicar">
-                                                <i class="fas fa-copy"></i>
-                                            </button>
-                                            <button class="btn btn-outline-danger" onclick="deleteService({{ service.id }}, '{{ service.name }}')" title="Eliminar">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="services-card-grid" id="servicesCardGrid">
+                        {% for service in services %}
+                        <article class="service-template-card" aria-labelledby="svc-title-{{ service.id }}">
+                            <div class="service-card-top">
+                                <div class="service-card-icon" aria-hidden="true">
+                                    <i class="{{ service.icon or 'fas fa-layer-group' }}"></i>
+                                </div>
+                                <div class="service-card-actions">
+                                    <button type="button" class="service-card-icon-btn" data-svc-edit="{{ service.id }}" title="Editar servicio" aria-label="Editar {{ service.name | e }}">
+                                        <i class="fas fa-pen fa-sm"></i>
+                                    </button>
+                                    <button type="button" class="service-card-icon-btn" data-svc-dup="{{ service.id }}" data-svc-name="{{ service.name | e }}" title="Duplicar" aria-label="Duplicar {{ service.name | e }}">
+                                        <i class="fas fa-copy fa-sm"></i>
+                                    </button>
+                                    <button type="button" class="service-card-icon-btn text-danger" data-svc-del="{{ service.id }}" data-svc-name="{{ service.name | e }}" title="Eliminar" aria-label="Eliminar {{ service.name | e }}">
+                                        <i class="fas fa-trash-alt fa-sm"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h2 class="service-card-title" id="svc-title-{{ service.id }}">{{ service.name }}</h2>
+                            <p class="service-card-desc">{% if service.description %}{{ service.description }}{% else %}Sin descripción. Usá editar para añadir una.{% endif %}</p>
+                            <div class="service-card-meta">
+                                {% if service.is_active %}
+                                <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                                {% if service.category %}
+                                <span class="badge bg-secondary">{{ service.category.name }}</span>
+                                {% endif %}
+                                {% set pricing_rules = service.pricing_rules|selectattr("is_active")|list %}
+                                {% if pricing_rules %}
+                                    {% for rule in pricing_rules %}
+                                    <span class="badge bg-info text-dark">{{ rule.membership_type|upper }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="badge bg-light text-dark border">{{ service.membership_type|upper }}</span>
+                                {% endif %}
+                                <span class="service-card-price">${{ "%.2f"|format(service.base_price) }}</span>
+                                {% if service.requires_appointment() %}
+                                <span class="badge bg-info text-dark"><i class="fas fa-calendar-check me-1"></i>Cita</span>
+                                <span class="badge {{ 'bg-warning text-dark' if (service.service_type or 'AGENDABLE') == 'CONSULTIVO' else 'bg-primary' }}">{{ service.service_type or 'AGENDABLE' }}</span>
+                                {% endif %}
+                                {% if service.appointment_type_id %}
+                                <a href="{{ url_for('admin_appointments.edit_appointment_type', type_id=service.appointment_type_id) }}" class="badge text-decoration-none bg-light text-dark border" title="Gestionar asesores">Asesores</a>
+                                {% endif %}
+                            </div>
+                        </article>
+                        {% endfor %}
                     </div>
                     {% else %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> No hay servicios registrados. Crea el primero usando el botón de arriba.
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-1"></i> No hay servicios registrados. Creá el primero con <strong>Crear Servicio</strong>.
                     </div>
                     {% endif %}
                 </div>
@@ -328,6 +302,10 @@
                             <option value="">Selecciona un tipo de cita</option>
                         </select>
                         <small class="text-muted">Selecciona el tipo de cita que se requiere para este servicio</small>
+                        <div id="appointmentTypesEmptyHelp" class="alert alert-warning d-none mt-2 mb-0 py-2 small" role="alert">
+                            No hay tipos de cita <strong>activos</strong> para la organización actual (misma que el selector de empresa).
+                            Créalos en <a href="{{ url_for('admin_appointments.create_appointment_type') }}" target="_blank" rel="noopener">Citas → Nuevo servicio</a>, luego vuelve aquí y abre de nuevo el modal.
+                        </div>
                     </div>
                     <div class="mb-3" id="serviceTypeContainer" style="display: none;">
                         <label for="serviceType" class="form-label">Tipo de flujo</label>
@@ -347,8 +325,61 @@
     </div>
 </div>
 
+{% if current_user.is_admin %}
+<div class="modal fade" id="importServicesModal" tabindex="-1" aria-labelledby="importServicesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importServicesModalLabel"><i class="fas fa-file-upload me-2"></i>Importar servicios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Archivo <strong>.csv</strong> o <strong>.xlsx</strong> con la misma cabecera que la plantilla o un export. Respeta la <strong>organización activa</strong> del selector de empresa.</p>
+                <div class="mb-3">
+                    <label for="importServicesFile" class="form-label">Archivo</label>
+                    <input type="file" class="form-control" id="importServicesFile" accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
+                </div>
+                <div id="importServicesResult" class="small d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="importServicesSubmit"><i class="fas fa-upload me-1"></i>Importar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script>
 let editingServiceId = null;
+
+(function () {
+    var grid = document.getElementById('servicesCardGrid');
+    if (!grid) return;
+    grid.addEventListener('click', function (e) {
+        var t = e.target;
+        var editBtn = t.closest && t.closest('[data-svc-edit]');
+        if (editBtn) {
+            editService(parseInt(editBtn.getAttribute('data-svc-edit'), 10));
+            return;
+        }
+        var dupBtn = t.closest && t.closest('[data-svc-dup]');
+        if (dupBtn) {
+            duplicateService(
+                parseInt(dupBtn.getAttribute('data-svc-dup'), 10),
+                dupBtn.getAttribute('data-svc-name') || ''
+            );
+            return;
+        }
+        var delBtn = t.closest && t.closest('[data-svc-del]');
+        if (delBtn) {
+            deleteService(
+                parseInt(delBtn.getAttribute('data-svc-del'), 10),
+                delBtn.getAttribute('data-svc-name') || ''
+            );
+        }
+    });
+})();
 
 function editService(serviceId) {
     editingServiceId = serviceId;
@@ -637,6 +668,14 @@ function loadAppointmentTypes() {
                 if (currentValue) {
                     select.value = currentValue;
                 }
+                const help = document.getElementById('appointmentTypesEmptyHelp');
+                if (help) {
+                    if (data.appointment_types && data.appointment_types.length === 0) {
+                        help.classList.remove('d-none');
+                    } else {
+                        help.classList.add('d-none');
+                    }
+                }
             }
             return data;
         })
@@ -730,6 +769,58 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
             var url = pdfLink.getAttribute('href');
             if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
             window.open(url, '_blank');
+        });
+    }
+
+    var importBtn = document.getElementById('importServicesSubmit');
+    var importFile = document.getElementById('importServicesFile');
+    var importResult = document.getElementById('importServicesResult');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function () {
+            if (!importFile.files || !importFile.files[0]) {
+                alert('Elegí un archivo CSV o XLSX.');
+                return;
+            }
+            importBtn.disabled = true;
+            if (importResult) {
+                importResult.classList.add('d-none');
+                importResult.textContent = '';
+                importResult.className = 'small d-none';
+            }
+            var fd = new FormData();
+            fd.append('file', importFile.files[0]);
+            fetch('/api/admin/services/import', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, json: j }; }); })
+                .then(function (res) {
+                    importBtn.disabled = false;
+                    if (!importResult) return;
+                    importResult.classList.remove('d-none');
+                    if (res.ok && res.json.success) {
+                        importResult.classList.add('alert', 'alert-success');
+                        importResult.textContent = res.json.message || 'Listo.';
+                        setTimeout(function () { window.location.reload(); }, 1200);
+                    } else {
+                        importResult.classList.add('alert', 'alert-danger');
+                        var msg = (res.json && res.json.error) ? res.json.error : 'Error al importar';
+                        if (res.json && res.json.details && res.json.details.length) {
+                            msg += ' — fila ' + res.json.details[0].row + ': ' + res.json.details[0].message;
+                            if (res.json.details.length > 1) msg += ' (y ' + (res.json.details.length - 1) + ' más)';
+                        }
+                        importResult.textContent = msg;
+                    }
+                })
+                .catch(function () {
+                    importBtn.disabled = false;
+                    if (importResult) {
+                        importResult.classList.remove('d-none');
+                        importResult.classList.add('alert', 'alert-danger');
+                        importResult.textContent = 'Error de red o respuesta inválida.';
+                    }
+                });
         });
     }
 </script>

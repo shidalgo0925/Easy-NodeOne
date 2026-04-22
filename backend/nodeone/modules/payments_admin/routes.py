@@ -13,9 +13,11 @@ payments_admin_bp = Blueprint('payments_admin', __name__)
 
 
 def _payment_in_admin_scope_or_403(M, payment):
+    from nodeone.services.user_organization import user_has_active_membership
+
     scope_oid = M.admin_data_scope_organization_id()
     user = M.User.query.get(payment.user_id) if payment else None
-    if not user or int(getattr(user, 'organization_id', 0) or 0) != int(scope_oid):
+    if not user or not user_has_active_membership(user, int(scope_oid)):
         return None
     return user
 
@@ -28,8 +30,10 @@ def _admin_scope_user_ids_only_safe(M):
     helper = getattr(M, '_admin_scope_user_ids_only', None)
     if callable(helper):
         return helper()
+    from nodeone.services.user_organization import user_ids_query_in_organization
+
     scope_oid = M.admin_data_scope_organization_id()
-    q = M.db.session.query(M.User.id).filter(M.User.organization_id == scope_oid)
+    q = user_ids_query_in_organization(scope_oid)
     try:
         can_view_users = bool(getattr(current_user, 'is_admin', False) or current_user.has_permission('users.view'))
     except Exception:
@@ -120,6 +124,14 @@ def api_approve_payment(payment_id):
                 subscription = M.Subscription.query.filter_by(payment_id=payment.id).first()
                 if subscription:
                     M.NotificationEngine.notify_membership_payment(user, payment, subscription)
+                    try:
+                        from nodeone.services.communication_dispatch import (
+                            dispatch_membership_payment_confirmation,
+                        )
+
+                        dispatch_membership_payment_confirmation(user, payment, subscription)
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
@@ -164,10 +176,10 @@ def api_reject_payment(payment_id):
                 <p>Lamentamos informarte que tu pago #{payment.id} ha sido rechazado.</p>
                 <p><strong>Razón:</strong> {admin_notes or 'No se pudo verificar el comprobante de pago'}</p>
                 <p>Por favor, verifica los datos de tu comprobante y vuelve a intentar.</p>
-                <p>Saludos,<br>Equipo RelaticPanama</p>
+                <p>Saludos,<br>Equipo Easy NodeOne</p>
                 """
                 M.email_service.send_email(
-                    subject='Pago Rechazado - RelaticPanama',
+                    subject='Pago Rechazado - Easy NodeOne',
                     recipients=[user.email],
                     html_content=html_content,
                     email_type='payment_rejected',

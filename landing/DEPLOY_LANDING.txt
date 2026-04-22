@@ -13,7 +13,7 @@ Paso 1 — Confirmar qué sirve Nginx (en el servidor)
 ---
 
 Paso 2 — Verificar que dist tiene los cambios (en el servidor)
-  cd /home/relaticpanama2025/workspace/NodeOne/landing
+  cd /var/www/nodeone/landing
   npm run build
   ls dist
   grep -o "Iniciar sesión\|Registrarse" dist/assets/*.js | head -5
@@ -24,10 +24,10 @@ Paso 2 — Verificar que dist tiene los cambios (en el servidor)
 
 Paso 3 — Copiar el build al root de Nginx (en el servidor)
   sudo rm -rf /var/www/easynodeone/*
-  sudo cp -r /home/relaticpanama2025/workspace/NodeOne/landing/dist/* /var/www/easynodeone/
+  sudo cp -r /var/www/nodeone/landing/dist/* /var/www/easynodeone/
 
   Si tienes /logos/ u otros assets fuera de dist, restáuralos o copia también:
-  sudo cp -r /home/relaticpanama2025/workspace/NodeOne/landing/public/logos /var/www/easynodeone/  # si aplica
+  sudo cp -r /var/www/nodeone/landing/public/logos /var/www/easynodeone/  # si aplica
 
   sudo nginx -t && sudo systemctl reload nginx
 

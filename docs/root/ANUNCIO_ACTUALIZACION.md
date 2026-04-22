@@ -62,4 +62,4 @@ Contacta a nuestro equipo de soporte o visita el Centro de Ayuda.
 
 ---
 
-*Gracias por ser parte de RELATIC Panamá*
+*Gracias por ser parte de Easy NodeOne*

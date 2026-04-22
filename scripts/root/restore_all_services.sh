@@ -17,16 +17,16 @@ if [ $? -ne 0 ]; then
 fi
 echo ""
 
-echo "3. Iniciando relatic-frontend (puerto 5173)..."
-sudo systemctl start relatic-frontend.service
+echo "3. Iniciando example-frontend (puerto 5173)..."
+sudo systemctl start example-frontend.service
 sleep 2
-sudo systemctl status relatic-frontend.service --no-pager -l | head -10
+sudo systemctl status example-frontend.service --no-pager -l | head -10
 echo ""
 
-echo "4. Iniciando membresia-relatic (puerto 9000)..."
-sudo systemctl start membresia-relatic.service
+echo "4. Iniciando nodeone (puerto 9000)..."
+sudo systemctl start nodeone.service
 sleep 2
-sudo systemctl status membresia-relatic.service --no-pager -l | head -10
+sudo systemctl status nodeone.service --no-pager -l | head -10
 echo ""
 
 echo "5. Recargando nginx..."
@@ -34,21 +34,21 @@ sudo systemctl reload nginx
 echo ""
 
 echo "6. Verificando puertos..."
-echo "Puerto 5173 (relatic-frontend):"
+echo "Puerto 5173 (example-frontend):"
 sudo ss -tlnp | grep :5173 || echo "❌ No está en uso"
 echo ""
-echo "Puerto 9000 (membresia-relatic):"
+echo "Puerto 9000 (nodeone):"
 sudo ss -tlnp | grep :9000 || echo "❌ No está en uso"
 echo ""
 
 echo "=========================================="
 echo "RESUMEN DE CONFIGURACIÓN:"
 echo "=========================================="
-echo "✅ dev.relatic.org → relatic-frontend (puerto 5173)"
-echo "✅ miembros.relatic.org → membresia-relatic (puerto 9000)"
+echo "✅ dev.app.example.com → example-frontend (puerto 5173)"
+echo "✅ app.example.com → nodeone (puerto 9000)"
 echo ""
 echo "Verificar servicios:"
-echo "  sudo systemctl status relatic-frontend.service"
-echo "  sudo systemctl status membresia-relatic.service"
+echo "  sudo systemctl status example-frontend.service"
+echo "  sudo systemctl status nodeone.service"
 echo ""
 

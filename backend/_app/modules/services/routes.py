@@ -2,15 +2,22 @@
 from flask import Blueprint, request, redirect, url_for, flash, session, jsonify, render_template
 from flask_login import login_required, current_user
 
+from utils.organization import resolve_current_organization
+
 from . import service as svc
 
 services_bp = Blueprint('services', __name__, url_prefix='')
 
 
 @services_bp.route('/services')
-@login_required
 def list():
-    data = svc.get_services_page_data(current_user)
+    """
+    Catálogo: visible sin login (vitrina por tenant vía subdominio).
+    Solicitar cita sigue exigiendo sesión en las rutas correspondientes.
+    """
+    oid = resolve_current_organization()
+    user = current_user if getattr(current_user, 'is_authenticated', False) else None
+    data = svc.get_services_page_data(user, organization_id=oid)
     return render_template(
         'services.html',
         membership=data['membership'],
@@ -19,6 +26,7 @@ def list():
         categories=data['categories'],
         user_membership_type=data['user_membership_type'],
         membership_type=data['membership_type'],
+        plan_slugs_ordered=data['plan_slugs_ordered'],
     )
 
 
@@ -61,8 +69,9 @@ def request_appointment_submit(service_id):
         redirect_url, msg, category = err
         flash(msg, category)
         return redirect(redirect_url)
-    redirect_target, _, _ = result
-    flash('Servicio agregado al carrito exitosamente. Puedes continuar con el proceso de pago desde tu carrito.', 'success')
+    redirect_target, flash_msg, flash_category = result
+    if flash_msg:
+        flash(flash_msg, flash_category or 'success')
     return redirect(url_for(redirect_target))
 
 

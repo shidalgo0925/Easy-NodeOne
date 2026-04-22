@@ -155,6 +155,12 @@
                         <strong>Miembro desde:</strong>
                         <br>{{ current_user.created_at.strftime('%B %Y') }}
                     </div>
+                    {% if show_public_app_version %}
+                    <div class="mb-0 text-muted small border-top pt-3">
+                        <strong>Versión del sistema:</strong>
+                        <span class="text-body-secondary">{{ nodeone_app_version }}</span>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 

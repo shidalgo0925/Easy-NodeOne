@@ -13,13 +13,13 @@ static/videos/
 
 ```bash
 # Desde tu computadora local, ejecuta:
-scp ruta/a/tu/video.mp4 usuario@servidor:/home/relaticpanama2025/projects/membresia-relatic/static/videos/registro-usuarios.mp4
+scp ruta/a/tu/video.mp4 usuario@servidor:/var/www/nodeone/static/videos/registro-usuarios.mp4
 ```
 
 ### Opción 2: Usando SFTP
 
 1. Conecta con un cliente SFTP (FileZilla, WinSCP, etc.)
-2. Navega a: `/home/relaticpanama2025/projects/membresia-relatic/static/videos/`
+2. Navega a: `/var/www/nodeone/static/videos/`
 3. Sube tu archivo de video
 
 ### Opción 3: Desde el servidor directamente
@@ -28,7 +28,7 @@ Si ya tienes el video en el servidor:
 
 ```bash
 # Mover el video a esta carpeta
-mv /ruta/origen/video.mp4 /home/relaticpanama2025/projects/membresia-relatic/static/videos/registro-usuarios.mp4
+mv /ruta/origen/video.mp4 /var/www/nodeone/static/videos/registro-usuarios.mp4
 ```
 
 ## 📝 Video de Registro de Usuarios

@@ -1,5 +1,6 @@
 """Registro de rutas public auth/account en app (endpoints legacy)."""
 
+import os
 import secrets
 
 import app as M
@@ -9,9 +10,25 @@ def register_public_auth_legacy_routes(app):
     from datetime import datetime, timedelta
 
     from flask import flash, redirect, render_template, request, session, url_for
+    from nodeone.services.communication_dispatch import request_base_url_optional
     from flask_login import current_user, login_required, login_user, logout_user
 
     from app import db, Membership, SocialAuth, User, VALID_COUNTRIES, validate_cedula_or_passport, validate_country, validate_email_format
+
+    def _oauth_redirect_base() -> str:
+        """
+        URL pública para redirect_uri OAuth (debe coincidir con Google Console).
+        Si OAUTH_USE_REQUEST_BASE=1 y Nginx envía X-Forwarded-Proto / X-Forwarded-Host,
+        se usa el host con el que entró el usuario (varios subdominios, un solo silo).
+        Si no, se usa BASE_URL (un solo dominio público).
+        """
+        flag = (os.environ.get('OAUTH_USE_REQUEST_BASE') or '').strip().lower()
+        if flag in ('1', 'true', 'yes', 'on'):
+            proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or 'https').split(',')[0].strip()
+            host = (request.headers.get('X-Forwarded-Host') or request.host or '').split(',')[0].strip()
+            if host:
+                return f'{proto}://{host}'.rstrip('/')
+        return (os.environ.get('BASE_URL') or '').strip().rstrip('/')
 
     @app.route('/register', methods=['GET', 'POST'])
     def register():
@@ -28,34 +45,92 @@ def register_public_auth_legacy_routes(app):
             # Validar campos obligatorios
             if not email or not password or not first_name or not last_name:
                 flash('Todos los campos obligatorios deben ser completados.', 'error')
-                return render_template('register.html')
-        
+                return render_template(
+                    'register.html',
+                    valid_countries=VALID_COUNTRIES,
+                    invite_token=session.get('pending_invite_token'),
+                )
+
             # Validar país
             if country:
                 is_valid, error_message = validate_country(country)
                 if not is_valid:
                     flash(error_message, 'error')
-                    return render_template('register.html')
-        
+                    return render_template(
+                        'register.html',
+                        valid_countries=VALID_COUNTRIES,
+                        invite_token=session.get('pending_invite_token'),
+                    )
+
             # Validar cédula o pasaporte
             if cedula_or_passport:
                 is_valid, error_message = validate_cedula_or_passport(cedula_or_passport, country)
                 if not is_valid:
                     flash(error_message, 'error')
-                    return render_template('register.html')
+                    return render_template(
+                        'register.html',
+                        valid_countries=VALID_COUNTRIES,
+                        invite_token=session.get('pending_invite_token'),
+                    )
         
             # Validar formato de email
             is_valid, error_message = validate_email_format(email)
             if not is_valid:
                 flash(error_message, 'error')
-                return render_template('register.html')
-        
-            # Verificar si el usuario ya existe
-            if User.query.filter_by(email=email.lower()).first():
-                flash('El correo electrónico ya está registrado.', 'error')
-                return render_template('register.html')
-        
-            # Crear nuevo usuario (empresa: subdominio, form saas_organization_id o default)
+                return render_template(
+                    'register.html',
+                    valid_countries=VALID_COUNTRIES,
+                    invite_token=session.get('pending_invite_token'),
+                )
+
+            from nodeone.services.organization_invites import (
+                accept_invite_for_user,
+                get_valid_invite_by_token,
+                normalize_invite_email,
+            )
+            from nodeone.services.user_organization import ensure_membership, user_has_active_membership
+
+            invite_token = (request.form.get('invite_token') or '').strip() or (
+                session.get('pending_invite_token') or ''
+            ).strip()
+            invite = get_valid_invite_by_token(invite_token) if invite_token else None
+            if invite and normalize_invite_email(email) != invite.email:
+                flash('El correo debe coincidir con el de la invitación.', 'error')
+                return render_template(
+                    'register.html',
+                    valid_countries=VALID_COUNTRIES,
+                    invite_token=invite_token,
+                )
+            target_org_id = (
+                int(invite.organization_id) if invite else M._organization_id_for_public_registration()
+            )
+            existing = User.query.filter_by(email=email.lower()).first()
+            if existing:
+                if not existing.check_password(password):
+                    flash(
+                        'Este correo ya tiene cuenta. Indica la contraseña correcta para unirte a esta organización.',
+                        'error',
+                    )
+                    return render_template(
+                        'register.html',
+                        valid_countries=VALID_COUNTRIES,
+                        invite_token=invite_token,
+                    )
+                if user_has_active_membership(existing, target_org_id):
+                    flash('Tu cuenta ya está en esta organización. Inicia sesión.', 'info')
+                    session.pop('pending_invite_token', None)
+                    return redirect(url_for('auth.login'))
+                ensure_membership(existing.id, target_org_id)
+                if invite_token:
+                    inv2 = get_valid_invite_by_token(invite_token)
+                    if inv2 and normalize_invite_email(existing.email) == inv2.email:
+                        accept_invite_for_user(inv2, existing)
+                db.session.commit()
+                session.pop('pending_invite_token', None)
+                flash('Te has unido a esta organización. Inicia sesión con tu correo y contraseña.', 'success')
+                return redirect(url_for('auth.login'))
+
+            # Nuevo usuario (empresa: subdominio, form saas_organization_id o default)
             user = User(
                 email=email.lower(),
                 first_name=first_name,
@@ -63,13 +138,20 @@ def register_public_auth_legacy_routes(app):
                 phone=phone if phone else None,
                 country=country if country else None,
                 cedula_or_passport=cedula_or_passport if cedula_or_passport else None,
-                organization_id=M._organization_id_for_public_registration(),
+                organization_id=target_org_id,
             )
             user.set_password(password)
             user.email_verified = False
-        
+
             db.session.add(user)
-            db.session.commit()  # Commit inicial para obtener el ID del usuario
+            db.session.flush()
+            ensure_membership(user.id, int(user.organization_id))
+            if invite_token:
+                inv2 = get_valid_invite_by_token(invite_token)
+                if inv2 and normalize_invite_email(user.email) == inv2.email:
+                    accept_invite_for_user(inv2, user)
+            db.session.commit()
+            session.pop('pending_invite_token', None)
 
             # Asignar membresía básica al registrarse para que pueda emitir certificado de membresía desde el primer día
             try:
@@ -107,7 +189,7 @@ def register_public_auth_legacy_routes(app):
             # Automatización marketing: member_created
             try:
                 from _app.modules.marketing.service import trigger_automation
-                base_url = request.host_url.rstrip('/') if request else None
+                base_url = request_base_url_optional()
                 trigger_automation('member_created', user.id, base_url=base_url)
             except Exception:
                 pass
@@ -128,11 +210,31 @@ def register_public_auth_legacy_routes(app):
                 M.NotificationEngine.notify_welcome(user)
             except Exception as e:
                 print(f"❌ Error enviando notificación de bienvenida: {e}")
-        
+
+            try:
+                from nodeone.services.communication_dispatch import dispatch_member_created, dispatch_welcome
+
+                bu = request_base_url_optional()
+                dispatch_member_created(user.id, getattr(user, 'organization_id', None), bu)
+                dispatch_welcome(user, bu)
+            except Exception:
+                pass
+
             flash('Registro exitoso. Por favor, verifica tu email para acceder a todas las funciones. Revisa tu bandeja de entrada (y spam).', 'success')
             return redirect(url_for('auth.login'))
-    
-        return render_template('register.html', valid_countries=VALID_COUNTRIES)
+
+        it = (request.args.get('invite') or '').strip()
+        if it:
+            session['pending_invite_token'] = it
+        else:
+            # Sin ?invite= en esta visita: no arrastrar invitación vieja en sesión (bloqueaba
+            # registrar a otra persona con otro correo: "El correo debe coincidir…").
+            session.pop('pending_invite_token', None)
+        return render_template(
+            'register.html',
+            valid_countries=VALID_COUNTRIES,
+            invite_token=session.get('pending_invite_token'),
+        )
 
     @app.route('/verify-email/<token>')
     def verify_email(token):
@@ -234,6 +336,18 @@ def register_public_auth_legacy_routes(app):
         if not M.OAUTH_AVAILABLE or provider not in ('google',):
             flash('Login social no disponible para este proveedor.', 'error')
             return redirect(url_for('auth.login'))
+        oauth_err = request.args.get('error')
+        if oauth_err:
+            desc = (request.args.get('error_description') or '').replace('+', ' ')
+            flash(
+                (desc[:400] if desc else None)
+                or ('Acceso denegado o cancelado.' if oauth_err == 'access_denied' else f'OAuth: {oauth_err}'),
+                'error',
+            )
+            return redirect(url_for('auth.login'))
+        if not request.args.get('code'):
+            flash('Respuesta incompleta del proveedor (sin código). Reintenta o usa email y contraseña.', 'error')
+            return redirect(url_for('auth.login'))
         try:
             client = getattr(M.oauth, provider)
             token = client.authorize_access_token()
@@ -252,6 +366,19 @@ def register_public_auth_legacy_routes(app):
             given_name = userinfo.get('given_name') or name.split(None, 1)[0] if name else ''
             family_name = userinfo.get('family_name') or (name.split(None, 1)[1] if len(name.split(None, 1)) > 1 else '')
             provider_user_id = str(sub)
+            from nodeone.services.organization_invites import (
+                accept_invite_for_user,
+                get_valid_invite_by_token,
+                normalize_invite_email,
+            )
+            from nodeone.services.user_organization import ensure_membership
+
+            invite_tok = (session.get('pending_invite_token') or '').strip()
+            inv = get_valid_invite_by_token(invite_tok) if invite_tok else None
+            if inv and normalize_invite_email(email) != inv.email:
+                flash('Usa el mismo correo que recibió la invitación, o regístrate con email y contraseña.', 'error')
+                return redirect(url_for('register', invite=invite_tok))
+            reg_org = int(inv.organization_id) if inv else M._organization_id_for_public_registration()
             # Buscar por SocialAuth o por email
             social = SocialAuth.query.filter_by(provider=provider, provider_user_id=provider_user_id).first()
             if social:
@@ -266,7 +393,7 @@ def register_public_auth_legacy_routes(app):
                     phone=None,
                     country=None,
                     cedula_or_passport=None,
-                organization_id=M._organization_id_for_public_registration(),
+                    organization_id=reg_org,
                 )
                 user.set_password(secrets.token_urlsafe(32))
                 user.email_verified = True
@@ -274,13 +401,16 @@ def register_public_auth_legacy_routes(app):
                 db.session.flush()
                 link = SocialAuth(user_id=user.id, provider=provider, provider_user_id=provider_user_id)
                 db.session.add(link)
-                db.session.commit()
             else:
                 social_existing = SocialAuth.query.filter_by(user_id=user.id, provider=provider).first()
                 if not social_existing:
                     link = SocialAuth(user_id=user.id, provider=provider, provider_user_id=provider_user_id)
                     db.session.add(link)
-                    db.session.commit()
+            ensure_membership(user.id, reg_org)
+            if inv:
+                accept_invite_for_user(inv, user)
+            session.pop('pending_invite_token', None)
+            db.session.commit()
             if not user.is_active:
                 flash('Tu cuenta está desactivada.', 'error')
                 return redirect(url_for('auth.login'))
@@ -315,7 +445,19 @@ def register_public_auth_legacy_routes(app):
             import traceback
             traceback.print_exc()
             db.session.rollback()
-            flash('Error al iniciar sesión con el proveedor. Intenta de nuevo o usa email/contraseña.', 'error')
+            try:
+                from authlib.integrations.base_client.errors import MismatchingStateError as _MismatchingStateError
+            except ImportError:
+                _MismatchingStateError = None
+            if _MismatchingStateError is not None and isinstance(e, _MismatchingStateError):
+                flash(
+                    'La sesión de inicio con Google no coincidió (navegador o cookies). '
+                    'Cierra otras pestañas, borra cookies de este sitio o prueba en ventana privada; '
+                    'si sigue igual, revisa HTTPS y BASE_URL en el servidor.',
+                    'error',
+                )
+            else:
+                flash('Error al iniciar sesión con el proveedor. Intenta de nuevo o usa email/contraseña.', 'error')
             return redirect(url_for('auth.login'))
 
 
@@ -334,7 +476,11 @@ def register_public_auth_legacy_routes(app):
         n = safe_next_path(request.args.get('next'))
         if n:
             session['oauth_post_login_next'] = n
-        redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
+        base = _oauth_redirect_base()
+        if base:
+            redirect_uri = f'{base}/auth/{provider}/callback'
+        else:
+            redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
         return client.authorize_redirect(redirect_uri)
 
 
@@ -395,7 +541,7 @@ def register_public_auth_legacy_routes(app):
                         html_content = M.get_password_reset_email(user, reset_token, reset_url)
                         M.email_service.send_email(
                             to_email=user.email,
-                            subject='Restablecer Contraseña - RelaticPanama',
+                            subject='Restablecer Contraseña - Easy NodeOne',
                             html_content=html_content,
                             email_type='password_reset',
                             recipient_id=user.id,

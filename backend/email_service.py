@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Servicio de envío de correos electrónicos para RelaticPanama
+Servicio de envío de correos electrónicos para Easy NodeOne
 Maneja el envío de correos con reintentos y manejo de errores
 """
 
 import logging
+import mimetypes
 from flask_mail import Message
 from datetime import datetime
 from functools import wraps
@@ -32,8 +33,8 @@ class EmailService:
         self.retry_delay = retry_delay
     
     def send_email(self, subject, recipients, html_content, text_content=None, sender=None, reply_to=None,
-                   email_type=None, related_entity_type=None, related_entity_id=None, 
-                   recipient_id=None, recipient_name=None):
+                   email_type=None, related_entity_type=None, related_entity_id=None,
+                   recipient_id=None, recipient_name=None, attachments=None):
         """
         Enviar correo electrónico con reintentos automáticos y registro en EmailLog
         
@@ -48,6 +49,7 @@ class EmailService:
             related_entity_id: ID de la entidad relacionada
             recipient_id: ID del usuario destinatario (opcional)
             recipient_name: Nombre del destinatario (opcional)
+            attachments: Lista opcional de dicts {'filename': str, 'content_type': str, 'data': bytes}
         
         Returns:
             bool: True si se envió exitosamente, False en caso contrario
@@ -67,9 +69,9 @@ class EmailService:
         # Obtener remitente por defecto si no se especifica
         if not sender:
             if hasattr(self.mail, 'app') and self.mail.app is not None:
-                sender = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+                sender = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@example.com')
             else:
-                sender = 'noreply@relaticpanama.org'
+                sender = 'noreply@example.com'
         
         for attempt in range(self.max_retries):
             try:
@@ -81,6 +83,18 @@ class EmailService:
                     sender=sender,
                     reply_to=reply_to if isinstance(reply_to, list) else ([reply_to] if reply_to else None)
                 )
+                if attachments:
+                    for att in attachments:
+                        if not isinstance(att, dict):
+                            continue
+                        fn = (att.get('filename') or 'adjunto').strip() or 'adjunto'
+                        data = att.get('data')
+                        if not data or not isinstance(data, (bytes, bytearray)):
+                            continue
+                        ct = (att.get('content_type') or '').strip()
+                        if not ct:
+                            ct = mimetypes.guess_type(fn)[0] or 'application/octet-stream'
+                        msg.attach(fn, ct, bytes(data))
                 
                 self.mail.send(msg)
                 logger.info(f"Email enviado exitosamente a {recipients} - Asunto: {subject}")
@@ -99,9 +113,9 @@ class EmailService:
                             # Obtener remitente de la configuración
                             if not sender:
                                 if hasattr(self.mail, 'app') and self.mail.app is not None:
-                                    from_email = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org')
+                                    from_email = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@example.com')
                                 else:
-                                    from_email = 'noreply@relaticpanama.org'
+                                    from_email = 'noreply@example.com'
                             else:
                                 from_email = sender
                             
@@ -153,7 +167,7 @@ class EmailService:
                                     user = User.query.filter_by(email=recipient_email).first()
                                 
                                 # Obtener remitente de la configuración
-                                from_email = sender or (self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@relaticpanama.org') if hasattr(self.mail, 'app') else 'noreply@relaticpanama.org')
+                                from_email = sender or (self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@example.com') if hasattr(self.mail, 'app') else 'noreply@example.com')
                                 
                                 # Crear diccionario con datos del email log
                                 email_log_data = {
@@ -228,7 +242,7 @@ class EmailService:
         try:
             html_content = template_func(*args, **kwargs)
             # Extraer el subject del HTML si es posible, o usar uno por defecto
-            subject = kwargs.get('subject', 'Notificación de RelaticPanama')
+            subject = kwargs.get('subject', 'Notificación de Easy NodeOne')
             
             recipients = kwargs.get('recipients')
             if not recipients:

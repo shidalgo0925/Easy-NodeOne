@@ -22,7 +22,7 @@
 
 ✅ Variables de entorno agregadas al servicio systemd:
 - `ODOO_INTEGRATION_ENABLED=true`
-- `ODOO_API_URL=https://odoo.relatic.org/api/relatic/v1/sale`
+- `ODOO_API_URL=https://odoo.example.com/api/v1/sale
 - `ODOO_API_KEY=CAMBIAR_CON_API_KEY_REAL` ⚠️
 - `ODOO_HMAC_SECRET=CAMBIAR_CON_HMAC_SECRET_REAL` ⚠️
 - `ODOO_ENVIRONMENT=prod`
@@ -34,7 +34,7 @@
 Editar el servicio systemd con las credenciales reales:
 
 ```bash
-sudo nano /etc/systemd/system/membresia-relatic.service
+sudo nano /etc/systemd/system/nodeone.service
 ```
 
 O editar el script y ejecutarlo de nuevo:
@@ -46,42 +46,42 @@ nano scripts/root/setup_odoo_env.sh
 ```
 
 **Valores necesarios:**
-- `ODOO_API_KEY`: La misma que está en Odoo (`relatic_integration.api_key`)
-- `ODOO_HMAC_SECRET`: La misma que está en Odoo (`relatic_integration.hmac_secret`)
+- `ODOO_API_KEY`: La misma que está en Odoo (`nodeone_integration.api_key`)
+- `ODOO_HMAC_SECRET`: La misma que está en Odoo (`nodeone_integration.hmac_secret`)
 
 ### Paso 2: Reiniciar el Servicio
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl restart membresia-relatic.service
-sudo systemctl status membresia-relatic.service
+sudo systemctl restart nodeone.service
+sudo systemctl status nodeone.service
 ```
 
 ### Paso 3: Verificar
 
 ```bash
 # Verificar variables configuradas
-sudo systemctl show membresia-relatic.service | grep ODOO
+sudo systemctl show nodeone.service | grep ODOO
 
 # Ver logs en tiempo real
-sudo journalctl -u membresia-relatic.service -f | grep -i odoo
+sudo journalctl -u nodeone.service -f | grep -i odoo
 ```
 
 ## 🧪 Testing
 
-1. Realizar un pago de prueba en membresia-relatic
+1. Realizar un pago de prueba en nodeone
 2. Verificar logs:
    ```bash
-   sudo journalctl -u membresia-relatic.service --since "5 minutes ago" | grep -i odoo
+   sudo journalctl -u nodeone.service --since "5 minutes ago" | grep -i odoo
    ```
 3. Verificar en Odoo:
-   - Contabilidad → Relatic Integration → Logs de Sincronización
+   - Contabilidad → NodeOne Integration → Logs de Sincronización
    - Buscar el Order ID más reciente
 
 ## 📊 Verificación en Odoo
 
 1. **Logs de Sincronización**:
-   - Menú: Contabilidad → Relatic Integration → Logs de Sincronización
+   - Menú: Contabilidad → NodeOne Integration → Logs de Sincronización
    - Buscar por Order ID (ej: `ORD-2026-00021`)
 
 2. **Facturas Creadas**:
@@ -90,7 +90,7 @@ sudo journalctl -u membresia-relatic.service -f | grep -i odoo
 
 3. **Contactos**:
    - Menú: Contactos → Contactos
-   - Buscar por email o etiqueta "RELATIC_MIEMBRO"
+   - Buscar por email o etiqueta "NODEONE_MEMBER"
 
 ## 🔧 Troubleshooting
 
@@ -98,15 +98,15 @@ sudo journalctl -u membresia-relatic.service -f | grep -i odoo
 
 1. Verificar que `ODOO_INTEGRATION_ENABLED=true`
 2. Verificar credenciales (API Key y HMAC Secret)
-3. Ver logs: `sudo journalctl -u membresia-relatic.service -f`
+3. Ver logs: `sudo journalctl -u nodeone.service -f`
 
 ### Error 401 - Invalid API Key
 
-- Verificar que `ODOO_API_KEY` coincida con `relatic_integration.api_key` en Odoo
+- Verificar que `ODOO_API_KEY` coincida con `nodeone_integration.api_key` en Odoo
 
 ### Error 401 - Invalid Signature
 
-- Verificar que `ODOO_HMAC_SECRET` coincida con `relatic_integration.hmac_secret` en Odoo
+- Verificar que `ODOO_HMAC_SECRET` coincida con `nodeone_integration.hmac_secret` en Odoo
 
 ### Error 422 - Product Not Found
 
@@ -115,7 +115,7 @@ sudo journalctl -u membresia-relatic.service -f | grep -i odoo
   - MEMB-BASICO
   - MEMB-PREMIUM
   - MEMB-DELUXE
-- O activar `relatic_integration.auto_create_product = True` en Odoo
+- O activar `nodeone_integration.auto_create_product = True` en Odoo
 
 ## 📝 Notas
 

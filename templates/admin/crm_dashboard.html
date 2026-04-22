@@ -2,6 +2,12 @@
 
 {% block title %}CRM | Easy NodeOne{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm-new-lead-modal.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm-toolbar.css') }}?v=1">
+{% endblock %}
+
 {% block page_content %}
 <div class="container-fluid py-3">
   <div class="d-flex flex-column flex-md-row flex-wrap justify-content-between align-items-stretch align-items-md-center gap-2 mb-3">
@@ -15,24 +21,81 @@
     </div>
   </div>
 
-  <div class="w-100 mobile-scroll-x mb-3 pb-1">
-  <ul class="nav nav-tabs flex-nowrap mb-0">
-    <li class="nav-item"><a class="nav-link {% if crm_view == 'dashboard' %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">Dashboard</a></li>
-    <li class="nav-item"><a class="nav-link {% if crm_view == 'kanban' %}active{% endif %}" href="{{ url_for('admin_crm_kanban') }}">Kanban</a></li>
-    <li class="nav-item"><a class="nav-link {% if crm_view == 'list' %}active{% endif %}" href="{{ url_for('admin_crm_leads') }}">Lista</a></li>
-    <li class="nav-item"><a class="nav-link {% if crm_view == 'reports' %}active{% endif %}" href="{{ url_for('admin_crm_reports') }}">Reportes</a></li>
-  </ul>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div class="crm-view-toolbar d-inline-flex align-items-center flex-wrap">
+      <a class="crm-view-btn {% if crm_view == 'kanban' %}is-active{% endif %}" href="{{ url_for('admin_crm_kanban') }}" title="Kanban" aria-label="Kanban"><i class="fas fa-columns"></i></a>
+      <a class="crm-view-btn {% if crm_view == 'list' %}is-active{% endif %}" href="{{ url_for('admin_crm_leads') }}" title="Lista" aria-label="Lista"><i class="fas fa-list"></i></a>
+      <a class="crm-view-btn {% if crm_view == 'calendar' %}is-active{% endif %}" href="{{ url_for('admin_crm_calendar') }}" title="Calendario" aria-label="Calendario"><i class="fas fa-calendar-alt"></i></a>
+      <a class="crm-view-btn {% if crm_view == 'table' %}is-active{% endif %}" href="{{ url_for('admin_crm_table') }}" title="Tabla" aria-label="Tabla"><i class="fas fa-table"></i></a>
+      <a class="crm-view-btn {% if crm_view == 'reports' %}is-active{% endif %}" href="{{ url_for('admin_crm_reports') }}" title="Reportes" aria-label="Reportes"><i class="fas fa-chart-line"></i></a>
+      <a class="crm-view-btn {% if crm_view == 'activities' %}is-active{% endif %}" href="{{ url_for('admin_crm_activities') }}" title="Actividades" aria-label="Actividades"><i class="fas fa-clock"></i></a>
+      <a class="crm-view-btn crm-view-btn--settings {% if crm_view == 'settings' %}is-active{% endif %}" href="{{ url_for('admin_crm_settings') }}" title="Configuración" aria-label="Configuración"><i class="fas fa-cog"></i></a>
+    </div>
+    <a class="small text-decoration-none {% if crm_view == 'dashboard' %}fw-semibold text-primary{% else %}text-muted{% endif %}" href="{{ url_for('admin_crm_dashboard') }}"><i class="fas fa-tachometer-alt me-1"></i>Resumen</a>
   </div>
 
-  <div class="row g-3 mb-3">
+  <div class="row g-3 mb-3 {% if crm_view in ['settings'] %}d-none{% endif %}">
     <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Leads totales</small><h4 id="kpiTotal" class="mb-0">0</h4></div></div></div>
     <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Ganados</small><h4 id="kpiWon" class="mb-0">0</h4></div></div></div>
     <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Conversión</small><h4 id="kpiConv" class="mb-0">0%</h4></div></div></div>
     <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Forecast</small><h4 id="kpiForecast" class="mb-0">$0</h4></div></div></div>
   </div>
-  <div id="crmAlertsBox" class="mb-3"></div>
+  <div id="crmAlertsBox" class="mb-3 {% if crm_view == 'settings' %}d-none{% endif %}"></div>
 
-  {% if crm_view == 'kanban' %}
+  {% if crm_view == 'settings' %}
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-medium">Motivos de pérdida</div>
+        <div class="card-body">
+          <p class="small text-muted">Usados al marcar una oportunidad como perdida.</p>
+          <form id="crmNewLostReasonForm" class="row g-2 align-items-end mb-3">
+            <div class="col">
+              <label class="form-label small mb-0">Nuevo motivo</label>
+              <input class="form-control form-control-sm" name="name" placeholder="Nombre" required maxlength="200">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-primary btn-sm">Añadir</button>
+            </div>
+          </form>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>Nombre</th><th class="text-end">Activo</th></tr></thead>
+              <tbody id="crmLostReasonsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-medium">Tipos de actividad</div>
+        <div class="card-body">
+          <p class="small text-muted">Códigos en minúsculas (p. ej. <code>visita</code>). Definen las opciones al crear actividades.</p>
+          <form id="crmNewActivityTypeForm" class="row g-2 mb-3">
+            <div class="col-6 col-md-4">
+              <label class="form-label small mb-0">Código</label>
+              <input class="form-control form-control-sm" name="code" placeholder="visita" required maxlength="20" pattern="[a-z][a-z0-9_]*">
+            </div>
+            <div class="col-6 col-md-5">
+              <label class="form-label small mb-0">Nombre</label>
+              <input class="form-control form-control-sm" name="name" placeholder="Visita" required maxlength="120">
+            </div>
+            <div class="col-12 col-md-3 d-flex align-items-end">
+              <button type="submit" class="btn btn-primary btn-sm w-100">Añadir</button>
+            </div>
+          </form>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>Código</th><th>Nombre</th><th class="text-end">Orden</th><th class="text-end">Activo</th></tr></thead>
+              <tbody id="crmActivityTypesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% elif crm_view == 'kanban' %}
   <div class="crm-kanban-wrapper">
     <div id="kanbanBoard" class="crm-kanban-board row g-3"></div>
   </div>
@@ -48,7 +111,45 @@
       <div class="card"><div class="card-header">Ventas por vendedor</div><div class="card-body"><pre id="byUser" class="mb-0 small"></pre></div></div>
     </div>
   </div>
-  {% else %}
+  {% elif crm_view == 'calendar' %}
+  <div class="card">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span class="fw-medium">Calendario de actividades</span>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="crmCalPrev" aria-label="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+        <span id="crmCalTitle" class="fw-medium small text-nowrap">—</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="crmCalNext" aria-label="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="crmCalendarGrid" class="crm-calendar-grid"></div>
+      <div id="crmCalendarDetail" class="mt-3 small text-muted"></div>
+    </div>
+  </div>
+  {% elif crm_view == 'activities' %}
+  <div class="card">
+    <div class="card-header fw-medium">Actividades (todas las oportunidades)</div>
+    <div class="card-body p-0">
+      <div id="crmActivityFeed" class="list-group list-group-flush"></div>
+    </div>
+  </div>
+  {% elif crm_view == 'table' %}
+  <div class="card">
+    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+      <span class="fw-medium">Vista tabla</span>
+      <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+        <select id="filterStageTable" class="form-select form-select-sm flex-grow-1"><option value="">Todas las etapas</option></select>
+        <input id="filterSourceTable" class="form-control form-control-sm flex-grow-1" placeholder="Fuente (web, campaña)">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle table-striped crm-leads-table">
+        <thead><tr><th>Título</th><th>Contacto</th><th>Email</th><th>Tel.</th><th>Etapa</th><th>Fuente</th><th>Vendedor</th><th>Ingreso</th><th>Prob.</th><th>Alta</th><th>Act.</th><th></th></tr></thead>
+        <tbody id="crmTableTbody"></tbody>
+      </table>
+    </div>
+  </div>
+  {% elif crm_view == 'dashboard' or crm_view == 'list' %}
   <div class="card">
     <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
       <span class="fw-medium">Leads y oportunidades</span>
@@ -68,29 +169,7 @@
   {% endif %}
 </div>
 
-<div class="modal fade" id="newLeadModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <form class="modal-content" id="newLeadForm">
-      <div class="modal-header"><h5 class="modal-title">Nuevo Lead</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-2"><label class="form-label">Titulo</label><input name="name" class="form-control" required></div>
-        <div class="mb-2"><label class="form-label">Nombre contacto</label><input name="contact_name" class="form-control"></div>
-        <div class="mb-2"><label class="form-label">Empresa</label><input name="company_name" class="form-control"></div>
-        <div class="row g-2">
-          <div class="col"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
-          <div class="col"><label class="form-label">Telefono</label><input name="phone" class="form-control"></div>
-        </div>
-        <div class="row g-2 mt-1">
-          <div class="col"><label class="form-label">Fuente</label><input name="source" class="form-control" value="web"></div>
-          <div class="col"><label class="form-label">Prioridad</label>
-            <select name="priority" class="form-select"><option>low</option><option selected>medium</option><option>high</option></select>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>
-    </form>
-  </div>
-</div>
+{% include 'admin/partials/crm_new_lead_modal.html' %}
 
 <div class="modal fade" id="leadActivitiesModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -137,6 +216,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/modules/crm/new_lead_modal.js') }}?v=2"></script>
 <script>
 (function () {
   const currentView = {{ crm_view|tojson }};
@@ -145,6 +225,13 @@
   const kanbanBoard = document.getElementById('kanbanBoard');
   const filterStage = document.getElementById('filterStage');
   const filterSource = document.getElementById('filterSource');
+  const filterStageTable = document.getElementById('filterStageTable');
+  const filterSourceTable = document.getElementById('filterSourceTable');
+  const crmTableTbody = document.getElementById('crmTableTbody');
+  const crmActivityFeed = document.getElementById('crmActivityFeed');
+  const crmCalPrev = document.getElementById('crmCalPrev');
+  const crmCalNext = document.getElementById('crmCalNext');
+  let calMonth = new Date();
   const newLeadForm = document.getElementById('newLeadForm');
   const newActivityForm = document.getElementById('newActivityForm');
   const reloadBtn = document.getElementById('crmReloadBtn');
@@ -153,13 +240,21 @@
   const actLeadTitle = document.getElementById('actLeadTitle');
   const actLeadMeta = document.getElementById('actLeadMeta');
   const alertsBox = document.getElementById('crmAlertsBox');
+  const crmNewLostReasonForm = document.getElementById('crmNewLostReasonForm');
+  const crmNewActivityTypeForm = document.getElementById('crmNewActivityTypeForm');
 
-  const activityTypeLabel = {
+  let activityTypeLabel = {
     call: 'Llamada',
     meeting: 'Reunión',
     task: 'Tarea',
     email: 'Email',
   };
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
 
   async function j(url, opts) {
     const r = await fetch(url, Object.assign({headers: {'Content-Type': 'application/json'}}, opts || {}));
@@ -172,17 +267,159 @@
     return new Intl.NumberFormat('es-PA', {style: 'currency', currency: 'USD', maximumFractionDigits: 0}).format(v || 0);
   }
 
+  async function syncActivityTypes() {
+    try {
+      const data = await j('/crm/activity-types');
+      const base = { call: 'Llamada', meeting: 'Reunión', task: 'Tarea', email: 'Email' };
+      activityTypeLabel = Object.assign({}, base);
+      for (const t of data.items || []) {
+        activityTypeLabel[t.code] = t.name;
+      }
+      const sel = document.querySelector('#newActivityForm select[name="type"]');
+      if (sel) {
+        const prev = sel.value;
+        sel.innerHTML = '';
+        const active = (data.items || []).filter(t => t.active).sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+        for (const t of active) {
+          const o = document.createElement('option');
+          o.value = t.code;
+          o.textContent = t.name;
+          sel.appendChild(o);
+        }
+        if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+        else if (sel.options.length) sel.selectedIndex = 0;
+      }
+    } catch (e) {
+      console.error('syncActivityTypes', e);
+    }
+  }
+
+  function renderLostReasons(items) {
+    const tb = document.getElementById('crmLostReasonsTbody');
+    if (!tb) return;
+    tb.innerHTML = (items || []).map(r => `
+      <tr data-id="${r.id}">
+        <td>
+          <span class="crm-lr-name">${escapeHtml(r.name)}</span>
+          <button type="button" class="btn btn-link btn-sm py-0 ms-1 crm-lr-rename" title="Renombrar"><i class="fas fa-pen"></i></button>
+        </td>
+        <td class="text-end">
+          <input type="checkbox" class="form-check-input crm-lr-active" ${r.active ? 'checked' : ''} aria-label="Activo">
+        </td>
+      </tr>`).join('');
+    tb.querySelectorAll('.crm-lr-active').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const tr = cb.closest('tr');
+        try {
+          await j(`/crm/lost-reasons/${tr.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ active: cb.checked }) });
+        } catch (e) {
+          alert(e.message || 'Error');
+          cb.checked = !cb.checked;
+        }
+      });
+    });
+    tb.querySelectorAll('.crm-lr-rename').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const tr = btn.closest('tr');
+        const cur = tr.querySelector('.crm-lr-name').textContent;
+        const n = window.prompt('Nombre del motivo:', cur);
+        if (n == null || !String(n).trim()) return;
+        try {
+          await j(`/crm/lost-reasons/${tr.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ name: String(n).trim() }) });
+          await loadSettingsLists();
+        } catch (e) {
+          alert(e.message || 'Error');
+        }
+      });
+    });
+  }
+
+  function renderActivityTypes(items) {
+    const tb = document.getElementById('crmActivityTypesTbody');
+    if (!tb) return;
+    tb.innerHTML = (items || []).map(t => `
+      <tr data-id="${t.id}">
+        <td><code>${escapeHtml(t.code)}</code></td>
+        <td>
+          <span class="crm-at-name">${escapeHtml(t.name)}</span>
+          <button type="button" class="btn btn-link btn-sm py-0 ms-1 crm-at-rename" title="Renombrar"><i class="fas fa-pen"></i></button>
+        </td>
+        <td class="text-end">
+          <input type="number" class="form-control form-control-sm crm-at-seq d-inline-block text-end" style="width:5rem" min="0" step="1" value="${t.sequence}">
+        </td>
+        <td class="text-end">
+          <input type="checkbox" class="form-check-input crm-at-active" ${t.active ? 'checked' : ''} aria-label="Activo">
+        </td>
+      </tr>`).join('');
+    tb.querySelectorAll('.crm-at-active').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const tr = cb.closest('tr');
+        try {
+          await j(`/crm/activity-types/${tr.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ active: cb.checked }) });
+          await syncActivityTypes();
+        } catch (e) {
+          alert(e.message || 'Error');
+          cb.checked = !cb.checked;
+        }
+      });
+    });
+    tb.querySelectorAll('.crm-at-seq').forEach(inp => {
+      inp.addEventListener('change', async () => {
+        const tr = inp.closest('tr');
+        const v = parseInt(inp.value, 10);
+        if (Number.isNaN(v)) return;
+        try {
+          await j(`/crm/activity-types/${tr.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ sequence: v }) });
+          await syncActivityTypes();
+          await loadSettingsLists();
+        } catch (e) {
+          alert(e.message || 'Error');
+        }
+      });
+    });
+    tb.querySelectorAll('.crm-at-rename').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const tr = btn.closest('tr');
+        const cur = tr.querySelector('.crm-at-name').textContent;
+        const n = window.prompt('Nombre visible:', cur);
+        if (n == null || !String(n).trim()) return;
+        try {
+          await j(`/crm/activity-types/${tr.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ name: String(n).trim() }) });
+          await syncActivityTypes();
+          await loadSettingsLists();
+        } catch (e) {
+          alert(e.message || 'Error');
+        }
+      });
+    });
+  }
+
+  async function loadSettingsLists() {
+    if (currentView !== 'settings') return;
+    const lr = await j('/crm/lost-reasons');
+    renderLostReasons(lr.items || []);
+    const at = await j('/crm/activity-types');
+    renderActivityTypes(at.items || []);
+  }
+
   async function loadStages() {
     const data = await j('/crm/stages');
-    if (!filterStage) return data.items || [];
-    filterStage.innerHTML = '<option value="">Todas las etapas</option>';
-    for (const s of data.items || []) {
-      const o = document.createElement('option');
-      o.value = String(s.id);
-      o.textContent = s.name;
-      filterStage.appendChild(o);
-    }
-    return data.items || [];
+    const items = data.items || [];
+    const fill = (sel) => {
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Todas las etapas</option>';
+      for (const s of items) {
+        const o = document.createElement('option');
+        o.value = String(s.id);
+        o.textContent = s.name;
+        sel.appendChild(o);
+      }
+      if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+    };
+    fill(filterStage);
+    fill(filterStageTable);
+    return items;
   }
 
   async function loadReports() {
@@ -247,10 +484,11 @@
           <span class="badge bg-secondary">${act}</span>
           ${overdue ? `<span class="badge bg-danger ms-1">${overdue} vencida(s)</span>` : ''}
         </td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-primary me-1" data-activities="${x.id}">Actividades</button>
-          <button class="btn btn-sm btn-outline-success me-1" data-win="${x.id}">Ganado</button>
-          <button class="btn btn-sm btn-outline-danger" data-lost="${x.id}">Perdido</button>
+        <td class="text-end text-nowrap">
+          <button type="button" class="btn btn-sm btn-outline-primary me-1" data-activities="${x.id}">Actividades</button>
+          <button type="button" class="btn btn-sm btn-outline-success me-1" data-win="${x.id}">Ganado</button>
+          <button type="button" class="btn btn-sm btn-outline-danger me-1" data-lost="${x.id}">Perdido</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary border-danger text-danger" data-delete="${x.id}" title="Eliminar prospecto"><i class="fas fa-trash-alt"></i></button>
         </td>`;
       leadsTbody.appendChild(tr);
       if (leadsMobileCards) {
@@ -274,6 +512,7 @@
               <button type="button" class="btn btn-sm btn-outline-primary" data-activities="${x.id}">Actividades</button>
               <button type="button" class="btn btn-sm btn-outline-success" data-win="${x.id}">Ganado</button>
               <button type="button" class="btn btn-sm btn-outline-danger" data-lost="${x.id}">Perdido</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-delete="${x.id}"><i class="fas fa-trash-alt me-1"></i>Eliminar</button>
             </div>
           </div>`;
         leadsMobileCards.appendChild(card);
@@ -284,9 +523,152 @@
       root.querySelectorAll('[data-activities]').forEach(btn => btn.addEventListener('click', () => openActivities(btn.getAttribute('data-activities'))));
       root.querySelectorAll('[data-win]').forEach(btn => btn.addEventListener('click', () => markWin(btn.getAttribute('data-win'))));
       root.querySelectorAll('[data-lost]').forEach(btn => btn.addEventListener('click', () => markLost(btn.getAttribute('data-lost'))));
+      root.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => deleteLead(btn.getAttribute('data-delete'))));
     };
     bindList(leadsTbody);
     bindList(leadsMobileCards);
+  }
+
+  function renderTable(items) {
+    if (!crmTableTbody) return;
+    crmTableTbody.innerHTML = '';
+    for (const x of items) {
+      const act = x.activities_count || 0;
+      const overdue = x.activities_overdue || 0;
+      const tr = document.createElement('tr');
+      const created = x.create_date ? new Date(x.create_date).toLocaleDateString() : '';
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(x.name || '')}</strong><div class="small text-muted">${escapeHtml(x.type || '')}</div></td>
+        <td>${escapeHtml(x.contact_name || '')}</td>
+        <td class="small">${escapeHtml(x.email || '')}</td>
+        <td class="small">${escapeHtml(x.phone || '')}</td>
+        <td><span class="badge bg-light text-dark">${escapeHtml(x.stage_name || '-')}</span></td>
+        <td class="small">${escapeHtml(x.source || '')}</td>
+        <td>${x.user_id || '-'}</td>
+        <td>${money(x.expected_revenue || 0)}</td>
+        <td>${(x.probability || 0)}%</td>
+        <td class="small text-muted">${created}</td>
+        <td>
+          <span class="badge bg-secondary">${act}</span>
+          ${overdue ? `<span class="badge bg-danger ms-1">${overdue}</span>` : ''}
+        </td>
+        <td class="text-end text-nowrap">
+          <button type="button" class="btn btn-sm btn-outline-primary me-1" data-activities="${x.id}">Actividades</button>
+          <button type="button" class="btn btn-sm btn-outline-success me-1" data-win="${x.id}">Ganado</button>
+          <button type="button" class="btn btn-sm btn-outline-danger me-1" data-lost="${x.id}">Perdido</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary border-danger text-danger" data-delete="${x.id}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
+        </td>`;
+      crmTableTbody.appendChild(tr);
+    }
+    const bindTable = (root) => {
+      if (!root) return;
+      root.querySelectorAll('[data-activities]').forEach(btn => btn.addEventListener('click', () => openActivities(btn.getAttribute('data-activities'))));
+      root.querySelectorAll('[data-win]').forEach(btn => btn.addEventListener('click', () => markWin(btn.getAttribute('data-win'))));
+      root.querySelectorAll('[data-lost]').forEach(btn => btn.addEventListener('click', () => markLost(btn.getAttribute('data-lost'))));
+      root.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => deleteLead(btn.getAttribute('data-delete'))));
+    };
+    bindTable(crmTableTbody);
+  }
+
+  function pad2(n) {
+    return n < 10 ? '0' + n : String(n);
+  }
+
+  function toLocalDayIso(d) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T00:00:00`;
+  }
+
+  async function loadCalendarMonth() {
+    const grid = document.getElementById('crmCalendarGrid');
+    const detail = document.getElementById('crmCalendarDetail');
+    if (!grid) return;
+    const y = calMonth.getFullYear();
+    const m = calMonth.getMonth();
+    const first = new Date(y, m, 1);
+    const last = new Date(y, m + 1, 0);
+    const from = toLocalDayIso(first);
+    const to = toLocalDayIso(last);
+    let items = [];
+    try {
+      const data = await j(`/crm/activity-feed?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+      items = data.items || [];
+    } catch (e) {
+      console.error(e);
+    }
+    const titleEl = document.getElementById('crmCalTitle');
+    if (titleEl) {
+      titleEl.textContent = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' }).format(new Date(y, m, 1));
+    }
+    const byDay = {};
+    for (const a of items) {
+      if (!a.due_date) continue;
+      const dt = new Date(a.due_date);
+      if (dt.getMonth() !== m || dt.getFullYear() !== y) continue;
+      const dom = dt.getDate();
+      if (!byDay[dom]) byDay[dom] = [];
+      byDay[dom].push(a);
+    }
+    const dow = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+    let html = dow.map(d => `<div class="crm-cal-dow">${d}</div>`).join('');
+    const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+    let cellCount = 0;
+    for (let i = 0; i < offset; i++) {
+      html += '<div class="crm-cal-cell crm-cal-cell--muted"></div>';
+      cellCount++;
+    }
+    const lastDate = last.getDate();
+    const today = new Date();
+    for (let dayNum = 1; dayNum <= lastDate; dayNum++) {
+      const isToday = today.getDate() === dayNum && today.getMonth() === m && today.getFullYear() === y;
+      const list = byDay[dayNum] || [];
+      const chips = list.slice(0, 3).map(a =>
+        `<button type="button" class="crm-cal-chip" data-lead="${a.lead_id}">${escapeHtml((a.summary || '(sin resumen)').slice(0, 26))}</button>`
+      ).join('');
+      const more = list.length > 3 ? `<div class="text-muted small ps-1">+${list.length - 3} más</div>` : '';
+      html += `<div class="crm-cal-cell ${isToday ? 'crm-cal-cell--today' : ''}"><div class="crm-cal-daynum">${dayNum}</div>${chips}${more}</div>`;
+      cellCount++;
+    }
+    while (cellCount % 7 !== 0) {
+      html += '<div class="crm-cal-cell crm-cal-cell--muted"></div>';
+      cellCount++;
+    }
+    grid.innerHTML = html;
+    grid.querySelectorAll('.crm-cal-chip').forEach(btn => {
+      btn.addEventListener('click', () => openActivities(btn.getAttribute('data-lead')));
+    });
+    if (detail) detail.textContent = 'Pulsa una actividad para abrir el lead.';
+  }
+
+  async function loadActivityFeedView() {
+    if (!crmActivityFeed) return;
+    crmActivityFeed.innerHTML = '<div class="list-group-item text-muted">Cargando…</div>';
+    let items = [];
+    try {
+      const data = await j('/crm/activity-feed');
+      items = data.items || [];
+    } catch (e) {
+      crmActivityFeed.innerHTML = `<div class="list-group-item text-danger">${escapeHtml(e.message || 'Error')}</div>`;
+      return;
+    }
+    if (!items.length) {
+      crmActivityFeed.innerHTML = '<div class="list-group-item text-muted">Sin actividades.</div>';
+      return;
+    }
+    crmActivityFeed.innerHTML = items.map(a => {
+      const badge = a.status === 'overdue' ? 'danger' : (a.status === 'done' ? 'success' : 'secondary');
+      const when = a.due_date ? new Date(a.due_date).toLocaleString() : '—';
+      return `<button type="button" class="list-group-item list-group-item-action text-start py-2" data-feed-lead="${a.lead_id}">
+        <div class="d-flex justify-content-between gap-2 flex-wrap">
+          <strong>${escapeHtml(activityTypeLabel[a.type] || a.type)}</strong>
+          <span class="badge bg-${badge}">${a.status}</span>
+        </div>
+        <div>${escapeHtml(a.summary || '')}</div>
+        <div class="small text-muted">${escapeHtml(a.lead_name || '')} · ${when}</div>
+      </button>`;
+    }).join('');
+    crmActivityFeed.querySelectorAll('[data-feed-lead]').forEach(btn => {
+      btn.addEventListener('click', () => openActivities(btn.getAttribute('data-feed-lead')));
+    });
   }
 
   function renderKanban(items, stages) {
@@ -308,17 +690,20 @@
         const card = document.createElement('div');
         card.className = 'border rounded p-2 mb-2 bg-white';
         const overdue = x.activities_overdue || 0;
-        card.innerHTML = `<strong>${x.name || ''}</strong><div class="small text-muted">${x.contact_name || ''}</div><div class="small">${money(x.expected_revenue || 0)} | ${(x.probability || 0)}%</div><div class="mt-1"><button class="btn btn-sm btn-outline-primary" data-activities="${x.id}">Actividades ${overdue ? '(' + overdue + ' vencida)' : ''}</button></div>`;
+        card.innerHTML = `<div class="d-flex justify-content-between align-items-start gap-1"><div class="min-w-0"><strong>${x.name || ''}</strong><div class="small text-muted">${x.contact_name || ''}</div><div class="small">${money(x.expected_revenue || 0)} | ${(x.probability || 0)}%</div></div><button type="button" class="btn btn-sm btn-link text-danger p-0 flex-shrink-0" data-delete="${x.id}" title="Eliminar"><i class="fas fa-trash-alt"></i></button></div><div class="mt-1"><button type="button" class="btn btn-sm btn-outline-primary" data-activities="${x.id}">Actividades ${overdue ? '(' + overdue + ' vencida)' : ''}</button></div>`;
         box.appendChild(card);
       });
     }
     kanbanBoard.querySelectorAll('[data-activities]').forEach(btn => btn.addEventListener('click', () => openActivities(btn.getAttribute('data-activities'))));
+    kanbanBoard.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => deleteLead(btn.getAttribute('data-delete'))));
   }
 
   async function loadLeads(stages) {
     const params = new URLSearchParams();
-    if (filterStage && filterStage.value) params.set('stage', filterStage.value);
-    if (filterSource && filterSource.value.trim()) params.set('source', filterSource.value.trim());
+    const stEl = currentView === 'table' ? filterStageTable : filterStage;
+    const srcEl = currentView === 'table' ? filterSourceTable : filterSource;
+    if (stEl && stEl.value) params.set('stage', stEl.value);
+    if (srcEl && srcEl.value.trim()) params.set('source', srcEl.value.trim());
     const data = await j('/crm/leads' + (params.toString() ? `?${params.toString()}` : ''));
     const items = data.items || [];
     for (const x of items) {
@@ -333,6 +718,7 @@
       }
     }
     if (currentView === 'kanban') renderKanban(items, stages || []);
+    else if (currentView === 'table') renderTable(items);
     else renderList(items);
   }
 
@@ -359,6 +745,17 @@
     m.show();
   }
 
+  async function deleteLead(id) {
+    if (!id) return;
+    if (!window.confirm('¿Eliminar este prospecto? Se ocultará del listado (no borra miembros ni usuarios).')) return;
+    try {
+      await j(`/crm/leads/${id}`, {method: 'DELETE'});
+      await refresh();
+    } catch (e) {
+      alert(e.message || 'No se pudo eliminar');
+    }
+  }
+
   async function markLost(id) {
     const reason = window.prompt('Razón de pérdida (obligatoria):');
     if (!reason) return;
@@ -376,14 +773,22 @@
 
   async function refresh() {
     const stages = await loadStages();
+    await syncActivityTypes();
     await loadAlerts();
     await loadReports();
-    if (currentView !== 'reports') await loadLeads(stages);
+    if (currentView === 'settings') await loadSettingsLists();
+    else if (currentView === 'calendar') await loadCalendarMonth();
+    else if (currentView === 'activities') await loadActivityFeedView();
+    else if (currentView !== 'reports' && currentView !== 'settings') await loadLeads(stages);
   }
 
   if (reloadBtn) reloadBtn.addEventListener('click', refresh);
   if (filterStage) filterStage.addEventListener('change', () => loadLeads());
   if (filterSource) filterSource.addEventListener('change', () => loadLeads());
+  if (filterStageTable) filterStageTable.addEventListener('change', () => loadLeads());
+  if (filterSourceTable) filterSourceTable.addEventListener('change', () => loadLeads());
+  if (crmCalPrev) crmCalPrev.addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); loadCalendarMonth(); });
+  if (crmCalNext) crmCalNext.addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); loadCalendarMonth(); });
   if (newLeadForm) {
     newLeadForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
@@ -405,8 +810,33 @@
       const payload = Object.fromEntries(fd.entries());
       await j(`/crm/leads/${leadId}/activities`, {method: 'POST', body: JSON.stringify(payload)});
       await openActivities(leadId);
-      await loadLeads();
-      await loadReports();
+      await refresh();
+    });
+  }
+
+  if (crmNewLostReasonForm) {
+    crmNewLostReasonForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(crmNewLostReasonForm);
+      const name = String(fd.get('name') || '').trim();
+      if (!name) return;
+      await j('/crm/lost-reasons', { method: 'POST', body: JSON.stringify({ name }) });
+      crmNewLostReasonForm.reset();
+      await loadSettingsLists();
+    });
+  }
+
+  if (crmNewActivityTypeForm) {
+    crmNewActivityTypeForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(crmNewActivityTypeForm);
+      const code = String(fd.get('code') || '').trim().toLowerCase();
+      const name = String(fd.get('name') || '').trim();
+      if (!code || !name) return;
+      await j('/crm/activity-types', { method: 'POST', body: JSON.stringify({ code, name }) });
+      crmNewActivityTypeForm.reset();
+      await syncActivityTypes();
+      await loadSettingsLists();
     });
   }
 

@@ -37,11 +37,11 @@ def main():
             print(f"   Remitente: {ap.app.config.get('MAIL_DEFAULT_SENDER')}")
 
             print('\n📧 Intentando enviar email de prueba...')
-            print('   Destinatario: info@relaticpanama.org')
+            print('   Destinatario: info@example.com')
 
             success = ap.email_service.send_email(
-                subject='[PRUEBA] Test de Email - RelaticPanama',
-                recipients=['info@relaticpanama.org'],
+                subject='[PRUEBA] Test de Email - Easy NodeOne',
+                recipients=['info@example.com'],
                 html_content='<h1>Email de Prueba</h1><p>Este es un email de prueba para verificar la configuración SMTP.</p>',
                 email_type='test',
                 recipient_name='Prueba',

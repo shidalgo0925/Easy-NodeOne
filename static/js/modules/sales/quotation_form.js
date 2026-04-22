@@ -10,12 +10,17 @@
     return;
   }
   const qid = Number(root.dataset.quotationId);
+  const Q_BASE = String(root.dataset.salesApiBase || '/api/sales/quotations').replace(/\/$/, '');
+  const WORKSHOP_API_BASE = String(root.dataset.workshopApiBase || '/api/workshop').replace(/\/$/, '');
   const err = document.getElementById('formError');
   const lineItems = document.getElementById('lineItems');
   if (!lineItems) return;
   const customerId = document.getElementById('customerId');
   const customerSearch = document.getElementById('customerSearch');
   const customerMenu = document.getElementById('customerMenu');
+  const salespersonSearch = document.getElementById('salespersonSearch');
+  const salespersonMenu = document.getElementById('salespersonMenu');
+  const salespersonUserId = document.getElementById('salespersonUserId');
   const paymentTerms = document.getElementById('paymentTerms');
   const validityDate = document.getElementById('validityDate');
   const previewBody = document.getElementById('quotePreviewBody');
@@ -28,6 +33,7 @@
   const fmt = (n) => `B/. ${Number(n || 0).toFixed(2)}`;
   const SVC_DEBOUNCE_MS = 300;
   const CUST_DEBOUNCE_MS = 300;
+  const SP_DEBOUNCE_MS = 300;
 
   function canEditContentForQuote(q) {
     return q && (q.status === 'draft' || q.status === 'cancelled');
@@ -78,13 +84,26 @@
     }, 2200);
   }
 
+  function showMailSentToast(emailHint) {
+    const el = document.getElementById('quoteMailToast');
+    if (!el) return;
+    el.textContent = emailHint ? `Correo enviado a ${emailHint}.` : 'Correo enviado al cliente.';
+    el.classList.remove('d-none');
+    el.classList.add('show');
+    clearTimeout(root._mailToastT);
+    root._mailToastT = setTimeout(() => {
+      el.classList.add('d-none');
+      el.classList.remove('show');
+    }, 3800);
+  }
+
   function applyEditMode() {
     if (!quote) return;
     const editable = canEditContent();
     root.classList.toggle('quote-odoo-readonly', !editable);
     const banner = document.getElementById('quoteReadonlyBanner');
     if (banner) banner.classList.toggle('d-none', editable);
-    const roIds = ['customerSearch', 'paymentTerms', 'quoteSeller', 'quoteInternalNotes'];
+    const roIds = ['customerSearch', 'paymentTerms', 'quoteInternalNotes'];
     roIds.forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.readOnly = !editable;
@@ -112,6 +131,9 @@
     }
     if (btnViewInvoice) {
       btnViewInvoice.classList.toggle('d-none', !hasInv);
+      if (hasInv && quote.invoice_id) {
+        btnViewInvoice.href = `/admin/accounting/invoices/${quote.invoice_id}`;
+      }
       if (hasInv && quote.invoice_number) {
         btnViewInvoice.textContent = `Factura ${quote.invoice_number}`;
       } else if (hasInv) {
@@ -134,6 +156,350 @@
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function nlToBr(s) {
+    return escHtml(s).replace(/\n/g, '<br>');
+  }
+
+  function formatDateEs(iso) {
+    if (!iso || String(iso).trim() === '') return '—';
+    const p = String(iso).slice(0, 10).split('-');
+    if (p.length === 3 && p[0].length === 4) return `${p[2]}/${p[1]}/${p[0]}`;
+    return escHtml(String(iso));
+  }
+
+  /** Texto vendedor para vista previa (fallback «—») o correo (fallback vacío). */
+  function getQuotationSellerDisplay(fallbackWhenMissing) {
+    if (salespersonSearch && salespersonSearch.value.trim()) return salespersonSearch.value.trim();
+    if (quote && (quote.salesperson_name || quote.salesperson_email)) {
+      const sn = (quote.salesperson_name || '').trim();
+      const se = (quote.salesperson_email || '').trim();
+      const line = sn && se ? `${sn} (${se})` : sn || se;
+      return line || fallbackWhenMissing;
+    }
+    return fallbackWhenMissing;
+  }
+
+  function getOrganizationFiscalParts() {
+    const orgName = (quote && quote.organization_name) || (root.dataset.quoteOrgName || '').trim() || '';
+    const legal = (quote && quote.organization_legal_name) || '';
+    const taxId = (quote && quote.organization_tax_id) || '';
+    const regime = (quote && quote.organization_tax_regime) || '';
+    const address = (quote && quote.organization_fiscal_address) || '';
+    const city = (quote && quote.organization_fiscal_city) || '';
+    const state = (quote && quote.organization_fiscal_state) || '';
+    const country = (quote && quote.organization_fiscal_country) || '';
+    const phone = (quote && quote.organization_fiscal_phone) || '';
+    const email = (quote && quote.organization_fiscal_email) || '';
+    return {
+      displayName: (legal || orgName || '—').trim() || '—',
+      taxId: String(taxId || '').trim(),
+      regime: String(regime || '').trim(),
+      address: String(address || '').trim(),
+      location: [city, state, country].map((x) => String(x || '').trim()).filter(Boolean).join(', '),
+      contact: [phone, email].map((x) => String(x || '').trim()).filter(Boolean).join(' · '),
+    };
+  }
+
+  function buildQuotePreviewDocumentHtml(lines) {
+    const brand = (root.dataset.quoteBrand || '').trim() || '—';
+    const orgFiscal = getOrganizationFiscalParts();
+    const logoUrl = (root.dataset.quoteLogoUrl || '').trim();
+    const qNum = (document.getElementById('qNumber') && document.getElementById('qNumber').textContent.trim()) || '—';
+    const custBlock = (customerSearch && customerSearch.value.trim()) || '—';
+    const qDateVal = document.getElementById('quoteDate') ? document.getElementById('quoteDate').value : '';
+    const seller = getQuotationSellerDisplay('—');
+    const payTerms = (paymentTerms && paymentTerms.value.trim()) || 'Pago inmediato';
+    const validityVal = document.getElementById('validityDate') ? document.getElementById('validityDate').value : '';
+    const subtotalT = (document.getElementById('subtotalLbl') && document.getElementById('subtotalLbl').textContent) || 'B/. 0.00';
+    const taxT = (document.getElementById('taxLbl') && document.getElementById('taxLbl').textContent) || 'B/. 0.00';
+    const grandT = (document.getElementById('grandLbl') && document.getElementById('grandLbl').textContent) || 'B/. 0.00';
+
+    const bodyRows = lines
+      .map((ln) => {
+        if (ln.is_note && ln.is_section) {
+          return `<tr class="quote-doc-section"><td class="qd-col-desc" colspan="5">${nlToBr((ln.description || '').trim() || '—')}</td></tr>`;
+        }
+        if (ln.is_note) {
+          return `<tr class="quote-doc-note"><td class="qd-col-desc" colspan="5">${nlToBr(ln.description || '')}</td></tr>`;
+        }
+        const c = computeLine(ln);
+        const t = lineTax(ln);
+        const taxLabel = formatTaxPreview(t);
+        const taxShow = taxLabel === 'Sin impuesto' ? '—' : escHtml(taxLabel);
+        const desc = (ln.description || '').trim() || '—';
+        return `<tr>
+          <td class="qd-col-desc">${nlToBr(desc)}</td>
+          <td class="qd-col-num">${Number(ln.quantity || 0).toFixed(2)} Unidades</td>
+          <td class="qd-col-num">${Number(ln.price_unit || 0).toFixed(2)}</td>
+          <td class="qd-col-num">${taxShow}</td>
+          <td class="qd-col-money">${fmt(c.total)}</td>
+        </tr>`;
+      })
+      .join('');
+
+    const brandCaps = escHtml(brand.toUpperCase());
+    const logoBlock = logoUrl
+      ? `<img class="quote-doc-preview__logo" src="${escAttr(logoUrl)}" alt=""><div class="quote-doc-preview__brand-name">${brandCaps}</div>`
+      : `<div class="quote-doc-preview__brand-name">${brandCaps}</div>`;
+
+    const validityNote = validityVal
+      ? `<div>Vencimiento oferta: <strong>${formatDateEs(validityVal)}</strong></div>`
+      : '';
+
+    return `<div class="quote-doc-preview">
+      <div class="quote-doc-preview__header">
+        <div class="quote-doc-preview__wave" aria-hidden="true"></div>
+        <div class="quote-doc-preview__header-grid">
+          <div class="quote-doc-preview__brand">${logoBlock}</div>
+          <div class="quote-doc-preview__company">
+            <div class="quote-doc-preview__company-name">${escHtml(orgFiscal.displayName || brand)}</div>
+            ${orgFiscal.taxId ? `<div class="small text-muted">RUC/NIT: ${escHtml(orgFiscal.taxId)}</div>` : ''}
+            ${orgFiscal.regime ? `<div class="small text-muted">Régimen: ${escHtml(orgFiscal.regime)}</div>` : ''}
+            ${orgFiscal.address ? `<div class="small text-muted">${escHtml(orgFiscal.address)}</div>` : ''}
+            ${orgFiscal.location ? `<div class="small text-muted">${escHtml(orgFiscal.location)}</div>` : ''}
+            ${orgFiscal.contact ? `<div class="small text-muted">${escHtml(orgFiscal.contact)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="quote-doc-preview__client-row">
+        <div class="quote-doc-preview__client">${nlToBr(custBlock)}</div>
+        <div class="quote-doc-preview__order-num">
+          <span>Número de orden</span>
+          ${escHtml(qNum)}
+        </div>
+      </div>
+      <div class="quote-doc-preview__meta-box">
+        <div><strong>Fecha de la orden</strong><br>${formatDateEs(qDateVal)}</div>
+        <div><strong>Vendedor</strong><br>${escHtml(seller)}</div>
+      </div>
+      <div class="quote-doc-table-wrap">
+        <table class="quote-doc-table">
+          <thead>
+            <tr>
+              <th class="qd-col-desc">Descripción</th>
+              <th class="qd-col-num">Cantidad</th>
+              <th class="qd-col-num">Precio unitario</th>
+              <th class="qd-col-num">Impuestos</th>
+              <th class="qd-col-money text-end">Importe</th>
+            </tr>
+          </thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+      <div class="quote-doc-totals-wrap">
+        <table class="quote-doc-totals">
+          <tr><td>Subtotal</td><td>${escHtml(subtotalT)}</td></tr>
+          <tr><td>Impuestos</td><td>${escHtml(taxT)}</td></tr>
+          <tr class="quote-doc-totals-grand"><td>Total</td><td>${escHtml(grandT)}</td></tr>
+        </table>
+      </div>
+      <div class="quote-doc-terms">
+        ${validityNote}
+        <div>Términos de pago: ${escHtml(payTerms)}</div>
+      </div>
+      <div class="quote-doc-footer">
+        <div>${escHtml(brand)}</div>
+        <div class="quote-doc-footer__page">Página 1 / 1</div>
+      </div>
+    </div>`;
+  }
+
+  const WO_ST_PREV = {
+    draft: 'Borrador',
+    inspected: 'Inspeccionado',
+    quoted: 'Cotizado',
+    approved: 'Aprobado',
+    in_progress: 'En proceso',
+    qc: 'Control calidad',
+    done: 'Terminado',
+    delivered: 'Entregado',
+    cancelled: 'Cancelada',
+  };
+  const WO_COND_PREV = { ok: 'OK', leve: 'Leve', medio: 'Medio', severo: 'Severo' };
+  const WO_DMG_PREV = {
+    scratch: 'Rayón',
+    swirl: 'Swirl',
+    dent: 'Golpe / abolladura',
+    stain: 'Mancha',
+    chip: 'Descascarado',
+  };
+  const WO_SEV_PREV = { low: 'baja', medium: 'media', high: 'alta' };
+
+  function _woSafeImgUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    const path = raw.split('?')[0];
+    return escAttr(path.startsWith('http') ? path : path.startsWith('/') ? path : `/${path}`);
+  }
+
+  function buildQuoteWorkshopPreviewSection(bundle) {
+    const o = bundle.order || {};
+    const zl = bundle.zone_labels || {};
+    const inv = bundle.inspection || {};
+    const chkItems = (bundle.checklist && bundle.checklist.items) || [];
+    const code = escHtml(o.code || '—');
+    const stLab = escHtml(WO_ST_PREV[o.status] || o.status || '—');
+    const entryIso = o.entry_date ? String(o.entry_date) : '';
+
+    const veh = o.vehicle || {};
+    const vehLines = [];
+    if (veh.plate) vehLines.push(`<strong>Placa:</strong> ${escHtml(veh.plate)}`);
+    const brandModel = [veh.brand, veh.model].filter(Boolean).join(' ').trim();
+    if (brandModel) vehLines.push(escHtml(brandModel));
+    if (veh.year != null && veh.year !== '') vehLines.push(`<strong>Año:</strong> ${escHtml(String(veh.year))}`);
+    if (veh.color) vehLines.push(`<strong>Color:</strong> ${escHtml(veh.color)}`);
+    if (veh.mileage != null && Number(veh.mileage) > 0) vehLines.push(`<strong>Km:</strong> ${escHtml(String(veh.mileage))}`);
+    if (veh.vin) vehLines.push(`<strong>VIN:</strong> ${escHtml(veh.vin)}`);
+    const vehBlock = vehLines.length ? vehLines.join('<br>') : '<span class="text-muted">—</span>';
+
+    let notesHtml = '';
+    if ((o.notes || '').trim()) notesHtml += `<p class="mb-1"><strong>Notas orden:</strong> ${nlToBr(o.notes)}</p>`;
+    if ((o.qc_notes || '').trim()) notesHtml += `<p class="mb-0"><strong>Notas control de calidad:</strong> ${nlToBr(o.qc_notes)}</p>`;
+
+    const wlines = Array.isArray(o.lines) ? o.lines : [];
+    const lineRows = wlines
+      .map((ln) => {
+        const desc = (ln.description || '').trim() || '—';
+        return `<tr>
+          <td class="qd-col-desc">${nlToBr(desc)}</td>
+          <td class="qd-col-num">${Number(ln.quantity || 0).toFixed(2)}</td>
+          <td class="qd-col-num">${Number(ln.price_unit || 0).toFixed(2)}</td>
+          <td class="qd-col-money">${fmt(ln.total)}</td>
+        </tr>`;
+      })
+      .join('');
+    const linesBlock =
+      wlines.length > 0
+        ? `<div class="quote-doc-table-wrap mt-3">
+        <table class="quote-doc-table">
+          <thead><tr><th class="qd-col-desc">Descripción</th><th class="qd-col-num">Cant.</th><th class="qd-col-num">P. unit.</th><th class="qd-col-money">Total</th></tr></thead>
+          <tbody>${lineRows}</tbody>
+        </table>
+      </div>
+      <p class="small text-muted mt-2 mb-0">Total estimado orden: <strong>${fmt(o.total_estimated)}</strong></p>`
+        : '';
+
+    const chkRows = chkItems
+      .map((c) => {
+        const ck = (c.condition || 'ok').toLowerCase();
+        const condRaw =
+          WO_COND_PREV[ck] != null ? WO_COND_PREV[ck] : String(c.condition || '').trim() || '—';
+        const nt = (c.notes || '').trim();
+        return `<tr><td>${escHtml(c.item || '')}</td><td>${escHtml(condRaw)}</td><td>${nt ? nlToBr(nt) : '—'}</td></tr>`;
+      })
+      .join('');
+    const chkBlock =
+      chkRows.length > 0
+        ? `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Checklist de recepción</h3>
+        <div class="quote-doc-table-wrap"><table class="quote-doc-table">
+          <thead><tr><th>Ítem</th><th>Condición</th><th>Notas</th></tr></thead>
+          <tbody>${chkRows}</tbody>
+        </table></div>`
+        : '';
+
+    const pts = Array.isArray(inv.points) ? inv.points : [];
+    const inspRows = pts
+      .map((p) => {
+        const zlab = escHtml(zl[p.zone_code] || p.zone_code || '');
+        const dt = escHtml(WO_DMG_PREV[(p.damage_type || '').toLowerCase()] || p.damage_type || '—');
+        const sv = escHtml(WO_SEV_PREV[(p.severity || 'low').toLowerCase()] || p.severity || '—');
+        const nt = (p.notes || '').trim();
+        return `<tr><td>${zlab}</td><td>${dt}</td><td>${sv}</td><td>${nt ? nlToBr(nt) : '—'}</td></tr>`;
+      })
+      .join('');
+    let inspBlock = '';
+    if (inspRows.length) {
+      inspBlock = `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Inspección (body map)</h3>
+        <div class="quote-doc-table-wrap"><table class="quote-doc-table">
+          <thead><tr><th>Zona</th><th>Tipo</th><th>Severidad</th><th>Notas</th></tr></thead>
+          <tbody>${inspRows}</tbody>
+        </table></div>`;
+    }
+    if ((inv.notes || '').trim()) {
+      inspBlock += `<p class="small mt-2 mb-0"><strong>Notas inspección:</strong> ${nlToBr(inv.notes)}</p>`;
+    }
+
+    const phKind = { entrada: 'Entrada', proceso: 'Proceso', salida: 'Salida' };
+    const orderPhotos = Array.isArray(o.photos) ? o.photos : [];
+    const opCells = orderPhotos
+      .map((p) => {
+        const su = _woSafeImgUrl(p.url);
+        if (!su) return '';
+        const k = escHtml(phKind[p.kind] || p.kind || 'Foto');
+        return `<div class="wo-doc-photo-cell" style="break-inside:avoid"><div class="border rounded overflow-hidden bg-white h-100">
+          <img src="${su}" alt="" style="width:100%;max-height:220px;object-fit:cover;display:block"/>
+          <div class="small text-muted px-2 py-1">${k}</div>
+        </div></div>`;
+      })
+      .filter(Boolean)
+      .join('');
+    const opBlock = opCells
+      ? `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Fotos de la orden</h3><div class="wo-doc-photo-grid">${opCells}</div>`
+      : '';
+
+    const ipCells = [];
+    pts.forEach((p) => {
+      const zlab = escHtml(zl[p.zone_code] || p.zone_code || 'Zona');
+      (p.photos || []).forEach((ph, idx) => {
+        const su = _woSafeImgUrl(ph.url);
+        if (!su) return;
+        ipCells.push(`<div class="wo-doc-photo-cell" style="break-inside:avoid"><div class="border rounded overflow-hidden bg-white h-100">
+          <img src="${su}" alt="" style="width:100%;max-height:220px;object-fit:cover;display:block"/>
+          <div class="small text-muted px-2 py-1">${zlab} · ${idx + 1}</div>
+        </div></div>`);
+      });
+    });
+    const ipBlock = ipCells.length
+      ? `<h3 style="font-size:1rem;margin:1.25em 0 0.5em;color:var(--qd-blue)">Fotos de inspección</h3><div class="wo-doc-photo-grid">${ipCells.join('')}</div>`
+      : '';
+
+    return `<div class="quote-wo-addon mt-4 pt-4" style="border-top:2px solid #1a3dcc">
+      <h2 style="font-size:1.15rem;color:#1a3dcc;margin-bottom:0.75rem">Orden de trabajo ${code}</h2>
+      <p class="mb-2"><strong>Estado:</strong> ${stLab} · <strong>Ingreso:</strong> ${formatDateEs(entryIso)}</p>
+      <p class="mb-2"><strong>Vehículo</strong><br>${vehBlock}</p>
+      ${notesHtml}
+      ${linesBlock}
+      ${chkBlock}
+      ${inspBlock}
+      ${opBlock}
+      ${ipBlock}
+    </div>`;
+  }
+
+  function syncQuotePreviewWorkshopWrap() {
+    const wrap = document.getElementById('quotePreviewWorkshopWrap');
+    const chk = document.getElementById('quotePreviewAttachWorkshop');
+    if (!wrap || !chk) return;
+    const hasWo = quote && quote.workshop_order_code;
+    wrap.classList.toggle('d-none', !hasWo);
+    chk.checked = !!hasWo;
+  }
+
+  async function refreshQuotePreviewInner() {
+    if (!previewBody) return;
+    const lines = getLinesForPreview();
+    const baseHtml = buildQuotePreviewDocumentHtml(lines);
+    const wrap = document.getElementById('quotePreviewWorkshopWrap');
+    const chk = document.getElementById('quotePreviewAttachWorkshop');
+    let extra = '';
+    const wantWo =
+      wrap &&
+      !wrap.classList.contains('d-none') &&
+      chk &&
+      chk.checked &&
+      quote &&
+      quote.workshop_order_code;
+    if (wantWo) {
+      try {
+        const bundle = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/by-quotation/${qid}`);
+        extra = buildQuoteWorkshopPreviewSection(bundle);
+      } catch (e) {
+        extra = `<div class="alert alert-warning mt-4 mb-0" role="alert">${escHtml(e.message || 'No se pudo cargar la orden de trabajo.')}</div>`;
+      }
+    }
+    previewBody.innerHTML = `<div class="p-3 p-md-4">${baseHtml}${extra}</div>`;
+  }
+
   function closeCustomerMenu() {
     if (!customerMenu) return;
     customerMenu.classList.remove('show');
@@ -141,27 +507,151 @@
     if (customerSearch) customerSearch.setAttribute('aria-expanded', 'false');
   }
 
-  function setCustomerHighlight(menu, index) {
-    const opts = [...menu.querySelectorAll('.cust-m2o-opt')];
+  function closeSalespersonMenu() {
+    if (!salespersonMenu) return;
+    salespersonMenu.classList.remove('show');
+    salespersonMenu.innerHTML = '';
+    if (salespersonSearch) salespersonSearch.setAttribute('aria-expanded', 'false');
+  }
+
+  function setSalespersonHighlight(menu, index) {
+    const opts = [...menu.querySelectorAll('.sp-m2o-opt')];
     opts.forEach((el, i) => el.classList.toggle('odoo-m2o-item-active', i === index));
     if (opts[index]) opts[index].scrollIntoView({ block: 'nearest' });
     return opts;
   }
 
-  function buildCustomerDropdownHtml(users) {
-    const body = users
-      .map((u) => {
-        const title = escHtml(u.name || u.email || '');
-        const em = u.email && String(u.email) !== String(u.name || '') ? `<span class="odoo-m2o-item-meta">${escHtml(u.email)}</span>` : '';
-        return `<button type="button" class="odoo-m2o-item cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
+  function buildSalespersonDropdownHtml(rows) {
+    const body = rows
+      .map((r) => {
+        const title = escHtml(r.name || r.email || r.code || '');
+        const meta = r.email && String(r.email) !== String(r.name || '')
+          ? `<span class="odoo-m2o-item-meta">${escHtml(r.email)}</span>`
+          : r.code
+            ? `<span class="odoo-m2o-item-meta">${escHtml(r.code)}</span>`
+            : '';
+        return `<button type="button" class="odoo-m2o-item sp-m2o-opt" data-id="${r.id}" data-name="${escAttr(r.name || '')}" data-email="${escAttr(r.email || '')}" data-code="${escAttr(r.code || '')}"><span class="odoo-m2o-item-title">${title}</span>${meta}</button>`;
       })
       .join('');
-    const empty = '<div class="px-3 py-2 small text-muted">Sin resultados</div>';
-    return `${users.length ? body : empty}<div class="odoo-m2o-hint">Miembros activos de la organización</div>`;
+    const empty =
+      '<div class="px-3 py-2 small text-muted">Sin vendedores. En <strong>Usuarios</strong> marque «Es vendedor» en los miembros que cotizan.</div>';
+    return `${rows.length ? body : empty}<div class="odoo-m2o-hint">Miembros de la organización con «Es vendedor»</div>`;
+  }
+
+  async function fetchSalespersons(q, limit) {
+    return api(`/salespersons/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+  }
+
+  async function renderSalespersonDropdown(q, limit) {
+    if (!salespersonMenu || !salespersonSearch) return;
+    root._spFetch = (root._spFetch || 0) + 1;
+    const fid = root._spFetch;
+    salespersonMenu.innerHTML = '<div class="text-muted small px-3 py-2">Cargando…</div>';
+    salespersonMenu.classList.add('show');
+    salespersonSearch.setAttribute('aria-expanded', 'true');
+    try {
+      const list = await fetchSalespersons(q, limit);
+      const arr = Array.isArray(list) ? list : [];
+      if (fid !== root._spFetch) return;
+      salespersonMenu.innerHTML = buildSalespersonDropdownHtml(arr);
+      root._spM2oIndex = arr.length ? 0 : -1;
+      setSalespersonHighlight(salespersonMenu, root._spM2oIndex);
+    } catch (e) {
+      if (fid !== root._spFetch) return;
+      salespersonMenu.innerHTML = `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>`;
+    }
+  }
+
+  async function applySalespersonPick(r) {
+    if (!salespersonUserId || !salespersonSearch) return;
+    salespersonUserId.value = String(r.id);
+    const disp =
+      r.email && r.name ? `${r.name} (${r.email})` : r.name || r.email || r.code || String(r.id);
+    salespersonSearch.value = disp;
+    salespersonSearch.dataset.lockedLabel = disp;
+    closeSalespersonMenu();
+    if (!canEditContent() && quote) {
+      try {
+        await saveQuotation({}, { silent: true });
+      } catch (e) {
+        showError(e.message);
+      }
+    }
+  }
+
+  function clearSalespersonPick() {
+    if (salespersonUserId) salespersonUserId.value = '';
+    if (salespersonSearch) {
+      salespersonSearch.value = '';
+      delete salespersonSearch.dataset.lockedLabel;
+    }
+  }
+
+  async function maybeApplyDefaultSalesperson() {
+    if (!canEditContent() || !salespersonUserId || (salespersonUserId.value || '').trim() !== '') return;
+    try {
+      const d = await api('/salespersons/default');
+      if (d && d.id) {
+        await applySalespersonPick(d);
+        if (quote) {
+          try {
+            await saveQuotation({}, { silent: true });
+          } catch (_) {
+            /* sin persistir si falla */
+          }
+        }
+      }
+    } catch (_) {
+      /* sin vendedor por defecto */
+    }
+  }
+
+  function setCustomerHighlight(menu, index) {
+    const opts = [...menu.querySelectorAll('.quote-cust-kbd-opt')];
+    opts.forEach((el, i) => el.classList.toggle('odoo-m2o-item-active', i === index));
+    if (opts[index]) opts[index].scrollIntoView({ block: 'nearest' });
+    return opts;
+  }
+
+  /** Mismo desplegable que Taller: búsqueda + Crear «…» + Crear y editar + Buscar más. */
+  function buildCustomerDropdownHtml(users, qRaw) {
+    const q = (qRaw || '').trim();
+    let head = '';
+    if (q) {
+      const qDisp = escHtml(q);
+      const qAttr = escAttr(q);
+      head =
+        `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-quick-create border-0 w-100 text-start" data-q="${qAttr}">Crear "${qDisp}"</button>` +
+        `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-open-edit border-0 w-100 text-start">Crear y editar…</button>`;
+    }
+    const body = (users || [])
+      .map((u) => {
+        const title = escHtml(u.name || u.email || '');
+        const em =
+          u.email && String(u.email) !== String(u.name || '')
+            ? `<span class="odoo-m2o-item-meta">${escHtml(u.email)}</span>`
+            : '';
+        return `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
+      })
+      .join('');
+    let mid = '';
+    if (users && users.length) {
+      mid = body;
+    } else {
+      mid = `<div class="px-3 py-2 small text-muted">${q ? 'Sin coincidencias en esta organización' : 'No hay contactos en el listado reciente'}</div>`;
+    }
+    const footer =
+      '<div class="odoo-m2o-footer border-top">' +
+      '<a href="/admin/users" target="_blank" rel="noopener" class="odoo-m2o-more">Buscar más…</a>' +
+      '</div>';
+    const hint = '<div class="odoo-m2o-hint">Empiece a escribir…</div>';
+    return `${head}${mid}${footer}${hint}`;
   }
 
   async function fetchCustomers(q, limit) {
-    return api(`/quotations/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+    return fetchJsonAbsolute(
+      `${WORKSHOP_API_BASE}/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    );
   }
 
   async function renderCustomerDropdown(q, limit) {
@@ -176,12 +666,15 @@
       const users = await fetchCustomers(q, limit);
       if (fid !== root._custFetch) return;
       const list = Array.isArray(users) ? users : [];
-      customerMenu.innerHTML = buildCustomerDropdownHtml(list);
-      root._custM2oIndex = list.length ? 0 : -1;
-      setCustomerHighlight(customerMenu, root._custM2oIndex);
+      customerMenu.innerHTML = buildCustomerDropdownHtml(list, q);
+      const kbd = [...customerMenu.querySelectorAll('.quote-cust-kbd-opt')];
+      root._custM2oIndex = kbd.length ? 0 : -1;
+      if (kbd.length) setCustomerHighlight(customerMenu, root._custM2oIndex);
     } catch (e) {
       if (fid !== root._custFetch) return;
-      customerMenu.innerHTML = `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>`;
+      customerMenu.innerHTML =
+        `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>` +
+        '<div class="odoo-m2o-hint small px-3 pb-2">Si el módulo Taller está desactivado, no hay API de clientes.</div>';
     }
   }
 
@@ -191,6 +684,83 @@
     customerSearch.value = disp;
     customerSearch.dataset.lockedLabel = disp;
     closeCustomerMenu();
+  }
+
+  async function quickCreateCustomerFromTypedLabel(raw) {
+    const t = String(raw || '').trim();
+    if (!t) return;
+    clearError();
+    try {
+      let res;
+      if (t.includes('@')) {
+        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { email: t.toLowerCase() });
+      } else {
+        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { quick_create_name: t });
+      }
+      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      closeCustomerMenu();
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+
+  function openQuoteNewCustomerModal(prefillOverride) {
+    closeCustomerMenu();
+    const raw =
+      prefillOverride != null && String(prefillOverride).trim() !== ''
+        ? String(prefillOverride).trim()
+        : (customerSearch && customerSearch.value ? customerSearch.value.trim() : '');
+    const em = document.getElementById('quoteNewCustEmail');
+    const fn = document.getElementById('quoteNewCustFirst');
+    const ln = document.getElementById('quoteNewCustLast');
+    const ph = document.getElementById('quoteNewCustPhone');
+    const er = document.getElementById('quoteNewCustErr');
+    if (em) em.value = raw.includes('@') ? raw : '';
+    if (fn) {
+      if (raw.includes('@')) {
+        const local = raw.split('@')[0].replace(/[._+-]/g, ' ').trim();
+        fn.value = local.slice(0, 50);
+      } else {
+        fn.value = raw.slice(0, 50);
+      }
+    }
+    if (ln) ln.value = '';
+    if (ph) ph.value = '';
+    if (er) {
+      er.textContent = '';
+      er.classList.add('d-none');
+    }
+    const modalEl = document.getElementById('quoteNewCustomerModal');
+    if (window.bootstrap && modalEl) window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  async function submitQuoteNewCustomer() {
+    const em = document.getElementById('quoteNewCustEmail');
+    const fn = document.getElementById('quoteNewCustFirst');
+    const ln = document.getElementById('quoteNewCustLast');
+    const ph = document.getElementById('quoteNewCustPhone');
+    const er = document.getElementById('quoteNewCustErr');
+    const payload = {
+      email: (em && em.value.trim()) || '',
+      first_name: (fn && fn.value.trim()) || '',
+      last_name: (ln && ln.value.trim()) || '',
+      phone: (ph && ph.value.trim()) || '',
+    };
+    try {
+      const res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', payload);
+      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      const modalEl = document.getElementById('quoteNewCustomerModal');
+      if (window.bootstrap && modalEl) window.bootstrap.Modal.getInstance(modalEl)?.hide();
+      if (er) {
+        er.textContent = '';
+        er.classList.add('d-none');
+      }
+    } catch (e) {
+      if (er) {
+        er.textContent = e.message || 'No se pudo crear el cliente';
+        er.classList.remove('d-none');
+      }
+    }
   }
 
   function closeAllServiceMenus(exceptTr = null) {
@@ -243,7 +813,7 @@
   }
 
   async function fetchServices(q, limit) {
-    return api(`/quotations/products/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+    return api(`/products/search?q=${encodeURIComponent(q)}&limit=${limit}`);
   }
 
   async function renderServiceDropdown(tr, q, limit) {
@@ -315,8 +885,19 @@
     quotation_must_be_confirmed: 'Debe confirmar la cotización antes de crear la factura.',
     quotation_has_invoice: 'No se puede eliminar: existe una factura asociada a esta cotización.',
     quotation_cannot_delete_final: 'No se puede eliminar una cotización facturada o pagada.',
+    invalid_salesperson: 'Identificador de vendedor no válido.',
+    salesperson_not_found: 'El vendedor no existe en esta organización.',
+    salesperson_inactive: 'El vendedor está inactivo.',
+    salesperson_not_flagged: 'El usuario no está habilitado como vendedor (actívelo en Usuarios).',
+    customer_email_missing:
+      'El contacto cliente no tiene correo electrónico. Edite el cliente y asigne un email antes de enviar.',
+    recipients_required: 'Indique al menos un correo válido en «Para».',
+    send_failed: 'No se pudo enviar el correo (SMTP o cola). Revise la configuración de email de la organización.',
     forbidden: 'No tiene permiso para esta acción.',
     not_found: 'No se encontró el recurso solicitado.',
+    unauthorized: 'Sesión caducada o no autenticado. Recargue la página e inicie sesión.',
+    organization_context_lost:
+      'Sesión o contexto de organización inválido. Recargue la página e inicie sesión de nuevo.',
   };
 
   function humanizeApiMessage(m) {
@@ -338,21 +919,39 @@
   };
   const clearError = () => { err.classList.add('d-none'); err.textContent = ''; };
 
-  async function api(url, method = 'GET', body = null) {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : null,
-      credentials: 'same-origin',
-    });
-    const data = await res.json().catch(() => ({}));
+  /**
+   * fetch JSON desde una ruta absoluta del sitio (desde /). No usar con rutas del API de cotizaciones.
+   */
+  async function fetchJsonAbsolute(absolutePath, method = 'GET', body = null) {
+    const url = absolutePath.startsWith('/') ? absolutePath : `/${absolutePath}`;
+    const headers = { Accept: 'application/json' };
+    if (body != null || (method !== 'GET' && method !== 'HEAD')) {
+      headers['Content-Type'] = 'application/json';
+    }
+    const init = { method, credentials: 'same-origin', headers };
+    if (body != null) init.body = JSON.stringify(body);
+    const res = await fetch(url, init);
+    const text = await res.text().catch(() => '');
+    const t = text.trim();
+    const ct = (res.headers.get('Content-Type') || '').toLowerCase();
+    if (ct.includes('text/html') || t.startsWith('<!') || t.startsWith('<html')) {
+      throw new Error(
+        'El servidor devolvió HTML en lugar de JSON (suele ser sesión caducada o URL mal enrutada). Recargue e inicie sesión.',
+      );
+    }
+    let data;
+    try {
+      data = t ? JSON.parse(t) : {};
+    } catch {
+      throw new Error(`HTTP ${res.status}: respuesta no válida`);
+    }
     if (!res.ok) {
       const code = typeof data.error === 'string' ? data.error : '';
       let msg =
         (typeof data.user_message === 'string' && data.user_message) ||
         (typeof data.detail === 'string' && data.detail) ||
         code ||
-        `request_failed (${res.status})`;
+        `HTTP ${res.status}`;
       if (code === 'cancelled_quotation_cannot_be_edited') {
         msg = API_ERROR_LABELS.cancelled_quotation_cannot_be_edited;
       }
@@ -370,14 +969,20 @@
     return data;
   }
 
-  /** Catálogo de impuestos para líneas. Si falla una URL, prueba la otra; siempre deja taxes como array. */
+  /** Ruta relativa al API de cotizaciones (Q_BASE), p. ej. `/${qid}` o `/customers/search?...`. */
+  async function api(urlPath, method = 'GET', body = null) {
+    const suffix = urlPath.startsWith('/') ? urlPath : `/${urlPath}`;
+    return fetchJsonAbsolute(Q_BASE + suffix, method, body);
+  }
+
+  /** Catálogo de impuestos: vive en /api/taxes o /taxes, no bajo /api/sales/quotations. */
   async function loadTaxes() {
     let data;
     try {
-      data = await api('/api/taxes?include_inactive=1');
+      data = await fetchJsonAbsolute('/api/taxes?include_inactive=1');
     } catch (e1) {
       try {
-        data = await api('/taxes?include_inactive=1');
+        data = await fetchJsonAbsolute('/taxes?include_inactive=1');
       } catch (e2) {
         throw e1;
       }
@@ -477,7 +1082,7 @@
 
   async function loadQuotation() {
     clearError();
-    const q = await api(`/quotations/${qid}`);
+    const q = await api(`/${qid}`);
     quote = q;
     root.dataset.status = q.status;
     document.getElementById('qNumber').textContent = q.number;
@@ -490,10 +1095,39 @@
       if (disp) customerSearch.dataset.lockedLabel = disp;
       else delete customerSearch.dataset.lockedLabel;
     }
+    if (salespersonUserId) {
+      const sid = q.salesperson_user_id;
+      salespersonUserId.value =
+        sid != null && sid !== '' && !Number.isNaN(Number(sid)) ? String(Number(sid)) : '';
+    }
+    if (salespersonSearch) {
+      let sd = '';
+      if (q.salesperson_name || q.salesperson_email) {
+        const sn = (q.salesperson_name || '').trim();
+        const se = (q.salesperson_email || '').trim();
+        sd = sn && se ? `${sn} (${se})` : sn || se;
+      }
+      salespersonSearch.value = sd;
+      if (sd) salespersonSearch.dataset.lockedLabel = sd;
+      else delete salespersonSearch.dataset.lockedLabel;
+    }
     validityDate.value = q.validity_date ? q.validity_date.slice(0, 10) : '';
     const qd = document.getElementById('quoteDate');
     if (qd) qd.value = q.date ? q.date.slice(0, 10) : '';
     if (paymentTerms) paymentTerms.value = q.payment_terms || '';
+    const orgFiscalEl = document.getElementById('quoteOrgFiscalText');
+    if (orgFiscalEl) {
+      const orgFiscal = getOrganizationFiscalParts();
+      const parts = [
+        orgFiscal.displayName !== '—' ? orgFiscal.displayName : '',
+        orgFiscal.taxId ? `RUC/NIT: ${orgFiscal.taxId}` : '',
+        orgFiscal.regime ? `Régimen: ${orgFiscal.regime}` : '',
+        orgFiscal.address || '',
+        orgFiscal.location || '',
+        orgFiscal.contact || '',
+      ].filter(Boolean);
+      orgFiscalEl.textContent = parts.join(' | ') || 'Sin datos fiscales configurados.';
+    }
     document.getElementById('subtotalLbl').textContent = fmt(q.total);
     document.getElementById('taxLbl').textContent = fmt(q.tax_total);
     document.getElementById('grandLbl').textContent = fmt(q.grand_total);
@@ -501,6 +1135,8 @@
     window.QuotationLinesComponent.mount(lineItems, q.lines || [], taxes, { readOnly: !canEditContentForQuote(q) });
     applyEditMode();
     recalcUiTotals();
+    maybeApplyDefaultSalesperson();
+    syncQuotePreviewWorkshopWrap();
   }
 
   async function saveQuotation(extra = {}, opts = {}) {
@@ -508,6 +1144,31 @@
     const wasEditable = canEditContent();
     if (!quote) {
       showError('Cotización no cargada.');
+      return;
+    }
+    const spRaw = salespersonUserId ? Number(salespersonUserId.value) : null;
+    const spPayload = spRaw && !Number.isNaN(spRaw) && spRaw > 0 ? spRaw : null;
+    if (!wasEditable) {
+      const curSp =
+        quote.salesperson_user_id != null && quote.salesperson_user_id !== ''
+          ? Number(quote.salesperson_user_id)
+          : null;
+      const curNorm = curSp && !Number.isNaN(curSp) && curSp > 0 ? curSp : null;
+      const spNorm = spPayload;
+      if (curNorm === spNorm && Object.keys(extra).length === 0) {
+        if (!silent) return;
+      }
+      const patch = { salesperson_user_id: spNorm };
+      Object.assign(patch, extra);
+      const updated = await api(`/${qid}`, 'PUT', patch);
+      quote = updated;
+      root.dataset.status = updated.status;
+      window.QuotationLinesComponent.mount(lineItems, updated.lines || [], taxes, {
+        readOnly: !canEditContentForQuote(updated),
+      });
+      applyEditMode();
+      recalcUiTotals();
+      if (!silent) showSavedToast();
       return;
     }
     const lines = wasEditable
@@ -518,13 +1179,14 @@
       validity_date: validityDate.value ? new Date(validityDate.value).toISOString() : null,
       payment_terms: paymentTerms ? String(paymentTerms.value || '').trim() : '',
       lines,
+      salesperson_user_id: spPayload,
     };
     const statusHint = (quote && quote.status) || root.dataset.status || root.dataset.initialStatus || '';
     if (String(statusHint).toLowerCase() === 'cancelled' && extra.status !== 'cancelled') {
       payload.status = 'draft';
     }
     Object.assign(payload, extra);
-    const updated = await api(`/quotations/${qid}`, 'PUT', payload);
+    const updated = await api(`/${qid}`, 'PUT', payload);
     quote = updated;
     root.dataset.status = updated.status;
     window.QuotationLinesComponent.mount(lineItems, updated.lines || [], taxes, { readOnly: !canEditContentForQuote(updated) });
@@ -610,6 +1272,7 @@
 
   document.addEventListener('mousedown', (e) => {
     if (!e.target.closest('#quoteCustomerM2o')) closeCustomerMenu();
+    if (!e.target.closest('#quoteSalespersonM2o')) closeSalespersonMenu();
     if (e.target.closest('#lineItems .odoo-m2o')) return;
     closeAllServiceMenus();
   });
@@ -617,7 +1280,11 @@
   if (customerSearch && customerMenu) {
     customerSearch.addEventListener('focusin', () => {
       if (!canEditContent()) return;
-      renderCustomerDropdown((customerSearch.value || '').trim(), 20);
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
+    });
+    customerSearch.addEventListener('click', () => {
+      if (!canEditContent()) return;
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
     });
     customerSearch.addEventListener('input', () => {
       if (!canEditContent()) return;
@@ -627,7 +1294,7 @@
       }
       const q = (customerSearch.value || '').trim();
       clearTimeout(root._custDeb);
-      root._custDeb = setTimeout(() => renderCustomerDropdown(q, 20), CUST_DEBOUNCE_MS);
+      root._custDeb = setTimeout(() => renderCustomerDropdown(q, 15), CUST_DEBOUNCE_MS);
     });
     customerSearch.addEventListener('keydown', (e) => {
       if (!canEditContent()) return;
@@ -635,13 +1302,16 @@
       if (!menu.classList.contains('show')) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          renderCustomerDropdown((customerSearch.value || '').trim(), 20);
+          renderCustomerDropdown((customerSearch.value || '').trim(), 15);
         }
         return;
       }
-      const opts = [...menu.querySelectorAll('.cust-m2o-opt')];
+      const opts = [...menu.querySelectorAll('.quote-cust-kbd-opt')];
       if (!opts.length) {
-        if (e.key === 'Escape') { e.preventDefault(); closeCustomerMenu(); }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeCustomerMenu();
+        }
         return;
       }
       let idx = typeof root._custM2oIndex === 'number' ? root._custM2oIndex : 0;
@@ -663,13 +1333,102 @@
         closeCustomerMenu();
       }
     });
-    document.getElementById('quoteCustomerM2o').addEventListener('click', (e) => {
-      const btn = e.target.closest && e.target.closest('.cust-m2o-opt');
+    document.getElementById('quoteCustomerM2o')?.addEventListener('click', (e) => {
+      const qc = e.target.closest && e.target.closest('.quote-cust-quick-create');
+      if (qc) {
+        e.preventDefault();
+        quickCreateCustomerFromTypedLabel(qc.getAttribute('data-q') || '');
+        return;
+      }
+      const ed = e.target.closest && e.target.closest('.quote-cust-open-edit');
+      if (ed) {
+        e.preventDefault();
+        openQuoteNewCustomerModal();
+        return;
+      }
+      const btn = e.target.closest && e.target.closest('.quote-cust-m2o-opt');
+      if (btn && btn.dataset.id) {
+        e.preventDefault();
+        applyCustomerPick({
+          id: btn.dataset.id,
+          name: btn.dataset.name,
+          email: btn.dataset.email,
+        });
+      }
+    });
+    document.querySelector('#quoteCustomerM2o .quote-cust-toggle')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      customerSearch.focus();
+      renderCustomerDropdown((customerSearch.value || '').trim(), 15);
+    });
+  }
+
+  document.getElementById('btnQuoteNewCustSave')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    submitQuoteNewCustomer();
+  });
+
+  const spM2oRoot = document.getElementById('quoteSalespersonM2o');
+  if (salespersonSearch && salespersonMenu && spM2oRoot) {
+    salespersonSearch.addEventListener('focusin', () => {
+      renderSalespersonDropdown((salespersonSearch.value || '').trim(), 40);
+    });
+    salespersonSearch.addEventListener('input', () => {
+      if (
+        salespersonSearch.dataset.lockedLabel &&
+        salespersonSearch.value !== salespersonSearch.dataset.lockedLabel
+      ) {
+        salespersonUserId.value = '';
+        delete salespersonSearch.dataset.lockedLabel;
+      }
+      const qv = (salespersonSearch.value || '').trim();
+      clearTimeout(root._spDeb);
+      root._spDeb = setTimeout(() => renderSalespersonDropdown(qv, 40), SP_DEBOUNCE_MS);
+    });
+    salespersonSearch.addEventListener('keydown', (e) => {
+      const menu = salespersonMenu;
+      if (!menu.classList.contains('show')) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          renderSalespersonDropdown((salespersonSearch.value || '').trim(), 40);
+        }
+        return;
+      }
+      const opts = [...menu.querySelectorAll('.sp-m2o-opt')];
+      if (!opts.length) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeSalespersonMenu();
+        }
+        return;
+      }
+      let idx = typeof root._spM2oIndex === 'number' ? root._spM2oIndex : 0;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        idx = Math.min(idx + 1, opts.length - 1);
+        root._spM2oIndex = idx;
+        setSalespersonHighlight(menu, idx);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        idx = Math.max(idx - 1, 0);
+        root._spM2oIndex = idx;
+        setSalespersonHighlight(menu, idx);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        opts[idx].click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSalespersonMenu();
+      }
+    });
+    spM2oRoot.addEventListener('click', (e) => {
+      const btn = e.target.closest && e.target.closest('.sp-m2o-opt');
       if (!btn) return;
-      applyCustomerPick({
+      void applySalespersonPick({
         id: btn.dataset.id,
         name: btn.dataset.name,
         email: btn.dataset.email,
+        code: btn.dataset.code,
       });
     });
   }
@@ -800,7 +1559,7 @@
   const btnConfirm = document.getElementById('btnConfirm');
   if (btnConfirm) {
     btnConfirm.addEventListener('click', async () => {
-      try { await saveQuotation(); await api(`/quotations/${qid}/confirm`, 'POST'); await loadQuotation(); } catch (e) { showError(e.message); }
+      try { await saveQuotation(); await api(`/${qid}/confirm`, 'POST'); await loadQuotation(); } catch (e) { showError(e.message); }
     });
   }
   const btnCreateInvoice = document.getElementById('btnCreateInvoice');
@@ -808,15 +1567,145 @@
     btnCreateInvoice.addEventListener('click', async () => {
       try {
         await saveQuotation();
-        await api(`/quotations/${qid}/create-invoice`, 'POST');
+        const invRes = await api(`/${qid}/create-invoice`, 'POST');
+        const newId = invRes && (invRes.invoice_id != null ? Number(invRes.invoice_id) : 0);
+        if (newId > 0) {
+          window.location.href = `/admin/accounting/invoices/${newId}`;
+          return;
+        }
         await loadQuotation();
       } catch (e) { showError(e.message); }
     });
   }
+  function openQuoteMailModal() {
+    const el = document.getElementById('quoteMailModal');
+    if (!el) {
+      showError(
+        'No se abrió el envío de correo. Recargue la página forzando caché (Ctrl+F5 o Cmd+Shift+R).',
+      );
+      return;
+    }
+    if (window.bootstrap && window.bootstrap.Modal) {
+      try {
+        window.bootstrap.Modal.getOrCreateInstance(el).show();
+        return;
+      } catch (e) {
+        console.warn('quoteMailModal', e);
+      }
+    }
+    showError(
+      'No se pudo mostrar el diálogo (Bootstrap no cargó). Revise conexión, bloqueadores de script y recargue.',
+    );
+  }
+
+  function fillQuoteMailModal() {
+    const toEl = document.getElementById('quoteMailTo');
+    const subEl = document.getElementById('quoteMailSubject');
+    const bodyEl = document.getElementById('quoteMailBody');
+    const pdfNameEl = document.getElementById('quoteMailPdfName');
+    const attChk = document.getElementById('quoteMailAttachPdf');
+    const woWrap = document.getElementById('quoteMailWorkshopWrap');
+    const woChk = document.getElementById('quoteMailAttachWorkshop');
+    if (!toEl || !subEl || !bodyEl) return;
+    const em = quote && quote.customer_email ? String(quote.customer_email).trim() : '';
+    toEl.value = em;
+    const org = (root.dataset.quoteOrgName || root.dataset.quoteBrand || '').trim();
+    const num =
+      (document.getElementById('qNumber') && document.getElementById('qNumber').textContent.trim()) || '—';
+    subEl.value = org ? `${org} — Cotización (Ref ${num})` : `Cotización (Ref ${num})`;
+    const nombre = quote && quote.customer_name ? String(quote.customer_name).trim() : 'Cliente';
+    const grandEl = document.getElementById('grandLbl');
+    const total = grandEl ? String(grandEl.textContent || '').trim() : 'B/. 0.00';
+    const seller = getQuotationSellerDisplay('');
+    const sig = seller ? `— ${seller}` : '—';
+    bodyEl.value = [
+      `Hola ${nombre},`,
+      '',
+      `Le enviamos la cotización ${num} por un importe de ${total}.`,
+      '',
+      'No dude en ponerse en contacto con nosotros si tiene alguna pregunta.',
+      '',
+      sig,
+    ].join('\n');
+    if (pdfNameEl) {
+      const safeNum = String(num).replace(/[^\w.\-]+/g, '_');
+      pdfNameEl.textContent = `Cotizacion-${safeNum}.pdf`;
+    }
+    if (attChk) attChk.checked = true;
+    const hasWo = quote && quote.workshop_order_code;
+    if (woWrap && woChk) {
+      woWrap.classList.toggle('d-none', !hasWo);
+      woChk.checked = !!hasWo;
+      woChk.disabled = !hasWo;
+    }
+  }
+
   const btnSend = document.getElementById('btnSend');
   if (btnSend) {
     btnSend.addEventListener('click', async () => {
-      try { await saveQuotation(); await api(`/quotations/${qid}/send`, 'POST'); await loadQuotation(); } catch (e) { showError(e.message); }
+      try {
+        clearError();
+        await saveQuotation();
+        if (!quote) {
+          showError('Cotización no cargada.');
+          return;
+        }
+        const em = quote.customer_email ? String(quote.customer_email).trim() : '';
+        if (!em) {
+          showError(API_ERROR_LABELS.customer_email_missing);
+          return;
+        }
+        fillQuoteMailModal();
+        openQuoteMailModal();
+      } catch (e) {
+        showError(e.message);
+      }
+    });
+  }
+
+  const btnQuoteMailSubmit = document.getElementById('btnQuoteMailSubmit');
+  if (btnQuoteMailSubmit) {
+    btnQuoteMailSubmit.addEventListener('click', async () => {
+      const toEl = document.getElementById('quoteMailTo');
+      const subEl = document.getElementById('quoteMailSubject');
+      const bodyEl = document.getElementById('quoteMailBody');
+      const attChk = document.getElementById('quoteMailAttachPdf');
+      const woWrap = document.getElementById('quoteMailWorkshopWrap');
+      const woChk = document.getElementById('quoteMailAttachWorkshop');
+      if (!toEl || !subEl || !bodyEl) return;
+      btnQuoteMailSubmit.disabled = true;
+      try {
+        let attachWo = false;
+        if (woWrap && !woWrap.classList.contains('d-none') && woChk && !woChk.disabled) {
+          attachWo = !!woChk.checked;
+        }
+        const payload = {
+          to: String(toEl.value || '').trim(),
+          subject: String(subEl.value || '').trim(),
+          body_text: String(bodyEl.value || ''),
+          attach_pdf: !!(attChk && attChk.checked),
+          attach_workshop_order: attachWo,
+        };
+        await api(`/${qid}/send`, 'POST', payload);
+        const mailModalEl = document.getElementById('quoteMailModal');
+        if (mailModalEl && window.bootstrap && window.bootstrap.Modal) {
+          try {
+            window.bootstrap.Modal.getOrCreateInstance(mailModalEl).hide();
+          } catch (_) {
+            /* ignore */
+          }
+        }
+        await loadQuotation();
+        const firstTo = String(payload.to || '')
+          .split(/[,;]+/)
+          .map((s) => s.trim())
+          .find(Boolean) || '';
+        showMailSentToast(firstTo);
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        btnQuoteMailSubmit.disabled = false;
+      }
     });
   }
   const btnCancel = document.getElementById('btnCancel');
@@ -847,21 +1736,8 @@
         return;
       }
       try {
-        const res = await fetch(`/quotations/${qid}`, {
-          method: 'DELETE',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const code = typeof data.error === 'string' ? data.error : '';
-          const msg =
-            (typeof data.user_message === 'string' && data.user_message) ||
-            (code && API_ERROR_LABELS[code]) ||
-            code ||
-            `request_failed (${res.status})`;
-          throw new Error(msg);
-        }
+        // POST /id/delete: mismo efecto que DELETE; algunos proxies/firewalls bloquean DELETE.
+        await api(`/${qid}/delete`, 'POST', {});
         window.location.href = '/admin/sales/quotations';
       } catch (e) {
         showError(e.message || String(e));
@@ -871,32 +1747,28 @@
   const btnPreview = document.getElementById('btnPreview');
   if (btnPreview) {
     btnPreview.addEventListener('click', async () => {
-    try {
-      if (canEditContent()) await saveQuotation({}, { silent: true });
-      const lines = getLinesForPreview();
-      previewBody.innerHTML = `
-        <h5 class="mb-3">Cotización ${document.getElementById('qNumber').textContent}</h5>
-        <div class="small text-muted mb-3">Cliente: ${escHtml(customerSearch ? customerSearch.value : '') || `ID ${customerId.value || '-'}`} | Vencimiento: ${validityDate.value || '-'}${paymentTerms && paymentTerms.value ? ` | Términos: ${escHtml(paymentTerms.value)}` : ''}</div>
-        <table class="table table-sm">
-          <thead><tr><th>Descripción</th><th class="text-end">Cant.</th><th class="text-end">Precio</th><th class="text-end">Impuesto</th><th class="text-end">Importe</th></tr></thead>
-          <tbody>
-            ${lines.map((ln) => {
-              if (ln.is_note) return `<tr><td colspan="5"><em>${ln.description || ''}</em></td></tr>`;
-              const c = computeLine(ln);
-              const t = lineTax(ln);
-              return `<tr><td>${ln.description || ''}</td><td class="text-end">${Number(ln.quantity || 0).toFixed(2)}</td><td class="text-end">${fmt(ln.price_unit)}</td><td class="text-end">${formatTaxPreview(t)}</td><td class="text-end">${fmt(c.total)}</td></tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-        <div class="text-end"><strong>Total: ${document.getElementById('grandLbl').textContent}</strong></div>`;
-      if (window.bootstrap && window.bootstrap.Modal) {
-        window.bootstrap.Modal.getOrCreateInstance(previewModal).show();
-      } else {
-        previewModal.classList.remove('d-none');
+      try {
+        if (canEditContent()) await saveQuotation({}, { silent: true });
+        syncQuotePreviewWorkshopWrap();
+        await refreshQuotePreviewInner();
+        if (window.bootstrap && window.bootstrap.Modal) {
+          window.bootstrap.Modal.getOrCreateInstance(previewModal).show();
+        } else if (previewModal) {
+          previewModal.classList.remove('d-none');
+        }
+      } catch (e) {
+        showError(e.message);
       }
-    } catch (e) { showError(e.message); }
     });
   }
+
+  document.getElementById('quotePreviewAttachWorkshop')?.addEventListener('change', () => {
+    void refreshQuotePreviewInner();
+  });
+
+  document.getElementById('btnQuotePreviewPrint')?.addEventListener('click', () => {
+    window.print();
+  });
 
   lineItems.addEventListener('keydown', (e) => {
     if (!canEditContent()) return;

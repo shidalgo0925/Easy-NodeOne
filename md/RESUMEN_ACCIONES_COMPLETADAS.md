@@ -24,7 +24,7 @@
 - **Estado**: ✅ Completado
 
 ### 4. ✅ Directorio de Logs
-- **Ubicación**: `/home/relaticpanama2025/projects/membresia-relatic/logs`
+- **Ubicación**: `/var/www/nodeone/logs`
 - **Permisos**: 755
 - **Estado**: ✅ Creado
 
@@ -80,27 +80,27 @@
 1. **Configurar Credenciales de Email**
    ```bash
    # Opción 1: Desde panel web
-   # Ir a: https://miembros.relatic.org/admin/email
+   # Ir a: https://app.example.com/admin/email
    # Configurar SMTP y probar envío
    
    # Opción 2: Variables de entorno
    export MAIL_SERVER=smtp.office365.com
    export MAIL_PORT=587
    export MAIL_USE_TLS=True
-   export MAIL_USERNAME=tu_email@relaticpanama.org
+   export MAIL_USERNAME=tu_email@example.com
    export MAIL_PASSWORD=tu_contraseña
-   export MAIL_DEFAULT_SENDER=noreply@relaticpanama.org
+   export MAIL_DEFAULT_SENDER=noreply@example.com
    ```
 
 2. **Configurar Cron Job**
    ```bash
-   cd /home/relaticpanama2025/projects/membresia-relatic/backend
+   cd /var/www/nodeone/backend
    ./scripts/backend/setup_notification_cron.sh
    ```
 
 3. **Procesar Notificaciones Pendientes**
    ```bash
-   cd /home/relaticpanama2025/projects/membresia-relatic
+   cd /var/www/nodeone
    source venv/bin/activate
    python backend/retry_pending_notifications.py
    ```
@@ -131,7 +131,7 @@
 Para verificar que todo está funcionando:
 
 ```bash
-cd /home/relaticpanama2025/projects/membresia-relatic
+cd /var/www/nodeone
 source venv/bin/activate
 python backend/verify_notifications_system.py
 ```

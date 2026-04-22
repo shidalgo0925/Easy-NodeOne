@@ -77,6 +77,18 @@ def submit_request(user, data, request=None):
     Requiere aceptación de política de correo si aplica.
     Retorna (response_dict, None) o (None, (error_msg, status_code)).
     """
+    from nodeone.services.office365_module import is_office365_module_enabled_for_org
+    from nodeone.services.org_scope import org_id_for_module_visibility
+
+    if not is_office365_module_enabled_for_org(org_id_for_module_visibility()):
+        return None, (
+            {
+                'success': False,
+                'error': 'El módulo de solicitud de correo Office 365 no está activo para esta organización.',
+            },
+            404,
+        )
+
     email = (data.get('email') or '').strip()
     purpose = (data.get('purpose') or '').strip()
     description = (data.get('description') or '').strip()

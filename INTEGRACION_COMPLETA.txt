@@ -20,13 +20,13 @@ Estado: ✅ LISTO PARA PRODUCCIÓN
   CONFIGURACIÓN ACTUAL
 ═══════════════════════════════════════════════════════════════
 
-Servicio: membresia-relatic.service
+Servicio: nodeone.service
 Estado: ✅ ACTIVO
 
 Variables configuradas:
   ✅ ODOO_INTEGRATION_ENABLED=true
-  ✅ ODOO_API_URL=https://odoo.relatic.org/api/relatic/v1/sale
-  ✅ ODOO_API_KEY=ETS_RELATIC_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K
+  ✅ ODOO_API_URL=https://odoo.example.com/api/v1/sale
+  ✅ ODOO_API_KEY=ETS_Easy NodeOne_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K
   ✅ ODOO_HMAC_SECRET=C7SoMRiKnsaKEuK2fxLkxH5mbFqNLp1KonUNIDspAc4ZuQlC9nUXejAyEPM3lSOc
   ✅ ODOO_ENVIRONMENT=prod
 
@@ -49,10 +49,10 @@ El webhook se envía automáticamente cuando:
 
 Parámetros del Sistema (Configuración → Técnico → Parámetros):
 
-  relatic_integration.api_key
-  = ETS_RELATIC_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K
+  nodeone_integration.api_key
+  = ETS_Easy NodeOne_S9c8jmpdu9PYXVt04WVEN9hSMF0oRM5K
 
-  relatic_integration.hmac_secret
+  nodeone_integration.hmac_secret
   = C7SoMRiKnsaKEuK2fxLkxH5mbFqNLp1KonUNIDspAc4ZuQlC9nUXejAyEPM3lSOc
 
 ═══════════════════════════════════════════════════════════════
@@ -60,13 +60,13 @@ Parámetros del Sistema (Configuración → Técnico → Parámetros):
 ═══════════════════════════════════════════════════════════════
 
 Ver logs en tiempo real:
-  sudo journalctl -u membresia-relatic.service -f | grep -i odoo
+  sudo journalctl -u nodeone.service -f | grep -i odoo
 
 Ver últimos logs:
-  sudo journalctl -u membresia-relatic.service --since "10 minutes ago" | grep -i odoo
+  sudo journalctl -u nodeone.service --since "10 minutes ago" | grep -i odoo
 
 Verificar en Odoo:
-  Contabilidad → Relatic Integration → Logs de Sincronización
+  Contabilidad → NodeOne Integration → Logs de Sincronización
 
 ═══════════════════════════════════════════════════════════════
   ARCHIVOS DE REFERENCIA
@@ -102,6 +102,6 @@ Verificar en Odoo:
 🎉 ¡INTEGRACIÓN COMPLETA Y LISTA PARA USAR!
 
 Los webhooks se enviarán automáticamente cuando se confirmen
-pagos en membresia-relatic. Todo está configurado y funcionando.
+pagos en nodeone. Todo está configurado y funcionando.
 
 ═══════════════════════════════════════════════════════════════

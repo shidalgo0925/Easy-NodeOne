@@ -1,13 +1,13 @@
-# Comparativa de Sistemas Similares a RELATIC
+# Comparativa de Sistemas Similares a Easy NodeOne
 
-> Análisis de plataformas y sistemas que ofrecen funcionalidades similares a RELATIC Panamá
+> Análisis de plataformas y sistemas que ofrecen funcionalidades similares a Easy NodeOne
 > Fecha: Enero 2025
 
 ---
 
 ## 📊 Resumen Ejecutivo
 
-RELATIC es una **red académica latinoamericana** que ofrece:
+Easy NodeOne es una **red académica latinoamericana** que ofrece:
 - Sistema de membresías (4 niveles: Básico, Pro, Premium, DeLuxe)
 - Gestión de eventos y certificaciones
 - Recursos académicos (revistas, bases de datos, libros)
@@ -221,7 +221,7 @@ RELATIC es una **red académica latinoamericana** que ofrece:
 
 | Sistema | Costo Anual Mínimo | Costo Anual Promedio | Costo Anual Máximo |
 |---------|-------------------|---------------------|-------------------|
-| **RELATIC (Actual)** | $0 (propio) | $0-500 (hosting) | $1,000-2,000 (mantenimiento) |
+| **Easy NodeOne (Actual)** | $0 (propio) | $0-500 (hosting) | $1,000-2,000 (mantenimiento) |
 | **WildApricot** | $600 | $2,400 | $8,640 |
 | **NeonCRM** | $1,188 | $2,388 | $3,588+ |
 | **MemberPress** | $149 | $249 | $549 |
@@ -275,13 +275,13 @@ RELATIC es una **red académica latinoamericana** que ofrece:
 - ⚠️ **NeonCRM**: Moderada
 - ⚠️ **MemberPress**: Moderada (WordPress)
 - ✅ **CiviCRM**: Alta (código abierto)
-- ✅ **RELATIC (Actual)**: Total (sistema propio)
+- ✅ **Easy NodeOne (Actual)**: Total (sistema propio)
 
 ---
 
 ## 🎯 Recomendaciones
 
-### Opción 1: Continuar con Sistema Propio (RELATIC Actual)
+### Opción 1: Continuar con Sistema Propio (Easy NodeOne Actual)
 **Costo**: $0-2,000/año (hosting + mantenimiento mínimo)
 
 **Ventajas**:
@@ -320,7 +320,7 @@ RELATIC es una **red académica latinoamericana** que ofrece:
 
 ## 📝 Conclusión
 
-**El sistema actual de RELATIC (desarrollado con Flask) es la opción más económica y flexible** para las necesidades específicas de una red académica latinoamericana.
+**El sistema actual de Easy NodeOne (desarrollado con Flask) es la opción más económica y flexible** para las necesidades específicas de una red académica latinoamericana.
 
 **Comparación de costos**:
 - Sistema propio: **$0-2,000/año**

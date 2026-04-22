@@ -1,6 +1,6 @@
 # FASE 2 — Modelo de datos RBAC (roles y permisos)
 
-**Proyecto:** miembros.relatic.org (membresia-relatic)  
+**Proyecto:** app.example.com (nodeone)  
 **Objetivo:** Base de datos para autorización por permisos (RBAC), neutral al framework.  
 **Regla clave:** El backend valida siempre por **permiso**, nunca por rol.
 

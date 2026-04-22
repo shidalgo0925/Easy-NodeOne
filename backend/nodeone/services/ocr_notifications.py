@@ -25,7 +25,7 @@ def send_ocr_review_notifications(payment, user, ocr_extracted_data):
                 <li><strong>Método de pago:</strong> {payment.payment_method.title()}</li>
             </ul>
             <p>Nuestro equipo revisará tu comprobante y te notificará cuando se apruebe tu membresía.</p>
-            <p>Saludos,<br>Equipo RelaticPanama</p>
+            <p>Saludos,<br>Equipo Easy NodeOne</p>
             """
         if M.email_service:
             oid_u = M.NotificationEngine._coerce_org_id(
@@ -33,7 +33,7 @@ def send_ocr_review_notifications(payment, user, ocr_extracted_data):
             )
             if M.NotificationEngine._smtp_ready(oid_u, last_smtp):
                 M.email_service.send_email(
-                    subject='Revisión de Pago - RelaticPanama',
+                    subject='Revisión de Pago - Easy NodeOne',
                     recipients=[user.email],
                     html_content=user_html,
                     email_type='payment_review',

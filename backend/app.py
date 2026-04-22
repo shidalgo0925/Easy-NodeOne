@@ -136,8 +136,14 @@ def _load_or_create_secret_key():
 
 
 app.config['SECRET_KEY'] = _load_or_create_secret_key()
-db_path = os.path.join(_instance_dir, 'nodeone.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+_raw_db = (os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL') or '').strip()
+if _raw_db:
+    if _raw_db.startswith('postgres://'):
+        _raw_db = _raw_db.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = _raw_db
+else:
+    db_path = os.path.join(_instance_dir, 'nodeone.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuración de Stripe

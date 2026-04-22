@@ -58,7 +58,7 @@
                         </div>
                     </form>
                     
-                    {# Login social: Google, Facebook, LinkedIn (OAuth). Ver CONFIGURACION_LOGIN_SOCIAL.md #}
+                    {# Registro social: solo Google (OAuth). Facebook/LinkedIn desactivados en UI y rutas. #}
                     <div class="mt-4">
                         <div class="text-center mb-3">
                             <span class="text-muted">O regístrate con</span>
@@ -66,12 +66,6 @@
                         <div class="d-grid gap-2">
                             <a href="{{ url_for('oauth_login', provider='google') }}" class="btn btn-outline-danger">
                                 <i class="fab fa-google me-2"></i> Google
-                            </a>
-                            <a href="{{ url_for('oauth_login', provider='facebook') }}" class="btn btn-outline-primary">
-                                <i class="fab fa-facebook me-2"></i> Facebook
-                            </a>
-                            <a href="{{ url_for('oauth_login', provider='linkedin') }}" class="btn btn-outline-info">
-                                <i class="fab fa-linkedin me-2"></i> LinkedIn
                             </a>
                         </div>
                         <div class="alert alert-info mt-3 mb-0" role="alert">

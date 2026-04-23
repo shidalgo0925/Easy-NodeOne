@@ -19,7 +19,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-1" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-4" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     {% block head_extra %}{% endblock %}
@@ -103,6 +103,15 @@
             font-weight: 700;
             padding-top: 0.85rem;
         }
+        /* Menú «Centro»: iconos vía /static (no dependen de Font Awesome del CDN) */
+        .navbar-landing .navbar-nav-center .nav-icon-top-img {
+            display: inline-block;
+            width: 1.1em;
+            height: 1.1em;
+            flex-shrink: 0;
+            vertical-align: -0.15em;
+            object-fit: contain;
+        }
         li.sidebar-menu-divider { list-style: none; padding: 0.35rem 1rem; }
         li.sidebar-menu-divider hr { margin: 0; opacity: 0.2; }
         html[data-theme="dark"] .sidebar-section-label,
@@ -140,14 +149,22 @@
                     </li>
                     {% endif %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">Inicio</a>
+                        <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'index' %}fw-semibold{% endif %}" href="{{ url_for('index') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-inicio.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Inicio</span></a>
                     </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                        {% if show_tenant_admin_menu %}
+                        <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'dashboard' %}active fw-semibold{% endif %}" href="{{ url_for('dashboard') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-espacio.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Dashboard</span></a>
+                        {% else %}
+                        <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'dashboard' %}active fw-semibold{% endif %}" href="{{ url_for('dashboard') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-espacio.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Mi espacio</span></a>
+                        {% endif %}
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}">Planes</a>
+                        {% if show_tenant_admin_menu %}
+                        <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-plan.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Planes</span></a>
+                        {% else %}
+                        <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-plan.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Mi plan</span></a>
+                        {% endif %}
                     </li>
                     {% endif %}
                 </ul>
@@ -227,7 +244,7 @@
                             {% if show_org_switcher_link or show_member_organization_switcher %}
                             <li><a class="dropdown-item" href="{{ url_for('auth.select_organization', next=request.path) }}"><i class="fas fa-building me-2"></i>Cambiar empresa</a></li>
                             {% endif %}
-                            <li><a class="dropdown-item" href="{{ url_for('membership') }}"><i class="fas fa-crown me-2"></i>Membresía / planes</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('membership') }}"><i class="fas fa-crown me-2"></i>{% if show_tenant_admin_menu %}Membresía / planes{% else %}Mi plan{% endif %}</a></li>
                             {# <li><a class="dropdown-item" href="{{ url_for('wallet') }}"><i class="fas fa-wallet"></i> Wallet</a></li> #}
                             {% if saas_module_enabled('payments') %}
                             <li><a class="dropdown-item" href="{{ url_for('payments_checkout.payments_history') }}"><i class="fas fa-history"></i> Historial de Pagos</a></li>
@@ -287,40 +304,55 @@
                 <div id="main-menu" class="main-menu navbar-collapse">
                     <ul class="nav navbar-nav">
                         {# 🏠 Dashboard #}
+                        {# Menú lateral: usuario final = consumo (Inicio / Mi plan / Mis servicios); admin = gestión sin cambiar rutas. #}
                         {% if not show_tenant_admin_menu %}
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
-                                <i class="menu-icon fa fa-tachometer-alt"></i>
-                                <span class="menu-title-text">🏠 Dashboard</span>
+                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Resumen y accesos rápidos">
+                                <i class="menu-icon fas fa-home"></i>
+                                <span class="menu-title-text">Inicio</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'membership' %}active{% endif %}" href="{{ url_for('membership') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Planes de membresía y comparativa">
-                                <i class="menu-icon fa fa-crown"></i>
-                                <span class="menu-title-text">Planes</span>
+                            <a class="nav-link {% if request.endpoint in ['membership', 'member_plan'] %}active{% endif %}" href="{{ url_for('member_plan') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía, renovación y lo incluido en tu plan">
+                                <i class="menu-icon fas fa-crown"></i>
+                                <span class="menu-title-text">Mi plan</span>
                             </a>
                         </li>
+                        {% if saas_module_enabled('appointments') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'member_services' %}active{% endif %}" href="{{ url_for('member_services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios que ya compraste">
+                                <i class="menu-icon fas fa-box-open"></i>
+                                <span class="menu-title-text">Mis servicios</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de servicios y reservas">
+                                <i class="menu-icon fas fa-th-large"></i>
+                                <span class="menu-title-text">Explorar</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         {% else %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
-                                <i class="menu-icon fa fa-tachometer-alt"></i>
-                                <span class="menu-title-text">🏠 Dashboard</span>
+                                <i class="menu-icon fas fa-tachometer-alt"></i>
+                                <span class="menu-title-text">Dashboard</span>
                             </a>
                         </li>
                         {% endif %}
                         {% if show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint in ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}active{% endif %}" href="/admin/analytics" data-bs-toggle="tooltip" data-bs-placement="right" title="KPIs y tableros">
-                                <i class="menu-icon fa fa-chart-line"></i>
+                                <i class="menu-icon fas fa-chart-line"></i>
                                 <span class="menu-title-text">Analítica</span>
                             </a>
                         </li>
                         {% endif %}
-                        {# Catálogo de servicios: primero para miembros y para admin de tenant (mismo orden de menú). #}
-                        {% if saas_module_enabled('appointments') %}
+                        {# Catálogo de servicios: solo admin de tenant (miembros usan «Mis servicios» arriba). #}
+                        {% if show_tenant_admin_menu and saas_module_enabled('appointments') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de servicios y reservas">
-                                <i class="menu-icon fa fa-th-large"></i>
+                                <i class="menu-icon fas fa-th-large"></i>
                                 <span class="menu-title-text">Servicios</span>
                             </a>
                         </li>
@@ -333,9 +365,9 @@
                         {% if _nav_clientes_crm or _nav_clientes_mem %}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_tenant_contacts', 'admin_memberships', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Clientes">
-                                <i class="menu-icon fa fa-handshake"></i>
-                                <span class="menu-title-text">👥 Clientes</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-handshake"></i>
+                                <span class="menu-title-text">Clientes</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 {% if _nav_clientes_crm %}
@@ -357,9 +389,9 @@
                         {% if show_tenant_admin_menu and saas_module_enabled('workshop') %}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail', 'admin_workshop_process_config'] %}show{% endif %}" data-nav-group-key="workshop_taller">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Recepción y tiempos por etapa">
-                                <i class="menu-icon fa fa-car-side"></i>
-                                <span class="menu-title-text">🚗 Taller</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-car-side"></i>
+                                <span class="menu-title-text">Taller</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
@@ -376,9 +408,9 @@
                         {% if show_tenant_admin_menu and saas_module_enabled('sales') and nav_can('payments.view') %}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_sales_quotations', 'admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}show{% endif %}" data-nav-group-key="sales_ventas">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Ventas">
-                                <i class="menu-icon fa fa-file-invoice-dollar"></i>
-                                <span class="menu-title-text">💼 Ventas</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-file-invoice-dollar"></i>
+                                <span class="menu-title-text">Ventas</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
@@ -394,9 +426,9 @@
                         {% if show_tenant_admin_menu and show_academic_admin_nav %}
                         <li class="nav-item nav-group {% if request.blueprint == 'academic_admin' %}show{% endif %}" data-nav-group-key="academic_lms">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Educación">
-                                <i class="menu-icon fa fa-graduation-cap"></i>
-                                <span class="menu-title-text">🎓 Educación</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-graduation-cap"></i>
+                                <span class="menu-title-text">Educación</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
@@ -419,21 +451,21 @@
                         {# 📅 Agenda / Citas #}
                         {% if not show_tenant_admin_menu and not current_user.is_advisor %}
                         <li class="nav-item">
-                            <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Citas">
-                                <i class="menu-icon fa fa-calendar-alt"></i>
-                                <span class="menu-title-text">📅 Citas</span>
+                            <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Tus citas y reservas">
+                                <i class="menu-icon fas fa-calendar-alt"></i>
+                                <span class="menu-title-text">Mis citas</span>
                             </a>
                         </li>
                         {% elif not show_tenant_admin_menu and current_user.is_advisor %}
                         <li class="nav-item nav-group {% if request.blueprint == 'appointments' or request.endpoint == 'appointments.advisor_queue' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Agenda">
-                                <i class="menu-icon fa fa-calendar-alt"></i>
-                                <span class="menu-title-text">📅 Agenda</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-calendar-alt"></i>
+                                <span class="menu-title-text">Agenda</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}">Citas</a>
+                                    <a class="nav-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}">Mis citas</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'appointments.advisor_queue' %}active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}">Solicitudes pendientes</a>
@@ -443,9 +475,9 @@
                         {% else %}
                         <li class="nav-item nav-group {% if request.blueprint == 'appointments' or request.blueprint == 'admin_appointments' or request.endpoint == 'appointments.advisor_queue' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Agenda">
-                                <i class="menu-icon fa fa-calendar-alt"></i>
-                                <span class="menu-title-text">📅 Agenda</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-calendar-alt"></i>
+                                <span class="menu-title-text">Agenda</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
@@ -474,16 +506,16 @@
                         {% if not show_tenant_admin_menu and saas_module_enabled('communications') and office365_module_enabled %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.blueprint == 'integrations' %}active{% endif %}" href="{{ url_for('integrations.office365_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Correo / Office 365">
-                                <i class="menu-icon fa fa-envelope"></i>
+                                <i class="menu-icon fas fa-envelope"></i>
                                 <span class="menu-title-text">Correo</span>
                             </a>
                         </li>
                         {% elif show_tenant_admin_menu and nav_can('integrations.view') %}
                         <li class="nav-item nav-group {% if (office365_module_enabled and request.blueprint == 'integrations') or request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'admin_communications.admin_communications_settings'] or (office365_module_enabled and request.endpoint == 'office365_admin.admin_office365_requests') %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Comunicación">
-                                <i class="menu-icon fa fa-comments"></i>
-                                <span class="menu-title-text">💬 Comunicación</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-comments"></i>
+                                <span class="menu-title-text">Comunicación</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item px-3 py-2">
@@ -520,28 +552,37 @@
                         {% endif %}
                         {% endif %}
 
-                        {# 🎟 Productos #}
+                        {% if not show_tenant_admin_menu and saas_module_enabled('payments') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint in ['payments_checkout.payments_history', 'member_payments'] %}active{% endif %}" href="{{ url_for('member_payments') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Historial de pagos y facturas">
+                                <i class="menu-icon fas fa-receipt"></i>
+                                <span class="menu-title-text">Pagos</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {# Beneficios y eventos (antes «Productos»; no es tienda de compras) #}
                         {% if not show_tenant_admin_menu %}
                             {% if saas_module_enabled('events') %}
                         <li class="nav-item nav-group {% if request.endpoint == 'benefits' or request.blueprint == 'events' %}show{% endif %}">
-                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos">
-                                <i class="menu-icon fa fa-store"></i>
-                                <span class="menu-title-text">🎟 Productos</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Lo incluido en tu membresía o programa">
+                                <i class="menu-icon fas fa-gift"></i>
+                                <span class="menu-title-text">Beneficios y eventos</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}"><i class="fa fa-gift me-1"></i>Beneficios</a>
+                                    <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}"><i class="fas fa-gift me-1"></i>Beneficios</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}"><i class="fa fa-calendar me-1"></i>Eventos</a>
+                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}"><i class="fas fa-calendar me-1"></i>Eventos</a>
                                 </li>
                             </ul>
                         </li>
                             {% else %}
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Beneficios">
-                                <i class="menu-icon fa fa-gift"></i>
+                            <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Beneficios incluidos en tu plan">
+                                <i class="menu-icon fas fa-gift"></i>
                                 <span class="menu-title-text">Beneficios</span>
                             </a>
                         </li>
@@ -552,9 +593,9 @@
                         {% if nav_can('memberships.view') or nav_can('services.view') or _nav_prod_evt or _nav_prod_pay %}
                         <li class="nav-item nav-group {% if request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories'] or request.blueprint in ['events', 'admin_events'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos">
-                                <i class="menu-icon fa fa-store"></i>
-                                <span class="menu-title-text">🎟 Productos</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-store"></i>
+                                <span class="menu-title-text">Productos</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 {% if nav_can('memberships.view') %}
@@ -602,30 +643,30 @@
                             {% if saas_module_enabled('certificates') and saas_module_enabled('policies') %}
                         <li class="nav-item nav-group {% if request.endpoint == 'certificates_page.certificates_page' or request.blueprint == 'policies' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Documentos">
-                                <i class="menu-icon fa fa-folder-open"></i>
-                                <span class="menu-title-text">📄 Documentos</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-folder-open"></i>
+                                <span class="menu-title-text">Documentos</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'certificates_page.certificates_page' %}active{% endif %}" href="{{ url_for('certificates_page.certificates_page') }}"><i class="fa fa-certificate me-1"></i>Certificados</a>
+                                    <a class="nav-link {% if request.endpoint == 'certificates_page.certificates_page' %}active{% endif %}" href="{{ url_for('certificates_page.certificates_page') }}"><i class="fas fa-certificate me-1"></i>Certificados</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'policies' %}active{% endif %}" href="{{ url_for('policies.index') }}"><i class="fa fa-file-contract me-1"></i>Normativas</a>
+                                    <a class="nav-link {% if request.blueprint == 'policies' %}active{% endif %}" href="{{ url_for('policies.index') }}"><i class="fas fa-file-contract me-1"></i>Normativas</a>
                                 </li>
                             </ul>
                         </li>
                             {% elif saas_module_enabled('certificates') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'certificates_page.certificates_page' %}active{% endif %}" href="{{ url_for('certificates_page.certificates_page') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Certificados">
-                                <i class="menu-icon fa fa-certificate"></i>
+                                <i class="menu-icon fas fa-certificate"></i>
                                 <span class="menu-title-text">Certificados</span>
                             </a>
                         </li>
                             {% else %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.blueprint == 'policies' %}active{% endif %}" href="{{ url_for('policies.index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Normativas">
-                                <i class="menu-icon fa fa-file-contract"></i>
+                                <i class="menu-icon fas fa-file-contract"></i>
                                 <span class="menu-title-text">Normativas</span>
                             </a>
                         </li>
@@ -633,9 +674,9 @@
                         {% else %}
                         <li class="nav-item nav-group {% if request.endpoint in ['certificates_page.certificates_page', 'admin_certificate_events', 'admin_certificate_templates', 'admin_certificate_template_editor'] or request.blueprint == 'policies' or request.endpoint == 'admin_policies' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Documentos">
-                                <i class="menu-icon fa fa-folder-open"></i>
-                                <span class="menu-title-text">📄 Documentos</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-folder-open"></i>
+                                <span class="menu-title-text">Documentos</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 {% if saas_module_enabled('certificates') %}
@@ -669,9 +710,9 @@
                         {% if nav_can('users.view') or nav_can('roles.view') %}
                         <li class="nav-item nav-group {% if request.endpoint == 'admin_users' or request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Organización">
-                                <i class="menu-icon fa fa-sitemap"></i>
-                                <span class="menu-title-text">👤 Organización</span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-sitemap"></i>
+                                <span class="menu-title-text">Organización</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 {% if nav_can('users.view') %}
@@ -692,8 +733,8 @@
                         {% if nav_can('memberships.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_plans' %}active{% endif %}" href="{{ url_for('admin_plans') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía">
-                                <i class="menu-icon fa fa-crown"></i>
-                                <span class="menu-title-text">💳 Membresía</span>
+                                <i class="menu-icon fas fa-crown"></i>
+                                <span class="menu-title-text">Membresía</span>
                             </a>
                         </li>
                         {% endif %}
@@ -704,9 +745,9 @@
                         {# 🧩 Plataforma (solo is_admin; rutas con platform_admin_required) #}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page'] or request.endpoint in ['admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Plataforma">
-                                <i class="menu-icon fa fa-cloud"></i>
-                                <span class="menu-title-text">🧩 Plataforma <span class="text-muted small fw-normal">(solo tú)</span></span>
-                                <i class="menu-arrow fa fa-chevron-down"></i>
+                                <i class="menu-icon fas fa-cloud"></i>
+                                <span class="menu-title-text">Plataforma <span class="text-muted small fw-normal">(solo tú)</span></span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
@@ -727,7 +768,7 @@
                         {% if nav_can('reports.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' %}active{% endif %}" href="{{ url_for('admin_messaging') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Logs">
-                                <i class="menu-icon fa fa-stream"></i>
+                                <i class="menu-icon fas fa-stream"></i>
                                 <span class="menu-title-text">Logs</span>
                             </a>
                         </li>
@@ -735,7 +776,7 @@
                         {% if nav_can('system.settings.view') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_backup.admin_backup' %}active{% endif %}" href="{{ url_for('admin_backup.admin_backup') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Respaldos">
-                                <i class="menu-icon fa fa-database"></i>
+                                <i class="menu-icon fas fa-database"></i>
                                 <span class="menu-title-text">Respaldos</span>
                             </a>
                         </li>

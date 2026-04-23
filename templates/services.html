@@ -100,9 +100,13 @@
             {% for service in services_unique %}
             <article class="service-template-card public-service-card h-100">
                 <div class="service-card-top">
+                    {% if service.image_url %}
+                    <img src="{{ service.image_url }}" alt="{{ service.name }}" class="service-card-thumb" loading="lazy">
+                    {% else %}
                     <div class="service-card-icon" aria-hidden="true">
                         <i class="{{ service.icon or 'fas fa-layer-group' }}"></i>
                     </div>
+                    {% endif %}
                 </div>
                 <h3 class="service-card-title">{{ service.name }}</h3>
                 <p class="service-card-desc">{% if service.description %}{{ service.description }}{% else %}Sin descripción.{% endif %}</p>
@@ -190,9 +194,13 @@
             {% for service in plan_services %}
             <article class="service-template-card public-service-card h-100">
                 <div class="service-card-top">
+                    {% if service.image_url %}
+                    <img src="{{ service.image_url }}" alt="{{ service.name }}" class="service-card-thumb" loading="lazy">
+                    {% else %}
                     <div class="service-card-icon" aria-hidden="true">
                         <i class="{{ service.icon or 'fas fa-layer-group' }}"></i>
                     </div>
+                    {% endif %}
                 </div>
                 <h3 class="service-card-title">{{ service.name }}</h3>
                 <p class="service-card-desc">{% if service.description %}{{ service.description }}{% else %}Sin descripción.{% endif %}</p>

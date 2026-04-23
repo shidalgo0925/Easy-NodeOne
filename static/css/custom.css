@@ -1273,9 +1273,23 @@ aside.left-panel .navbar .navbar-nav .nav-link:hover .menu-icon {
     border-left-color: var(--color-primary);
 }
 
+/* Un solo icono por ítem: algunos temas/legacy inyectan ::before en el <a> (columna gris) además del <i class="menu-icon">. */
+aside.left-panel #main-menu > ul.nav > li > a.nav-link::before,
+aside.left-panel #main-menu > ul.nav > li.nav-group > a.nav-link.nav-group-toggle::before,
+aside.left-panel #main-menu > ul.nav > li > a.nav-link::after,
+aside.left-panel #main-menu > ul.nav > li.nav-group > a.nav-link.nav-group-toggle::after {
+    content: none !important;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
 aside.left-panel .navbar .navbar-nav li > a .menu-icon {
     color: #595959;
-    float: left;
+    float: none;
     margin-right: 12px;
     width: 20px;
     text-align: center;
@@ -1419,12 +1433,12 @@ body.open #right-panel {
 /* Sidebar — mismo escalado que el área de trabajo */
 aside.left-panel .navbar .navbar-nav li > a,
 aside.left-panel .navbar .navbar-nav .nav-link {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     line-height: 1.45;
 }
 
 .navbar .navbar-nav li > a .menu-title-text {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
 }
 
 aside.left-panel .navbar .navbar-nav li > a .menu-icon {
@@ -2863,4 +2877,52 @@ button[data-bs-target="#serviceCategoriesExplain"][aria-expanded="true"] .collap
 }
 [data-theme='dark'] .admin-filter-collapsible .admin-filter-collapse-toggle {
     color: var(--gray-100, #f3f4f6) !important;
+}
+
+/* Mis servicios (cliente) - cards tipo marketplace */
+.member-services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.member-service-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.85rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    display: flex;
+    flex-direction: column;
+}
+
+.member-service-card-media {
+    min-height: 130px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.member-service-card-media img {
+    width: 100%;
+    height: 130px;
+    object-fit: cover;
+    display: block;
+}
+
+.member-service-card-fallback {
+    width: 100%;
+    height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+    font-size: 1.6rem;
+    background: color-mix(in srgb, var(--color-primary) 10%, #f8fafc);
+}
+
+.member-service-card-body {
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
 }

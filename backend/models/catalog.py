@@ -324,6 +324,7 @@ class Service(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     icon = db.Column(db.String(100))  # Clase de FontAwesome (ej: 'fas fa-newspaper')
+    image_url = db.Column(db.String(500), nullable=True)  # Imagen/flyer para tarjetas visuales
     membership_type = db.Column(db.String(50), nullable=False)  # basic, pro, premium, deluxe, corporativo
     category_id = db.Column(db.Integer, db.ForeignKey('service_category.id'), nullable=True)  # Categoría del servicio
     external_link = db.Column(db.String(500))  # URL externa si aplica
@@ -541,11 +542,19 @@ class Service(db.Model):
         except:
             category_dict = None
         
+        try:
+            from _app.modules.services.service import resolve_service_card_image_url
+
+            _img = resolve_service_card_image_url(self.name, self.image_url)
+        except Exception:
+            _img = self.image_url or ''
+
         return {
             'id': self.id,
             'name': self.name or '',
             'description': self.description or '',
             'icon': self.icon or 'fas fa-cog',
+            'image_url': _img,
             'membership_type': self.membership_type,
             'category_id': self.category_id,
             'category': category_dict,
@@ -564,6 +573,46 @@ class Service(db.Model):
             'organization_id': int(getattr(self, 'organization_id', None) or 1),
             'default_tax_id': int(getattr(self, 'default_tax_id', None) or 0) or None,
         }
+
+
+class UserService(db.Model):
+    """Servicios comprados por usuario (fuente de verdad para 'Mis servicios')."""
+    __tablename__ = 'user_service'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id', ondelete='CASCADE'), nullable=False, index=True)
+    # Referencia al comprobante de compra (Payment/Order).
+    order_id = db.Column(db.Integer, nullable=True, index=True)
+    status = db.Column(db.String(20), nullable=False, default='active', index=True)
+    available_uses = db.Column(db.Integer, nullable=True)
+    used_uses = db.Column(db.Integer, nullable=True, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=True, index=True)
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id', ondelete='SET NULL'), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'service_id', 'order_id', name='uq_user_service_user_service_order'),
+    )
+
+    user = db.relationship('User', backref=db.backref('user_services', lazy=True))
+    service = db.relationship('Service', backref=db.backref('user_services', lazy=True))
+    appointment = db.relationship('Appointment', foreign_keys=[appointment_id], backref='user_service_links')
+
+    def to_dict(self):
+        return {
+            'id': int(self.id),
+            'user_id': int(self.user_id),
+            'service_id': int(self.service_id),
+            'order_id': int(self.order_id) if self.order_id else None,
+            'status': (self.status or 'active'),
+            'available_uses': int(self.available_uses) if self.available_uses is not None else None,
+            'used_uses': int(self.used_uses) if self.used_uses is not None else 0,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'appointment_id': int(self.appointment_id) if self.appointment_id else None,
+        }
+
 
 class ServiceCategory(db.Model):
     """Categorías para organizar servicios"""

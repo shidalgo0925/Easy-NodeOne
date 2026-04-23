@@ -111,10 +111,12 @@ def admin_services_create():
             if not cat:
                 return jsonify({'success': False, 'error': 'Categoría no encontrada'}), 400
 
+        _img = (data.get('image_url') or '').strip() or None
         service = M.Service(
             name=data.get('name'),
             description=data.get('description', ''),
             icon=data.get('icon', 'fas fa-cog'),
+            image_url=_img,
             membership_type=data.get('membership_type', 'basic'),
             category_id=category_id,
             external_link=data.get('external_link', ''),
@@ -172,6 +174,8 @@ def admin_services_update(service_id):
         service.name = data.get('name', service.name)
         service.description = data.get('description', service.description)
         service.icon = data.get('icon', service.icon)
+        if 'image_url' in data:
+            service.image_url = (data.get('image_url') or '').strip() or None
         service.membership_type = base_plan
         service.category_id = category_id if category_id else None
         service.external_link = data.get('external_link', service.external_link)
@@ -257,6 +261,7 @@ def admin_services_get(service_id):
             'name': service.name,
             'description': service.description or '',
             'icon': service.icon or 'fas fa-cog',
+            'image_url': getattr(service, 'image_url', None) or '',
             'membership_type': service.membership_type,
             'category_id': service.category_id,
             'external_link': service.external_link or '',

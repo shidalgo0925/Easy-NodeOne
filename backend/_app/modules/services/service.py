@@ -1,7 +1,11 @@
 # Lógica de servicios (usuario): listado, solicitud de cita, calendario API.
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 import json
 import os
+import re
+import unicodedata
 
 from app import (
     Service,
@@ -16,6 +20,103 @@ from app import (
 from sqlalchemy.orm import joinedload
 
 from . import repository
+
+
+# ---- Miniatura de tarjeta: misma foto que el landing (relatic-public/src/data/servicesCatalog.ts) ----
+def _q_card() -> str:
+    return "auto=format&fit=crop&w=400&q=80"
+
+
+def _norm_name(s: str) -> str:
+    return " ".join((s or "").split())
+
+
+def _fold_ascii(s: str) -> str:
+    """Minusculas + sin tildes/diacríticos: empareja 'Artículos' con 'articulos'."""
+    s = unicodedata.normalize("NFD", _norm_name(s))
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return s.lower()
+
+
+# Misma imagen de respaldo que el menú en servicesCatalog (cuando no matchea etiqueta)
+_DEFAULT_LANDING: str = f"https://images.unsplash.com/photo-1503676260728-1c00da094a0b?{_q_card()}"
+
+
+_LANDING_IMAGES: dict[str, str] = {
+    "Publicación de artículos": f"https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?{_q_card()}",
+    "Revistas indexadas": f"https://images.unsplash.com/photo-1507842217343-583bb7270b66?{_q_card()}",
+    "Libros digitales": f"https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?{_q_card()}",
+    "Carteles científicos": f"https://images.unsplash.com/photo-1523240795612-9a054b0db644?{_q_card()}",
+    "Asesorías": f"https://images.unsplash.com/photo-1521737604893-d14cc237f11d?{_q_card()}",
+    "Postdoctorados": f"https://images.unsplash.com/photo-1522071820081-009f0129c71c?{_q_card()}",
+}
+
+_CATALOG_NAME_TO_LANDING: dict[str, str] = {
+    "Asesoría, Vinculación a revistas y editoriales": "Asesorías",
+    "Registro de Hoja de Vida": "Asesorías",
+    "Artículos/Revistas": "Publicación de artículos",
+    "Artículos / Revistas": "Publicación de artículos",
+    "Carteles": "Carteles científicos",
+    "Carteles científicos": "Carteles científicos",
+    "Libros digitales": "Libros digitales",
+    "Cursos": "Postdoctorados",
+    "Indexación de revistas": "Revistas indexadas",
+    "Organización de eventos": "Carteles científicos",
+}
+
+_LANDING_LOOKUP: dict[str, str] = {}
+for _alias, _lk in _CATALOG_NAME_TO_LANDING.items():
+    _LANDING_LOOKUP[_norm_name(_alias).casefold()] = _lk
+    _LANDING_LOOKUP[_fold_ascii(_alias)] = _lk
+for _k in _LANDING_IMAGES:
+    _LANDING_LOOKUP[_norm_name(_k).casefold()] = _k
+    _LANDING_LOOKUP[_fold_ascii(_k)] = _k
+
+
+def _keyword_landing_key(name: str) -> str | None:
+    """Heurística por palabras (nombres distintos a los del landing Relatic)."""
+    a = _fold_ascii(name)
+    a = re.sub(r"[^a-z0-9\s]", " ", a)
+    a = re.sub(r"\s+", " ", a).strip()
+    if "index" in a and "revist" in a:
+        return "Revistas indexadas"
+    if "articul" in a and "revist" in a:
+        return "Publicación de artículos"
+    if "cartel" in a or "posters" in a or "poster" in a:
+        return "Carteles científicos"
+    if "libro" in a and "digital" in a:
+        return "Libros digitales"
+    if ("hoja" in a and "vida" in a) or ("registro" in a and "vida" in a):
+        return "Asesorías"
+    if "asesor" in a or "vinculacion" in a or "vinculación" in name.lower():
+        return "Asesorías"
+    if "evento" in a or "organizacion" in a or "organización" in name.lower():
+        return "Carteles científicos"
+    if "curso" in a or "taller" in a or "diplomado" in a or "neuro" in a:
+        return "Postdoctorados"
+    if "publicacion" in a or "publicación" in name.lower():
+        return "Publicación de artículos"
+    return None
+
+
+def resolve_service_card_image_url(name: str | None, stored_url: str | None) -> str:
+    """
+    URL de la miniatura: primero `image_url` en BD (admin), luego mapeo landing por nombre/alias,
+    luego heurística por palabras, y al final la misma foto genérica del menú en servicesCatalog.
+    """
+    s = (stored_url or "").strip()
+    if s and s.lower() not in ("none", "null", "0", "-"):
+        return s
+    n = (name or "").strip()
+    if not n:
+        return _DEFAULT_LANDING
+    ck = _norm_name(n).casefold()
+    key = _LANDING_LOOKUP.get(ck) or _LANDING_LOOKUP.get(_fold_ascii(n))
+    if not key:
+        key = _keyword_landing_key(n)
+    if not key or key not in _LANDING_IMAGES:
+        return _DEFAULT_LANDING
+    return _LANDING_IMAGES.get(key) or _DEFAULT_LANDING
 
 
 def _absolute_public_external_link(href):
@@ -37,8 +138,14 @@ def _absolute_public_external_link(href):
     return f'{base}/{h}'
 
 
-# Fallback cuando no hay tabla membership_plan
+# Fallback cuando no hay tabla membership_plan (incl. basic: sin pago, servicios con precio 0 o incluidos según reglas)
 PLANS_INFO_FALLBACK = {
+    'basic': {
+        'name': 'BÁSICO',
+        'price': '$0',
+        'badge': 'Gratis · acceso a servicios del plan gratuito',
+        'color': 'bg-success',
+    },
     'personal': {'name': 'PERSONAL', 'price': '$149/año', 'badge': 'Inicia tu crecimiento', 'color': 'bg-success'},
     'emprendedor': {'name': 'EMPRENDEDOR', 'price': '$449/año', 'badge': 'Desarrolla tu negocio', 'color': 'bg-info'},
     'ejecutivo': {'name': 'EJECUTIVO', 'price': '$949/año', 'badge': 'Liga Empresarial', 'color': 'bg-primary'},
@@ -111,6 +218,8 @@ def get_services_page_data(user=None, organization_id=None):
         if service.membership_type:
             smt = (service.membership_type or '').strip().lower()
             if smt == 'basic':
+                # Básico: sección explícita en /services (antes solo se replicaba a planes de pago; no existía clave "basic")
+                available_plans.add('basic')
                 for ps in _paid_slugs:
                     available_plans.add(ps)
             else:
@@ -137,6 +246,7 @@ def get_services_page_data(user=None, organization_id=None):
             'name': service.name,
             'description': service.description,
             'icon': service.icon or 'fas fa-cog',
+            'image_url': resolve_service_card_image_url(service.name, service.image_url),
             'external_link': _absolute_public_external_link(service.external_link),
             'base_price': service.base_price,
             'pricing': user_pricing,
@@ -156,8 +266,8 @@ def get_services_page_data(user=None, organization_id=None):
     if oid_plans is None and user is not None and getattr(user, 'is_authenticated', False):
         oid_plans = getattr(user, 'organization_id', None)
 
-    # Orden estable para secciones y chips de filtro (planes con servicios primero por canon, luego el resto)
-    _canonical_plan_order = ('personal', 'emprendedor', 'ejecutivo', 'admin')
+    # Orden estable: Básico primero (gratis), luego planes de pago frecuentes, luego el resto alfabéticamente
+    _canonical_plan_order = ('basic', 'personal', 'emprendedor', 'ejecutivo', 'pro', 'premium', 'deluxe', 'corporativo', 'admin')
     _present = list(services_by_plan.keys())
     plan_slugs_ordered = [s for s in _canonical_plan_order if s in _present]
     for s in sorted(_present):

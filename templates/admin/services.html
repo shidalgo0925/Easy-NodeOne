@@ -218,7 +218,11 @@
                             <input type="text" class="form-control" id="serviceIcon" name="icon" placeholder="fas fa-cog" value="fas fa-cog">
                             <small class="text-muted">Ej: fas fa-newspaper, fas fa-book</small>
                         </div>
-                        
+                        <div class="col-12 mb-3">
+                            <label for="serviceImageUrl" class="form-label">Imagen (URL, opcional)</label>
+                            <input type="text" class="form-control" id="serviceImageUrl" name="image_url" placeholder="https://…" inputmode="url" autocomplete="off">
+                            <small class="text-muted">Miniatura en el catálogo <code>/services</code>. Si la dejás vacía, se usa la misma imagen que en el sitio público (Relatic) cuando el nombre del servicio coincide; si pegás URL, manda ésa.</small>
+                        </div>
                         <div class="col-12 col-md-6 mb-3">
                             <label class="form-label">Planes de Membresía *</label>
                             <div class="border rounded p-3" style="background-color: #f8f9fa;">
@@ -437,6 +441,8 @@ function fillForm(service) {
     document.getElementById('serviceName').value = service.name || '';
     document.getElementById('serviceDescription').value = service.description || '';
     document.getElementById('serviceIcon').value = service.icon || 'fas fa-cog';
+    const urlImg = document.getElementById('serviceImageUrl');
+    if (urlImg) urlImg.value = service.image_url || '';
     
     // Establecer categoría - verificar que el elemento existe y está cargado
     const categorySelect = document.getElementById('serviceCategory');
@@ -595,6 +601,7 @@ function saveService() {
         name: document.getElementById('serviceName').value,
         description: document.getElementById('serviceDescription').value,
         icon: document.getElementById('serviceIcon').value,
+        image_url: (document.getElementById('serviceImageUrl') && document.getElementById('serviceImageUrl').value) ? document.getElementById('serviceImageUrl').value.trim() : '',
         category_id: categoryId,
         membership_plans: selectedPlans,  // Array de planes seleccionados
         base_price: parseFloat(document.getElementById('serviceBasePrice').value),

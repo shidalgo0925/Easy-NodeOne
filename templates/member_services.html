@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Mis servicios - Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-box-open me-2"></i>Mis servicios</h1>
+            <p class="text-muted mb-0">Incluidos con tu registro (plan básico) y servicios que compraste; cada uno con su acción.</p>
+        </div>
+        <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus me-1"></i>Explorar más
+        </a>
+    </div>
+
+    {% if cards %}
+    <div class="member-services-grid">
+        {% for card in cards %}
+        <article class="member-service-card">
+            <div class="member-service-card-media">
+                {% if card.image_url %}
+                <img src="{{ card.image_url }}" alt="{{ card.name }}" loading="lazy">
+                {% else %}
+                <div class="member-service-card-fallback" aria-hidden="true">
+                    <i class="{{ card.icon }}"></i>
+                </div>
+                {% endif %}
+            </div>
+            <div class="member-service-card-body">
+                <h2 class="h6 mb-1">{{ card.name }}</h2>
+                <p class="text-muted small mb-2">
+                    {% if card.description %}{{ card.description[:120] }}{% if card.description|length > 120 %}...{% endif %}{% else %}Sin descripción.{% endif %}
+                </p>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <span class="badge text-bg-{{ card.status_badge }}">{{ card.status_label }}</span>
+                    {% if card.created_at and not card.entitlement %}
+                    <span class="badge text-bg-light">Comprado: {{ card.created_at.strftime('%d/%m/%Y') }}</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                    <a href="{{ card.action_url }}" class="btn btn-sm btn-outline-primary">{{ card.action_label }}</a>
+                    <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-link text-decoration-none px-0">Ver catálogo</a>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
+            <h2 class="h5">No hay servicios que mostrar</h2>
+            <p class="text-muted mb-3">Si el catálogo incluye servicios de plan básico, deberían listarse aquí. También verás lo que compres, con su estado y acciones.</p>
+            <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-th-large me-1"></i>Ir a Explorar
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

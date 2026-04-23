@@ -13,7 +13,8 @@
                     <nav class="dashboard-nav dashboard-nav-compact flex-grow-1 min-w-0">
                         <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link active">Inicio</a>
                         {% if saas_module_enabled('appointments') %}
-                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Contenido</a>
+                        <a href="{{ url_for('member_services') }}" class="dashboard-nav-link">Mis servicios</a>
+                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Explorar</a>
                         {% endif %}
                         <a href="{{ url_for('member_community.foros') }}" class="dashboard-nav-link">Comunidad</a>
                         <a href="{{ url_for('members.profile') }}" class="dashboard-nav-link">Perfil</a>
@@ -31,7 +32,7 @@
                         <i class="fas fa-crown me-1"></i>Plan {{ membership.membership_type|upper }}
                     </span>
                     {% else %}
-                    <a href="{{ url_for('membership') }}" class="btn btn-sm btn-outline-primary text-nowrap py-1">
+                    <a href="{{ url_for('member_plan') }}" class="btn btn-sm btn-outline-primary text-nowrap py-1">
                         <i class="fas fa-crown me-1"></i>Ver Planes
                     </a>
                     {% endif %}
@@ -94,6 +95,30 @@
         </div>
     </div>
     {% endif %}
+
+    {% if not show_tenant_admin_menu %}
+    <div class="card border-0 shadow-sm mb-3 bg-light">
+        <div class="card-body py-2 px-3">
+            <h6 class="text-muted text-uppercase small mb-2 mb-md-0 me-md-3 d-md-inline">Accesos rápidos</h6>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('member_plan') }}"><i class="fas fa-crown me-1"></i>Mi plan</a>
+                {% if saas_module_enabled('appointments') %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('member_services') }}"><i class="fas fa-box-open me-1"></i>Mis servicios</a>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.list') }}"><i class="fas fa-th-large me-1"></i>Explorar</a>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('appointments.appointments_home') }}"><i class="fas fa-calendar-alt me-1"></i>Mis citas</a>
+                {% endif %}
+                {% if saas_module_enabled('payments') %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('member_payments') }}"><i class="fas fa-receipt me-1"></i>Pagos</a>
+                {% endif %}
+                {% if saas_module_enabled('certificates') %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('certificates_page.certificates_page') }}"><i class="fas fa-folder-open me-1"></i>Documentos</a>
+                {% elif saas_module_enabled('policies') %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('policies.index') }}"><i class="fas fa-folder-open me-1"></i>Documentos</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     <div class="row g-2 g-lg-3">
         <!-- Columna Principal -->
@@ -126,7 +151,7 @@
                             <i class="fas fa-history me-2 text-info"></i>Mis Recursos Recientes
                         </h5>
                         {% if saas_module_enabled('appointments') %}
-                        <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-outline-primary text-nowrap align-self-stretch align-self-sm-auto">Ver todos</a>
+                        <a href="{{ url_for('member_services') }}" class="btn btn-sm btn-outline-primary text-nowrap align-self-stretch align-self-sm-auto">Ver todos</a>
                         {% endif %}
                     </div>
                     <div class="recent-resources-list">

@@ -19,7 +19,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-1" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-4" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     {% block head_extra %}{% endblock %}
@@ -165,9 +165,6 @@
                         {% else %}
                         <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-plan.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Mi plan</span></a>
                         {% endif %}
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}">Planes</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -316,16 +313,22 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'membership' %}active{% endif %}" href="{{ url_for('membership') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía, renovación y lo incluido en tu plan">
+                            <a class="nav-link {% if request.endpoint in ['membership', 'member_plan'] %}active{% endif %}" href="{{ url_for('member_plan') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía, renovación y lo incluido en tu plan">
                                 <i class="menu-icon fas fa-crown"></i>
                                 <span class="menu-title-text">Mi plan</span>
                             </a>
                         </li>
                         {% if saas_module_enabled('appointments') %}
                         <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'member_services' %}active{% endif %}" href="{{ url_for('member_services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios que ya compraste">
+                                <i class="menu-icon fas fa-box-open"></i>
+                                <span class="menu-title-text">Mis servicios</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de servicios y reservas">
                                 <i class="menu-icon fas fa-th-large"></i>
-                                <span class="menu-title-text">Mis servicios</span>
+                                <span class="menu-title-text">Explorar</span>
                             </a>
                         </li>
                         {% endif %}
@@ -551,7 +554,7 @@
 
                         {% if not show_tenant_admin_menu and saas_module_enabled('payments') %}
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'payments_checkout.payments_history' %}active{% endif %}" href="{{ url_for('payments_checkout.payments_history') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Historial de pagos y transacciones">
+                            <a class="nav-link {% if request.endpoint in ['payments_checkout.payments_history', 'member_payments'] %}active{% endif %}" href="{{ url_for('member_payments') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Historial de pagos y facturas">
                                 <i class="menu-icon fas fa-receipt"></i>
                                 <span class="menu-title-text">Pagos</span>
                             </a>

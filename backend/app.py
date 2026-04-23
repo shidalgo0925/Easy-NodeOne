@@ -2641,6 +2641,32 @@ def ensure_service_organization_id_column():
         print(f'⚠️ ensure_service_organization_id_column: {e}')
 
 
+def ensure_service_image_url_column():
+    """Añadir service.image_url para tarjetas visuales tipo catálogo."""
+    try:
+        from sqlalchemy import inspect, text
+
+        inspector = inspect(db.engine)
+        if 'service' not in inspector.get_table_names():
+            return
+        cols = [c['name'] for c in inspector.get_columns('service')]
+        if 'image_url' not in cols:
+            db.session.execute(text('ALTER TABLE service ADD COLUMN image_url VARCHAR(500)'))
+            db.session.commit()
+            print('✅ Columna service.image_url añadida.')
+    except Exception as e:
+        db.session.rollback()
+        print(f'⚠️ ensure_service_image_url_column: {e}')
+
+
+def ensure_user_service_table():
+    """Crear tabla user_service (servicios comprados por usuario)."""
+    try:
+        UserService.__table__.create(db.engine, checkfirst=True)
+    except Exception as e:
+        print(f'⚠️ ensure_user_service_table: {e}')
+
+
 def ensure_benefit_organization_id_column():
     """Añadir benefit.organization_id para no mezclar beneficios entre empresas."""
     try:
@@ -2802,6 +2828,8 @@ def bootstrap_nodeone_schema():
         ensure_organization_settings()
         ensure_organization_settings_org_id_column()
         ensure_service_organization_id_column()
+        ensure_service_image_url_column()
+        ensure_user_service_table()
         ensure_certificate_event_organization_id_column()
         ensure_certificate_template_organization_id_column()
         try:

@@ -302,6 +302,25 @@ def register_admin_users_roles_routes(app):
             if user.advisor_profile:
                 db.session.delete(user.advisor_profile)
 
+        # Plataforma admin: permitir agregar membresía a otra compañía desde mantenimiento.
+        if can_manage_platform_superuser_fields(current_user):
+            add_org_id = request.form.get('add_organization_id', type=int)
+            if add_org_id and add_org_id > 0:
+                from utils.organization import platform_visible_organization_ids
+
+                allow = platform_visible_organization_ids()
+                if allow is not None and int(add_org_id) not in allow:
+                    flash('Organización no permitida para tu cuenta de administración.', 'error')
+                    return redirect(url_for('admin_users'))
+                if not SaasOrganization.query.filter_by(id=add_org_id, is_active=True).first():
+                    flash('La organización seleccionada no existe o está inactiva.', 'error')
+                    return redirect(url_for('admin_users'))
+                ensure_membership(user.id, int(add_org_id))
+                if bool(request.form.get('set_primary_organization')):
+                    user.organization_id = int(add_org_id)
+                    if hasattr(user, 'last_selected_organization_id'):
+                        user.last_selected_organization_id = int(add_org_id)
+
         db.session.commit()
         flash('Usuario actualizado correctamente.', 'success')
         return redirect(url_for('admin_users'))

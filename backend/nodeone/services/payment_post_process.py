@@ -47,6 +47,7 @@ def process_cart_after_payment(cart, payment):
     import json
     subscriptions_created = []
     events_registered = []
+    user_services_created = []
     
     # Obtener desglose de descuentos antes de procesar
     discount_breakdown = cart.get_discount_breakdown()
@@ -155,6 +156,25 @@ def process_cart_after_payment(cart, payment):
                 _pu = M.User.query.get(payment.user_id)
                 _cart_org = int(getattr(_pu, 'organization_id', None) or 1) if _pu else 1
                 service = M.Service.query.filter_by(id=service_id, organization_id=_cart_org).first()
+                user_service = None
+                if service:
+                    user_service = M.UserService.query.filter_by(
+                        user_id=payment.user_id,
+                        service_id=service.id,
+                        order_id=payment.id,
+                    ).first()
+                if service and not user_service:
+                    # Fuente de verdad para "Mis servicios" (compras del cliente).
+                    user_service = M.UserService(
+                        user_id=payment.user_id,
+                        service_id=service.id,
+                        order_id=payment.id,
+                        status='active',
+                        created_at=payment.paid_at or datetime.utcnow(),
+                    )
+                    M.db.session.add(user_service)
+                    M.db.session.flush()
+                    user_services_created.append(user_service)
                 
                 # Verificar si es un servicio con cita agendada (tiene slot_id en metadata)
                 slot_id = metadata.get('slot_id')
@@ -225,6 +245,9 @@ def process_cart_after_payment(cart, payment):
                         
                         M.db.session.add(appointment)
                         M.db.session.flush()  # Para obtener el ID de la cita
+                        if user_service:
+                            user_service.status = 'scheduled'
+                            user_service.appointment_id = appointment.id
                         print(f"✅ Cita creada: {appointment.reference} para servicio {service.name} en slot {slot_id}")
                         
                         # Enviar notificaciones
@@ -272,6 +295,9 @@ def process_cart_after_payment(cart, payment):
                         user = M.User.query.get(payment.user_id)
                         if user:
                             appointment = create_diagnostic_appointment_from_payment(service, user, payment)
+                            if user_service:
+                                user_service.status = 'pending'
+                                user_service.appointment_id = getattr(appointment, 'id', None)
                             print(f"✅ Cita de diagnóstico creada en cola: {appointment.reference} para servicio {service.name}")
                             
                             # TODO: Enviar email al usuario informando que está en cola

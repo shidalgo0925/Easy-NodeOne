@@ -92,8 +92,8 @@
                                 <i class="fas fa-star"></i> Ver Beneficios
                             </a>
                             {% if saas_module_enabled('appointments') %}
-                            <a href="{{ url_for('services.list') }}" class="btn btn-outline-primary">
-                                <i class="fas fa-th-large"></i> Ver Servicios
+                            <a href="{{ url_for('member_services') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-box-open"></i> Mis servicios
                             </a>
                             {% endif %}
                             {% if membership_cert_event_id %}
@@ -150,8 +150,8 @@
                                 <i class="fas fa-star"></i> Ver Beneficios
                             </a>
                             {% if saas_module_enabled('appointments') %}
-                            <a href="{{ url_for('services.list') }}" class="btn btn-outline-primary">
-                                <i class="fas fa-th-large"></i> Ver Servicios
+                            <a href="{{ url_for('member_services') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-box-open"></i> Mis servicios
                             </a>
                             {% endif %}
                             {% if membership_cert_event_id %}

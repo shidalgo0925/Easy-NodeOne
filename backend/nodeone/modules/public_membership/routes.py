@@ -15,8 +15,44 @@ def register_public_membership_routes(app):
         MembershipPlan,
         Service,
         ServicePricingRule,
+        UserService,
         tenant_data_organization_id,
     )
+
+    STATUS_META = {
+        'active': {'label': 'Activo', 'badge': 'success'},
+        'pending': {'label': 'Pendiente', 'badge': 'warning'},
+        'scheduled': {'label': 'Agendado', 'badge': 'info'},
+        'completed': {'label': 'Completado', 'badge': 'secondary'},
+        'expired': {'label': 'Vencido', 'badge': 'danger'},
+        'entitled': {'label': 'Incluido (plan registro)', 'badge': 'success'},
+    }
+
+    def _canonical_user_service_status(user_service):
+        st = (getattr(user_service, 'status', '') or 'active').strip().lower()
+        if st not in STATUS_META:
+            st = 'active'
+        appt = getattr(user_service, 'appointment', None)
+        if appt:
+            appt_st = (getattr(appt, 'status', '') or '').strip().lower()
+            if appt_st in ('completed', 'completada'):
+                return 'completed'
+            if appt_st in ('pending', 'pendiente', 'confirmada', 'confirmed'):
+                return 'scheduled'
+        return st
+
+    def _user_service_primary_action(status_key, service_id, order_id=None):
+        if status_key == 'active':
+            return ('Reservar cita', url_for('services.request_appointment', service_id=service_id))
+        if status_key == 'pending':
+            if order_id:
+                return ('Ver detalle', url_for('payments_checkout.payment_status', payment_id=order_id))
+            return ('Ver detalle', url_for('services.list'))
+        if status_key == 'scheduled':
+            return ('Ver cita', url_for('appointments.appointments_home'))
+        if status_key == 'completed':
+            return ('Ver historial', url_for('appointments.appointments_home'))
+        return ('Comprar nuevamente', url_for('services.list'))
 
     @app.route('/dashboard')
     @login_required
@@ -25,7 +61,7 @@ def register_public_membership_routes(app):
         if bool(getattr(current_user, 'must_change_password', False)):
             flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
             return redirect(url_for('auth.change_password'))
-        from app import Appointment, EventRegistration, Event
+        from app import Appointment, EventRegistration, Event, Payment, UserService
         from user_status_checker import UserStatusChecker
     
         # Verificar estado completo del usuario
@@ -67,6 +103,20 @@ def register_public_membership_routes(app):
         registered_events_count = EventRegistration.query.filter(
             EventRegistration.user_id == current_user.id,
             EventRegistration.registration_status == 'confirmed'
+        ).count()
+
+        available_services_count = UserService.query.filter(
+            UserService.user_id == current_user.id,
+            UserService.status.in_(('active', 'pending', 'scheduled')),
+        ).count()
+
+        recent_payments_count = Payment.query.filter(
+            Payment.user_id == current_user.id
+        ).count()
+
+        pending_payments_count = Payment.query.filter(
+            Payment.user_id == current_user.id,
+            Payment.status.in_(('pending', 'awaiting_confirmation')),
         ).count()
     
         # Obtener todos los eventos públicos para el calendario
@@ -115,6 +165,9 @@ def register_public_membership_routes(app):
                              all_public_events=all_public_events,
                              user_confirmed_appointments=user_confirmed_appointments,
                              user_calendar_appointments=user_calendar_appointments,
+                             available_services_count=available_services_count,
+                             recent_payments_count=recent_payments_count,
+                             pending_payments_count=pending_payments_count,
                              show_onboarding=show_onboarding,
                              is_new_user=is_new_user,
                              user_status=user_status)  # Pasar estado del usuario al template
@@ -257,6 +310,140 @@ def register_public_membership_routes(app):
                              membership_cert_download_url=membership_cert_download_url)
 
 
+
+
+    @app.route('/member/plan')
+    @login_required
+    def member_plan():
+        """Alias semántico para la vista de plan del cliente."""
+        return redirect(url_for('membership'))
+
+
+    def _entitlement_action_for_service(service):
+        """CTA para servicio de plan básico aún sin fila en user_service."""
+        stype = (getattr(service, 'service_type', '') or '').upper()
+        if stype == 'CV_REGISTRATION':
+            return 'Completar formulario', url_for('cv_registro', service=service.id)
+        if stype == 'COURSE':
+            return 'Ver en catálogo', url_for('services.list')
+        el = (service.external_link or '').strip()
+        if el:
+            if el.startswith(('http://', 'https://', '//')):
+                return 'Abrir enlace', el
+            if el.startswith('/'):
+                base = (request.url_root or '').rstrip('/')
+                return 'Abrir enlace', base + el
+        if service.requires_appointment():
+            if stype == 'CONSULTIVO':
+                return 'Solicitar reunión', url_for('appointments.request_appointment', service_id=service.id)
+            return 'Solicitar cita', url_for('services.request_appointment', service_id=service.id)
+        return 'Ver en catálogo', url_for('services.list')
+
+    @app.route('/member/services')
+    @login_required
+    def member_services():
+        """Compras (user_service) + servicios básicos del catálogo incluidos con el registro."""
+        from sqlalchemy import func
+
+        from _app.modules.services.service import resolve_service_card_image_url
+
+        # Empresa del perfil (registro), no `tenant_data_organization_id()`: para usuarios admin
+        # el host/selector puede apuntar a otra org y vaciaba servicios básicos de la suya.
+        uoid = getattr(current_user, 'organization_id', None)
+        try:
+            _toid = int(uoid) if uoid is not None else int(tenant_data_organization_id())
+        except (TypeError, ValueError):
+            _toid = int(tenant_data_organization_id())
+        records = (
+            UserService.query.join(Service, UserService.service_id == Service.id)
+            .filter(
+                UserService.user_id == current_user.id,
+                Service.organization_id == _toid,
+            )
+            .order_by(UserService.created_at.desc(), UserService.id.desc())
+            .all()
+        )
+
+        cards = []
+        purchased_service_ids = set()
+        for rec in records:
+            service = rec.service
+            if not service:
+                continue
+            purchased_service_ids.add(service.id)
+            status_key = _canonical_user_service_status(rec)
+            meta = STATUS_META.get(status_key, STATUS_META['active'])
+            action_label, action_url = _user_service_primary_action(
+                status_key,
+                service.id,
+                order_id=getattr(rec, 'order_id', None),
+            )
+            cards.append(
+                {
+                    'id': rec.id,
+                    'service_id': service.id,
+                    'name': service.name,
+                    'description': (service.description or '').strip(),
+                    'image_url': resolve_service_card_image_url(service.name, service.image_url),
+                    'icon': service.icon or 'fas fa-cog',
+                    'status_key': status_key,
+                    'status_label': meta['label'],
+                    'status_badge': meta['badge'],
+                    'created_at': rec.created_at,
+                    'expires_at': rec.expires_at,
+                    'appointment_id': rec.appointment_id,
+                    'action_label': action_label,
+                    'action_url': action_url,
+                    'entitlement': False,
+                }
+            )
+
+        # Servicios marcados como plan básico: derecho con cuenta; si no hubo compra, igual se listan
+        basic_services = (
+            Service.query.filter(
+                Service.organization_id == _toid,
+                Service.is_active == True,
+                func.lower(func.coalesce(Service.membership_type, '')) == 'basic',
+            )
+            .order_by(Service.display_order, Service.name)
+            .all()
+        )
+        entitlement_meta = STATUS_META['entitled']
+        entitlement_cards = []
+        for service in basic_services:
+            if service.id in purchased_service_ids:
+                continue
+            alabel, aurl = _entitlement_action_for_service(service)
+            entitlement_cards.append(
+                {
+                    'id': None,
+                    'service_id': service.id,
+                    'name': service.name,
+                    'description': (service.description or '').strip(),
+                    'image_url': resolve_service_card_image_url(service.name, service.image_url),
+                    'icon': service.icon or 'fas fa-cog',
+                    'status_key': 'entitled',
+                    'status_label': entitlement_meta['label'],
+                    'status_badge': entitlement_meta['badge'],
+                    'created_at': None,
+                    'expires_at': None,
+                    'appointment_id': None,
+                    'action_label': alabel,
+                    'action_url': aurl,
+                    'entitlement': True,
+                }
+            )
+
+        cards = entitlement_cards + cards
+
+        return render_template('member_services.html', cards=cards)
+
+
+    @app.route('/member/payments')
+    @login_required
+    def member_payments():
+        """Alias semántico para pagos/facturas del cliente."""
+        return redirect(url_for('payments_checkout.payments_history'))
 
 
     @app.route('/benefits')

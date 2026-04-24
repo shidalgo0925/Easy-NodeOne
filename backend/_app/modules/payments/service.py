@@ -191,7 +191,14 @@ def add_course_cohort_to_cart(user_id: int, service_id: int, cohort_id: int):
 
 
 def add_diplomado_to_cart(user_id, slug: str, plan_key: str):
-    """Añade un diplomado IIUS al carrito (slug + plan validados en servidor)."""
+    """Añade un diplomado al carrito: primero ``AcademicProgram`` en BD, si no, IIUS (``DIPLOMADOS_IIUS``)."""
+    from nodeone.modules.academic_enrollment import service as academic_enrollment_svc
+
+    ok, err = academic_enrollment_svc.try_add_academic_program_to_cart(user_id, slug, plan_key)
+    if ok is not None:
+        if ok:
+            return True, err
+        return None, err
     resolved = resolve_diplomado_plan(slug, plan_key)
     if not resolved:
         return None, 'Plan o programa no válido'
@@ -226,6 +233,13 @@ def resolve_product_for_cart(user, data):
     if product_type == 'diplomado':
         slug = (data.get('diplomado_slug') or '').strip().lower()
         plan = (data.get('plan') or '').strip().lower()
+        from nodeone.modules.academic_enrollment import service as academic_enrollment_svc
+
+        oid = _membership_catalog_org_id(user)
+        res_db = academic_enrollment_svc.resolve_pricing_for_cart(oid, slug, plan)
+        if res_db:
+            product_id, product_name, product_description, unit_price, metadata = res_db
+            return (product_id, product_name, product_description, unit_price, metadata), None, None
         if slug not in DIPLOMADOS_IIUS:
             return None, {'success': False, 'error': 'Diplomado no disponible'}, 400
         resolved = resolve_diplomado_plan(slug, plan)

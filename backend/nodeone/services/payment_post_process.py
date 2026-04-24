@@ -331,7 +331,14 @@ def process_cart_after_payment(cart, payment):
                 if prop and prop.client_id == payment.user_id and prop.status == 'ENVIADA':
                     prop.status = 'ACEPTADA'
                     M.db.session.add(prop)
-    
+
+    try:
+        from nodeone.modules.academic_enrollment.service import process_academic_program_items_after_payment
+    except ImportError:
+        process_academic_program_items_after_payment = None
+    if process_academic_program_items_after_payment:
+        process_academic_program_items_after_payment(cart, payment)
+
     M.db.session.commit()
 
     # Registrar compra detallada en historial

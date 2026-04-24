@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Programas académicos (inscripción){% endblock %}
+{% block page_content %}
+<div class="container py-4">
+  <h1 class="h3">Programas académicos <span class="text-muted small">org {{ organization_id }}</span></h1>
+  <p class="text-muted">Inscripción pública: <code>/inscripcion/&lt;slug&gt;</code>. Datos vía API/DB; el CRUD completo vendrá en una siguiente iteración.</p>
+  {% if not programs %}
+  <div class="alert alert-light border">No hay programas. Insertar con script/migración o panel futuro.</div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered bg-white">
+      <thead><tr><th>Slug</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Enlace</th></tr></thead>
+      <tbody>
+        {% for p in programs %}
+        <tr>
+          <td><code>{{ p.slug }}</code></td>
+          <td>{{ p.name }}</td>
+          <td>{{ p.program_type }}</td>
+          <td>{{ p.status }}</td>
+          <td><a href="{{ url_for('payments.diplomado_landing', slug=p.slug) }}" target="_blank" rel="noopener">Vista pública</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

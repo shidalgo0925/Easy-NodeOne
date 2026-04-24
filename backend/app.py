@@ -273,12 +273,25 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
 
 
+def _unauthorized_request_expects_json() -> bool:
+    """Rutas que el front llama con fetch + JSON (no deben recibir redirect HTML al caducar sesión)."""
+    p = request.path or ''
+    if p.startswith('/api/') or p == '/api':
+        return True
+    if p.startswith('/crm'):
+        return True
+    if p.startswith('/invoices'):
+        return True
+    if p.startswith('/taxes'):
+        return True
+    return False
+
+
 @login_manager.unauthorized_handler
 def _login_unauthorized_api_json():
     """Evita redirigir a HTML en APIs JSON (p. ej. DELETE cotización con sesión caducada)."""
     try:
-        p = request.path or ''
-        if p.startswith('/api/'):
+        if _unauthorized_request_expects_json():
             return jsonify(
                 {
                     'error': 'unauthorized',
@@ -1432,11 +1445,24 @@ def inject_saas_module_template_helper():
     ):
         show_academic_nav = True
 
+    events_portal_count = None
+    try:
+        if has_request_context() and has_saas_module_enabled(_org_id_for_module_visibility(), 'events'):
+            from nodeone.services.events_portal import count_portal_visible_events
+
+            u = current_user if getattr(current_user, 'is_authenticated', False) else None
+            events_portal_count = count_portal_visible_events(
+                organization_id=_org_id_for_module_visibility(), user=u
+            )
+    except Exception:
+        events_portal_count = None
+
     return dict(
         saas_module_enabled=saas_module_enabled,
         office365_module_enabled=is_office365_module_enabled_for_org(_org_id_for_module_visibility()),
         academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
         show_academic_admin_nav=show_academic_nav,
+        events_portal_count=events_portal_count,
     )
 
 
@@ -2808,6 +2834,10 @@ def bootstrap_nodeone_schema():
             ensure_crm_salesperson_and_quotation_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_crm_salesperson_and_quotation_columns: {e}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
         try:
             from nodeone.services.cv_application_schema import ensure_cv_application_columns
 
@@ -2830,6 +2860,16 @@ def bootstrap_nodeone_schema():
         ensure_service_organization_id_column()
         ensure_service_image_url_column()
         ensure_user_service_table()
+        try:
+            from nodeone.services.service_request_schema import ensure_service_request_table
+
+            ensure_service_request_table(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_service_request_table: {e}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
         ensure_certificate_event_organization_id_column()
         ensure_certificate_template_organization_id_column()
         try:

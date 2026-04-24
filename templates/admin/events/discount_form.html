@@ -4,172 +4,167 @@
 
 {% block content %}
 <div class="container py-4">
-    <div class="row mb-4">
+    <div class="row mb-3">
         <div class="col-12">
             <h1 class="h5 mb-2">
-                <i class="fas fa-{{ 'edit' if action == 'edit' else 'plus' }}"></i> 
-                {{ 'Editar' if action == 'edit' else 'Crear' }} Descuento
+                <i class="fas fa-{{ 'edit' if action == 'edit' else 'plus' }}"></i>
+                {{ 'Editar' if action == 'edit' else 'Crear' }} descuento (eventos)
             </h1>
+            <p class="text-muted small mb-0">
+                Un descuento = un <strong>plan de membresía</strong> + <strong>cuánto se rebaja</strong> el precio base del evento.
+                Luego lo marcas en la edición del evento.
+            </p>
         </div>
     </div>
 
-    <form method="POST">
+    <form method="POST" id="discount-form">
         <div class="row">
-            <div class="col-12 col-md-8">
+            <div class="col-12 col-lg-8">
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información Básica</h5>
+                        <h5 class="mb-0"><i class="fas fa-tag me-2"></i>Nombre y descripción</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
                             <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                            <input type="text" name="name" class="form-control" value="{{ discount.name if discount else '' }}" required>
+                            <input type="text" name="name" class="form-control" value="{{ discount.name if discount else '' }}" required
+                                   placeholder="ej. Membresía Pro – 10 % en eventos">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Código</label>
-                            <input type="text" name="code" class="form-control" value="{{ discount.code if discount else '' }}" placeholder="Opcional - código promocional">
-                            <small class="form-text text-muted">Dejar vacío si el descuento se aplica automáticamente</small>
+                            <label class="form-label">Descripción <span class="text-muted">(opcional)</span></label>
+                            <textarea name="description" class="form-control" rows="2" placeholder="Visible en listados internos">{{ discount.description if discount else '' }}</textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Descripción</label>
-                            <textarea name="description" class="form-control" rows="3">{{ discount.description if discount else '' }}</textarea>
+                        <div class="mb-0">
+                            <label class="form-label">Código promocional <span class="text-muted">(opcional)</span></label>
+                            <input type="text" name="code" class="form-control" value="{{ discount.code if discount else '' }}" placeholder="Solo si el usuario debe ingresar un código">
+                            <small class="form-text text-muted">Si lo dejas vacío, el beneficio se entiende por <strong>plan de membresía</strong> al mostrar el precio.</small>
                         </div>
                     </div>
                 </div>
 
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-percent"></i> Configuración del Descuento</h5>
+                <div class="card mb-4 border-primary">
+                    <div class="card-header bg-primary-subtle">
+                        <h5 class="mb-0"><i class="fas fa-percent me-2"></i>Qué se descuenta y a qué plan aplica</h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Tipo de Descuento <span class="text-danger">*</span></label>
+                        <div class="row g-3">
+                            <div class="col-12 col-sm-4">
+                                <label class="form-label">Modo <span class="text-danger">*</span></label>
                                 <select name="discount_type" class="form-select" id="discount_type" required>
-                                    <option value="percentage" {% if discount and discount.discount_type == 'percentage' %}selected{% endif %}>Porcentaje (%)</option>
-                                    <option value="fixed" {% if discount and discount.discount_type == 'fixed' %}selected{% endif %}>Monto Fijo ($)</option>
+                                    <option value="percentage" {% if not discount or discount.discount_type == 'percentage' %}selected{% endif %}>Porcentaje</option>
+                                    <option value="fixed" {% if discount and discount.discount_type == 'fixed' %}selected{% endif %}>Monto fijo</option>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-6 mb-3">
+                            <div class="col-12 col-sm-4">
                                 <label class="form-label">Valor <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <input type="number" name="value" class="form-control" step="0.01" min="0" 
+                                    <input type="number" name="value" class="form-control" step="0.01" min="0"
                                            value="{{ discount.value if discount else '0' }}" required>
                                     <span class="input-group-text" id="value_suffix">%</span>
                                 </div>
                             </div>
+                            <div class="col-12 col-sm-4">
+                                <label class="form-label">Plan de membresía</label>
+                                <select name="membership_tier" class="form-select">
+                                    <option value="" {% if not discount or not discount.membership_tier %}selected{% endif %}>— Elegir plan (recomendado) —</option>
+                                    <option value="basic" {% if discount and discount.membership_tier == 'basic' %}selected{% endif %}>Básico</option>
+                                    <option value="pro" {% if discount and discount.membership_tier == 'pro' %}selected{% endif %}>Pro</option>
+                                    <option value="premium" {% if discount and discount.membership_tier == 'premium' %}selected{% endif %}>Premium</option>
+                                    <option value="deluxe" {% if discount and discount.membership_tier == 'deluxe' %}selected{% endif %}>DeLuxe</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tipo de Membresía <span class="text-danger">*</span></label>
-                            <select name="membership_tier" class="form-select" required>
-                                <option value="">Todas las membresías (sin restricción)</option>
-                                <option value="basic" {% if discount and discount.membership_tier == 'basic' %}selected{% endif %}>Básico - Solo para usuarios con membresía Básica</option>
-                                <option value="pro" {% if discount and discount.membership_tier == 'pro' %}selected{% endif %}>Pro - Solo para usuarios con membresía Pro</option>
-                                <option value="premium" {% if discount and discount.membership_tier == 'premium' %}selected{% endif %}>Premium - Solo para usuarios con membresía Premium</option>
-                                <option value="deluxe" {% if discount and discount.membership_tier == 'deluxe' %}selected{% endif %}>DeLuxe - Solo para usuarios con membresía DeLuxe</option>
-                            </select>
-                            <small class="form-text text-muted">
-                                <strong>Importante:</strong> Si seleccionas un tipo de membresía específico, este descuento se aplicará automáticamente 
-                                solo a usuarios con ese tipo de membresía cuando se registren a eventos que tengan este descuento asignado. 
-                                Si dejas "Todas las membresías", el descuento aplicará a todos pero deberá ser aplicado manualmente o por código.
-                            </small>
+                        <p class="small text-muted mt-3 mb-0">
+                            <i class="fas fa-info-circle me-1"></i>
+                            En la ficha pública, cada usuario ve el precio según <strong>su</strong> plan. Este descuento solo cuenta para quienes tengan el plan que elijas arriba.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-calendar me-2"></i>Vigencia y límites <span class="text-muted fw-normal">(opcional)</span></h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Válido desde</label>
+                                <input type="datetime-local" name="start_date" class="form-control"
+                                       value="{{ discount.start_date.strftime('%Y-%m-%dT%H:%M') if discount and discount.start_date else '' }}">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Válido hasta</label>
+                                <input type="datetime-local" name="end_date" class="form-control"
+                                       value="{{ discount.end_date.strftime('%Y-%m-%dT%H:%M') if discount and discount.end_date else '' }}">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Máx. usos (total)</label>
+                                <input type="number" name="max_uses" class="form-control" min="0"
+                                       value="{{ discount.max_uses if discount and discount.max_uses else '' }}" placeholder="Ilimitado">
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <details class="card mb-4">
+                    <summary class="card-header user-select-none" style="cursor:pointer;">
+                        <span class="text-muted">Avanzado</span> — categoría y opciones extra
+                    </summary>
+                    <div class="card-body border-top">
                         <div class="mb-3">
                             <label class="form-label">Categoría</label>
-                            <select name="category" class="form-select">
-                                <option value="event" {% if discount and discount.category == 'event' %}selected{% endif %}>Evento</option>
+                            <select name="category" class="form-select" id="discount_category">
+                                <option value="event" {% if not discount or discount.category == 'event' %}selected{% endif %}>Evento</option>
                                 <option value="membership" {% if discount and discount.category == 'membership' %}selected{% endif %}>Membresía</option>
                                 <option value="general" {% if discount and discount.category == 'general' %}selected{% endif %}>General</option>
                             </select>
                         </div>
-                    </div>
-                </div>
-
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-calendar"></i> Vigencia</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Fecha de Inicio</label>
-                                <input type="datetime-local" name="start_date" class="form-control" 
-                                       value="{{ discount.start_date.strftime('%Y-%m-%dT%H:%M') if discount and discount.start_date else '' }}">
-                                <small class="form-text text-muted">Opcional - dejar vacío para sin límite</small>
-                            </div>
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Fecha de Fin</label>
-                                <input type="datetime-local" name="end_date" class="form-control" 
-                                       value="{{ discount.end_date.strftime('%Y-%m-%dT%H:%M') if discount and discount.end_date else '' }}">
-                                <small class="form-text text-muted">Opcional - dejar vacío para sin límite</small>
+                        <div class="mb-0" id="applies_auto_non_event" style="display:none;">
+                            <div class="form-check">
+                                <input type="checkbox" name="applies_automatically" class="form-check-input" id="applies_automatically" value="1"
+                                       {% if discount and discount.category != 'event' and discount.applies_automatically %}checked{% endif %}>
+                                <label class="form-check-label" for="applies_automatically">Aplicar automáticamente (membresía / general)</label>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Usos Máximos</label>
-                            <input type="number" name="max_uses" class="form-control" min="0" 
-                                   value="{{ discount.max_uses if discount and discount.max_uses else '' }}" placeholder="Sin límite">
-                            <small class="form-text text-muted">Dejar vacío para sin límite de usos</small>
-                        </div>
                     </div>
-                </div>
+                </details>
             </div>
 
-            <div class="col-12 col-md-4">
-                <div class="card mb-4">
+            <div class="col-12 col-lg-4">
+                <div class="card mb-3">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-cog"></i> Opciones</h5>
+                        <h6 class="mb-0">Estado</h6>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="is_active" class="form-check-input" id="is_active" 
-                                       {% if not discount or discount.is_active %}checked{% endif %}>
-                                <label class="form-check-label" for="is_active">Descuento Activo</label>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="applies_automatically" class="form-check-input" id="applies_automatically" 
-                                       {% if discount and discount.applies_automatically %}checked{% endif %}>
-                                <label class="form-check-label" for="applies_automatically">Aplicar Automáticamente</label>
-                                <small class="form-text text-muted d-block">Si está marcado, el descuento se aplica automáticamente sin necesidad de código</small>
-                            </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="is_active" class="form-check-input" id="is_active"
+                                   {% if not discount or discount.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">Descuento activo</label>
                         </div>
                     </div>
                 </div>
-
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title"><i class="fas fa-lightbulb me-2"></i>Información</h6>
-                        <div class="card-text small text-muted">
-                            <p><strong>Flujo de Descuentos:</strong></p>
-                            <ol class="mb-0">
-                                <li>Los descuentos se asignan a eventos desde el formulario de creación/edición de eventos.</li>
-                                <li>Si un descuento tiene un <strong>tipo de membresía</strong> asignado, se aplicará automáticamente cuando un usuario con esa membresía vea el precio del evento.</li>
-                                <li>Si un descuento tiene <strong>"Aplicar Automáticamente"</strong> activado, se aplicará sin necesidad de código promocional.</li>
-                                <li>Los descuentos se aplican en orden de prioridad si hay múltiples descuentos para el mismo tipo de membresía.</li>
-                            </ol>
-                            <p class="mt-2 mb-0"><strong>Nota:</strong> Todos los usuarios registrados pueden acceder a los eventos, pero los precios varían según su tipo de membresía.</p>
-                        </div>
+                <div class="card bg-light">
+                    <div class="card-body small text-muted">
+                        <p class="mb-2"><strong>Resumen</strong></p>
+                        <ol class="ps-3 mb-0">
+                            <li class="mb-1">Crea un descuento por cada plan (ej. Pro 10 %, Premium 20 %).</li>
+                            <li class="mb-1">En <strong>Editar evento</strong>, marca qué descuentos aplican a ese evento.</li>
+                            <li class="mb-0">El visitante ve el precio final según su plan.</li>
+                        </ol>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Botones de Acción -->
         <div class="row">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('admin_events.discounts_index') }}" class="btn btn-secondary">
-                                <i class="fas fa-times"></i> Cancelar
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> {{ 'Actualizar' if action == 'edit' else 'Crear' }} Descuento
-                            </button>
-                        </div>
-                    </div>
+                <div class="d-flex flex-wrap justify-content-between gap-2">
+                    <a href="{{ url_for('admin_events.discounts_index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {{ 'Guardar' if action == 'edit' else 'Crear' }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -177,14 +172,25 @@
 </div>
 
 <script>
-document.getElementById('discount_type').addEventListener('change', function() {
-    const suffix = document.getElementById('value_suffix');
-    if (this.value === 'percentage') {
-        suffix.textContent = '%';
-    } else {
-        suffix.textContent = '$';
-    }
-});
+(function() {
+  var t = document.getElementById('discount_type');
+  var suffix = document.getElementById('value_suffix');
+  function upd() {
+    if (!t || !suffix) return;
+    suffix.textContent = t.value === 'percentage' ? '%' : '$';
+  }
+  if (t) t.addEventListener('change', upd);
+  upd();
+
+  var cat = document.getElementById('discount_category');
+  var box = document.getElementById('applies_auto_non_event');
+  function catUpd() {
+    if (!cat || !box) return;
+    var isEvent = cat.value === 'event';
+    box.style.display = isEvent ? 'none' : 'block';
+  }
+  if (cat) cat.addEventListener('change', catUpd);
+  catUpd();
+})();
 </script>
 {% endblock %}
-

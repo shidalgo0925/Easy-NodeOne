@@ -509,6 +509,19 @@ def request_appointment():
         db.session.add(notif)
     db.session.commit()
 
+    try:
+        from nodeone.services.service_request_actions import attach_pending_service_request_to_appointment
+
+        attach_pending_service_request_to_appointment(
+            user_id=int(current_user.id),
+            service_id=int(service.id),
+            appointment_id=int(appointment.id),
+            organization_id=int(getattr(service, 'organization_id', None) or 1),
+        )
+        db.session.commit()
+    except Exception as _e_sr:
+        print(f'⚠️ attach_pending_service_request_to_appointment (primera reunión): {_e_sr}')
+
     # Email al asesor (no bloquea el flujo si falla)
     try:
         from app import NotificationEngine
@@ -899,6 +912,27 @@ def admin_appointments_dashboard():
     )
 
 
+@admin_appointments_bp.route('/<int:appointment_id>', methods=['GET'])
+@admin_required
+def admin_appointment_detail(appointment_id):
+    """Detalle de cita: servicio de catálogo, cliente, estado de solicitud y CTA a cotización."""
+    ensure_models()
+    from models.service_request import ServiceRequest
+    from models.catalog import Service
+
+    appointment = _require_appointment_by_id(appointment_id)
+    service = None
+    if getattr(appointment, 'service_id', None):
+        service = Service.query.get(int(appointment.service_id))
+    sr = ServiceRequest.query.filter_by(appointment_id=int(appointment.id)).first()
+    return render_template(
+        'admin/appointments/detail.html',
+        appointment=appointment,
+        catalog_service=service,
+        service_request=sr,
+    )
+
+
 @admin_appointments_bp.route('/<int:appointment_id>/confirm', methods=['POST'])
 @admin_required
 def admin_confirm_appointment(appointment_id):
@@ -1003,6 +1037,29 @@ def admin_cancel_appointment(appointment_id):
 
     flash('La cita fue cancelada y los participantes serán notificados.', 'info')
     return redirect(url_for('admin_appointments.admin_appointments_dashboard'))
+
+
+@admin_appointments_bp.route('/<int:appointment_id>/create-quotation', methods=['POST'])
+@admin_required
+def admin_create_quotation_from_appointment(appointment_id):
+    """Borrador de cotización ligada a la cita y al ``ServiceRequest`` si existe."""
+    ensure_models()
+    appointment = _require_appointment_by_id(appointment_id)
+    if not getattr(appointment, 'service_id', None):
+        flash('La cita no tiene servicio de catálogo (service_id); no se puede armar la cotización automática.', 'warning')
+        return redirect(
+            url_for('admin_appointments.admin_appointment_detail', appointment_id=appointment_id)
+        )
+    from nodeone.services.service_request_actions import create_quotation_for_appointment
+
+    qid, err = create_quotation_for_appointment(appointment=appointment, actor_user_id=getattr(current_user, 'id', None))
+    if err:
+        flash(err, 'error')
+        return redirect(
+            url_for('admin_appointments.admin_appointment_detail', appointment_id=appointment_id)
+        )
+    flash('Cotización creada en borrador. Completá líneas e importes en Ventas.', 'success')
+    return redirect(url_for('admin_sales_quotation_form', quotation_id=qid))
 
 
 @admin_appointments_bp.route('/types/create', methods=['GET', 'POST'])

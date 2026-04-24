@@ -208,6 +208,16 @@ def register_admin_analytics_routes(app):
         _register(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar rutas analytics: {e}')
+
+
+def register_admin_service_metrics_routes(app):
+    """GET /admin/metrics/services — KPIs de flujo comercial (servicios, requests, citas, ventas)."""
+    try:
+        from nodeone.modules.admin_metrics.routes import register_admin_service_metrics_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar métricas /admin/metrics/services: {e}')
         # Fallback: evita 404/500 si alguien navega manualmente a /admin/analytics
         # en despliegues donde el módulo analytics no está presente.
         try:
@@ -848,6 +858,7 @@ def register_modules(app):
     register_saas_admin_blueprint(app)
     register_admin_crm_routes(app)
     register_admin_analytics_routes(app)
+    register_admin_service_metrics_routes(app)
     register_admin_sales_accounting_routes(app)
     register_admin_workshop_pages(app)
     register_admin_notifications_identity_routes(app)

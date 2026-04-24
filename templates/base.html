@@ -22,6 +22,7 @@
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-4" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=1" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
         /* Design tokens: identidad por cliente (organization_settings). No hardcodear colores de marca. */
@@ -575,7 +576,7 @@
                                     <a class="nav-link {% if request.endpoint == 'benefits' %}active{% endif %}" href="{{ url_for('benefits') }}"><i class="fas fa-gift me-1"></i>Beneficios</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}"><i class="fas fa-calendar me-1"></i>Eventos</a>
+                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}"><i class="fas fa-calendar me-1"></i>Eventos{% if events_portal_count is not none and events_portal_count > 0 %} <span class="badge bg-primary rounded-pill">{{ events_portal_count }}</span>{% endif %}</a>
                                 </li>
                             </ul>
                         </li>
@@ -616,7 +617,7 @@
                                 {% endif %}
                                 {% if saas_module_enabled('events') and _nav_prod_evt %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}">Ver eventos</a>
+                                    <a class="nav-link {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}">Ver eventos{% if events_portal_count is not none and events_portal_count > 0 %} ({{ events_portal_count }}){% endif %}</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.blueprint == 'admin_events' and request.endpoint != 'admin_events.discounts_index' %}active{% endif %}" href="{{ url_for('admin_events.admin_events_index') }}">Gestión eventos</a>

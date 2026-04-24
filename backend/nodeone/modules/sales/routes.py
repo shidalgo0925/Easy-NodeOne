@@ -360,6 +360,36 @@ def quotations_post():
         duid = _default_salesperson_user_id(oid, getattr(current_user, 'id', None))
         if duid:
             q.salesperson_user_id = duid
+    _sr_raw = data.get('service_request_id')
+    if _sr_raw:
+        try:
+            from models.service_request import ServiceRequest
+            from nodeone.services.service_request_integrity import validate_service_request_for_quotation
+            from nodeone.services.service_request_actions import sync_service_request_on_quotation_created
+
+            sr = ServiceRequest.query.filter_by(
+                id=int(_sr_raw), organization_id=oid
+            ).first()
+            v_err = validate_service_request_for_quotation(
+                service_request=sr,
+                customer_id=customer_id,
+                line_rows=data.get('lines') or [],
+            )
+            if v_err:
+                db.session.rollback()
+                return jsonify(
+                    {
+                        'error': v_err,
+                        'user_message': {
+                            'service_request_missing': 'Solicitud de servicio no encontrada.',
+                            'service_request_user_mismatch': 'El cliente de la cotización no coincide con la solicitud.',
+                            'service_request_service_mismatch': 'Falta una línea con el servicio vinculado a la solicitud.',
+                        }.get(v_err, v_err),
+                    }
+                ), 400
+            sync_service_request_on_quotation_created(q.id, service_request_id=int(_sr_raw))
+        except Exception:
+            current_app.logger.exception('sync_service_request_on_quotation_created')
     db.session.commit()
     return jsonify({'id': q.id, 'number': q.number, 'status': q.status, 'grand_total': q.grand_total}), 201
 
@@ -742,6 +772,12 @@ def quotations_confirm(qid):
             }
         ), 400
     q.status = 'confirmed'
+    try:
+        from nodeone.services.service_request_actions import sync_service_request_on_quotation_confirmed
+
+        sync_service_request_on_quotation_confirmed(q.id)
+    except Exception:
+        current_app.logger.exception('sync_service_request_on_quotation_confirmed')
     db.session.commit()
     return jsonify({'ok': True, 'status': q.status})
 
@@ -760,6 +796,12 @@ def quotations_create_invoice(qid):
     if existing:
         if q.status == 'confirmed':
             q.status = 'invoiced'
+            try:
+                from nodeone.services.service_request_actions import sync_service_request_on_invoice_from_quotation
+
+                sync_service_request_on_invoice_from_quotation(q.id, existing.id)
+            except Exception:
+                current_app.logger.exception('sync_service_request_on_invoice_from_quotation')
             db.session.commit()
         return jsonify(
             {
@@ -780,6 +822,7 @@ def quotations_create_invoice(qid):
         status='draft',
         origin_quotation_id=q.id,
         salesperson_user_id=getattr(q, 'salesperson_user_id', None),
+        salesperson_contact_id=getattr(q, 'salesperson_contact_id', None),
         date=datetime.utcnow(),
         created_by=getattr(current_user, 'id', None),
     )
@@ -803,6 +846,12 @@ def quotations_create_invoice(qid):
     inv.tax_total = q.tax_total
     inv.grand_total = q.grand_total
     q.status = 'invoiced'
+    try:
+        from nodeone.services.service_request_actions import sync_service_request_on_invoice_from_quotation
+
+        sync_service_request_on_invoice_from_quotation(q.id, inv.id)
+    except Exception:
+        current_app.logger.exception('sync_service_request_on_invoice_from_quotation')
     db.session.commit()
     return jsonify(
         {

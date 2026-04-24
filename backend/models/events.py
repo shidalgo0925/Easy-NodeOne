@@ -36,6 +36,23 @@ def _event_uploads_public_url(stored: str | None) -> str | None:
     return f'/static/uploads/events/{p.split("/")[-1]}'
 
 
+def _event_stored_path_exists_on_disk(stored: str) -> bool:
+    """True si la ruta (o URL absoluta externa) debería servirse; evita portada rota en BD sin fichero."""
+    try:
+        from flask import current_app
+
+        u = _event_uploads_public_url(stored)
+        if not u:
+            return False
+        if u.startswith('http://') or u.startswith('https://') or u.startswith('//'):
+            return True
+        rel = u.lstrip('/')
+        fs = os.path.normpath(os.path.join(current_app.root_path, '..', rel))
+        return os.path.isfile(fs)
+    except Exception:
+        return True
+
+
 # Modelos de Eventos
 class Event(db.Model):
     """Modelo para eventos según el diagrama de flujo - 5 pasos: Evento, Descripción, Publicidad, Certificado, Kahoot"""
@@ -137,14 +154,9 @@ class Event(db.Model):
         return recipients
     
     def cover_url(self):
-        """Retorna URL de portada, primera imagen de galería si no hay portada, o None (plantilla usa icono)."""
-        ci = (self.cover_image or '').strip()
-        if ci:
-            return _event_uploads_public_url(ci)
+        """URL de portada o primera imagen de galería que exista en disco; si no hay ficheros, None (icono)."""
         try:
             imgs = list(getattr(self, 'images', None) or [])
-            if not imgs:
-                return None
 
             def _sort_key(im):
                 return (
@@ -153,11 +165,28 @@ class Event(db.Model):
                     getattr(im, 'id', 0) or 0,
                 )
 
-            best = sorted(imgs, key=_sort_key)[0]
-            fp = (getattr(best, 'file_path', None) or '').strip()
-            return _event_uploads_public_url(fp) or None
+            gallery_paths = []
+            for im in sorted(imgs, key=_sort_key):
+                fp = (getattr(im, 'file_path', None) or '').strip()
+                if fp:
+                    gallery_paths.append(fp)
         except Exception:
-            return None
+            gallery_paths = []
+
+        paths = []
+        ci = (self.cover_image or '').strip()
+        if ci:
+            paths.append(ci)
+        for fp in gallery_paths:
+            if fp not in paths:
+                paths.append(fp)
+
+        for raw in paths:
+            if _event_stored_path_exists_on_disk(raw):
+                out = _event_uploads_public_url(raw)
+                if out:
+                    return out
+        return None
     
     def pricing_for_membership(self, membership_type=None):
         """Calcula el precio final según el tipo de membresía"""

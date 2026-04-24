@@ -59,7 +59,7 @@ class User(UserMixin, db.Model):
     last_selected_organization_id = db.Column(
         db.Integer, db.ForeignKey('saas_organization.id', ondelete='SET NULL'), nullable=True
     )
-    
+
     # Relación con membresías
     memberships = db.relationship('Membership', backref='user', lazy=True)
     

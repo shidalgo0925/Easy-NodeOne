@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Cita {{ appointment.reference }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Citas (admin)</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ appointment.reference }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-start gap-3 mb-4">
+        <div>
+            <p class="text-uppercase text-muted small mb-1">Cita</p>
+            <h1 class="h3 mb-1">{{ appointment.reference }}</h1>
+            <p class="text-muted mb-0">
+                <i class="far fa-clock me-1"></i>
+                {{ appointment.start_datetime.strftime('%d %b %Y %H:%M') if appointment.start_datetime else '—' }}
+                ·
+                <span class="badge bg-light text-dark">{{ appointment.status or '—' }}</span>
+            </p>
+        </div>
+        <div class="d-grid gap-2 min-w-0" style="max-width: 22rem;">
+            {% if appointment.service_id %}
+            <form action="{{ url_for('admin_appointments.admin_create_quotation_from_appointment', appointment_id=appointment.id) }}" method="post">
+                <button type="submit" class="btn btn-primary btn-lg w-100">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>Crear cotización
+                </button>
+            </form>
+            <p class="text-muted small mb-0">Genera un borrador en Ventas vinculado al cliente, al servicio y al <code>service_request</code> si existe.</p>
+            {% else %}
+            <div class="alert alert-warning mb-0">
+                Esta cita no tiene <code>service_id</code> de catálogo; no se puede generar la cotización automática desde aquí.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h2 class="h6 mb-0">Servicio solicitado</h2>
+                </div>
+                <div class="card-body">
+                    {% if catalog_service %}
+                    <p class="mb-1"><strong>{{ catalog_service.name }}</strong></p>
+                    <p class="text-muted small mb-0">ID <span class="font-monospace">{{ catalog_service.id }}</span>
+                        · Tipo de cita: {{ appointment.appointment_type.name if appointment.appointment_type else '—' }}</p>
+                    {% else %}
+                    <p class="text-muted mb-0">Sin servicio de catálogo vinculado a esta cita.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h2 class="h6 mb-0">Cliente</h2>
+                </div>
+                <div class="card-body">
+                    {% if appointment.user %}
+                    <p class="mb-1">
+                        <strong>{{ appointment.user.first_name }} {{ appointment.user.last_name }}</strong>
+                    </p>
+                    <p class="text-muted small mb-0">{{ appointment.user.email or '' }}</p>
+                    <p class="text-muted small mb-0">Usuario ID <span class="font-monospace">{{ appointment.user_id }}</span></p>
+                    {% else %}
+                    <p class="text-muted mb-0">Usuario no encontrado.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                    <h2 class="h6 mb-0">Solicitud comercial (Service request)</h2>
+                    {% if service_request %}
+                    <span class="badge bg-info text-dark">#{{ service_request.id }}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if service_request %}
+                    <div class="row g-2">
+                        <div class="col-12 col-sm-4"><span class="text-muted small">Estado</span><br><strong>{{ service_request.status or '—' }}</strong></div>
+                        <div class="col-12 col-sm-4"><span class="text-muted small">Cotización</span><br>
+                            {% if service_request.quotation_id %}
+                            <a href="{{ url_for('admin_sales_quotation_form', quotation_id=service_request.quotation_id) }}">#{{ service_request.quotation_id }}</a>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </div>
+                        <div class="col-12 col-sm-4"><span class="text-muted small">Factura</span><br>
+                            {% if service_request.invoice_id %}<span class="font-monospace">{{ service_request.invoice_id }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Aún no hay <code>ServiceRequest</code> vinculado; puede crearse al generar la cotización si corresponde.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex flex-wrap gap-2">
+        {% if appointment.status in ('pending', 'PENDIENTE') %}
+        <form action="{{ url_for('admin_appointments.admin_confirm_appointment', appointment_id=appointment.id) }}" method="post" class="d-inline">
+            <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>Confirmar</button>
+        </form>
+        <form action="{{ url_for('admin_appointments.admin_cancel_appointment', appointment_id=appointment.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Cancelar esta cita?');">
+            <input type="hidden" name="reason" value="Cancelada desde el detalle administrativo.">
+            <button type="submit" class="btn btn-outline-danger">Cancelar</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

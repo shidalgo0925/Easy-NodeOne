@@ -3,6 +3,10 @@
 
 {% block title %}Gestión de Servicios - Easy NodeOne{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/services-template-cards.css') }}?v=svc-card-actions-2">
+{% endblock %}
+
 {% block page_content %}
 <div class="container-fluid px-0 services-catalog-page">
     <div class="row mb-4 align-items-start">
@@ -123,15 +127,15 @@
                                 <div class="service-card-icon" aria-hidden="true">
                                     <i class="{{ service.icon or 'fas fa-layer-group' }}"></i>
                                 </div>
-                                <div class="service-card-actions">
+                                <div class="service-card-actions" role="group" aria-label="Acciones del servicio">
                                     <button type="button" class="service-card-icon-btn" data-svc-edit="{{ service.id }}" title="Editar servicio" aria-label="Editar {{ service.name | e }}">
-                                        <i class="fas fa-pen fa-sm"></i>
+                                        <i class="fas fa-pen"></i>
                                     </button>
                                     <button type="button" class="service-card-icon-btn" data-svc-dup="{{ service.id }}" data-svc-name="{{ service.name | e }}" title="Duplicar" aria-label="Duplicar {{ service.name | e }}">
-                                        <i class="fas fa-copy fa-sm"></i>
+                                        <i class="fas fa-copy"></i>
                                     </button>
-                                    <button type="button" class="service-card-icon-btn text-danger" data-svc-del="{{ service.id }}" data-svc-name="{{ service.name | e }}" title="Eliminar" aria-label="Eliminar {{ service.name | e }}">
-                                        <i class="fas fa-trash-alt fa-sm"></i>
+                                    <button type="button" class="service-card-icon-btn service-card-icon-btn--danger" data-svc-del="{{ service.id }}" data-svc-name="{{ service.name | e }}" title="Eliminar" aria-label="Eliminar {{ service.name | e }}">
+                                        <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </div>
                             </div>
@@ -182,175 +186,236 @@
     </div>
 </div>
 
+<style>
+/* Catálogo admin: acciones siempre visibles (icono + borde; no depender solo del hover) */
+.services-catalog-page .service-template-card .service-card-icon {
+  flex-shrink: 0;
+}
+.services-catalog-page .service-template-card .service-card-actions {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  z-index: 2;
+}
+.services-catalog-page .service-template-card .service-card-icon-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--bs-border-color, #dee2e6) !important;
+  background: #fff !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+.services-catalog-page .service-template-card .service-card-icon-btn:hover,
+.services-catalog-page .service-template-card .service-card-icon-btn:focus-visible {
+  background: #f1f5f9 !important;
+  color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+  outline: none;
+}
+.services-catalog-page .service-template-card .service-card-icon-btn--danger {
+  color: #b91c1c !important;
+  border-color: color-mix(in srgb, #b91c1c 28%, #fff) !important;
+}
+.services-catalog-page .service-template-card .service-card-icon-btn--danger:hover,
+.services-catalog-page .service-template-card .service-card-icon-btn--danger:focus-visible {
+  color: #fff !important;
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+</style>
+
 <!-- Modal Crear/Editar Servicio -->
 <div class="modal fade" id="createServiceModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="serviceModalTitle">Crear Servicio</h5>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="serviceModalTitle">Crear servicio</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <form id="serviceForm">
+            <div class="modal-body pt-2">
+                <form id="serviceForm" novalidate>
                     <input type="hidden" id="serviceId" name="service_id">
-                    
-                    <div class="mb-3">
-                        <label for="serviceName" class="form-label">Nombre del Servicio *</label>
-                        <input type="text" class="form-control" id="serviceName" name="name" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="serviceDescription" class="form-label">Descripción</label>
-                        <textarea class="form-control" id="serviceDescription" name="description" rows="3"></textarea>
-                    </div>
 
-                    <div class="mb-3">
-                        <label for="serviceCategory" class="form-label">Categoría</label>
-                        <select class="form-select" id="serviceCategory" name="category_id">
-                            <option value="">Sin categoría</option>
-                        </select>
-                        <small class="text-muted">Gestioná categorías en <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}" target="_blank" rel="noopener">Categorías servicios</a>.</small>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-12 col-md-6 mb-3">
-                            <label for="serviceIcon" class="form-label">Icono (FontAwesome)</label>
-                            <input type="text" class="form-control" id="serviceIcon" name="icon" placeholder="fas fa-cog" value="fas fa-cog">
-                            <small class="text-muted">Ej: fas fa-newspaper, fas fa-book</small>
-                        </div>
-                        <div class="col-12 mb-3">
-                            <label for="serviceImageUrl" class="form-label">Imagen (URL, opcional)</label>
-                            <input type="text" class="form-control" id="serviceImageUrl" name="image_url" placeholder="https://…" inputmode="url" autocomplete="off">
-                            <small class="text-muted">Miniatura en el catálogo <code>/services</code>. Si la dejás vacía, se usa la misma imagen que en el sitio público (Relatic) cuando el nombre del servicio coincide; si pegás URL, manda ésa.</small>
-                        </div>
-                        <div class="col-12 col-md-6 mb-3">
-                            <label class="form-label">Planes de Membresía *</label>
-                            <div class="border rounded p-3" style="background-color: #f8f9fa;">
+                    <div class="row g-3 service-form-main-row">
+                        <!-- Columna principal -->
+                        <div class="col-12 col-lg-7">
+                            <p class="service-modal-kicker text-uppercase text-muted small mb-1">Contenido</p>
+                            <h6 class="fw-semibold mb-3">Información del servicio</h6>
+                            <div class="mb-3">
+                                <label for="serviceName" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="serviceName" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="serviceDescription" class="form-label">Descripción</label>
+                                <textarea class="form-control" id="serviceDescription" name="description" rows="3" placeholder="Qué incluye y para quién es"></textarea>
+                            </div>
+                            <div class="mb-4">
+                                <label for="serviceCategory" class="form-label">Categoría</label>
+                                <select class="form-select" id="serviceCategory" name="category_id">
+                                    <option value="">Sin categoría</option>
+                                </select>
+                                <small class="text-muted">Gestionar en <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}" target="_blank" rel="noopener">Categorías servicios</a></small>
+                            </div>
+
+                            <h6 class="fw-semibold mb-1">Precio y planes de membresía</h6>
+                            <p class="small text-muted mb-2">El precio base se usa antes de descuentos por plan; elige al menos un plan.</p>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-6">
+                                    <label for="serviceBasePrice" class="form-label">Precio base (USD)</label>
+                                    <input type="number" class="form-control" id="serviceBasePrice" name="base_price" step="0.01" min="0" value="50.00">
+                                </div>
+                            </div>
+                            <div class="mt-3 p-3 rounded-2 border bg-light">
+                                <label class="form-label">Planes en los que está disponible <span class="text-danger">*</span></label>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planBasic" name="membership_plans" value="basic">
-                                    <label class="form-check-label" for="planBasic">
-                                        <strong>Básico</strong> <span class="text-muted">(Gratis)</span>
-                                    </label>
+                                    <label class="form-check-label" for="planBasic"><strong>Básico</strong> <span class="text-muted">(gratis)</span></label>
                                 </div>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planPro" name="membership_plans" value="pro">
-                                    <label class="form-check-label" for="planPro">
-                                        <strong>Pro</strong> <span class="text-muted">($60/año)</span>
-                                    </label>
+                                    <label class="form-check-label" for="planPro"><strong>Pro</strong> <span class="text-muted">($60/año)</span></label>
                                 </div>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planPremium" name="membership_plans" value="premium">
-                                    <label class="form-check-label" for="planPremium">
-                                        <strong>Premium</strong> <span class="text-muted">($120/año)</span>
-                                    </label>
+                                    <label class="form-check-label" for="planPremium"><strong>Premium</strong> <span class="text-muted">($120/año)</span></label>
                                 </div>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planDeluxe" name="membership_plans" value="deluxe">
-                                    <label class="form-check-label" for="planDeluxe">
-                                        <strong>Deluxe</strong> <span class="text-muted">($200/año)</span>
-                                    </label>
+                                    <label class="form-check-label" for="planDeluxe"><strong>Deluxe</strong> <span class="text-muted">($200/año)</span></label>
                                 </div>
-                                <div class="form-check">
+                                <div class="form-check mb-0">
                                     <input class="form-check-input membership-plan-checkbox" type="checkbox" id="planCorporativo" name="membership_plans" value="corporativo">
-                                    <label class="form-check-label" for="planCorporativo">
-                                        <strong>Corporativo</strong> <span class="text-muted">($300/año)</span>
-                                    </label>
+                                    <label class="form-check-label" for="planCorporativo"><strong>Corporativo</strong> <span class="text-muted">($300/año)</span></label>
                                 </div>
                             </div>
-                            <small class="text-muted">Selecciona uno o más planes donde estará disponible este servicio</small>
+                        </div>
+                        <!-- Columna control + catálogo -->
+                        <div class="col-12 col-lg-5">
+                            <p class="service-modal-kicker text-uppercase text-muted small mb-1">Control</p>
+                            <h6 class="fw-semibold mb-3">Estado e imagen en catálogo</h6>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="serviceIsActive" name="is_active" checked>
+                                <label class="form-check-label fw-medium" for="serviceIsActive">Servicio activo</label>
+                            </div>
+                            <div class="mb-3">
+                                <label for="serviceDisplayOrder" class="form-label">Orden de visualización</label>
+                                <input type="number" class="form-control" id="serviceDisplayOrder" name="display_order" value="0" min="0" step="1">
+                                <small class="form-text">Menor número suele mostrarse primero en listas.</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="serviceIcon" class="form-label">Icono (Font Awesome)</label>
+                                <input type="text" class="form-control" id="serviceIcon" name="icon" placeholder="fas fa-cog" value="fas fa-cog" autocomplete="off">
+                                <small class="form-text">Ej. <code>fas fa-briefcase</code></small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="serviceImageUrl" class="form-label">Imagen / URL</label>
+                                <input type="text" class="form-control" id="serviceImageUrl" name="image_url" placeholder="https://…" inputmode="url" autocomplete="off">
+                                <small class="form-text">Miniatura en <code>/services</code>. Si está vacía, puede resolverse por nombre en el sitio público.</small>
+                            </div>
+                            <div class="mb-0">
+                                <label for="serviceDefaultTax" class="form-label">Impuesto por defecto</label>
+                                <select class="form-select" id="serviceDefaultTax" name="default_tax_id">
+                                    <option value="">Ninguno</option>
+                                </select>
+                                <small class="form-text">Sugerido al facturar o cotizar.</small>
+                            </div>
+                            <div class="alert alert-light border small mt-3 mb-0">
+                                <i class="fas fa-lightbulb text-warning me-1"></i>
+                                <strong>Recomendación:</strong> mantené el nombre y la imagen alineados con lo publicado en Relatic/landing para coherencia en catálogo.
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-12 col-md-6 mb-3">
-                            <label for="serviceBasePrice" class="form-label">Precio Base (USD)</label>
-                            <input type="number" class="form-control" id="serviceBasePrice" name="base_price" step="0.01" min="0" value="50.00">
-                        </div>
-                        
-                        <div class="col-12 col-md-6 mb-3">
-                            <label for="serviceDisplayOrder" class="form-label">Orden de Visualización</label>
-                            <input type="number" class="form-control" id="serviceDisplayOrder" name="display_order" value="0">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12 col-md-6 mb-3">
-                            <label for="serviceDefaultTax" class="form-label">Impuesto por defecto</label>
-                            <select class="form-select" id="serviceDefaultTax" name="default_tax_id">
-                                <option value="">Sin impuesto por defecto</option>
-                            </select>
-                            <small class="text-muted">Se propone al agregar este producto en cotizaciones y facturas.</small>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="serviceExternalLink" class="form-label">Enlace Externo (opcional)</label>
-                        {# type="text": evita que checkValidity() bloquee Guardar si el valor no es URL absoluta válida (p. ej. borrador o rutas de archivo). #}
-                        <input type="text" class="form-control" id="serviceExternalLink" name="external_link" placeholder="https://..." inputmode="url" autocomplete="off">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="serviceIsActive" name="is_active" checked>
-                            <label class="form-check-label" for="serviceIsActive">
-                                Servicio Activo
+
+                    <hr class="my-4 text-secondary opacity-25">
+
+                    <!-- Flujo: segmentado (sin opciones incompatibles mezcladas) -->
+                    <div class="mb-0">
+                        <h6 class="fw-semibold mb-1">Flujo de atención</h6>
+                        <p class="small text-muted mb-3">Elegí <strong>una</strong> intención; el formulario se adapta y no mezcla cita con CV o curso.</p>
+
+                        <div class="service-flow-segmented d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Tipo de flujo de servicio">
+                            <input type="radio" class="btn-check" name="service_type_flow" id="flowSegConsultivo" value="CONSULTIVO" autocomplete="off" tabindex="-1">
+                            <label class="btn btn-outline-primary rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" for="flowSegConsultivo" title="Primera reunión; asesor confirma (sin calendario libre)">
+                                <i class="fas fa-user-tie fa-fw" aria-hidden="true"></i>
+                                <span>Consultivo</span>
+                            </label>
+                            <input type="radio" class="btn-check" name="service_type_flow" id="flowSegAgendable" value="AGENDABLE" autocomplete="off" tabindex="-1" checked>
+                            <label class="btn btn-outline-primary rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" for="flowSegAgendable" title="Cita con horario en calendario y pago">
+                                <i class="fas fa-calendar-check fa-fw" aria-hidden="true"></i>
+                                <span>Agendable</span>
+                            </label>
+                            <input type="radio" class="btn-check" name="service_type_flow" id="flowSegCv" value="CV_REGISTRATION" autocomplete="off" tabindex="-1">
+                            <label class="btn btn-outline-primary rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" for="flowSegCv" title="Formulario de hoja de vida sin cita">
+                                <i class="fas fa-file-alt fa-fw" aria-hidden="true"></i>
+                                <span>Registro CV</span>
+                            </label>
+                            <input type="radio" class="btn-check" name="service_type_flow" id="flowSegCourse" value="COURSE" autocomplete="off" tabindex="-1">
+                            <label class="btn btn-outline-primary rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" for="flowSegCourse" title="Programa con convocatorias y API pública">
+                                <i class="fas fa-graduation-cap fa-fw" aria-hidden="true"></i>
+                                <span>Curso</span>
                             </label>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="serviceRequiresAppointment" name="requires_appointment">
-                            <label class="form-check-label" for="serviceRequiresAppointment">
-                                <strong>Requiere cita</strong>
-                            </label>
-                            <small class="text-muted d-block">Si está marcado, el servicio requerirá agendar una cita antes de usarlo</small>
+                        <p class="small text-muted mb-0"><i class="fas fa-info-circle me-1" aria-hidden="true"></i> Cada icono indica un flujo distinto: asesoría, agenda, CV o formación. Solo uno aplica a la vez.</p>
+
+                        <!-- Sub-bloques condicionales -->
+                        <div id="flowBlockAppointment" class="rounded-2 border p-3 bg-light d-none">
+                            <p class="small fw-medium text-body-secondary mb-2">Citas (consultivo o agendable)</p>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="serviceRequiresAppointment" name="requires_appointment">
+                                <label class="form-check-label" for="serviceRequiresAppointment"><strong>Requiere cita</strong></label>
+                                <small class="text-muted d-block">Con cita, el usuario agenda antes de contratar o completar el flujo.</small>
+                            </div>
+                            <div id="appointmentTypeContainer" class="d-none">
+                                <label for="serviceAppointmentType" class="form-label">Tipo de cita <span class="text-danger">*</span></label>
+                                <select class="form-select" id="serviceAppointmentType" name="appointment_type_id">
+                                    <option value="">Selecciona un tipo de cita</option>
+                                </select>
+                                <div id="appointmentTypesEmptyHelp" class="alert alert-warning d-none mt-2 mb-0 py-2 small" role="alert">
+                                    No hay tipos de cita <strong>activos</strong>. Crealos en
+                                    <a href="{{ url_for('admin_appointments.create_appointment_type') }}" target="_blank" rel="noopener">Citas → Nuevo servicio</a> y volvé a abrir el modal.
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="serviceCvRegistration" name="cv_registration">
-                            <label class="form-check-label" for="serviceCvRegistration">
-                                <strong>Registro de hoja de vida (sin cita)</strong>
-                            </label>
-                            <small class="text-muted d-block">El catálogo público mostrará enlace al formulario de CV para este servicio.</small>
+
+                        <div id="flowBlockCv" class="rounded-2 border p-3 bg-light d-none">
+                            <p class="small fw-medium text-body-secondary mb-1">Hoja de vida (sin cita)</p>
+                            <p class="small text-muted mb-0">El catálogo puede enlazar al formulario público de postulación. Completá el enlace abajo si usás destino propio.</p>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3" id="appointmentTypeContainer" style="display: none;">
-                        <label for="serviceAppointmentType" class="form-label">Tipo de Cita *</label>
-                        <select class="form-select" id="serviceAppointmentType" name="appointment_type_id">
-                            <option value="">Selecciona un tipo de cita</option>
-                        </select>
-                        <small class="text-muted">Selecciona el tipo de cita que se requiere para este servicio</small>
-                        <div id="appointmentTypesEmptyHelp" class="alert alert-warning d-none mt-2 mb-0 py-2 small" role="alert">
-                            No hay tipos de cita <strong>activos</strong> para la organización actual (misma que el selector de empresa).
-                            Créalos en <a href="{{ url_for('admin_appointments.create_appointment_type') }}" target="_blank" rel="noopener">Citas → Nuevo servicio</a>, luego vuelve aquí y abre de nuevo el modal.
+
+                        <div id="flowBlockCourse" class="rounded-2 border p-3 bg-light d-none">
+                            <p class="small fw-medium text-body-secondary mb-1">Curso / programa con convocatorias</p>
+                            <p class="small text-muted">La API pública de cohortes y fechas del diplomado usa este identificador. Oculta cita y CV.</p>
+                            <div class="mb-0" id="programSlugContainer">
+                                <label for="serviceProgramSlug" class="form-label">program_slug <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="serviceProgramSlug" name="program_slug" placeholder="ej. neuro-liderazgo-intercultural" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" autocomplete="off">
+                                <small class="form-text d-block">Endpoint: <code>/api/public/programs/<span class="user-select-all">[slug]</span>/cohorts</code></small>
+                            </div>
                         </div>
-                    </div>
-                    <div class="mb-3" id="serviceTypeContainer" style="display: none;">
-                        <label for="serviceType" class="form-label">Tipo de flujo</label>
-                        <select class="form-select" id="serviceType" name="service_type">
-                            <option value="AGENDABLE">AGENDABLE — Solicitar cita (calendario y pago)</option>
-                            <option value="CONSULTIVO">CONSULTIVO — Solicitar primera reunión (propón fecha, asesor confirma)</option>
-                            <option value="CV_REGISTRATION">CV_REGISTRATION — Formulario público de hoja de vida</option>
-                            <option value="COURSE">COURSE — Programa con convocatorias (API landing + checkout por cohorte)</option>
-                        </select>
-                        <small class="text-muted">CONSULTIVO / AGENDABLE: flujos con cita. CV_REGISTRATION: postulación sin cita. COURSE: diplomados con fechas en API pública.</small>
-                    </div>
-                    <div class="mb-3 d-none" id="programSlugContainer">
-                        <label for="serviceProgramSlug" class="form-label">program_slug <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="serviceProgramSlug" name="program_slug" placeholder="ej. neuro-liderazgo-intercultural" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" autocomplete="off">
-                        <small class="text-muted">URL pública: <code>/api/public/programs/<strong>este-valor</strong>/cohorts</code></small>
+
+                        <div class="mt-3">
+                            <label for="serviceExternalLink" class="form-label">Enlace externo (opcional)</label>
+                            <input type="text" class="form-control" id="serviceExternalLink" name="external_link" placeholder="https://…" inputmode="url" autocomplete="off">
+                            <small class="form-text">Útil para registro, landing o enlace a CV/curso según el flujo.</small>
+                        </div>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer border-0">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="saveService()">Guardar Servicio</button>
+                <button type="button" class="btn btn-primary px-4" onclick="saveService()">Guardar servicio</button>
             </div>
         </div>
     </div>
 </div>
+<style>
+.services-catalog-page .service-modal-kicker { letter-spacing: 0.06em; font-size: 0.7rem; }
+.services-catalog-page .service-flow-segmented .btn-check:checked + .btn {
+  font-weight: 600;
+}
+@media (min-width: 992px) {
+  .services-catalog-page .service-form-main-row .col-lg-7 { flex: 0 0 59%; max-width: 59%; }
+  .services-catalog-page .service-form-main-row .col-lg-5 { flex: 0 0 41%; max-width: 41%; }
+}
+</style>
 
 {% if current_user.is_admin %}
 <div class="modal fade" id="importServicesModal" tabindex="-1" aria-labelledby="importServicesModalLabel" aria-hidden="true">
@@ -379,6 +444,62 @@
 
 <script>
 let editingServiceId = null;
+
+function getServiceFlowType() {
+    const r = document.querySelector('input[name="service_type_flow"]:checked');
+    return r ? r.value : 'AGENDABLE';
+}
+function setServiceFlowType(st, skipApply) {
+    const v = String(st || 'AGENDABLE').toUpperCase();
+    const allowed = ['CONSULTIVO', 'AGENDABLE', 'CV_REGISTRATION', 'COURSE'];
+    const use = allowed.indexOf(v) >= 0 ? v : 'AGENDABLE';
+    const el = document.querySelector('input[name="service_type_flow"][value="' + use + '"]');
+    if (el) {
+        el.checked = true;
+    } else {
+        const fb = document.getElementById('flowSegAgendable');
+        if (fb) fb.checked = true;
+    }
+    if (!skipApply) {
+        applyServiceFlowVisibility();
+    }
+}
+function applyServiceFlowVisibility() {
+    const st = getServiceFlowType();
+    const flowAppt = document.getElementById('flowBlockAppointment');
+    const flowCv = document.getElementById('flowBlockCv');
+    const flowCourse = document.getElementById('flowBlockCourse');
+    const reqCb = document.getElementById('serviceRequiresAppointment');
+    const aptC = document.getElementById('appointmentTypeContainer');
+    const aptS = document.getElementById('serviceAppointmentType');
+    if (flowAppt) {
+        flowAppt.classList.toggle('d-none', st !== 'CONSULTIVO' && st !== 'AGENDABLE');
+    }
+    if (flowCv) flowCv.classList.toggle('d-none', st !== 'CV_REGISTRATION');
+    if (flowCourse) flowCourse.classList.toggle('d-none', st !== 'COURSE');
+    if (st === 'COURSE' || st === 'CV_REGISTRATION') {
+        if (reqCb) reqCb.checked = false;
+        if (aptC) aptC.classList.add('d-none');
+        if (aptS) {
+            aptS.required = false;
+            aptS.value = '';
+        }
+    }
+    const ps = document.getElementById('serviceProgramSlug');
+    if (ps) {
+        ps.disabled = st !== 'COURSE';
+    }
+    if ((st === 'CONSULTIVO' || st === 'AGENDABLE') && reqCb && reqCb.checked && aptC) {
+        aptC.classList.remove('d-none');
+        if (aptS) aptS.required = true;
+    } else if ((st === 'CONSULTIVO' || st === 'AGENDABLE') && reqCb && !reqCb.checked) {
+        if (aptC) aptC.classList.add('d-none');
+        if (aptS) {
+            aptS.required = false;
+            aptS.value = '';
+        }
+    }
+}
 
 (function () {
     var grid = document.getElementById('servicesCardGrid');
@@ -467,60 +588,53 @@ function fillForm(service) {
     document.getElementById('serviceExternalLink').value = service.external_link || '';
     document.getElementById('serviceIsActive').checked = service.is_active !== false && service.is_active !== 'false';
     
-    // Manejar "Requiere cita" y CV (mutuamente excluyentes con cita)
+    // Flujo: radios + requiere cita solo en consultivo/agendable
     const requiresAppointmentFromDb = service.appointment_type_id !== null && service.appointment_type_id !== undefined;
     const isCvType = (service.service_type || '') === 'CV_REGISTRATION';
     const isCourseType = (service.service_type || '') === 'COURSE';
-    const cvCb = document.getElementById('serviceCvRegistration');
-    if (cvCb) cvCb.checked = isCvType;
-
     const requiresAppointmentCheckbox = document.getElementById('serviceRequiresAppointment');
     const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
     const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
-    const serviceTypeContainer = document.getElementById('serviceTypeContainer');
-    const serviceTypeSelect = document.getElementById('serviceType');
-    const programSlugContainer = document.getElementById('programSlugContainer');
     const programSlugInput = document.getElementById('serviceProgramSlug');
-    if (programSlugContainer && !isCourseType) programSlugContainer.classList.add('d-none');
-    if (programSlugInput && !isCourseType) programSlugInput.value = '';
-
-    const requiresAppointment = !isCvType && !isCourseType && requiresAppointmentFromDb;
-    requiresAppointmentCheckbox.checked = requiresAppointment;
 
     if (isCourseType) {
-        if (cvCb) cvCb.checked = false;
+        setServiceFlowType('COURSE', true);
         requiresAppointmentCheckbox.checked = false;
-        appointmentTypeContainer.style.display = 'none';
-        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
         appointmentTypeSelect.required = false;
         appointmentTypeSelect.value = '';
-        if (serviceTypeSelect) serviceTypeSelect.value = 'COURSE';
-        if (programSlugContainer) programSlugContainer.classList.remove('d-none');
         if (programSlugInput) programSlugInput.value = service.program_slug || '';
+        applyServiceFlowVisibility();
     } else if (isCvType) {
-        appointmentTypeContainer.style.display = 'none';
-        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+        setServiceFlowType('CV_REGISTRATION', true);
+        requiresAppointmentCheckbox.checked = false;
         appointmentTypeSelect.required = false;
         appointmentTypeSelect.value = '';
-        if (serviceTypeSelect) serviceTypeSelect.value = 'CV_REGISTRATION';
-    } else if (requiresAppointment) {
-        appointmentTypeContainer.style.display = 'block';
-        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
-        appointmentTypeSelect.required = true;
-        if (serviceTypeSelect) serviceTypeSelect.value = (service.service_type === 'CONSULTIVO' ? 'CONSULTIVO' : 'AGENDABLE');
-        if (appointmentTypeSelect.options.length <= 1) {
-            loadAppointmentTypes().then(() => {
-                appointmentTypeSelect.value = service.appointment_type_id || '';
-            });
-        } else {
-            appointmentTypeSelect.value = service.appointment_type_id || '';
-        }
+        if (programSlugInput) programSlugInput.value = '';
+        applyServiceFlowVisibility();
     } else {
-        appointmentTypeContainer.style.display = 'none';
-        if (serviceTypeContainer) serviceTypeContainer.style.display = 'none';
-        appointmentTypeSelect.required = false;
-        appointmentTypeSelect.value = '';
-        if (serviceTypeSelect) serviceTypeSelect.value = (service.service_type === 'CONSULTIVO' ? 'CONSULTIVO' : 'AGENDABLE');
+        const requiresAppointment = requiresAppointmentFromDb;
+        if (service.service_type === 'CONSULTIVO') {
+            setServiceFlowType('CONSULTIVO', true);
+        } else {
+            setServiceFlowType('AGENDABLE', true);
+        }
+        requiresAppointmentCheckbox.checked = requiresAppointment;
+        if (requiresAppointment) {
+            appointmentTypeSelect.required = true;
+            if (appointmentTypeSelect.options.length <= 1) {
+                loadAppointmentTypes().then(() => {
+                    appointmentTypeSelect.value = service.appointment_type_id || '';
+                    applyServiceFlowVisibility();
+                });
+            } else {
+                appointmentTypeSelect.value = service.appointment_type_id || '';
+                applyServiceFlowVisibility();
+            }
+        } else {
+            appointmentTypeSelect.required = false;
+            appointmentTypeSelect.value = '';
+            applyServiceFlowVisibility();
+        }
     }
     
     // Limpiar todos los checkboxes primero
@@ -569,10 +683,8 @@ function saveService() {
         return;
     }
     
-    const serviceTypeEl = document.getElementById('serviceType');
-    let serviceType = (serviceTypeEl && serviceTypeEl.value) ? serviceTypeEl.value : 'AGENDABLE';
-    const cvCb = document.getElementById('serviceCvRegistration');
-    const isCv = (cvCb && cvCb.checked) || serviceType === 'CV_REGISTRATION';
+    let serviceType = getServiceFlowType();
+    const isCv = serviceType === 'CV_REGISTRATION';
     if (isCv) {
         serviceType = 'CV_REGISTRATION';
     }
@@ -716,75 +828,35 @@ document.getElementById('createServiceModal').addEventListener('show.bs.modal', 
     loadCategories();
     loadAppointmentTypes();
     loadServiceTaxOptions(document.getElementById('serviceDefaultTax') ? document.getElementById('serviceDefaultTax').value : '');
+    applyServiceFlowVisibility();
 });
 
-// Manejar checkbox "Requiere cita"
+// Requiere cita (solo consultivo / agendable)
 document.getElementById('serviceRequiresAppointment').addEventListener('change', function() {
+    const st = getServiceFlowType();
+    if (st !== 'CONSULTIVO' && st !== 'AGENDABLE') return;
     const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
-    const serviceTypeContainer = document.getElementById('serviceTypeContainer');
     const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
-    const cvCb = document.getElementById('serviceCvRegistration');
-    const st = document.getElementById('serviceType');
-
     if (this.checked) {
-        if (cvCb) cvCb.checked = false;
-        if (st && st.value === 'CV_REGISTRATION') st.value = 'AGENDABLE';
-        if (st && st.value === 'COURSE') st.value = 'AGENDABLE';
-        appointmentTypeContainer.style.display = 'block';
-        if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
+        appointmentTypeContainer.classList.remove('d-none');
         appointmentTypeSelect.required = true;
     } else {
-        appointmentTypeContainer.style.display = 'none';
-        if (serviceTypeContainer) serviceTypeContainer.style.display = 'none';
+        appointmentTypeContainer.classList.add('d-none');
         appointmentTypeSelect.required = false;
         appointmentTypeSelect.value = '';
     }
 });
 
-(function syncCvRegistrationUi() {
-    const cvCb = document.getElementById('serviceCvRegistration');
-    const st = document.getElementById('serviceType');
-    if (!cvCb || !st) return;
-    cvCb.addEventListener('change', function () {
-        if (!this.checked) return;
-        const reqCb = document.getElementById('serviceRequiresAppointment');
-        if (reqCb) reqCb.checked = false;
-        document.getElementById('appointmentTypeContainer').style.display = 'none';
-        const apt = document.getElementById('serviceAppointmentType');
-        apt.required = false;
-        apt.value = '';
-        const stc = document.getElementById('serviceTypeContainer');
-        if (stc) stc.style.display = 'block';
-        st.value = 'CV_REGISTRATION';
-        const psc = document.getElementById('programSlugContainer');
-        if (psc) psc.classList.add('d-none');
-    });
-    st.addEventListener('change', function () {
-        const appointmentTypeContainer = document.getElementById('appointmentTypeContainer');
-        const serviceTypeContainer = document.getElementById('serviceTypeContainer');
-        const appointmentTypeSelect = document.getElementById('serviceAppointmentType');
-        const reqCb = document.getElementById('serviceRequiresAppointment');
-        const psc = document.getElementById('programSlugContainer');
-        if (this.value === 'CV_REGISTRATION') {
-            cvCb.checked = true;
-            if (reqCb) reqCb.checked = false;
-            appointmentTypeContainer.style.display = 'none';
-            if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
-            appointmentTypeSelect.required = false;
-            appointmentTypeSelect.value = '';
-            if (psc) psc.classList.add('d-none');
-        } else if (this.value === 'COURSE') {
-            cvCb.checked = false;
-            if (reqCb) reqCb.checked = false;
-            appointmentTypeContainer.style.display = 'none';
-            if (serviceTypeContainer) serviceTypeContainer.style.display = 'block';
-            appointmentTypeSelect.required = false;
-            appointmentTypeSelect.value = '';
-            if (psc) psc.classList.remove('d-none');
-        } else {
-            cvCb.checked = false;
-            if (psc) psc.classList.add('d-none');
-        }
+(function bindServiceFlowRadios() {
+    document.querySelectorAll('input[name="service_type_flow"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            const st = getServiceFlowType();
+            if (st === 'CV_REGISTRATION' || st === 'COURSE') {
+                const reqCb = document.getElementById('serviceRequiresAppointment');
+                if (reqCb) reqCb.checked = false;
+            }
+            applyServiceFlowVisibility();
+        });
     });
 })();
 
@@ -874,25 +946,16 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     editingServiceId = null;
     document.getElementById('serviceForm').reset();
     document.getElementById('serviceId').value = '';
-    document.getElementById('serviceModalTitle').textContent = 'Crear Servicio';
+    document.getElementById('serviceModalTitle').textContent = 'Crear servicio';
     document.getElementById('serviceIsActive').checked = true;
-    // Limpiar checkboxes de planes
     document.querySelectorAll('.membership-plan-checkbox').forEach(cb => cb.checked = false);
-    // Limpiar checkbox y selector de cita
     document.getElementById('serviceRequiresAppointment').checked = false;
-    document.getElementById('appointmentTypeContainer').style.display = 'none';
-    const stc = document.getElementById('serviceTypeContainer');
-    if (stc) stc.style.display = 'none';
+    document.getElementById('appointmentTypeContainer').classList.add('d-none');
     document.getElementById('serviceAppointmentType').value = '';
     document.getElementById('serviceAppointmentType').required = false;
-    const cvReg = document.getElementById('serviceCvRegistration');
-    if (cvReg) cvReg.checked = false;
-    const st = document.getElementById('serviceType');
-    if (st) st.value = 'AGENDABLE';
-    const psc = document.getElementById('programSlugContainer');
-    if (psc) psc.classList.add('d-none');
     const psIn = document.getElementById('serviceProgramSlug');
     if (psIn) psIn.value = '';
+    setServiceFlowType('AGENDABLE');
 });
 
     var reportTitleEl = document.getElementById('report_title');

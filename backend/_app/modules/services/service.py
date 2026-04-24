@@ -22,7 +22,7 @@ from sqlalchemy.orm import joinedload
 from . import repository
 
 
-# ---- Miniatura de tarjeta: misma foto que el landing (relatic-public/src/data/servicesCatalog.ts) ----
+# ---- Miniatura de tarjeta: misma foto que el landing (/opt/easynodeone/landings/relatic-public/src/data/servicesCatalog.ts) ----
 def _q_card() -> str:
     return "auto=format&fit=crop&w=400&q=80"
 
@@ -241,6 +241,14 @@ def get_services_page_data(user=None, organization_id=None):
                         'id': aa.advisor.id,
                         'name': f"{aa.advisor.user.first_name} {aa.advisor.user.last_name}"
                     })
+        from nodeone.services.commercial_flow import (
+            flow_cta_labels,
+            flow_type_badge_label,
+            resolve_commercial_flow_type,
+        )
+
+        _flow = resolve_commercial_flow_type(service, user_pricing)
+        _cta_label, _cta_hint = flow_cta_labels(_flow)
         service_data = {
             'id': service.id,
             'name': service.name,
@@ -257,6 +265,11 @@ def get_services_page_data(user=None, organization_id=None):
             'service_type': getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE',
             'advisors': advisors_list,
             'diagnostic_appointment_type_id': getattr(service, 'diagnostic_appointment_type_id', None),
+            'program_slug': (getattr(service, 'program_slug', None) or '').strip(),
+            'commercial_flow_type': _flow,
+            'commercial_flow_badge': flow_type_badge_label(_flow),
+            'cta_label': _cta_label,
+            'cta_hint': _cta_hint,
         }
         for plan_type in available_plans:
             if plan_type not in services_by_plan:
@@ -285,16 +298,78 @@ def get_services_page_data(user=None, organization_id=None):
             _seen_service_ids.add(_sid)
             services_unique.append(_svc)
 
+    featured_events = _featured_events_for_services_rail(
+        organization_id=organization_id,
+        user=user,
+        membership_type=membership_type,
+        limit=5,
+    )
+
     return {
         'membership': active_membership,
         'services_by_plan': services_by_plan,
         'services_unique': services_unique,
+        'featured_events': featured_events,
         'plans_info': _get_plans_info(user, organization_id=oid_plans),
         'categories': categories,
         'user_membership_type': membership_type,
         'membership_type': membership_type,
         'plan_slugs_ordered': plan_slugs_ordered,
     }
+
+
+def _featured_events_for_services_rail(*, organization_id, user, membership_type, limit: int = 5):
+    """
+    Carril opcional en /services: pocos eventos próximos (destacados primero).
+    No reemplaza el listado principal: ``GET /events``.
+    """
+    from flask import url_for
+
+    from app import default_organization_id
+    from nodeone.services.events_portal import get_portal_featured_events
+
+    out = []
+    try:
+        _oid = int(organization_id) if organization_id is not None else int(
+            getattr(user, 'organization_id', None) or default_organization_id()
+        )
+        rows = get_portal_featured_events(organization_id=_oid, user=user, limit=limit)
+        for ev in rows:
+            pr = ev.pricing_for_membership(membership_type)
+            cu = ev.cover_url()
+            img = _absolute_public_external_link(cu) if cu else None
+            durl = url_for('events.event_detail', slug=ev.slug)
+            desc = (ev.summary or ev.description or '').strip()
+            if len(desc) > 400:
+                desc = desc[:397] + '...'
+            out.append(
+                {
+                    'kind': 'event',
+                    'id': ev.id,
+                    'slug': ev.slug,
+                    'name': ev.title,
+                    'description': desc,
+                    'image_url': img,
+                    'icon': 'fas fa-calendar-day',
+                    'format': (getattr(ev, 'format', None) or 'virtual'),
+                    'pricing': {
+                        'base_price': float(pr.get('base_price') or 0.0),
+                        'final_price': float(pr.get('final_price') or 0.0),
+                    },
+                    'start_date': ev.start_date,
+                    'category': (ev.category or 'general').strip(),
+                    'currency': (ev.currency or 'USD').strip(),
+                    'capacity': ev.capacity,
+                    'commercial_flow_type': 'EVENT',
+                    'commercial_flow_badge': 'Evento',
+                    'cta_label': 'Inscribirse',
+                    'cta_hint': 'Flyer completo y datos en la ficha del evento.',
+                    'detail_url': durl,
+                }
+            )
+    except Exception as e:
+        print(f'⚠️ _featured_events_for_services_rail: {e}')
+    return out
 
 
 def get_request_appointment_data(service_id, user, selected_advisor_id=None, return_url=None):
@@ -424,6 +499,17 @@ def finalize_free_slot_appointment_booking(service, user, slot, case_description
         slot.is_available = False
     db.session.add(appointment)
     db.session.flush()
+    try:
+        from nodeone.services.service_request_actions import attach_pending_service_request_to_appointment
+
+        attach_pending_service_request_to_appointment(
+            user_id=int(user.id),
+            service_id=int(service.id),
+            appointment_id=int(appointment.id),
+            organization_id=int(getattr(service, 'organization_id', None) or 1),
+        )
+    except Exception as _e_sr:
+        print(f'⚠️ attach_pending_service_request_to_appointment: {_e_sr}')
     try:
         from nodeone.services.notification_engine import NotificationEngine
 

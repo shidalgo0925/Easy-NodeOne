@@ -12,6 +12,7 @@ def register_public_membership_routes(app):
         Certificate,
         CertificateEvent,
         db,
+        has_saas_module_enabled,
         MembershipPlan,
         Service,
         ServicePricingRule,
@@ -151,6 +152,17 @@ def register_public_membership_routes(app):
         # Verificar si el usuario ha visto el onboarding
         onboarding_seen = session.get('onboarding_seen', False)
         show_onboarding = is_new_user and not onboarding_seen
+
+        next_featured_event = None
+        try:
+            if has_saas_module_enabled(int(_toid), 'events'):
+                from nodeone.services.events_portal import get_next_featured_portal_event
+
+                next_featured_event = get_next_featured_portal_event(
+                    organization_id=int(_toid), user=current_user
+                )
+        except Exception:
+            next_featured_event = None
     
         return render_template('dashboard.html', 
                              membership=active_membership, 
@@ -170,7 +182,8 @@ def register_public_membership_routes(app):
                              pending_payments_count=pending_payments_count,
                              show_onboarding=show_onboarding,
                              is_new_user=is_new_user,
-                             user_status=user_status)  # Pasar estado del usuario al template
+                             user_status=user_status,
+                             next_featured_event=next_featured_event)
 
 
 
@@ -221,6 +234,9 @@ def register_public_membership_routes(app):
                 smt = (service.membership_type or '').strip().lower()
                 # ``basic`` en el servicio = disponible para todos los planes de pago (no hay fila de venta ``basic``).
                 if smt == 'basic':
+                    # Incluido en el nivel gratuito / base y en planes superiores (sin columna admin).
+                    if 'basic' not in available_plans:
+                        available_plans.append('basic')
                     for slug, tier in membership_hierarchy.items():
                         if slug in ('admin', 'basic'):
                             continue
@@ -249,8 +265,8 @@ def register_public_membership_routes(app):
                 'available_plans': available_plans
             })
     
-        # Solo los planes de pago (sin ``admin`` ni fila técnica ``basic`` si existiera).
-        plans_display = [p for p in plans if (p.slug or '') not in ('admin', 'basic')]
+        # Sin columna ``admin``. ``basic`` se muestra si existe en BD (plan gratuito / entrada).
+        plans_display = [p for p in plans if (p.slug or '').lower() != 'admin']
         # Certificado de membresía: evento activo "Certificado de Membresía" o code_prefix MEM (emitir desde esta página)
         membership_cert_event_id = None
         membership_cert_issued = False

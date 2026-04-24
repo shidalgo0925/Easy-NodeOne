@@ -609,6 +609,57 @@ def dispatch_event_confirmation_staff(event, confirmed_user, registration, base_
         )
 
 
+def dispatch_event_published_recipients(event, base_url: Optional[str] = None) -> None:
+    """
+    Tras publicar un evento (p. ej. de borrador a published): aviso a creador y roles del evento.
+    Usa reglas de comunicación con ``event_code='event_published'`` si existen; si no, no envía nada.
+    """
+    import app as M
+
+    if base_url is None:
+        base_url = request_base_url_optional()
+
+    seen = set()
+
+    def _one(uid: int, oid_cand):
+        if uid in seen:
+            return
+        seen.add(uid)
+        oid = _oid_fallback(oid_cand, getattr(event, 'organization_id', None))
+        u = M.User.query.get(uid)
+        if u and getattr(u, 'organization_id', None):
+            oid = oid or int(u.organization_id)
+        if not communication_engine_enabled() or not communication_rules_exist('event_published', oid):
+            return
+        run_communication_engine_if_configured(
+            'event_published',
+            int(uid),
+            oid,
+            {
+                'base_url': base_url,
+                'event_id': event.id,
+                'in_app_title': f'Evento publicado: {event.title}'[:200],
+                'in_app_message': 'El evento ya está visible en el portal (según visibilidad y fechas).',
+                'notification_type': 'event_published',
+            },
+            base_url=base_url,
+            legacy_notification_type=None,
+        )
+
+    for uid in filter(
+        None,
+        [
+            getattr(event, 'created_by', None),
+            getattr(event, 'moderator_id', None),
+            getattr(event, 'administrator_id', None),
+        ],
+    ):
+        try:
+            _one(int(uid), getattr(event, 'organization_id', None))
+        except Exception:
+            pass
+
+
 def dispatch_event_update_recipients(event, base_url: Optional[str] = None) -> None:
     import app as M
 

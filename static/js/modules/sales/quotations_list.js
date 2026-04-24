@@ -48,7 +48,8 @@
     }
     if (!res.ok) {
       const code = data && data.error;
-      let msg = (data && (data.detail || data.message || data.error)) || `HTTP ${res.status}`;
+      let msg =
+        (data && (data.user_message || data.detail || data.message || data.error)) || `HTTP ${res.status}`;
       if (code === 'quotations_list_failed' && !(data && data.detail)) {
         msg =
           'Error interno al listar cotizaciones. Compruebe que el despliegue incluye los últimos cambios y revise los logs del servidor.';

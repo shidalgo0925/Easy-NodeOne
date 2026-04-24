@@ -1,190 +1,275 @@
 {% extends "base.html" %}
-{% from 'macros/admin_filters.html' import admin_filter_collapse %}
 
 {% block title %}Gestionar Eventos - Easy NodeOne{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center flex-wrap gap-2">
-                <h1 class="h5 mb-2 mb-md-0">
-                    <i class="fas fa-calendar-alt"></i> Gestión de Eventos
-                </h1>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    {% if current_user.has_permission('reports.export') %}
-                    <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
-                    <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
-                    {% endif %}
-                    <a href="{{ url_for('admin_events.create_event') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Nuevo Evento</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Estadísticas (tarjetas compactas) -->
-    <div class="row mb-4">
-        <div class="col-12 col-sm-6 col-md-3">
-            <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Total</h6>
-                    <h4 class="mb-0 text-primary">{{ stats.total }}</h4>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-sm-6 col-md-3">
-            <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Publicados</h6>
-                    <h4 class="mb-0 text-success">{{ stats.published }}</h4>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-sm-6 col-md-3">
-            <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Borradores</h6>
-                    <h4 class="mb-0 text-warning">{{ stats.drafts }}</h4>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-sm-6 col-md-3">
-            <div class="card text-center">
-                <div class="card-body py-2">
-                    <h6 class="card-title text-muted mb-1 small">Archivados</h6>
-                    <h4 class="mb-0 text-secondary">{{ stats.archived }}</h4>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {% set ev_filters_open = (category or '')|trim|length > 0 or (status|default('all') != 'all') %}
-    <div class="row mb-3">
-        <div class="col-12">
-            {% call admin_filter_collapse('adminFiltersEventos', 'Filtros', expanded=ev_filters_open, margin_class='mb-0') %}
-                    <div class="w-100 mobile-scroll-x pb-1">
-                    <form method="GET" class="d-flex flex-nowrap flex-md-wrap align-items-end gap-2">
-                        <div class="flex-shrink-0">
-                            <label class="form-label form-label-sm mb-0">Estado</label>
-                            <select name="status" class="form-select form-select-sm" style="width:110px">
-                                <option value="all" {% if status == 'all' %}selected{% endif %}>Todos</option>
-                                <option value="published" {% if status == 'published' %}selected{% endif %}>Publicados</option>
-                                <option value="draft" {% if status == 'draft' %}selected{% endif %}>Borradores</option>
-                                <option value="archived" {% if status == 'archived' %}selected{% endif %}>Archivados</option>
-                            </select>
-                        </div>
-                        <div class="flex-shrink-0">
-                            <label class="form-label form-label-sm mb-0">Categoría</label>
-                            <input type="text" name="category" class="form-control form-control-sm" value="{{ category }}" placeholder="Categoría..." style="width:140px">
-                        </div>
-                        <div class="flex-shrink-0">
-                            <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filtrar</button>
-                            <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-sm btn-outline-secondary ms-1"><i class="fas fa-times"></i> Limpiar</a>
-                        </div>
-                    </form>
+<div class="admin-events-page">
+    <!-- Barra superior estilo app (Nuevo + título + búsqueda + rango + vista) -->
+    <div class="admin-events-toolbar border-bottom bg-white shadow-sm">
+        <div class="container-fluid px-3 px-lg-4">
+            <form method="get" id="adminEventsFilterForm" class="py-2">
+                <input type="hidden" name="page" value="1" id="evPageInput">
+                <!-- Fila 1: título y acciones principales (siempre visible) -->
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ url_for('admin_events.create_event') }}" class="btn btn-primary btn-sm text-nowrap">
+                            <i class="fas fa-plus me-1" aria-hidden="true"></i> Nuevo
+                        </a>
+                        <span class="fw-semibold text-dark">Eventos</span>
+                        <a href="{{ url_for('member_pages.help_page') }}#eventos" class="btn btn-link btn-sm text-secondary py-0" title="Ayuda">Ayuda</a>
                     </div>
-            {% endcall %}
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        {% if current_user.has_permission('reports.export') %}
+                        <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-sm btn-outline-success" title="Exportar XLS"><i class="fas fa-file-excel me-1" aria-hidden="true"></i>XLS</a>
+                        <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-sm btn-outline-danger" target="_blank" title="Exportar PDF"><i class="fas fa-file-pdf me-1" aria-hidden="true"></i>PDF</a>
+                        {% endif %}
+                        <span class="text-muted small text-nowrap" id="evRangeText">
+                            {% if total_filtered %}{{ start_idx }}–{{ end_idx }} / {{ total_filtered }}{% else %}0 / 0{% endif %}
+                        </span>
+                        {% if total_pages > 1 %}
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Páginas">
+                            <a class="btn btn-outline-secondary{% if page <= 1 %} disabled{% endif %}" href="{% if page > 1 %}{{ url_for('admin_events.admin_events_index', page=page-1, q=q or None, status=status, category=category or None, per_page=per_page) }}{% else %}#{% endif %}" aria-label="Anterior">‹</a>
+                            <a class="btn btn-outline-secondary{% if page >= total_pages %} disabled{% endif %}" href="{% if page < total_pages %}{{ url_for('admin_events.admin_events_index', page=page+1, q=q or None, status=status, category=category or None, per_page=per_page) }}{% else %}#{% endif %}" aria-label="Siguiente">›</a>
+                        </div>
+                        {% endif %}
+                        <div class="btn-group" role="group" aria-label="Cómo ver el listado">
+                            <button type="button" class="btn btn-sm btn-outline-primary active" id="evViewCards" title="Tarjetas" aria-pressed="true">
+                                <i class="fas fa-th-large me-1" aria-hidden="true"></i><span class="d-none d-md-inline">Tarjetas</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="evViewList" title="Tabla" aria-pressed="false">
+                                <i class="fas fa-list me-1" aria-hidden="true"></i><span class="d-none d-md-inline">Tabla</span>
+                            </button>
+                            <a href="{{ url_for('events.list_events') }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" title="Abrir listado público de eventos">
+                                <i class="fas fa-external-link-alt me-1" aria-hidden="true"></i><span class="d-none d-md-inline">Sitio</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <!-- Fila 2: búsqueda a ancho completo -->
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light"><i class="fas fa-search text-muted" aria-hidden="true"></i></span>
+                    <input type="search" name="q" class="form-control" placeholder="Buscar por título o texto del evento…" value="{{ q or '' }}" aria-label="Buscar eventos" autocomplete="off">
+                    <select name="status" class="form-select" style="max-width:8.5rem;" title="Estado" aria-label="Estado de publicación">
+                        <option value="all" {% if status == 'all' %}selected{% endif %}>Todos</option>
+                        <option value="published" {% if status == 'published' %}selected{% endif %}>Publicados</option>
+                        <option value="draft" {% if status == 'draft' %}selected{% endif %}>Borradores</option>
+                        <option value="archived" {% if status == 'archived' %}selected{% endif %}>Archivados</option>
+                    </select>
+                    <input type="text" name="category" class="form-control" style="max-width:10rem;" placeholder="Categoría (exacta)" value="{{ category or '' }}" title="Categoría" aria-label="Categoría">
+                    <button type="submit" class="btn btn-primary">Buscar</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body py-2">
-                    <label class="form-label small mb-1" for="report_title">Nombre del reporte</label>
-                    <input type="text" class="form-control form-control-sm" id="report_title" name="report_title" placeholder="Ej: Listado de miembros activos" maxlength="100" autocomplete="off" style="max-width:320px">
+    <div class="container-fluid px-3 px-lg-4 py-3">
+        <!-- Resumen (compacto) -->
+        <div class="row g-2 g-md-3 mb-3">
+            <div class="col-6 col-sm-3">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="small text-muted">Total (org.)</div>
+                        <div class="fs-5 fw-semibold text-primary">{{ stats.total }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-sm-3">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="small text-muted">Publicados</div>
+                        <div class="fs-5 fw-semibold text-success">{{ stats.published }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-sm-3">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="small text-muted">Borradores</div>
+                        <div class="fs-5 fw-semibold text-warning">{{ stats.drafts }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-sm-3">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="small text-muted">Archivados</div>
+                        <div class="fs-5 fw-semibold text-secondary">{{ stats.archived }}</div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Lista de Eventos -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header py-2">
-                    <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Eventos</h5>
-                </div>
-                <div class="card-body p-0">
-                    {% if events %}
-                    <div class="table-responsive">
-                        <table class="table table-hover table-sm align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="text-nowrap">ID</th>
-                                    <th>Título</th>
-                                    <th class="text-nowrap">Categoría</th>
-                                    <th class="text-nowrap">Inicio</th>
-                                    <th class="text-nowrap">Fin</th>
-                                    <th class="text-nowrap text-end">Precio</th>
-                                    <th class="text-nowrap">Estado</th>
-                                    <th class="text-end">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for event in events %}
-                                <tr>
-                                    <td>{{ event.id }}</td>
-                                    <td>
-                                        <strong>{{ event.title }}</strong>
-                                        {% if event.featured %}
-                                        <span class="badge bg-warning ms-2">Destacado</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ event.category or 'N/A' }}</td>
-                                    <td>{{ event.start_date.strftime('%d/%m/%Y %H:%M') if event.start_date else 'N/A' }}</td>
-                                    <td>{{ event.end_date.strftime('%d/%m/%Y %H:%M') if event.end_date else 'N/A' }}</td>
-                                    <td>${{ "%.2f"|format(event.base_price) }} {{ event.currency }}</td>
-                                    <td>
-                                        <span class="badge bg-{% if event.publish_status == 'published' %}success{% elif event.publish_status == 'draft' %}warning{% else %}secondary{% endif %}">
-                                            {{ event.publish_status|title }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}" class="btn btn-outline-info" title="Ver Registros">
-                                                <i class="fas fa-users"></i>
-                                            </a>
-                                            <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-primary" title="Editar">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <form method="POST" action="{{ url_for('admin_events.duplicate_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Deseas duplicar el evento \"{{ event.title }}\"?\n\nSe creará una copia en borrador que podrás editar.');">
-                                                <button type="submit" class="btn btn-outline-info" title="Duplicar">
-                                                    <i class="fas fa-copy"></i>
-                                                </button>
-                                            </form>
-                                            <form method="POST" action="{{ url_for('admin_events.delete_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este evento?');">
-                                                <button type="submit" class="btn btn-outline-danger" title="Eliminar">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+        <p class="text-muted small mb-3 d-none d-md-block">
+            Buscá por título o texto; el filtro de categoría usa el valor <strong>exacto</strong> del evento. La vista en tarjetas o tabla se recuerda en este navegador.
+        </p>
+
+        {% if not events %}
+        <div class="alert alert-light border text-center py-5 mb-0">
+            <i class="fas fa-calendar-day fa-2x text-secondary mb-2 d-block" aria-hidden="true"></i>
+            <p class="mb-2">No hay eventos que coincidan con la búsqueda o aún no creaste ninguno.</p>
+            <a href="{{ url_for('admin_events.create_event') }}" class="btn btn-primary btn-sm">Crear evento</a>
+        </div>
+        {% else %}
+        <!-- Vista tarjetas -->
+        <div id="eventsViewCards" class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 row-cols-xxl-4 g-3 mb-0">
+            {% for event in events %}
+            <div class="col">
+                <article class="admin-event-card card h-100 border-0 shadow-sm overflow-hidden" aria-labelledby="ev-card-title-{{ event.id }}" style="position:relative;z-index:0;">
+                    <div class="ratio ratio-16x9 bg-body-secondary position-relative">
+                        {% set ev_cover = event.cover_url() %}
+                        {% if ev_cover %}
+                        <img src="{{ ev_cover }}" alt="" class="w-100 h-100 object-fit-cover" loading="lazy" decoding="async" width="640" height="360">
+                        {% else %}
+                        <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-secondary bg-body-tertiary">
+                            <i class="fas fa-image fa-2x mb-2 opacity-50" aria-hidden="true"></i>
+                            <span class="small">Sin portada (usá galería o subí portada al editar)</span>
+                        </div>
+                        {% endif %}
+                        <div class="position-absolute top-0 end-0 p-1 d-flex gap-1">
+                            <span class="badge rounded-pill {{ 'bg-success' if event.publish_status == 'published' else 'bg-warning text-dark' if event.publish_status == 'draft' else 'bg-secondary' }}">
+                                {{ event.publish_status|replace('_',' ')|title }}
+                            </span>
+                        </div>
                     </div>
-                    {% else %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> No hay eventos registrados.
+                    <div class="card-body d-flex flex-column p-3">
+                        <h2 class="h6 card-title flex-grow-0" id="ev-card-title-{{ event.id }}">
+                            <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="text-decoration-none text-dark">{{ event.title }}</a>
+                        </h2>
+                        <p class="small text-muted mb-2">
+                            <i class="far fa-calendar-alt me-1" aria-hidden="true"></i>
+                            {{ event.start_date.strftime('%d %b %Y %H:%M') if event.start_date else '—' }}
+                            <span class="text-secondary">→</span>
+                            {{ event.end_date.strftime('%d %b %Y %H:%M') if event.end_date else '—' }}
+                        </p>
+                        <div class="d-flex flex-wrap align-items-center gap-1 small mb-2">
+                            <span class="text-nowrap"><strong class="text-body">{{ '%.2f'|format(event.base_price) }}</strong> {{ event.currency or 'USD' }}</span>
+                            {% if event.category %}
+                            <span class="badge bg-light text-dark border text-truncate" style="max-width:7rem" title="{{ event.category }}">{{ event.category }}</span>
+                            {% endif %}
+                            {% if event.featured %}
+                            <span class="badge bg-warning text-dark">Destacado</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-end gap-1 pt-1 mt-auto" style="position:relative;z-index:1;">
+                            <a href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}" class="btn btn-sm btn-outline-info" title="Inscripciones"><i class="fas fa-users" aria-hidden="true"></i></a>
+                            <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="fas fa-edit" aria-hidden="true"></i></a>
+                            <form method="POST" action="{{ url_for('admin_events.duplicate_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Duplicar el evento «{{ event.title|e }}»?');">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Duplicar"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin_events.delete_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar el evento «{{ event.title|e }}»?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                            </form>
+                        </div>
                     </div>
-                    {% endif %}
-                </div>
+                </article>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Vista tabla (oculta por defecto; JS) -->
+        <div id="eventsViewTable" class="d-none">
+            <div class="table-responsive border rounded-2">
+                <table class="table table-hover align-middle mb-0" aria-label="Listado de eventos">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-nowrap">ID</th>
+                            <th>Título</th>
+                            <th class="text-nowrap">Categoría</th>
+                            <th class="text-nowrap">Inicio</th>
+                            <th class="text-nowrap">Fin</th>
+                            <th class="text-nowrap text-end">Precio</th>
+                            <th class="text-nowrap">Estado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in events %}
+                        <tr>
+                            <td>{{ event.id }}</td>
+                            <td>
+                                <strong>{{ event.title }}</strong>
+                                {% if event.featured %}
+                                <span class="badge bg-warning ms-1">Destacado</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ event.category or '—' }}</td>
+                            <td>{{ event.start_date.strftime('%d/%m/%Y %H:%M') if event.start_date else '—' }}</td>
+                            <td>{{ event.end_date.strftime('%d/%m/%Y %H:%M') if event.end_date else '—' }}</td>
+                            <td class="text-end">${{ "%.2f"|format(event.base_price) }} {{ event.currency }}</td>
+                            <td>
+                                <span class="badge {{ 'bg-success' if event.publish_status == 'published' else 'bg-warning text-dark' if event.publish_status == 'draft' else 'bg-secondary' }}">
+                                    {{ event.publish_status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}" class="btn btn-outline-info" title="Inscripciones"><i class="fas fa-users"></i></a>
+                                    <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                    <form method="POST" action="{{ url_for('admin_events.duplicate_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Deseas duplicar el evento?');">
+                                        <button type="submit" class="btn btn-outline-info" title="Duplicar"><i class="fas fa-copy"></i></button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('admin_events.delete_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este evento?');">
+                                        <button type="submit" class="btn btn-outline-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-    </div>
+        {% endif %}
 
-    <!-- Enlace a Descuentos -->
-    <div class="row mt-3">
-        <div class="col-12">
+        <div class="mt-3 d-flex flex-wrap gap-2">
             <a href="{{ url_for('admin_events.discounts_index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-tags"></i> Gestionar Descuentos
+                <i class="fas fa-tags me-1"></i> Gestionar descuentos
             </a>
         </div>
     </div>
 </div>
+<style>
+.admin-event-card { transition: box-shadow 0.15s ease, transform 0.15s ease; }
+.admin-event-card:hover { box-shadow: 0 0.35rem 1.25rem rgba(15, 23, 42, 0.12) !important; }
+</style>
 <script>
+(function() {
+  var key = 'admin_events_view';
+  var cardsV = document.getElementById('eventsViewCards');
+  var tableV = document.getElementById('eventsViewTable');
+  var btnC = document.getElementById('evViewCards');
+  var btnL = document.getElementById('evViewList');
+  if (!btnC || !btnL) return;
+  function setView(mode) {
+    if (mode === 'list') {
+      if (cardsV) { cardsV.classList.add('d-none'); }
+      if (tableV) { tableV.classList.remove('d-none'); }
+      btnC.classList.remove('active', 'text-bg-primary', 'text-white');
+      btnL.classList.add('active');
+      btnC.setAttribute('aria-pressed', 'false');
+      btnL.setAttribute('aria-pressed', 'true');
+    } else {
+      if (cardsV) { cardsV.classList.remove('d-none'); }
+      if (tableV) { tableV.classList.add('d-none'); }
+      btnL.classList.remove('active', 'text-bg-primary', 'text-white');
+      btnC.classList.add('active');
+      btnL.setAttribute('aria-pressed', 'false');
+      btnC.setAttribute('aria-pressed', 'true');
+    }
+    try { localStorage.setItem(key, mode); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem(key); } catch (e) {}
+  setView(saved === 'list' ? 'list' : 'cards');
+  btnC.addEventListener('click', function() { setView('cards'); });
+  btnL.addEventListener('click', function() { setView('list'); });
+
+  var f = document.getElementById('adminEventsFilterForm');
+  if (f) f.addEventListener('submit', function() {
+    var p = document.getElementById('evPageInput');
+    if (p) p.value = 1;
+  });
+})();
 document.addEventListener('DOMContentLoaded', function() {
     var reportTitleEl = document.getElementById('report_title');
     var xlsLink = document.getElementById('exportXls');
@@ -193,7 +278,9 @@ document.addEventListener('DOMContentLoaded', function() {
         xlsLink.addEventListener('click', function(e) {
             e.preventDefault();
             var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
+            if (reportTitleEl && reportTitleEl.value && reportTitleEl.value.trim()) {
+                url += (url.indexOf('?') >= 0 ? '&' : '?') + 'report_title=' + encodeURIComponent(reportTitleEl.value.trim());
+            }
             window.location.href = url;
         });
     }
@@ -201,12 +288,12 @@ document.addEventListener('DOMContentLoaded', function() {
         pdfLink.addEventListener('click', function(e) {
             e.preventDefault();
             var url = this.getAttribute('href');
-            if (reportTitleEl && reportTitleEl.value.trim()) url += '&report_title=' + encodeURIComponent(reportTitleEl.value.trim());
+            if (reportTitleEl && reportTitleEl.value && reportTitleEl.value.trim()) {
+                url += (url.indexOf('?') >= 0 ? '&' : '?') + 'report_title=' + encodeURIComponent(reportTitleEl.value.trim());
+            }
             window.open(url, '_blank');
         });
     }
 });
 </script>
 {% endblock %}
-
-

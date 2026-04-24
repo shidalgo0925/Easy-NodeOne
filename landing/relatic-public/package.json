@@ -1,0 +1,12 @@
+{
+  "name": "relatic-public-legacy-path",
+  "private": true,
+  "description": "El código del landing está en /opt/easynodeone/landings/relatic-public. Estos scripts reenvían npm a esa carpeta.",
+  "scripts": {
+    "dev": "npm --prefix ../../../../landings/relatic-public run dev",
+    "build": "npm --prefix ../../../../landings/relatic-public run build",
+    "preview": "npm --prefix ../../../../landings/relatic-public run preview",
+    "lint": "npm --prefix ../../../../landings/relatic-public run lint",
+    "diagnose": "npm --prefix ../../../../landings/relatic-public run diagnose"
+  }
+}

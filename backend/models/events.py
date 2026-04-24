@@ -11,6 +11,31 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from nodeone.core.db import db
 
+
+def _event_uploads_public_url(stored: str | None) -> str | None:
+    """
+    Normaliza rutas de portada/galería: si en BD quedó solo el nombre de archivo
+    (sin ``/`` inicial), el navegador resuelve la URL respecto a la ruta actual
+    (p. ej. ``/admin/events/12`` → pide ``/admin/events/cover_....png``) y responde 404.
+    """
+    p = (stored or '').strip()
+    if not p or p.lower() in ('none', 'null', 'undefined'):
+        return None
+    if p.startswith('http://') or p.startswith('https://') or p.startswith('//'):
+        return p
+    if p.startswith('/static/'):
+        return p
+    if p.startswith('static/'):
+        return '/' + p
+    if p.startswith('uploads/'):
+        return '/static/' + p
+    if p.startswith('/'):
+        return p
+    if '/' not in p:
+        return f'/static/uploads/events/{p}'
+    return f'/static/uploads/events/{p.split("/")[-1]}'
+
+
 # Modelos de Eventos
 class Event(db.Model):
     """Modelo para eventos según el diagrama de flujo - 5 pasos: Evento, Descripción, Publicidad, Certificado, Kahoot"""
@@ -112,10 +137,27 @@ class Event(db.Model):
         return recipients
     
     def cover_url(self):
-        """Retorna la URL de la imagen de portada"""
-        if self.cover_image:
-            return self.cover_image
-        return '/static/images/default-event.jpg'
+        """Retorna URL de portada, primera imagen de galería si no hay portada, o None (plantilla usa icono)."""
+        ci = (self.cover_image or '').strip()
+        if ci:
+            return _event_uploads_public_url(ci)
+        try:
+            imgs = list(getattr(self, 'images', None) or [])
+            if not imgs:
+                return None
+
+            def _sort_key(im):
+                return (
+                    0 if getattr(im, 'is_primary', False) else 1,
+                    getattr(im, 'sort_order', 0) or 0,
+                    getattr(im, 'id', 0) or 0,
+                )
+
+            best = sorted(imgs, key=_sort_key)[0]
+            fp = (getattr(best, 'file_path', None) or '').strip()
+            return _event_uploads_public_url(fp) or None
+        except Exception:
+            return None
     
     def pricing_for_membership(self, membership_type=None):
         """Calcula el precio final según el tipo de membresía"""
@@ -152,6 +194,12 @@ class EventImage(db.Model):
     sort_order = db.Column(db.Integer, default=0)
     is_primary = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def public_file_url(self):
+        """Misma normalización que portada; usar en plantillas en lugar de ``file_path`` crudo."""
+        u = _event_uploads_public_url(self.file_path)
+        return u if u else (self.file_path or '')
 
 class Discount(db.Model):
     """Descuentos reutilizables - Sistema de descuentos por categorías según diagrama:

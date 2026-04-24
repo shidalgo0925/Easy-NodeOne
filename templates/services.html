@@ -34,8 +34,97 @@
 {%- else -%}{{ l }}
 {%- endif -%}
 {%- endmacro -%}
+{# CTA único por commercial_flow_type (ver nodeone.services.commercial_flow). #}
+{%- macro service_card_footer(service) -%}
+    {%- set flow = (service.commercial_flow_type or 'SERVICE_DIRECT')|string -%}
+    {%- set cta_label = service.cta_label or 'Ver' -%}
+    {%- set cta_hint = service.cta_hint or '' -%}
+    <div class="d-flex flex-column gap-2 w-100">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="badge bg-secondary align-self-start">{{ service.commercial_flow_badge or flow }}</span>
+        </div>
+        {% if flow == 'EXTERNAL' and service.external_link %}
+        <a href="{{ abs_service_external_url(service.external_link) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary align-self-start">
+            <i class="fas fa-external-link-alt me-1"></i>{{ cta_label }}
+        </a>
+        {% if cta_hint %}<small class="text-muted small">{{ cta_hint }}</small>{% endif %}
+        {% elif flow == 'CV_REGISTRATION' %}
+        <a href="{{ url_for('cv_registro', service=service.id) }}" class="btn btn-sm btn-primary align-self-start">
+            <i class="fas fa-file-alt me-1"></i>{{ cta_label }}
+        </a>
+        <small class="text-muted small">Formulario público; no requiere iniciar sesión.</small>
+        {% elif flow == 'COURSE' %}
+            {% if service.program_slug %}
+            <a href="{{ url_for('public_program_landing', program_slug=service.program_slug) }}" class="btn btn-sm btn-primary align-self-start">
+                <i class="fas fa-graduation-cap me-1"></i>{{ cta_label }}
+            </a>
+            {% else %}
+            <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-outline-primary align-self-start">
+                <i class="fas fa-graduation-cap me-1"></i>{{ cta_label }}
+            </a>
+            {% endif %}
+            {% if cta_hint %}<small class="text-muted small">{{ cta_hint }}</small>{% endif %}
+        {% elif flow == 'SERVICE_CONSULTATIVE' %}
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('services.begin_consultive_flow', service_id=service.id) }}" class="btn btn-sm btn-primary align-self-start">
+                <i class="fas fa-calendar-check me-1"></i>{{ cta_label }}
+            </a>
+            {% if cta_hint %}<small class="text-muted small">{{ cta_hint }}</small>{% endif %}
+            {% else %}
+            <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-sign-in-alt me-1"></i>Iniciá sesión para continuar
+            </a>
+            <small class="text-muted small">Necesitás cuenta para reservar o solicitar reunión.</small>
+            {% endif %}
+        {% elif flow == 'SERVICE_INCLUDED' %}
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('member_services') }}" class="btn btn-sm btn-success align-self-start">
+                <i class="fas fa-door-open me-1"></i>{{ cta_label }}
+            </a>
+            {% else %}
+            <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-success">
+                <i class="fas fa-sign-in-alt me-1"></i>Iniciá sesión para acceder
+            </a>
+            {% endif %}
+            {% if cta_hint %}<small class="text-muted small">{{ cta_hint }}</small>{% endif %}
+        {% elif flow == 'SERVICE_DIRECT' %}
+            {% if current_user.is_authenticated %}
+            <button type="button" class="btn btn-sm btn-primary align-self-start" onclick="addServiceFromCatalogDirect({{ service.id|int }})">
+                <i class="fas fa-shopping-cart me-1"></i>{{ cta_label }}
+            </button>
+            {% else %}
+            <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-sign-in-alt me-1"></i>Iniciá sesión para comprar
+            </a>
+            {% endif %}
+            {% if cta_hint %}<small class="text-muted small">{{ cta_hint }}</small>{% endif %}
+        {% elif flow == 'WORKSHOP_ORDER' %}
+        <a href="{{ url_for('services.list') }}#service-{{ service.id }}" class="btn btn-sm btn-outline-secondary align-self-start">
+            <i class="fas fa-clipboard-list me-1"></i>{{ cta_label }}
+        </a>
+        {% else %}
+        <span class="text-muted small">Sin acción configurada para este tipo ({{ flow }}).</span>
+        {% endif %}
+        {% if (membership_type or 'basic') != 'basic' or flow in ['SERVICE_DIRECT', 'SERVICE_INCLUDED', 'SERVICE_CONSULTATIVE'] %}
+            {% if service.pricing.is_included and service.pricing.final_price == 0 and flow != 'EXTERNAL' %}
+            <span class="badge bg-success align-self-start">Incluido en tu plan</span>
+            {% elif flow != 'EXTERNAL' %}
+                {% if service.pricing.discount_percentage > 0 %}
+                <div class="text-muted small">
+                    <span class="text-decoration-line-through">${{ "%.2f"|format(service.pricing.base_price) }}</span>
+                    <span class="badge bg-info ms-1">{{ membership_type|upper }}</span>
+                    <span class="badge bg-success ms-1">-{{ "%.0f"|format(service.pricing.discount_percentage) }}%</span>
+                </div>
+                {% endif %}
+                <div class="text-muted small">
+                    <strong>${{ "%.2f"|format(service.pricing.final_price) }}</strong>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+{%- endmacro -%}
 <div class="container py-4 services-catalog-page public-services-catalog-page">
-    {% if services_by_plan and plans_info %}
+    {% if plans_info and (services_by_plan or featured_events|default([])) %}
     <div class="services-hero-toolbar row g-3 align-items-start mb-4">
         <div class="col-12 col-lg">
             <h1 class="services-page-title mb-1">Servicios</h1>
@@ -69,7 +158,7 @@
                     <div class="services-search-wrap flex-grow-1">
                         <i class="fas fa-search search-icon" aria-hidden="true"></i>
                         <input type="search" id="serviceSearch" class="form-control services-search-input"
-                               placeholder="Nombre o descripción…" autocomplete="off" aria-label="Buscar servicios">
+                               placeholder="Servicios…" autocomplete="off" aria-label="Buscar en catálogo de servicios">
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSearch" title="Limpiar búsqueda">
                         <i class="fas fa-times me-1"></i>Limpiar
@@ -87,7 +176,7 @@
     </div>
     {% endif %}
 
-    {% if services_by_plan and plans_info %}
+    {% if plans_info and (services_by_plan or featured_events|default([])) %}
         {% if services_unique %}
     <div class="plan-section mb-5" data-plan="all">
         <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3 pb-2 border-bottom">
@@ -98,7 +187,7 @@
         </div>
         <div class="services-card-grid">
             {% for service in services_unique %}
-            <article class="service-template-card public-service-card h-100">
+            <article class="service-template-card public-service-card h-100" id="service-{{ service.id }}">
                 <div class="service-card-top">
                     {% if service.image_url %}
                     <img src="{{ service.image_url }}" alt="{{ service.name }}" class="service-card-thumb" loading="lazy">
@@ -121,56 +210,53 @@
                 </p>
                 {% endif %}
                 <div class="service-card-footer">
+                    {{ service_card_footer(service) }}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+        {% endif %}
+        {% if featured_events|default([]) %}
+    <div class="plan-section mb-5" data-plan="all" data-rail="upcoming-events">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3 pb-2 border-bottom gap-2">
+            <div>
+                <h2 class="plan-section-title mb-1">Próximos eventos</h2>
+                <small class="text-muted">Carril corto (3–5 actividades). No mezcla con el catálogo de servicios.</small>
+            </div>
+            <a href="{{ url_for('events.list_events') }}" class="btn btn-outline-primary btn-sm text-nowrap">Ver todos los eventos</a>
+        </div>
+        <div class="services-card-grid">
+            {% for ev in featured_events %}
+            <article class="service-template-card public-service-card h-100" id="event-{{ ev.id }}">
+                <div class="service-card-top" style="overflow: hidden; background: #f8f9fa;">
+                    {% if ev.image_url %}
+                    <img src="{{ ev.image_url }}" alt="{{ ev.name }}" class="event-flyer" loading="lazy">
+                    {% else %}
+                    <div class="service-card-icon" aria-hidden="true">
+                        <i class="{{ ev.icon or 'fas fa-calendar-day' }}"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                <h3 class="service-card-title">{{ ev.name }}</h3>
+                <p class="service-card-desc">{% if ev.description %}{{ ev.description }}{% else %}Sin descripción breve.{% endif %}</p>
+                <p class="small text-muted mb-0">
+                    <i class="far fa-calendar me-1"></i>{{ ev.start_date.strftime('%d %b %Y %H:%M') if ev.start_date else '' }}
+                    {% if ev.format is defined %}<span class="text-capitalize"> · {{ ev.format }}</span>{% endif %}
+                    {% if ev.category %}<span class="badge bg-light text-dark ms-1">{{ ev.category }}</span>{% endif %}
+                </p>
+                <div class="service-card-footer">
                     <div class="d-flex flex-column gap-2 w-100">
-                        {% if service.external_link %}
-                        <a href="{{ abs_service_external_url(service.external_link) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary align-self-start">
-                            Ver más <i class="fas fa-arrow-right ms-1"></i>
+                        <span class="badge bg-secondary align-self-start">{{ ev.commercial_flow_badge or 'Evento' }}</span>
+                        {% if ev.pricing and ev.pricing.final_price and ev.pricing.final_price > 0 %}
+                        <div class="text-muted small"><strong>{{ ev.pricing.final_price|round(2) }} {{ ev.currency }}</strong></div>
+                        {% elif ev.pricing %}
+                        <span class="badge bg-success align-self-start">Gratis o incluido</span>
+                        {% endif %}
+                        <a href="{{ ev.detail_url }}" class="btn btn-sm btn-primary align-self-start">
+                            <i class="fas fa-ticket-alt me-1"></i>{{ ev.cta_label or 'Inscribirse' }}
                         </a>
-                        {% endif %}
-                        {% if (service.service_type or '') == 'CV_REGISTRATION' %}
-                        <a href="{{ url_for('cv_registro', service=service.id) }}" class="btn btn-sm btn-primary align-self-start">
-                            <i class="fas fa-file-alt me-1"></i>Enviar hoja de vida
-                        </a>
-                        <small class="text-muted small">Formulario público; no requiere iniciar sesión.</small>
-                        {% elif service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
-                            {% if current_user.is_authenticated %}
-                                {% if service.service_type == 'CONSULTIVO' %}
-                                <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-handshake me-1"></i>Solicitar primera reunión
-                                </a>
-                                <small class="text-muted small">Proponés fecha; el asesor confirma y luego propuesta y pago.</small>
-                                {% else %}
-                                <a href="{{ url_for('services.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-calendar-check me-1"></i>Solicitar cita
-                                </a>
-                                <small class="text-muted small">Elegí horario en el calendario{% if service.pricing.final_price > 0 %} y pagá{% endif %}.</small>
-                                {% endif %}
-                            {% else %}
-                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-sign-in-alt me-1"></i>Iniciá sesión para reservar
-                                </a>
-                                <small class="text-muted small">Necesitás cuenta para solicitar cita o primera reunión.</small>
-                            {% endif %}
-                        {% endif %}
-                        {% if (membership_type or 'basic') != 'basic' %}
-                            {% if service.pricing.is_included and service.pricing.final_price == 0 %}
-                            <span class="badge bg-success align-self-start">Incluido en tu plan</span>
-                            {% else %}
-                                {% if service.pricing.discount_percentage > 0 %}
-                                <div class="text-muted small">
-                                    <span class="text-decoration-line-through">${{ "%.2f"|format(service.pricing.base_price) }}</span>
-                                    <span class="badge bg-info ms-1">{{ membership_type|upper }}</span>
-                                    <span class="badge bg-success ms-1">-{{ "%.0f"|format(service.pricing.discount_percentage) }}%</span>
-                                </div>
-                                {% endif %}
-                                <div class="text-muted small">
-                                    <strong>${{ "%.2f"|format(service.pricing.final_price) }}</strong>
-                                    {% if (service.service_type or '') != 'CV_REGISTRATION' %}
-                                    <small class="d-block mt-1">Usá «Solicitar cita» para agregar al carrito.</small>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                        {% endif %}
+                        {% if ev.cta_hint %}<small class="text-muted small">{{ ev.cta_hint }}</small>{% endif %}
                     </div>
                 </div>
             </article>
@@ -192,7 +278,7 @@
         </div>
         <div class="services-card-grid">
             {% for service in plan_services %}
-            <article class="service-template-card public-service-card h-100">
+            <article class="service-template-card public-service-card h-100" id="service-{{ service.id }}">
                 <div class="service-card-top">
                     {% if service.image_url %}
                     <img src="{{ service.image_url }}" alt="{{ service.name }}" class="service-card-thumb" loading="lazy">
@@ -215,57 +301,7 @@
                 </p>
                 {% endif %}
                 <div class="service-card-footer">
-                    <div class="d-flex flex-column gap-2 w-100">
-                        {% if service.external_link %}
-                        <a href="{{ abs_service_external_url(service.external_link) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary align-self-start">
-                            Ver más <i class="fas fa-arrow-right ms-1"></i>
-                        </a>
-                        {% endif %}
-                        {% if (service.service_type or '') == 'CV_REGISTRATION' %}
-                        <a href="{{ url_for('cv_registro', service=service.id) }}" class="btn btn-sm btn-primary align-self-start">
-                            <i class="fas fa-file-alt me-1"></i>Enviar hoja de vida
-                        </a>
-                        <small class="text-muted small">Formulario público; no requiere iniciar sesión.</small>
-                        {% elif service.appointment_type_id is defined and service.appointment_type_id is not none and service.appointment_type_id != 0 %}
-                            {% if current_user.is_authenticated %}
-                                {% if service.service_type == 'CONSULTIVO' %}
-                                <a href="{{ url_for('appointments.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-handshake me-1"></i>Solicitar primera reunión
-                                </a>
-                                <small class="text-muted small">Proponés fecha; el asesor confirma y luego propuesta y pago.</small>
-                                {% else %}
-                                <a href="{{ url_for('services.request_appointment', service_id=service.id) }}" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-calendar-check me-1"></i>Solicitar cita
-                                </a>
-                                <small class="text-muted small">Elegí horario en el calendario{% if service.pricing.final_price > 0 %} y pagá{% endif %}.</small>
-                                {% endif %}
-                            {% else %}
-                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-sign-in-alt me-1"></i>Iniciá sesión para reservar
-                                </a>
-                                <small class="text-muted small">Necesitás cuenta para solicitar cita o primera reunión.</small>
-                            {% endif %}
-                        {% endif %}
-                        {% if plan_type != 'basic' %}
-                            {% if service.pricing.is_included and service.pricing.final_price == 0 %}
-                            <span class="badge bg-success align-self-start">Incluido en tu plan</span>
-                            {% else %}
-                                {% if service.pricing.discount_percentage > 0 %}
-                                <div class="text-muted small">
-                                    <span class="text-decoration-line-through">${{ "%.2f"|format(service.pricing.base_price) }}</span>
-                                    <span class="badge bg-info ms-1">{{ membership_type|upper }}</span>
-                                    <span class="badge bg-success ms-1">-{{ "%.0f"|format(service.pricing.discount_percentage) }}%</span>
-                                </div>
-                                {% endif %}
-                                <div class="text-muted small">
-                                    <strong>${{ "%.2f"|format(service.pricing.final_price) }}</strong>
-                                    {% if (service.service_type or '') != 'CV_REGISTRATION' %}
-                                    <small class="d-block mt-1">Usá «Solicitar cita» para agregar al carrito.</small>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                        {% endif %}
-                    </div>
+                    {{ service_card_footer(service) }}
                 </div>
             </article>
             {% endfor %}
@@ -280,7 +316,7 @@
                     <div class="card-body text-center py-5">
                         <i class="fas fa-th-large fa-3x text-muted mb-3"></i>
                         <h5 class="mb-2">No hay servicios en el catálogo</h5>
-                        <p class="text-muted mb-4">Cuando se agreguen servicios a la base de datos, aparecerán aquí agrupados por plan.</p>
+                        <p class="text-muted mb-4">Cuando se agreguen servicios activos, aparecerán aquí. Los eventos se listan en <a href="{{ url_for('events.list_events') }}">Eventos</a>.</p>
                         {% if current_user.is_authenticated and current_user.is_admin %}
                         <a href="{{ url_for('admin_services_catalog.admin_services') }}" class="btn btn-primary"><i class="fas fa-cog me-2"></i>Gestionar servicios (Admin)</a>
                         {% endif %}
@@ -373,6 +409,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
     performSearch();
 });
+
+function addServiceFromCatalogDirect(serviceId) {
+    fetch('/cart/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            product_type: 'service',
+            product_id: parseInt(serviceId, 10),
+            quantity: 1
+        })
+    })
+    .then(function(response) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        }
+        return response.text().then(function() {
+            throw new Error('Respuesta no válida del servidor. Verificá tu sesión.');
+        });
+    })
+    .then(function(data) {
+        if (data.success) {
+            const cartBadge = document.getElementById('cart-count-badge');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_items_count;
+                cartBadge.style.display = 'block';
+            }
+            showServiceNotification('Servicio agregado al carrito', 'success');
+        } else {
+            if (data.requires_verification) {
+                showServiceNotification('Verificá tu correo electrónico antes de continuar.', 'error');
+                setTimeout(function() { window.location.href = '/verify-email'; }, 2000);
+            } else {
+                showServiceNotification('Error: ' + (data.error || 'Error desconocido'), 'error');
+            }
+        }
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+        showServiceNotification('Error al agregar al carrito: ' + error.message, 'error');
+    });
+}
 
 function addServiceToCart(serviceName, serviceDescription, serviceId) {
     function stringToId(str) {

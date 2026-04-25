@@ -1748,6 +1748,13 @@ def _tenant_slug_from_host_parts(host_no_port):
     raw_second = (parts[1] or '').strip().lower()
     if len(parts) >= 4 and raw_second == 'apps' and raw_first in ('dev', 'staging', 'test', 'preview'):
         return _tenant_subdomain_from_host_label('apps')
+    # apps.<tenant>.<tld> (p. ej. apps.relatic.org): con EASYNODEONE_APPS_ORG_SUBDOMAIN
+    # se sigue forzando ese slug; si no hay env, el tenant es el 2.º segmento.
+    if raw_first == 'apps' and len(parts) >= 3 and raw_second:
+        env_sub = (os.environ.get('EASYNODEONE_APPS_ORG_SUBDOMAIN') or '').strip().lower()
+        if env_sub:
+            return _tenant_subdomain_from_host_label('apps')
+        return _tenant_subdomain_from_host_label(raw_second)
     if raw_first in ('app', 'www'):
         return _tenant_subdomain_from_host_label(parts[1])
     return _tenant_subdomain_from_host_label(parts[0])
@@ -1785,6 +1792,21 @@ def _organization_id_for_public_registration():
     return default_organization_id()
 
 
+def _explicit_tenant_subdomain_for_host(host_no_port: str) -> str | None:
+    """
+    Mapa fijo de hosts de producción/QA a ``saas_organization.subdomain``.
+    (Relatic / dev app / IIUS) — el tenant no es el segmento «apps».
+    """
+    h = (host_no_port or '').split(':')[0].lower().strip()
+    if h == 'apps.relatic.org':
+        return 'relatic'
+    if h == 'appdev.easynodeone.com':
+        return 'dev'
+    if h == 'apps.internationalinstitute.us':
+        return 'iius'
+    return None
+
+
 def _organization_id_from_request_host(req):
     """Resolver org activa por subdominio del host; None si no aplica.
 
@@ -1794,6 +1816,17 @@ def _organization_id_from_request_host(req):
     host = ((getattr(req, 'host', '') or '').split(':')[0] or '').lower().strip()
     if not host:
         return None
+    explicit = _explicit_tenant_subdomain_for_host(host)
+    if explicit:
+        org = (
+            SaasOrganization.query.filter_by(is_active=True)
+            .filter(SaasOrganization.subdomain.isnot(None))
+            .filter(SaasOrganization.subdomain != '')
+            .filter(db.func.lower(SaasOrganization.subdomain) == explicit)
+            .first()
+        )
+        if org is not None:
+            return int(org.id)
     parts = host.split('.')
     if len(parts) < 3:
         return None

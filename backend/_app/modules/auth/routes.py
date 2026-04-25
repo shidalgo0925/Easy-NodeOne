@@ -73,6 +73,8 @@ def login():
             except Exception as e:
                 print(f'⚠️ Error verificando estado del usuario al iniciar sesión: {e}')
             next_page = service.safe_next_path(request.form.get('next') or request.args.get('next'))
+            if not next_page:
+                next_page = service.safe_next_path(session.pop('pending_return_url', None))
             return redirect(next_page) if next_page else redirect(url_for('dashboard'))
         flash(error or 'Credenciales inválidas.', 'error')
         return render_template('login.html', saas_organizations=[], login_email=email)

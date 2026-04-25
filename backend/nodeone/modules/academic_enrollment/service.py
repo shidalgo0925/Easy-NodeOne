@@ -44,6 +44,32 @@ def get_published_program_by_slug(organization_id: int, slug: str):
     )
 
 
+def find_published_academic_program_for_inscripcion(slug: str):
+    """
+    1) ``organization_id`` vía host (incl. mapa apps.relatic.org → relatic, etc.)
+    2) Si no hay fila, un solo ``AcademicProgram`` publicado con ese ``slug`` en toda la BD.
+    """
+    from flask import has_request_context, request
+    from app import AcademicProgram, _organization_id_from_request_host
+
+    slug = (slug or '').strip().lower()
+    if not slug or not has_request_context():
+        return None
+    oid = _organization_id_from_request_host(request)
+    if oid is not None:
+        p = get_published_program_by_slug(int(oid), slug)
+        if p is not None:
+            return p
+    all_pub = (
+        AcademicProgram.query.filter_by(slug=slug, status='published')
+        .order_by(AcademicProgram.id.asc())
+        .all()
+    )
+    if len(all_pub) == 1:
+        return all_pub[0]
+    return None
+
+
 def list_active_plans_for_program(program) -> list:
     from app import AcademicProgramPricingPlan
 
@@ -103,8 +129,27 @@ def try_add_academic_program_to_cart(user_id: int, slug: str, plan_key: str) -> 
     if not user:
         return False, 'Usuario no encontrado'
     oid = _org_id_for_cart_user(user)
+    from app import _organization_id_from_request_host, AcademicProgram
+    from flask import has_request_context, request
 
-    res = resolve_pricing_for_cart(oid, slug, plan_key)
+    host_oid = None
+    if has_request_context():
+        raw_h = _organization_id_from_request_host(request)
+        host_oid = int(raw_h) if raw_h is not None else None
+    to_try: list[int | None] = [host_oid, int(oid)]
+    seen: set[int] = set()
+    res = None
+    for cand in to_try:
+        if cand is None or cand in seen:
+            continue
+        seen.add(int(cand))
+        res = resolve_pricing_for_cart(int(cand), slug, plan_key)
+        if res is not None:
+            break
+    if res is None:
+        cands = AcademicProgram.query.filter_by(slug=slug, status='published').all()
+        if len(cands) == 1:
+            res = resolve_pricing_for_cart(int(cands[0].organization_id), slug, plan_key)
     if res is None:
         p = get_published_program_by_slug(oid, slug)
         if p is None:
@@ -118,6 +163,10 @@ def try_add_academic_program_to_cart(user_id: int, slug: str, plan_key: str) -> 
 
     plan_id = metadata.get('academic_pricing_plan_id')
     program_id = metadata.get('academic_program_id')
+    from app import AcademicProgram
+
+    prog = AcademicProgram.query.get(int(program_id)) if program_id else None
+    enroll_org = int(prog.organization_id) if prog is not None else oid
     en = (
         AcademicProgramEnrollment.query.filter_by(
             user_id=uid, program_id=program_id, status='pending_payment'
@@ -127,7 +176,7 @@ def try_add_academic_program_to_cart(user_id: int, slug: str, plan_key: str) -> 
     )
     if en is None:
         en = AcademicProgramEnrollment(
-            organization_id=oid,
+            organization_id=enroll_org,
             program_id=program_id,
             user_id=uid,
             pricing_plan_id=plan_id,
@@ -138,6 +187,7 @@ def try_add_academic_program_to_cart(user_id: int, slug: str, plan_key: str) -> 
         db.session.flush()
     else:
         en.pricing_plan_id = plan_id
+        en.organization_id = enroll_org
     metadata['enrollment_id'] = en.id
 
     repository.add_to_cart(
@@ -169,8 +219,15 @@ def process_academic_program_items_after_payment(cart, payment) -> None:
             continue
         en = AcademicProgramEnrollment.query.get(int(eid))
         if en and en.user_id == payment.user_id and en.status == 'pending_payment':
-            en.status = 'paid'
-            en.payment_status = 'paid'
+            line_free = float(getattr(item, 'unit_price', 0) or 0) == 0.0
+            pay_free = int(getattr(payment, 'amount', 0) or 0) == 0
+            is_free = line_free or pay_free
+            if is_free:
+                en.status = 'confirmed'
+                en.payment_status = 'free'
+            else:
+                en.status = 'paid'
+                en.payment_status = 'paid'
             en.payment_id = payment.id
             en.confirmed_at = payment.paid_at or en.confirmed_at
             db.session.add(en)

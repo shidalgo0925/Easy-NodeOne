@@ -64,7 +64,7 @@ def diplomado_landing(slug):
         tpl = DIPLOMADO_LANDING_TEMPLATES.get(slug)
         if tpl:
             return render_template(tpl, diplomado_slug=slug)
-    abort(404)
+    return render_template('public/program_inscripcion_not_found.html', slug=slug), 404
 
 
 @payments_bp.route('/inscripcion/<slug>/continuar/<plan>')

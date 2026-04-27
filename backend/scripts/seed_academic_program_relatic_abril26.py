@@ -7,6 +7,10 @@ Uso (desde el directorio backend, con venv y DATABASE_URL):
 
 ``total_amount`` y ``installment_amount`` de cada plan están en USD; se almacenan
 centesimales en ``total_amount_cents``.
+
+Relatic suele tener un solo plan de precio por programa; en la pantalla pública
+se explica monto/cuotas; el **método** de pago (Stripe, PayPal, etc.) lo elige
+el usuario en el checkout, no en ``pricing_plans`` del JSON.
 """
 from __future__ import annotations
 

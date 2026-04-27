@@ -67,10 +67,17 @@
       {% endif %}
     </aside>
     <section class="pe-checkout-main">
-      <h2>Elegí tu forma de pago</h2>
-      <p>Seleccioná una opción. Si aún no tenés cuenta, podés
+      {% if pricing_plans|length > 1 %}
+      <h2>Elegí un plan</h2>
+      <p>Los planes definen <strong>un monto a pagar</strong> (o cuotas). <strong>El método de pago</strong> —tarjeta, PayPal, transferencia, etc.— lo indicás al finalizar <strong>en el checkout</strong>, al continuar. Si aún no tenés cuenta, podés
         <a href="{{ url_for('register', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">registrarte</a>
         o <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">iniciar sesión</a>.</p>
+      {% else %}
+      <h2>Inscripción</h2>
+      <p>Acá se elige el <strong>plan de inscripción</strong> (monto o cuotas del programa). <strong>El método de pago</strong> —tarjeta, PayPal, transferencia, etc.— se define <strong>en el checkout</strong> al continuar. Si aún no tenés cuenta, podés
+        <a href="{{ url_for('register', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">registrarte</a>
+        o <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">iniciar sesión</a>.</p>
+      {% endif %}
       <div class="pe-plan-cards">
         {% if no_active_plans %}
         <p class="pe-foot">Este programa aún no tiene planes de inscripción activos. Volvé a intentar más tarde o contactá al administrador.</p>

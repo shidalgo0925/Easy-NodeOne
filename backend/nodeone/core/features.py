@@ -669,6 +669,18 @@ def register_member_pages_blueprint(app):
         print(f'Warning: No se pudo registrar member_pages_bp: {e}')
 
 
+def register_academic_enrollment_admin_blueprint(app):
+    if os.environ.get('NODEONE_SKIP_ACADEMIC_ENROLLMENT_ADMIN', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.academic_enrollment.admin_routes import academic_enrollment_admin_bp
+
+        if 'academic_enrollment_admin' not in app.blueprints:
+            app.register_blueprint(academic_enrollment_admin_bp)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar academic_enrollment_admin_bp: {e}')
+
+
 def register_payments_blueprint(app):
     if os.environ.get('NODEONE_SKIP_PAYMENTS_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -888,6 +900,7 @@ def register_modules(app):
     register_member_pages_blueprint(app)
     register_policies_blueprint(app)
     register_payments_blueprint(app)
+    register_academic_enrollment_admin_blueprint(app)
     register_payments_checkout_blueprint(app)
     register_payments_admin_blueprint(app)
     register_admin_export_blueprint(app)

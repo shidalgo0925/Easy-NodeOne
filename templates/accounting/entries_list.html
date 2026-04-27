@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Asientos contables{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Asientos contables <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('accounting_core.entries_new') }}">Crear asiento</a>
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('accounting_core.receivables_list') }}">CxC facturas</a>
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('accounting_core.receivables_customers_list') }}">CxC clientes</a>
+  </div>
+
+  <form class="row g-2 mb-3" method="get">
+    <div class="col-md-3">
+      <label class="form-label">Estado</label>
+      <select class="form-select" name="state">
+        <option value="">Todos</option>
+        <option value="draft" {% if selected_state=='draft' %}selected{% endif %}>Borrador</option>
+        <option value="posted" {% if selected_state=='posted' %}selected{% endif %}>Publicado</option>
+        <option value="reversed" {% if selected_state=='reversed' %}selected{% endif %}>Reversado</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button class="btn btn-outline-primary w-100">Filtrar</button>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped bg-white align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha</th>
+          <th>Diario</th>
+          <th>Referencia</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for e in entries %}
+        <tr>
+          <td>#{{ e.id }}</td>
+          <td>{{ e.date }}</td>
+          <td>{{ e.journal.code if e.journal else '-' }}</td>
+          <td>{{ e.reference or '-' }}</td>
+          <td><span class="badge bg-{% if e.state == 'posted' %}success{% elif e.state == 'reversed' %}secondary{% else %}warning text-dark{% endif %}">{{ e.state }}</span></td>
+          <td><a href="{{ url_for('accounting_core.entry_detail', entry_id=e.id) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-muted">No hay asientos.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -21,7 +21,9 @@
                     <th>Cliente</th>
                     <th>Estado</th>
                     <th>Total</th>
+                    <th class="text-end">Pendiente</th>
                     <th>Origen</th>
+                    <th>Asientos</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -53,13 +55,22 @@ async function loadInvoices(){
   const tb = document.getElementById('tbodyInvoices');
   tb.innerHTML = '';
   rows.forEach(r=>{
+    const jv = r.journal_entry_id != null && r.journal_entry_id !== '' ? Number(r.journal_entry_id) : null;
+    const jp = r.payment_journal_entry_id != null && r.payment_journal_entry_id !== '' ? Number(r.payment_journal_entry_id) : null;
+    const led = [];
+    if (jv) led.push(`<a class="small" href="/admin/accounting-core/entries/${jv}" title="Venta">V#${jv}</a>`);
+    if (jp) led.push(`<a class="small" href="/admin/accounting-core/entries/${jp}" title="Cobro">C#${jp}</a>`);
+    const ledHtml = led.length ? led.join(' ') : '—';
+    const pend = Number(r.amount_due != null ? r.amount_due : Math.max((Number(r.grand_total)||0)-(Number(r.amount_paid)||0),0));
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><a class="fw-semibold" href="/admin/accounting/invoices/${r.id}">${r.number}</a></td>
       <td>${r.customer_id}</td>
       <td>${r.status}</td>
       <td>$${(r.grand_total||0).toFixed(2)}</td>
+      <td class="text-end small">${pend > 0.004 ? ('$'+pend.toFixed(2)) : '—'}</td>
       <td>${r.origin_quotation_id || '-'}</td>
+      <td class="small">${ledHtml}</td>
       <td>
         <a class="btn btn-sm btn-primary me-1" href="/admin/accounting/invoices/${r.id}">Editar</a>
         <button class="btn btn-sm btn-outline-primary me-1" onclick="postInvoice(${r.id})">Post</button>

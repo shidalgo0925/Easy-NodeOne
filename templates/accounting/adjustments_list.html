@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Ajustes contables{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Ajustes contables <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('accounting_core.entries_list') }}">Ver asientos</a>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('accounting_core.adjustments_create') }}" class="row g-2">
+        <div class="col-md-3">
+          <label class="form-label">Nombre</label>
+          <input class="form-control" name="name" required maxlength="160" placeholder="Ajuste de cierre abril" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" name="adjustment_type" required>
+            {% for t in adjustment_types %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Fecha</label>
+          <input type="date" class="form-control" name="adjustment_date" required />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Diario</label>
+          <select class="form-select" name="journal_id" required>
+            <option value="">Seleccione</option>
+            {% for j in journals %}
+            <option value="{{ j.id }}">{{ j.code }} - {{ j.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Descripción</label>
+          <input class="form-control" name="description" maxlength="255" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cuenta débito</label>
+          <select class="form-select" name="debit_account_id" required>
+            <option value="">Seleccione</option>
+            {% for a in accounts %}
+            <option value="{{ a.id }}">{{ a.code }} - {{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cuenta crédito</label>
+          <select class="form-select" name="credit_account_id" required>
+            <option value="">Seleccione</option>
+            {% for a in accounts %}
+            <option value="{{ a.id }}">{{ a.code }} - {{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Monto</label>
+          <input type="number" class="form-control" name="amount" min="0.01" step="0.01" required />
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary w-100">Crear ajuste</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <form class="row g-2 mb-3" method="get">
+    <div class="col-md-3">
+      <label class="form-label">Estado</label>
+      <select class="form-select" name="state">
+        <option value="">Todos</option>
+        <option value="draft" {% if selected_state=='draft' %}selected{% endif %}>Borrador</option>
+        <option value="applied" {% if selected_state=='applied' %}selected{% endif %}>Aplicado</option>
+        <option value="cancelled" {% if selected_state=='cancelled' %}selected{% endif %}>Cancelado</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button class="btn btn-outline-primary w-100">Filtrar</button>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped bg-white align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha</th>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Monto</th>
+          <th>Estado</th>
+          <th>Asiento</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in adjustments %}
+        <tr>
+          <td>#{{ a.id }}</td>
+          <td>{{ a.adjustment_date }}</td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.adjustment_type }}</td>
+          <td>{{ '%.2f'|format(a.amount|float) }}</td>
+          <td>
+            <span class="badge bg-{% if a.state == 'applied' %}success{% elif a.state == 'cancelled' %}secondary{% else %}warning text-dark{% endif %}">
+              {{ a.state }}
+            </span>
+          </td>
+          <td>
+            {% if a.applied_entry_id %}
+            <a href="{{ url_for('accounting_core.entry_detail', entry_id=a.applied_entry_id) }}">#{{ a.applied_entry_id }}</a>
+            {% else %}
+            -
+            {% endif %}
+          </td>
+          <td class="d-flex gap-1">
+            {% if a.state == 'draft' %}
+            <form method="post" action="{{ url_for('accounting_core.adjustment_apply', adjustment_id=a.id) }}">
+              <button class="btn btn-sm btn-success">Aplicar</button>
+            </form>
+            <form method="post" action="{{ url_for('accounting_core.adjustment_cancel', adjustment_id=a.id) }}">
+              <button class="btn btn-sm btn-outline-secondary">Cancelar</button>
+            </form>
+            {% else %}
+            <span class="text-muted small">Sin acciones</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="text-muted">No hay ajustes creados.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

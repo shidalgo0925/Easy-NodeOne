@@ -194,9 +194,25 @@ def register_admin_platform_org_routes(app):
                         ensure_sales_org_module_links,
                         ensure_toggleable_tenant_module_links,
                     )
+                    from scripts.import_plan_cuentas_xlsx import sync_plan_cuentas_for_org
 
                     ensure_sales_org_module_links()
                     ensure_toggleable_tenant_module_links(organization_id=o.id)
+                    plan_xlsx = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        '..',
+                        '..',
+                        '..',
+                        'scripts',
+                        'data',
+                        'PlanCuentas.xlsx',
+                    )
+                    plan_xlsx = os.path.normpath(plan_xlsx)
+                    if os.path.isfile(plan_xlsx):
+                        # Catálogo base obligatorio para cada nueva compañía (editable luego por el cliente).
+                        sync_plan_cuentas_for_org(int(o.id), plan_xlsx, verbose=False)
+                    else:
+                        current_app.logger.warning('No existe plan base para nueva organización: %s', plan_xlsx)
                 except Exception as seed_ex:
                     current_app.logger.warning('saas seed post-org-create: %s', seed_ex)
                 flash('Empresa creada.', 'success')

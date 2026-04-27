@@ -1427,6 +1427,43 @@ def saas_module_enabled(module_code):
     return has_saas_module_enabled(_org_id_for_module_visibility(), module_code)
 
 
+def saas_module_enabled_fallback(module_code, fallback_module_code=''):
+    """
+    Evalúa módulo SaaS con fallback si el módulo principal no existe en catálogo.
+    Útil para migrar flags nuevos sin romper tenants antiguos.
+    """
+    code = (module_code or '').strip()
+    fallback = (fallback_module_code or '').strip()
+    if not code:
+        return True
+    mod = SaasModule.query.filter_by(code=code).first()
+    if mod is not None:
+        return has_saas_module_enabled(_org_id_for_module_visibility(), code)
+    if fallback:
+        return has_saas_module_enabled(_org_id_for_module_visibility(), fallback)
+    return False
+
+
+def saas_module_enabled_chain(*module_codes: str) -> bool:
+    """
+    Recorre códigos en orden: el primero que exista en ``saas_module`` define el permiso
+    (encendido/apagado por org). Si ninguno existe en catálogo, evalúa el último código
+    (despliegues sin fila aún, compat. heredada).
+    """
+    codes = [str(c or '').strip() for c in module_codes if str(c or '').strip()]
+    if not codes:
+        return True
+    oid = _org_id_for_module_visibility()
+    for code in codes:
+        if SaasModule.query.filter_by(code=code).first() is not None:
+            return has_saas_module_enabled(oid, code)
+    return has_saas_module_enabled(oid, codes[-1])
+
+
+# Expuesto explícitamente: algunos renders no reciben el dict del context_processor y fallaban en base.html.
+app.add_template_global(saas_module_enabled_chain, 'saas_module_enabled_chain')
+
+
 @app.context_processor
 def inject_saas_module_template_helper():
     from flask import current_app, has_request_context
@@ -1459,6 +1496,8 @@ def inject_saas_module_template_helper():
 
     return dict(
         saas_module_enabled=saas_module_enabled,
+        saas_module_enabled_fallback=saas_module_enabled_fallback,
+        saas_module_enabled_chain=saas_module_enabled_chain,
         office365_module_enabled=is_office365_module_enabled_for_org(_org_id_for_module_visibility()),
         academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
         show_academic_admin_nav=show_academic_nav,

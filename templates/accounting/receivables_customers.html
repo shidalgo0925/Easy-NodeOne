@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}CxC por cliente{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Cuentas por cobrar por cliente <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('accounting_core.receivables_list') }}">Por factura</a>
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_accounting_invoices') }}">Facturas</a>
+    </div>
+  </div>
+
+  <p class="text-muted small mb-3">
+    Suma del <strong>saldo pendiente</strong> por miembro (facturas contabilizadas con cobro incompleto).
+    Use <strong>Ver facturas</strong> para el detalle por documento.
+  </p>
+
+  <p class="small text-muted mb-3">
+    Total pendiente (todos los clientes): <strong class="text-dark">B/. {{ '%.2f'|format(total_pending) }}</strong>
+    · {{ rows|length }} cliente(s)
+  </p>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped bg-white align-middle">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th class="text-end">Facturas</th>
+          <th class="text-end">Pendiente</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ row.label }}</div>
+            {% if row.email %}<div class="small text-muted">{{ row.email }}</div>{% endif %}
+          </td>
+          <td class="text-end">{{ row.invoice_count }}</td>
+          <td class="text-end">B/. {{ '%.2f'|format(row.pending) }}</td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('accounting_core.receivables_list', customer_id=row.customer_id) }}">Ver facturas</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="text-muted">No hay saldos pendientes por cobrar.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

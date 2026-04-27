@@ -60,6 +60,89 @@
     }, 2200);
   }
 
+  function updateLedgerLinks(row) {
+    const el = document.getElementById('invLedgerLinks');
+    if (!el) return;
+    if (!row) {
+      el.classList.add('d-none');
+      el.textContent = '';
+      return;
+    }
+    const jv = row.journal_entry_id != null && row.journal_entry_id !== '' ? Number(row.journal_entry_id) : null;
+    const jp =
+      row.payment_journal_entry_id != null && row.payment_journal_entry_id !== ''
+        ? Number(row.payment_journal_entry_id)
+        : null;
+    if (!jv && !jp) {
+      el.classList.add('d-none');
+      el.textContent = '';
+      return;
+    }
+    el.classList.remove('d-none');
+    const parts = [];
+    if (jv)
+      parts.push(
+        `<a href="/admin/accounting-core/entries/${jv}">Asiento venta #${jv}</a>`,
+      );
+    if (jp)
+      parts.push(
+        `<a href="/admin/accounting-core/entries/${jp}">Asiento cobro #${jp}</a>`,
+      );
+    el.innerHTML = `<span class="me-1">Libro mayor:</span>${parts.join(' <span class="text-secondary">·</span> ')}`;
+  }
+
+  function updateLedgerPostingBanner(row) {
+    const el = document.getElementById('invLedgerReadiness');
+    const btnPost = document.getElementById('invBtnPost');
+    if (!el) return;
+    if (!row || String(row.status || '') !== 'draft') {
+      el.classList.add('d-none');
+      el.textContent = '';
+      if (btnPost) btnPost.removeAttribute('title');
+      return;
+    }
+    const lp = row.ledger_posting;
+    if (!lp || !lp.applicable) {
+      el.classList.add('d-none');
+      el.textContent = '';
+    } else if (lp.ok) {
+      el.className = 'alert alert-success py-2 mb-3';
+      el.classList.remove('d-none');
+      el.textContent = 'Contabilidad: listo para generar asiento al contabilizar.';
+    } else {
+      el.className = 'alert alert-warning py-2 mb-3';
+      el.classList.remove('d-none');
+      const msg = lp.message || 'Configurar plan de cuentas (CxC, ingresos, impuestos por pagar).';
+      el.textContent = 'Contabilidad: ' + msg;
+    }
+  }
+
+  function updateAmountDueRow(row) {
+    const rowEl = document.getElementById('invAmountDueRow');
+    const lbl = document.getElementById('invAmountDueLbl');
+    if (!rowEl || !lbl) return;
+    if (!row) {
+      rowEl.classList.add('d-none');
+      return;
+    }
+    const st = String(row.status || '');
+    if (st === 'draft' || st === 'cancelled') {
+      rowEl.classList.add('d-none');
+      return;
+    }
+    const due = Number(
+      row.amount_due != null
+        ? row.amount_due
+        : Math.max((Number(row.grand_total) || 0) - (Number(row.amount_paid) || 0), 0),
+    );
+    if (st === 'paid' || due < 0.005) {
+      rowEl.classList.add('d-none');
+      return;
+    }
+    rowEl.classList.remove('d-none');
+    lbl.textContent = fmt(due);
+  }
+
   function applyEditMode() {
     if (!inv) return;
     const editable = canEditContent();
@@ -86,8 +169,26 @@
     const btnCancel = document.getElementById('invBtnCancel');
     const btnDelete = document.getElementById('invBtnDelete');
     if (btnSave) btnSave.disabled = !editable;
-    if (btnPost) btnPost.disabled = st !== 'draft' || idNum < 1;
-    if (btnPay) btnPay.disabled = st !== 'posted';
+    if (btnPost) {
+      let postDis = st !== 'draft' || idNum < 1;
+      const lp = inv.ledger_posting;
+      if (!postDis && lp && lp.applicable && !lp.ok) {
+        postDis = true;
+        btnPost.title = lp.message || 'Configurar plan de cuentas (Contabilidad → plan de cuentas).';
+      } else {
+        btnPost.removeAttribute('title');
+      }
+      btnPost.disabled = postDis;
+    }
+    const due = Number(
+      inv.amount_due != null
+        ? inv.amount_due
+        : Math.max((Number(inv.grand_total) || 0) - (Number(inv.amount_paid) || 0), 0),
+    );
+    if (btnPay) {
+      const canPay = (st === 'posted' || st === 'partial') && idNum >= 1 && due >= 0.005;
+      btnPay.disabled = !canPay;
+    }
     if (btnCancel) btnCancel.disabled = st === 'cancelled' || st === 'paid' || idNum < 1;
     if (btnDelete) {
       if (idNum < 1) {
@@ -98,6 +199,8 @@
         btnDelete.title = st === 'draft' ? 'Eliminar borrador' : 'Solo en borrador';
       }
     }
+    updateAmountDueRow(inv);
+    updateLedgerPostingBanner(inv);
   }
 
   function escAttr(s) {
@@ -118,7 +221,12 @@
     invoice_not_editable: 'Solo se puede editar en borrador.',
     invoice_not_draft: 'La factura debe estar en borrador.',
     invoice_must_be_draft: 'La factura debe estar en borrador para contabilizarla.',
-    invoice_must_be_posted: 'La factura debe estar contabilizada para registrar el pago.',
+    invoice_must_be_posted:
+      'La factura debe estar contabilizada (o con saldo pendiente) para registrar un cobro.',
+    invalid_payment_amount: 'Importe de cobro no válido.',
+    payment_exceeds_balance: 'El importe supera el saldo pendiente.',
+    ledger_post_failed: 'No se pudo generar el asiento contable de la factura.',
+    ledger_pay_failed: 'No se pudo registrar el asiento de cobro.',
     paid_invoice_cannot_be_cancelled: 'No se puede cancelar una factura pagada.',
     forbidden: 'No tiene permiso para esta acción.',
     not_found: 'No se encontró el recurso solicitado.',
@@ -165,12 +273,9 @@
     }
     if (!res.ok) {
       const code = typeof data.error === 'string' ? data.error : '';
-      let msg =
-        (typeof data.user_message === 'string' && data.user_message) ||
-        (typeof data.detail === 'string' && data.detail) ||
-        code ||
-        `HTTP ${res.status}`;
-      if (code && API_ERROR_LABELS[code]) msg = API_ERROR_LABELS[code];
+      const um = typeof data.user_message === 'string' && data.user_message.trim() ? data.user_message.trim() : '';
+      let msg = um || (typeof data.detail === 'string' && data.detail) || code || `HTTP ${res.status}`;
+      if (code && API_ERROR_LABELS[code] && !um) msg = API_ERROR_LABELS[code];
       throw new Error(msg);
     }
     return data;
@@ -267,13 +372,14 @@
   }
 
   function setStatus(status) {
-    ['invStDraft', 'invStPosted', 'invStPaid', 'invStCancelled'].forEach((id) => {
+    ['invStDraft', 'invStPosted', 'invStPartial', 'invStPaid', 'invStCancelled'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.style.opacity = '0.35';
     });
     const map = {
       draft: 'invStDraft',
       posted: 'invStPosted',
+      partial: 'invStPartial',
       paid: 'invStPaid',
       cancelled: 'invStCancelled',
     };
@@ -693,7 +799,14 @@
     document.getElementById('invTaxLbl').textContent = fmt(0);
     document.getElementById('invGrandLbl').textContent = fmt(0);
     setStatus('draft');
+    updateLedgerLinks(null);
+    updateAmountDueRow(null);
     window.QuotationLinesComponent.mount(lineItems, inv.lines || [], taxes, { readOnly: false });
+    try {
+      inv.ledger_posting = await invApi('/ledger-readiness', 'GET');
+    } catch (_) {
+      inv.ledger_posting = null;
+    }
     applyEditMode();
     recalcUiTotals();
     await maybeApplyDefaultSalespersonInv();
@@ -767,6 +880,8 @@
     document.getElementById('invTaxLbl').textContent = fmt(row.tax_total);
     document.getElementById('invGrandLbl').textContent = fmt(row.grand_total);
     setStatus(row.status);
+    updateLedgerLinks(row);
+    updateAmountDueRow(row);
     window.QuotationLinesComponent.mount(lineItems, row.lines || [], taxes, {
       readOnly: !canEditContentForInv(row),
     });
@@ -820,6 +935,7 @@
       const updated = await invApi(`/${iid}`, 'PUT', patch);
       inv = updated;
       root.dataset.status = updated.status;
+      updateLedgerLinks(updated);
       window.QuotationLinesComponent.mount(lineItems, updated.lines || [], taxes, {
         readOnly: !canEditContentForInv(updated),
       });
@@ -850,6 +966,7 @@
     const updated = await invApi(`/${iid}`, 'PUT', payload);
     inv = updated;
     root.dataset.status = updated.status;
+    updateLedgerLinks(updated);
     window.QuotationLinesComponent.mount(lineItems, updated.lines || [], taxes, {
       readOnly: !canEditContentForInv(updated),
     });
@@ -1227,7 +1344,28 @@
   document.getElementById('invBtnPay')?.addEventListener('click', async () => {
     try {
       clearError();
-      await invApi(`/${iid}/pay`, 'POST', {});
+      const due = Number(
+        inv?.amount_due != null
+          ? inv.amount_due
+          : Math.max((Number(inv?.grand_total) || 0) - (Number(inv?.amount_paid) || 0), 0),
+      );
+      const def = due > 0 ? due.toFixed(2) : '';
+      const raw = window.prompt(
+        `Importe a cobrar en B/. (pendiente ${def ? `B/. ${def}` : '0.00'}). Deje el valor por defecto para cobrar todo el pendiente:`,
+        def,
+      );
+      if (raw === null) return;
+      const trimmed = String(raw).trim();
+      let body = {};
+      if (trimmed !== '') {
+        const n = Number(trimmed);
+        if (Number.isNaN(n) || n <= 0) {
+          showError('Indique un importe válido.');
+          return;
+        }
+        body = { amount: n };
+      }
+      await invApi(`/${iid}/pay`, 'POST', body);
       await loadInvoice();
     } catch (e) {
       showError(e.message);

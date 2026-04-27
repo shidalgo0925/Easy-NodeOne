@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Asiento #{{ entry.id }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Asiento #{{ entry.id }}</h1>
+    <a href="{{ url_for('accounting_core.entries_list') }}" class="btn btn-outline-secondary btn-sm">Volver</a>
+  </div>
+
+  {% if linked_invoice and source_link_kind %}
+  <div class="alert alert-light border mb-3 small">
+    <strong>Origen facturación:</strong>
+    {% if source_link_kind == 'venta' %}
+      Asiento de <span class="text-muted">venta</span> —
+    {% else %}
+      Asiento de <span class="text-muted">cobro</span> —
+    {% endif %}
+    factura
+    <a class="fw-semibold" href="{{ url_for('admin_accounting_invoice_form', invoice_id=linked_invoice.id) }}">{{ linked_invoice.number }}</a>
+    (ID {{ linked_invoice.id }}).
+  </div>
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('accounting_core.entry_save_draft', entry_id=entry.id) }}">
+        <div class="row g-2 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Diario</label>
+            <select class="form-select" name="journal_id" {% if entry.state != 'draft' %}disabled{% endif %}>
+              {% for j in journals %}
+                <option value="{{ j.id }}" {% if j.id == entry.journal_id %}selected{% endif %}>{{ j.code }} — {{ j.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-control" name="date" value="{{ entry.date.isoformat() if entry.date else '' }}" {% if entry.state != 'draft' %}readonly{% endif %} />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Referencia</label>
+            <input class="form-control" name="reference" value="{{ entry.reference or '' }}" {% if entry.state != 'draft' %}readonly{% endif %} />
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered bg-white align-middle">
+            <thead>
+              <tr>
+                <th>Cuenta</th>
+                <th>Debe</th>
+                <th>Haber</th>
+                <th>Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ln in items %}
+              <tr>
+                <td>
+                  {% if entry.state == 'draft' %}
+                  <select class="form-select form-select-sm" name="line_account_id">
+                    {% for a in accounts %}
+                      <option value="{{ a.id }}" {% if a.id == ln.account_id %}selected{% endif %}>{{ a.code }} — {{ a.name }}</option>
+                    {% endfor %}
+                  </select>
+                  {% else %}
+                    {{ ln.account.code if ln.account else ln.account_id }}
+                  {% endif %}
+                </td>
+                <td>{% if entry.state == 'draft' %}<input class="form-control form-control-sm" type="number" step="0.01" min="0" name="line_debit" value="{{ ln.debit }}" />{% else %}{{ ln.debit }}{% endif %}</td>
+                <td>{% if entry.state == 'draft' %}<input class="form-control form-control-sm" type="number" step="0.01" min="0" name="line_credit" value="{{ ln.credit }}" />{% else %}{{ ln.credit }}{% endif %}</td>
+                <td>{% if entry.state == 'draft' %}<input class="form-control form-control-sm" name="line_description" value="{{ ln.description or '' }}" />{% else %}{{ ln.description or '' }}{% endif %}</td>
+              </tr>
+              {% endfor %}
+              {% if entry.state == 'draft' %}
+              {% for i in range(3) %}
+              <tr>
+                <td>
+                  <select class="form-select form-select-sm" name="line_account_id">
+                    <option value="">Cuenta…</option>
+                    {% for a in accounts %}
+                      <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input class="form-control form-control-sm" type="number" step="0.01" min="0" name="line_debit" /></td>
+                <td><input class="form-control form-control-sm" type="number" step="0.01" min="0" name="line_credit" /></td>
+                <td><input class="form-control form-control-sm" name="line_description" /></td>
+              </tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th class="text-end">Totales:</th>
+                <th>{{ debit_total }}</th>
+                <th>{{ credit_total }}</th>
+                <th></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          {% if entry.state == 'draft' %}
+            <button class="btn btn-primary">Guardar borrador</button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    {% if entry.state == 'draft' %}
+      <form method="post" action="{{ url_for('accounting_core.entry_post', entry_id=entry.id) }}">
+        <button class="btn btn-success">Publicar asiento</button>
+      </form>
+    {% elif entry.state == 'posted' %}
+      <form method="post" action="{{ url_for('accounting_core.entry_reverse', entry_id=entry.id) }}">
+        <button class="btn btn-warning">Reversar asiento</button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if entry.reversed_by_entry_id %}
+  <div class="alert alert-info mt-3">
+    Este asiento fue reversado por el asiento
+    <a href="{{ url_for('accounting_core.entry_detail', entry_id=entry.reversed_by_entry_id) }}">#{{ entry.reversed_by_entry_id }}</a>.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

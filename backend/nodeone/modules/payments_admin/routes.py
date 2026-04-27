@@ -1,7 +1,7 @@
 """Admin: revisión de pagos, aprobación/rechazo y configuración de integración."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
@@ -387,3 +387,57 @@ def api_payment_config():
                 'success': False,
                 'error': str(e)
             }), 500
+
+
+@payments_admin_bp.route('/admin/payments/verify', methods=['GET'])
+@_admin_required_lazy
+def admin_payments_verify():
+    """Página con botón para ejecutar la misma verificación que el cron (Yappy / PayPal / Stripe)."""
+    import app as M
+
+    def _pending_block():
+        return {
+            'yappy': M.Payment.query.filter(
+                M.Payment.payment_method == 'yappy',
+                M.Payment.status.in_(['pending', 'awaiting_confirmation']),
+            ).count(),
+            'paypal': M.Payment.query.filter(
+                M.Payment.payment_method == 'paypal',
+                M.Payment.status.in_(['pending', 'awaiting_confirmation']),
+            ).count(),
+            'stripe': M.Payment.query.filter(
+                M.Payment.payment_method.in_(['stripe', 'tcr']),
+                M.Payment.status.in_(['pending', 'awaiting_confirmation']),
+            ).count(),
+        }
+
+    pending_payments = _pending_block()
+    total_pending = sum(pending_payments.values())
+    since = datetime.utcnow() - timedelta(hours=24)
+    recently_confirmed = M.Payment.query.filter(
+        M.Payment.status == 'succeeded',
+        M.Payment.paid_at.isnot(None),
+        M.Payment.paid_at >= since,
+    ).count()
+
+    return render_template(
+        'admin/payments_verify.html',
+        total_pending=total_pending,
+        pending_payments=pending_payments,
+        recently_confirmed=recently_confirmed,
+    )
+
+
+@payments_admin_bp.route('/api/admin/payments/verify-pending', methods=['POST'])
+@_admin_required_lazy
+def api_verify_pending_payments():
+    """Misma lógica que el cron: verify_all_payments, con resumen JSON para el panel admin."""
+    try:
+        from notification_scheduler import verify_all_payments_stats
+
+        return jsonify(verify_all_payments_stats())
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500

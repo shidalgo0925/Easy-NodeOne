@@ -243,7 +243,17 @@ class PaymentConfig(db.Model):
         if self.use_environment_variables:
             return os.getenv('PAYPAL_CLIENT_SECRET', '')
         return self.paypal_client_secret or ''
-    
+
+    def get_paypal_mode(self):
+        """sandbox | live: si ``use_environment_variables``, prioriza ``PAYPAL_MODE`` del entorno."""
+        raw = None
+        if self.use_environment_variables:
+            raw = os.getenv('PAYPAL_MODE')
+        if not raw:
+            raw = self.paypal_mode or 'sandbox'
+        raw = (raw or 'sandbox').strip().lower()
+        return 'live' if raw == 'live' else 'sandbox'
+
     def get_banco_general_merchant_id(self):
         """Obtener Banco General Merchant ID"""
         if self.use_environment_variables:

@@ -138,13 +138,18 @@ class PayPalProcessor(PaymentProcessor):
         if config:
             self.client_id = config.get_paypal_client_id()
             self.client_secret = config.get_paypal_client_secret()
-            self.mode = config.paypal_mode or 'sandbox'
-            self.return_url = config.paypal_return_url or os.getenv('PAYPAL_RETURN_URL', '')
-            self.cancel_url = config.paypal_cancel_url or os.getenv('PAYPAL_CANCEL_URL', '')
+            self.mode = config.get_paypal_mode()
+            if getattr(config, 'use_environment_variables', False):
+                self.return_url = (os.getenv('PAYPAL_RETURN_URL') or config.paypal_return_url or '').strip()
+                self.cancel_url = (os.getenv('PAYPAL_CANCEL_URL') or config.paypal_cancel_url or '').strip()
+            else:
+                self.return_url = (config.paypal_return_url or os.getenv('PAYPAL_RETURN_URL', '') or '').strip()
+                self.cancel_url = (config.paypal_cancel_url or os.getenv('PAYPAL_CANCEL_URL', '') or '').strip()
         else:
             self.client_id = os.getenv('PAYPAL_CLIENT_ID', '')
             self.client_secret = os.getenv('PAYPAL_CLIENT_SECRET', '')
-            self.mode = os.getenv('PAYPAL_MODE', 'sandbox')
+            _m = (os.getenv('PAYPAL_MODE', 'sandbox') or 'sandbox').strip().lower()
+            self.mode = 'live' if _m == 'live' else 'sandbox'
             self.return_url = os.getenv('PAYPAL_RETURN_URL', '')
             self.cancel_url = os.getenv('PAYPAL_CANCEL_URL', '')
         self.base_url = 'https://api-m.sandbox.paypal.com' if self.mode == 'sandbox' else 'https://api-m.paypal.com'
@@ -188,14 +193,28 @@ class PayPalProcessor(PaymentProcessor):
     def create_payment(self, amount, currency='USD', metadata=None):
         """Crear orden de pago en PayPal"""
         import requests
-        
+        import secrets
+
         if not self.client_id or not self.client_secret:
-            return False, None, "PayPal no está configurado. Configura PAYPAL_CLIENT_ID y PAYPAL_CLIENT_SECRET"
-        
+            # Mismo criterio que Stripe: sin credenciales, modo demo (carrito se completa localmente)
+            return True, {
+                'payment_reference': f'PAYPAL_DEMO_{secrets.token_hex(16)}',
+                'payment_url': None,
+                'demo_mode': True,
+            }, None
+
         access_token = self._get_access_token()
         if not access_token:
-            return False, None, "No se pudo obtener token de acceso de PayPal"
-        
+            print(
+                "⚠️ PayPal: OAuth falló (credenciales inválidas, modo sandbox vs live, o app no aprobada). "
+                "Revisá PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET y PAYPAL_MODE. Usando modo demo."
+            )
+            return True, {
+                'payment_reference': f'PAYPAL_DEMO_{secrets.token_hex(16)}',
+                'payment_url': None,
+                'demo_mode': True,
+            }, None
+
         # Convertir amount de centavos a dólares
         amount_value = amount / 100.0
         

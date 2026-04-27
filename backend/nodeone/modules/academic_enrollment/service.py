@@ -122,7 +122,7 @@ def try_add_academic_program_to_cart(user_id: int, slug: str, plan_key: str) -> 
     """
     from app import AcademicProgramEnrollment, User, db
     from _app.modules.payments import repository
-    from _app.modules.payments.service import clear_diplomado_lines_from_cart
+    from _app.modules.payments.service import add_to_cart, clear_diplomado_lines_from_cart
 
     uid = int(user_id)
     user = User.query.get(uid)
@@ -190,7 +190,7 @@ def try_add_academic_program_to_cart(user_id: int, slug: str, plan_key: str) -> 
         en.organization_id = enroll_org
     metadata['enrollment_id'] = en.id
 
-    repository.add_to_cart(
+    add_to_cart(
         uid,
         'academic_program',
         product_id,

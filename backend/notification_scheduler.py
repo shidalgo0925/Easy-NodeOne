@@ -584,6 +584,48 @@ def verify_all_payments():
     print(f"{'='*60}\n")
 
 
+def verify_all_payments_stats():
+    """
+    Ejecuta verify_all_payments() y devuelve conteos de pendientes antes/después por canal.
+    Usado por POST /api/admin/payments/verify-pending.
+    Cada “confirmado” en la ejecución = pagos que dejaron de estar pendientes (succeeded o failed).
+    """
+    from app import Payment
+
+    def _pending_counts():
+        return {
+            'yappy': Payment.query.filter(
+                Payment.payment_method == 'yappy',
+                Payment.status.in_(['pending', 'awaiting_confirmation']),
+            ).count(),
+            'paypal': Payment.query.filter(
+                Payment.payment_method == 'paypal',
+                Payment.status.in_(['pending', 'awaiting_confirmation']),
+            ).count(),
+            'stripe': Payment.query.filter(
+                Payment.payment_method.in_(['stripe', 'tcr']),
+                Payment.status.in_(['pending', 'awaiting_confirmation']),
+            ).count(),
+        }
+
+    before = _pending_counts()
+    verify_all_payments()
+    after = _pending_counts()
+    confirmed = {
+        'yappy': max(0, before['yappy'] - after['yappy']),
+        'paypal': max(0, before['paypal'] - after['paypal']),
+        'stripe': max(0, before['stripe'] - after['stripe']),
+    }
+    return {
+        'success': True,
+        'summary': {
+            'confirmed_in_this_run': confirmed,
+            'pending_after': after,
+            'total_confirmed': sum(confirmed.values()),
+        },
+    }
+
+
 def send_crm_activity_email_alerts():
     """Enviar alertas por email para actividades CRM vencidas/por vencer."""
     with app.app_context():

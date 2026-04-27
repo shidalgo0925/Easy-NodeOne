@@ -111,10 +111,11 @@ def main() -> int:
                 print('Omisión: registro sin slug', file=sys.stderr)
                 continue
             prog = AcademicProgram.query.filter_by(organization_id=org_id, slug=slug).first()
+            name = (raw.get('name') or slug).strip()
             if prog is None:
-                prog = AcademicProgram(organization_id=org_id, slug=slug)
+                # name NOT NULL: no hacer flush hasta tener al menos name asignado
+                prog = AcademicProgram(organization_id=org_id, slug=slug, name=name)
                 db.session.add(prog)
-                db.session.flush()
                 created_p += 1
             else:
                 updated_p += 1
@@ -124,7 +125,7 @@ def main() -> int:
             if hours_val is not None and hours_val != '':
                 hours_s = str(hours_val)
 
-            prog.name = (raw.get('name') or slug).strip()
+            prog.name = name
             prog.program_type = (raw.get('program_type') or 'curso').strip().lower() or 'curso'
             prog.category = (raw.get('category') or '').strip() or None
             prog.short_description = (raw.get('short_description') or '').strip() or None
@@ -142,7 +143,7 @@ def main() -> int:
             prog.currency = (raw.get('currency') or 'USD').strip().upper() or 'USD'
             prog.status = status if status in ('draft', 'published', 'archived') else 'published'
 
-            db.session.flush()
+            db.session.flush()  # id para planes nuevos
             cadd, uadd = _upsert_plans(prog, raw.get('pricing_plans') or [])
             created_plans += cadd
             updated_plans += uadd

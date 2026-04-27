@@ -405,8 +405,11 @@
                         </li>
                         {% endif %}
 
-                        {# Ventas: cotizaciones y facturas #}
-                        {% if show_tenant_admin_menu and saas_module_enabled('sales') and nav_can('payments.view') %}
+                        {# Ventas (módulo sales) y Contabilidad (accounting_core → sales si no hay fila en catálogo) #}
+                        {% set _nav_sales = saas_module_enabled('sales') %}
+                        {% set _nav_contabilidad = saas_module_enabled_chain('accounting_core', 'sales') %}
+                        {% set _nav_ajustes = saas_module_enabled_chain('accounting_adjustments', 'accounting_core', 'sales') %}
+                        {% if show_tenant_admin_menu and nav_can('payments.view') and _nav_sales %}
                         <li class="nav-item nav-group {% if request.endpoint in ['admin_sales_quotations', 'admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}show{% endif %}" data-nav-group-key="sales_ventas">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Ventas">
                                 <i class="menu-icon fas fa-file-invoice-dollar"></i>
@@ -420,6 +423,37 @@
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint in ['admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}active{% endif %}" href="/admin/accounting/invoices">Facturas</a>
                                 </li>
+                            </ul>
+                        </li>
+                        {% endif %}
+                        {% if show_tenant_admin_menu and nav_can('payments.view') and _nav_contabilidad %}
+                        <li class="nav-item nav-group {% if request.endpoint in ['accounting_core.accounts_list', 'accounting_core.journals_list', 'accounting_core.entries_list', 'accounting_core.entries_new', 'accounting_core.entry_detail', 'accounting_core.receivables_list', 'accounting_core.receivables_customers_list', 'accounting_core.adjustments_list'] %}show{% endif %}" data-nav-group-key="accounting_contabilidad">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Contabilidad">
+                                <i class="menu-icon fas fa-book"></i>
+                                <span class="menu-title-text">Contabilidad</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'accounting_core.accounts_list' %}active{% endif %}" href="{{ url_for('accounting_core.accounts_list') }}">Plan de cuentas</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'accounting_core.journals_list' %}active{% endif %}" href="{{ url_for('accounting_core.journals_list') }}">Diarios</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint in ['accounting_core.entries_list', 'accounting_core.entries_new', 'accounting_core.entry_detail'] %}active{% endif %}" href="{{ url_for('accounting_core.entries_list') }}">Asientos</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'accounting_core.receivables_list' %}active{% endif %}" href="{{ url_for('accounting_core.receivables_list') }}">CxC facturas</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'accounting_core.receivables_customers_list' %}active{% endif %}" href="{{ url_for('accounting_core.receivables_customers_list') }}">CxC clientes</a>
+                                </li>
+                                {% if _nav_ajustes %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'accounting_core.adjustments_list' %}active{% endif %}" href="{{ url_for('accounting_core.adjustments_list') }}">Ajustes</a>
+                                </li>
+                                {% endif %}
                             </ul>
                         </li>
                         {% endif %}

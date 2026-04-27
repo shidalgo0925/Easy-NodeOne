@@ -6,6 +6,7 @@
 {% block content %}
 <div class="container-fluid py-3 quote-odoo-page" id="odooInvoiceForm" data-invoice-id="{{ invoice_id }}" data-is-new="{{ 1 if invoice_id == 0 else 0 }}" data-initial-status="{{ invoice_status or '' }}" data-inv-api-base="/invoices" data-workshop-api-base="/api/workshop" data-invoice-org-name="{{ (invoice_org_name|default('', true))|e }}">
     <div id="invFormError" class="alert alert-danger d-none"></div>
+    <div id="invLedgerReadiness" class="alert d-none mb-3 py-2" role="status" aria-live="polite"></div>
     <div id="invReadonlyBanner" class="alert alert-light border mb-3 py-2 small d-none" role="status">
         <strong>Solo lectura.</strong> Fuera de borrador no puede editar líneas ni cliente. Use <strong>Cancelar factura</strong> si aplica (no disponible si está pagada).
     </div>
@@ -23,8 +24,10 @@
         <div class="ms-auto d-flex align-items-center gap-2 quote-odoo-status flex-wrap justify-content-end">
             <span class="badge rounded-pill text-bg-secondary" id="invStDraft" title="Borrador">Borrador</span>
             <span class="badge rounded-pill text-bg-primary" id="invStPosted" title="Contabilizada">Contabilizada</span>
+            <span class="badge rounded-pill text-bg-warning text-dark" id="invStPartial" title="Pago parcial">Parcial</span>
             <span class="badge rounded-pill text-bg-success" id="invStPaid" title="Pagada">Pagada</span>
             <span class="badge rounded-pill text-bg-dark" id="invStCancelled" title="Cancelada">Cancelada</span>
+            <div id="invLedgerLinks" class="w-100 text-end small text-muted mt-1 d-none" aria-live="polite"></div>
         </div>
     </div>
 
@@ -120,6 +123,7 @@
                     <div class="quote-totals-row"><span>Subtotal</span><span id="invSubtotalLbl">B/. 0.00</span></div>
                     <div class="quote-totals-row"><span>Impuestos</span><span id="invTaxLbl">B/. 0.00</span></div>
                     <div class="quote-totals-row quote-totals-grand"><span>Total</span><span id="invGrandLbl">B/. 0.00</span></div>
+                    <div class="quote-totals-row d-none" id="invAmountDueRow"><span class="text-muted">Pendiente de cobro</span><span id="invAmountDueLbl">B/. 0.00</span></div>
                 </div>
             </div>
         </div>
@@ -184,5 +188,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=11"></script>
-<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=5"></script>
 {% endblock %}

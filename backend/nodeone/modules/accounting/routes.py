@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
 from flask import Blueprint, jsonify, request
@@ -49,6 +50,12 @@ def _ensure_tables():
     QuotationLine.__table__.create(db.engine, checkfirst=True)
     Invoice.__table__.create(db.engine, checkfirst=True)
     InvoiceLine.__table__.create(db.engine, checkfirst=True)
+    try:
+        from nodeone.services.invoice_ledger import ensure_invoice_ledger_columns
+
+        ensure_invoice_ledger_columns()
+    except Exception:
+        pass
     try:
         from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
 
@@ -202,7 +209,7 @@ def _serialize_invoice(inv: Invoice, user_by_id=None):
         qo = Quotation.query.filter_by(id=inv.origin_quotation_id, organization_id=inv.organization_id).first()
         origin_num = qo.number if qo else None
     org = SaasOrganization.query.get(inv.organization_id)
-    return {
+    out = {
         'id': inv.id,
         'number': inv.number,
         'customer_id': inv.customer_id,
@@ -212,6 +219,10 @@ def _serialize_invoice(inv: Invoice, user_by_id=None):
         'salesperson_name': sp_name,
         'salesperson_email': sp_email,
         'status': inv.status,
+        'journal_entry_id': getattr(inv, 'journal_entry_id', None),
+        'payment_journal_entry_id': getattr(inv, 'payment_journal_entry_id', None),
+        'amount_paid': _safe_float(getattr(inv, 'amount_paid', 0)),
+        'amount_due': round(max(_safe_float(inv.grand_total) - _safe_float(getattr(inv, 'amount_paid', 0)), 0.0), 2),
         'origin_quotation_id': inv.origin_quotation_id,
         'origin_quotation_number': origin_num,
         'enrollment_id': getattr(inv, 'enrollment_id', None),
@@ -233,6 +244,13 @@ def _serialize_invoice(inv: Invoice, user_by_id=None):
         'created_by': inv.created_by,
         'lines': [_serialize_invoice_line(ln, product_name=pnames.get(ln.product_id, '')) for ln in ilines],
     }
+    if inv.status == 'draft':
+        from nodeone.services.invoice_ledger import posting_readiness_for_org
+
+        out['ledger_posting'] = posting_readiness_for_org(inv.organization_id)
+    else:
+        out['ledger_posting'] = None
+    return out
 
 
 def _next_number(prefix, model, org_id):
@@ -499,6 +517,10 @@ def invoices_get():
                 'number': r.number,
                 'customer_id': r.customer_id,
                 'status': r.status,
+                'journal_entry_id': getattr(r, 'journal_entry_id', None),
+                'payment_journal_entry_id': getattr(r, 'payment_journal_entry_id', None),
+                'amount_paid': _safe_float(getattr(r, 'amount_paid', 0)),
+                'amount_due': round(max(_safe_float(r.grand_total) - _safe_float(getattr(r, 'amount_paid', 0)), 0.0), 2),
                 'origin_quotation_id': r.origin_quotation_id,
                 'date': r.date.isoformat() if r.date else None,
                 'total': r.total,
@@ -510,6 +532,18 @@ def invoices_get():
             for r in rows
         ]
     )
+
+
+@accounting_bp.route('/ledger-readiness', methods=['GET'])
+@login_required
+def invoices_ledger_readiness():
+    """Fase 2: indica si el plan de cuentas permite generar asiento al validar factura (``accounting_core``)."""
+    _ensure_tables()
+    if not _can_accounting():
+        return jsonify({'error': 'forbidden'}), 403
+    from nodeone.services.invoice_ledger import posting_readiness_for_org
+
+    return jsonify(posting_readiness_for_org(_org_id()))
 
 
 @accounting_bp.route('/<int:iid>', methods=['GET'])
@@ -560,8 +594,7 @@ def invoice_put(iid):
             if err:
                 return jsonify({'error': err, 'user_message': _salesperson_validation_message(err)}), 400
             inv.salesperson_user_id = u_sp.id if u_sp else None
-        _recompute_invoice_totals(inv)
-        db.session.commit()
+            db.session.commit()
         return jsonify(_serialize_invoice(inv))
 
     if 'customer_id' in data:
@@ -677,13 +710,33 @@ def invoice_post(iid):
     if inv.status != 'draft':
         return jsonify({'error': 'invoice_must_be_draft'}), 400
     inv.status = 'posted'
+    try:
+        from nodeone.services.invoice_ledger import attach_invoice_ledger_if_accounting_core
+
+        attach_invoice_ledger_if_accounting_core(inv, getattr(current_user, 'id', None))
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'error': 'ledger_post_failed', 'user_message': str(e)}), 400
     db.session.commit()
-    return jsonify({'ok': True, 'status': inv.status})
+    return jsonify(
+        {
+            'ok': True,
+            'status': inv.status,
+            'journal_entry_id': getattr(inv, 'journal_entry_id', None),
+        }
+    )
 
 
 @accounting_bp.route('/<int:iid>/pay', methods=['POST'])
 @login_required
 def invoice_pay(iid):
+    from nodeone.services.invoice_ledger import (
+        MONEY_EPS,
+        attach_payment_ledger_if_accounting_core,
+        invoice_amount_paid,
+        invoice_residual,
+    )
+
     _ensure_tables()
     if not _can_accounting():
         return jsonify({'error': 'forbidden'}), 403
@@ -691,26 +744,73 @@ def invoice_pay(iid):
     inv = Invoice.query.filter_by(id=iid, organization_id=oid).first()
     if not inv:
         return jsonify({'error': 'not_found'}), 404
-    if inv.status != 'posted':
+    if inv.status not in ('posted', 'partial'):
         return jsonify({'error': 'invoice_must_be_posted'}), 400
-    inv.status = 'paid'
-    if inv.origin_quotation_id:
+
+    data = request.get_json(silent=True) or {}
+    raw_amt = data.get('amount')
+    res_before = invoice_residual(inv)
+    if raw_amt is None or (isinstance(raw_amt, str) and not str(raw_amt).strip()):
+        pay_amt = res_before
+    else:
+        try:
+            pay_amt = Decimal(str(raw_amt)).quantize(Decimal('0.01'))
+        except Exception:
+            return jsonify(
+                {'error': 'invalid_payment_amount', 'user_message': 'Importe de cobro no válido.'}
+            ), 400
+    if pay_amt <= 0:
+        return jsonify(
+            {'error': 'invalid_payment_amount', 'user_message': 'El importe debe ser mayor a cero.'}
+        ), 400
+    if pay_amt > res_before + MONEY_EPS:
+        return jsonify(
+            {'error': 'payment_exceeds_balance', 'user_message': 'El importe supera el saldo pendiente.'}
+        ), 400
+
+    try:
+        attach_payment_ledger_if_accounting_core(
+            inv, getattr(current_user, 'id', None), pay_amount=pay_amt
+        )
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'error': 'ledger_pay_failed', 'user_message': str(e)}), 400
+
+    new_paid = (invoice_amount_paid(inv) + pay_amt).quantize(Decimal('0.01'))
+    inv.amount_paid = float(new_paid)
+    if invoice_residual(inv) <= MONEY_EPS:
+        inv.status = 'paid'
+    else:
+        inv.status = 'partial'
+
+    if inv.status == 'paid' and inv.origin_quotation_id:
         q = Quotation.query.filter_by(id=inv.origin_quotation_id, organization_id=oid).first()
         if q and q.status == 'invoiced':
             q.status = 'paid'
     db.session.commit()
-    try:
-        from nodeone.services.academic_service import on_invoice_paid_hook
+    if inv.status == 'paid':
+        try:
+            from nodeone.services.academic_service import on_invoice_paid_hook
 
-        on_invoice_paid_hook(inv.id, oid)
-    except Exception:
-        pass
-    return jsonify({'ok': True, 'status': inv.status})
+            on_invoice_paid_hook(inv.id, oid)
+        except Exception:
+            pass
+    return jsonify(
+        {
+            'ok': True,
+            'status': inv.status,
+            'amount_paid': _safe_float(inv.amount_paid),
+            'amount_due': round(max(_safe_float(inv.grand_total) - _safe_float(inv.amount_paid), 0.0), 2),
+            'payment_journal_entry_id': getattr(inv, 'payment_journal_entry_id', None),
+        }
+    )
 
 
 @accounting_bp.route('/<int:iid>/cancel', methods=['POST'])
 @login_required
 def invoice_cancel(iid):
+    from flask import current_app
+
     _ensure_tables()
     if not _can_accounting():
         return jsonify({'error': 'forbidden'}), 403
@@ -720,6 +820,21 @@ def invoice_cancel(iid):
         return jsonify({'error': 'not_found'}), 404
     if inv.status == 'paid':
         return jsonify({'error': 'paid_invoice_cannot_be_cancelled'}), 400
+    if inv.status in ('posted', 'partial'):
+        try:
+            from nodeone.services.invoice_ledger import (
+                reverse_invoice_ledger_entry_if_any,
+                reverse_payment_ledger_entry_if_any,
+            )
+
+            reverse_payment_ledger_entry_if_any(inv, getattr(current_user, 'id', None))
+            reverse_invoice_ledger_entry_if_any(inv, getattr(current_user, 'id', None))
+        except ValueError as e:
+            return jsonify({'error': 'ledger_reverse_failed', 'user_message': str(e)}), 400
+        except Exception:
+            current_app.logger.exception('reverse_invoice_ledger_entry_if_any')
+            return jsonify({'error': 'ledger_reverse_failed', 'user_message': 'No se pudo reversar el asiento contable.'}), 500
+        inv.amount_paid = 0.0
     inv.status = 'cancelled'
     db.session.commit()
     try:

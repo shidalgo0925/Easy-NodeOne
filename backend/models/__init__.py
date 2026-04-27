@@ -18,3 +18,5 @@ from .communication_rules import *  # noqa: F403
 from .academic import *  # noqa: F403
 from .academic_program import *  # noqa: F403
 from .service_request import *  # noqa: F403
+from .accounting_core import *  # noqa: F403
+from .accounting_adjustments import *  # noqa: F403

@@ -846,6 +846,20 @@ def register_sales_accounting_blueprints(app):
         print(f'Warning: No se pudieron registrar sales/accounting blueprints: {e}')
 
 
+def register_accounting_core_blueprint(app):
+    """Núcleo contable ERP Fase 1 (/admin/accounting-core/*)."""
+    if os.environ.get('NODEONE_SKIP_ACCOUNTING_CORE_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.accounting_core.routes import accounting_core_bp
+
+        if 'accounting_core' not in app.blueprints:
+            # Guard por cadena módulo (accounting_core → sales): ver before_request en routes.
+            app.register_blueprint(accounting_core_bp)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar accounting_core_bp: {e}')
+
+
 def register_saas_admin_blueprint(app):
     """API JSON módulos SaaS por organización (/api/admin/saas)."""
     if os.environ.get('NODEONE_SKIP_SAAS_ADMIN_API', '').strip().lower() in ('1', 'true', 'yes'):
@@ -915,6 +929,7 @@ def register_modules(app):
     register_marketing_blueprint(app)
     register_crm_api_blueprint(app)
     register_sales_accounting_blueprints(app)
+    register_accounting_core_blueprint(app)
     register_workshop_blueprints(app)
     register_academic_module(app)
 

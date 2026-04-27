@@ -40,7 +40,7 @@ class Invoice(db.Model):
     number = db.Column(db.String(50), nullable=False, index=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False, index=True)
     date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    status = db.Column(db.String(20), nullable=False, default='draft')  # draft|posted|paid|cancelled
+    status = db.Column(db.String(20), nullable=False, default='draft')  # draft|posted|partial|paid|cancelled
     origin_quotation_id = db.Column(db.Integer, db.ForeignKey('quotations.id', ondelete='SET NULL'), index=True)
     salesperson_contact_id = db.Column(
         db.Integer,
@@ -60,6 +60,11 @@ class Invoice(db.Model):
     total = db.Column(db.Float, nullable=False, default=0.0)
     tax_total = db.Column(db.Float, nullable=False, default=0.0)
     grand_total = db.Column(db.Float, nullable=False, default=0.0)
+    amount_paid = db.Column(db.Float, nullable=False, default=0.0)
+    # Asiento contable publicado al validar (Fase 2); sin FK ORM (orden CREATE / SQLite).
+    journal_entry_id = db.Column(db.Integer, nullable=True, index=True)
+    # Asiento de cobro (banco/caja vs CxC) al marcar pagada; sin FK ORM.
+    payment_journal_entry_id = db.Column(db.Integer, nullable=True, index=True)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

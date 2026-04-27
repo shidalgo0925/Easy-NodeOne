@@ -138,13 +138,18 @@ class PayPalProcessor(PaymentProcessor):
         if config:
             self.client_id = config.get_paypal_client_id()
             self.client_secret = config.get_paypal_client_secret()
-            self.mode = config.paypal_mode or 'sandbox'
-            self.return_url = config.paypal_return_url or os.getenv('PAYPAL_RETURN_URL', '')
-            self.cancel_url = config.paypal_cancel_url or os.getenv('PAYPAL_CANCEL_URL', '')
+            self.mode = config.get_paypal_mode()
+            if getattr(config, 'use_environment_variables', False):
+                self.return_url = (os.getenv('PAYPAL_RETURN_URL') or config.paypal_return_url or '').strip()
+                self.cancel_url = (os.getenv('PAYPAL_CANCEL_URL') or config.paypal_cancel_url or '').strip()
+            else:
+                self.return_url = (config.paypal_return_url or os.getenv('PAYPAL_RETURN_URL', '') or '').strip()
+                self.cancel_url = (config.paypal_cancel_url or os.getenv('PAYPAL_CANCEL_URL', '') or '').strip()
         else:
             self.client_id = os.getenv('PAYPAL_CLIENT_ID', '')
             self.client_secret = os.getenv('PAYPAL_CLIENT_SECRET', '')
-            self.mode = os.getenv('PAYPAL_MODE', 'sandbox')
+            _m = (os.getenv('PAYPAL_MODE', 'sandbox') or 'sandbox').strip().lower()
+            self.mode = 'live' if _m == 'live' else 'sandbox'
             self.return_url = os.getenv('PAYPAL_RETURN_URL', '')
             self.cancel_url = os.getenv('PAYPAL_CANCEL_URL', '')
         self.base_url = 'https://api-m.sandbox.paypal.com' if self.mode == 'sandbox' else 'https://api-m.paypal.com'

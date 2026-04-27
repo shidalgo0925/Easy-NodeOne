@@ -126,7 +126,7 @@ def build_executive_snapshot(org_id: int, start: datetime, end: datetime) -> dic
             Invoice.organization_id == org_id,
             Invoice.date >= start,
             Invoice.date <= end,
-            Invoice.status.in_(('posted', 'paid')),
+            Invoice.status.in_(('posted', 'partial', 'paid')),
         )
         .with_entities(func.coalesce(func.sum(Invoice.grand_total), 0.0))
         .scalar()
@@ -157,22 +157,23 @@ def build_executive_snapshot(org_id: int, start: datetime, end: datetime) -> dic
     inv_by_status = {str(r[0] or ''): int(r[1]) for r in inv_by_status_rows}
 
     now = datetime.utcnow()
+    residual_expr = Invoice.grand_total - func.coalesce(Invoice.amount_paid, 0.0)
     overdue_q = Invoice.query.filter(
         Invoice.organization_id == org_id,
-        Invoice.status == 'posted',
+        Invoice.status.in_(('posted', 'partial')),
         Invoice.due_date.isnot(None),
         Invoice.due_date < now,
     )
     overdue_count = int(overdue_q.count() or 0)
     overdue_sum = float(
-        overdue_q.with_entities(func.coalesce(func.sum(Invoice.grand_total), 0.0)).scalar() or 0.0
+        overdue_q.with_entities(func.coalesce(func.sum(residual_expr), 0.0)).scalar() or 0.0
     )
 
     open_ar = float(
-        db.session.query(func.coalesce(func.sum(Invoice.grand_total), 0.0))
+        db.session.query(func.coalesce(func.sum(residual_expr), 0.0))
         .filter(
             Invoice.organization_id == org_id,
-            Invoice.status == 'posted',
+            Invoice.status.in_(('posted', 'partial')),
         )
         .scalar()
         or 0.0
@@ -290,7 +291,7 @@ def build_executive_snapshot(org_id: int, start: datetime, end: datetime) -> dic
             Invoice.organization_id == org_id,
             Invoice.date >= start,
             Invoice.date <= end,
-            Invoice.status.in_(('posted', 'paid')),
+            Invoice.status.in_(('posted', 'partial', 'paid')),
         )
         .scalar()
         or 0
@@ -305,7 +306,7 @@ def build_executive_snapshot(org_id: int, start: datetime, end: datetime) -> dic
         Invoice.query.filter(
             Invoice.organization_id == org_id,
             Invoice.date >= series_start,
-            Invoice.status.in_(('posted', 'paid')),
+            Invoice.status.in_(('posted', 'partial', 'paid')),
         )
         .with_entities(Invoice.date, Invoice.grand_total)
         .all()
@@ -327,7 +328,7 @@ def build_executive_snapshot(org_id: int, start: datetime, end: datetime) -> dic
             Invoice.organization_id == org_id,
             Invoice.date >= start,
             Invoice.date <= end,
-            Invoice.status.in_(('posted', 'paid')),
+            Invoice.status.in_(('posted', 'partial', 'paid')),
         )
         .group_by(Invoice.customer_id)
         .order_by(func.sum(Invoice.grand_total).desc())

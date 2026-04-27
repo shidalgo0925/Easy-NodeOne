@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Plan de cuentas{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Plan de cuentas <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('accounting_core.accounts_list') }}">Limpiar</a>
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('accounting_core.entries_list') }}">Ver asientos</a>
+      <a class="btn btn-outline-success btn-sm" href="{{ url_for('accounting_core.receivables_list') }}">CxC facturas</a>
+      <a class="btn btn-outline-success btn-sm" href="{{ url_for('accounting_core.receivables_customers_list') }}">CxC clientes</a>
+    </div>
+  </div>
+  <div class="card mb-3">
+    <div class="card-body">
+      <form class="row g-2" method="get">
+        <div class="col-md-4">
+          <label class="form-label">Buscar</label>
+          <input class="form-control" name="q" value="{{ q or '' }}" placeholder="Código o nombre" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" name="type">
+            <option value="">Todos</option>
+            {% for t in ['asset','liability','equity','income','expense'] %}
+            <option value="{{ t }}" {% if selected_type==t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Activa</label>
+          <select class="form-select" name="active">
+            <option value="">Todas</option>
+            <option value="1" {% if selected_active=='1' %}selected{% endif %}>Sí</option>
+            <option value="0" {% if selected_active=='0' %}selected{% endif %}>No</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Conciliable</label>
+          <select class="form-select" name="reconcile">
+            <option value="">Todas</option>
+            <option value="1" {% if selected_reconcile=='1' %}selected{% endif %}>Sí</option>
+            <option value="0" {% if selected_reconcile=='0' %}selected{% endif %}>No</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Por página</label>
+          <select class="form-select" name="per_page">
+            {% for n in [40,80,120,200] %}
+            <option value="{{ n }}" {% if per_page==n %}selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 d-flex justify-content-end">
+          <button class="btn btn-primary">Aplicar filtros</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('accounting_core.accounts_create') }}" class="row g-2">
+        <div class="col-md-2">
+          <label class="form-label">Código</label>
+          <input class="form-control" name="code" required maxlength="32" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nombre</label>
+          <input class="form-control" name="name" required maxlength="200" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" name="type" required>
+            <option value="asset">Activo</option>
+            <option value="liability">Pasivo</option>
+            <option value="equity">Patrimonio</option>
+            <option value="income">Ingreso</option>
+            <option value="expense">Gasto</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Moneda</label>
+          <input class="form-control" name="currency_code" maxlength="16" placeholder="PAB / USD" />
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="form-check me-2">
+            <input class="form-check-input" type="checkbox" id="allow_reconcile" name="allow_reconcile" />
+            <label class="form-check-label" for="allow_reconcile">Conciliable</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked />
+            <label class="form-check-label" for="is_active">Activa</label>
+          </div>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+          <button class="btn btn-primary w-100">Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle bg-white">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Conciliable</th>
+          <th>Moneda</th>
+          <th>Activa</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in accounts %}
+        <tr>
+          <td><code>{{ a.code }}</code></td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.type }}</td>
+          <td>{{ 'Sí' if a.allow_reconcile else 'No' }}</td>
+          <td>{{ a.currency_code or '-' }}</td>
+          <td>{{ 'Sí' if a.is_active else 'No' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-muted">No hay cuentas creadas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <div class="small text-muted">
+      {% set start = 0 if total == 0 else ((page - 1) * per_page + 1) %}
+      {% set end = [page * per_page, total] | min %}
+      {{ start }}-{{ end }} / {{ total }}
+    </div>
+    <div class="btn-group">
+      <a class="btn btn-sm btn-outline-secondary {% if page <= 1 %}disabled{% endif %}" href="{{ url_for('accounting_core.accounts_list', q=q, type=selected_type, active=selected_active, reconcile=selected_reconcile, per_page=per_page, page=page-1) }}">‹</a>
+      <a class="btn btn-sm btn-outline-secondary {% if page * per_page >= total %}disabled{% endif %}" href="{{ url_for('accounting_core.accounts_list', q=q, type=selected_type, active=selected_active, reconcile=selected_reconcile, per_page=per_page, page=page+1) }}">›</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

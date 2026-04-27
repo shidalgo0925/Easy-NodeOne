@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Diarios contables{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Diarios <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('accounting_core.entries_list') }}">Ver asientos</a>
+  </div>
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('accounting_core.journals_create') }}" class="row g-2">
+        <div class="col-md-2">
+          <label class="form-label">Código</label>
+          <input class="form-control" name="code" required maxlength="24" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Nombre</label>
+          <input class="form-control" name="name" required maxlength="120" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" name="type" required>
+            <option value="general">General</option>
+            <option value="sale">Ventas</option>
+            <option value="purchase">Compras</option>
+            <option value="bank">Banco</option>
+            <option value="cash">Caja</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cuenta por defecto</label>
+          <select class="form-select" name="default_account_id">
+            <option value="">Sin cuenta por defecto</option>
+            {% for a in accounts %}
+              <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="journal_active" name="is_active" checked />
+            <label class="form-check-label" for="journal_active">Activo</label>
+          </div>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+          <button class="btn btn-primary w-100">Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered bg-white align-middle">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Cuenta por defecto</th>
+          <th>Activo</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for j in journals %}
+        <tr>
+          <td><code>{{ j.code }}</code></td>
+          <td>{{ j.name }}</td>
+          <td>{{ j.type }}</td>
+          <td>{% if j.default_account %}{{ j.default_account.code }} — {{ j.default_account.name }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+          <td>{{ 'Sí' if j.is_active else 'No' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="text-muted">No hay diarios creados.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -66,7 +66,7 @@ def register_admin_service_metrics_routes(app):
             )
             out['invoices_paid_or_posted'] = int(
                 db.session.query(func.count(Invoice.id))
-                .filter(Invoice.organization_id == oid, Invoice.status.in_(('paid', 'posted')))
+                .filter(Invoice.organization_id == oid, Invoice.status.in_(('paid', 'posted', 'partial')))
                 .scalar()
                 or 0
             )
@@ -87,7 +87,7 @@ def register_admin_service_metrics_routes(app):
                 .join(Invoice, InvoiceLine.invoice_id == Invoice.id)
                 .filter(
                     Invoice.organization_id == oid,
-                    Invoice.status.in_(('paid', 'posted')),
+                    Invoice.status.in_(('paid', 'posted', 'partial')),
                     InvoiceLine.product_id.isnot(None),
                 )
                 .group_by(InvoiceLine.product_id)

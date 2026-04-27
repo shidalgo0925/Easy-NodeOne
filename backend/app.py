@@ -273,12 +273,25 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor, inicia sesión para acceder a esta página.'
 
 
+def _unauthorized_request_expects_json() -> bool:
+    """Rutas que el front llama con fetch + JSON (no deben recibir redirect HTML al caducar sesión)."""
+    p = request.path or ''
+    if p.startswith('/api/') or p == '/api':
+        return True
+    if p.startswith('/crm'):
+        return True
+    if p.startswith('/invoices'):
+        return True
+    if p.startswith('/taxes'):
+        return True
+    return False
+
+
 @login_manager.unauthorized_handler
 def _login_unauthorized_api_json():
     """Evita redirigir a HTML en APIs JSON (p. ej. DELETE cotización con sesión caducada)."""
     try:
-        p = request.path or ''
-        if p.startswith('/api/'):
+        if _unauthorized_request_expects_json():
             return jsonify(
                 {
                     'error': 'unauthorized',
@@ -1432,11 +1445,24 @@ def inject_saas_module_template_helper():
     ):
         show_academic_nav = True
 
+    events_portal_count = None
+    try:
+        if has_request_context() and has_saas_module_enabled(_org_id_for_module_visibility(), 'events'):
+            from nodeone.services.events_portal import count_portal_visible_events
+
+            u = current_user if getattr(current_user, 'is_authenticated', False) else None
+            events_portal_count = count_portal_visible_events(
+                organization_id=_org_id_for_module_visibility(), user=u
+            )
+    except Exception:
+        events_portal_count = None
+
     return dict(
         saas_module_enabled=saas_module_enabled,
         office365_module_enabled=is_office365_module_enabled_for_org(_org_id_for_module_visibility()),
         academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
         show_academic_admin_nav=show_academic_nav,
+        events_portal_count=events_portal_count,
     )
 
 
@@ -1722,6 +1748,13 @@ def _tenant_slug_from_host_parts(host_no_port):
     raw_second = (parts[1] or '').strip().lower()
     if len(parts) >= 4 and raw_second == 'apps' and raw_first in ('dev', 'staging', 'test', 'preview'):
         return _tenant_subdomain_from_host_label('apps')
+    # apps.<tenant>.<tld> (p. ej. apps.relatic.org): con EASYNODEONE_APPS_ORG_SUBDOMAIN
+    # se sigue forzando ese slug; si no hay env, el tenant es el 2.º segmento.
+    if raw_first == 'apps' and len(parts) >= 3 and raw_second:
+        env_sub = (os.environ.get('EASYNODEONE_APPS_ORG_SUBDOMAIN') or '').strip().lower()
+        if env_sub:
+            return _tenant_subdomain_from_host_label('apps')
+        return _tenant_subdomain_from_host_label(raw_second)
     if raw_first in ('app', 'www'):
         return _tenant_subdomain_from_host_label(parts[1])
     return _tenant_subdomain_from_host_label(parts[0])
@@ -1759,6 +1792,21 @@ def _organization_id_for_public_registration():
     return default_organization_id()
 
 
+def _explicit_tenant_subdomain_for_host(host_no_port: str) -> str | None:
+    """
+    Mapa fijo de hosts de producción/QA a ``saas_organization.subdomain``.
+    (Relatic / dev app / IIUS) — el tenant no es el segmento «apps».
+    """
+    h = (host_no_port or '').split(':')[0].lower().strip()
+    if h == 'apps.relatic.org':
+        return 'relatic'
+    if h == 'appdev.easynodeone.com':
+        return 'dev'
+    if h == 'apps.internationalinstitute.us':
+        return 'iius'
+    return None
+
+
 def _organization_id_from_request_host(req):
     """Resolver org activa por subdominio del host; None si no aplica.
 
@@ -1768,6 +1816,17 @@ def _organization_id_from_request_host(req):
     host = ((getattr(req, 'host', '') or '').split(':')[0] or '').lower().strip()
     if not host:
         return None
+    explicit = _explicit_tenant_subdomain_for_host(host)
+    if explicit:
+        org = (
+            SaasOrganization.query.filter_by(is_active=True)
+            .filter(SaasOrganization.subdomain.isnot(None))
+            .filter(SaasOrganization.subdomain != '')
+            .filter(db.func.lower(SaasOrganization.subdomain) == explicit)
+            .first()
+        )
+        if org is not None:
+            return int(org.id)
     parts = host.split('.')
     if len(parts) < 3:
         return None
@@ -2808,6 +2867,10 @@ def bootstrap_nodeone_schema():
             ensure_crm_salesperson_and_quotation_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_crm_salesperson_and_quotation_columns: {e}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
         try:
             from nodeone.services.cv_application_schema import ensure_cv_application_columns
 
@@ -2830,6 +2893,16 @@ def bootstrap_nodeone_schema():
         ensure_service_organization_id_column()
         ensure_service_image_url_column()
         ensure_user_service_table()
+        try:
+            from nodeone.services.service_request_schema import ensure_service_request_table
+
+            ensure_service_request_table(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_service_request_table: {e}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
         ensure_certificate_event_organization_id_column()
         ensure_certificate_template_organization_id_column()
         try:

@@ -3,145 +3,166 @@
 {% block title %}{{ 'Editar' if action == 'edit' else 'Crear' }} Evento - Easy NodeOne{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container py-4 event-admin-form">
     <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h5 mb-2">
-                <i class="fas fa-{{ 'edit' if action == 'edit' else 'plus' }}"></i> 
-                {{ 'Editar' if action == 'edit' else 'Crear' }} Evento
+        <div class="col-12 col-lg-10 col-xl-8">
+            <h1 class="h3 fw-semibold mb-2">
+                <i class="fas fa-{{ 'edit' if action == 'edit' else 'plus' }} text-primary me-2"></i>
+                {{ 'Editar' if action == 'edit' else 'Crear' }} evento
             </h1>
+            <p class="text-muted mb-0">Defina el evento, el calendario y el precio; el panel derecho controla visibilidad y roles.</p>
         </div>
     </div>
 
-    <form method="POST" enctype="multipart/form-data">
-        <div class="row">
-            <div class="col-12 col-md-8">
-                <!-- Información Básica -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información Básica</h5>
+    {# novalidate: la validación HTML5 en campos ocultos (Kahoot, url, etc.) bloqueaba el POST y no subía archivos. Fechas: validación JS abajo. #}
+    <form method="POST" enctype="multipart/form-data" id="event_admin_form" novalidate>
+        <div class="row g-4 event-form-row">
+            <!-- ——— Columna principal (70% en desktop): flujo de creación ——— -->
+            <div class="col-12 event-form-main-col">
+                <!-- 1. Identidad del evento -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 mb-0 fw-semibold">Identidad del evento</h2>
+                        <p class="small text-muted mb-0 mt-1">Título, URL y textos que verán en listados y ficha.</p>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">Título <span class="text-danger">*</span></label>
-                            <input type="text" name="title" class="form-control" value="{{ event.title if event else '' }}" required>
+                            <label class="form-label fw-medium">Título <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control form-control-lg" value="{{ event.title if event else '' }}" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Slug</label>
-                            <input type="text" name="slug" class="form-control" value="{{ event.slug if event else '' }}" placeholder="Se genera automáticamente si se deja vacío">
+                            <label class="form-label fw-medium">Slug</label>
+                            <input type="text" name="slug" class="form-control" value="{{ event.slug if event else '' }}" placeholder="Opcional. Se genera a partir del título si se deja vacío">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Resumen</label>
-                            <textarea name="summary" class="form-control" rows="3">{{ event.summary if event else '' }}</textarea>
+                            <label class="form-label fw-medium">Resumen</label>
+                            <textarea name="summary" class="form-control" rows="2" placeholder="Corto, para listados y tarjetas">{{ event.summary if event else '' }}</textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Descripción</label>
-                            <textarea name="description" class="form-control" rows="5">{{ event.description if event else '' }}</textarea>
+                        <div class="mb-0">
+                            <label class="form-label fw-medium">Descripción</label>
+                            <textarea name="description" class="form-control" rows="5" placeholder="Texto completo en la ficha del evento">{{ event.description if event else '' }}</textarea>
                         </div>
                     </div>
                 </div>
 
-                <!-- Fechas y Ubicación -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-calendar"></i> Fechas y Ubicación</h5>
+                <!-- 2. Fechas y modalidad -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 mb-0 fw-semibold">Fechas y modalidad</h2>
+                        <p class="small text-muted mb-0 mt-1">Cuándo ocurre, cierre de inscripción y si es presencial, virtual o híbrido.</p>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Fecha Inicio <span class="text-danger">*</span></label>
-                                <input type="datetime-local" name="start_date" class="form-control" 
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-medium">Inicio <span class="text-danger">*</span></label>
+                                <input type="datetime-local" name="start_date" class="form-control" id="start_date"
                                        value="{{ (event.start_date.strftime('%Y-%m-%dT%H:%M') if event and event.start_date else default_start.strftime('%Y-%m-%dT%H:%M')) if default_start else '' }}" required>
                             </div>
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Fecha Fin <span class="text-danger">*</span></label>
-                                <input type="datetime-local" name="end_date" class="form-control" 
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-medium">Fin <span class="text-danger">*</span></label>
+                                <input type="datetime-local" name="end_date" class="form-control" id="end_date"
                                        value="{{ (event.end_date.strftime('%Y-%m-%dT%H:%M') if event and event.end_date else default_end.strftime('%Y-%m-%dT%H:%M')) if default_end else '' }}" required>
                             </div>
                         </div>
+                        <p class="small text-secondary mt-2 mb-0">La fecha de fin debe ser posterior a la de inicio.</p>
+                        <hr class="text-secondary opacity-25 my-4">
                         <div class="mb-3">
-                            <label class="form-label">Fecha Límite de Registro</label>
-                            <input type="datetime-local" name="registration_deadline" class="form-control" 
+                            <label class="form-label fw-medium">Cierre de inscripciones</label>
+                            <input type="datetime-local" name="registration_deadline" class="form-control"
                                    value="{{ event.registration_deadline.strftime('%Y-%m-%dT%H:%M') if event and event.registration_deadline else '' }}">
                         </div>
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="is_virtual" class="form-check-input" id="is_virtual" 
-                                       {% if event and event.is_virtual %}checked{% endif %}>
-                                <label class="form-check-label" for="is_virtual">Evento Virtual</label>
-                            </div>
+                        <div class="mb-0">
+                            <label class="form-label fw-medium">Formato <span class="text-danger">*</span></label>
+                            <select name="format" class="form-select" id="event_format" required>
+                                <option value="virtual" {% if not event or event.format == 'virtual' %}selected{% endif %}>Virtual</option>
+                                <option value="presencial" {% if event and event.format == 'presencial' %}selected{% endif %}>Presencial</option>
+                                <option value="híbrido" {% if event and event.format == 'híbrido' %}selected{% endif %}>Híbrido</option>
+                            </select>
+                            <p class="form-text small mb-0 mt-1">Si elige <strong>virtual</strong>, la ubicación física se oculta. Con <strong>presencial</strong> o <strong>híbrido</strong> puede completar sede y país.</p>
                         </div>
-                        <div class="row" id="location_fields" {% if event and event.is_virtual %}style="display:none;"{% endif %}>
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Ubicación</label>
+                        <div class="row g-3 mt-1{% if not event or not event.format or event.format == 'virtual' %} d-none{% endif %}" id="location_fields">
+                            <div class="col-12">
+                                <label class="form-label">Ubicación (ciudad o dirección breve)</label>
                                 <input type="text" name="location" class="form-control" value="{{ event.location if event else '' }}">
                             </div>
-                            <div class="col-12 col-md-6 mb-3">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label">País</label>
                                 <input type="text" name="country" class="form-control" value="{{ event.country if event else '' }}">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Venue / sede</label>
+                                <input type="text" name="venue" class="form-control" value="{{ event.venue if event else '' }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Universidad o institución</label>
+                                <input type="text" name="university" class="form-control" value="{{ event.university if event else '' }}">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Precios y Descuentos -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-dollar-sign"></i> Precios y Descuentos</h5>
+                <!-- 3. Precio y comercial -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 mb-0 fw-semibold">Precio y comercial</h2>
+                        <p class="small text-muted mb-0 mt-1">El precio base se aplica <strong>antes</strong> de los descuentos por membresía.</p>
                     </div>
                     <div class="card-body">
-                        <div class="alert alert-info mb-3">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Importante:</strong> Todos los usuarios registrados pueden acceder a este evento/servicio. 
-                            El precio base se aplica a todos, pero puedes configurar descuentos específicos por tipo de membresía 
-                            (Básico, Pro, Premium, DeLuxe) desde la sección de descuentos.
-                        </div>
-                        <div class="row">
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Precio Base</label>
-                                <input type="number" name="base_price" class="form-control" step="0.01" value="{{ event.base_price if event else '0.00' }}" placeholder="0.00">
-                                <small class="form-text text-muted">Precio estándar que se aplica a todos los usuarios. Use 0.00 para eventos gratuitos.</small>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-medium">Precio base</label>
+                                <input type="number" name="base_price" class="form-control" step="0.01" min="0" value="{{ event.base_price if event is not none else '0' }}" placeholder="0.00">
+                                <p class="form-text small mb-0">Puede ser 0 (gratis). Luego se aplican descuentos del catálogo.</p>
                             </div>
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Moneda</label>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-medium">Moneda</label>
                                 <select name="currency" class="form-select">
-                                    <option value="USD" {% if event and event.currency == 'USD' %}selected{% endif %}>USD</option>
+                                    <option value="USD" {% if not event or event.currency == 'USD' or not event.currency %}selected{% endif %}>USD</option>
                                     <option value="PAB" {% if event and event.currency == 'PAB' %}selected{% endif %}>PAB</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Descuentos Aplicables por Tipo de Membresía</label>
-                            <select name="discount_ids" class="form-select" multiple size="6">
-                                {% for discount in discounts %}
-                                <option value="{{ discount.id }}" 
-                                        {% if event and discount.id in (event.discounts|map(attribute='discount_id')|list) %}selected{% endif %}>
-                                    {{ discount.name }} 
-                                    {% if discount.membership_tier %}({{ discount.membership_tier|upper }}){% endif %}
-                                    - {{ discount.value }}{{ '%' if discount.discount_type == 'percentage' else ' ' + (event.currency if event else 'USD') }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <small class="form-text text-muted">
-                                Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples descuentos. 
-                                Los descuentos se aplican automáticamente según el tipo de membresía del usuario. 
-                                <a href="{{ url_for('admin_events.discounts_index') }}" target="_blank">Gestionar descuentos</a>
-                            </small>
-                        </div>
+                        <hr class="text-secondary opacity-25 my-4">
+                        <span class="form-label fw-medium d-block mb-2">Descuentos aplicables a este evento</span>
+                        <p class="small text-muted mb-3">Definidos en el <a href="{{ url_for('admin_events.discounts_index') }}">catálogo</a>. Aquí solo vincula cuáles aplica; el porcentaje no se edita en esta pantalla.</p>
+                        {% set selected_ids = (event.discounts|map(attribute='discount_id')|list) if event else [] %}
+                        {% if discounts %}
+                        <ul class="list-group list-group-flush border rounded-2 small">
+                            {% for discount in discounts %}
+                            <li class="list-group-item d-flex align-items-center gap-2 py-2">
+                                <input class="form-check-input flex-shrink-0 mt-0" type="checkbox" name="discount_ids" value="{{ discount.id }}"
+                                       id="disc_{{ discount.id }}"
+                                       {% if discount.id in selected_ids %}checked{% endif %}>
+                                <label class="form-check-label mb-0 flex-grow-1" for="disc_{{ discount.id }}">
+                                    <span class="fw-medium">{{ discount.name }}</span>
+                                    <span class="text-muted">
+                                        — {% if discount.discount_type == 'percentage' %}{{ (discount.value or 0)|int }}%{% else %}{{ discount.value }} {{ event.currency if event else 'USD' }}{% endif %}
+                                        {% if discount.membership_tier %}
+                                        <span class="badge text-bg-light border ms-1 text-uppercase">{{ discount.membership_tier }}</span>
+                                        {% endif %}
+                                    </span>
+                                </label>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted small mb-0">Aún no hay descuentos. <a href="{{ url_for('admin_events.create_discount') }}">Crear</a> o <a href="{{ url_for('admin_events.discounts_index') }}">ver listado</a>.</p>
+                        {% endif %}
                     </div>
                 </div>
 
-                <!-- Imágenes -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-images"></i> Imágenes</h5>
+                <!-- 4. Imágenes -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 mb-0 fw-semibold">Imágenes</h2>
+                        <p class="small text-muted mb-0 mt-1">Portada y galería para la ficha pública.</p>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">Imagen de Portada</label>
+                            <label class="form-label fw-medium">Imagen de portada</label>
                             {% if event and event.cover_image %}
                             <div class="mb-2">
-                                <img src="{{ event.cover_image }}" alt="Portada" class="img-thumbnail" style="max-height: 200px;" loading="lazy" decoding="async">
+                                <img src="{{ event.cover_url() }}" alt="Portada" class="img-thumbnail rounded-2" style="max-height: 200px; object-fit: contain; background: #f8f9fa;" loading="lazy" decoding="async">
                                 <div class="form-check mt-2">
                                     <input type="checkbox" name="remove_cover" class="form-check-input" id="remove_cover">
                                     <label class="form-check-label" for="remove_cover">Eliminar imagen actual</label>
@@ -150,19 +171,19 @@
                             {% endif %}
                             <input type="file" name="cover_image" class="form-control" accept="image/*">
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Imágenes de Galería</label>
+                        <div class="mb-0">
+                            <label class="form-label fw-medium">Galería</label>
                             <input type="file" name="gallery_images" class="form-control" accept="image/*" multiple>
                             {% if event and event.images %}
                             <div class="mt-3">
-                                <h6>Imágenes Actuales:</h6>
-                                <div class="row">
+                                <span class="form-label d-block small text-muted">Actuales</span>
+                                <div class="row g-2">
                                     {% for image in event.images %}
-                                    <div class="col-12 col-md-3 mb-2">
-                                        <img src="{{ image.file_path }}" alt="Galería" class="img-thumbnail" style="max-height: 100px;" loading="lazy" decoding="async">
-                                        <div class="form-check">
+                                    <div class="col-6 col-md-4 col-lg-3">
+                                        <img src="{{ image.public_file_url }}" alt="" class="img-thumbnail rounded-2 w-100" style="max-height: 100px; object-fit: contain; background: #f8f9fa;" loading="lazy" decoding="async">
+                                        <div class="form-check mt-1">
                                             <input type="checkbox" name="delete_images" value="{{ image.id }}" class="form-check-input" id="delete_{{ image.id }}">
-                                            <label class="form-check-label" for="delete_{{ image.id }}">Eliminar</label>
+                                            <label class="form-check-label small" for="delete_{{ image.id }}">Eliminar</label>
                                         </div>
                                     </div>
                                     {% endfor %}
@@ -172,168 +193,269 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 5. Certificado (destacado como “feature”) -->
+                <div class="card border border-primary border-2 shadow-sm mb-4" id="certificate_feature_card">
+                    <div class="card-header bg-primary bg-opacity-10 border-bottom border-primary border-opacity-25 py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <div>
+                            <h2 class="h5 mb-0 fw-semibold">Certificación</h2>
+                            <p class="small text-muted mb-0 mt-1">Relevante para participantes (Relatic y seguimiento académico).</p>
+                        </div>
+                        <span class="badge text-bg-primary rounded-pill d-none d-sm-inline">Certificado</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <input type="checkbox" name="has_certificate" class="form-check-input" role="switch" id="has_certificate"
+                                   {% if event and event.has_certificate %}checked{% endif %}>
+                            <label class="form-check-label fw-medium" for="has_certificate">Este evento incluye certificado</label>
+                        </div>
+                        <div id="certificate_fields_wrap"{% if not event or not event.has_certificate %} class="d-none"{% endif %}>
+                            <div class="mb-3">
+                                <label class="form-label fw-medium">Instrucciones</label>
+                                <textarea name="certificate_instructions" class="form-control" rows="3" placeholder="Cómo obtiene el participante su certificado">{{ event.certificate_instructions if event else '' }}</textarea>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label fw-medium">Plantilla o referencia</label>
+                                <input type="text" name="certificate_template" class="form-control" maxlength="500" value="{{ event.certificate_template if event else '' }}" placeholder="Ruta, nombre o ID (opcional)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Contacto -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 mb-0 fw-semibold">Contacto</h2>
+                        <p class="small text-muted mb-0 mt-1">Canales para consultas; la URL externa es opcional (alternativa al registro interno).</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-medium">Email</label>
+                                <input type="email" name="contact_email" class="form-control" value="{{ event.contact_email if event else '' }}">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-medium">Teléfono</label>
+                                <input type="text" name="contact_phone" class="form-control" value="{{ event.contact_phone if event else '' }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-medium">URL de registro externa</label>
+                                <input type="text" name="registration_url" class="form-control" value="{{ event.registration_url if event else '' }}" inputmode="url" autocomplete="off" placeholder="https://... (opcional)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="col-12 col-md-4">
-                <!-- Configuración -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-cog"></i> Configuración</h5>
+            <!-- ——— Columna de control (30% en desktop): publicación, clasificación, cupo, roles ——— -->
+            <div class="col-12 event-form-side-col">
+                <div class="sticky-lg-top" style="z-index: 1; top: 1rem;">
+                <!-- 1. Publicación -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 text-uppercase text-secondary fw-semibold letter-spacing mb-0">Publicación</h2>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">Categoría</label>
-                            <input type="text" name="category" class="form-control" value="{{ event.category if event else 'general' }}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Formato</label>
-                            <select name="format" class="form-select">
-                                <option value="virtual" {% if event and event.format == 'virtual' %}selected{% endif %}>Virtual</option>
-                                <option value="presencial" {% if event and event.format == 'presencial' %}selected{% endif %}>Presencial</option>
-                                <option value="híbrido" {% if event and event.format == 'híbrido' %}selected{% endif %}>Híbrido</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tags</label>
-                            <input type="text" name="tags" class="form-control" value="{{ event.tags if event else '' }}" placeholder="tag1, tag2, tag3">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Visibilidad</label>
-                            <select name="visibility" class="form-select">
-                                <option value="members" {% if event and event.visibility == 'members' %}selected{% endif %}>Solo Usuarios Registrados</option>
-                                <option value="public" {% if event and event.visibility == 'public' %}selected{% endif %}>Público (sin registro requerido)</option>
-                            </select>
-                            <small class="form-text text-muted">"Solo Usuarios Registrados" permite acceso a todos los usuarios con cuenta, independientemente de su tipo de membresía. Los precios y descuentos se calculan según su membresía.</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Estado de Publicación</label>
+                            <label class="form-label fw-medium">Estado</label>
                             <select name="publish_status" class="form-select">
-                                <option value="draft" {% if event and event.publish_status == 'draft' %}selected{% endif %}>Borrador</option>
+                                <option value="draft" {% if not event or event.publish_status == 'draft' or not event.publish_status %}selected{% endif %}>Borrador</option>
                                 <option value="published" {% if event and event.publish_status == 'published' %}selected{% endif %}>Publicado</option>
                                 <option value="archived" {% if event and event.publish_status == 'archived' %}selected{% endif %}>Archivado</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="featured" class="form-check-input" id="featured" 
-                                       {% if event and event.featured %}checked{% endif %}>
-                                <label class="form-check-label" for="featured">Evento Destacado</label>
-                            </div>
+                            <label class="form-label fw-medium">Visibilidad</label>
+                            <select name="visibility" class="form-select">
+                                <option value="public" {% if event and event.visibility == 'public' %}selected{% endif %}>Público</option>
+                                <option value="members" {% if not event or event.visibility == 'members' or not event.visibility %}selected{% endif %}>Solo miembros</option>
+                            </select>
                         </div>
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="has_certificate" class="form-check-input" id="has_certificate" 
-                                       {% if event and event.has_certificate %}checked{% endif %}>
-                                <label class="form-check-label" for="has_certificate">Incluye Certificado</label>
-                            </div>
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="featured" class="form-check-input" id="featured"
+                                   {% if event and event.featured %}checked{% endif %}>
+                            <label class="form-check-label" for="featured">Evento destacado</label>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Capacidad</label>
-                            <input type="number" name="capacity" class="form-control" value="{{ event.capacity if event else '0' }}" min="0">
+                        <div class="form-check mb-0">
+                            <input type="checkbox" name="notify_members_on_publish" class="form-check-input" id="notify_members_on_publish" value="1">
+                            <label class="form-check-label" for="notify_members_on_publish">Notificar a miembros al publicar</label>
+                            <p class="form-text small mb-0">Solo surte efecto al <strong>guardar</strong> con estado <strong>Publicado</strong> (o al pasar de borrador a publicado). No se envía nada si no marcas esta casilla.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Roles del Evento -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-users-cog"></i> Roles del Evento</h5>
+                <!-- 2. Clasificación -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 text-uppercase text-secondary fw-semibold letter-spacing mb-0">Clasificación</h2>
                     </div>
                     <div class="card-body">
-                        <div class="alert alert-info mb-3">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <small>Los usuarios asignados a estos roles recibirán notificaciones de todos los movimientos del evento (registros, cancelaciones, confirmaciones).</small>
-                        </div>
                         <div class="mb-3">
-                            <label class="form-label">Moderador</label>
-                            <select name="moderator_id" class="form-select">
-                                <option value="">Seleccionar moderador...</option>
+                            <label class="form-label fw-medium">Categoría</label>
+                            <input type="text" name="category" class="form-control" value="{{ event.category if event else 'general' }}">
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label fw-medium">Tags</label>
+                            <input type="text" name="tags" class="form-control" value="{{ event.tags if event else '' }}" placeholder="tag1, tag2">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Capacidad -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 text-uppercase text-secondary fw-semibold letter-spacing mb-0">Capacidad</h2>
+                    </div>
+                    <div class="card-body">
+                        <label class="form-label fw-medium">Cupo máximo</label>
+                        <input type="number" name="capacity" class="form-control" value="{{ event.capacity if event is not none else 0 }}" min="0" step="1">
+                        <p class="form-text small mb-0">0 = sin límite. Mayor que 0 aplica tope de inscripciones.</p>
+                    </div>
+                </div>
+
+                <!-- 4. Responsables -->
+                <div class="card border-0 shadow-sm mb-0">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 text-uppercase text-secondary fw-semibold letter-spacing mb-0">Responsables</h2>
+                        <p class="small text-muted mb-0 mt-1">Notificaciones y operación. No reemplazan al creador.</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-0">Moderador</label>
+                            <select name="moderator_id" class="form-select form-select-sm">
+                                <option value="">—</option>
                                 {% for user in users if users %}
                                 <option value="{{ user.id }}" {% if event and event.moderator_id == user.id %}selected{% endif %}>
                                     {{ user.first_name }} {{ user.last_name }} ({{ user.email }})
                                 </option>
                                 {% endfor %}
                             </select>
-                            <small class="form-text text-muted">Usuario responsable de moderar el evento</small>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Administrador del Evento</label>
-                            <select name="administrator_id" class="form-select">
-                                <option value="">Seleccionar administrador...</option>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-0">Admin. del evento</label>
+                            <select name="administrator_id" class="form-select form-select-sm">
+                                <option value="">—</option>
                                 {% for user in users if users %}
                                 <option value="{{ user.id }}" {% if event and event.administrator_id == user.id %}selected{% endif %}>
                                     {{ user.first_name }} {{ user.last_name }} ({{ user.email }})
                                 </option>
                                 {% endfor %}
                             </select>
-                            <small class="form-text text-muted">Usuario responsable de administrar el evento</small>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Expositor/Conferencista Principal</label>
-                            <select name="speaker_id" class="form-select">
-                                <option value="">Seleccionar expositor...</option>
+                        <div class="mb-0">
+                            <label class="form-label small text-muted mb-0">Expositor</label>
+                            <select name="speaker_id" class="form-select form-select-sm">
+                                <option value="">—</option>
                                 {% for user in users if users %}
                                 <option value="{{ user.id }}" {% if event and event.speaker_id == user.id %}selected{% endif %}>
                                     {{ user.first_name }} {{ user.last_name }} ({{ user.email }})
                                 </option>
                                 {% endfor %}
                             </select>
-                            <small class="form-text text-muted">Conferencista o expositor principal del evento</small>
                         </div>
                     </div>
                 </div>
-
-                <!-- Contacto -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-envelope"></i> Contacto</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Email de Contacto</label>
-                            <input type="email" name="contact_email" class="form-control" value="{{ event.contact_email if event else '' }}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Teléfono de Contacto</label>
-                            <input type="text" name="contact_phone" class="form-control" value="{{ event.contact_phone if event else '' }}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">URL de Registro</label>
-                            <input type="url" name="registration_url" class="form-control" value="{{ event.registration_url if event else '' }}">
-                        </div>
-                    </div>
                 </div>
-
-                <!-- Certificado -->
-                {% if event and event.has_certificate %}
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-certificate"></i> Certificado</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Instrucciones para Certificado</label>
-                            <textarea name="certificate_instructions" class="form-control" rows="4">{{ event.certificate_instructions if event else '' }}</textarea>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
 
-        <!-- Botones de Acción -->
-        <div class="row">
+        <!-- Configuración avanzada, ancho completo, debajo de las columnas -->
+        <div class="row g-4 mt-1">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-secondary">
-                                <i class="fas fa-times"></i> Cancelar
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> {{ 'Actualizar' if action == 'edit' else 'Crear' }} Evento
-                            </button>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-light border-0 p-0 rounded-2">
+                        <button class="btn btn-link text-decoration-none w-100 py-3 px-3 d-flex align-items-center justify-content-between text-start rounded-2" type="button" data-bs-toggle="collapse" data-bs-target="#advanced_event_settings" aria-expanded="false" aria-controls="advanced_event_settings" id="advanced_event_toggle">
+                            <span>
+                                <i class="fas fa-sliders-h me-2 text-secondary"></i>
+                                <span class="fw-semibold">Configuración avanzada</span>
+                                <span class="d-block small text-muted fw-normal mt-1">Kahoot, pasos del flujo, entregables. Opcional.</span>
+                            </span>
+                            <i class="fas fa-chevron-down small text-secondary collapse-chevron"></i>
+                        </button>
+                    </div>
+                    <div id="advanced_event_settings" class="collapse">
+                        <div class="card-body border-top pt-4">
+                            <!-- Kahoot (type=text: type=url + panel colapsado = validación rota; nunca value="None") -->
+                            <div class="mb-4">
+                                <h3 class="h6 fw-semibold border-bottom pb-2 mb-3">Kahoot</h3>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" name="kahoot_enabled" class="form-check-input" id="kahoot_enabled" {% if event and event.kahoot_enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="kahoot_enabled">Habilitado</label>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Link</label>
+                                    <input type="text" name="kahoot_link" class="form-control" id="kahoot_link_input"
+                                           value="{% if event and event.kahoot_link and event.kahoot_link|trim|lower not in ['none', 'null', 'undefined', ''] %}{{ event.kahoot_link|trim }}{% endif %}"
+                                           inputmode="url" autocomplete="off" placeholder="https://… (opcional)">
+                                </div>
+                                <script>
+                                (function() {
+                                    var i = document.getElementById('kahoot_link_input');
+                                    if (!i) return;
+                                    if (i.type === 'url') { i.setAttribute('type', 'text'); }
+                                    if (i.value && ['none', 'null', 'undefined'].indexOf(String(i.value).trim().toLowerCase()) >= 0) { i.value = ''; }
+                                })();
+                                </script>
+                                <div class="form-check">
+                                    <input type="checkbox" name="kahoot_required" class="form-check-input" id="kahoot_required" {% if event and event.kahoot_required %}checked{% endif %}>
+                                    <label class="form-check-label" for="kahoot_required">Obligatorio</label>
+                                </div>
+                            </div>
+                            <!-- Pasos del evento -->
+                            <div class="mb-4">
+                                <h3 class="h6 fw-semibold border-bottom pb-2 mb-3">Pasos del evento</h3>
+                                <p class="small text-muted mb-2">Checklist interno: agenda, descripción, publicidad, certificación, Kahoot.</p>
+                                <div class="form-check">
+                                    <input type="checkbox" name="step_1_event_completed" class="form-check-input" id="step_1" {% if event and event.step_1_event_completed %}checked{% endif %}>
+                                    <label class="form-check-label" for="step_1">Paso 1: Evento / agenda</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" name="step_2_description_completed" class="form-check-input" id="step_2" {% if event and event.step_2_description_completed %}checked{% endif %}>
+                                    <label class="form-check-label" for="step_2">Paso 2: Descripción / instrucciones</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" name="step_3_publicity_completed" class="form-check-input" id="step_3" {% if event and event.step_3_publicity_completed %}checked{% endif %}>
+                                    <label class="form-check-label" for="step_3">Paso 3: Publicidad / difusión</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" name="step_4_certificate_completed" class="form-check-input" id="step_4" {% if event and event.step_4_certificate_completed %}checked{% endif %}>
+                                    <label class="form-check-label" for="step_4">Paso 4: Certificación</label>
+                                </div>
+                                <div class="form-check mb-0">
+                                    <input type="checkbox" name="step_5_kahoot_completed" class="form-check-input" id="step_5" {% if event and event.step_5_kahoot_completed %}checked{% endif %}>
+                                    <label class="form-check-label" for="step_5">Paso 5: Kahoot</label>
+                                </div>
+                            </div>
+                            <!-- Entregables -->
+                            <div>
+                                <h3 class="h6 fw-semibold border-bottom pb-2 mb-3">Entregables</h3>
+                                <div class="form-check">
+                                    <input type="checkbox" name="generates_poster" class="form-check-input" id="generates_poster" {% if event and event.generates_poster %}checked{% endif %}>
+                                    <label class="form-check-label" for="generates_poster">Póster</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" name="generates_magazine" class="form-check-input" id="generates_magazine" {% if event and event.generates_magazine %}checked{% endif %}>
+                                    <label class="form-check-label" for="generates_magazine">Revista</label>
+                                </div>
+                                <div class="form-check mb-0">
+                                    <input type="checkbox" name="generates_book" class="form-check-input" id="generates_book" {% if event and event.generates_book %}checked{% endif %}>
+                                    <label class="form-check-label" for="generates_book">Libro</label>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                        <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary btn-lg px-4">
+                            <i class="fas fa-save me-1"></i> {{ 'Guardar cambios' if action == 'edit' else 'Crear evento' }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -342,15 +464,75 @@
 </div>
 
 <script>
-document.getElementById('is_virtual').addEventListener('change', function() {
-    const locationFields = document.getElementById('location_fields');
-    if (this.checked) {
-        locationFields.style.display = 'none';
+(function() {
+  const formatEl = document.getElementById('event_format');
+  const locationBlock = document.getElementById('location_fields');
+  const certChk = document.getElementById('has_certificate');
+  const certWrap = document.getElementById('certificate_fields_wrap');
+  const startEl = document.getElementById('start_date');
+  const endEl = document.getElementById('end_date');
+  const form = document.getElementById('event_admin_form');
+  const advCollapse = document.getElementById('advanced_event_settings');
+  const chev = document.querySelector('.collapse-chevron');
+
+  function syncLocationVisibility() {
+    if (!formatEl || !locationBlock) return;
+    const v = (formatEl.value || 'virtual');
+    if (v === 'virtual') {
+      locationBlock.classList.add('d-none');
     } else {
-        locationFields.style.display = 'block';
+      locationBlock.classList.remove('d-none');
     }
-});
+  }
+
+  function syncCertificateFields() {
+    if (!certChk || !certWrap) return;
+    if (certChk.checked) {
+      certWrap.classList.remove('d-none');
+    } else {
+      certWrap.classList.add('d-none');
+    }
+  }
+
+  if (formatEl) {
+    formatEl.addEventListener('change', syncLocationVisibility);
+    syncLocationVisibility();
+  }
+  if (certChk) {
+    certChk.addEventListener('change', syncCertificateFields);
+    syncCertificateFields();
+  }
+  if (form && startEl && endEl) {
+    form.addEventListener('submit', function(e) {
+      if (!startEl.value || !endEl.value) return;
+      const s = new Date(startEl.value);
+      const t = new Date(endEl.value);
+      if (t <= s) {
+        e.preventDefault();
+        alert('La fecha y hora de fin debe ser posterior a la de inicio.');
+      }
+    });
+  }
+  if (advCollapse && chev) {
+    advCollapse.addEventListener('show.bs.collapse', function() { chev.classList.add('fa-chevron-up'); chev.classList.remove('fa-chevron-down'); });
+    advCollapse.addEventListener('hide.bs.collapse', function() { chev.classList.add('fa-chevron-down'); chev.classList.remove('fa-chevron-up'); });
+  }
+})();
 </script>
+<style>
+.event-admin-form .letter-spacing { letter-spacing: .04em; }
+/* Layout 70 / 30 a partir de lg (992px), encima de md apilado */
+@media (min-width: 992px) {
+  .event-admin-form .event-form-main-col {
+    flex: 0 0 70% !important;
+    max-width: 70% !important;
+    min-width: 0;
+  }
+  .event-admin-form .event-form-side-col {
+    flex: 0 0 30% !important;
+    max-width: 30% !important;
+    min-width: 0;
+  }
+}
+</style>
 {% endblock %}
-
-

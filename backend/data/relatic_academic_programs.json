@@ -1,0 +1,95 @@
+[
+  {
+    "name": "Curso de redacción científica y publicación en revistas científicas",
+    "slug": "curso-redaccion-cientifica-publicacion-revistas",
+    "program_type": "curso",
+    "category": "Relatic",
+    "short_description": "Dirigido a autores de artículos científicos y editores de revistas. Fortalecé tu perfil académico y publicá con éxito.",
+    "long_description": "Dirigido a autores de artículos científicos y editores de revistas. Fortalecé tu perfil académico y publicá con éxito. Formato híbrida (virtual y acompañamiento en plataforma).",
+    "modality": "Híbrida (virtual + acompañamiento)",
+    "duration_text": "18 May 2026, 19:00 → 08 Jun 2026, 21:00",
+    "hours": null,
+    "language": "Español",
+    "image_url": "https://abril26.relatic.org/images/curso-redaccion-cientifica-publicacion.png",
+    "flyer_url": "",
+    "price_from": 0,
+    "currency": "USD",
+    "status": "published",
+    "current_button_url": "https://apps.relatic.org/inscripcion/curso-redaccion-cientifica-publicacion-revistas?utm_source=landing&utm_campaign=abril26",
+    "pricing_plans": [
+      {
+        "name": "Inscripción",
+        "code": "inscripcion",
+        "currency": "USD",
+        "total_amount": 0,
+        "installment_count": 1,
+        "installment_amount": 0,
+        "description": "Registro al programa",
+        "is_active": true,
+        "sort_order": 10
+      }
+    ]
+  },
+  {
+    "name": "Curso de análisis de datos para investigación",
+    "slug": "curso-analisis-datos-investigacion",
+    "program_type": "curso",
+    "category": "Relatic",
+    "short_description": "Bloques modulares para pasar de datos a argumentos interpretables y defendibles.",
+    "long_description": "Bloques modulares para pasar de datos a argumentos interpretables y defendibles. Seis semanas, online asíncrono con aulas en vivo.",
+    "modality": "Online asíncrono + aulas en vivo",
+    "duration_text": "6 semanas",
+    "hours": null,
+    "language": "Español",
+    "image_url": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1400&q=80",
+    "flyer_url": "",
+    "price_from": 0,
+    "currency": "USD",
+    "status": "published",
+    "current_button_url": "https://apps.relatic.org/inscripcion/curso-analisis-datos-investigacion?utm_source=landing&utm_campaign=abril26",
+    "pricing_plans": [
+      {
+        "name": "Inscripción",
+        "code": "inscripcion",
+        "currency": "USD",
+        "total_amount": 0,
+        "installment_count": 1,
+        "installment_amount": 0,
+        "description": "Registro al programa",
+        "is_active": true,
+        "sort_order": 10
+      }
+    ]
+  },
+  {
+    "name": "Curso de fundamentos de ética en investigación",
+    "slug": "curso-fundamentos-etica-investigacion",
+    "program_type": "curso",
+    "category": "Relatic",
+    "short_description": "Criterios, consentimientos y riesgo mínimo para proyectos con sujetos humanos.",
+    "long_description": "Criterios, consentimientos y riesgo mínimo para proyectos con sujetos humanos. Cuatro semanas, online en vivo.",
+    "modality": "Online en vivo",
+    "duration_text": "4 semanas",
+    "hours": null,
+    "language": "Español",
+    "image_url": "https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=1400&q=80",
+    "flyer_url": "",
+    "price_from": 0,
+    "currency": "USD",
+    "status": "published",
+    "current_button_url": "https://apps.relatic.org/inscripcion/curso-fundamentos-etica-investigacion?utm_source=landing&utm_campaign=abril26",
+    "pricing_plans": [
+      {
+        "name": "Inscripción",
+        "code": "inscripcion",
+        "currency": "USD",
+        "total_amount": 0,
+        "installment_count": 1,
+        "installment_amount": 0,
+        "description": "Registro al programa",
+        "is_active": true,
+        "sort_order": 10
+      }
+    ]
+  }
+]

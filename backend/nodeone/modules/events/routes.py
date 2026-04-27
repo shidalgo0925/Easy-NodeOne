@@ -122,6 +122,11 @@ def _parse_datetime(field_name: str):
         return None
 
 
+def _is_virtual_from_event_format(format_val: str) -> bool:
+    """Sincroniza is_virtual con el desplegable: solo virtual = True."""
+    return (format_val or 'virtual').strip() == 'virtual'
+
+
 def _uploads_dir():
     folder = os.path.join(current_app.root_path, '..', 'static', 'uploads', 'events')
     os.makedirs(folder, exist_ok=True)
@@ -201,7 +206,7 @@ def _serialize_event(event, membership_type=None):
         'start_date': event.start_date.isoformat() if event.start_date else None,
         'end_date': event.end_date.isoformat() if event.end_date else None,
         'registration_deadline': event.registration_deadline.isoformat() if event.registration_deadline else None,
-        'cover_image': event.cover_url(),
+        'cover_image': event.cover_url() or '',
         'is_virtual': event.is_virtual,
         'location': event.location,
         'country': event.country,
@@ -231,20 +236,48 @@ admin_events_bp = Blueprint('admin_events', __name__, url_prefix='/admin/events'
 events_api_bp = Blueprint('events_api', __name__, url_prefix='/api/events')
 
 
+def _filter_events_portal_visibility(query):
+    """Público: solo ``visibility=public``. Con sesión: public, members o NULL (legacy)."""
+    from flask_login import current_user
+
+    if not current_user.is_authenticated:
+        return query.filter(Event.visibility == 'public')
+    from sqlalchemy import or_ as _or
+
+    return query.filter(
+        _or(
+            Event.visibility == 'public',
+            Event.visibility == 'members',
+            Event.visibility == None,  # noqa: E711
+        )
+    )
+
+
+def _filter_events_upcoming_published(query):
+    from datetime import datetime
+
+    return query.filter(Event.publish_status == 'published', Event.end_date >= datetime.utcnow())
+
+
 # ------------------------------------------------------------------------------
 # Portal de miembros
 # ------------------------------------------------------------------------------
 @events_bp.route('/')
-@login_required
 def list_events():
     ensure_models()
-    membership = current_user.get_active_membership()
-    membership_type = membership.membership_type if membership else None
+    from flask_login import current_user
+
+    membership = current_user.get_active_membership() if current_user.is_authenticated else None
+    membership_type = membership.membership_type if membership else 'basic'
     status = request.args.get('status', 'published')
+    if not (current_user.is_authenticated and getattr(current_user, 'is_admin', False)):
+        status = 'published'
     category = request.args.get('category', '').strip()
     search = request.args.get('q', '').strip()
 
     query = _scoped_events_query()
+    query = _filter_events_upcoming_published(query)
+    query = _filter_events_portal_visibility(query)
     if status != 'all':
         query = query.filter(Event.publish_status == status)
     if category:
@@ -269,19 +302,26 @@ def list_events():
 
 
 @events_bp.route('/<string:slug>')
-@login_required
 def event_detail(slug):
     ensure_models()
+    from flask_login import current_user
+
     event = _scoped_events_query().filter(Event.slug == slug).first_or_404()
-    membership = current_user.get_active_membership()
-    membership_type = membership.membership_type if membership else None
+    vis = (getattr(event, 'visibility', None) or 'members').strip().lower()
+    if vis == 'members' and not current_user.is_authenticated:
+        flash('Iniciá sesión para ver la información de este evento (solo miembros).', 'info')
+        return redirect(url_for('auth.login', next=request.path))
+    membership = current_user.get_active_membership() if current_user.is_authenticated else None
+    membership_type = membership.membership_type if membership else 'basic'
     pricing = event.pricing_for_membership(membership_type)
     
     # Verificar si el usuario ya está registrado
-    registration = EventRegistration.query.filter_by(
-        event_id=event.id,
-        user_id=current_user.id
-    ).first() if EventRegistration else None
+    registration = None
+    if current_user.is_authenticated and EventRegistration:
+        registration = EventRegistration.query.filter_by(
+            event_id=event.id,
+            user_id=current_user.id
+        ).first()
     
     # Verificar capacidad disponible
     is_full = False
@@ -702,6 +742,8 @@ def api_events():
     membership_type = request.args.get('membership_type')
 
     query = _scoped_events_query()
+    query = _filter_events_upcoming_published(query)
+    query = _filter_events_portal_visibility(query)
     if status != 'all':
         query = query.filter(Event.publish_status == status)
     query = query.order_by(Event.start_date.asc())
@@ -715,7 +757,13 @@ def api_events():
 @events_api_bp.route('/<string:slug>', methods=['GET'])
 def api_event_detail(slug):
     ensure_models()
+    from flask import abort
+    from flask_login import current_user
+
     event = _scoped_events_query().filter(Event.slug == slug).first_or_404()
+    vis = (getattr(event, 'visibility', None) or 'members').strip().lower()
+    if vis == 'members' and not current_user.is_authenticated:
+        abort(401)
     membership_type = request.args.get('membership_type')
     return jsonify({'event': _serialize_event(event, membership_type)})
 
@@ -729,14 +777,44 @@ def admin_events_index():
     ensure_models()
     status = request.args.get('status', 'all')
     category = request.args.get('category', '').strip()
+    q = (request.args.get('q') or request.args.get('search') or '').strip()
+    page = request.args.get('page', 1, type=int) or 1
+    per_page = request.args.get('per_page', 24, type=int) or 24
+    per_page = min(max(per_page, 6), 100)
+    if page < 1:
+        page = 1
 
     query = _scoped_events_query()
     if status != 'all':
         query = query.filter(Event.publish_status == status)
     if category:
         query = query.filter(Event.category == category)
+    if q:
+        like = f'%{q}%'
+        query = query.filter(
+            or_(
+                Event.title.ilike(like),
+                Event.summary.ilike(like),
+                Event.description.ilike(like),
+            )
+        )
 
-    events = query.order_by(Event.start_date.desc()).all()
+    total_filtered = query.count()
+    total_pages = max((total_filtered + per_page - 1) // per_page, 1) if total_filtered else 1
+    if not total_filtered:
+        page = 1
+    elif page > total_pages:
+        page = total_pages
+
+    events = (
+        query.order_by(Event.start_date.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    start_idx = (page - 1) * per_page + 1 if total_filtered else 0
+    end_idx = (page - 1) * per_page + len(events)
+
     scoped_base = _scoped_events_query()
     stats = {
         'total': scoped_base.count(),
@@ -750,7 +828,14 @@ def admin_events_index():
         events=events,
         status=status,
         category=category,
-        stats=stats
+        q=q,
+        page=page,
+        per_page=per_page,
+        total_filtered=total_filtered,
+        total_pages=total_pages,
+        start_idx=start_idx,
+        end_idx=end_idx,
+        stats=stats,
     )
 
 
@@ -822,25 +907,59 @@ def create_event():
             flash('La fecha de fin debe ser posterior a la de inicio.', 'error')
             return redirect(request.url)
 
+        base_price = request.form.get('base_price', type=float)
+        if base_price is None:
+            base_price = 0.0
+        if base_price < 0:
+            flash('El precio base no puede ser negativo.', 'error')
+            return redirect(request.url)
+
+        capacity = request.form.get('capacity', type=int)
+        if capacity is None:
+            capacity = 0
+        if capacity < 0:
+            flash('La capacidad no puede ser negativa.', 'error')
+            return redirect(request.url)
+
+        format_val = request.form.get('format', 'virtual').strip() or 'virtual'
+        is_virtual = _is_virtual_from_event_format(format_val)
+        has_cert = bool(request.form.get('has_certificate'))
+        cert_instr = (request.form.get('certificate_instructions') or '').strip() if has_cert else ''
+        cert_tmpl = (request.form.get('certificate_template') or '').strip() if has_cert else ''
+
         event = Event(
             title=title,
             slug=slug,
             summary=request.form.get('summary', '').strip(),
             description=request.form.get('description', '').strip(),
             category=request.form.get('category', 'general').strip() or 'general',
-            format=request.form.get('format', 'virtual').strip() or 'virtual',
+            format=format_val,
             tags=request.form.get('tags', '').strip(),
-            base_price=request.form.get('base_price', type=float) or 0.0,
+            base_price=base_price,
             currency=request.form.get('currency', 'USD').upper(),
             registration_url=request.form.get('registration_url', '').strip(),
             contact_email=request.form.get('contact_email', '').strip(),
             contact_phone=request.form.get('contact_phone', '').strip(),
             location=request.form.get('location', '').strip(),
             country=request.form.get('country', '').strip(),
-            is_virtual=bool(request.form.get('is_virtual')),
-            has_certificate=bool(request.form.get('has_certificate')),
-            certificate_instructions=request.form.get('certificate_instructions', '').strip(),
-            capacity=request.form.get('capacity', type=int) or 0,
+            venue=request.form.get('venue', '').strip(),
+            university=request.form.get('university', '').strip(),
+            is_virtual=is_virtual,
+            has_certificate=has_cert,
+            certificate_instructions=cert_instr,
+            certificate_template=cert_tmpl,
+            kahoot_enabled=bool(request.form.get('kahoot_enabled')),
+            kahoot_link=(request.form.get('kahoot_link') or '').strip(),
+            kahoot_required=bool(request.form.get('kahoot_required')),
+            step_1_event_completed=bool(request.form.get('step_1_event_completed')),
+            step_2_description_completed=bool(request.form.get('step_2_description_completed')),
+            step_3_publicity_completed=bool(request.form.get('step_3_publicity_completed')),
+            step_4_certificate_completed=bool(request.form.get('step_4_certificate_completed')),
+            step_5_kahoot_completed=bool(request.form.get('step_5_kahoot_completed')),
+            generates_poster=bool(request.form.get('generates_poster')),
+            generates_magazine=bool(request.form.get('generates_magazine')),
+            generates_book=bool(request.form.get('generates_book')),
+            capacity=capacity,
             visibility=request.form.get('visibility', 'members'),
             publish_status=request.form.get('publish_status', 'draft'),
             featured=bool(request.form.get('featured')),
@@ -894,6 +1013,25 @@ def create_event():
             request
         )
         flash('Evento creado correctamente.', 'success')
+        if bool(request.form.get('notify_members_on_publish')) and (event.publish_status or '').lower() == 'published':
+            try:
+                from app import get_current_organization_id
+                from nodeone.services.event_member_notifications import notify_org_members_on_event_publish
+                from nodeone.services.communication_dispatch import request_base_url_optional
+
+                _oidn = int(get_current_organization_id() or 1)
+                bu = request_base_url_optional()
+                sp = f"{bu.rstrip('/')}/events/{event.slug}" if bu and event.slug else None
+                snt, err = notify_org_members_on_event_publish(
+                    event, organization_id=_oidn, public_event_url=sp
+                )
+                flash(
+                    f'Notificación a miembros: {snt} correo(s) encolado(s)/enviado(s)'
+                    f'{"; " + str(err) + " con error" if err else ""}.',
+                    'info' if snt or not err else 'warning',
+                )
+            except Exception:
+                flash('Evento creado; no se pudo completar el envío a miembros (revisar SMTP y logs).', 'warning')
         return redirect(url_for('admin_events.admin_events_index'))
 
     default_start = (datetime.utcnow() + timedelta(days=7)).replace(minute=0, second=0, microsecond=0)
@@ -918,6 +1056,7 @@ def edit_event(event_id):
     discounts = Discount.query.order_by(Discount.name.asc()).all()
 
     if request.method == 'POST':
+        old_publish_status = (event.publish_status or 'draft')
         title = request.form.get('title', '').strip()
         if not title:
             flash('El título es obligatorio.', 'error')
@@ -935,23 +1074,57 @@ def edit_event(event_id):
             flash('La fecha de fin debe ser posterior a la de inicio.', 'error')
             return redirect(request.url)
 
+        base_price = request.form.get('base_price', type=float)
+        if base_price is None:
+            base_price = 0.0
+        if base_price < 0:
+            flash('El precio base no puede ser negativo.', 'error')
+            return redirect(request.url)
+
+        capacity = request.form.get('capacity', type=int)
+        if capacity is None:
+            capacity = 0
+        if capacity < 0:
+            flash('La capacidad no puede ser negativa.', 'error')
+            return redirect(request.url)
+
+        format_val = request.form.get('format', 'virtual').strip() or 'virtual'
+        is_virtual = _is_virtual_from_event_format(format_val)
+        has_cert = bool(request.form.get('has_certificate'))
+        cert_instr = (request.form.get('certificate_instructions') or '').strip() if has_cert else ''
+        cert_tmpl = (request.form.get('certificate_template') or '').strip() if has_cert else ''
+
         event.title = title
         event.summary = request.form.get('summary', '').strip()
         event.description = request.form.get('description', '').strip()
         event.category = request.form.get('category', 'general').strip() or 'general'
-        event.format = request.form.get('format', 'virtual').strip() or 'virtual'
+        event.format = format_val
         event.tags = request.form.get('tags', '').strip()
-        event.base_price = request.form.get('base_price', type=float) or 0.0
+        event.base_price = base_price
         event.currency = request.form.get('currency', 'USD').upper()
         event.registration_url = request.form.get('registration_url', '').strip()
         event.contact_email = request.form.get('contact_email', '').strip()
         event.contact_phone = request.form.get('contact_phone', '').strip()
         event.location = request.form.get('location', '').strip()
         event.country = request.form.get('country', '').strip()
-        event.is_virtual = bool(request.form.get('is_virtual'))
-        event.has_certificate = bool(request.form.get('has_certificate'))
-        event.certificate_instructions = request.form.get('certificate_instructions', '').strip()
-        event.capacity = request.form.get('capacity', type=int) or 0
+        event.venue = request.form.get('venue', '').strip()
+        event.university = request.form.get('university', '').strip()
+        event.is_virtual = is_virtual
+        event.has_certificate = has_cert
+        event.certificate_instructions = cert_instr
+        event.certificate_template = cert_tmpl
+        event.kahoot_enabled = bool(request.form.get('kahoot_enabled'))
+        event.kahoot_link = (request.form.get('kahoot_link') or '').strip()
+        event.kahoot_required = bool(request.form.get('kahoot_required'))
+        event.step_1_event_completed = bool(request.form.get('step_1_event_completed'))
+        event.step_2_description_completed = bool(request.form.get('step_2_description_completed'))
+        event.step_3_publicity_completed = bool(request.form.get('step_3_publicity_completed'))
+        event.step_4_certificate_completed = bool(request.form.get('step_4_certificate_completed'))
+        event.step_5_kahoot_completed = bool(request.form.get('step_5_kahoot_completed'))
+        event.generates_poster = bool(request.form.get('generates_poster'))
+        event.generates_magazine = bool(request.form.get('generates_magazine'))
+        event.generates_book = bool(request.form.get('generates_book'))
+        event.capacity = capacity
         event.visibility = request.form.get('visibility', 'members')
         event.publish_status = request.form.get('publish_status', 'draft')
         event.featured = bool(request.form.get('featured'))
@@ -1026,6 +1199,31 @@ def edit_event(event_id):
             pass
 
         flash('Evento actualizado correctamente.', 'success')
+        _new_pub = (event.publish_status or 'draft').lower()
+        _old_pub = (old_publish_status or 'draft').lower()
+        if (
+            bool(request.form.get('notify_members_on_publish'))
+            and _new_pub == 'published'
+            and _old_pub != 'published'
+        ):
+            try:
+                from app import get_current_organization_id
+                from nodeone.services.event_member_notifications import notify_org_members_on_event_publish
+                from nodeone.services.communication_dispatch import request_base_url_optional
+
+                _oidn = int(get_current_organization_id() or 1)
+                bu = request_base_url_optional()
+                sp = f"{bu.rstrip('/')}/events/{event.slug}" if bu and event.slug else None
+                snt, err = notify_org_members_on_event_publish(
+                    event, organization_id=_oidn, public_event_url=sp
+                )
+                flash(
+                    f'Notificación a miembros: {snt} correo(s)'
+                    f'{"; " + str(err) + " con error" if err else ""}.',
+                    'info' if snt or not err else 'warning',
+                )
+            except Exception:
+                flash('No se pudo completar el envío a miembros (revisar SMTP).', 'warning')
         return redirect(url_for('admin_events.admin_events_index'))
 
     users = _users_for_event_admin_pickers()
@@ -1059,18 +1257,39 @@ def duplicate_event(event_id):
             tags=original.tags,
             base_price=original.base_price,
             currency=original.currency,
+            registration_url=original.registration_url,
+            contact_email=original.contact_email,
+            contact_phone=original.contact_phone,
             location=original.location,
-            virtual_link=original.virtual_link,
+            country=original.country,
+            venue=original.venue,
+            university=original.university,
+            is_virtual=original.is_virtual,
+            has_certificate=original.has_certificate,
+            certificate_instructions=original.certificate_instructions,
+            certificate_template=original.certificate_template,
+            kahoot_enabled=original.kahoot_enabled,
+            kahoot_link=original.kahoot_link,
+            kahoot_required=original.kahoot_required,
+            step_1_event_completed=original.step_1_event_completed,
+            step_2_description_completed=original.step_2_description_completed,
+            step_3_publicity_completed=original.step_3_publicity_completed,
+            step_4_certificate_completed=original.step_4_certificate_completed,
+            step_5_kahoot_completed=original.step_5_kahoot_completed,
+            generates_poster=original.generates_poster,
+            generates_magazine=original.generates_magazine,
+            generates_book=original.generates_book,
             capacity=original.capacity,
-            publish_status='draft',  # Por defecto borrador
-            featured=False,  # No destacar por defecto
+            visibility=getattr(original, 'visibility', None) or 'members',
+            publish_status='draft',
+            featured=False,
             start_date=original.start_date,
             end_date=original.end_date,
             registration_deadline=original.registration_deadline,
             created_by=current_user.id,
             moderator_id=original.moderator_id,
             administrator_id=original.administrator_id,
-            speaker_id=original.speaker_id
+            speaker_id=original.speaker_id,
         )
         
         db.session.add(duplicate)
@@ -1081,7 +1300,7 @@ def duplicate_event(event_id):
             duplicate.cover_image = original.cover_image
         
         # Copiar imágenes de galería
-        for original_image in original.gallery_images:
+        for original_image in original.images:
             db.session.add(EventImage(
                 event_id=duplicate.id,
                 file_path=original_image.file_path,
@@ -1190,15 +1409,19 @@ def create_discount():
             flash('El nombre es obligatorio.', 'error')
             return redirect(request.url)
 
+        cat = request.form.get('category', 'event')
+        tier = request.form.get('membership_tier', '').strip() or None
+        # En eventos, el precio se calcula por plan sin depender de este flag; si hay plan, es "automático" en la práctica.
+        auto_event = bool(tier) if cat == 'event' else bool(request.form.get('applies_automatically'))
         discount = Discount(
             name=name,
             code=request.form.get('code', '').strip() or None,
             description=request.form.get('description', '').strip(),
             discount_type=request.form.get('discount_type', 'percentage'),
             value=request.form.get('value', type=float) or 0.0,
-            membership_tier=request.form.get('membership_tier', '').strip() or None,
-            category=request.form.get('category', 'event'),
-            applies_automatically='applies_automatically' in request.form,
+            membership_tier=tier,
+            category=cat,
+            applies_automatically=auto_event,
             is_active='is_active' in request.form,
             max_uses=request.form.get('max_uses', type=int),
             start_date=_parse_datetime('start_date'),
@@ -1234,8 +1457,13 @@ def edit_discount(discount_id):
         discount.discount_type = request.form.get('discount_type', 'percentage')
         discount.value = request.form.get('value', type=float) or 0.0
         discount.membership_tier = request.form.get('membership_tier', '').strip() or None
-        discount.category = request.form.get('category', 'event')
-        discount.applies_automatically = 'applies_automatically' in request.form
+        cat = request.form.get('category', 'event')
+        discount.category = cat
+        discount.applies_automatically = (
+            bool(discount.membership_tier)
+            if cat == 'event'
+            else bool(request.form.get('applies_automatically'))
+        )
         discount.is_active = 'is_active' in request.form
         discount.max_uses = request.form.get('max_uses', type=int)
         discount.start_date = _parse_datetime('start_date')

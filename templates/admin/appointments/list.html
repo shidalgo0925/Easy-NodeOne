@@ -200,6 +200,7 @@
                     <thead>
                         <tr>
                             <th>Referencia</th>
+                            <th class="text-end">Ver</th>
                             <th>Miembro</th>
                             <th>Servicio / Asesor</th>
                             <th>Fecha</th>
@@ -211,6 +212,9 @@
                         {% for appointment in pending_appointments %}
                         <tr>
                             <td>{{ appointment.reference }}</td>
+                            <td class="text-end">
+                                <a href="{{ url_for('admin_appointments.admin_appointment_detail', appointment_id=appointment.id) }}" class="btn btn-sm btn-outline-secondary">Detalle</a>
+                            </td>
                             <td>{{ appointment.user.first_name }} {{ appointment.user.last_name }}</td>
                             <td>
                                 {{ appointment.appointment_type.name }}<br>
@@ -231,11 +235,18 @@
                                         <i class="fas fa-times"></i> Cancelar
                                     </button>
                                 </form>
+                                {% if appointment.service_id %}
+                                <form action="{{ url_for('admin_appointments.admin_create_quotation_from_appointment', appointment_id=appointment.id) }}" method="post" class="d-inline ms-1">
+                                    <button type="submit" class="btn btn-sm btn-outline-info" title="Crear borrador en Ventas ligado al servicio de catálogo">
+                                        <i class="fas fa-file-invoice-dollar"></i> Crear cotización
+                                    </button>
+                                </form>
+                                {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">No hay citas pendientes.</td>
+                            <td colspan="7" class="text-center py-4 text-muted">No hay citas pendientes.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

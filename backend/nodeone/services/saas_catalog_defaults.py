@@ -288,8 +288,9 @@ def ensure_saas_catalog_full(printfn=None) -> None:
     ensure_academic_module_dependency(printfn=printfn)
     ensure_sales_org_module_links(printfn=printfn)
     ensure_toggleable_tenant_module_links(printfn=printfn)
-    ensure_workshop_org_modules_on(printfn=printfn)
-    ensure_academic_org_modules_on(printfn=printfn)
+    # No llamar ensure_workshop_org_modules_on / ensure_academic_org_modules_on aquí:
+    # forzaban enabled=True en cada arranque y anulaban lo apagado en Admin → Módulos por org.
+    # Los toggles viven en saas_org_module; si hace falta re-migrar, ejecutar esas funciones a mano o vía script.
 
 
 def apply_platform_org_allowlist(printfn=None) -> None:

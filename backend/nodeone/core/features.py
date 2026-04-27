@@ -208,6 +208,16 @@ def register_admin_analytics_routes(app):
         _register(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar rutas analytics: {e}')
+
+
+def register_admin_service_metrics_routes(app):
+    """GET /admin/metrics/services — KPIs de flujo comercial (servicios, requests, citas, ventas)."""
+    try:
+        from nodeone.modules.admin_metrics.routes import register_admin_service_metrics_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar métricas /admin/metrics/services: {e}')
         # Fallback: evita 404/500 si alguien navega manualmente a /admin/analytics
         # en despliegues donde el módulo analytics no está presente.
         try:
@@ -659,6 +669,18 @@ def register_member_pages_blueprint(app):
         print(f'Warning: No se pudo registrar member_pages_bp: {e}')
 
 
+def register_academic_enrollment_admin_blueprint(app):
+    if os.environ.get('NODEONE_SKIP_ACADEMIC_ENROLLMENT_ADMIN', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.academic_enrollment.admin_routes import academic_enrollment_admin_bp
+
+        if 'academic_enrollment_admin' not in app.blueprints:
+            app.register_blueprint(academic_enrollment_admin_bp)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar academic_enrollment_admin_bp: {e}')
+
+
 def register_payments_blueprint(app):
     if os.environ.get('NODEONE_SKIP_PAYMENTS_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -848,6 +870,7 @@ def register_modules(app):
     register_saas_admin_blueprint(app)
     register_admin_crm_routes(app)
     register_admin_analytics_routes(app)
+    register_admin_service_metrics_routes(app)
     register_admin_sales_accounting_routes(app)
     register_admin_workshop_pages(app)
     register_admin_notifications_identity_routes(app)
@@ -877,6 +900,7 @@ def register_modules(app):
     register_member_pages_blueprint(app)
     register_policies_blueprint(app)
     register_payments_blueprint(app)
+    register_academic_enrollment_admin_blueprint(app)
     register_payments_checkout_blueprint(app)
     register_payments_admin_blueprint(app)
     register_admin_export_blueprint(app)

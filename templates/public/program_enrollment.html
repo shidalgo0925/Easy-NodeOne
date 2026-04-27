@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Inscripción — {{ program.name }} — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  .pe-checkout-landing { --pe-navy: #1a2744; --pe-gold: #c9a227; --pe-green: #0f766e; --pe-bg: #f4f6f9; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--pe-bg); margin: -1rem -0.5rem 0; padding: 1.5rem 0.75rem 2.5rem; }
+  .pe-checkout-grid { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+  @media (min-width: 900px) { .pe-checkout-grid { grid-template-columns: 38% 1fr; gap: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 40px rgba(26,39,68,.12); } }
+  .pe-checkout-summary { background: linear-gradient(165deg, #0d5c56 0%, var(--pe-green) 45%, #0a4f4a 100%); color: #fff; padding: 1.5rem 1.35rem; }
+  .pe-checkout-summary h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 .35rem; opacity: .95; }
+  .pe-checkout-summary .pe-title { font-size: 1.35rem; font-weight: 600; line-height: 1.35; margin: 0 0 1rem; }
+  .pe-checkout-summary .pe-price { font-size: 1.75rem; font-weight: 700; margin: .25rem 0; }
+  .pe-checkout-summary .pe-note { font-size: .8rem; opacity: .9; line-height: 1.45; margin-top: 1rem; }
+  .pe-checkout-summary ul { list-style: none; padding: 0; margin: 1rem 0 0; font-size: .88rem; opacity: .95; }
+  .pe-checkout-summary li { display: flex; justify-content: space-between; padding: .35rem 0; border-bottom: 1px solid rgba(255,255,255,.18); }
+  .pe-checkout-main { background: #fff; padding: 1.5rem 1.35rem 2rem; }
+  .pe-checkout-main h2 { font-size: 1.1rem; color: var(--pe-navy); margin: 0 0 .75rem; }
+  .pe-plan-cards { display: grid; gap: .75rem; margin-top: 1rem; }
+  @media (min-width: 520px) { .pe-plan-cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); } }
+  .pe-plan-card { border: 2px solid #e2e8f0; border-radius: 10px; padding: .9rem .75rem; text-align: center; background: #fafbfc; }
+  .pe-plan-card strong { display: block; color: var(--pe-navy); font-size: .88rem; margin-bottom: .35rem; }
+  .pe-plan-card .pe-amt { font-size: 1.15rem; font-weight: 700; color: var(--pe-navy); }
+  .pe-plan-card .pe-sub { font-size: .72rem; color: #64748b; margin-top: .35rem; line-height: 1.35; }
+  .pe-plan-card a { display: block; margin-top: .65rem; padding: .5rem; border-radius: 6px; background: var(--pe-navy); color: #fff !important; text-decoration: none; font-size: .82rem; font-weight: 600; }
+  .pe-foot { font-size: .78rem; color: #64748b; margin-top: 1.25rem; line-height: 1.45; }
+  .pe-brand { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+  .pe-brand span { font-weight: 700; letter-spacing: .06em; font-size: .72rem; color: rgba(255,255,255,.92); }
+  .pe-img { max-width: 100%; border-radius: 8px; margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block page_content %}
+{% set slug = diplomado_slug or program.slug %}
+<div class="pe-checkout-landing">
+  <div class="pe-checkout-grid">
+    <aside class="pe-checkout-summary">
+      <div class="pe-brand">
+        <span>{{ get_nav_brand_name() }}</span>
+      </div>
+      {% if program.image_url %}
+      <p class="mb-3"><img class="pe-img" src="{{ program.image_url }}" alt=""></p>
+      {% endif %}
+      <h1>{{ program.display_type_label() }}</h1>
+      <p class="pe-title">{{ program.name }}</p>
+      <p class="pe-price" id="pe-selected-label">
+        {% if program.price_from and program.price_from > 0 %}
+        Desde {{ program.currency or 'USD' }} {{ '%.0f'|format(program.price_from) }}
+        {% else %}
+        Ver planes
+        {% endif %}
+      </p>
+      <ul>
+        <li><span>Modalidad</span><span>{{ program.modality or 'Virtual' }}</span></li>
+        {% if program.duration_text or program.hours %}
+        <li><span>Duración</span><span>{{ program.duration_text or program.hours or '' }}</span></li>
+        {% endif %}
+        <li><span>Idioma</span><span>{{ program.language or 'Español' }}</span></li>
+      </ul>
+      {% if program.short_description %}
+      <p class="pe-note small">{{ program.short_description }}</p>
+      {% endif %}
+      {% if program.long_description %}
+      <p class="pe-note small">{{ program.long_description }}</p>
+      {% endif %}
+      {% if not program.short_description and not program.long_description %}
+      <p class="pe-note">El cargo en la pasarela corresponde al <strong>total del plan</strong> que elijas. Tras el pago, el equipo confirma acceso y siguientes pasos.</p>
+      {% endif %}
+    </aside>
+    <section class="pe-checkout-main">
+      {% if pricing_plans|length > 1 %}
+      <h2>Elegí un plan</h2>
+      <p>Los planes definen <strong>un monto a pagar</strong> (o cuotas). <strong>El método de pago</strong> —tarjeta, PayPal, transferencia, etc.— lo indicás al finalizar <strong>en el checkout</strong>, al continuar. Si aún no tenés cuenta, podés
+        <a href="{{ url_for('register', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">registrarte</a>
+        o <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">iniciar sesión</a>.</p>
+      {% else %}
+      <h2>Inscripción</h2>
+      <p>Acá se elige el <strong>plan de inscripción</strong> (monto o cuotas del programa). <strong>El método de pago</strong> —tarjeta, PayPal, transferencia, etc.— se define <strong>en el checkout</strong> al continuar. Si aún no tenés cuenta, podés
+        <a href="{{ url_for('register', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">registrarte</a>
+        o <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan=pricing_plans[0].code if pricing_plans else 'inscripcion')) }}">iniciar sesión</a>.</p>
+      {% endif %}
+      <div class="pe-plan-cards">
+        {% if no_active_plans %}
+        <p class="pe-foot">Este programa aún no tiene planes de inscripción activos. Volvé a intentar más tarde o contactá al administrador.</p>
+        {% endif %}
+        {% for plan in pricing_plans %}
+        <div class="pe-plan-card">
+          <strong>{{ plan.name }}</strong>
+          <div class="pe-amt">{{ plan.currency or program.currency or 'USD' }} {{ (plan.total_amount_cents / 100) | round(0) | int | string }}</div>
+          {% if plan.discount_label or plan.description %}
+          <div class="pe-sub">{% if plan.discount_label %}{{ plan.discount_label }}{% endif %}{% if plan.description %} · {{ plan.description }}{% endif %}</div>
+          {% elif plan.installment_count %}
+          <div class="pe-sub">{% if plan.installment_amount %}ref. {{ plan.installment_count }} × {{ plan.currency or 'USD' }} {{ plan.installment_amount|round(0)|int }}{% endif %}</div>
+          {% endif %}
+          {% if current_user.is_authenticated %}
+          <a href="{{ url_for('payments.diplomado_continuar', slug=slug, plan=plan.code) }}">Continuar</a>
+          {% else %}
+          <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan=plan.code)) }}">Continuar</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <p class="pe-foot">Debes tener el <strong>correo verificado</strong> para completar el pago en el checkout. Si recién te registraste, revisá tu bandeja (y spam) y el enlace de verificación.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

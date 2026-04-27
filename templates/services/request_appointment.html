@@ -29,6 +29,7 @@
                     <div class="alert alert-success mb-4" role="status">
                         <i class="fas fa-gift me-2"></i>
                         <strong>Primera cita sin costo</strong> para este servicio: al enviar el formulario se confirma la reserva sin pasar por el carrito.
+                        <span class="d-block small mt-2 mb-0">Esta primera cita es <strong>diagnóstico / evaluación</strong>, no el servicio completo. El precio final del trabajo puede acordarse luego en cotización.</span>
                     </div>
                     {% endif %}
                     <form method="POST" action="{{ url_for('services.request_appointment_submit', service_id=service.id) }}" id="appointmentForm">

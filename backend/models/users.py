@@ -59,22 +59,34 @@ class User(UserMixin, db.Model):
     last_selected_organization_id = db.Column(
         db.Integer, db.ForeignKey('saas_organization.id', ondelete='SET NULL'), nullable=True
     )
-    
+
     # Relación con membresías
     memberships = db.relationship('Membership', backref='user', lazy=True)
     
     def get_profile_picture_url(self):
-        """Retorna la URL de la foto de perfil o una por defecto"""
-        # Usar has_request_context para evitar errores fuera de contexto de Flask
+        """Retorna la URL de la foto de perfil o una por defecto (si el fichero no existe en disco, avatar genérico)."""
+        pic = (self.profile_picture or '').strip()
+
+        def _profile_file_exists() -> bool:
+            if not pic:
+                return False
+            try:
+                from flask import current_app
+
+                fs = os.path.normpath(
+                    os.path.join(current_app.root_path, '..', 'static', 'uploads', 'profiles', pic)
+                )
+                return os.path.isfile(fs)
+            except Exception:
+                return True
+
         if has_request_context():
-            if self.profile_picture:
-                return url_for('static', filename=f'uploads/profiles/{self.profile_picture}', _external=False)
+            if pic and _profile_file_exists():
+                return url_for('static', filename=f'uploads/profiles/{pic}', _external=False)
             return url_for('static', filename='images/default-avatar.png', _external=False)
-        else:
-            # Fuera del contexto de Flask, retornar ruta relativa
-            if self.profile_picture:
-                return f'/static/uploads/profiles/{self.profile_picture}'
-            return '/static/images/default-avatar.png'
+        if pic and _profile_file_exists():
+            return f'/static/uploads/profiles/{pic}'
+        return '/static/images/default-avatar.png'
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

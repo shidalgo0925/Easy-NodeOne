@@ -1,0 +1,16 @@
+El sitio estático Relatic (Vite/React) ya no vive bajo dev/app.
+Ubicación actual (abrí esta carpeta en Cursor / despliegues): /opt/easynodeone/landings/relatic-public/
+Versionado aparte del árbol de la app EasyNodeOne.
+
+Ruta vieja dev/app/landing/relatic-public: hay un package.json que reenvía npm al proyecto real (o podés usar symlink):
+  sudo ln -snf /opt/easynodeone/landings/relatic-public /opt/easynodeone/dev/app/landing/relatic-public
+
+Dev: vite escucha en 0.0.0.0:5174 (ver landings/relatic-public/vite.config.ts). Verificación: curl -sI http://127.0.0.1:5174/
+
+Si "no funciona", en el servidor (donde exista esta ruta) ejecutá:
+  cd /opt/easynodeone/landings/relatic-public && sh scripts/diagnose.sh
+y pegá la salida completa. Comprobaciones rápidas:
+  - Abrí en Cursor la carpeta landings/relatic-public (no solo dev/app).
+  - Tras mover el repo, si falla Vite: rm -rf node_modules && npm ci
+  - Node: Vite 8 pide Node 20.19+ o 22.12+ (con 20.18.x a veces solo ves aviso; si falla, actualizá Node).
+  - Si el navegador en blanco: consola del navegador (F12) y pestaña Red.

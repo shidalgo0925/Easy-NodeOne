@@ -91,13 +91,13 @@ def validate_cedula_or_passport(cedula_or_passport, country=None):
     if country:
         country = country.strip()
         if country == 'Panamá':
-            cleaned = re.sub(r'[-\s]', '', cedula_or_passport)
+            cleaned = re.sub(r'[-\s.]', '', cedula_or_passport)
             if not cleaned.isdigit():
                 return False, "La cédula panameña debe contener solo números"
-            if len(cleaned) != 8:
+            if len(cleaned) < 7 or len(cleaned) > 10:
                 return False, (
-                    "La cédula panameña debe tener exactamente 8 dígitos numéricos "
-                    "(ej.: 8-123-4567 o 81234567; los guiones o espacios se ignoran)"
+                    "La cédula panameña debe tener entre 7 y 10 dígitos numéricos "
+                    "(ej.: 8-780-382, 8-123-4567 o 81234567; los guiones o espacios se ignoran)"
                 )
         elif country == 'Colombia':
             cleaned = re.sub(r'[-\s.]', '', cedula_or_passport)

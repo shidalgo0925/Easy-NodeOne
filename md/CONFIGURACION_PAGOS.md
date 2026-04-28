@@ -10,7 +10,14 @@ Este documento explica cómo configurar y gestionar los diferentes métodos de p
 4. [Configuración por Método](#configuración-por-método)
 5. [Variables de Entorno vs Base de Datos](#variables-de-entorno-vs-base-de-datos)
 6. [Modo de Prueba vs Producción](#modo-de-prueba-vs-producción)
-7. [Troubleshooting](#troubleshooting)
+7. [Flujo de Configuración](#flujo-de-configuración)
+8. [Estructura de la Base de Datos](#estructura-de-la-base-de-datos)
+9. [API de Configuración](#api-de-configuración)
+10. [Troubleshooting](#troubleshooting)
+11. [Mejores Prácticas](#mejores-prácticas)
+12. [Ejemplos de Uso](#ejemplos-de-uso)
+13. [Recursos Adicionales](#recursos-adicionales)
+14. [Changelog](#changelog)
 
 ---
 
@@ -120,9 +127,9 @@ PayPal permite pagos mediante cuenta PayPal o tarjeta de crédito.
 Client ID: AbCdEfGhIjKlMnOpQrStUvWxYz1234567890
 Client Secret: 1234567890AbCdEfGhIjKlMnOpQrStUvWxYz
 Modo: sandbox (o live para producción)
-Return URL: https://app.example.com/payment/paypal/return
-Cancel URL: https://app.example.com/payment/paypal/cancel
 ```
+
+**URLs de retorno:** deben ser HTTPS y coincidir con el host donde corre la app (ej. `https://tu-dominio.com/payment/paypal/return` y `.../cancel`), y con la app registrada en PayPal Developer.
 
 #### Variables de Entorno
 
@@ -130,7 +137,11 @@ Cancel URL: https://app.example.com/payment/paypal/cancel
 PAYPAL_CLIENT_ID=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890
 PAYPAL_CLIENT_SECRET=1234567890AbCdEfGhIjKlMnOpQrStUvWxYz
 PAYPAL_MODE=sandbox
+PAYPAL_RETURN_URL=https://tu-dominio.com/payment/paypal/return
+PAYPAL_CANCEL_URL=https://tu-dominio.com/payment/paypal/cancel
 ```
+
+Las credenciales **Sandbox** exigen `PAYPAL_MODE=sandbox`; **Live** exigen `PAYPAL_MODE=live` y claves de la app **Live** en [developer.paypal.com](https://developer.paypal.com/).
 
 ---
 
@@ -217,15 +228,17 @@ Interbank es un método manual que requiere transferencia bancaria.
 
 Este método no requiere credenciales API, solo información bancaria que se muestra al usuario durante el checkout.
 
-#### Datos Actuales
+#### Valores en pantalla (ejemplo)
+
+**No** guardes en el repositorio datos bancarios reales. Sustituí en `checkout.html` o en la config que uses:
 
 ```
-Cuenta de Ahorros: 898-346625274-5
-CCI: 003-898-013466252745-43
-Titular: Poma Gonzáles Sósimo Misael
+Cuenta de Ahorros: <número proporcionado por operaciones>
+CCI: <CCI>
+Titular: <razón social o titular>
 ```
 
-**Nota**: Estos datos están hardcodeados en el código. Para cambiarlos, edita el template `checkout.html` o crea una configuración en la base de datos.
+**Nota:** El método se muestra de forma estática al usuario. Tras rotar o cambiar datos, actualizá el template o la base de datos y el despliegue; no versiones claves ni números de cuenta en el código.
 
 ---
 
@@ -469,6 +482,18 @@ Authorization: Bearer <token>
 3. Revisa los logs del procesador de pago
 4. Verifica que las URLs de retorno (PayPal) sean correctas
 
+### Problema: PayPal — "no está configurado" u OAuth / token
+
+**Causa habitual:** faltan `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET`, o **Sandbox vs Live** no coincide con el tipo de credenciales, o quedó un Client Secret **viejo** en la base de datos (Admin → Pagos) mientras usás variables de entorno, o al revés.
+
+**Solución:**
+1. Revisar en [developer.paypal.com](https://developer.paypal.com/) la app correcta (Sandbox o Live) y el **nuevo** Client Secret si lo rotaste.
+2. Alinear `PAYPAL_MODE` con esa app.
+3. Si usás "Usar variables de entorno" en el panel, definí las claves en `.env` y reiniciá el servicio.
+4. Si no, borrá credenciales en conflicto en el panel o desactivá duplicados en `payment_config` para un solo origen (env **o** BD).
+
+Si el OAuth falla, el backend puede tratarlo como **modo demo** para no bloquear el flujo; los logs del servidor lo indican.
+
 ### Problema: "Modo demo siempre activo"
 
 **Solución:**
@@ -535,8 +560,8 @@ echo "STRIPE_PUBLISHABLE_KEY=pk_live_51..." >> .env
 # - Activar "Usar variables de entorno"
 # - Guardar configuración
 
-# 3. Reiniciar la aplicación
-systemctl restart nodeone-app
+# 3. Reiniciar la aplicación (el nombre del unit depende del servidor)
+# systemctl restart <tu-servicio-app>
 ```
 
 ### Ejemplo 2: Cambiar PayPal de Sandbox a Live
@@ -592,15 +617,23 @@ nuevo_metodo_api_key = db.Column(db.String(500))
 
 ## Changelog
 
-### Versión 1.0.0 (2025-01-XX)
-- ✅ Implementación inicial del sistema de configuración de pagos
-- ✅ Soporte para Stripe, PayPal, Banco General, Yappy, Interbank
-- ✅ Panel de administración web
-- ✅ Soporte para variables de entorno y base de datos
-- ✅ Modo demo automático
+### Versión 1.0.0
+
+- Implementación inicial del sistema de configuración de pagos
+- Soporte para Stripe, PayPal, Banco General, Yappy, Interbank
+- Panel de administración web
+- Soporte para variables de entorno y base de datos
+- Modo demo automático
+
+### Versión 1.1.0 (2026-04)
+
+- Aclaración env vs base de datos y **Sandbox / Live** para PayPal
+- Troubleshooting ampliado (OAuth PayPal, rotación de secret)
+- Sección Interbank: solo placeholders; **no** se documentan datos bancarios reales en el repo
 
 ---
 
-**Última actualización**: Enero 2025
-**Versión del documento**: 1.0.0
+**Última actualización:** abril de 2026
+
+**Versión del documento:** 1.1.0
 

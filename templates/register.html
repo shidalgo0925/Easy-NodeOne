@@ -189,10 +189,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!cedulaValue || !countryValue) return true;
 
         if (countryValue === 'Panamá') {
-            const cleaned = cedulaValue.replace(/[-\s]/g, '');
-            if (!/^\d{8}$/.test(cleaned)) {
+            const cleaned = cedulaValue.replace(/[-\s.]/g, '');
+            if (!/^\d{7,10}$/.test(cleaned)) {
                 cedulaOrPassport.setCustomValidity(
-                    'La cédula panameña debe tener exactamente 8 dígitos (ej.: 8-123-4567 o 81234567)'
+                    'La cédula panameña debe tener entre 7 y 10 dígitos (ej.: 8-780-382, 8-123-4567 o 81234567)'
                 );
                 return false;
             }

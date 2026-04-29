@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Contador — Catálogo{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_index') }}">Contador</a></li><li class="breadcrumb-item active">Catálogo</li></ol></nav>
+  <h1 class="h4 mb-3">Catálogo de plantillas</h1>
+  {% if nav_can('contador.admin') %}
+  <p><a class="btn btn-primary btn-sm" href="{{ url_for('contador.contador_importar') }}">Importar XLS</a></p>
+  {% endif %}
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Producto</th><th>Categoría</th><th>Sub</th><th>Clase</th><th>Variantes</th></tr></thead>
+      <tbody>
+        {% for t in templates %}
+        <tr>
+          <td>{{ t.name }}</td>
+          <td>{{ t.category }}</td>
+          <td>{{ t.subcategory }}</td>
+          <td>{{ t.product_class }}</td>
+          <td>{{ t.variants.count() }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted">Sin plantillas. Importá un XLS (columnas A–E).</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Sesión — Contador{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a></li><li class="breadcrumb-item active">{{ ses.name }}</li></ol></nav>
+  <h1 class="h4">{{ ses.name }}</h1>
+  <p class="text-muted mb-2">Estado: <strong>{{ ses.status }}</strong>
+    {% if summary %} · Avance: {{ summary.progress_pct }}% ({{ summary.total_lines }} líneas){% endif %}
+  </p>
+  {% if ses.description %}<p>{{ ses.description }}</p>{% endif %}
+
+  {% if nav_can('contador.admin') %}
+  <div class="btn-group mb-3 flex-wrap">
+    {% if ses.status == 'draft' %}
+    <form method="post" action="{{ url_for('contador.contador_sesion_abrir', session_id=ses.id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <button type="submit" class="btn btn-success btn-sm">Abrir sesión</button>
+    </form>
+    <form method="post" action="{{ url_for('contador.contador_sesion_borrar', session_id=ses.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar borrador?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar borrador</button>
+    </form>
+    {% endif %}
+    {% if ses.status == 'open' %}
+    <form method="post" action="{{ url_for('contador.contador_sesion_cerrar', session_id=ses.id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <button type="submit" class="btn btn-warning btn-sm">Cerrar sesión</button>
+    </form>
+    {% endif %}
+    {% if ses.status in ('closed', 'open') %}
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_xlsx', session_id=ses.id) }}">Export XLSX</a>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_csv', session_id=ses.id) }}">Export CSV</a>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_json', session_id=ses.id) }}">Export JSON</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="d-flex gap-2 flex-wrap mb-3">
+    {% if ses.status == 'open' and (nav_can('contador.capture') or nav_can('contador.admin')) %}
+    <a class="btn btn-primary" href="{{ url_for('contador.contador_sesion_captura', session_id=ses.id) }}">Captura</a>
+    {% endif %}
+    {% if nav_can('contador.review') or nav_can('contador.admin') %}
+    <a class="btn btn-outline-secondary" href="{{ url_for('contador.contador_sesion_revision', session_id=ses.id) }}">Revisión</a>
+    {% endif %}
+    {% if nav_can('contador.admin') %}
+    <a class="btn btn-outline-secondary" href="{{ url_for('contador.contador_sesion_exportar', session_id=ses.id) }}">Exportar (enlaces)</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

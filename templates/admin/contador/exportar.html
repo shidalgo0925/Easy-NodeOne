@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Exportar — Contador{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h1 class="h5 mb-3">Exportar — {{ ses.name }}</h1>
+  <div class="d-flex flex-column gap-2" style="max-width: 400px;">
+    <a class="btn btn-outline-primary" href="{{ url_for('contador_api.api_export_xlsx', session_id=ses.id) }}">Descargar XLSX</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('contador_api.api_export_csv', session_id=ses.id) }}">Descargar CSV</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('contador_api.api_export_json', session_id=ses.id) }}">Descargar JSON</a>
+    <a href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}" class="btn btn-link">Volver</a>
+  </div>
+</div>
+{% endblock %}

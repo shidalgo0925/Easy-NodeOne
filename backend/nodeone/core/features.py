@@ -42,6 +42,7 @@ import os
 # NODEONE_AUTOMATION_DEFER_TO_COMM_ENGINE=1 — trigger_automation no encola si hay communication_rule para ese evento y org.
 # NODEONE_SKIP_ACADEMIC_MODULE=1 — no registrar Educación/LMS (estudiantes, cursos, matrículas, API Moodle).
 # NODEONE_ACADEMIC_MODULE_ENABLED=0 — apaga el módulo en todo el despliegue (además del toggle SaaS `academic` por tenant).
+# NODEONE_SKIP_CONTADOR_MODULE=1 — no registrar Contador (conteos físicos por variante, catálogo propio).
 
 
 def register_academic_module(app):
@@ -846,6 +847,18 @@ def register_sales_accounting_blueprints(app):
         print(f'Warning: No se pudieron registrar sales/accounting blueprints: {e}')
 
 
+def register_contador_blueprints(app):
+    """Conteos físicos por variante (/admin/contador, /api/contador)."""
+    if os.environ.get('NODEONE_SKIP_CONTADOR_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.contador.routes import register_contador_blueprints as _reg
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar Contador: {e}')
+
+
 def register_accounting_core_blueprint(app):
     """Núcleo contable ERP Fase 1 (/admin/accounting-core/*)."""
     if os.environ.get('NODEONE_SKIP_ACCOUNTING_CORE_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
@@ -932,6 +945,7 @@ def register_modules(app):
     register_accounting_core_blueprint(app)
     register_workshop_blueprints(app)
     register_academic_module(app)
+    register_contador_blueprints(app)
 
 
 def init_extensions(app):

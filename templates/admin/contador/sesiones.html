@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Contador — Sesiones{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_index') }}">Contador</a></li><li class="breadcrumb-item active">Sesiones</li></ol></nav>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Sesiones de conteo</h1>
+    {% if nav_can('contador.admin') %}
+    <a class="btn btn-primary btn-sm" href="{{ url_for('contador.contador_sesion_new') }}">Nueva sesión</a>
+    {% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Nombre</th><th>Estado</th><th>Creada</th><th></th></tr></thead>
+      <tbody>
+        {% for s in sesiones %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td><span class="badge bg-secondary">{{ s.status }}</span></td>
+          <td>{{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '' }}</td>
+          <td><a href="{{ url_for('contador.contador_sesion_detail', session_id=s.id) }}">Abrir</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-muted">No hay sesiones.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

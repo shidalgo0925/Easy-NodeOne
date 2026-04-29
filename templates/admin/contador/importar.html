@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Contador — Importar{% endblock %}
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 640px;">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_index') }}">Contador</a></li><li class="breadcrumb-item active">Importar</li></ol></nav>
+  <h1 class="h4 mb-3">Importar catálogo XLS/XLSX</h1>
+  <p class="small text-muted">Columnas: A Categoría, B Subcategoría, C Clase, D Nombre producto, E Presentación.</p>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+    <div class="mb-3">
+      <input class="form-control" type="file" name="file" accept=".xlsx,.xls" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Importar</button>
+    <a href="{{ url_for('contador.contador_catalogo') }}" class="btn btn-outline-secondary">Volver</a>
+  </form>
+</div>
+{% endblock %}

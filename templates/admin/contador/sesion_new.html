@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Nueva sesión — Contador{% endblock %}
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 560px;">
+  <h1 class="h4 mb-3">Nueva sesión</h1>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+    <div class="mb-3">
+      <label class="form-label">Nombre</label>
+      <input class="form-control" name="name" required maxlength="200">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Descripción (opcional)</label>
+      <textarea class="form-control" name="description" rows="2"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Guardar borrador</button>
+    <a href="{{ url_for('contador.contador_sesiones') }}" class="btn btn-outline-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

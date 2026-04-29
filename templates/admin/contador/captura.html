@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Captura — Contador{% endblock %}
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 720px;">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}">Sesión</a></li><li class="breadcrumb-item active">Captura</li></ol></nav>
+  {% if ses.status != 'open' %}
+  <div class="alert alert-warning">La sesión no está abierta; no se puede capturar.</div>
+  {% else %}
+  <h1 class="h5 mb-2">Sesión: {{ ses.name }}</h1>
+  <p class="small text-muted mb-3">Buscá por texto (API). Elegí variante y cantidad.</p>
+  <div class="mb-3">
+    <label class="form-label">Buscar</label>
+    <input type="search" class="form-control" id="cq" placeholder="Ej: muriatico" autocomplete="off">
+    <div id="cresults" class="list-group mt-2 small"></div>
+  </div>
+  <form method="post" id="capform">
+    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+    <input type="hidden" name="variant_id" id="variant_id" value="">
+    <div class="mb-2">
+      <label class="form-label">Seleccionado</label>
+      <input type="text" class="form-control" id="vlabel" readonly placeholder="Elegí una variante arriba">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Cantidad</label>
+      <input type="number" class="form-control" name="quantity" id="quantity" min="0" step="1" required>
+    </div>
+    <button type="submit" class="btn btn-primary" {% if ses.status != 'open' %}disabled{% endif %}>Guardar conteo</button>
+    <a href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}" class="btn btn-outline-secondary">Volver</a>
+  </form>
+  {% endif %}
+</div>
+<script>
+(function(){
+  const sid = {{ ses.id }};
+  const inp = document.getElementById('cq');
+  const box = document.getElementById('cresults');
+  const vid = document.getElementById('variant_id');
+  const vlabel = document.getElementById('vlabel');
+  let tmr;
+  function render(rows){
+    box.innerHTML = '';
+    rows.forEach(function(r){
+      const a = document.createElement('button');
+      a.type = 'button';
+      a.className = 'list-group-item list-group-item-action';
+      a.textContent = r.display_name + ' · ' + r.code;
+      a.onclick = function(){
+        vid.value = r.variant_id;
+        vlabel.value = r.display_name;
+        box.innerHTML = '';
+      };
+      box.appendChild(a);
+    });
+  }
+  function search(){
+    const q = (inp.value||'').trim();
+    if(q.length < 2){ box.innerHTML=''; return; }
+    fetch('/api/contador/search-products?q=' + encodeURIComponent(q), {credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(render)
+      .catch(function(){ box.innerHTML='<div class="text-danger small">Error de búsqueda</div>'; });
+  }
+  inp.addEventListener('input', function(){
+    clearTimeout(tmr);
+    tmr = setTimeout(search, 300);
+  });
+})();
+</script>
+{% endblock %}

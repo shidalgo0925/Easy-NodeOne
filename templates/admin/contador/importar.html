@@ -1,17 +1,82 @@
 {% extends "base.html" %}
 {% block title %}Contador — Importar{% endblock %}
+{% block head_extra %}
+<style>
+  .contador-import-split > .contador-import-pane:first-child {
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  }
+  @media (min-width: 992px) {
+    .contador-import-split > .contador-import-pane:first-child {
+      border-bottom: none;
+      border-right: 1px solid var(--bs-border-color, #dee2e6);
+    }
+  }
+</style>
+{% endblock %}
 {% block content %}
-<div class="container-fluid py-4" style="max-width: 640px;">
-  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_index') }}">Contador</a></li><li class="breadcrumb-item active">Importar</li></ol></nav>
-  <h1 class="h4 mb-3">Importar catálogo XLS/XLSX</h1>
-  <p class="small text-muted">Columnas: A Categoría, B Subcategoría, C Clase, D Nombre producto, E Presentación.</p>
-  <form method="post" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
-    <div class="mb-3">
-      <input class="form-control" type="file" name="file" accept=".xlsx,.xls" required>
+<div class="container-fluid px-2 px-sm-3 py-2" style="max-width: 56rem; margin: 0 auto;">
+  <nav aria-label="breadcrumb" class="mb-1"><ol class="breadcrumb mb-0 small"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_index') }}">Contador</a></li><li class="breadcrumb-item active">Importar</li></ol></nav>
+
+  <h1 class="h5 mb-2">Importar catálogo XLS / XLSX</h1>
+
+  <details class="card mb-2 border bg-light">
+    <summary class="px-3 py-2 fw-medium user-select-none small" style="cursor:pointer;">Formato esperado y nombres de campos</summary>
+    <div class="card-body border-top py-2 px-3 small">
+      <p class="mb-2 mb-lg-1">Cada <strong>fila</strong> = <strong>una variante</strong> (mismo producto + presentación distinta = varias filas). La <strong>primera fila</strong> puede ser encabezados; en el asistente mapeás columnas con vista previa.</p>
+
+      <p class="fw-medium mb-1">Campos (asistente)</p>
+      <div class="table-responsive mb-2">
+        <table class="table table-sm table-bordered mb-0 bg-white">
+          <thead class="table-light"><tr><th>Campo</th><th>Uso</th><th>Oblig.</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Nombre del producto</strong></td><td>Plantilla en catálogo.</td><td>Sí</td></tr>
+            <tr><td><strong>Presentación</strong></td><td>Medida / envase (ej. 32 OZ, GALÓN).</td><td>Sí</td></tr>
+            <tr><td>Categoría / Sub / Clase</td><td>Rubro, sub-rubro, tipo.</td><td>No</td></tr>
+            <tr><td>Código / Barras</td><td>Referencia interna, EAN.</td><td>No</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="fw-medium mb-1">Encabezados que suele reconocer lo automático</p>
+      <p class="text-muted mb-1">Nombre, Producto, Presentación, Variante, Categoría, Sub, Clase, Código, EAN… (sin tildes / mayúsculas OK).</p>
+      <p class="fw-medium mb-0 mt-2">Sin fila de títulos (solo automático)</p>
+      <p class="mb-0 text-muted">A–E: Categoría · Sub · Clase · Nombre · Presentación; o 6 columnas tipo ERP. Otras disposiciones: heurística.</p>
     </div>
-    <button type="submit" class="btn btn-primary">Importar</button>
-    <a href="{{ url_for('contador.contador_catalogo') }}" class="btn btn-outline-secondary">Volver</a>
-  </form>
+  </details>
+
+  <div class="card border-primary">
+    <div class="card-body p-0">
+      <div class="row g-0 contador-import-split">
+        <div class="col-12 col-lg-6 contador-import-pane p-3">
+          <h2 class="h6 text-primary mb-1">Asistente <span class="text-muted fw-normal">(recomendado)</span></h2>
+          <p class="small text-muted mb-2">Subís el archivo y asignás cada columna con vista previa.</p>
+          <form method="post" action="{{ url_for('contador.contador_importar') }}" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+            <input type="hidden" name="import_mode" value="wizard" />
+            <div class="mb-2">
+              <label class="form-label small mb-0 text-muted" for="imp-file-wizard">Archivo</label>
+              <input id="imp-file-wizard" class="form-control form-control-sm" type="file" name="file" accept=".xlsx,.xls" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Continuar con asistente</button>
+          </form>
+        </div>
+        <div class="col-12 col-lg-6 contador-import-pane p-3">
+          <h2 class="h6 text-secondary mb-1">Detección automática</h2>
+          <p class="small text-muted mb-2">Un paso: heurística por nombres de columnas o formato fijo A–E.</p>
+          <form method="post" action="{{ url_for('contador.contador_importar') }}" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+            <input type="hidden" name="import_mode" value="automatic" />
+            <div class="mb-2">
+              <label class="form-label small mb-0 text-muted" for="imp-file-auto">Archivo</label>
+              <input id="imp-file-auto" class="form-control form-control-sm" type="file" name="file" accept=".xlsx,.xls" required>
+            </div>
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Importar sin asistente</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="mt-2 mb-0"><a href="{{ url_for('contador.contador_catalogo') }}" class="btn btn-link btn-sm px-0">Volver al catálogo</a></p>
 </div>
 {% endblock %}

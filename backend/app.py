@@ -2989,6 +2989,12 @@ def bootstrap_nodeone_schema():
                 print(f'📋 taxes estándar (0%%, 7%%): {ntax} fila(s) nueva(s)')
         except Exception as e:
             print(f'⚠️ ensure_default_percent_taxes: {e}')
+        try:
+            from nodeone.services.contador_schema import ensure_contador_qty_float_columns
+
+            ensure_contador_qty_float_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_contador_qty_float_columns: {e}')
         apply_email_config_from_db()
 
 

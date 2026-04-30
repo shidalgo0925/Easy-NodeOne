@@ -107,7 +107,7 @@ class ContadorCountLine(db.Model):
     variant_id = db.Column(
         db.Integer, db.ForeignKey('contador_product_variant.id', ondelete='CASCADE'), nullable=False, index=True
     )
-    counted_qty = db.Column(db.Integer, nullable=True)
+    counted_qty = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(20), nullable=False, default='pending', index=True)
     counted_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
     counted_at = db.Column(db.DateTime, nullable=True)
@@ -140,8 +140,8 @@ class ContadorCaptureLog(db.Model):
     variant_id = db.Column(
         db.Integer, db.ForeignKey('contador_product_variant.id', ondelete='CASCADE'), nullable=False, index=True
     )
-    old_qty = db.Column(db.Integer, nullable=True)
-    new_qty = db.Column(db.Integer, nullable=True)
+    old_qty = db.Column(db.Float, nullable=True)
+    new_qty = db.Column(db.Float, nullable=True)
     action = db.Column(db.String(20), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

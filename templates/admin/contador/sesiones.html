@@ -15,7 +15,7 @@
       <tbody>
         {% for s in sesiones %}
         <tr>
-          <td>{{ s.name }}</td>
+          <td>{{ s.name|contador_sesion_name }}</td>
           <td><span class="badge bg-secondary">{{ s.status }}</span></td>
           <td>{{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '' }}</td>
           <td><a href="{{ url_for('contador.contador_sesion_detail', session_id=s.id) }}">Abrir</a></td>

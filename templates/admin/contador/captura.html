@@ -1,68 +1,550 @@
 {% extends "base.html" %}
 {% block title %}Captura — Contador{% endblock %}
+{% block head_extra %}
+<style>
+  .contador-m2o-wrap { position: relative; }
+  .contador-m2o-panel {
+    display: none; position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px;
+    max-height: min(320px, 50vh); overflow-y: auto; z-index: 1050;
+    background: var(--bs-body-bg, #fff);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.12);
+  }
+  .contador-m2o-panel.is-open { display: block; }
+  .contador-m2o-item {
+    padding: 0.5rem 0.75rem; cursor: pointer; border: none;
+    border-bottom: 1px solid var(--bs-border-color-translucent, rgba(0,0,0,.06));
+    width: 100%; text-align: left; background: transparent;
+  }
+  .contador-m2o-item:hover, .contador-m2o-item.is-active {
+    background: var(--bs-primary-bg-subtle, rgba(13,110,253,.08));
+  }
+  .contador-m2o-item .m2o-title { font-weight: 500; }
+  .contador-m2o-item .m2o-meta { font-size: 0.78rem; opacity: .85; margin-top: 0.15rem; }
+  .contador-m2o-more {
+    display: block; width: 100%; padding: 0.45rem 0.75rem; border: none; border-top: 1px solid #dee2e6;
+    background: var(--bs-light, #f8f9fa); color: var(--bs-primary); font-size: 0.875rem; text-align: center; cursor: pointer;
+  }
+  .contador-capture-tr.is-dirty { background: rgba(255, 193, 7, 0.12) !important; }
+  #contador-bulk-msg:empty { display: none; }
+  .contador-capture-page { --contador-capture-header-pad: 0.5rem; }
+  .contador-capture-header {
+    margin-left: calc(-1 * var(--contador-capture-header-pad));
+    margin-right: calc(-1 * var(--contador-capture-header-pad));
+    padding-left: var(--contador-capture-header-pad);
+    padding-right: var(--contador-capture-header-pad);
+  }
+  @media (min-width: 576px) {
+    .contador-capture-page { --contador-capture-header-pad: 0; }
+  }
+  .contador-capture-header .contador-capture-kicker {
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+  }
+  .contador-capture-header .badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  @media (max-width: 575.98px) {
+    .contador-capture-header .contador-capture-back {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+  .contador-capture-header.contador-capture-header--tight {
+    margin-bottom: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+  .contador-capture-pag-bar .btn { padding-left: 0.45rem; padding-right: 0.45rem; }
+  .contador-capture-mobile-toolbar {
+    z-index: 1015;
+    margin-left: calc(-1 * var(--contador-capture-header-pad, 0));
+    margin-right: calc(-1 * var(--contador-capture-header-pad, 0));
+    padding-left: var(--contador-capture-header-pad, 0);
+    padding-right: var(--contador-capture-header-pad, 0);
+  }
+  @media (min-width: 576px) {
+    .contador-capture-mobile-toolbar {
+      margin-left: 0;
+      margin-right: 0;
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+  #contador-filtros-offcanvas.offcanvas-bottom { height: min(88vh, 36rem); }
+  @media (min-width: 992px) {
+    .contador-capture-col-q { flex: 0 1 auto; max-width: 15rem; min-width: 9rem; }
+    .contador-capture-col-per { flex: 0 0 auto; width: 4.25rem; max-width: 4.5rem; }
+    .contador-capture-col-per .form-select { padding-left: 0.35rem; padding-right: 1.5rem; background-position: right 0.2rem center; background-size: 0.65rem; }
+  }
+</style>
+{% endblock %}
+{% set can_edit = (ses.status == 'open') %}
 {% block content %}
-<div class="container-fluid py-4" style="max-width: 720px;">
-  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}">Sesión</a></li><li class="breadcrumb-item active">Captura</li></ol></nav>
-  {% if ses.status != 'open' %}
-  <div class="alert alert-warning">La sesión no está abierta; no se puede capturar.</div>
-  {% else %}
-  <h1 class="h5 mb-2">Sesión: {{ ses.name }}</h1>
-  <p class="small text-muted mb-3">Buscá por texto (API). Elegí variante y cantidad.</p>
-  <div class="mb-3">
-    <label class="form-label">Buscar</label>
-    <input type="search" class="form-control" id="cq" placeholder="Ej: muriatico" autocomplete="off">
-    <div id="cresults" class="list-group mt-2 small"></div>
+{% macro captura_paginacion_bar() %}
+  {% if capture_pages > 1 %}
+  <div class="contador-capture-pag-bar btn-group btn-group-sm" role="group" aria-label="Páginas de captura">
+    {% if capture_page > 1 %}
+    <a class="btn btn-outline-secondary js-captura-nav" href="{{ url_for('contador.contador_sesion_captura', session_id=ses.id, page=capture_page - 1, per_page=capture_per_page, q=capture_q or None, filtro=capture_filtro) }}" aria-label="Página anterior">‹</a>
+    {% else %}
+    <span class="btn btn-outline-secondary disabled" aria-disabled="true">‹</span>
+    {% endif %}
+    <span class="btn btn-outline-secondary disabled px-2 small text-muted">{{ capture_page }}/{{ capture_pages }}</span>
+    {% if capture_page < capture_pages %}
+    <a class="btn btn-outline-secondary js-captura-nav" href="{{ url_for('contador.contador_sesion_captura', session_id=ses.id, page=capture_page + 1, per_page=capture_per_page, q=capture_q or None, filtro=capture_filtro) }}" aria-label="Página siguiente">›</a>
+    {% else %}
+    <span class="btn btn-outline-secondary disabled" aria-disabled="true">›</span>
+    {% endif %}
   </div>
-  <form method="post" id="capform">
-    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-    <input type="hidden" name="variant_id" id="variant_id" value="">
-    <div class="mb-2">
-      <label class="form-label">Seleccionado</label>
-      <input type="text" class="form-control" id="vlabel" readonly placeholder="Elegí una variante arriba">
+  {% endif %}
+{% endmacro %}
+<div class="container-fluid contador-capture-page px-2 px-sm-3 py-2 py-md-3">
+  <header class="contador-capture-header contador-capture-header--tight mb-2 pb-1 border-bottom">
+    <div class="d-flex align-items-center gap-2">
+      <a class="btn btn-outline-secondary btn-sm align-self-center flex-shrink-0 px-2 px-sm-3 contador-capture-back"
+         href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}"
+         title="Volver a la sesión">
+        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        <span class="d-none d-sm-inline ms-1">Volver</span>
+      </a>
+      <div class="flex-grow-1 min-w-0">
+        <div class="d-flex flex-wrap align-items-baseline gap-2">
+          <span class="contador-capture-kicker text-uppercase text-muted d-none d-sm-inline">Captura</span>
+          <h1 class="h6 mb-0 fw-semibold text-truncate" title="{{ ses.name|contador_sesion_name }}">{{ ses.name|contador_sesion_name }}</h1>
+          <span class="badge rounded-pill {% if ses.status == 'open' %}bg-success{% elif ses.status == 'closed' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">{{ ses.status }}</span>
+          {% if summary %}
+          <span class="small text-muted text-nowrap" title="Con cantidad / total">{{ summary.lines_with_qty }} / {{ summary.total_lines }}</span>
+          {% endif %}
+          {% if last_capture_label %}
+          <span class="small text-muted text-truncate d-none d-lg-inline" style="max-width: 12rem;" title="{{ last_capture_label }}"><span class="text-muted">·</span> {{ last_capture_label }}</span>
+          {% endif %}
+        </div>
+        <p class="small text-muted mb-0 mt-1 text-truncate d-none d-md-block" title="{% if current_user.email %}{{ current_user.email }}{% else %}{{ (current_user.first_name or '')|trim }} {{ (current_user.last_name or '')|trim }}{% endif %}">
+          {{ (current_user.first_name or '')|trim }} {{ (current_user.last_name or '')|trim }}{% if current_user.email %} · {{ current_user.email }}{% endif %}
+        </p>
+      </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Cantidad</label>
-      <input type="number" class="form-control" name="quantity" id="quantity" min="0" step="1" required>
-    </div>
-    <button type="submit" class="btn btn-primary" {% if ses.status != 'open' %}disabled{% endif %}>Guardar conteo</button>
-    <a href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}" class="btn btn-outline-secondary">Volver</a>
+  </header>
+
+  {% if ses.status != 'open' %}
+  <div class="alert alert-warning">La sesión no está abierta: solo lectura.</div>
+  {% endif %}
+
+  <form method="get" action="{{ url_for('contador.contador_sesion_captura', session_id=ses.id) }}" class="mb-0" id="form-captura-filtros">
+    <input type="hidden" name="page" value="1" id="captura-page-reset">
+
+    <fieldset id="contador-filtros-fieldset-desktop" class="border-0 p-0 m-0 mb-2 mb-md-3 d-none d-lg-block">
+      <div class="card">
+        <div class="card-body py-2 py-md-3">
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-sm-6 col-md-4 col-lg-auto contador-capture-col-q">
+              <label class="form-label small mb-0" for="captura-q">Buscar</label>
+              <input type="search" class="form-control form-control-sm" name="q" id="captura-q" value="{{ capture_q }}" placeholder="Producto, código…" autocomplete="off">
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+              <label class="form-label small mb-0" for="captura-filtro">Estado fila</label>
+              <select class="form-select form-select-sm" name="filtro" id="captura-filtro">
+                <option value="all" {% if capture_filtro == 'all' %}selected{% endif %}>Todas</option>
+                <option value="pend" {% if capture_filtro == 'pend' %}selected{% endif %}>Pendientes (sin cantidad)</option>
+                <option value="done" {% if capture_filtro == 'done' %}selected{% endif %}>Con cantidad</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-4 col-lg-auto contador-capture-col-per">
+              <label class="form-label small mb-0 text-nowrap" for="captura-per-page">Por pág.</label>
+              <select class="form-select form-select-sm" name="per_page" id="captura-per-page" title="Por página">
+                {% for n in [10, 25, 50, 100] %}
+                <option value="{{ n }}" {% if capture_per_page == n %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 col-lg-auto ms-lg-auto d-flex flex-wrap align-items-end justify-content-end gap-2 contador-capture-actions-row">
+              {{ captura_paginacion_bar() }}
+              <button type="submit" class="btn btn-outline-primary btn-sm">Aplicar filtros</button>
+              {% if can_edit %}
+              <button type="button" class="btn btn-primary btn-sm js-btn-guardar-bulk" id="btn-guardar-bulk">Guardar cambios</button>
+              {% endif %}
+            </div>
+          </div>
+          <div class="mt-2 pt-2 border-top">
+            <p class="small text-muted mb-0 contador-capture-range-hint">
+              {% if capture_total %}
+              {% set range_end = capture_page * capture_per_page %}
+              <strong>{{ (capture_page - 1) * capture_per_page + 1 }}</strong>–<strong>{% if range_end > capture_total %}{{ capture_total }}{% else %}{{ range_end }}{% endif %}</strong> de <strong>{{ capture_total }}</strong>
+              <span class="d-none d-sm-inline">· filtros actuales</span>
+              {% else %}
+              Sin resultados con estos filtros.
+              {% endif %}
+              <span class="d-none d-xl-inline text-muted"> · Guardá antes de cambiar de página si hay cantidades sin guardar.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="contador-filtros-fieldset-mobile" class="border-0 p-0 m-0 d-lg-none">
+      <div class="contador-capture-mobile-toolbar sticky-top bg-body py-2 mb-2 border-bottom">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <p class="small text-muted mb-0 flex-grow-1" style="min-width: 8rem;">
+            {% if capture_total %}
+            {% set range_end = capture_page * capture_per_page %}
+            <strong>{{ (capture_page - 1) * capture_per_page + 1 }}</strong>–<strong>{% if range_end > capture_total %}{{ capture_total }}{% else %}{{ range_end }}{% endif %}</strong> de <strong>{{ capture_total }}</strong>
+            {% else %}
+            <span class="text-warning">Sin resultados</span>
+            {% endif %}
+          </p>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
+            {{ captura_paginacion_bar() }}
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#contador-filtros-offcanvas" aria-controls="contador-filtros-offcanvas">
+              <i class="fas fa-sliders-h" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Filtros</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="offcanvas offcanvas-bottom" tabindex="-1" id="contador-filtros-offcanvas" aria-labelledby="contador-filtros-offcanvas-label" data-bs-scroll="true">
+        <div class="offcanvas-header border-bottom py-2">
+          <h2 class="offcanvas-title h6 mb-0" id="contador-filtros-offcanvas-label">Filtros y acciones</h2>
+          <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+        </div>
+        <div class="offcanvas-body pt-3">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small mb-0" for="captura-q-m">Buscar</label>
+              <input type="search" class="form-control form-control-sm" name="q" id="captura-q-m" value="{{ capture_q }}" placeholder="Producto, código, presentación…" autocomplete="off">
+            </div>
+            <div class="col-12">
+              <label class="form-label small mb-0" for="captura-filtro-m">Estado fila</label>
+              <select class="form-select form-select-sm" name="filtro" id="captura-filtro-m">
+                <option value="all" {% if capture_filtro == 'all' %}selected{% endif %}>Todas</option>
+                <option value="pend" {% if capture_filtro == 'pend' %}selected{% endif %}>Pendientes (sin cantidad)</option>
+                <option value="done" {% if capture_filtro == 'done' %}selected{% endif %}>Con cantidad</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label small mb-0" for="captura-per-page-m">Por página</label>
+              <select class="form-select form-select-sm" name="per_page" id="captura-per-page-m">
+                {% for n in [10, 25, 50, 100] %}
+                <option value="{{ n }}" {% if capture_per_page == n %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+              <button type="submit" class="btn btn-outline-primary btn-sm">Aplicar filtros</button>
+              {% if can_edit %}
+              <button type="button" class="btn btn-primary btn-sm js-btn-guardar-bulk" id="btn-guardar-bulk-m">Guardar cambios</button>
+              {% endif %}
+            </div>
+          </div>
+          <p class="small text-muted mt-3 mb-0 border-top pt-3">Guardá los cambios de cantidades antes de cambiar de página o aplicar filtros, si no se pierden.</p>
+        </div>
+      </div>
+    </fieldset>
   </form>
+  <div id="contador-bulk-msg" class="alert py-2 px-3 small mb-2 d-none" role="status"></div>
+
+  <div class="table-responsive border rounded">
+    <table class="table table-sm table-striped align-middle mb-0" id="contador-capture-table">
+      <thead class="table-light">
+        <tr>
+          <th style="width:2.5rem;"><span class="visually-hidden">Sel.</span></th>
+          <th>Producto</th>
+          <th>Presentación</th>
+          <th class="text-end" style="min-width:7rem;">Cantidad contada</th>
+          <th>Usuario</th>
+          <th class="text-end" style="width:3rem;"><span class="visually-hidden">Acciones</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in capture_lines %}
+        <tr class="contador-capture-tr" data-line-id="{{ row.line_id }}" data-has-qty="{% if row.counted_qty is not none %}1{% else %}0{% endif %}">
+          <td><input type="checkbox" class="form-check-input m-0 js-row-check" disabled title="Selección (uso futuro)"></td>
+          <td class="small">{{ row.product_name }}</td>
+          <td class="small">{{ row.presentation }}</td>
+          <td class="text-end">
+            <input type="number" step="0.01" min="0" lang="es"
+              class="form-control form-control-sm text-end js-qty"
+              data-initial="{% if row.counted_qty is not none %}{{ row.counted_qty }}{% endif %}"
+              value="{% if row.counted_qty is not none %}{{ row.counted_qty }}{% endif %}"
+              {% if not can_edit %}readonly disabled{% endif %}
+              aria-label="Cantidad contada línea {{ row.line_id }}">
+          </td>
+          <td class="small">{% if row.user_label %}{{ row.user_label }}{% else %}—{% endif %}</td>
+          <td class="text-end text-nowrap">
+            {% if can_edit %}
+            <button type="button" class="btn btn-sm btn-outline-warning border-0 px-2 js-limpiar" data-line-id="{{ row.line_id }}" title="Limpiar cantidad" aria-label="Limpiar cantidad"><i class="fas fa-eraser" aria-hidden="true"></i></button>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-muted text-center py-4">{% if summary and summary.total_lines %}Sin resultados con estos filtros.{% else %}No hay líneas. Abrí la sesión desde borrador para generar variantes.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if can_edit %}
+  <details class="mt-4 border rounded p-3 bg-light">
+    <summary class="fw-medium cursor-pointer">Captura rápida (un producto)</summary>
+    <p class="small text-muted mb-2 mt-2">Buscador tipo Odoo para registrar una variante sin recorrer la tabla.</p>
+    <div class="contador-m2o-wrap mb-2">
+      <label class="form-label small" for="cq">Producto</label>
+      <input type="text" class="form-control form-control-sm" id="cq" autocomplete="off" placeholder="Nombre, código, presentación…">
+      <div id="cresults" class="contador-m2o-panel" role="listbox"></div>
+    </div>
+    <form method="post" id="capform-quick" class="row g-2 align-items-end">
+      {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+      <input type="hidden" name="captura_ret_q" value="{{ capture_q }}">
+      <input type="hidden" name="captura_ret_filtro" value="{{ capture_filtro }}">
+      <input type="hidden" name="captura_ret_page" value="{{ capture_page }}">
+      <input type="hidden" name="captura_ret_per_page" value="{{ capture_per_page }}">
+      <input type="hidden" name="variant_id" id="variant_id" value="">
+      <div class="col-md-6">
+        <label class="form-label small" for="vlabel">Variante seleccionada</label>
+        <input type="text" class="form-control form-control-sm bg-white" id="vlabel" readonly placeholder="Elegí arriba">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small" for="quantity">Cantidad</label>
+        <input type="number" class="form-control form-control-sm" name="quantity" id="quantity" min="0" step="0.01" required>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+      </div>
+    </form>
+  </details>
   {% endif %}
 </div>
+
 <script>
 (function(){
-  const sid = {{ ses.id }};
+  const sessionId = {{ ses.id }};
+  const canEdit = {{ can_edit | tojson }};
+  const tbl = document.getElementById('contador-capture-table');
+  const msgEl = document.getElementById('contador-bulk-msg');
+
+  function hasDirtyRows() {
+    return tbl && tbl.querySelector('tr.contador-capture-tr.is-dirty');
+  }
+  function confirmIfDirty() {
+    if (hasDirtyRows() && !window.confirm('Hay cantidades editadas sin guardar en esta página. Si salís, se perderán. ¿Continuar?')) {
+      return false;
+    }
+    return true;
+  }
+  document.querySelectorAll('a.js-captura-nav').forEach(function(a) {
+    a.addEventListener('click', function(ev) {
+      if (!confirmIfDirty()) ev.preventDefault();
+    });
+  });
+  const formFiltros = document.getElementById('form-captura-filtros');
+  if (formFiltros) {
+    formFiltros.addEventListener('submit', function(ev) {
+      if (!confirmIfDirty()) ev.preventDefault();
+    });
+  }
+
+  function contadorMinLg() {
+    return window.matchMedia('(min-width: 992px)').matches;
+  }
+  function contadorSyncFiltrosFields() {
+    const pairs = [
+      ['captura-q', 'captura-q-m'],
+      ['captura-filtro', 'captura-filtro-m'],
+      ['captura-per-page', 'captura-per-page-m'],
+    ];
+    const toDesktop = contadorMinLg();
+    pairs.forEach(function(ids) {
+      const a = document.getElementById(ids[0]);
+      const b = document.getElementById(ids[1]);
+      if (!a || !b) return;
+      if (toDesktop) a.value = b.value;
+      else b.value = a.value;
+    });
+  }
+  function contadorApplyFiltrosFieldsets() {
+    const desktop = contadorMinLg();
+    const fd = document.getElementById('contador-filtros-fieldset-desktop');
+    const fm = document.getElementById('contador-filtros-fieldset-mobile');
+    if (fd) fd.disabled = !desktop;
+    if (fm) fm.disabled = desktop;
+  }
+  function contadorOnResizeFiltros() {
+    contadorSyncFiltrosFields();
+    contadorApplyFiltrosFieldsets();
+  }
+  contadorOnResizeFiltros();
+  window.addEventListener('resize', function() {
+    clearTimeout(window._contadorFiltrosResizeT);
+    window._contadorFiltrosResizeT = setTimeout(contadorOnResizeFiltros, 120);
+  });
+
+  function showMsg(text, ok) {
+    if (!msgEl) return;
+    msgEl.textContent = text || '';
+    msgEl.className = 'alert py-2 px-3 small mb-2 ' + (ok ? 'alert-success' : 'alert-danger');
+    msgEl.classList.remove('d-none');
+  }
+
+  function markDirty(tr, dirty) {
+    tr.classList.toggle('is-dirty', dirty);
+    const inp = tr.querySelector('.js-qty');
+    if (inp) inp.dataset.dirty = dirty ? '1' : '';
+  }
+
+  function rowInitial(tr) {
+    const inp = tr.querySelector('.js-qty');
+    if (!inp) return '';
+    const di = inp.getAttribute('data-initial');
+    return di === null || di === undefined ? '' : String(di);
+  }
+
+  function rowCurrent(tr) {
+    const inp = tr.querySelector('.js-qty');
+    if (!inp) return '';
+    return String(inp.value || '').trim();
+  }
+
+  function syncDirty(tr) {
+    const ini = rowInitial(tr);
+    const cur = rowCurrent(tr);
+    markDirty(tr, ini !== cur);
+  }
+
+  if (tbl && canEdit) {
+    tbl.querySelectorAll('.js-qty').forEach(function(inp){
+      const tr = inp.closest('tr');
+      inp.addEventListener('input', function(){ syncDirty(tr); });
+      inp.addEventListener('change', function(){ syncDirty(tr); });
+    });
+    tbl.querySelectorAll('.js-limpiar').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const tr = tbl.querySelector('tr[data-line-id="' + btn.getAttribute('data-line-id') + '"]');
+        if (!tr) return;
+        const inp = tr.querySelector('.js-qty');
+        if (inp) { inp.value = ''; syncDirty(tr); }
+      });
+    });
+  }
+
+  document.querySelectorAll('.js-btn-guardar-bulk').forEach(function(btnBulk){
+    btnBulk.addEventListener('click', async function(){
+    if (!canEdit || !tbl) return;
+    const lines = [];
+    tbl.querySelectorAll('tbody tr.contador-capture-tr').forEach(function(tr){
+      if (!tr.classList.contains('is-dirty')) return;
+      const lid = parseInt(tr.getAttribute('data-line-id'), 10);
+      const inp = tr.querySelector('.js-qty');
+      const raw = inp ? String(inp.value || '').trim() : '';
+      const payload = { line_id: lid };
+      if (raw === '') payload.counted_qty = null;
+      else {
+        const n = parseFloat(raw.replace(',', '.'));
+        if (isNaN(n) || n < 0) {
+          showMsg('Cantidad inválida en línea ' + lid, false);
+          throw new Error('bad');
+        }
+        payload.counted_qty = n;
+      }
+      lines.push(payload);
+    });
+    if (!lines.length) {
+      showMsg('No hay cambios pendientes.', false);
+      return;
+    }
+    try {
+      const r = await fetch('/api/contador/sessions/' + sessionId + '/capture-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ lines: lines }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) {
+        showMsg(j.error || 'Error al guardar', false);
+        return;
+      }
+      showMsg('Guardado: ' + (j.updated || 0) + ' línea(s) actualizada(s).', true);
+      window.location.reload();
+    } catch (e) {
+      showMsg('Error de red o servidor.', false);
+    }
+  });
+  });
+
+  /* Captura rápida: many2one (mismo API que antes) */
   const inp = document.getElementById('cq');
   const box = document.getElementById('cresults');
   const vid = document.getElementById('variant_id');
   const vlabel = document.getElementById('vlabel');
-  let tmr;
-  function render(rows){
-    box.innerHTML = '';
-    rows.forEach(function(r){
-      const a = document.createElement('button');
-      a.type = 'button';
-      a.className = 'list-group-item list-group-item-action';
-      a.textContent = r.display_name + ' · ' + r.code;
-      a.onclick = function(){
-        vid.value = r.variant_id;
-        vlabel.value = r.display_name;
-        box.innerHTML = '';
-      };
-      box.appendChild(a);
+  if (inp && box && canEdit) {
+    let tmr, activeIdx = -1, itemNodes = [], open = false;
+    let lastQuery = '';
+    const PAGE = 12;
+    function setOpen(on) {
+      open = on;
+      inp.setAttribute('aria-expanded', on ? 'true' : 'false');
+      box.classList.toggle('is-open', on);
+    }
+    function metaLine(r) {
+      const bits = [r.code ? ('Ref. ' + r.code) : null, r.barcode ? ('EAN ' + r.barcode) : null].filter(Boolean);
+      return bits.join(' · ');
+    }
+    function selectRow(r) {
+      if (vid) vid.value = String(r.variant_id);
+      if (vlabel) vlabel.value = r.display_name || '';
+      inp.value = '';
+      box.innerHTML = '';
+      setOpen(false);
+      const qn = document.getElementById('quantity');
+      if (qn) qn.focus();
+    }
+    function renderFirst(data) {
+      box.innerHTML = '';
+      itemNodes = [];
+      activeIdx = -1;
+      const items = (data && data.items) ? data.items : [];
+      if (!items.length) {
+        box.innerHTML = '<div class="p-2 small text-muted">' + ((inp.value.trim().length < 2) ? 'Escribí al menos 2 caracteres.' : 'Sin resultados.') + '</div>';
+        setOpen(true);
+        return;
+      }
+      items.forEach(function(r){
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'contador-m2o-item';
+        b.innerHTML = '<div class="m2o-title"></div><div class="m2o-meta"></div>';
+        b.querySelector('.m2o-title').textContent = r.display_name || '';
+        b.querySelector('.m2o-meta').textContent = metaLine(r) || ' ';
+        b.addEventListener('mousedown', function(ev){ ev.preventDefault(); selectRow(r); });
+        box.appendChild(b);
+        itemNodes.push(b);
+      });
+      setOpen(true);
+    }
+    function doSearch() {
+      const q = (inp.value || '').trim();
+      lastQuery = q;
+      if (q.length < 2) { box.innerHTML = ''; setOpen(false); return; }
+      fetch('/api/contador/search-products?q=' + encodeURIComponent(q) + '&limit=' + PAGE + '&offset=0', { credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(renderFirst)
+        .catch(function(){ box.innerHTML = '<div class="p-2 text-danger small">Error</div>'; setOpen(true); });
+    }
+    inp.addEventListener('input', function(){ clearTimeout(tmr); tmr = setTimeout(doSearch, 160); });
+    document.addEventListener('click', function(ev){
+      if (!inp.contains(ev.target) && !box.contains(ev.target)) setOpen(false);
     });
   }
-  function search(){
-    const q = (inp.value||'').trim();
-    if(q.length < 2){ box.innerHTML=''; return; }
-    fetch('/api/contador/search-products?q=' + encodeURIComponent(q), {credentials:'same-origin'})
-      .then(function(r){ return r.json(); })
-      .then(render)
-      .catch(function(){ box.innerHTML='<div class="text-danger small">Error de búsqueda</div>'; });
-  }
-  inp.addEventListener('input', function(){
-    clearTimeout(tmr);
-    tmr = setTimeout(search, 300);
+
+  document.getElementById('capform-quick')?.addEventListener('submit', function(ev){
+    const v = document.getElementById('variant_id')?.value;
+    if (!v) { ev.preventDefault(); alert('Seleccioná un producto.'); }
   });
 })();
 </script>

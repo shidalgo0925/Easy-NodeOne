@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Historial de línea — Contador{% endblock %}
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 720px;">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}">{{ ses.name|contador_sesion_name }}</a></li><li class="breadcrumb-item active">Historial línea #{{ line_id }}</li></ol></nav>
+  <h1 class="h5 mb-3">Historial de cambios</h1>
+  {% if logs %}
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Fecha</th><th>Acción</th><th>Anterior</th><th>Nuevo</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="text-nowrap">{{ log.created_at.strftime('%d/%m/%Y %H:%M') if log.created_at else '—' }}</td>
+          <td>{{ log.action }}</td>
+          <td>{{ log.old_qty if log.old_qty is not none else '—' }}</td>
+          <td>{{ log.new_qty if log.new_qty is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted">Sin movimientos registrados para esta línea.</p>
+  {% endif %}
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}">Volver a la sesión</a>
+</div>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Importar — Mapeo de columnas{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" style="max-width: 1100px;">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_index') }}">Contador</a></li><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_importar') }}">Importar</a></li><li class="breadcrumb-item active">Mapeo</li></ol></nav>
+
+  <h1 class="h5 mb-1">Asistente de importación — Paso 2 de 2</h1>
+  <p class="small text-muted mb-2">Archivo: <strong>{{ filename }}</strong></p>
+  <p class="small text-muted border-start border-3 ps-2 mb-3" style="border-color: var(--bs-primary) !important;">
+    Asigná cada <strong>columna del Excel</strong> a un <strong>campo del catálogo</strong>.
+    <strong>Nombre</strong> y <strong>presentación</strong> son obligatorios (una fila = una variante: mismo nombre con distinta presentación → varias filas).
+    Categoría, sub, clase, código y barras son opcionales.
+  </p>
+
+  {# fc: conservar selección del mapeo al pulsar «Actualizar vista previa» #}
+  {% set fc = request.form %}
+
+  <form method="post" action="{{ url_for('contador.contador_importar_mapear') }}" id="form-mapeo">
+    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+
+    <div class="card mb-3">
+      <div class="card-body py-3">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label small mb-1" for="wiz-sheet">Hoja</label>
+            <select name="sheet" id="wiz-sheet" class="form-select form-select-sm">
+              {% for s in preview.sheet_names %}
+              <option value="{{ s }}" {% if s == preview.sheet %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-7">
+            <span class="small text-muted d-block mb-1">Primera fila del archivo</span>
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="radio" name="has_header" id="wiz-hh1" value="1" {% if has_header %}checked{% endif %}>
+                <label class="form-check-label small" for="wiz-hh1">Es encabezado (nombres de columnas)</label>
+              </div>
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="radio" name="has_header" id="wiz-hh0" value="0" {% if not has_header %}checked{% endif %}>
+                <label class="form-check-label small" for="wiz-hh0">Sin encabezado (solo datos)</label>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <button type="submit" name="preview_only" value="1" class="btn btn-outline-secondary btn-sm">Actualizar vista previa</button>
+            <span class="small text-muted ms-2">Cambiá la hoja o el tipo de primera fila y pulsá aquí antes de mapear.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="small fw-medium mb-2">Vista previa (primeras filas)</p>
+    <div class="table-responsive border rounded mb-3" style="max-height: 280px;">
+      <table class="table table-sm table-striped mb-0">
+        <thead class="table-light sticky-top"><tr>
+          {% for c in preview.columns %}
+          <th class="small text-nowrap"><span class="badge bg-secondary me-1">{{ c.index }}</span>{{ c.label }}</th>
+          {% endfor %}
+        </tr></thead>
+        <tbody>
+          {% for row in preview.preview_rows %}
+          <tr>{% for cell in row %}<td class="small">{{ cell }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header py-2 small fw-medium">Coincidir columnas del archivo → campos del catálogo Contador</div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">Como en Odoo: elegí qué columna alimenta cada dato. Los nombres abajo son los <strong>campos internos</strong> que verás en el catálogo (plantilla + variante).</p>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Nombre del producto (plantilla)</label>
+            <select name="col_name" class="form-select form-select-sm" required>
+              <option value="">— Elegí columna —</option>
+              {% for c in preview.columns %}
+              <option value="{{ c.index }}" {% if 'col_name' in fc and fc['col_name'] != '' %}{% if fc['col_name']|int == c.index %}selected{% endif %}{% elif preview.defaults.name == c.index %}selected{% endif %}>[{{ c.index }}] {{ c.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Presentación / medida (variante)</label>
+            <select name="col_presentation" class="form-select form-select-sm" required>
+              <option value="">— Elegí columna —</option>
+              {% for c in preview.columns %}
+              <option value="{{ c.index }}" {% if 'col_presentation' in fc and fc['col_presentation'] != '' %}{% if fc['col_presentation']|int == c.index %}selected{% endif %}{% elif preview.defaults.presentation == c.index %}selected{% endif %}>[{{ c.index }}] {{ c.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Categoría</label>
+            <select name="col_category" class="form-select form-select-sm">
+              <option value="">— No importar —</option>
+              {% for c in preview.columns %}
+              <option value="{{ c.index }}" {% if 'col_category' in fc and fc['col_category'] != '' %}{% if fc['col_category']|int == c.index %}selected{% endif %}{% elif preview.defaults.category == c.index %}selected{% endif %}>[{{ c.index }}] {{ c.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Subcategoría</label>
+            <select name="col_subcategory" class="form-select form-select-sm">
+              <option value="">— No importar —</option>
+              {% for c in preview.columns %}
+              <option value="{{ c.index }}" {% if 'col_subcategory' in fc and fc['col_subcategory'] != '' %}{% if fc['col_subcategory']|int == c.index %}selected{% endif %}{% elif preview.defaults.subcategory == c.index %}selected{% endif %}>[{{ c.index }}] {{ c.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Clase / tipo</label>
+            <select name="col_product_class" class="form-select form-select-sm">
+              <option value="">— No importar —</option>
+              {% for c in preview.columns %}
+              <option value="{{ c.index }}" {% if 'col_product_class' in fc and fc['col_product_class'] != '' %}{% if fc['col_product_class']|int == c.index %}selected{% endif %}{% elif preview.defaults.product_class == c.index %}selected{% endif %}>[{{ c.index }}] {{ c.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Código / referencia interna</label>
+            <select name="col_code" class="form-select form-select-sm">
+              <option value="">— No importar —</option>
+              {% for c in preview.columns %}
+              <option value="{{ c.index }}" {% if 'col_code' in fc and fc['col_code'] != '' %}{% if fc['col_code']|int == c.index %}selected{% endif %}{% elif preview.defaults.code == c.index %}selected{% endif %}>[{{ c.index }}] {{ c.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Código de barras</label>
+            <select name="col_barcode" class="form-select form-select-sm">
+              <option value="">— No importar —</option>
+              {% for c in preview.columns %}
+              <option value="{{ c.index }}" {% if 'col_barcode' in fc and fc['col_barcode'] != '' %}{% if fc['col_barcode']|int == c.index %}selected{% endif %}{% elif preview.defaults.barcode == c.index %}selected{% endif %}>[{{ c.index }}] {{ c.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <button type="submit" class="btn btn-primary">Importar al catálogo</button>
+      <a href="{{ url_for('contador.contador_importar') }}" class="btn btn-outline-secondary">Volver</a>
+      <a href="{{ url_for('contador.contador_catalogo') }}" class="btn btn-link btn-sm">Ir al catálogo</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -115,6 +115,16 @@ def main():
         else:
             print('⚠️ Rol SA no encontrado; asigná permisos a mano si aplica')
 
+        # AD (admin tenant): ver menú Contador e importar sin depender solo de CAD
+        ad = Role.query.filter_by(code='AD').first()
+        if ad:
+            for code in perm_ids:
+                _link_role_perm(int(ad.id), perm_ids[code])
+            db.session.commit()
+            print('✅ Rol AD: permisos contador añadidos (menú visible para admin tenant)')
+        else:
+            print('⚠️ Rol AD no encontrado')
+
         print('Listo. Asigná roles CAD/CSU/COP a usuarios en /admin/users o vía user_role.')
 
 

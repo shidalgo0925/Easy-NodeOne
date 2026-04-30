@@ -405,7 +405,7 @@
                         </li>
                         {% endif %}
 
-                        {% if show_tenant_admin_menu and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) %}
+                        {% if show_tenant_admin_menu and saas_module_enabled('contador') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) %}
                         <li class="nav-item nav-group {% if request.blueprint in ['contador', 'contador_api'] or (request.path or '').startswith('/admin/contador') or (request.path or '').startswith('/api/contador') %}show{% endif %}" data-nav-group-key="contador">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Conteos físicos por variante">
                                 <i class="menu-icon fas fa-clipboard-list"></i>
@@ -416,16 +416,16 @@
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'contador.contador_index' %}active{% endif %}" href="{{ url_for('contador.contador_index') }}">Inicio</a>
                                 </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'contador.contador_catalogo' %}active{% endif %}" href="{{ url_for('contador.contador_catalogo') }}">Catálogo</a>
-                                </li>
                                 {% if nav_can('contador.admin') %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'contador.contador_importar' %}active{% endif %}" href="{{ url_for('contador.contador_importar') }}">Importar XLS</a>
+                                    <a class="nav-link {% if request.endpoint in ['contador.contador_importar', 'contador.contador_importar_mapear', 'contador.contador_importar_subir', 'contador.contador_importar_automatico'] %}active{% endif %}" href="{{ url_for('contador.contador_importar') }}">Importar XLS</a>
                                 </li>
                                 {% endif %}
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['contador.contador_sesiones', 'contador.contador_sesion_new', 'contador.contador_sesion_detail', 'contador.contador_sesion_captura', 'contador.contador_sesion_revision', 'contador.contador_sesion_exportar'] %}active{% endif %}" href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a>
+                                    <a class="nav-link {% if request.endpoint == 'contador.contador_catalogo' %}active{% endif %}" href="{{ url_for('contador.contador_catalogo') }}">Catálogo</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint in ['contador.contador_sesiones', 'contador.contador_sesion_new', 'contador.contador_sesion_detail', 'contador.contador_sesion_captura', 'contador.contador_sesion_revision', 'contador.contador_sesion_exportar', 'contador.contador_line_historial'] %}active{% endif %}" href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a>
                                 </li>
                                 {% if nav_can('contador.admin') %}
                                 <li class="nav-item">

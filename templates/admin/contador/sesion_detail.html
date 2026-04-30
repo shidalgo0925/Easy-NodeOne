@@ -1,50 +1,97 @@
 {% extends "base.html" %}
 {% block title %}Sesión — Contador{% endblock %}
 {% block content %}
-<div class="container-fluid py-4">
-  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a></li><li class="breadcrumb-item active">{{ ses.name }}</li></ol></nav>
-  <h1 class="h4">{{ ses.name }}</h1>
-  <p class="text-muted mb-2">Estado: <strong>{{ ses.status }}</strong>
-    {% if summary %} · Avance: {{ summary.progress_pct }}% ({{ summary.total_lines }} líneas){% endif %}
-  </p>
-  {% if ses.description %}<p>{{ ses.description }}</p>{% endif %}
+{% set show_operator_row = (ses.status == 'open' and (nav_can('contador.capture') or nav_can('contador.admin'))) or nav_can('contador.review') or nav_can('contador.admin') %}
+{% set show_admin_bar = nav_can('contador.admin') %}
+<div class="container-fluid px-2 px-sm-3 py-2">
+  <nav aria-label="breadcrumb" class="mb-1"><ol class="breadcrumb mb-0 small"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a></li><li class="breadcrumb-item active">{{ ses.name|contador_sesion_name }}</li></ol></nav>
 
-  {% if nav_can('contador.admin') %}
-  <div class="btn-group mb-3 flex-wrap">
-    {% if ses.status == 'draft' %}
-    <form method="post" action="{{ url_for('contador.contador_sesion_abrir', session_id=ses.id) }}" class="d-inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
-      <button type="submit" class="btn btn-success btn-sm">Abrir sesión</button>
-    </form>
-    <form method="post" action="{{ url_for('contador.contador_sesion_borrar', session_id=ses.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar borrador?');">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
-      <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar borrador</button>
-    </form>
-    {% endif %}
-    {% if ses.status == 'open' %}
-    <form method="post" action="{{ url_for('contador.contador_sesion_cerrar', session_id=ses.id) }}" class="d-inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
-      <button type="submit" class="btn btn-warning btn-sm">Cerrar sesión</button>
-    </form>
-    {% endif %}
-    {% if ses.status in ('closed', 'open') %}
-    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_xlsx', session_id=ses.id) }}">Export XLSX</a>
-    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_csv', session_id=ses.id) }}">Export CSV</a>
-    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_json', session_id=ses.id) }}">Export JSON</a>
-    {% endif %}
+  <header class="mb-1 pb-1 border-bottom">
+    <div class="d-flex flex-wrap align-items-baseline gap-2 gap-sm-3">
+      <h1 class="h5 mb-0">{{ ses.name|contador_sesion_name }}</h1>
+      <p class="text-muted mb-0 small">Estado: <strong>{{ ses.status }}</strong>
+        {% if summary %} · Avance: <strong>{{ summary.progress_pct }}%</strong> ({{ summary.total_lines }} líneas){% endif %}
+      </p>
+    </div>
+    {% if ses.description %}<p class="small text-muted mb-0 mt-1">{{ ses.description }}</p>{% endif %}
+  </header>
+
+  {% if show_admin_bar or show_operator_row %}
+  <div class="card mb-1">
+    <div class="card-body py-2">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        {% if show_admin_bar %}
+        {% if ses.status == 'draft' %}
+        <form method="post" action="{{ url_for('contador.contador_sesion_abrir', session_id=ses.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+          <button type="submit" class="btn btn-success btn-sm">Abrir sesión</button>
+        </form>
+        <form method="post" action="{{ url_for('contador.contador_sesion_borrar', session_id=ses.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar borrador?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+          <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar borrador</button>
+        </form>
+        {% endif %}
+        {% if ses.status == 'open' %}
+        <form method="post" action="{{ url_for('contador.contador_sesion_cerrar', session_id=ses.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+          <button type="submit" class="btn btn-warning btn-sm">Cerrar sesión</button>
+        </form>
+        {% endif %}
+        {% if ses.status in ('closed', 'open') %}
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_xlsx', session_id=ses.id) }}">Export XLSX</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_csv', session_id=ses.id) }}">Export CSV</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('contador_api.api_export_json', session_id=ses.id) }}">Export JSON</a>
+        {% endif %}
+        {% endif %}
+        {% if show_operator_row %}
+        {% if ses.status == 'open' and (nav_can('contador.capture') or nav_can('contador.admin')) %}
+        <a class="btn btn-primary btn-sm" href="{{ url_for('contador.contador_sesion_captura', session_id=ses.id) }}">Captura</a>
+        {% endif %}
+        {% if nav_can('contador.review') or nav_can('contador.admin') %}
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('contador.contador_sesion_revision', session_id=ses.id) }}">Revisión</a>
+        {% endif %}
+        {% if nav_can('contador.admin') %}
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('contador.contador_sesion_exportar', session_id=ses.id) }}">Exportar (enlaces)</a>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
   </div>
   {% endif %}
 
-  <div class="d-flex gap-2 flex-wrap mb-3">
-    {% if ses.status == 'open' and (nav_can('contador.capture') or nav_can('contador.admin')) %}
-    <a class="btn btn-primary" href="{{ url_for('contador.contador_sesion_captura', session_id=ses.id) }}">Captura</a>
-    {% endif %}
-    {% if nav_can('contador.review') or nav_can('contador.admin') %}
-    <a class="btn btn-outline-secondary" href="{{ url_for('contador.contador_sesion_revision', session_id=ses.id) }}">Revisión</a>
-    {% endif %}
-    {% if nav_can('contador.admin') %}
-    <a class="btn btn-outline-secondary" href="{{ url_for('contador.contador_sesion_exportar', session_id=ses.id) }}">Exportar (enlaces)</a>
-    {% endif %}
+  {% if ses.status != 'draft' and line_rows is defined %}
+  <div class="mt-1 pt-1 border-top">
+    <h2 class="h6 text-muted text-uppercase mb-0 pb-1">Líneas de conteo</h2>
+    <p class="small text-muted mb-1" title="Sin columna diferencia. Fechas como día/mes/año; si no hubo conteo, la fecha es la de apertura o creación.">Sin columna diferencia. Fechas calendario (día/mes/año). Sin conteo, la fecha es apertura o creación.</p>
   </div>
+  <div class="table-responsive border rounded">
+    <table class="table table-sm table-striped align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Producto</th>
+          <th class="text-end">Cantidad contada</th>
+          <th>Fecha</th>
+          <th>Usuario</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in line_rows %}
+        <tr>
+          <td>{{ row.product_label }}</td>
+          <td class="text-end text-nowrap">{% if row.counted_qty is not none %}{{ row.counted_qty }}{% else %}—{% endif %}</td>
+          <td class="text-nowrap">{{ row.fecha_day }}</td>
+          <td class="small">{{ row.usuario_label }}</td>
+          <td class="text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contador.contador_line_historial', session_id=ses.id, line_id=row.line_id) }}" title="Historial">Historial</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted">Sin líneas (abrí la sesión desde borrador para generarlas).</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

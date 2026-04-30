@@ -5,6 +5,17 @@
   <h1 class="h5 mb-3">Configuración</h1>
   <p class="text-muted">Por ahora no hay parámetros editables. El atributo de variante por defecto es <strong>PRESENTACIÓN</strong>. Los códigos automáticos usan el prefijo <code>CNT-</code>.</p>
   <p class="small">Roles: <code>CAD</code> (admin contador), <code>CSU</code> (supervisor), <code>COP</code> (operador). Asignalos en usuarios según tu proceso.</p>
-  <a href="{{ url_for('contador.contador_index') }}" class="btn btn-outline-secondary btn-sm">Volver</a>
+
+  <hr class="my-4">
+  <h2 class="h6 text-danger">Zona peligrosa</h2>
+  <p class="small text-muted mb-2">Borra <strong>todas</strong> las sesiones de conteo, líneas, auditoría de captura y el catálogo (plantillas y variantes) de <strong>esta empresa</strong>. No se puede deshacer.</p>
+  <form method="post" action="{{ url_for('contador.contador_purgar_datos') }}" class="border border-danger rounded p-3 bg-light" onsubmit="return confirm('¿Eliminar todo el Contador de esta organización?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+    <label class="form-label small" for="confirmar-purge">Escribí <code>BORRAR</code> para confirmar</label>
+    <input type="text" class="form-control form-control-sm mb-2" id="confirmar-purge" name="confirmar" autocomplete="off" placeholder="BORRAR" required>
+    <button type="submit" class="btn btn-danger btn-sm">Vaciar sesiones y catálogo</button>
+  </form>
+
+  <p class="mt-3 mb-0"><a href="{{ url_for('contador.contador_index') }}" class="btn btn-outline-secondary btn-sm">Volver</a></p>
 </div>
 {% endblock %}

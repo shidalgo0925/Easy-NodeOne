@@ -42,7 +42,7 @@ import os
 # NODEONE_AUTOMATION_DEFER_TO_COMM_ENGINE=1 — trigger_automation no encola si hay communication_rule para ese evento y org.
 # NODEONE_SKIP_ACADEMIC_MODULE=1 — no registrar Educación/LMS (estudiantes, cursos, matrículas, API Moodle).
 # NODEONE_ACADEMIC_MODULE_ENABLED=0 — apaga el módulo en todo el despliegue (además del toggle SaaS `academic` por tenant).
-# NODEONE_SKIP_CONTADOR_MODULE=1 — no registrar Contador (conteos físicos por variante, catálogo propio).
+# NODEONE_SKIP_CONTADOR_MODULE=1 — no registrar Contador (también inactiva toggles; el flag SaaS `contador` vive en saas_module).
 
 
 def register_academic_module(app):

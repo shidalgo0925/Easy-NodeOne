@@ -2,7 +2,7 @@
 {% block title %}Exportar — Contador{% endblock %}
 {% block content %}
 <div class="container-fluid py-4">
-  <h1 class="h5 mb-3">Exportar — {{ ses.name }}</h1>
+  <h1 class="h5 mb-3">Exportar — {{ ses.name|contador_sesion_name }}</h1>
   <div class="d-flex flex-column gap-2" style="max-width: 400px;">
     <a class="btn btn-outline-primary" href="{{ url_for('contador_api.api_export_xlsx', session_id=ses.id) }}">Descargar XLSX</a>
     <a class="btn btn-outline-primary" href="{{ url_for('contador_api.api_export_csv', session_id=ses.id) }}">Descargar CSV</a>

@@ -60,6 +60,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'Estudiantes, cursos académicos, matrículas e integración Moodle.',
         False,
     ),
+    (
+        'contador',
+        'Contador',
+        'Conteos físicos de inventario por variante, catálogo e importación masiva.',
+        False,
+    ),
 )
 
 
@@ -165,6 +171,7 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'policies',
     'academic',
     'workshop',
+    'contador',
 )
 
 

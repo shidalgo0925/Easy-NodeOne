@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container-fluid py-4">
   <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_sesion_detail', session_id=ses.id) }}">Sesión</a></li><li class="breadcrumb-item active">Revisión</li></ol></nav>
-  <h1 class="h5">Revisión — {{ ses.name }}</h1>
+  <h1 class="h5">Revisión — {{ ses.name|contador_sesion_name }}</h1>
   {% if summary %}
   <p class="small">Total {{ summary.total_lines }} · Pendientes {{ summary.pending }} · Contadas {{ summary.counted }} · Revisadas {{ summary.reviewed }} · {{ summary.progress_pct }}%</p>
   {% endif %}
@@ -22,7 +22,7 @@
             <form method="post" action="{{ url_for('contador.contador_revision_quick', session_id=ses.id) }}" class="d-flex gap-1 flex-wrap">
               {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
               <input type="hidden" name="line_id" value="{{ line.id }}">
-              <input type="number" class="form-control form-control-sm" name="quantity" placeholder="Cant." min="0" style="width:90px" value="{{ line.counted_qty if line.counted_qty is not none else '' }}">
+              <input type="number" class="form-control form-control-sm" name="quantity" placeholder="Cant." min="0" step="0.01" style="width:90px" value="{{ line.counted_qty if line.counted_qty is not none else '' }}">
               <button type="submit" name="action" value="save" class="btn btn-sm btn-outline-primary">Guardar</button>
               <button type="submit" name="action" value="review" class="btn btn-sm btn-outline-success">Marcar revisado</button>
             </form>

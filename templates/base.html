@@ -141,6 +141,11 @@
                 margin-right: 0 !important;
             }
         }
+        @media (max-width: 991.98px) {
+            #expandSidebarBtn.expand-sidebar-btn {
+                display: none !important;
+            }
+        }
         li.sidebar-menu-divider { list-style: none; padding: 0.35rem 1rem; }
         li.sidebar-menu-divider hr { margin: 0; opacity: 0.2; }
         html[data-theme="dark"] .sidebar-section-label,
@@ -1167,7 +1172,11 @@
                 if (e.target.closest('#expandSidebarBtn')) {
                     e.preventDefault();
                     e.stopPropagation();
-                    toggleSidebar();
+                    if (isDesktopSidebarLayout()) {
+                        toggleSidebar();
+                    } else {
+                        toggleMobileDrawer();
+                    }
                     return;
                 }
                 var tg = e.target.closest('.nav-group-toggle');
@@ -1216,6 +1225,10 @@
 
             window.addEventListener('load', function () {
                 var btn = document.getElementById('expandSidebarBtn');
+                if (!isDesktopSidebarLayout() && btn) {
+                    btn.style.display = 'none';
+                    return;
+                }
                 if (document.body.classList.contains('sidebar-collapsed') && btn) {
                     btn.style.display = 'flex';
                 }

@@ -44,6 +44,23 @@ def register_public_and_org_switch_routes(app):
             return jsonify({'error': 'Organization not found'}), 404
         if not getattr(org, 'is_active', True):
             return jsonify({'error': 'Organizacion no disponible'}), 403
+        try:
+            host_oid = app._organization_id_from_request_host(request)
+        except Exception:
+            host_oid = None
+        if host_oid is not None:
+            try:
+                host_int = int(host_oid)
+            except (TypeError, ValueError):
+                host_int = None
+            if host_int is not None and int(cand) != host_int:
+                return jsonify(
+                    {
+                        'error': 'Cambio bloqueado por subdominio',
+                        'message': 'Debes usar la empresa del subdominio actual.',
+                        'organization_id': host_int,
+                    }
+                ), 403
         if not user_has_access_to_organization(current_user, cand):
             return jsonify({'error': 'Unauthorized'}), 403
         session['organization_id'] = cand
@@ -95,6 +112,19 @@ def register_public_and_org_switch_routes(app):
         if not getattr(org, 'is_active', True):
             flash('Organización no disponible.', 'error')
             return redirect(request.referrer or url_for('dashboard'))
+        try:
+            host_oid = app._organization_id_from_request_host(request)
+        except Exception:
+            host_oid = None
+        if host_oid is not None:
+            try:
+                host_int = int(host_oid)
+            except (TypeError, ValueError):
+                host_int = None
+            if host_int is not None and int(cand) != host_int:
+                session['organization_id'] = host_int
+                flash('Subdominio bloqueado a su empresa: se mantuvo la empresa del dominio actual.', 'warning')
+                return redirect(request.referrer or url_for('dashboard'))
         if not user_has_access_to_organization(current_user, cand):
             flash('No tienes acceso a esa organización.', 'error')
             return redirect(request.referrer or url_for('dashboard'))

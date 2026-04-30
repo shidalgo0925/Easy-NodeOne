@@ -73,6 +73,22 @@ def get_current_organization_id():
         return default_organization_id()
     if not getattr(current_user, 'is_authenticated', False):
         return None
+    from flask import request
+    from app import _organization_id_from_request_host
+
+    # Host-lock: si el dominio/subdominio resuelve a una organización y el usuario
+    # tiene acceso, esa organización manda para evitar mezcla entre compañías.
+    host_oid = _organization_id_from_request_host(request)
+    if host_oid is not None:
+        try:
+            ho = int(host_oid)
+        except (TypeError, ValueError):
+            ho = None
+        if ho is not None and (
+            getattr(current_user, 'is_admin', False) or user_has_access_to_organization(current_user, ho)
+        ):
+            return ho
+
     if single_tenant_default_only():
         if getattr(current_user, 'is_admin', False):
             raw = session.get('organization_id')
@@ -92,8 +108,7 @@ def resolve_current_organization():
 
     Prioridad:
     1. Anónimo: subdominio (host) → default.
-    2. Admin: sesión (selector) → host → default.
-    3. Miembro: host si tiene acceso a ese tenant; si no, sesión → last_selected → organization_id.
+    2. Autenticado: host (si tiene acceso) → sesión → last_selected → organization_id.
     """
     if not has_request_context():
         return int(default_organization_id())
@@ -111,11 +126,11 @@ def resolve_current_organization():
         return int(host_oid) if host_oid is not None else int(default_organization_id())
 
     if getattr(current_user, 'is_admin', False):
+        if host_oid is not None:
+            return int(host_oid)
         raw = session.get('organization_id')
         if raw is not None and raw != '':
             return _clamp_org_id(raw)
-        if host_oid is not None:
-            return int(host_oid)
         return int(default_organization_id())
 
     if host_oid is not None and user_has_access_to_organization(current_user, int(host_oid)):

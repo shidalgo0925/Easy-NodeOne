@@ -30,17 +30,24 @@ def register_public_auth_legacy_routes(app):
                 return f'{proto}://{host}'.rstrip('/')
         return (os.environ.get('BASE_URL') or '').strip().rstrip('/')
 
-    def _grant_modecosa_contador_for_google(user_id: int, organization_id: int) -> None:
+    def _grant_contador_when_module_enabled(user_id: int, organization_id: int) -> None:
         """
-        En modecosa.easynodeone.com, todo login Google debe ver Contador.
-        Asigna rol CAD al usuario si la org objetivo es Modecosa (id=4).
+        Opción B: asignar acceso Contador automáticamente si el módulo `contador`
+        está habilitado en la organización destino del usuario.
         """
         try:
             oid = int(organization_id or 0)
             uid = int(user_id or 0)
         except Exception:
             return
-        if not uid or oid != 4:
+        if not uid or not oid:
+            return
+        try:
+            from nodeone.services.org_scope import has_saas_module_enabled
+
+            if not has_saas_module_enabled(oid, 'contador'):
+                return
+        except Exception:
             return
         from sqlalchemy import text as sql_text
 
@@ -163,6 +170,7 @@ def register_public_auth_legacy_routes(app):
                     _ln = register_next or url_for('membership')
                     return redirect(url_for('auth.login', next=_ln))
                 ensure_membership(existing.id, target_org_id)
+                _grant_contador_when_module_enabled(existing.id, target_org_id)
                 if invite_token:
                     inv2 = get_valid_invite_by_token(invite_token)
                     if inv2 and normalize_invite_email(existing.email) == inv2.email:
@@ -189,6 +197,7 @@ def register_public_auth_legacy_routes(app):
             db.session.add(user)
             db.session.flush()
             ensure_membership(user.id, int(user.organization_id))
+            _grant_contador_when_module_enabled(user.id, int(user.organization_id))
             if invite_token:
                 inv2 = get_valid_invite_by_token(invite_token)
                 if inv2 and normalize_invite_email(user.email) == inv2.email:
@@ -454,7 +463,7 @@ def register_public_auth_legacy_routes(app):
                     link = SocialAuth(user_id=user.id, provider=provider, provider_user_id=provider_user_id)
                     db.session.add(link)
             ensure_membership(user.id, reg_org)
-            _grant_modecosa_contador_for_google(user.id, reg_org)
+            _grant_contador_when_module_enabled(user.id, reg_org)
             if inv:
                 accept_invite_for_user(inv, user)
             session.pop('pending_invite_token', None)

@@ -113,6 +113,34 @@
             vertical-align: -0.15em;
             object-fit: contain;
         }
+        /* Compactación exclusiva para portátil (no móvil, no desktop grande). */
+        @media (min-width: 992px) and (max-width: 1365.98px) {
+            .navbar-landing .navbar-wrap {
+                padding-left: 0.35rem;
+                padding-right: 0.35rem;
+            }
+            .navbar-landing .navbar-brand span {
+                max-width: 10.5rem;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .navbar-landing .navbar-nav-right .nav-item {
+                margin-right: 0.2rem !important;
+            }
+            .navbar-landing .topbar-sidebar-toggle {
+                padding: 0.35rem !important;
+                margin-right: 0.2rem !important;
+            }
+            .navbar-landing .navbar-user-name {
+                display: none;
+            }
+            .navbar-landing .navbar-user-avatar {
+                width: 28px !important;
+                height: 28px !important;
+                margin-right: 0 !important;
+            }
+        }
         li.sidebar-menu-divider { list-style: none; padding: 0.35rem 1rem; }
         li.sidebar-menu-divider hr { margin: 0; opacity: 0.2; }
         html[data-theme="dark"] .sidebar-section-label,
@@ -232,10 +260,10 @@
                         <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <img src="{{ current_user.get_profile_picture_url() }}" 
                                  alt="{{ current_user.first_name }}" 
-                                 class="rounded-circle me-2"
+                                 class="rounded-circle me-2 navbar-user-avatar"
                                  style="width: 32px; height: 32px; object-fit: cover;"
                                  loading="lazy" decoding="async">
-                            {{ current_user.first_name }}
+                            <span class="navbar-user-name">{{ current_user.first_name }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                             <li><a class="dropdown-item" href="{{ url_for('members.profile') }}"><i class="fas fa-user me-2"></i>Perfil</a></li>

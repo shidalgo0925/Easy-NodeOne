@@ -30,6 +30,38 @@ def register_public_auth_legacy_routes(app):
                 return f'{proto}://{host}'.rstrip('/')
         return (os.environ.get('BASE_URL') or '').strip().rstrip('/')
 
+    def _grant_modecosa_contador_for_google(user_id: int, organization_id: int) -> None:
+        """
+        En modecosa.easynodeone.com, todo login Google debe ver Contador.
+        Asigna rol CAD al usuario si la org objetivo es Modecosa (id=4).
+        """
+        try:
+            oid = int(organization_id or 0)
+            uid = int(user_id or 0)
+        except Exception:
+            return
+        if not uid or oid != 4:
+            return
+        from sqlalchemy import text as sql_text
+
+        role = db.session.execute(
+            sql_text("SELECT id FROM role WHERE code='CAD' LIMIT 1")
+        ).fetchone()
+        if not role:
+            return
+        ex = db.session.execute(
+            sql_text("SELECT 1 FROM user_role WHERE user_id=:uid AND role_id=:rid LIMIT 1"),
+            {'uid': uid, 'rid': int(role.id)},
+        ).fetchone()
+        if ex is None:
+            db.session.execute(
+                sql_text(
+                    "INSERT INTO user_role (user_id, role_id, assigned_at) "
+                    "VALUES (:uid, :rid, NOW())"
+                ),
+                {'uid': uid, 'rid': int(role.id)},
+            )
+
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         """Registro de nuevos usuarios"""
@@ -422,6 +454,7 @@ def register_public_auth_legacy_routes(app):
                     link = SocialAuth(user_id=user.id, provider=provider, provider_user_id=provider_user_id)
                     db.session.add(link)
             ensure_membership(user.id, reg_org)
+            _grant_modecosa_contador_for_google(user.id, reg_org)
             if inv:
                 accept_invite_for_user(inv, user)
             session.pop('pending_invite_token', None)

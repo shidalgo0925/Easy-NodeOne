@@ -51,8 +51,10 @@ def register_public_auth_legacy_routes(app):
             return
         from sqlalchemy import text as sql_text
 
+        role_code = (os.environ.get('CONTADOR_DEFAULT_ROLE') or 'COP').strip().upper()
         role = db.session.execute(
-            sql_text("SELECT id FROM role WHERE code='CAD' LIMIT 1")
+            sql_text("SELECT id FROM role WHERE code=:code LIMIT 1"),
+            {'code': role_code},
         ).fetchone()
         if not role:
             return

@@ -4,6 +4,7 @@
 <style>
   .contador-catalogo-per-wrap { width: 4.35rem; flex: 0 0 auto; }
   .contador-catalogo-per-wrap .form-select { padding-left: 0.35rem; padding-right: 1.45rem; font-size: 0.875rem; background-position: right 0.25rem center; background-size: 0.65rem; }
+  .contador-catalogo-search { min-width: 12rem; max-width: 22rem; flex: 1 1 16rem; }
 </style>
 {% endblock %}
 {% block content %}
@@ -15,11 +16,17 @@
   <div class="d-flex flex-wrap align-items-center gap-2 pb-2 mb-2 border-bottom">
     {% if nav_can('contador.admin') %}
     <a class="btn btn-primary btn-sm flex-shrink-0" href="{{ url_for('contador.contador_importar') }}">Importar XLS</a>
+    <a class="btn btn-outline-primary btn-sm flex-shrink-0" href="{{ url_for('contador.contador_catalogo_nuevo') }}">Crear producto</a>
     {% endif %}
     {% if pagination %}
     <span class="small text-muted me-auto">{{ pagination.total }} producto(s) <span class="d-none d-sm-inline">(plantilla)</span></span>
     {% endif %}
     <div class="d-flex flex-wrap align-items-center gap-2 ms-sm-auto">
+      <form class="d-flex align-items-center gap-1 contador-catalogo-search" method="get" action="{{ url_for('contador.contador_catalogo') }}">
+        <input class="form-control form-control-sm" type="search" name="q" value="{{ search or '' }}" placeholder="Buscar producto..." aria-label="Buscar producto">
+        <input type="hidden" name="per_page" value="{{ per_page }}">
+        <button class="btn btn-outline-secondary btn-sm" type="submit">Buscar</button>
+      </form>
       {% if pagination %}
       <form class="d-flex align-items-center gap-1 contador-catalogo-per-wrap" method="get" action="{{ url_for('contador.contador_catalogo') }}">
         <label class="small text-muted mb-0 text-nowrap" for="per_page" title="Por página">Pág.</label>
@@ -30,6 +37,7 @@
           <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
         </select>
         <input type="hidden" name="page" value="1">
+        {% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
       </form>
       {% endif %}
       {% if pagination and pagination.pages > 1 %}
@@ -37,7 +45,7 @@
         <ul class="pagination pagination-sm mb-0 flex-wrap justify-content-end">
           {% if pagination.has_prev %}
           <li class="page-item">
-            <a class="page-link py-1" href="{{ url_for('contador.contador_catalogo', page=pagination.prev_num, per_page=per_page) }}" aria-label="Anterior">‹</a>
+            <a class="page-link py-1" href="{{ url_for('contador.contador_catalogo', page=pagination.prev_num, per_page=per_page, q=search or None) }}" aria-label="Anterior">‹</a>
           </li>
           {% else %}
           <li class="page-item disabled"><span class="page-link py-1">‹</span></li>
@@ -48,7 +56,7 @@
               <li class="page-item active" aria-current="page"><span class="page-link py-1">{{ page_num }}</span></li>
               {% else %}
               <li class="page-item">
-                <a class="page-link py-1" href="{{ url_for('contador.contador_catalogo', page=page_num, per_page=per_page) }}">{{ page_num }}</a>
+                <a class="page-link py-1" href="{{ url_for('contador.contador_catalogo', page=page_num, per_page=per_page, q=search or None) }}">{{ page_num }}</a>
               </li>
               {% endif %}
             {% else %}
@@ -57,7 +65,7 @@
           {% endfor %}
           {% if pagination.has_next %}
           <li class="page-item">
-            <a class="page-link py-1" href="{{ url_for('contador.contador_catalogo', page=pagination.next_num, per_page=per_page) }}" aria-label="Siguiente">›</a>
+            <a class="page-link py-1" href="{{ url_for('contador.contador_catalogo', page=pagination.next_num, per_page=per_page, q=search or None) }}" aria-label="Siguiente">›</a>
           </li>
           {% else %}
           <li class="page-item disabled"><span class="page-link py-1">›</span></li>
@@ -81,7 +89,7 @@
           <td>{{ t.variants.count() }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="text-muted">Sin plantillas. Importá un XLS (columnas A–E).</td></tr>
+        <tr><td colspan="5" class="text-muted">{% if search %}Sin resultados para "{{ search }}".{% else %}Sin plantillas. Importá un XLS (columnas A–E).{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

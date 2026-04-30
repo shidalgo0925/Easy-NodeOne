@@ -122,11 +122,21 @@ def contador_catalogo():
 
     page = request.args.get('page', 1, type=int) or 1
     raw_per = request.args.get('per_page', 25, type=int) or 25
+    search = (request.args.get('q') or '').strip()
     per_page = max(1, min(int(raw_per), 100))
     if page < 1:
         page = 1
 
-    q = ContadorProductTemplate.query.filter_by(organization_id=oid).order_by(
+    q = ContadorProductTemplate.query.filter_by(organization_id=oid)
+    if search:
+        like = f'%{search}%'
+        q = q.filter(
+            (ContadorProductTemplate.name.ilike(like))
+            | (ContadorProductTemplate.category.ilike(like))
+            | (ContadorProductTemplate.subcategory.ilike(like))
+            | (ContadorProductTemplate.product_class.ilike(like))
+        )
+    q = q.order_by(
         ContadorProductTemplate.name.asc()
     )
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
@@ -135,7 +145,35 @@ def contador_catalogo():
         templates=pagination.items,
         pagination=pagination,
         per_page=per_page,
+        search=search,
     )
+
+
+@contador_bp.route('/catalogo/nuevo', methods=['GET', 'POST'], strict_slashes=False)
+@login_required
+def contador_catalogo_nuevo():
+    if not _can_admin():
+        return _deny_flash('Solo administradores de conteo pueden crear productos.')
+    if request.method == 'POST':
+        try:
+            res = contador_svc.create_catalog_variant_manual(
+                _org_id(),
+                product_name=request.form.get('product_name'),
+                presentation=request.form.get('presentation'),
+                category=request.form.get('category'),
+                subcategory=request.form.get('subcategory'),
+                product_class=request.form.get('product_class'),
+                internal_code=request.form.get('internal_code'),
+                barcode=request.form.get('barcode'),
+            )
+            msg = 'Producto creado correctamente.'
+            if res.get('template_created'):
+                msg += ' (nueva plantilla)'
+            flash(msg, 'success')
+            return redirect(url_for('contador.contador_catalogo'))
+        except Exception as e:
+            flash(str(e), 'error')
+    return render_template('admin/contador/catalogo_nuevo.html')
 
 
 def _form_opt_int(name: str) -> int | None:
@@ -513,6 +551,11 @@ def contador_sesion_captura(session_id: int):
     filtro = (request.args.get('filtro') or 'all').strip().lower()
     if filtro not in ('all', 'pend', 'done'):
         filtro = 'all'
+    if s.status == 'open':
+        try:
+            contador_svc.sync_session_lines_with_catalog(session_id, _org_id())
+        except Exception:
+            pass
     capture_rows, _ses, cap_total = contador_svc.list_session_lines_for_capture(
         session_id,
         _org_id(),

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Contador — Crear producto{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-sm-3 py-2" style="max-width: 700px;">
+  <nav aria-label="breadcrumb" class="mb-1"><ol class="breadcrumb mb-0 small"><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_index') }}">Contador</a></li><li class="breadcrumb-item"><a href="{{ url_for('contador.contador_catalogo') }}">Catálogo</a></li><li class="breadcrumb-item active">Crear producto</li></ol></nav>
+  <h1 class="h5 mb-2">Crear producto manual</h1>
+  <form method="post" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+    <div class="card-body py-2 py-md-3">
+      <div class="row g-2">
+        <div class="col-12">
+          <label class="form-label small mb-0" for="product_name">Nombre del producto *</label>
+          <input class="form-control form-control-sm" id="product_name" name="product_name" maxlength="300" required>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label small mb-0" for="presentation">Presentación *</label>
+          <input class="form-control form-control-sm" id="presentation" name="presentation" maxlength="200" placeholder="Ej. 32 OZ" required>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label small mb-0" for="internal_code">Código interno (opcional)</label>
+          <input class="form-control form-control-sm" id="internal_code" name="internal_code" maxlength="40" placeholder="Ej. MC-0001">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label small mb-0" for="category">Categoría</label>
+          <input class="form-control form-control-sm" id="category" name="category" maxlength="120">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label small mb-0" for="subcategory">Subcategoría</label>
+          <input class="form-control form-control-sm" id="subcategory" name="subcategory" maxlength="120">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label small mb-0" for="product_class">Clase / tipo</label>
+          <input class="form-control form-control-sm" id="product_class" name="product_class" maxlength="80">
+        </div>
+        <div class="col-12">
+          <label class="form-label small mb-0" for="barcode">Código de barras</label>
+          <input class="form-control form-control-sm" id="barcode" name="barcode" maxlength="80">
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-primary btn-sm">Crear producto</button>
+        <a href="{{ url_for('contador.contador_catalogo') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -869,6 +869,98 @@ def import_xlsx_bytes(raw: bytes, filename: str, organization_id: int, user_id: 
     return _execute_catalog_import(rows_iter, organization_id, filename)
 
 
+def create_catalog_variant_manual(
+    organization_id: int,
+    *,
+    product_name: str,
+    presentation: str,
+    category: str | None = None,
+    subcategory: str | None = None,
+    product_class: str | None = None,
+    internal_code: str | None = None,
+    barcode: str | None = None,
+) -> dict[str, Any]:
+    """Alta manual de una variante de catálogo para una organización."""
+    name_s = _cell_str(product_name)
+    attr_s = _cell_str(presentation)
+    if not name_s:
+        raise ValueError('El nombre del producto es obligatorio.')
+    if not attr_s:
+        raise ValueError('La presentación es obligatoria.')
+
+    name_n = normalize_text(name_s)[:_TPL_NAME_NORM_MAX]
+    attr_n = normalize_text(attr_s)
+    if not name_n or not attr_n:
+        raise ValueError('Nombre y presentación no pueden estar vacíos.')
+
+    cat = normalize_text(category)
+    sub = normalize_text(subcategory)
+    cls = normalize_text(product_class)
+    cat, sub, cls = _clip_template_dims(cat, sub, cls)
+
+    code_opt = _sanitize_variant_code_from_import(internal_code or '')
+    raw_code = _cell_str(internal_code)
+    if raw_code and not code_opt:
+        raise ValueError('Código interno inválido. Usa letras, números, punto, guion o guion bajo.')
+    barcode_opt = _cell_str(barcode)
+
+    tpl = ContadorProductTemplate.query.filter_by(
+        organization_id=int(organization_id),
+        category=cat,
+        subcategory=sub,
+        product_class=cls,
+        name_normalized=name_n,
+    ).first()
+    template_created = False
+    if not tpl:
+        tpl = ContadorProductTemplate(
+            organization_id=int(organization_id),
+            name=name_s[:_TPL_NAME_MAX],
+            name_normalized=name_n,
+            category=cat,
+            subcategory=sub,
+            product_class=cls,
+            is_active=True,
+        )
+        db.session.add(tpl)
+        db.session.flush()
+        template_created = True
+
+    existing = ContadorProductVariant.query.filter_by(
+        template_id=tpl.id,
+        attribute_value_normalized=attr_n,
+    ).first()
+    if existing:
+        raise ValueError('Ya existe una variante con esa presentación para el producto.')
+
+    if code_opt:
+        by_code = ContadorProductVariant.query.filter_by(
+            organization_id=int(organization_id), code=code_opt
+        ).first()
+        if by_code:
+            raise ValueError('El código interno ya existe en esta organización.')
+
+    code = code_opt or _next_variant_code(int(organization_id))
+    variant = ContadorProductVariant(
+        organization_id=int(organization_id),
+        template_id=tpl.id,
+        attribute_name='PRESENTACIÓN',
+        attribute_value=attr_s[:200],
+        attribute_value_normalized=attr_n,
+        display_name=f'{name_s} - {attr_s}'[:400],
+        code=code,
+        barcode=(barcode_opt[:80] if barcode_opt else None),
+        is_active=True,
+    )
+    db.session.add(variant)
+    db.session.commit()
+    return {
+        'template_id': int(tpl.id),
+        'variant_id': int(variant.id),
+        'template_created': template_created,
+    }
+
+
 def search_variants(
     organization_id: int,
     q: str,
@@ -1016,6 +1108,40 @@ def open_session(session_id: int, organization_id: int) -> ContadorSession:
     s.opened_at = datetime.utcnow()
     db.session.commit()
     return s
+
+
+def sync_session_lines_with_catalog(session_id: int, organization_id: int) -> int:
+    """
+    Agrega a la sesión abierta las variantes activas que aún no tengan línea.
+    Devuelve cuántas líneas nuevas insertó.
+    """
+    s = ContadorSession.query.filter_by(id=session_id, organization_id=organization_id).first_or_404()
+    if s.status != 'open':
+        return 0
+    variants = ContadorProductVariant.query.filter_by(organization_id=organization_id, is_active=True).all()
+    if not variants:
+        return 0
+    existing_ids = {
+        lid
+        for (lid,) in db.session.query(ContadorCountLine.variant_id).filter_by(session_id=s.id).all()
+    }
+    created = 0
+    for v in variants:
+        if v.id in existing_ids:
+            continue
+        db.session.add(
+            ContadorCountLine(
+                organization_id=organization_id,
+                session_id=s.id,
+                variant_id=v.id,
+                counted_qty=None,
+                status='pending',
+            )
+        )
+        created += 1
+    if created:
+        db.session.commit()
+    return created
 
 
 def close_session(session_id: int, organization_id: int) -> ContadorSession:

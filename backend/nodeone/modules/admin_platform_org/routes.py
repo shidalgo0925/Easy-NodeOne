@@ -104,6 +104,59 @@ def register_admin_platform_org_routes(app):
             return False
         return s
 
+    def _ensure_google_oauth_table():
+        try:
+            from nodeone.services.google_oauth_tenant import ensure_saas_organization_google_oauth_table
+
+            ensure_saas_organization_google_oauth_table(db, db.engine)
+        except Exception:
+            current_app.logger.exception('ensure_saas_organization_google_oauth_table')
+
+    def _save_google_oauth_for_organization(form, organization_id: int) -> str | None:
+        """
+        Persiste credenciales opcionales Google OAuth por tenant.
+        Devuelve mensaje flash de aviso o None.
+        """
+        from models.saas import SaasOrganizationGoogleOAuth
+
+        _ensure_google_oauth_table()
+        clear = form.get('google_oauth_clear') == '1'
+        cid = (form.get('google_oauth_client_id') or '').strip()
+        sec = (form.get('google_oauth_client_secret') or '').strip()
+        row = SaasOrganizationGoogleOAuth.query.filter_by(organization_id=int(organization_id)).first()
+        if clear:
+            if row:
+                db.session.delete(row)
+            return None
+        if not cid:
+            return None
+        if not sec:
+            if row:
+                row.google_client_id = cid
+                return None
+            return 'Indicá también el Client secret de Google (o dejá vacío el Client ID) para no crear credenciales por empresa.'
+        if row:
+            row.google_client_id = cid
+            row.google_client_secret = sec
+        else:
+            db.session.add(
+                SaasOrganizationGoogleOAuth(
+                    organization_id=int(organization_id),
+                    google_client_id=cid,
+                    google_client_secret=sec,
+                )
+            )
+        return None
+
+    def _google_oauth_row(oid: int):
+        try:
+            from models.saas import SaasOrganizationGoogleOAuth
+
+            _ensure_google_oauth_table()
+            return SaasOrganizationGoogleOAuth.query.filter_by(organization_id=int(oid)).first()
+        except Exception:
+            return None
+
     def _org_fiscal_payload_from_form(form):
         return {
             'legal_name': (form.get('legal_name') or '').strip() or None,
@@ -170,13 +223,31 @@ def register_admin_platform_org_routes(app):
             fiscal = _org_fiscal_payload_from_form(request.form)
             if not name:
                 flash('El nombre es obligatorio.', 'error')
-                return render_template('admin/organization_form.html', org=None, form=request.form, show_onboarding_rail=show_rail)
+                return render_template(
+                    'admin/organization_form.html',
+                    org=None,
+                    form=request.form,
+                    show_onboarding_rail=show_rail,
+                    google_oauth=None,
+                )
             if sub_raw is False:
                 flash('Subdominio invalido: solo minusculas, numeros y guiones; no empezar ni terminar con guion.', 'error')
-                return render_template('admin/organization_form.html', org=None, form=request.form, show_onboarding_rail=show_rail)
+                return render_template(
+                    'admin/organization_form.html',
+                    org=None,
+                    form=request.form,
+                    show_onboarding_rail=show_rail,
+                    google_oauth=None,
+                )
             if sub_raw and SaasOrganization.query.filter_by(subdomain=sub_raw).first():
                 flash('Ese subdominio ya esta en uso.', 'error')
-                return render_template('admin/organization_form.html', org=None, form=request.form, show_onboarding_rail=show_rail)
+                return render_template(
+                    'admin/organization_form.html',
+                    org=None,
+                    form=request.form,
+                    show_onboarding_rail=show_rail,
+                    google_oauth=None,
+                )
             try:
                 from nodeone.services.pg_sequence_sync import (
                     ensure_saas_organization_id_sequence_postgresql,
@@ -189,6 +260,21 @@ def register_admin_platform_org_routes(app):
             db.session.add(o)
             try:
                 db.session.commit()
+                warn_g = _save_google_oauth_for_organization(request.form, o.id)
+                if warn_g:
+                    flash(warn_g, 'warning')
+                try:
+                    db.session.commit()
+                except Exception as ex_g:
+                    db.session.rollback()
+                    flash('No se pudieron guardar las credenciales Google: %s' % (ex_g,), 'error')
+                    return render_template(
+                        'admin/organization_form.html',
+                        org=None,
+                        form=request.form,
+                        show_onboarding_rail=show_rail,
+                        google_oauth=None,
+                    )
                 try:
                     from nodeone.services.saas_catalog_defaults import (
                         ensure_sales_org_module_links,
@@ -220,8 +306,20 @@ def register_admin_platform_org_routes(app):
             except Exception as ex:
                 db.session.rollback()
                 flash('No se pudo guardar: %s' % (ex,), 'error')
-                return render_template('admin/organization_form.html', org=None, form=request.form, show_onboarding_rail=show_rail)
-        return render_template('admin/organization_form.html', org=None, form=None, show_onboarding_rail=show_rail)
+                return render_template(
+                    'admin/organization_form.html',
+                    org=None,
+                    form=request.form,
+                    show_onboarding_rail=show_rail,
+                    google_oauth=None,
+                )
+        return render_template(
+            'admin/organization_form.html',
+            org=None,
+            form=None,
+            show_onboarding_rail=show_rail,
+            google_oauth=None,
+        )
 
     @app.route('/admin/organizations/<int:oid>/edit', methods=['GET', 'POST'])
     @platform_admin_required
@@ -236,15 +334,33 @@ def register_admin_platform_org_routes(app):
             fiscal = _org_fiscal_payload_from_form(request.form)
             if not name:
                 flash('El nombre es obligatorio.', 'error')
-                return render_template('admin/organization_form.html', org=o, form=request.form, show_onboarding_rail=show_rail)
+                return render_template(
+                    'admin/organization_form.html',
+                    org=o,
+                    form=request.form,
+                    show_onboarding_rail=show_rail,
+                    google_oauth=_google_oauth_row(o.id),
+                )
             if sub_raw is False:
                 flash('Subdominio invalido: solo minusculas, numeros y guiones; no empezar ni terminar con guion.', 'error')
-                return render_template('admin/organization_form.html', org=o, form=request.form, show_onboarding_rail=show_rail)
+                return render_template(
+                    'admin/organization_form.html',
+                    org=o,
+                    form=request.form,
+                    show_onboarding_rail=show_rail,
+                    google_oauth=_google_oauth_row(o.id),
+                )
             if sub_raw:
                 other = SaasOrganization.query.filter(SaasOrganization.subdomain == sub_raw, SaasOrganization.id != oid).first()
                 if other:
                     flash('Ese subdominio ya esta en uso.', 'error')
-                    return render_template('admin/organization_form.html', org=o, form=request.form, show_onboarding_rail=show_rail)
+                    return render_template(
+                        'admin/organization_form.html',
+                        org=o,
+                        form=request.form,
+                        show_onboarding_rail=show_rail,
+                        google_oauth=_google_oauth_row(o.id),
+                    )
             o.name = name
             o.subdomain = sub_raw
             o.is_active = is_active
@@ -252,13 +368,43 @@ def register_admin_platform_org_routes(app):
                 setattr(o, k, v)
             try:
                 db.session.commit()
+                warn_g = _save_google_oauth_for_organization(request.form, o.id)
+                if warn_g:
+                    flash(warn_g, 'warning')
+                try:
+                    db.session.commit()
+                except Exception as ex_g:
+                    db.session.rollback()
+                    flash('No se pudieron guardar las credenciales Google: %s' % (ex_g,), 'error')
+                    goo = _google_oauth_row(o.id)
+                    return render_template(
+                        'admin/organization_form.html',
+                        org=o,
+                        form=request.form,
+                        show_onboarding_rail=show_rail,
+                        google_oauth=goo,
+                    )
                 flash('Empresa actualizada.', 'success')
                 return redirect(url_for('admin_organizations_list'))
             except Exception as ex:
                 db.session.rollback()
                 flash('No se pudo guardar: %s' % (ex,), 'error')
-                return render_template('admin/organization_form.html', org=o, form=request.form, show_onboarding_rail=show_rail)
-        return render_template('admin/organization_form.html', org=o, form=None, show_onboarding_rail=show_rail)
+                goo = _google_oauth_row(o.id)
+                return render_template(
+                    'admin/organization_form.html',
+                    org=o,
+                    form=request.form,
+                    show_onboarding_rail=show_rail,
+                    google_oauth=goo,
+                )
+        goo = _google_oauth_row(o.id)
+        return render_template(
+            'admin/organization_form.html',
+            org=o,
+            form=None,
+            show_onboarding_rail=show_rail,
+            google_oauth=goo,
+        )
 
     @app.route('/admin/organizations/<int:oid>/deactivate', methods=['POST'])
     @platform_admin_required

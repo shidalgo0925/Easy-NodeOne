@@ -95,6 +95,36 @@
                                value="{{ form.get('fiscal_email', '') if form else ((org.fiscal_email or '') if org else '') }}">
                     </div>
                 </div>
+                <hr>
+                <h6 class="mb-2">Login con Google <span class="text-muted fw-normal">(opcional)</span></h6>
+                <p class="small text-muted mb-3">
+                    Credenciales OAuth solo para <strong>esta empresa</strong> (mismo Client ID que en Google Cloud y redirect URI del host del tenant).
+                    Si no completás nada aquí, el servidor usa las variables globales <code>GOOGLE_CLIENT_ID</code> / <code>GOOGLE_CLIENT_SECRET</code> (si existen).
+                </p>
+                <div class="mb-3">
+                    <label class="form-label">Google Client ID</label>
+                    <input type="text" name="google_oauth_client_id" class="form-control font-monospace small" maxlength="256" autocomplete="off"
+                           placeholder="xxx.apps.googleusercontent.com"
+                           value="{{ form.get('google_oauth_client_id', '') if form else ((google_oauth.google_client_id if google_oauth else '') or '') }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Google Client secret</label>
+                    <input type="password" name="google_oauth_client_secret" class="form-control font-monospace small" maxlength="512" autocomplete="new-password"
+                           placeholder="{% if google_oauth %}Dejar vacío para no cambiar el secret guardado{% else %}GOCSPX-… (obligatorio si indicás Client ID){% endif %}">
+                    {% if google_oauth %}
+                    <div class="form-text">Ya hay un secret guardado para esta empresa; solo escribí uno nuevo si querés reemplazarlo.</div>
+                    {% endif %}
+                </div>
+                {% if org %}
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" name="google_oauth_clear" value="1" class="form-check-input" id="google_oauth_clear"
+                               {% if form and form.get('google_oauth_clear') == '1' %}checked{% endif %}>
+                        <label class="form-check-label" for="google_oauth_clear">Quitar credenciales Google solo para esta empresa</label>
+                    </div>
+                    <div class="form-text">Después de guardar, este tenant usará solo las credenciales globales del servidor (si las hay).</div>
+                </div>
+                {% endif %}
                 <div class="mb-3">
                     {% if org and org.id == 1 %}
                     <input type="hidden" name="is_active" value="1">

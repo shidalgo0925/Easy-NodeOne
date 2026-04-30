@@ -1882,6 +1882,14 @@ def _organization_id_from_request_host(req):
     return int(org.id) if org is not None else None
 
 
+def resolve_google_oauth_organization_id():
+    """Organización cuyas credenciales Google OAuth aplican según el host de la petición (tenant)."""
+    oid = _organization_id_from_request_host(request)
+    if oid is not None:
+        return int(oid)
+    return default_organization_id()
+
+
 def send_payment_to_odoo(payment, user, cart=None):
     """
     Envía webhook a Odoo cuando se confirma un pago
@@ -2981,6 +2989,12 @@ def bootstrap_nodeone_schema():
             ensure_analytics_view_permission(db, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_analytics_view_permission: {e}')
+        try:
+            from nodeone.services.google_oauth_tenant import ensure_saas_organization_google_oauth_table
+
+            ensure_saas_organization_google_oauth_table(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_google_oauth_table: {e}')
         try:
             from nodeone.services.default_taxes import ensure_default_percent_taxes
 

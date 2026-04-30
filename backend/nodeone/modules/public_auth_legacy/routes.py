@@ -405,8 +405,18 @@ def register_public_auth_legacy_routes(app):
             flash('Respuesta incompleta del proveedor (sin código). Reintenta o usa email y contraseña.', 'error')
             return redirect(url_for('auth.login'))
         try:
+            from nodeone.services.google_oauth_tenant import apply_google_oauth_credentials_for_org
+
             client = getattr(M.oauth, provider)
-            token = client.authorize_access_token()
+            oauth_oid = M.resolve_google_oauth_organization_id()
+            with apply_google_oauth_credentials_for_org(client, oauth_oid) as oauth_ok:
+                if not oauth_ok:
+                    flash(
+                        'Inicio con Google no está configurado para este sitio. Usa correo y contraseña o contacta al administrador.',
+                        'error',
+                    )
+                    return redirect(url_for('auth.login'))
+                token = client.authorize_access_token()
             # Google/OpenID: userinfo suele venir en token['userinfo']
             userinfo = token.get('userinfo')
             if not userinfo:
@@ -530,8 +540,14 @@ def register_public_auth_legacy_routes(app):
         if not M.OAUTH_AVAILABLE or provider not in ('google',):
             flash('Login social no disponible.', 'error')
             return redirect(url_for('auth.login'))
+        from nodeone.services.google_oauth_tenant import (
+            apply_google_oauth_credentials_for_org,
+            google_oauth_configured_for_organization,
+        )
+
         client = getattr(M.oauth, provider, None)
-        if not client or not app.config.get(f'{provider.upper()}_CLIENT_ID'):
+        oauth_oid = M.resolve_google_oauth_organization_id()
+        if not client or not google_oauth_configured_for_organization(oauth_oid):
             flash(f'Login con {provider.capitalize()} no está configurado.', 'error')
             return redirect(url_for('auth.login'))
         from _app.modules.auth.service import safe_next_path
@@ -544,7 +560,14 @@ def register_public_auth_legacy_routes(app):
             redirect_uri = f'{base}/auth/{provider}/callback'
         else:
             redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
-        return client.authorize_redirect(redirect_uri)
+        with apply_google_oauth_credentials_for_org(client, oauth_oid) as oauth_ok:
+            if not oauth_ok:
+                flash(
+                    'Inicio con Google no está configurado para este sitio. Usa correo y contraseña o contacta al administrador.',
+                    'error',
+                )
+                return redirect(url_for('auth.login'))
+            return client.authorize_redirect(redirect_uri)
 
 
     @app.route('/logout')

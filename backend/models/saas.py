@@ -119,6 +119,17 @@ class SaasModule(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class SaasOrganizationGoogleOAuth(db.Model):
+    """Credenciales OAuth Google por tenant (alternativa a GOOGLE_* globales en .env)."""
+    __tablename__ = 'saas_organization_google_oauth'
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), primary_key=True
+    )
+    google_client_id = db.Column(db.String(256), nullable=False)
+    google_client_secret = db.Column(db.String(512), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class SaasOrgModule(db.Model):
     __tablename__ = 'saas_org_module'
     id = db.Column(db.Integer, primary_key=True)

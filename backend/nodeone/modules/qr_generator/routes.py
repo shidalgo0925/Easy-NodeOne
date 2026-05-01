@@ -8,6 +8,7 @@ from nodeone.modules.qr_generator.schemas import (
     ALLOWED_FORMATS,
     DEFAULT_BORDER_MODULES,
     DEFAULT_QR_SIZE,
+    MAX_BATCH_LINES,
     MAX_QR_SIZE,
     MIN_QR_SIZE,
 )
@@ -50,9 +51,51 @@ def register_qr_generator_routes(app):
             return False
         return True
 
-    def _parse_generate_request():
-        import base64
+    def _parse_generate_options_json(data: dict):
+        """format, size, error_level, style (incl. logo_base64) desde cuerpo JSON."""
+        import base64 as b64mod
 
+        if not isinstance(data, dict):
+            data = {}
+        fmt = (data.get('format') or 'png').lower()
+        err = (data.get('error_level') or 'M').upper()
+        try:
+            size = int(data.get('size', DEFAULT_QR_SIZE))
+        except (TypeError, ValueError):
+            return None, (jsonify({'ok': False, 'error': 'size inválido'}), 400)
+        size = max(MIN_QR_SIZE, min(MAX_QR_SIZE, size))
+        st = data.get('style') if isinstance(data.get('style'), dict) else {}
+        logo_bytes = None
+        b64 = st.get('logo_base64')
+        if isinstance(b64, str) and b64.strip():
+            try:
+                raw_b64 = b64
+                if 'base64,' in raw_b64:
+                    raw_b64 = raw_b64.split('base64,', 1)[1]
+                logo_bytes = b64mod.b64decode(raw_b64)
+            except Exception:
+                return None, (jsonify({'ok': False, 'error': 'logo_base64 inválido'}), 400)
+        if logo_bytes:
+            logo_bytes, lerr = validate_logo_bytes(logo_bytes)
+            if lerr:
+                return None, (jsonify({'ok': False, 'error': lerr}), 400)
+        nfill = normalize_hex_color(st.get('fill'), DEFAULT_FILL)
+        nbg = normalize_hex_color(st.get('bg'), DEFAULT_BG)
+        border = parse_border(st.get('border'))
+        transparent = bool(st.get('transparent'))
+        style = build_style_for_generate(nfill, nbg, transparent, border, logo_bytes)
+        err_eff = effective_error_level(err, bool(logo_bytes))
+        return (
+            {
+                'fmt': fmt,
+                'size': size,
+                'error_level': err_eff,
+                'style': style,
+            },
+            None,
+        )
+
+    def _parse_generate_request():
         ct = (request.content_type or '').lower()
         logo_bytes = None
         fill = None
@@ -72,50 +115,43 @@ def register_qr_generator_routes(app):
             f = request.files.get('logo')
             if f and getattr(f, 'filename', None):
                 logo_bytes = f.read()
-        else:
-            data = request.get_json(silent=True) or {}
-            content_raw = data.get('content', '')
-            fmt = (data.get('format') or 'png').lower()
-            err = (data.get('error_level') or 'M').upper()
-            size_raw = data.get('size', DEFAULT_QR_SIZE)
-            st = data.get('style') if isinstance(data.get('style'), dict) else {}
-            fill = st.get('fill')
-            bg = st.get('bg')
-            transparent = bool(st.get('transparent'))
-            border_raw = st.get('border')
-            b64 = st.get('logo_base64')
-            if isinstance(b64, str) and b64.strip():
-                try:
-                    raw_b64 = b64
-                    if 'base64,' in raw_b64:
-                        raw_b64 = raw_b64.split('base64,', 1)[1]
-                    logo_bytes = base64.b64decode(raw_b64)
-                except Exception:
-                    return None, (jsonify({'ok': False, 'error': 'logo_base64 inválido'}), 400)
+            try:
+                size = int(size_raw)
+            except (TypeError, ValueError):
+                return None, (jsonify({'ok': False, 'error': 'size inválido'}), 400)
+            size = max(MIN_QR_SIZE, min(MAX_QR_SIZE, size))
+            if logo_bytes:
+                logo_bytes, lerr = validate_logo_bytes(logo_bytes)
+                if lerr:
+                    return None, (jsonify({'ok': False, 'error': lerr}), 400)
+            nfill = normalize_hex_color(fill, DEFAULT_FILL)
+            nbg = normalize_hex_color(bg, DEFAULT_BG)
+            border = parse_border(border_raw)
+            style = build_style_for_generate(nfill, nbg, transparent, border, logo_bytes)
+            err_eff = effective_error_level(err, bool(logo_bytes))
+            return (
+                {
+                    'content_raw': content_raw,
+                    'fmt': fmt,
+                    'size': size,
+                    'error_level': err_eff,
+                    'style': style,
+                },
+                None,
+            )
 
-        try:
-            size = int(size_raw)
-        except (TypeError, ValueError):
-            return None, (jsonify({'ok': False, 'error': 'size inválido'}), 400)
-
-        if logo_bytes:
-            logo_bytes, lerr = validate_logo_bytes(logo_bytes)
-            if lerr:
-                return None, (jsonify({'ok': False, 'error': lerr}), 400)
-
-        nfill = normalize_hex_color(fill, DEFAULT_FILL)
-        nbg = normalize_hex_color(bg, DEFAULT_BG)
-        border = parse_border(border_raw)
-        style = build_style_for_generate(nfill, nbg, transparent, border, logo_bytes)
-        err_eff = effective_error_level(err, bool(logo_bytes))
-
+        data = request.get_json(silent=True) or {}
+        opts, oerr = _parse_generate_options_json(data)
+        if oerr:
+            return None, oerr
+        assert opts is not None
         return (
             {
-                'content_raw': content_raw,
-                'fmt': fmt,
-                'size': size,
-                'error_level': err_eff,
-                'style': style,
+                'content_raw': data.get('content', ''),
+                'fmt': opts['fmt'],
+                'size': opts['size'],
+                'error_level': opts['error_level'],
+                'style': opts['style'],
             },
             None,
         )
@@ -180,6 +216,68 @@ def register_qr_generator_routes(app):
             mimetype=mime.split(';')[0].strip(),
             headers={
                 'Content-Disposition': f'attachment; filename="{safe_name}"',
+                'Cache-Control': 'no-store',
+            },
+        )
+
+    @app.route('/api/qr/batch', methods=['POST'])
+    @admin_required
+    def api_qr_batch():
+        import io
+        import zipfile
+
+        if not _guard():
+            return jsonify({'ok': False, 'error': 'módulo desactivado'}), 403
+        if rate_limit_hit(getattr(current_user, 'id', None), request.remote_addr or ''):
+            return jsonify({'ok': False, 'error': 'rate_limited'}), 429
+        data = request.get_json(silent=True) or {}
+        raw_lines = data.get('lines')
+        if not isinstance(raw_lines, list):
+            return jsonify({'ok': False, 'error': 'lines debe ser un array'}), 400
+        lines = []
+        for x in raw_lines:
+            if isinstance(x, str) and x.strip():
+                lines.append(x.strip())
+        if not lines:
+            return jsonify({'ok': False, 'error': 'Añadí al menos una línea con texto o URL.'}), 400
+        if len(lines) > MAX_BATCH_LINES:
+            return jsonify({'ok': False, 'error': f'Máximo {MAX_BATCH_LINES} códigos por lote.'}), 400
+
+        opts, oerr = _parse_generate_options_json(data)
+        if oerr:
+            return oerr
+        assert opts is not None
+        fmt = opts['fmt']
+        err = opts['error_level']
+        size = opts['size']
+        style = opts['style']
+        if fmt not in ALLOWED_FORMATS:
+            return jsonify({'ok': False, 'error': 'formato no permitido'}), 400
+        if err not in ALLOWED_ERROR_LEVELS:
+            return jsonify({'ok': False, 'error': 'error_level inválido'}), 400
+
+        validated = []
+        for i, line in enumerate(lines):
+            content, verr = validate_qr_content(line)
+            if verr:
+                return jsonify({'ok': False, 'error': verr, 'line_index': i}), 400
+            validated.append(content)
+
+        ext = {'png': 'png', 'svg': 'svg', 'pdf': 'pdf'}.get(fmt, 'dat')
+        buf = io.BytesIO()
+        try:
+            with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for idx, content in enumerate(validated):
+                    blob, _mime, _fname = qr_services.generate_file(content, fmt, size, err, style)
+                    zf.writestr(f'qr-{idx + 1:03d}.{ext}', blob)
+        except Exception as ex:
+            return jsonify({'ok': False, 'error': str(ex)}), 500
+        buf.seek(0)
+        return Response(
+            buf.getvalue(),
+            mimetype='application/zip',
+            headers={
+                'Content-Disposition': 'attachment; filename="qr-batch.zip"',
                 'Cache-Control': 'no-store',
             },
         )

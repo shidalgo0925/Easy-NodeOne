@@ -29,6 +29,13 @@
 
 - En cada fila PNG/SVG: botón **Copiar** obtiene el archivo vía `GET /api/qr/<id>/download`, actualiza la vista previa (fondo tablero si el registro tenía transparencia, según `GET /api/qr/<id>`) y pega en el portapapeles como en la Fase 5. Los PDF solo tienen **Descargar**.
 
+### Fase 7 — Lote (ZIP)
+
+- `POST /api/qr/batch` — JSON `{ lines: string[], format, size, error_level, style? }` (misma forma que en generate). Respuesta **ZIP** con `qr-001.png` … según formato.
+- Hasta **40** líneas no vacías; cada línea se valida como un contenido suelto (`https://` obligatorio para URLs).
+- No crea filas en `qr_codes` (solo descarga).
+- La UI incluye un bloque plegable **Generación por lotes** que usa los mismos controles de formato/estilo que el formulario principal.
+
 ## API
 
 - `POST /api/qr/generate` — respuesta binaria (archivo).
@@ -37,6 +44,7 @@
 - `GET /api/qr/list` — últimos registros (`?q=` filtra por contenido); `has_style` indica si hay `style_json`.
 - `GET /api/qr/<id>` — un registro (ver Fase 4).
 - `GET /api/qr/<id>/download` — regenera con datos del historial (incl. estilo guardado).
+- `POST /api/qr/batch` — varias líneas → ZIP (`qr-001.ext` …); ver Fase 7.
 - `DELETE /api/qr/<id>` — borrar historial (misma org).
 
 ## UI
@@ -44,6 +52,7 @@
 - `/admin/tools/qr` y `/tools/qr` (admin autenticado); query `?content=` precarga el campo.
 - Botones: Generar, Descargar, **Copiar imagen** (PNG/SVG en vista previa), Copiar contenido (texto del campo).
 - Historial: Descargar, **Copiar** (PNG/SVG), Cargar (rellena formulario), Eliminar.
+- **Generación por lotes:** textarea multilínea + Descargar ZIP (máx. 40 líneas).
 - Enlaces rápidos desde admin: eventos (ficha pública), programas académicos, pagos (carrito), catálogo servicios; texto de ayuda en formatos de certificado.
 
 ## Entorno

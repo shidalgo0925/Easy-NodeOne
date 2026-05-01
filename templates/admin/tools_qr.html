@@ -77,6 +77,13 @@
                 <span class="text-muted small" id="qr-preview-placeholder">Vista previa aquí</span>
                 <div id="qr-preview-inner" class="d-none"></div>
             </div>
+            <details class="mt-4 border-top pt-3">
+                <summary class="small fw-semibold" style="cursor:pointer">Generación por lotes (ZIP)</summary>
+                <p class="text-muted small mt-2 mb-2">Una URL o texto válido por línea. Mismo formato, tamaño, corrección y estilo que el formulario anterior (incl. logo en memoria si cargaste un registro con logo). Máximo 40 líneas. No guarda entradas en el historial.</p>
+                <label class="form-label" for="qr-batch-lines">Líneas</label>
+                <textarea class="form-control font-monospace" id="qr-batch-lines" rows="6" placeholder="https://ejemplo.com&#10;https://otra.org/ruta" maxlength="82000"></textarea>
+                <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="qr-batch-btn"><i class="fas fa-file-archive me-1" aria-hidden="true"></i>Descargar ZIP</button>
+            </details>
         </div>
     </div>
     <h2 class="h6 mt-4 mb-2">Historial reciente</h2>
@@ -417,6 +424,75 @@
     }).catch(function () {
       showErr('No se pudo copiar.');
     });
+  });
+  var QR_MAX_BATCH = 40;
+  document.getElementById('qr-batch-btn').addEventListener('click', function () {
+    showErr('');
+    var raw = document.getElementById('qr-batch-lines').value;
+    var lines = raw.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!lines.length) {
+      showErr('Escribí al menos una línea.');
+      return;
+    }
+    if (lines.length > QR_MAX_BATCH) {
+      showErr('Máximo ' + QR_MAX_BATCH + ' líneas.');
+      return;
+    }
+    var format = document.getElementById('qr-format').value;
+    var size = parseInt(document.getElementById('qr-size').value, 10) || 300;
+    var error_level = document.getElementById('qr-error').value;
+    var fill = document.getElementById('qr-fill').value;
+    var bg = document.getElementById('qr-bg').value;
+    var border = parseInt(document.getElementById('qr-border').value, 10) || 4;
+    var transparent = document.getElementById('qr-transparent').checked;
+    var logoInput = document.getElementById('qr-logo');
+    var logoFile = logoInput.files && logoInput.files[0];
+    var styleObj = { fill: fill, bg: bg, border: border, transparent: transparent };
+
+    function runBatch() {
+      fetch('/api/qr/batch', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/zip' },
+        body: JSON.stringify({
+          lines: lines,
+          format: format,
+          size: size,
+          error_level: error_level,
+          style: styleObj
+        })
+      }).then(function (r) {
+        if (!r.ok) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            throw new Error((j && j.error) || ('HTTP ' + r.status));
+          });
+        }
+        return r.blob();
+      }).then(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'qr-batch.zip';
+        a.click();
+        showOk('ZIP descargado.');
+      }).catch(function (e) {
+        showErr(e.message || 'Error');
+      });
+    }
+
+    if (logoFile && format !== 'svg') {
+      var fr = new FileReader();
+      fr.onload = function () {
+        var s = String(fr.result || '');
+        var i = s.indexOf('base64,');
+        if (i !== -1) styleObj.logo_base64 = s.slice(i + 7);
+        runBatch();
+      };
+      fr.onerror = function () { showErr('No se pudo leer el archivo de logo.'); };
+      fr.readAsDataURL(logoFile);
+      return;
+    }
+    if (loadedLogoB64 && format !== 'svg') styleObj.logo_base64 = loadedLogoB64;
+    runBatch();
   });
   loadHistory();
 })();

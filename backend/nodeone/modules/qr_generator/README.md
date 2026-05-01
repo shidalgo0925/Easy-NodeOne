@@ -25,6 +25,10 @@
 - En la UI: **Copiar imagen** tras generar: **PNG** → `Clipboard` como imagen (p. ej. para pegar en Canva, Slides, chat); **SVG** → se copia el **texto** del SVG. No aplica a **PDF** (usar Descargar).
 - Requiere contexto seguro (**HTTPS** o `localhost`) y un navegador con `navigator.clipboard` / `ClipboardItem` para PNG.
 
+### Fase 6 — Copiar desde historial
+
+- En cada fila PNG/SVG: botón **Copiar** obtiene el archivo vía `GET /api/qr/<id>/download`, actualiza la vista previa (fondo tablero si el registro tenía transparencia, según `GET /api/qr/<id>`) y pega en el portapapeles como en la Fase 5. Los PDF solo tienen **Descargar**.
+
 ## API
 
 - `POST /api/qr/generate` — respuesta binaria (archivo).
@@ -38,7 +42,8 @@
 ## UI
 
 - `/admin/tools/qr` y `/tools/qr` (admin autenticado); query `?content=` precarga el campo.
-- Botones: Generar, Descargar, **Copiar imagen** (PNG/SVG recién generados), Copiar contenido (texto del campo).
+- Botones: Generar, Descargar, **Copiar imagen** (PNG/SVG en vista previa), Copiar contenido (texto del campo).
+- Historial: Descargar, **Copiar** (PNG/SVG), Cargar (rellena formulario), Eliminar.
 - Enlaces rápidos desde admin: eventos (ficha pública), programas académicos, pagos (carrito), catálogo servicios; texto de ayuda en formatos de certificado.
 
 ## Entorno

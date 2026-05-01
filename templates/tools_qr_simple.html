@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Generador de Código QR{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3" style="max-width: 36rem">
+    <h1 class="h4 mb-3">Generador de Código QR</h1>
+    <p class="text-muted small">Pegá una URL que empiece con <code>https://</code> (máx. 500 caracteres). Solo PNG; no se guarda nada en el servidor.</p>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label" for="qr-url">URL</label>
+                <input type="url" class="form-control font-monospace" id="qr-url" maxlength="500" placeholder="https://…" autocomplete="url">
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <button type="button" class="btn btn-primary" id="qr-simple-gen"><i class="fas fa-qrcode me-1"></i>Generar QR</button>
+                <button type="button" class="btn btn-outline-secondary" id="qr-simple-dl" disabled><i class="fas fa-download me-1"></i>Descargar PNG</button>
+            </div>
+            <div id="qr-simple-err" class="alert alert-danger py-2 small d-none" role="alert"></div>
+            <div class="border rounded bg-light p-3 text-center min-height-preview" id="qr-simple-preview-wrap">
+                <span class="text-muted small" id="qr-simple-ph">Vista previa</span>
+                <div id="qr-simple-preview" class="d-none"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+  var lastBlob = null;
+  function showErr(msg) {
+    var el = document.getElementById('qr-simple-err');
+    el.textContent = msg || '';
+    el.classList.toggle('d-none', !msg);
+  }
+  document.getElementById('qr-simple-gen').addEventListener('click', function () {
+    showErr('');
+    var url = document.getElementById('qr-url').value.trim();
+    document.getElementById('qr-simple-dl').disabled = true;
+    lastBlob = null;
+    fetch('/api/tools/qr/generate', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'image/png' },
+      body: JSON.stringify({ url: url })
+    }).then(function (r) {
+      if (!r.ok) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          throw new Error((j && j.error) || ('HTTP ' + r.status));
+        });
+      }
+      return r.blob();
+    }).then(function (blob) {
+      lastBlob = blob;
+      document.getElementById('qr-simple-dl').disabled = false;
+      var wrap = document.getElementById('qr-simple-preview');
+      var ph = document.getElementById('qr-simple-ph');
+      wrap.classList.remove('d-none');
+      ph.classList.add('d-none');
+      wrap.innerHTML = '';
+      var u = URL.createObjectURL(blob);
+      var img = document.createElement('img');
+      img.src = u;
+      img.alt = 'Código QR';
+      img.className = 'img-fluid';
+      img.style.maxHeight = '280px';
+      wrap.appendChild(img);
+    }).catch(function (e) {
+      showErr(e.message || 'Error');
+    });
+  });
+  document.getElementById('qr-simple-dl').addEventListener('click', function () {
+    if (!lastBlob) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(lastBlob);
+    a.download = 'qr.png';
+    a.click();
+  });
+})();
+</script>
+{% endblock %}

@@ -44,6 +44,7 @@ import os
 # NODEONE_ACADEMIC_MODULE_ENABLED=0 — apaga el módulo en todo el despliegue (además del toggle SaaS `academic` por tenant).
 # NODEONE_SKIP_CONTADOR_MODULE=1 — no registrar Contador (también inactiva toggles; el flag SaaS `contador` vive en saas_module).
 # NODEONE_SKIP_QR_GENERATOR_MODULE=1 — no registrar Generador QR (/admin/tools/qr, /api/qr/*).
+# NODEONE_SKIP_QR_TOOLS_MODULE=1 — no registrar QR mínimo (/api/tools/qr/generate, /tools/qr/simple).
 
 
 def register_academic_module(app):
@@ -859,6 +860,18 @@ def register_qr_generator_routes(app):
         print(f'Warning: No se pudo registrar qr_generator: {e}')
 
 
+def register_qr_tools_routes(app):
+    """POST /api/tools/qr/generate y GET /tools/qr/simple (QR mínimo por URL, sin DB)."""
+    if os.environ.get('NODEONE_SKIP_QR_TOOLS_MODULE', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return
+    try:
+        from nodeone.modules.qr_tools.routes import register_qr_tools_routes as _reg
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar qr_tools: {e}')
+
+
 def register_contador_blueprints(app):
     """Conteos físicos por variante (/admin/contador, /api/contador)."""
     if os.environ.get('NODEONE_SKIP_CONTADOR_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
@@ -959,6 +972,7 @@ def register_modules(app):
     register_academic_module(app)
     register_contador_blueprints(app)
     register_qr_generator_routes(app)
+    register_qr_tools_routes(app)
 
 
 def init_extensions(app):

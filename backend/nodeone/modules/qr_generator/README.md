@@ -1,6 +1,6 @@
 # QR Generator (`qr_generator`)
 
-## Alcance (fase actual)
+## Alcance
 
 - Multi-tenant: activación vía **Admin → Módulos SaaS** (`qr_generator`).
 - QR **estático** (contenido codificado en la imagen).
@@ -8,11 +8,20 @@
 - Contenido máximo **2000** caracteres; URLs solo **`https://`**.
 - Historial en tabla `qr_codes` (sin QR dinámico ni estadísticas de escaneo).
 
+### Fase 3 — Estilo / marca
+
+- Colores de módulos y fondo (`#RGB` / `#RRGGBB`), fondo **transparente** (PNG; SVG con intento de fondo transparente vía segno).
+- **Margen** en módulos de borde (1–10, por defecto 4).
+- **Logo** opcional (PNG/JPEG/GIF/WebP, máx. ~250 KB y 512 px de lado): solo **PNG** y **PDF**; la corrección de error sube como mínimo a **Q**.
+- El estilo (y el logo en base64) se guarda en **`style_json`** para repetir la misma salida al descargar desde el historial.
+
 ## API
 
-- `POST /api/qr/generate` — JSON `{ content, format, size, error_level }` → archivo.
-- `GET /api/qr/list` — últimos registros de la organización (`?q=` filtra por contenido).
-- `GET /api/qr/<id>/download` — misma salida que generate usando datos guardados en historial.
+- `POST /api/qr/generate` — respuesta binaria (archivo).
+  - **JSON**: `{ content, format, size, error_level, style?: { fill, bg, transparent, border, logo_base64? } }`
+  - **`multipart/form-data`**: mismos campos + archivo `logo` (útil cuando hay logo).
+- `GET /api/qr/list` — últimos registros (`?q=` filtra por contenido); `has_style` indica si hay `style_json`.
+- `GET /api/qr/<id>/download` — regenera con datos del historial (incl. estilo guardado).
 - `DELETE /api/qr/<id>` — borrar historial (misma org).
 
 ## UI

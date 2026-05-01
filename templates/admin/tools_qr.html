@@ -5,7 +5,7 @@
 {% block page_content %}
 <div class="container-fluid py-3 px-3" style="max-width: 52rem">
     <h1 class="h4 mb-3"><i class="fas fa-qrcode me-2" aria-hidden="true"></i>Generador QR</h1>
-    <p class="text-muted small">Contenido o URL (<code>https://</code> obligatorio). Máx. 2.000 caracteres.</p>
+    <p class="text-muted small">Contenido o URL (<code>https://</code> obligatorio). Máx. 2.000 caracteres. Estilo (colores, margen, logo) en PNG/PDF; SVG admite colores y fondo transparente sin logo.</p>
     <div class="card shadow-sm">
         <div class="card-body">
             <div class="mb-3">
@@ -35,6 +35,31 @@
                     </select>
                 </div>
             </div>
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-6 col-md-3">
+                    <label class="form-label" for="qr-fill">Color módulos</label>
+                    <input type="color" class="form-control form-control-color w-100" id="qr-fill" value="#000000" title="Color de los módulos">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label" for="qr-bg">Color fondo</label>
+                    <input type="color" class="form-control form-control-color w-100" id="qr-bg" value="#ffffff" title="Color de fondo">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label" for="qr-border">Margen (módulos)</label>
+                    <input type="number" class="form-control" id="qr-border" value="4" min="1" max="10" step="1">
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="qr-transparent">
+                        <label class="form-check-label" for="qr-transparent">Fondo transparente</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="qr-logo">Logo (opcional, PNG/JPEG)</label>
+                <input type="file" class="form-control form-control-sm" id="qr-logo" accept="image/png,image/jpeg,image/gif,image/webp">
+                <span class="text-muted small">Solo PNG o PDF. Con logo la corrección mínima es Q.</span>
+            </div>
             <div class="d-flex flex-wrap gap-2 mb-3">
                 <button type="button" class="btn btn-primary" id="qr-gen-btn"><i class="fas fa-magic me-1"></i>Generar</button>
                 <button type="button" class="btn btn-outline-secondary" id="qr-download-btn" disabled><i class="fas fa-download me-1"></i>Descargar</button>
@@ -55,7 +80,7 @@
     </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle" id="qr-history">
-            <thead><tr><th>Cuándo</th><th>Vista</th><th>Corr.</th><th class="text-nowrap">Archivo</th><th></th></tr></thead>
+            <thead><tr><th>Cuándo</th><th>Vista</th><th>Corr.</th><th>Estilo</th><th class="text-nowrap">Archivo</th><th></th></tr></thead>
             <tbody></tbody>
         </table>
     </div>
@@ -83,7 +108,7 @@
         var tb = document.querySelector('#qr-history tbody');
         tb.innerHTML = '';
         if (!d.ok || !d.items || !d.items.length) {
-          tb.innerHTML = '<tr><td colspan="5" class="text-muted small">Sin registros.</td></tr>';
+          tb.innerHTML = '<tr><td colspan="6" class="text-muted small">Sin registros.</td></tr>';
           return;
         }
         d.items.forEach(function (row) {
@@ -91,6 +116,7 @@
           tr.innerHTML = '<td class="small">' + (row.created_at || '') + '</td>' +
             '<td class="small text-truncate" style="max-width:14rem" title="">' + (row.content_preview || '') + '</td>' +
             '<td><span class="badge bg-secondary">' + row.format + ' · ' + row.error_level + '</span></td>' +
+            '<td class="small">' + (row.has_style ? '<span class="badge bg-info">Sí</span>' : '—') + '</td>' +
             '<td><a class="btn btn-sm btn-outline-primary" href="/api/qr/' + row.id + '/download">Descargar</a></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger qr-del" data-id="' + row.id + '">Eliminar</button></td>';
           tb.appendChild(tr);
@@ -105,19 +131,57 @@
         });
       });
   }
+  function syncLogoDisabled() {
+    var svg = document.getElementById('qr-format').value === 'svg';
+    var logo = document.getElementById('qr-logo');
+    logo.disabled = svg;
+  }
+  document.getElementById('qr-format').addEventListener('change', syncLogoDisabled);
+  syncLogoDisabled();
+
   document.getElementById('qr-gen-btn').addEventListener('click', function () {
     showErr('');
     var content = document.getElementById('qr-content').value.trim();
     var format = document.getElementById('qr-format').value;
     var size = parseInt(document.getElementById('qr-size').value, 10) || 300;
     var error_level = document.getElementById('qr-error').value;
+    var fill = document.getElementById('qr-fill').value;
+    var bg = document.getElementById('qr-bg').value;
+    var border = parseInt(document.getElementById('qr-border').value, 10) || 4;
+    var transparent = document.getElementById('qr-transparent').checked;
+    var logoInput = document.getElementById('qr-logo');
+    var logoFile = logoInput.files && logoInput.files[0];
     document.getElementById('qr-download-btn').disabled = true;
-    fetch('/api/qr/generate', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'Accept': '*/*' },
-      body: JSON.stringify({ content: content, format: format, size: size, error_level: error_level })
-    }).then(function (r) {
+
+    var useMultipart = !!(logoFile && format !== 'svg');
+    var req;
+    if (useMultipart) {
+      var fd = new FormData();
+      fd.append('content', content);
+      fd.append('format', format);
+      fd.append('size', String(size));
+      fd.append('error_level', error_level);
+      fd.append('fill', fill);
+      fd.append('bg', bg);
+      fd.append('border', String(border));
+      if (transparent) fd.append('transparent', '1');
+      fd.append('logo', logoFile);
+      req = fetch('/api/qr/generate', { method: 'POST', credentials: 'same-origin', body: fd, headers: { 'Accept': '*/*' } });
+    } else {
+      req = fetch('/api/qr/generate', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': '*/*' },
+        body: JSON.stringify({
+          content: content,
+          format: format,
+          size: size,
+          error_level: error_level,
+          style: { fill: fill, bg: bg, border: border, transparent: transparent }
+        })
+      });
+    }
+    req.then(function (r) {
       if (!r.ok) {
         return r.json().catch(function () { return {}; }).then(function (j) {
           throw new Error((j && j.error) || ('HTTP ' + r.status));

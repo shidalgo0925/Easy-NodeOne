@@ -15,5 +15,6 @@ class QrCodeRecord(db.Model):
     format = db.Column(db.String(8), nullable=False)
     size = db.Column(db.Integer, nullable=False)
     error_level = db.Column(db.String(1), nullable=False)
+    style_json = db.Column(db.Text, nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

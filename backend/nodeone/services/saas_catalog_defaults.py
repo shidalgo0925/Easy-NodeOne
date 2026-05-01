@@ -66,6 +66,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'Conteos físicos de inventario por variante, catálogo e importación masiva.',
         False,
     ),
+    (
+        'qr_generator',
+        'Generador QR',
+        'Generación de códigos QR estáticos (PNG, SVG, PDF) e historial por organización.',
+        False,
+    ),
 )
 
 
@@ -172,6 +178,7 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'academic',
     'workshop',
     'contador',
+    'qr_generator',
 )
 
 

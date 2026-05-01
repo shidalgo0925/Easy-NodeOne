@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Generador QR - Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3" style="max-width: 52rem">
+    <h1 class="h4 mb-3"><i class="fas fa-qrcode me-2" aria-hidden="true"></i>Generador QR</h1>
+    <p class="text-muted small">Contenido o URL (<code>https://</code> obligatorio). Máx. 2.000 caracteres.</p>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label" for="qr-content">Texto o URL</label>
+                <textarea class="form-control font-monospace" id="qr-content" rows="3" maxlength="2000" placeholder="https://…"></textarea>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-6 col-md-4">
+                    <label class="form-label" for="qr-format">Formato</label>
+                    <select class="form-select" id="qr-format">
+                        <option value="png" selected>PNG</option>
+                        <option value="svg">SVG</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-4">
+                    <label class="form-label" for="qr-size">Tamaño (px)</label>
+                    <input type="number" class="form-control" id="qr-size" value="300" min="80" max="2000" step="10">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="qr-error">Corrección</label>
+                    <select class="form-select" id="qr-error">
+                        <option value="L">Bajo (L)</option>
+                        <option value="M" selected>Medio (M)</option>
+                        <option value="Q">Alto (Q)</option>
+                        <option value="H">Muy alto (H)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <button type="button" class="btn btn-primary" id="qr-gen-btn"><i class="fas fa-magic me-1"></i>Generar</button>
+                <button type="button" class="btn btn-outline-secondary" id="qr-download-btn" disabled><i class="fas fa-download me-1"></i>Descargar</button>
+                <button type="button" class="btn btn-outline-secondary" id="qr-copy-content-btn"><i class="fas fa-copy me-1"></i>Copiar contenido</button>
+            </div>
+            <div id="qr-err" class="alert alert-danger py-2 small d-none" role="alert"></div>
+            <div class="border rounded bg-light p-3 text-center min-height-preview" id="qr-preview-wrap">
+                <span class="text-muted small" id="qr-preview-placeholder">Vista previa aquí</span>
+                <div id="qr-preview-inner" class="d-none"></div>
+            </div>
+        </div>
+    </div>
+    <h2 class="h6 mt-4 mb-2">Historial reciente</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle" id="qr-history">
+            <thead><tr><th>Cuándo</th><th>Vista</th><th>Corr.</th><th></th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+<script>
+(function () {
+  var lastBlob = null;
+  var lastName = 'qr.png';
+  var lastMime = 'image/png';
+  function showErr(msg) {
+    var el = document.getElementById('qr-err');
+    el.textContent = msg || '';
+    el.classList.toggle('d-none', !msg);
+  }
+  function loadHistory() {
+    fetch('/api/qr/list', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var tb = document.querySelector('#qr-history tbody');
+        tb.innerHTML = '';
+        if (!d.ok || !d.items || !d.items.length) {
+          tb.innerHTML = '<tr><td colspan="4" class="text-muted small">Sin registros.</td></tr>';
+          return;
+        }
+        d.items.forEach(function (row) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td class="small">' + (row.created_at || '') + '</td>' +
+            '<td class="small text-truncate" style="max-width:14rem" title="">' + (row.content_preview || '') + '</td>' +
+            '<td><span class="badge bg-secondary">' + row.format + ' · ' + row.error_level + '</span></td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger qr-del" data-id="' + row.id + '">Eliminar</button></td>';
+          tb.appendChild(tr);
+        });
+        tb.querySelectorAll('.qr-del').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-id');
+            if (!id || !confirm('¿Eliminar este registro del historial?')) return;
+            fetch('/api/qr/' + id, { method: 'DELETE', credentials: 'same-origin' })
+              .then(function () { loadHistory(); });
+          });
+        });
+      });
+  }
+  document.getElementById('qr-gen-btn').addEventListener('click', function () {
+    showErr('');
+    var content = document.getElementById('qr-content').value.trim();
+    var format = document.getElementById('qr-format').value;
+    var size = parseInt(document.getElementById('qr-size').value, 10) || 300;
+    var error_level = document.getElementById('qr-error').value;
+    document.getElementById('qr-download-btn').disabled = true;
+    fetch('/api/qr/generate', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': '*/*' },
+      body: JSON.stringify({ content: content, format: format, size: size, error_level: error_level })
+    }).then(function (r) {
+      if (!r.ok) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          throw new Error((j && j.error) || ('HTTP ' + r.status));
+        });
+      }
+      lastMime = r.headers.get('Content-Type') || lastMime;
+      var cd = r.headers.get('Content-Disposition') || '';
+      var m = /filename="([^"]+)"/.exec(cd);
+      if (m) lastName = m[1];
+      return r.blob();
+    }).then(function (blob) {
+      lastBlob = blob;
+      document.getElementById('qr-download-btn').disabled = false;
+      var wrap = document.getElementById('qr-preview-inner');
+      var ph = document.getElementById('qr-preview-placeholder');
+      wrap.classList.remove('d-none');
+      ph.classList.add('d-none');
+      wrap.innerHTML = '';
+      var url = URL.createObjectURL(blob);
+      if ((lastMime || '').indexOf('image/png') === 0 || (lastMime || '').indexOf('image/svg') === 0) {
+        var img = document.createElement('img');
+        img.src = url;
+        img.alt = 'QR';
+        img.className = 'img-fluid';
+        img.style.maxHeight = '320px';
+        wrap.appendChild(img);
+      } else {
+        var em = document.createElement('p');
+        em.className = 'small text-muted mb-0';
+        em.textContent = 'Vista previa PDF: usá Descargar para abrir el archivo.';
+        wrap.appendChild(em);
+      }
+      loadHistory();
+    }).catch(function (e) {
+      showErr(e.message || 'Error');
+    });
+  });
+  document.getElementById('qr-download-btn').addEventListener('click', function () {
+    if (!lastBlob) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(lastBlob);
+    a.download = lastName;
+    a.click();
+  });
+  document.getElementById('qr-copy-content-btn').addEventListener('click', function () {
+    var t = document.getElementById('qr-content').value;
+    navigator.clipboard.writeText(t).then(function () {
+      showErr('');
+    }).catch(function () {
+      showErr('No se pudo copiar.');
+    });
+  });
+  loadHistory();
+})();
+</script>
+{% endblock %}

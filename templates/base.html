@@ -688,6 +688,15 @@
                         {% endif %}
                         {% endif %}
 
+                        {% if show_tenant_admin_menu and saas_module_enabled('qr_generator') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'admin_tools_qr' %}active{% endif %}" href="{{ url_for('admin_tools_qr') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Generador QR">
+                                <i class="menu-icon fas fa-qrcode"></i>
+                                <span class="menu-title-text">Generador QR</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
                         {% if not show_tenant_admin_menu and saas_module_enabled('payments') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint in ['payments_checkout.payments_history', 'member_payments'] %}active{% endif %}" href="{{ url_for('member_payments') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Historial de pagos y facturas">

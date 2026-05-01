@@ -2996,6 +2996,12 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_google_oauth_table: {e}')
         try:
+            from nodeone.services.qr_codes_schema import ensure_qr_codes_table
+
+            ensure_qr_codes_table(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_qr_codes_table: {e}')
+        try:
             from nodeone.services.default_taxes import ensure_default_percent_taxes
 
             ntax = ensure_default_percent_taxes(printfn=lambda m: print(f'📋 {m}'))

@@ -21,3 +21,4 @@ from .service_request import *  # noqa: F403
 from .accounting_core import *  # noqa: F403
 from .accounting_adjustments import *  # noqa: F403
 from .contador import *  # noqa: F403
+from .qr_codes import *  # noqa: F403

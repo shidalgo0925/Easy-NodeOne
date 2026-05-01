@@ -20,6 +20,11 @@
 - `GET /api/qr/<id>` — detalle JSON (`content`, formato, tamaño, corrección, `style` con colores/margen/transparencia y `logo_base64` si existía) para alimentar el formulario o integraciones.
 - En la UI, **Cargar** en una fila del historial rellena el formulario; si el registro tenía logo, se reutiliza vía `logo_base64` al generar de nuevo sin volver a subir el archivo (mismo criterio que en `POST` JSON).
 
+### Fase 5 — Portapapeles
+
+- En la UI: **Copiar imagen** tras generar: **PNG** → `Clipboard` como imagen (p. ej. para pegar en Canva, Slides, chat); **SVG** → se copia el **texto** del SVG. No aplica a **PDF** (usar Descargar).
+- Requiere contexto seguro (**HTTPS** o `localhost`) y un navegador con `navigator.clipboard` / `ClipboardItem` para PNG.
+
 ## API
 
 - `POST /api/qr/generate` — respuesta binaria (archivo).
@@ -33,6 +38,7 @@
 ## UI
 
 - `/admin/tools/qr` y `/tools/qr` (admin autenticado); query `?content=` precarga el campo.
+- Botones: Generar, Descargar, **Copiar imagen** (PNG/SVG recién generados), Copiar contenido (texto del campo).
 - Enlaces rápidos desde admin: eventos (ficha pública), programas académicos, pagos (carrito), catálogo servicios; texto de ayuda en formatos de certificado.
 
 ## Entorno

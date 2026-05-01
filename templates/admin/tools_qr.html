@@ -10,7 +10,7 @@
 </style>
 <div class="container-fluid py-3 px-3" style="max-width: 52rem">
     <h1 class="h4 mb-3"><i class="fas fa-qrcode me-2" aria-hidden="true"></i>Generador QR</h1>
-    <p class="text-muted small">Contenido o URL (<code>https://</code> obligatorio). Máx. 2.000 caracteres. Estilo (colores, margen, logo) en PNG/PDF; SVG admite colores y fondo transparente sin logo.</p>
+    <p class="text-muted small">Contenido o URL (<code>https://</code> obligatorio). Máx. 2.000 caracteres. Estilo (colores, margen, logo) en PNG/PDF; SVG admite colores y fondo transparente sin logo. <strong>Copiar imagen</strong>: PNG al portapapeles (pegá en diseño o chat); SVG se copia como código.</p>
     <div class="card shadow-sm">
         <div class="card-body">
             <div class="mb-3">
@@ -68,8 +68,10 @@
             <div class="d-flex flex-wrap gap-2 mb-3">
                 <button type="button" class="btn btn-primary" id="qr-gen-btn"><i class="fas fa-magic me-1"></i>Generar</button>
                 <button type="button" class="btn btn-outline-secondary" id="qr-download-btn" disabled><i class="fas fa-download me-1"></i>Descargar</button>
+                <button type="button" class="btn btn-outline-secondary" id="qr-copy-image-btn" disabled title="PNG o SVG recién generados"><i class="fas fa-clipboard me-1" aria-hidden="true"></i>Copiar imagen</button>
                 <button type="button" class="btn btn-outline-secondary" id="qr-copy-content-btn"><i class="fas fa-copy me-1"></i>Copiar contenido</button>
             </div>
+            <div id="qr-ok" class="alert alert-success py-2 small d-none" role="status"></div>
             <div id="qr-err" class="alert alert-danger py-2 small d-none" role="alert"></div>
             <div class="border rounded bg-light p-3 text-center min-height-preview" id="qr-preview-wrap" aria-label="Vista previa del código QR">
                 <span class="text-muted small" id="qr-preview-placeholder">Vista previa aquí</span>
@@ -103,6 +105,37 @@
     var el = document.getElementById('qr-err');
     el.textContent = msg || '';
     el.classList.toggle('d-none', !msg);
+    if (msg) {
+      var ok = document.getElementById('qr-ok');
+      ok.classList.add('d-none');
+      ok.textContent = '';
+    }
+  }
+  function showOk(msg) {
+    var ok = document.getElementById('qr-ok');
+    ok.textContent = msg || '';
+    ok.classList.toggle('d-none', !msg);
+    showErr('');
+    clearTimeout(window._qrOkTimer);
+    if (msg) window._qrOkTimer = setTimeout(function () { ok.classList.add('d-none'); }, 2800);
+  }
+  function syncCopyImageBtn() {
+    var btn = document.getElementById('qr-copy-image-btn');
+    if (!lastBlob) {
+      btn.disabled = true;
+      return;
+    }
+    var m = (lastMime || '').toLowerCase().split(';')[0].trim();
+    if (m === 'image/png') {
+      btn.disabled = false;
+      btn.title = 'Copiar imagen PNG al portapapeles';
+    } else if (m === 'image/svg+xml') {
+      btn.disabled = false;
+      btn.title = 'Copiar código SVG al portapapeles';
+    } else {
+      btn.disabled = true;
+      btn.title = 'Disponible solo tras generar PNG o SVG (no PDF)';
+    }
   }
   function loadHistory() {
     var qs = document.getElementById('qr-history-q').value.trim();
@@ -193,6 +226,7 @@
     var logoInput = document.getElementById('qr-logo');
     var logoFile = logoInput.files && logoInput.files[0];
     document.getElementById('qr-download-btn').disabled = true;
+    document.getElementById('qr-copy-image-btn').disabled = true;
 
     var useMultipart = !!(logoFile && format !== 'svg');
     var req;
@@ -240,6 +274,7 @@
     }).then(function (blob) {
       lastBlob = blob;
       document.getElementById('qr-download-btn').disabled = false;
+      syncCopyImageBtn();
       var wrap = document.getElementById('qr-preview-inner');
       var ph = document.getElementById('qr-preview-placeholder');
       wrap.classList.remove('d-none');
@@ -279,6 +314,34 @@
     a.download = lastName;
     a.click();
   });
+  document.getElementById('qr-copy-image-btn').addEventListener('click', function () {
+    if (!lastBlob) return;
+    var m = (lastMime || '').toLowerCase().split(';')[0].trim();
+    if (m === 'image/png') {
+      var pngBlob = lastBlob.type ? lastBlob : new Blob([lastBlob], { type: 'image/png' });
+      if (!navigator.clipboard || !navigator.clipboard.write) {
+        showErr('Tu navegador no permite copiar imágenes al portapapeles.');
+        return;
+      }
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]).then(function () {
+        showOk('Imagen PNG copiada al portapapeles.');
+      }).catch(function () {
+        showErr('No se pudo copiar la imagen (HTTPS y permiso del navegador).');
+      });
+      return;
+    }
+    if (m === 'image/svg+xml') {
+      lastBlob.text().then(function (txt) {
+        return navigator.clipboard.writeText(txt);
+      }).then(function () {
+        showOk('SVG copiado como texto.');
+      }).catch(function () {
+        showErr('No se pudo copiar el SVG.');
+      });
+      return;
+    }
+    showErr('Copiar imagen solo aplica a PNG o SVG.');
+  });
   document.getElementById('qr-history-search-btn').addEventListener('click', function () { loadHistory(); });
   document.getElementById('qr-history-q').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); loadHistory(); }
@@ -286,7 +349,7 @@
   document.getElementById('qr-copy-content-btn').addEventListener('click', function () {
     var t = document.getElementById('qr-content').value;
     navigator.clipboard.writeText(t).then(function () {
-      showErr('');
+      showOk('Texto copiado al portapapeles.');
     }).catch(function () {
       showErr('No se pudo copiar.');
     });

@@ -15,12 +15,18 @@
 - **Logo** opcional (PNG/JPEG/GIF/WebP, máx. ~250 KB y 512 px de lado): solo **PNG** y **PDF**; la corrección de error sube como mínimo a **Q**.
 - El estilo (y el logo en base64) se guarda en **`style_json`** para repetir la misma salida al descargar desde el historial.
 
+### Fase 4 — Reutilizar desde historial
+
+- `GET /api/qr/<id>` — detalle JSON (`content`, formato, tamaño, corrección, `style` con colores/margen/transparencia y `logo_base64` si existía) para alimentar el formulario o integraciones.
+- En la UI, **Cargar** en una fila del historial rellena el formulario; si el registro tenía logo, se reutiliza vía `logo_base64` al generar de nuevo sin volver a subir el archivo (mismo criterio que en `POST` JSON).
+
 ## API
 
 - `POST /api/qr/generate` — respuesta binaria (archivo).
   - **JSON**: `{ content, format, size, error_level, style?: { fill, bg, transparent, border, logo_base64? } }`
   - **`multipart/form-data`**: mismos campos + archivo `logo` (útil cuando hay logo).
 - `GET /api/qr/list` — últimos registros (`?q=` filtra por contenido); `has_style` indica si hay `style_json`.
+- `GET /api/qr/<id>` — un registro (ver Fase 4).
 - `GET /api/qr/<id>/download` — regenera con datos del historial (incl. estilo guardado).
 - `DELETE /api/qr/<id>` — borrar historial (misma org).
 

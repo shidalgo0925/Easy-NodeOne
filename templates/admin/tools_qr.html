@@ -3,6 +3,11 @@
 {% block title %}Generador QR - Easy NodeOne{% endblock %}
 
 {% block page_content %}
+<style>
+  .qr-preview-checker {
+    background: repeating-conic-gradient(#dee2e6 0% 25%, #f8f9fa 0% 50%) 50% / 16px 16px;
+  }
+</style>
 <div class="container-fluid py-3 px-3" style="max-width: 52rem">
     <h1 class="h4 mb-3"><i class="fas fa-qrcode me-2" aria-hidden="true"></i>Generador QR</h1>
     <p class="text-muted small">Contenido o URL (<code>https://</code> obligatorio). Máx. 2.000 caracteres. Estilo (colores, margen, logo) en PNG/PDF; SVG admite colores y fondo transparente sin logo.</p>
@@ -66,7 +71,7 @@
                 <button type="button" class="btn btn-outline-secondary" id="qr-copy-content-btn"><i class="fas fa-copy me-1"></i>Copiar contenido</button>
             </div>
             <div id="qr-err" class="alert alert-danger py-2 small d-none" role="alert"></div>
-            <div class="border rounded bg-light p-3 text-center min-height-preview" id="qr-preview-wrap">
+            <div class="border rounded bg-light p-3 text-center min-height-preview" id="qr-preview-wrap" aria-label="Vista previa del código QR">
                 <span class="text-muted small" id="qr-preview-placeholder">Vista previa aquí</span>
                 <div id="qr-preview-inner" class="d-none"></div>
             </div>
@@ -117,9 +122,16 @@
             '<td class="small text-truncate" style="max-width:14rem" title="">' + (row.content_preview || '') + '</td>' +
             '<td><span class="badge bg-secondary">' + row.format + ' · ' + row.error_level + '</span></td>' +
             '<td class="small">' + (row.has_style ? '<span class="badge bg-info">Sí</span>' : '—') + '</td>' +
-            '<td><a class="btn btn-sm btn-outline-primary" href="/api/qr/' + row.id + '/download">Descargar</a></td>' +
+            '<td class="text-nowrap"><a class="btn btn-sm btn-outline-primary" href="/api/qr/' + row.id + '/download">Descargar</a> ' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary qr-load" data-id="' + row.id + '">Cargar</button></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger qr-del" data-id="' + row.id + '">Eliminar</button></td>';
           tb.appendChild(tr);
+        });
+        tb.querySelectorAll('.qr-load').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-id');
+            if (id) applyRecordToForm(id);
+          });
         });
         tb.querySelectorAll('.qr-del').forEach(function (btn) {
           btn.addEventListener('click', function () {
@@ -131,12 +143,41 @@
         });
       });
   }
+  var loadedLogoB64 = null;
+  function applyRecordToForm(id) {
+    showErr('');
+    fetch('/api/qr/' + id, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) {
+        if (r.status === 404) throw new Error('No encontrado');
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d.ok || !d.item) throw new Error((d && d.error) || 'Error');
+        var it = d.item;
+        var st = it.style || {};
+        document.getElementById('qr-content').value = it.content || '';
+        document.getElementById('qr-format').value = (it.format || 'png').toLowerCase();
+        document.getElementById('qr-size').value = String(it.size != null ? it.size : 300);
+        document.getElementById('qr-error').value = (it.error_level || 'M').toUpperCase();
+        document.getElementById('qr-fill').value = st.fill || '#000000';
+        document.getElementById('qr-bg').value = st.bg || '#ffffff';
+        document.getElementById('qr-border').value = String(st.border != null ? st.border : 4);
+        document.getElementById('qr-transparent').checked = !!st.transparent;
+        document.getElementById('qr-logo').value = '';
+        loadedLogoB64 = st.logo_base64 || null;
+        syncLogoDisabled();
+      })
+      .catch(function (e) { showErr(e.message || 'Error'); });
+  }
   function syncLogoDisabled() {
     var svg = document.getElementById('qr-format').value === 'svg';
     var logo = document.getElementById('qr-logo');
     logo.disabled = svg;
   }
   document.getElementById('qr-format').addEventListener('change', syncLogoDisabled);
+  document.getElementById('qr-logo').addEventListener('change', function () {
+    if (this.files && this.files[0]) loadedLogoB64 = null;
+  });
   syncLogoDisabled();
 
   document.getElementById('qr-gen-btn').addEventListener('click', function () {
@@ -168,6 +209,10 @@
       fd.append('logo', logoFile);
       req = fetch('/api/qr/generate', { method: 'POST', credentials: 'same-origin', body: fd, headers: { 'Accept': '*/*' } });
     } else {
+      var styleObj = { fill: fill, bg: bg, border: border, transparent: transparent };
+      if (loadedLogoB64 && format !== 'svg' && !logoFile) {
+        styleObj.logo_base64 = loadedLogoB64;
+      }
       req = fetch('/api/qr/generate', {
         method: 'POST',
         credentials: 'same-origin',
@@ -177,7 +222,7 @@
           format: format,
           size: size,
           error_level: error_level,
-          style: { fill: fill, bg: bg, border: border, transparent: transparent }
+          style: styleObj
         })
       });
     }
@@ -200,6 +245,14 @@
       wrap.classList.remove('d-none');
       ph.classList.add('d-none');
       wrap.innerHTML = '';
+      var pw = document.getElementById('qr-preview-wrap');
+      if (transparent) {
+        pw.classList.add('qr-preview-checker');
+        pw.classList.remove('bg-light');
+      } else {
+        pw.classList.remove('qr-preview-checker');
+        pw.classList.add('bg-light');
+      }
       var url = URL.createObjectURL(blob);
       if ((lastMime || '').indexOf('image/png') === 0 || (lastMime || '').indexOf('image/svg') === 0) {
         var img = document.createElement('img');

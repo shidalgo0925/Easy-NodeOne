@@ -1,10 +1,12 @@
 """Generador QR estático (tenant + historial)."""
 
+import base64
 import os
 
 from nodeone.modules.qr_generator.schemas import (
     ALLOWED_ERROR_LEVELS,
     ALLOWED_FORMATS,
+    DEFAULT_BORDER_MODULES,
     DEFAULT_QR_SIZE,
     MAX_QR_SIZE,
     MIN_QR_SIZE,
@@ -250,15 +252,43 @@ def register_qr_generator_routes(app):
             },
         )
 
-    @app.route('/api/qr/<int:rid>', methods=['DELETE'])
+    @app.route('/api/qr/<int:rid>', methods=['GET', 'DELETE'])
     @admin_required
-    def api_qr_delete(rid: int):
+    def api_qr_one(rid: int):
         if not _guard():
             return jsonify({'ok': False, 'error': 'módulo desactivado'}), 403
         oid = _scope_oid()
         row = QrCodeRecord.query.filter_by(id=rid, organization_id=oid).first()
         if row is None:
             abort(404)
+
+        if request.method == 'GET':
+            st = decode_style_json(getattr(row, 'style_json', None))
+            style_out = {
+                'fill': st.get('fill'),
+                'bg': st.get('bg'),
+                'transparent': bool(st.get('transparent')),
+                'border': int(st.get('border') or DEFAULT_BORDER_MODULES),
+            }
+            lb = st.get('logo_bytes')
+            if lb:
+                style_out['logo_base64'] = base64.b64encode(bytes(lb)).decode('ascii')
+            return jsonify(
+                {
+                    'ok': True,
+                    'item': {
+                        'id': row.id,
+                        'content': row.content or '',
+                        'format': row.format or 'png',
+                        'size': row.size,
+                        'error_level': row.error_level or 'M',
+                        'style': style_out,
+                        'created_at': row.created_at.isoformat() if row.created_at else None,
+                        'created_by': row.created_by,
+                    },
+                }
+            )
+
         try:
             db.session.delete(row)
             db.session.commit()

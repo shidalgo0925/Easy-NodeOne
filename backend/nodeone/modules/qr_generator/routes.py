@@ -105,12 +105,13 @@ def register_qr_generator_routes(app):
         if not _guard():
             return jsonify({'ok': False, 'error': 'módulo desactivado'}), 403
         oid = _scope_oid()
-        rows = (
-            QrCodeRecord.query.filter_by(organization_id=oid)
-            .order_by(QrCodeRecord.created_at.desc())
-            .limit(80)
-            .all()
-        )
+        qraw = (request.args.get('q') or '').strip()
+        qry = QrCodeRecord.query.filter_by(organization_id=oid)
+        if qraw:
+            qclean = (''.join(c for c in qraw if c not in '%_\\'))[:500]
+            if qclean:
+                qry = qry.filter(QrCodeRecord.content.ilike(f'%{qclean}%'))
+        rows = qry.order_by(QrCodeRecord.created_at.desc()).limit(80).all()
         out = []
         for r in rows:
             prev = (r.content or '')[:120]
@@ -126,6 +127,43 @@ def register_qr_generator_routes(app):
                 }
             )
         return jsonify({'ok': True, 'items': out})
+
+    @app.route('/api/qr/<int:rid>/download', methods=['GET'])
+    @admin_required
+    def api_qr_download(rid: int):
+        if not _guard():
+            return jsonify({'ok': False, 'error': 'módulo desactivado'}), 403
+        oid = _scope_oid()
+        row = QrCodeRecord.query.filter_by(id=rid, organization_id=oid).first()
+        if row is None:
+            abort(404)
+        content, verr = validate_qr_content(row.content or '')
+        if verr:
+            return jsonify({'ok': False, 'error': verr}), 400
+        fmt = (row.format or 'png').lower()
+        if fmt not in ALLOWED_FORMATS:
+            return jsonify({'ok': False, 'error': 'formato inválido en historial'}), 400
+        err = (row.error_level or 'M').upper()
+        if err not in ALLOWED_ERROR_LEVELS:
+            err = 'M'
+        try:
+            size = int(row.size)
+        except (TypeError, ValueError):
+            size = DEFAULT_QR_SIZE
+        size = max(MIN_QR_SIZE, min(MAX_QR_SIZE, size))
+        try:
+            blob, mime, fname = qr_services.generate_file(content, fmt, size, err)
+        except Exception as ex:
+            return jsonify({'ok': False, 'error': str(ex)}), 500
+        safe_name = secure_filename(fname) or 'qr.dat'
+        return Response(
+            blob,
+            mimetype=mime.split(';')[0].strip(),
+            headers={
+                'Content-Disposition': f'attachment; filename="{safe_name}"',
+                'Cache-Control': 'no-store',
+            },
+        )
 
     @app.route('/api/qr/<int:rid>', methods=['DELETE'])
     @admin_required

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from 'macros/admin_filters.html' import admin_filter_collapse %}
+{% from 'partials/qr_generator_link.html' import qr_link %}
 
 {% block title %}Gestión de Servicios - Easy NodeOne{% endblock %}
 
@@ -16,6 +17,9 @@
         </div>
         <div class="col-12 col-lg ms-lg-auto">
             <div class="d-flex flex-wrap gap-2 justify-content-lg-end align-items-center">
+                    {% if has_view_endpoint('services.list') %}
+                    {{ qr_link(absolute_site_url(url_for('services.list')), 'QR catálogo') }}
+                    {% endif %}
                     {% if current_user.is_authenticated and current_user.has_permission('services.view') %}
                     <a href="/admin/cv-applications" class="btn btn-sm btn-outline-secondary" title="Postulaciones por servicios tipo CV"><i class="fas fa-file-alt me-1"></i>Hojas de vida</a>
                     {# Rutas fijas: evitan BuildError en Jinja si el worker aún no tiene el blueprint actualizado. #}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/qr_generator_link.html' import qr_link %}
 
 {% block title %}{{ 'Editar' if action == 'edit' else 'Crear' }} Evento - Easy NodeOne{% endblock %}
 
@@ -11,6 +12,9 @@
                 {{ 'Editar' if action == 'edit' else 'Crear' }} evento
             </h1>
             <p class="text-muted mb-0">Defina el evento, el calendario y el precio; el panel derecho controla visibilidad y roles.</p>
+            {% if action == 'edit' and event and event.slug %}
+            <p class="mb-0 mt-2">{{ qr_link(absolute_site_url(url_for('events.event_detail', slug=event.slug)), 'QR inscripción / ficha') }}</p>
+            {% endif %}
         </div>
     </div>
 

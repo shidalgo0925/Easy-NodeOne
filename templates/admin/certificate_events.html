@@ -15,6 +15,9 @@
                 </button>
             </div>
             <p class="text-muted small mb-0">Configura cada tipo de certificado: sube el fondo, logos y sello; define institución y firmas. Para usar una <strong>plantilla visual</strong>, edita el formato, elige "Plantilla visual" en el desplegable, guarda y usa <strong>Vista previa</strong> (icono <i class="fas fa-eye"></i>) para comprobar.</p>
+            {% if saas_module_enabled('qr_generator') %}
+            <p class="small mt-2 mb-0">Para un <strong>QR de verificación</strong>, usá <a href="{{ url_for('admin_tools_qr') }}">Herramientas → Generador QR</a> con la URL pública de verificación del certificado (ruta <code class="small">/verify/&lt;código&gt;</code> del sitio).</p>
+            {% endif %}
         </div>
     </div>
 

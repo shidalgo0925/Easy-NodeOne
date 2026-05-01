@@ -1,0 +1,8 @@
+{# Enlace al Generador QR con contenido precargado (URL absoluta https recomendada). #}
+{% macro qr_link(url, label='') %}
+  {% if saas_module_enabled('qr_generator') and url %}
+  <a href="{{ url_for('admin_tools_qr', content=url) }}" class="btn btn-sm btn-outline-secondary" title="Abrir generador QR con este enlace">
+      <i class="fas fa-qrcode" aria-hidden="true"></i>{% if label %} {{ label }}{% endif %}
+  </a>
+  {% endif %}
+{% endmacro %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/qr_generator_link.html' import qr_link %}
 {% block title %}Programas académicos (inscripción){% endblock %}
 {% block page_content %}
 <div class="container py-4">
@@ -9,7 +10,7 @@
   {% else %}
   <div class="table-responsive">
     <table class="table table-sm table-bordered bg-white">
-      <thead><tr><th>Slug</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Enlace</th></tr></thead>
+      <thead><tr><th>Slug</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Enlace</th><th>QR</th></tr></thead>
       <tbody>
         {% for p in programs %}
         <tr>
@@ -18,6 +19,7 @@
           <td>{{ p.program_type }}</td>
           <td>{{ p.status }}</td>
           <td><a href="{{ url_for('payments.diplomado_landing', slug=p.slug) }}" target="_blank" rel="noopener">Vista pública</a></td>
+          <td>{{ qr_link(absolute_site_url(url_for('payments.diplomado_landing', slug=p.slug)), '') }}</td>
         </tr>
         {% endfor %}
       </tbody>

@@ -11,12 +11,14 @@
 ## API
 
 - `POST /api/qr/generate` — JSON `{ content, format, size, error_level }` → archivo.
-- `GET /api/qr/list` — últimos registros de la organización.
+- `GET /api/qr/list` — últimos registros de la organización (`?q=` filtra por contenido).
+- `GET /api/qr/<id>/download` — misma salida que generate usando datos guardados en historial.
 - `DELETE /api/qr/<id>` — borrar historial (misma org).
 
 ## UI
 
-- `/admin/tools/qr` y `/tools/qr` (admin autenticado).
+- `/admin/tools/qr` y `/tools/qr` (admin autenticado); query `?content=` precarga el campo.
+- Enlaces rápidos desde admin: eventos (ficha pública), programas académicos, pagos (carrito), catálogo servicios; texto de ayuda en formatos de certificado.
 
 ## Entorno
 

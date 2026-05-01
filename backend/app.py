@@ -1345,6 +1345,21 @@ def has_view_endpoint(endpoint: str) -> bool:
         return False
 
 
+@app.template_global()
+def absolute_site_url(path: str = '') -> str:
+    """URL absoluta del sitio actual (request) + path relativo (p. ej. url_for(...)) para enlaces públicos."""
+    from urllib.parse import urljoin
+
+    from nodeone.services.communication_dispatch import request_base_url_optional
+
+    base = (request_base_url_optional() or '').rstrip('/')
+    if not path:
+        return base
+    if not base:
+        return path if path.startswith('/') else '/' + path
+    return urljoin(base + '/', path.lstrip('/'))
+
+
 @app.route('/favicon.ico')
 def favicon_ico():
     """Los navegadores piden /favicon.ico por defecto; servimos el SVG del producto."""

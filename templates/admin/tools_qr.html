@@ -48,9 +48,14 @@
         </div>
     </div>
     <h2 class="h6 mt-4 mb-2">Historial reciente</h2>
+    <div class="input-group input-group-sm mb-2" style="max-width: 28rem;">
+        <span class="input-group-text"><i class="fas fa-search" aria-hidden="true"></i></span>
+        <input type="search" class="form-control" id="qr-history-q" placeholder="Buscar en contenido…" maxlength="500">
+        <button type="button" class="btn btn-outline-secondary" id="qr-history-search-btn">Buscar</button>
+    </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle" id="qr-history">
-            <thead><tr><th>Cuándo</th><th>Vista</th><th>Corr.</th><th></th></tr></thead>
+            <thead><tr><th>Cuándo</th><th>Vista</th><th>Corr.</th><th class="text-nowrap">Archivo</th><th></th></tr></thead>
             <tbody></tbody>
         </table>
     </div>
@@ -60,19 +65,25 @@
   var lastBlob = null;
   var lastName = 'qr.png';
   var lastMime = 'image/png';
+  try {
+    var pre = new URLSearchParams(window.location.search).get('content');
+    if (pre) document.getElementById('qr-content').value = pre;
+  } catch (e) {}
   function showErr(msg) {
     var el = document.getElementById('qr-err');
     el.textContent = msg || '';
     el.classList.toggle('d-none', !msg);
   }
   function loadHistory() {
-    fetch('/api/qr/list', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    var qs = document.getElementById('qr-history-q').value.trim();
+    var url = '/api/qr/list' + (qs ? ('?q=' + encodeURIComponent(qs)) : '');
+    fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var tb = document.querySelector('#qr-history tbody');
         tb.innerHTML = '';
         if (!d.ok || !d.items || !d.items.length) {
-          tb.innerHTML = '<tr><td colspan="4" class="text-muted small">Sin registros.</td></tr>';
+          tb.innerHTML = '<tr><td colspan="5" class="text-muted small">Sin registros.</td></tr>';
           return;
         }
         d.items.forEach(function (row) {
@@ -80,6 +91,7 @@
           tr.innerHTML = '<td class="small">' + (row.created_at || '') + '</td>' +
             '<td class="small text-truncate" style="max-width:14rem" title="">' + (row.content_preview || '') + '</td>' +
             '<td><span class="badge bg-secondary">' + row.format + ' · ' + row.error_level + '</span></td>' +
+            '<td><a class="btn btn-sm btn-outline-primary" href="/api/qr/' + row.id + '/download">Descargar</a></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger qr-del" data-id="' + row.id + '">Eliminar</button></td>';
           tb.appendChild(tr);
         });
@@ -149,6 +161,10 @@
     a.href = URL.createObjectURL(lastBlob);
     a.download = lastName;
     a.click();
+  });
+  document.getElementById('qr-history-search-btn').addEventListener('click', function () { loadHistory(); });
+  document.getElementById('qr-history-q').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); loadHistory(); }
   });
   document.getElementById('qr-copy-content-btn').addEventListener('click', function () {
     var t = document.getElementById('qr-content').value;

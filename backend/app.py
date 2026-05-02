@@ -2901,6 +2901,12 @@ def bootstrap_nodeone_schema():
     """
     with app.app_context():
         db.create_all()
+        try:
+            from nodeone.services.saas_org_registration_schema import ensure_saas_organization_registration_policy_column
+
+            ensure_saas_organization_registration_policy_column(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_registration_policy_column: {e}')
         ensure_must_change_password_column()
         ensure_user_last_selected_organization_id_column()
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra
@@ -2923,12 +2929,6 @@ def bootstrap_nodeone_schema():
             ensure_saas_organization_fiscal_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_fiscal_columns: {e}')
-        try:
-            from nodeone.services.saas_org_registration_schema import ensure_saas_organization_registration_policy_column
-
-            ensure_saas_organization_registration_policy_column(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
-        except Exception as e:
-            print(f'⚠️ ensure_saas_organization_registration_policy_column: {e}')
         try:
             from nodeone.services.crm_tenant_contact_schema import ensure_crm_salesperson_and_quotation_columns
 

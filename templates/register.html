@@ -58,6 +58,9 @@
                                 Invitación: mismo <strong>correo</strong> que la invitación.
                             </div>
                             {% endif %}
+                            {% if registration_policy_banner %}
+                            <div class="alert alert-warning py-2 small mb-2" role="status">{{ registration_policy_banner }}</div>
+                            {% endif %}
                             <div class="auth-sheet-field">
                                 <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
                                 <input type="email" class="form-control form-control-sm" id="email" name="email" required

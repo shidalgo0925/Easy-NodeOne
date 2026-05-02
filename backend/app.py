@@ -2924,6 +2924,12 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_fiscal_columns: {e}')
         try:
+            from nodeone.services.saas_org_registration_schema import ensure_saas_organization_registration_policy_column
+
+            ensure_saas_organization_registration_policy_column(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_registration_policy_column: {e}')
+        try:
             from nodeone.services.crm_tenant_contact_schema import ensure_crm_salesperson_and_quotation_columns
 
             ensure_crm_salesperson_and_quotation_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

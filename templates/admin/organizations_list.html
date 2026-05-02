@@ -48,6 +48,7 @@
                     <th>ID</th>
                     <th>Nombre</th>
                     <th>Subdominio</th>
+                    <th>Registro</th>
                     <th>Estado</th>
                     <th class="text-nowrap">Acciones</th>
                 </tr>
@@ -62,6 +63,14 @@
                         {% if o.subdomain and tenant_public_base %}
                         <a class="btn btn-sm btn-link py-0" href="https://{{ o.subdomain }}.{{ tenant_public_base }}/" target="_blank" rel="noopener noreferrer" title="Abrir en pestaña nueva (no usar dentro de un iframe)">Portal <i class="fas fa-external-link-alt small"></i></a>
                         {% endif %}
+                    </td>
+                    <td class="small">
+                        {% set rp = o.registration_policy|default('free_registration', true) %}
+                        {% if rp == 'free_registration' %}<span class="badge bg-secondary">Abierto</span>
+                        {% elif rp == 'paid_only' %}<span class="badge bg-warning text-dark">Pago / invit.</span>
+                        {% elif rp == 'admin_only' %}<span class="badge bg-dark">Admin</span>
+                        {% elif rp == 'invitation_only' %}<span class="badge bg-info text-dark">Invitación</span>
+                        {% else %}<code>{{ rp }}</code>{% endif %}
                     </td>
                     <td>{% if o.is_active %}<span class="badge bg-success">Activa</span>{% else %}<span class="badge bg-secondary">Inactiva</span>{% endif %}</td>
                     <td class="text-nowrap">

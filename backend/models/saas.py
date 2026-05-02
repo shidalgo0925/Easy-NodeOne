@@ -107,6 +107,7 @@ class SaasOrganization(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     subdomain = db.Column(db.String(128), unique=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    registration_policy = db.Column(db.String(30), nullable=False, default='free_registration')
 
 
 class SaasModule(db.Model):

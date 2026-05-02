@@ -77,6 +77,16 @@ def register_public_auth_legacy_routes(app):
         from _app.modules.auth.service import safe_next_path
 
         register_next = safe_next_path(request.form.get('next') or request.args.get('next'))
+
+        def _registration_banner(org_id=None):
+            try:
+                from nodeone.services.registration_policy import registration_notice_for_banner
+
+                oid = org_id if org_id is not None else M._organization_id_for_public_registration()
+                return registration_notice_for_banner(oid)
+            except Exception:
+                return None
+
         if request.method == 'POST':
             email = request.form.get('email', '').strip()
             password = request.form.get('password', '')
@@ -94,6 +104,7 @@ def register_public_auth_legacy_routes(app):
                     valid_countries=VALID_COUNTRIES,
                     invite_token=session.get('pending_invite_token'),
                     register_next=register_next,
+                    registration_policy_banner=_registration_banner(),
                 )
 
             # Validar país
@@ -106,6 +117,7 @@ def register_public_auth_legacy_routes(app):
                         valid_countries=VALID_COUNTRIES,
                         invite_token=session.get('pending_invite_token'),
                         register_next=register_next,
+                        registration_policy_banner=_registration_banner(),
                     )
 
             # Validar cédula o pasaporte
@@ -118,6 +130,7 @@ def register_public_auth_legacy_routes(app):
                         valid_countries=VALID_COUNTRIES,
                         invite_token=session.get('pending_invite_token'),
                         register_next=register_next,
+                        registration_policy_banner=_registration_banner(),
                     )
         
             # Validar formato de email
@@ -129,6 +142,7 @@ def register_public_auth_legacy_routes(app):
                     valid_countries=VALID_COUNTRIES,
                     invite_token=session.get('pending_invite_token'),
                     register_next=register_next,
+                    registration_policy_banner=_registration_banner(),
                 )
 
             from nodeone.services.organization_invites import (
@@ -149,6 +163,7 @@ def register_public_auth_legacy_routes(app):
                     valid_countries=VALID_COUNTRIES,
                     invite_token=invite_token,
                     register_next=register_next,
+                    registration_policy_banner=_registration_banner(),
                 )
             target_org_id = (
                 int(invite.organization_id) if invite else M._organization_id_for_public_registration()
@@ -165,6 +180,7 @@ def register_public_auth_legacy_routes(app):
                         valid_countries=VALID_COUNTRIES,
                         invite_token=invite_token,
                         register_next=register_next,
+                        registration_policy_banner=_registration_banner(int(target_org_id)),
                     )
                 if user_has_active_membership(existing, target_org_id):
                     flash('Tu cuenta ya está en esta organización. Inicia sesión.', 'info')
@@ -182,6 +198,25 @@ def register_public_auth_legacy_routes(app):
                 flash('Te has unido a esta organización. Inicia sesión con tu correo y contraseña.', 'success')
                 _ln = register_next or url_for('membership')
                 return redirect(url_for('auth.login', next=_ln))
+
+            from nodeone.services.registration_policy import assert_can_create_user_via_public_flow
+
+            has_invite_ok = bool(invite and normalize_invite_email(email) == invite.email)
+            ok_pol, err_pol = assert_can_create_user_via_public_flow(
+                int(target_org_id),
+                has_valid_invite=has_invite_ok,
+                sess=session,
+                oauth_new_user=False,
+            )
+            if not ok_pol:
+                flash(err_pol or 'Registro no permitido para esta institución.', 'error')
+                return render_template(
+                    'register.html',
+                    valid_countries=VALID_COUNTRIES,
+                    invite_token=invite_token,
+                    register_next=register_next,
+                    registration_policy_banner=_registration_banner(int(target_org_id)),
+                )
 
             # Nuevo usuario (empresa: subdominio, form saas_organization_id o default)
             user = User(
@@ -290,6 +325,7 @@ def register_public_auth_legacy_routes(app):
             valid_countries=VALID_COUNTRIES,
             invite_token=session.get('pending_invite_token'),
             register_next=register_next,
+            registration_policy_banner=_registration_banner(),
         )
 
     @app.route('/verify-email/<token>')
@@ -453,6 +489,17 @@ def register_public_auth_legacy_routes(app):
                 user = User.query.filter_by(email=email).first()
             oauth_new_user = False
             if not user:
+                from nodeone.services.registration_policy import assert_can_create_user_via_public_flow
+
+                ok_oauth, err_oauth = assert_can_create_user_via_public_flow(
+                    int(reg_org),
+                    has_valid_invite=bool(inv),
+                    sess=session,
+                    oauth_new_user=True,
+                )
+                if not ok_oauth:
+                    flash(err_oauth or 'No se puede crear cuenta con Google para esta institución.', 'error')
+                    return redirect(url_for('auth.login'))
                 oauth_new_user = True
                 user = User(
                     email=email,

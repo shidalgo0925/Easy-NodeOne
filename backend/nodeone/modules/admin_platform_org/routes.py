@@ -177,6 +177,12 @@ def register_admin_platform_org_routes(app):
             ensure_saas_organization_fiscal_columns(db, db.engine)
         except Exception:
             current_app.logger.exception('ensure_saas_organization_fiscal_columns en admin_platform_org')
+        try:
+            from nodeone.services.saas_org_registration_schema import ensure_saas_organization_registration_policy_column
+
+            ensure_saas_organization_registration_policy_column(db, db.engine)
+        except Exception:
+            current_app.logger.exception('ensure_saas_organization_registration_policy_column en admin_platform_org')
 
     @app.route('/admin/guide-img/<filename>')
     @admin_required
@@ -221,6 +227,9 @@ def register_admin_platform_org_routes(app):
             sub_raw = _normalize_org_subdomain(request.form.get('subdomain'))
             is_active = request.form.get('is_active') == '1'
             fiscal = _org_fiscal_payload_from_form(request.form)
+            from nodeone.services.registration_policy import normalize_registration_policy
+
+            registration_policy = normalize_registration_policy(request.form.get('registration_policy'))
             if not name:
                 flash('El nombre es obligatorio.', 'error')
                 return render_template(
@@ -256,7 +265,13 @@ def register_admin_platform_org_routes(app):
                 ensure_saas_organization_id_sequence_postgresql(db, db.engine)
             except Exception:
                 current_app.logger.exception('ensure_saas_organization_id_sequence_postgresql antes de crear org')
-            o = SaasOrganization(name=name, subdomain=sub_raw, is_active=is_active, **fiscal)
+            o = SaasOrganization(
+                name=name,
+                subdomain=sub_raw,
+                is_active=is_active,
+                registration_policy=registration_policy,
+                **fiscal,
+            )
             db.session.add(o)
             try:
                 db.session.commit()
@@ -361,9 +376,12 @@ def register_admin_platform_org_routes(app):
                         show_onboarding_rail=show_rail,
                         google_oauth=_google_oauth_row(o.id),
                     )
+            from nodeone.services.registration_policy import normalize_registration_policy
+
             o.name = name
             o.subdomain = sub_raw
             o.is_active = is_active
+            o.registration_policy = normalize_registration_policy(request.form.get('registration_policy'))
             for k, v in fiscal.items():
                 setattr(o, k, v)
             try:

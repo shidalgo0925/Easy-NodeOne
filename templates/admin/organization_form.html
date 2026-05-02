@@ -46,6 +46,17 @@
                            value="{{ form.get('subdomain', '') if form else (org.subdomain if org else '') }}">
                     <div class="form-text">Minúsculas; se resuelve como <code>subdominio.tudominio.com</code>.</div>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label">Política de registro público</label>
+                    <select name="registration_policy" class="form-select">
+                        {% set rp = (form.get('registration_policy') if form else None) or (org.registration_policy if org else 'free_registration') %}
+                        <option value="free_registration" {% if rp == 'free_registration' %}selected{% endif %}>Abierto — cualquiera puede registrarse (RELATIC, comunidades)</option>
+                        <option value="paid_only" {% if rp == 'paid_only' %}selected{% endif %}>Solo tras pago o invitación — no autoregistro gratis (IIUS, academias pagas)</option>
+                        <option value="admin_only" {% if rp == 'admin_only' %}selected{% endif %}>Solo administrador — sin formulario público</option>
+                        <option value="invitation_only" {% if rp == 'invitation_only' %}selected{% endif %}>Solo con enlace de invitación</option>
+                    </select>
+                    <div class="form-text">Afecta <code>/register</code> y alta nueva con Google; no bloquea alta desde panel admin.</div>
+                </div>
                 <hr>
                 <h6 class="mb-3">Perfil fiscal (emisor en cotizaciones y facturas)</h6>
                 <div class="mb-3">

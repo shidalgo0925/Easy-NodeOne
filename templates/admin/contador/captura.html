@@ -197,9 +197,14 @@
             <span class="text-warning">Sin resultados</span>
             {% endif %}
           </p>
-          <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
+          <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-wrap justify-content-end">
             {{ captura_paginacion_bar() }}
-            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#contador-filtros-offcanvas" aria-controls="contador-filtros-offcanvas">
+            {% if can_edit %}
+            <button type="button" class="btn btn-primary btn-sm js-btn-guardar-bulk" id="btn-guardar-bulk-mobile-toolbar" aria-label="Guardar cambios de cantidades" title="Guardar cambios">
+              <span class="d-none d-sm-inline">Guardar cambios</span><span class="d-sm-none">Guardar</span>
+            </button>
+            {% endif %}
+            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#contador-filtros-offcanvas" aria-controls="contador-filtros-offcanvas">
               <i class="fas fa-sliders-h" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Filtros</span>
             </button>
           </div>
@@ -235,9 +240,6 @@
             </div>
             <div class="col-12 d-flex flex-wrap gap-2">
               <button type="submit" class="btn btn-outline-primary btn-sm">Aplicar filtros</button>
-              {% if can_edit %}
-              <button type="button" class="btn btn-primary btn-sm js-btn-guardar-bulk" id="btn-guardar-bulk-m">Guardar cambios</button>
-              {% endif %}
             </div>
           </div>
           <p class="small text-muted mt-3 mb-0 border-top pt-3">Guardá los cambios de cantidades antes de cambiar de página o aplicar filtros, si no se pierden.</p>

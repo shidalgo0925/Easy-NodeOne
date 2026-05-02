@@ -6,7 +6,7 @@ import os
 def platform_nav_logo_relpath():
     """
     Logo de barra/favicon fijo de producto (Easy NodeOne).
-    El upload de branding en /admin puede escribir el logo del tenant en public/emails/logos;
+    El upload de branding en /admin guarda el logo del tenant en static/uploads/emails/logos (gitignored);
     el nombre por defecto del asset de producto es distinto (logo-easy-nodeone / logo-primary).
     """
     import app as M
@@ -36,7 +36,9 @@ def nav_theme_logo_relpath():
         s = M.OrganizationSettings.get_settings_for_session()
         u = (s.logo_url or '').strip()
         if u:
-            return u.lstrip('/')
+            from nodeone.services.tenant_email_logo_storage import resolve_tenant_logo_static_relpath
+
+            return resolve_tenant_logo_static_relpath(u).lstrip('/')
     except Exception:
         pass
     return None

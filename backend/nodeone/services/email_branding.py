@@ -26,7 +26,9 @@ def resolve_email_logo_absolute_url(organization_id=None, allow_fallback_to_plat
                 M.OrganizationSettings.organization_id.is_(None)
             ).first()
         if row and (row.logo_url or '').strip():
-            rel = (row.logo_url or '').strip().lstrip('/')
+            from nodeone.services.tenant_email_logo_storage import resolve_tenant_logo_static_relpath
+
+            rel = resolve_tenant_logo_static_relpath((row.logo_url or '').strip()).lstrip('/')
     except Exception:
         pass
 

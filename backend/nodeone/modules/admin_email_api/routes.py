@@ -9,9 +9,10 @@ from functools import wraps
 
 admin_email_bp = Blueprint('admin_email', __name__)
 
-# Desde nodeone/modules/admin_email_api/ → raíz del repo /static/... (4 niveles: módulos → nodeone → backend → repo)
-_EMAIL_LOGO_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'static', 'public', 'emails', 'logos')
+from nodeone.services.tenant_email_logo_storage import (
+    TENANT_EMAIL_LOGO_REL_DIR,
+    legacy_tenant_email_logo_dir_abs,
+    tenant_email_logo_dir_abs,
 )
 
 
@@ -875,8 +876,8 @@ def api_upload_logo():
                 'error': 'El archivo es demasiado grande. Máximo 500KB'
             }), 400
         
-        # Crear directorio si no existe
-        logo_dir = _EMAIL_LOGO_DIR
+        # Bajo static/uploads (gitignored): sobrevive a pull/deploy del árbol de código
+        logo_dir = tenant_email_logo_dir_abs()
         os.makedirs(logo_dir, exist_ok=True)
         coid = M._catalog_org_for_admin_catalog_routes()
         # Siempre por tenant: no pisar logo-primary / plataforma
@@ -888,13 +889,13 @@ def api_upload_logo():
         if ext == 'svg':
             logo_path = os.path.join(logo_dir, f'{base_fn}.svg')
             file.save(logo_path)
-            logo_url = url_for('static', filename=f'public/emails/logos/{base_fn}.svg')
-            rel_stored = f'public/emails/logos/{base_fn}.svg'
+            rel_stored = f'{TENANT_EMAIL_LOGO_REL_DIR}/{base_fn}.svg'
+            logo_url = url_for('static', filename=rel_stored)
         else:
             logo_path = os.path.join(logo_dir, f'{base_fn}.png')
             file.save(logo_path)
-            logo_url = url_for('static', filename=f'public/emails/logos/{base_fn}.png')
-            rel_stored = f'public/emails/logos/{base_fn}.png'
+            rel_stored = f'{TENANT_EMAIL_LOGO_REL_DIR}/{base_fn}.png'
+            logo_url = url_for('static', filename=rel_stored)
 
         try:
             s = M.OrganizationSettings.query.filter_by(organization_id=int(coid)).first()
@@ -927,14 +928,14 @@ def api_delete_logo():
     """API para eliminar el logo de correo del tenant actual (o global si monotenant)."""
     import app as M
     try:
-        logo_dir = _EMAIL_LOGO_DIR
         coid = M._catalog_org_for_admin_catalog_routes()
         deleted = False
-        for ext in ('png', 'svg'):
-            p = os.path.join(logo_dir, f'logo-email-org{int(coid)}.{ext}')
-            if os.path.exists(p):
-                os.remove(p)
-                deleted = True
+        for logo_dir in (tenant_email_logo_dir_abs(), legacy_tenant_email_logo_dir_abs()):
+            for ext in ('png', 'svg'):
+                p = os.path.join(logo_dir, f'logo-email-org{int(coid)}.{ext}')
+                if os.path.exists(p):
+                    os.remove(p)
+                    deleted = True
         try:
             s = M.OrganizationSettings.query.filter_by(organization_id=int(coid)).first()
             if s is not None:

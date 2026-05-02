@@ -95,7 +95,9 @@ def organization_logo_url_for_picker(org_id: int) -> str | None:
     row = M.OrganizationSettings.query.filter_by(organization_id=oid).first()
     if row is None:
         return None
-    url = (getattr(row, 'logo_url', None) or '').strip()
+    from nodeone.services.tenant_email_logo_storage import resolve_tenant_logo_static_relpath
+
+    url = resolve_tenant_logo_static_relpath((getattr(row, 'logo_url', None) or '').strip())
     return url or None
 
 

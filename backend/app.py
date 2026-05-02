@@ -678,11 +678,13 @@ def resolve_theme_tokens():
     """
     try:
         s = OrganizationSettings.get_settings_for_session()
+        from nodeone.services.tenant_email_logo_storage import resolve_tenant_logo_static_relpath
+
         out = {
             'theme_primary': s.primary_color or '#2563EB',
             'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
             'theme_accent': s.accent_color or '#06B6D4',
-            'theme_logo_url': s.logo_url or '',
+            'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
             'theme_favicon_url': s.favicon_url or '',
         }
     except Exception:
@@ -2907,6 +2909,12 @@ def bootstrap_nodeone_schema():
             ensure_saas_organization_registration_policy_column(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_registration_policy_column: {e}')
+        try:
+            from nodeone.services.tenant_email_logo_storage import migrate_legacy_tenant_email_logos_to_uploads
+
+            migrate_legacy_tenant_email_logos_to_uploads(db, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ migrate_legacy_tenant_email_logos_to_uploads: {e}')
         ensure_must_change_password_column()
         ensure_user_last_selected_organization_id_column()
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra

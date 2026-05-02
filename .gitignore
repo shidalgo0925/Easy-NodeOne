@@ -72,6 +72,9 @@ instance/
 # User uploads
 static/uploads/
 
+# Logos subidos por tenant (admin); persistidos bajo static/uploads/emails/logos/ — no versionar en public/
+static/public/emails/logos/logo-email-org*
+
 # Coverage reports
 htmlcov/
 .coverage

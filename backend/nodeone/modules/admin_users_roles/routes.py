@@ -104,6 +104,10 @@ def register_admin_users_roles_routes(app):
 
         query = User.query.filter(user_in_org_clause(User, scope_oid))
 
+        from models.benefits import MembershipPlan
+
+        membership_plans_for_assign = MembershipPlan.get_active_ordered(organization_id=scope_oid)
+
         # Filtro de búsqueda (nombre, email, teléfono)
         if search:
             query = query.filter(
@@ -214,8 +218,74 @@ def register_admin_users_roles_routes(app):
             can_filter_users_by_org=is_platform_admin,
             saas_organizations=saas_organizations,
             users_organization_filter=users_organization_filter,
+            membership_plans_for_assign=membership_plans_for_assign,
         )
 
+    @app.route('/admin/users/<int:user_id>/assign-membership', methods=['POST'])
+    @require_permission('memberships.assign')
+    def admin_assign_membership(user_id):
+        """Asignar membresía manual (Membership); cancela suscripciones activas y membresías previas."""
+        from datetime import datetime, timedelta
+
+        from models.benefits import Membership, MembershipPlan
+        from models.payments import Subscription
+
+        scope_oid = admin_data_scope_organization_id()
+        if can_manage_platform_superuser_fields(current_user):
+            op = request.form.get('organization_id', type=int) or request.args.get('organization_id', type=int)
+            if op:
+                scope_oid = op
+
+        user = User.query.filter(User.id == user_id).filter(user_in_org_clause(User, scope_oid)).first_or_404()
+
+        slug = (request.form.get('membership_type') or '').strip().lower()
+        months = request.form.get('duration_months', type=int) or 12
+        months = max(1, min(int(months), 60))
+        note = (request.form.get('assign_note') or '').strip()[:500]
+
+        plan = MembershipPlan.query.filter_by(
+            organization_id=int(scope_oid), slug=slug, is_active=True
+        ).first()
+        if not plan:
+            flash('Plan inválido o inactivo para esta organización.', 'error')
+            return redirect(url_for('admin_users'))
+
+        now = datetime.utcnow()
+        end_date = now + timedelta(days=30 * months)
+
+        try:
+            for sub in Subscription.query.filter_by(user_id=user.id, status='active').all():
+                sub.status = 'cancelled'
+                sub.updated_at = now
+            for mem in Membership.query.filter_by(user_id=user.id, is_active=True).all():
+                mem.is_active = False
+            db.session.add(
+                Membership(
+                    user_id=user.id,
+                    membership_type=plan.slug,
+                    start_date=now,
+                    end_date=end_date,
+                    is_active=True,
+                    payment_status='paid',
+                    amount=0.0,
+                )
+            )
+            detail = f'plan={plan.slug} months={months} org={scope_oid}'
+            if note:
+                detail += f' note={note}'
+            ActivityLog.log_activity(
+                current_user.id, 'ASSIGN_MEMBERSHIP', 'user', user.id, detail, request
+            )
+            db.session.commit()
+            flash(f'Membresía «{plan.name}» asignada hasta {end_date.date().isoformat()}.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'No se pudo asignar la membresía: {e}', 'error')
+
+        rp = {}
+        if can_manage_platform_superuser_fields(current_user) and request.form.get('organization_id', type=int):
+            rp['organization_id'] = request.form.get('organization_id', type=int)
+        return redirect(url_for('admin_users', **rp))
 
     @app.route('/admin/users/<int:user_id>/update', methods=['POST'])
     @require_permission('users.update')

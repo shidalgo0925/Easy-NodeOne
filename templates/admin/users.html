@@ -330,12 +330,17 @@
             </div>
             <form id="assignMembershipForm" method="POST" action="">
                 <div class="modal-body">
+                    {% if users_organization_filter %}
+                    <input type="hidden" name="organization_id" value="{{ users_organization_filter }}">
+                    {% endif %}
                     <p class="small text-muted mb-3" id="assignMembershipUserLabel"></p>
                     <div class="mb-3">
                         <label for="assign_membership_type" class="form-label">Plan</label>
                         <select class="form-select" id="assign_membership_type" name="membership_type" required>
                             {% for p in membership_plans_for_assign %}
                             <option value="{{ p.slug }}">{{ p.name }} ({{ p.slug }})</option>
+                            {% else %}
+                            <option value="" disabled>No hay planes activos para esta organización</option>
                             {% endfor %}
                         </select>
                     </div>

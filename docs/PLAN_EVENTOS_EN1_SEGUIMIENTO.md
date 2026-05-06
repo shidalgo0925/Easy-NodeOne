@@ -14,7 +14,7 @@
 | A.1 | Objetivo de negocio (eventos, participantes, import, asistencia, certificados QR, verificación, revocación, export, UI) | HECHO | Flujo admin: eventos, participantes, import A–J, asistencia, PDF/QR, verify público, revocación, exports XLSX, UI |
 | A.2 | Reglas de conceptos: Event / EventRegistration / EventParticipant / EventCertificate / User no mezclados | HECHO | Inscripción (`EventRegistration`) ≠ persona en evento (`EventParticipant`). Certificados (`EventCertificate`) sobre `EventParticipant`. `User` opcional en participante; no se auto-asigna en alta manual/import |
 | A.3 | Excel «LISTA PARA CERTIFICADOS PARA REVISORES»: Hoja1, 7 col A–G | HECHO | Import + preview |
-| A.4 | Formato extendido (cols H–J: tipo, pago, notas) | HECHO | Import + preview + confirm; defaults reviewer / not_required |
+| A.4 | Formato extendido (cols H–J: tipo, pago, notas) | HECHO | Import + preview + confirm; sin H: casilla «lista revisores» → reviewer, si no → external (§29 / §4); pago por defecto not_required |
 | A.5 | Modelo EventParticipant | HECHO | ORM + CRUD admin + import; asistencia y certificado en modelo |
 | A.6 | `full_name` normalizado | HECHO | |
 | A.7 | Validaciones import | HECHO | |

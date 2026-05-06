@@ -1528,6 +1528,10 @@ def _participant_import_session_key(event_id: int) -> str:
     return f'event_participant_import_preview_{int(event_id)}'
 
 
+def _participant_import_opts_session_key(event_id: int) -> str:
+    return f'event_participant_import_opts_{int(event_id)}'
+
+
 def _scoped_event_participant(event_id: int, participant_id: int):
     """Evento en alcance admin + participante de ese evento."""
     ensure_models()
@@ -1617,6 +1621,8 @@ def admin_event_participants_import(event_id):
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
     if request.method == 'GET':
+        if not session.get(_participant_import_session_key(event_id)):
+            session.pop(_participant_import_opts_session_key(event_id), None)
         return render_template('admin/events/participants_import.html', event=event, preview=None, summary=None)
 
     f = request.files.get('file')
@@ -1677,18 +1683,23 @@ def admin_event_participants_import(event_id):
         duplicates_omitted = len([x for x in parsed if x.skip])
         payload = serialize_preview(parsed)
         session[_participant_import_session_key(event_id)] = payload
+        reviewers_list = request.form.get('lista_revisores') == '1'
+        type_fallback = 'reviewer' if reviewers_list else 'external'
+        session[_participant_import_opts_session_key(event_id)] = {'type_fallback': type_fallback}
         summary = {
             'rows': len(parsed),
             'valid': len(valid),
             'validation_errors': validation_errors,
             'duplicates_omitted': duplicates_omitted,
             'had_header': had_header,
+            'type_fallback': type_fallback,
         }
         return render_template(
             'admin/events/participants_import.html',
             event=event,
             preview=payload,
             summary=summary,
+            import_type_fallback=type_fallback,
         )
     except Exception as e:
         flash(f'No se pudo leer el Excel: {e}', 'error')
@@ -1710,13 +1721,17 @@ def admin_event_participants_import_confirm(event_id):
     if not raw:
         flash('No hay vista previa. Volvé a subir el archivo.', 'error')
         return redirect(url_for('admin_events.admin_event_participants_import', event_id=event_id))
+    opts = session.get(_participant_import_opts_session_key(event_id)) or {}
+    type_fallback = (opts.get('type_fallback') or 'external').strip().lower()
+    if type_fallback not in ('reviewer', 'external'):
+        type_fallback = 'external'
     rows = deserialize_preview(raw)
     created = 0
     for r in rows:
         if r.errors or r.skip:
             continue
         fn = r.full_name()
-        ptype = default_import_participant_type(r)
+        ptype = default_import_participant_type(r, empty_column_fallback=type_fallback)
         pay = default_import_payment_status(r)
         notes_imp = (r.notes_col or '').strip() or None
         p = EventParticipant(
@@ -1743,6 +1758,7 @@ def admin_event_participants_import_confirm(event_id):
         created += 1
     db.session.commit()
     session.pop(_participant_import_session_key(event_id), None)
+    session.pop(_participant_import_opts_session_key(event_id), None)
     flash(f'Importación confirmada: {created} participante(s).', 'success')
     return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
 
@@ -1874,20 +1890,71 @@ def _sync_participant_full_name(p):
     p.full_name = fn or None
 
 
+def _resolve_participant_linked_user_id(
+    event_id: int,
+    form_user_id_raw: str | None,
+    *,
+    exclude_participant_id: int | None = None,
+):
+    """Vincular opcionalmente un ``User`` del mismo alcance org que los pickers admin."""
+    from app import User, admin_data_scope_organization_id
+
+    from nodeone.services.user_organization import user_in_org_clause
+
+    raw = (form_user_id_raw or '').strip()
+    if not raw:
+        return None, None
+    try:
+        uid = int(raw)
+    except (TypeError, ValueError):
+        return None, 'ID de usuario EN1 inválido.'
+    if uid <= 0:
+        return None, 'ID de usuario EN1 inválido.'
+    ensure_models()
+    oid = admin_data_scope_organization_id()
+    u = User.query.filter(User.id == uid).filter(user_in_org_clause(User, oid)).first()
+    if not u:
+        return None, 'Usuario no encontrado o fuera de la organización actual.'
+    q = EventParticipant.query.filter_by(event_id=event_id, user_id=uid)
+    if exclude_participant_id is not None:
+        q = q.filter(EventParticipant.id != exclude_participant_id)
+    if q.first():
+        return None, 'Otro participante de este evento ya está vinculado a ese usuario.'
+    return uid, None
+
+
 @admin_events_bp.route('/<int:event_id>/participants/new', methods=['GET', 'POST'])
 @admin_required
 def admin_event_participant_new(event_id):
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    picker_users = _users_for_event_admin_pickers()
     if request.method == 'POST':
         fn = (request.form.get('first_name') or '').strip()
         ln = (request.form.get('last_name') or '').strip()
         if not fn or not ln:
             flash('Primer nombre y primer apellido son obligatorios.', 'error')
-            return render_template('admin/events/participant_form.html', event=event, participant=None, form=request.form)
+            return render_template(
+                'admin/events/participant_form.html',
+                event=event,
+                participant=None,
+                form=request.form,
+                picker_users=picker_users,
+            )
+        uid_link, err_uid = _resolve_participant_linked_user_id(event_id, request.form.get('user_id'))
+        if err_uid:
+            flash(err_uid, 'error')
+            return render_template(
+                'admin/events/participant_form.html',
+                event=event,
+                participant=None,
+                form=request.form,
+                picker_users=picker_users,
+            )
+        pt = (request.form.get('participant_type') or 'external').strip() or 'external'
         p = EventParticipant(
             event_id=event_id,
-            user_id=None,
+            user_id=uid_link,
             first_name=fn or None,
             middle_name=(request.form.get('middle_name') or '').strip() or None,
             last_name=ln or None,
@@ -1895,9 +1962,9 @@ def admin_event_participant_new(event_id):
             document_id=(request.form.get('document_id') or '').strip() or None,
             email=(request.form.get('email') or '').strip().lower() or None,
             phone=(request.form.get('phone') or '').strip() or None,
-            participant_type=(request.form.get('participant_type') or 'external').strip() or 'external',
+            participant_type=pt,
             registration_source='admin_manual',
-            participation_category=(request.form.get('participant_type') or '').strip() or None,
+            participation_category=pt or None,
             payment_status=(request.form.get('payment_status') or 'not_required').strip() or 'not_required',
             attendance_status='pending',
             certificate_status='pending',
@@ -1909,7 +1976,13 @@ def admin_event_participant_new(event_id):
         db.session.commit()
         flash('Participante creado.', 'success')
         return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
-    return render_template('admin/events/participant_form.html', event=event, participant=None, form=None)
+    return render_template(
+        'admin/events/participant_form.html',
+        event=event,
+        participant=None,
+        form=None,
+        picker_users=picker_users,
+    )
 
 
 @admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/edit', methods=['GET', 'POST'])
@@ -1918,12 +1991,33 @@ def admin_event_participant_edit(event_id, participant_id):
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
     p = _scoped_event_participant(event_id, participant_id)
+    picker_users = _users_for_event_admin_pickers()
     if request.method == 'POST':
         fn = (request.form.get('first_name') or '').strip()
         ln = (request.form.get('last_name') or '').strip()
         if not fn or not ln:
             flash('Primer nombre y primer apellido son obligatorios.', 'error')
-            return render_template('admin/events/participant_form.html', event=event, participant=p, form=request.form)
+            return render_template(
+                'admin/events/participant_form.html',
+                event=event,
+                participant=p,
+                form=request.form,
+                picker_users=picker_users,
+            )
+        uid_link, err_uid = _resolve_participant_linked_user_id(
+            event_id,
+            request.form.get('user_id'),
+            exclude_participant_id=p.id,
+        )
+        if err_uid:
+            flash(err_uid, 'error')
+            return render_template(
+                'admin/events/participant_form.html',
+                event=event,
+                participant=p,
+                form=request.form,
+                picker_users=picker_users,
+            )
         p.first_name = fn or None
         p.middle_name = (request.form.get('middle_name') or '').strip() or None
         p.last_name = ln or None
@@ -1931,14 +2025,23 @@ def admin_event_participant_edit(event_id, participant_id):
         p.document_id = (request.form.get('document_id') or '').strip() or None
         p.email = (request.form.get('email') or '').strip().lower() or None
         p.phone = (request.form.get('phone') or '').strip() or None
-        p.participant_type = (request.form.get('participant_type') or 'external').strip() or 'external'
+        pt = (request.form.get('participant_type') or 'external').strip() or 'external'
+        p.participant_type = pt
+        p.participation_category = pt or None
         p.payment_status = (request.form.get('payment_status') or 'not_required').strip() or 'not_required'
+        p.user_id = uid_link
         p.notes = (request.form.get('notes') or '').strip() or None
         _sync_participant_full_name(p)
         db.session.commit()
         flash('Participante actualizado.', 'success')
         return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
-    return render_template('admin/events/participant_form.html', event=event, participant=p, form=None)
+    return render_template(
+        'admin/events/participant_form.html',
+        event=event,
+        participant=p,
+        form=None,
+        picker_users=picker_users,
+    )
 
 
 @admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/delete', methods=['POST'])
@@ -2008,6 +2111,7 @@ def admin_event_certificates(event_id):
 
 
 @admin_events_bp.route('/<int:event_id>/certificates/generate', methods=['POST'])
+@admin_events_bp.route('/<int:event_id>/certificates/generate-selected', methods=['POST'])
 @admin_required
 def admin_event_certificates_generate(event_id):
     from nodeone.modules.events.services.certificates import generate_bulk_for_event

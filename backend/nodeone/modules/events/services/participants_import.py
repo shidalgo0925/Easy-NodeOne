@@ -222,10 +222,17 @@ def mark_duplicates_within_file(rows: list[ParsedParticipantRow]) -> None:
             seen[k] = r.row_index
 
 
-def default_import_participant_type(r: ParsedParticipantRow) -> str:
+def default_import_participant_type(
+    r: ParsedParticipantRow,
+    empty_column_fallback: str = 'external',
+) -> str:
+    """Si la columna H está vacía, usa ``empty_column_fallback`` (§4: external; §29 lista revisores: reviewer)."""
     if r.participant_type_col:
         return r.participant_type_col
-    return 'reviewer'
+    fb = (empty_column_fallback or 'external').strip().lower().replace(' ', '_')
+    if fb not in _TYPE_ALLOWED:
+        fb = 'external'
+    return fb
 
 
 def default_import_payment_status(r: ParsedParticipantRow) -> str:

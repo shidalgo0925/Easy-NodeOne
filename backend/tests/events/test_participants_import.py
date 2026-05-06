@@ -27,7 +27,8 @@ def test_parse_seven_columns_defaults_type_and_payment():
     assert not r.errors
     assert r.participant_type_col == ''
     assert r.payment_status_col == ''
-    assert default_import_participant_type(r) == 'reviewer'
+    assert default_import_participant_type(r) == 'external'
+    assert default_import_participant_type(r, empty_column_fallback='reviewer') == 'reviewer'
     assert default_import_payment_status(r) == 'not_required'
 
 

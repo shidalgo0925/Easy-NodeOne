@@ -28,6 +28,28 @@
                 {% set fpt = form.get('participant_type','external') if form else (participant.participant_type or 'external' if participant else 'external') %}
                 {% set fps = form.get('payment_status','not_required') if form else (participant.payment_status or 'not_required' if participant else 'not_required') %}
                 {% set fnote = form.get('notes','') if form else (participant.notes or '' if participant else '') %}
+                {% set fuserid = form.get('user_id','') if form else (participant.user_id|string if participant and participant.user_id else '') %}
+
+                <div class="col-12">
+                    <label class="form-label">Usuario EN1 (opcional)</label>
+                    <select name="user_id" class="form-select">
+                        <option value="" {% if not fuserid %}selected{% endif %}>— Sin vincular —</option>
+                        {% if participant and participant.user_id %}
+                        {% set pids = picker_users|default([])|map(attribute='id')|list %}
+                        {% if participant.user_id not in pids %}
+                        <option value="{{ participant.user_id }}" {% if fuserid|string == participant.user_id|string %}selected{% endif %}>
+                            #{{ participant.user_id }} — {% if participant.user %}{{ participant.user.first_name }} {{ participant.user.last_name }} — {{ participant.user.email }}{% else %}usuario no listado en org actual{% endif %}
+                        </option>
+                        {% endif %}
+                        {% endif %}
+                        {% for u in picker_users|default([]) %}
+                        <option value="{{ u.id }}" {% if fuserid|string == u.id|string %}selected{% endif %}>
+                            #{{ u.id }} — {{ u.first_name }} {{ u.last_name }} — {{ u.email }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-text small mb-0">No crea usuarios: solo enlaza un miembro existente de la organización actual. El import Excel sigue sin auto-vincular.</p>
+                </div>
 
                 <div class="col-md-6">
                     <label class="form-label">Primer nombre <span class="text-danger">*</span></label>

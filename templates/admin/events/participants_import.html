@@ -34,14 +34,24 @@
                 <code>reviewer</code>, <code>member</code>, <code>invited</code>, <code>speaker</code>, <code>staff</code>),
                 estado de pago (<code>pending</code>, <code>paid</code>, <code>complimentary</code>, <code>waived</code>,
                 <code>not_required</code>), notas (texto). Archivos <code>.xlsx</code> o <code>.xls</code>, primera hoja.
-                Si la primera fila parece encabezado, se omite. Si H–J van vacíos, por defecto
-                <code>participant_type=reviewer</code>, <code>payment_status=not_required</code>.
-                Siempre <code>registration_source=import</code>; asistencia y certificado en <code>pending</code>.
+                Si la primera fila parece encabezado, se omite. Si la columna <strong>H</strong> está vacía, el tipo efectivo
+                depende de la opción debajo (lista revisores → <code>reviewer</code>; genérico → <code>external</code>, según plan §29 / §4).
+                Siempre <code>payment_status=not_required</code> si I está vacío; <code>registration_source=import</code>;
+                asistencia y certificado en <code>pending</code>.
             </p>
             <form method="post" enctype="multipart/form-data" class="row g-3 align-items-end">
                 {% if csrf_token is defined %}
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 {% endif %}
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="lista_revisores" value="1" id="lista_revisores" checked>
+                        <label class="form-check-label" for="lista_revisores">
+                            Archivo tipo «lista para certificados de <strong>revisores</strong>» (si la columna H viene vacía, usar <code>participant_type=reviewer</code>)
+                        </label>
+                    </div>
+                    <p class="small text-muted mb-0">Desmarcá esta casilla para imports genéricos: sin columna H se usará <code>external</code>.</p>
+                </div>
                 <div class="col-12 col-md-8">
                     <label for="file" class="form-label">Archivo Excel</label>
                     <input class="form-control" type="file" name="file" id="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
@@ -92,6 +102,7 @@
     </div>
     <p class="small text-muted mb-4">
         Primera fila tratada como encabezado: <strong>{% if summary.had_header %}sí (omitida){% else %}no{% endif %}</strong>.
+        Tipo si columna H vacía: <strong><code>{{ summary.type_fallback }}</code></strong>.
     </p>
 
     <div class="card mb-4">
@@ -118,7 +129,7 @@
                             <th>Documento</th>
                             <th>Email</th>
                             <th>Teléfono</th>
-                            <th>Tipo (H)</th>
+                            <th>Tipo efectivo</th>
                             <th>Pago (I)</th>
                             <th>Notas (J)</th>
                             <th>Estado</th>
@@ -132,7 +143,10 @@
                             <td>{{ row.document_id or '—' }}</td>
                             <td class="text-break">{{ row.email or '—' }}</td>
                             <td>{{ row.phone or '—' }}</td>
-                            <td>{{ row.participant_type_col or '—' }}</td>
+                            <td>
+                                {% set eff_t = row.participant_type_col if row.participant_type_col else (import_type_fallback|default('external')) %}
+                                {{ eff_t }}{% if not row.participant_type_col %} <span class="text-muted small">(def.)</span>{% endif %}
+                            </td>
                             <td>{{ row.payment_status_col or '—' }}</td>
                             <td class="text-break small">{{ row.notes_col or '—' }}</td>
                             <td>

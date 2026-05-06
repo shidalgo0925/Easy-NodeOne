@@ -1,5 +1,5 @@
 # Plantillas modelo para email marketing (HTML con estilos inline, compatibles con clientes de correo)
-# Variables soportadas: {{ nombre }}, {{ email }}, {{ unsubscribe_url }}, {{ base_url }}
+# Variables soportadas: {{ nombre }}, {{ email }}, {{ unsubscribe_url }}, {{ base_url }}, {{ reunion_url }}
 
 TEMPLATE_MODELS = [
     {
@@ -34,10 +34,16 @@ TEMPLATE_MODELS = [
 </td></tr>
 <tr><td style="padding: 24px;">
 <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.5; color: #333;">Hola {{ nombre }},</p>
-<p style="margin: 0 0 24px; font-size: 16px; line-height: 1.5; color: #555;">Escribe aquí el contenido principal de tu newsletter. Puedes usar varias líneas.</p>
+<p style="margin: 0 0 24px; font-size: 16px; line-height: 1.5; color: #555;">Estimado/a Miembro de Relatic Panamá,<br><br>
+Es un gusto saludarte. Para nuestra Red Latinoamericana de Investigaciones Cualitativas, tu crecimiento profesional es nuestra mayor satisfacción.<br><br>
+Te ofrecemos un descuento exclusivo del 10% para el programa «Seminario: Redacción y Publicación de Artículos Científicos». Beneficio miembros: B/. 45.00 (regular B/. 50.00).<br><br>
+Atentamente,<br>El Equipo de Relatic Panamá</p>
 <table cellpadding="0" cellspacing="0"><tr><td style="background-color: #0d6efd; padding: 14px 28px; border-radius: 6px;">
-<a href="#" style="color: #fff; text-decoration: none; font-weight: bold;">Ver más</a>
+<a href="https://miembros.relatic.org/events/curso-de-redaccion-cientifica-y-publicacion-en-revistas-cientificas" style="color: #fff; text-decoration: none; font-weight: bold;">Ver más</a>
 </td></tr></table>
+</td></tr>
+<tr><td style="padding: 0;">
+<a href="https://miembros.relatic.org/events/curso-de-redaccion-cientifica-y-publicacion-en-revistas-cientificas" style="display:block; text-decoration:none;"><img src="{{ base_url }}/static/public/emails/imagenes/Seminario.jpeg" alt="Seminario: Redacción y Publicación" width="600" style="max-width:100%; height:auto; display:block; border:0;"></a>
 </td></tr>
 <tr><td style="padding: 16px 24px; background: #f8f9fa; font-size: 12px; color: #666;">
 Si no deseas recibir estos correos, <a href="{{ unsubscribe_url }}" style="color: #0d6efd;">darse de baja</a>.
@@ -58,6 +64,9 @@ Si no deseas recibir estos correos, <a href="{{ unsubscribe_url }}" style="color
 <tr><td style="padding: 24px; background: linear-gradient(135deg, #198754 0%, #20c997 100%); background-color: #198754;">
 <h1 style="margin:0; font-size: 22px; color: #fff;">Oferta especial</h1>
 <p style="margin: 8px 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Solo por tiempo limitado</p>
+</td></tr>
+<tr><td style="padding: 0;">
+<a href="{{ reunion_url }}" style="display:block; text-decoration:none;"><img src="{{ base_url }}/static/public/emails/imagenes/Seminario.jpeg" alt="Seminario" width="600" style="max-width:100%; height:auto; display:block;"></a>
 </td></tr>
 <tr><td style="padding: 24px;">
 <p style="margin: 0 0 16px; font-size: 16px; color: #333;">Hola {{ nombre }},</p>
@@ -137,7 +146,7 @@ Si no deseas recibir estos correos, <a href="{{ unsubscribe_url }}" style="color
 <body style="margin:0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background: #fff;">
 <tr><td style="padding: 0;">
-<a href="{{ reunion_url }}" style="display:block; text-decoration:none;"><img src="{{ base_url }}/static/public/emails/imagenes/capacitacion-mar26-o365.png" alt="Capacitación Office 365" width="600" style="max-width:100%; height:auto; display:block;"></a>
+<a href="{{ reunion_url }}" style="display:block; text-decoration:none;"><img src="{{ base_url }}/static/public/emails/imagenes/Seminario.jpeg" alt="Seminario" width="600" style="max-width:100%; height:auto; display:block;"></a>
 </td></tr>
 <tr><td style="padding: 16px 24px;">
 <table cellpadding="0" cellspacing="0"><tr><td style="background-color: #0d6efd; padding: 14px 28px; border-radius: 6px;"><a href="{{ reunion_url }}" style="color: #fff; text-decoration: none; font-weight: bold;">Unirse a la reunión</a></td></tr></table>

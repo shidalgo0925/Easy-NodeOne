@@ -19,6 +19,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 from flask_login import current_user, login_required
@@ -51,11 +52,17 @@ Discount = None
 EventDiscount = None
 ActivityLog = None
 allowed_file = None
+EventRegistration = None
+NotificationEngine = None
+User = None
+EventParticipant = None
+EventCertificate = None
 
 
 def init_models():
     """Importa los modelos necesarios desde app.py una vez que existen."""
     global db, Event, EventImage, Discount, EventDiscount, ActivityLog, allowed_file, EventRegistration, NotificationEngine, User
+    global EventParticipant, EventCertificate
     try:
         from app import (
             db as _db,
@@ -68,6 +75,8 @@ def init_models():
             EventRegistration as _EventRegistration,
             NotificationEngine as _NotificationEngine,
             User as _User,
+            EventParticipant as _EventParticipant,
+            EventCertificate as _EventCertificate,
         )
 
         db = _db
@@ -80,6 +89,8 @@ def init_models():
         EventRegistration = _EventRegistration
         NotificationEngine = _NotificationEngine
         User = _User
+        EventParticipant = _EventParticipant
+        EventCertificate = _EventCertificate
     except ImportError:
         pass
 
@@ -1227,6 +1238,12 @@ def edit_event(event_id):
         return redirect(url_for('admin_events.admin_events_index'))
 
     users = _users_for_event_admin_pickers()
+    _tabs = frozenset(
+        {'info', 'dates', 'price', 'images', 'certopts', 'contact', 'publish', 'roles', 'advanced'}
+    )
+    active_tab = (request.args.get('tab') or 'info').strip().lower()
+    if active_tab not in _tabs:
+        active_tab = 'info'
     return render_template(
         'admin/events/form.html',
         action='edit',
@@ -1234,7 +1251,8 @@ def edit_event(event_id):
         discounts=discounts,
         users=users,
         default_start=event.start_date,
-        default_end=event.end_date
+        default_end=event.end_date,
+        active_tab=active_tab,
     )
 
 
@@ -1503,3 +1521,593 @@ def delete_discount(discount_id):
     )
     flash('Descuento eliminado.', 'info')
     return redirect(url_for('admin_events.discounts_index'))
+
+
+# --- Participantes (import Excel, listado) ---------------------------------
+def _participant_import_session_key(event_id: int) -> str:
+    return f'event_participant_import_preview_{int(event_id)}'
+
+
+def _scoped_event_participant(event_id: int, participant_id: int):
+    """Evento en alcance admin + participante de ese evento."""
+    ensure_models()
+    _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    return EventParticipant.query.filter_by(event_id=event_id, id=participant_id).first_or_404()
+
+
+def _attendance_filter_query():
+    raw = (request.args.get('attendance') or request.form.get('attendance_filter') or 'all').strip().lower()
+    if raw not in ('all', 'pending', 'checked_in', 'absent'):
+        return 'all'
+    return raw
+
+
+def _redirect_admin_participants(event_id: int):
+    att = _attendance_filter_query()
+    if att == 'all':
+        return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
+    return redirect(url_for('admin_events.admin_event_participants', event_id=event_id, attendance=att))
+
+
+def _existing_participant_keys(event_id: int) -> set[str]:
+    from nodeone.modules.events.services.participants_import import participant_duplicate_key
+    from nodeone.modules.events.services.participants_import import ParsedParticipantRow
+
+    ensure_models()
+    keys: set[str] = set()
+    for p in EventParticipant.query.filter_by(event_id=event_id).all():
+        if (p.document_id or '').strip():
+            keys.add(f'doc:{p.document_id.strip().lower()}')
+        if (p.email or '').strip():
+            keys.add(f'email:{p.email.strip().lower()}')
+        r = ParsedParticipantRow(
+            row_index=0,
+            first_name=(p.first_name or '').strip(),
+            middle_name=(p.middle_name or '').strip(),
+            last_name=(p.last_name or '').strip(),
+            second_last_name=(p.second_last_name or '').strip(),
+            document_id=(p.document_id or '').strip(),
+            email=(p.email or '').strip().lower(),
+            phone=(p.phone or '').strip(),
+        )
+        keys.add(participant_duplicate_key(r))
+    return keys
+
+
+@admin_events_bp.route('/<int:event_id>/participants')
+@admin_required
+def admin_event_participants(event_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    attendance_filter = (request.args.get('attendance') or 'all').strip().lower()
+    if attendance_filter not in ('all', 'pending', 'checked_in', 'absent'):
+        attendance_filter = 'all'
+
+    q = EventParticipant.query.filter_by(event_id=event_id)
+    if attendance_filter == 'pending':
+        q = q.filter(EventParticipant.attendance_status == 'pending')
+    elif attendance_filter == 'checked_in':
+        q = q.filter(
+            or_(
+                EventParticipant.attendance_status == 'checked_in',
+                EventParticipant.attendance_status == 'attended',
+            )
+        )
+    elif attendance_filter == 'absent':
+        q = q.filter(EventParticipant.attendance_status == 'absent')
+
+    rows = q.order_by(EventParticipant.id.asc()).all()
+    from nodeone.modules.events.services import certificates as ev_cert_svc
+
+    active_cert_by_participant_id = {p.id: ev_cert_svc.participant_active_certificate(p.id, event.id) for p in rows}
+    participant_cert_eligible = {p.id: ev_cert_svc.participant_eligible_for_certificate(p) for p in rows}
+    return render_template(
+        'admin/events/participants.html',
+        event=event,
+        participants=rows,
+        attendance_filter=attendance_filter,
+        active_cert_by_participant_id=active_cert_by_participant_id,
+        participant_cert_eligible=participant_cert_eligible,
+    )
+
+
+@admin_events_bp.route('/<int:event_id>/participants/import', methods=['GET', 'POST'])
+@admin_required
+def admin_event_participants_import(event_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    if request.method == 'GET':
+        return render_template('admin/events/participants_import.html', event=event, preview=None, summary=None)
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Seleccioná un archivo Excel (.xlsx o .xls)', 'error')
+        return redirect(url_for('admin_events.admin_event_participants_import', event_id=event_id))
+    try:
+        from io import BytesIO
+
+        from nodeone.modules.events.services.participants_import import (
+            mark_duplicates_within_file,
+            parse_matrix_rows,
+            parse_workbook_rows,
+            participant_duplicate_key,
+            serialize_preview,
+        )
+
+        data = f.read()
+        filename = (f.filename or '').lower()
+
+        if filename.endswith('.xls') and not filename.endswith('.xlsx'):
+            import pandas as pd
+
+            try:
+                df = pd.read_excel(BytesIO(data), sheet_name=0, header=None, dtype=object, engine='xlrd')
+            except Exception:
+                try:
+                    df = pd.read_excel(BytesIO(data), sheet_name=0, header=None, dtype=object)
+                except Exception as e:
+                    flash(
+                        f'No se pudo leer el .xls ({e}). Instalá «xlrd» en el servidor o guardá el archivo como .xlsx.',
+                        'error',
+                    )
+                    return redirect(url_for('admin_events.admin_event_participants_import', event_id=event_id))
+            raw_rows = [tuple(row) for _, row in df.iterrows()]
+            parsed, had_header = parse_matrix_rows(raw_rows)
+        else:
+            from openpyxl import load_workbook
+
+            wb = load_workbook(filename=BytesIO(data), read_only=True, data_only=True)
+            sheet = wb[wb.sheetnames[0]]
+            parsed, had_header = parse_workbook_rows(sheet)
+            wb.close()
+
+        mark_duplicates_within_file(parsed)
+        db_keys = _existing_participant_keys(event_id)
+
+        for r in parsed:
+            if r.errors:
+                continue
+            k = participant_duplicate_key(r)
+            if k in db_keys:
+                r.errors.append('Duplicado en el evento')
+                r.skip = True
+
+        valid = [x for x in parsed if not x.errors and not x.skip]
+        validation_errors = len([x for x in parsed if x.errors and not x.skip])
+        duplicates_omitted = len([x for x in parsed if x.skip])
+        payload = serialize_preview(parsed)
+        session[_participant_import_session_key(event_id)] = payload
+        summary = {
+            'rows': len(parsed),
+            'valid': len(valid),
+            'validation_errors': validation_errors,
+            'duplicates_omitted': duplicates_omitted,
+            'had_header': had_header,
+        }
+        return render_template(
+            'admin/events/participants_import.html',
+            event=event,
+            preview=payload,
+            summary=summary,
+        )
+    except Exception as e:
+        flash(f'No se pudo leer el Excel: {e}', 'error')
+        return redirect(url_for('admin_events.admin_event_participants_import', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/participants/import/confirm', methods=['POST'])
+@admin_required
+def admin_event_participants_import_confirm(event_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    from nodeone.modules.events.services.participants_import import (
+        default_import_participant_type,
+        default_import_payment_status,
+        deserialize_preview,
+    )
+
+    raw = session.get(_participant_import_session_key(event_id))
+    if not raw:
+        flash('No hay vista previa. Volvé a subir el archivo.', 'error')
+        return redirect(url_for('admin_events.admin_event_participants_import', event_id=event_id))
+    rows = deserialize_preview(raw)
+    created = 0
+    for r in rows:
+        if r.errors or r.skip:
+            continue
+        fn = r.full_name()
+        ptype = default_import_participant_type(r)
+        pay = default_import_payment_status(r)
+        notes_imp = (r.notes_col or '').strip() or None
+        p = EventParticipant(
+            event_id=event_id,
+            user_id=None,
+            first_name=r.first_name or None,
+            middle_name=r.middle_name or None,
+            last_name=r.last_name or None,
+            second_last_name=r.second_last_name or None,
+            full_name=fn or None,
+            document_id=r.document_id or None,
+            email=r.email or None,
+            phone=r.phone or None,
+            participant_type=ptype,
+            registration_source='import',
+            participation_category=ptype,
+            payment_status=pay,
+            notes=notes_imp,
+            attendance_status='pending',
+            certificate_status='pending',
+            attendance_confirmed=False,
+        )
+        db.session.add(p)
+        created += 1
+    db.session.commit()
+    session.pop(_participant_import_session_key(event_id), None)
+    flash(f'Importación confirmada: {created} participante(s).', 'success')
+    return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/participants/export.xlsx')
+@admin_required
+def admin_event_participants_export(event_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    rows = EventParticipant.query.filter_by(event_id=event_id).order_by(EventParticipant.id.asc()).all()
+    try:
+        import io
+
+        import pandas as pd
+
+        data = []
+        for p in rows:
+            checked_in = ''
+            if getattr(p, 'checked_in_at', None):
+                try:
+                    checked_in = p.checked_in_at.strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    checked_in = str(p.checked_in_at)
+            reg_dt = ''
+            if getattr(p, 'registration_date', None):
+                try:
+                    reg_dt = p.registration_date.strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    reg_dt = str(p.registration_date)
+            data.append(
+                {
+                    'Evento': event.title,
+                    'ID participante': p.id,
+                    'Usuario EN1 (id)': p.user_id or '',
+                    'Primer nombre': p.first_name or '',
+                    'Segundo nombre': p.middle_name or '',
+                    'Primer apellido': p.last_name or '',
+                    'Segundo apellido': p.second_last_name or '',
+                    'Nombre completo': p.full_name or '',
+                    'Documento': p.document_id or '',
+                    'Email': p.email or '',
+                    'Teléfono': p.phone or '',
+                    'Tipo participante': p.participant_type or '',
+                    'Categoría participación': p.participation_category or '',
+                    'Fuente': p.registration_source or '',
+                    'Estado pago': p.payment_status or '',
+                    'Estado asistencia': p.attendance_status or '',
+                    'Asistencia confirmada (flag)': 'sí' if p.attendance_confirmed else 'no',
+                    'Fecha check-in': checked_in,
+                    'Check-in por (usuario id)': p.checked_in_by or '',
+                    'Estado certificado': p.certificate_status or '',
+                    'Fecha alta participante': reg_dt,
+                    'Notas': p.notes or '',
+                }
+            )
+        df = pd.DataFrame(data or [{'Evento': event.title}])
+        buf = io.BytesIO()
+        df.to_excel(buf, index=False, engine='openpyxl')
+        buf.seek(0)
+        from flask import Response
+
+        name = f'participantes_evento_{event_id}.xlsx'
+        return Response(
+            buf.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename={name}'},
+        )
+    except Exception as e:
+        flash(f'Exportación falló: {e}', 'error')
+        return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/check-in', methods=['POST'])
+@admin_required
+def admin_event_participant_check_in(event_id, participant_id):
+    p = _scoped_event_participant(event_id, participant_id)
+    p.attendance_status = 'checked_in'
+    p.checked_in_at = datetime.utcnow()
+    p.checked_in_by = current_user.id
+    p.attendance_confirmed = True
+    db.session.commit()
+    flash('Asistencia registrada (check-in).', 'success')
+    return _redirect_admin_participants(event_id)
+
+
+@admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/mark-absent', methods=['POST'])
+@admin_required
+def admin_event_participant_mark_absent(event_id, participant_id):
+    p = _scoped_event_participant(event_id, participant_id)
+    p.attendance_status = 'absent'
+    p.checked_in_at = None
+    p.checked_in_by = None
+    p.attendance_confirmed = False
+    db.session.commit()
+    flash('Participante marcado como ausente.', 'info')
+    return _redirect_admin_participants(event_id)
+
+
+@admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/reset-attendance', methods=['POST'])
+@admin_required
+def admin_event_participant_reset_attendance(event_id, participant_id):
+    p = _scoped_event_participant(event_id, participant_id)
+    p.attendance_status = 'pending'
+    p.checked_in_at = None
+    p.checked_in_by = None
+    p.attendance_confirmed = False
+    db.session.commit()
+    flash('Asistencia revertida a pendiente.', 'info')
+    return _redirect_admin_participants(event_id)
+
+
+def _scoped_event_certificate(event_id: int, certificate_id: int):
+    ensure_models()
+    _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    return EventCertificate.query.filter_by(id=certificate_id, event_id=event_id).first_or_404()
+
+
+def _sync_participant_full_name(p):
+    fn = ' '.join(
+        x
+        for x in (
+            (p.first_name or '').strip(),
+            (p.middle_name or '').strip(),
+            (p.last_name or '').strip(),
+            (p.second_last_name or '').strip(),
+        )
+        if x
+    ).strip()
+    p.full_name = fn or None
+
+
+@admin_events_bp.route('/<int:event_id>/participants/new', methods=['GET', 'POST'])
+@admin_required
+def admin_event_participant_new(event_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    if request.method == 'POST':
+        fn = (request.form.get('first_name') or '').strip()
+        ln = (request.form.get('last_name') or '').strip()
+        if not fn or not ln:
+            flash('Primer nombre y primer apellido son obligatorios.', 'error')
+            return render_template('admin/events/participant_form.html', event=event, participant=None, form=request.form)
+        p = EventParticipant(
+            event_id=event_id,
+            user_id=None,
+            first_name=fn or None,
+            middle_name=(request.form.get('middle_name') or '').strip() or None,
+            last_name=ln or None,
+            second_last_name=(request.form.get('second_last_name') or '').strip() or None,
+            document_id=(request.form.get('document_id') or '').strip() or None,
+            email=(request.form.get('email') or '').strip().lower() or None,
+            phone=(request.form.get('phone') or '').strip() or None,
+            participant_type=(request.form.get('participant_type') or 'external').strip() or 'external',
+            registration_source='admin_manual',
+            participation_category=(request.form.get('participant_type') or '').strip() or None,
+            payment_status=(request.form.get('payment_status') or 'not_required').strip() or 'not_required',
+            attendance_status='pending',
+            certificate_status='pending',
+            notes=(request.form.get('notes') or '').strip() or None,
+            attendance_confirmed=False,
+        )
+        _sync_participant_full_name(p)
+        db.session.add(p)
+        db.session.commit()
+        flash('Participante creado.', 'success')
+        return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
+    return render_template('admin/events/participant_form.html', event=event, participant=None, form=None)
+
+
+@admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_event_participant_edit(event_id, participant_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    p = _scoped_event_participant(event_id, participant_id)
+    if request.method == 'POST':
+        fn = (request.form.get('first_name') or '').strip()
+        ln = (request.form.get('last_name') or '').strip()
+        if not fn or not ln:
+            flash('Primer nombre y primer apellido son obligatorios.', 'error')
+            return render_template('admin/events/participant_form.html', event=event, participant=p, form=request.form)
+        p.first_name = fn or None
+        p.middle_name = (request.form.get('middle_name') or '').strip() or None
+        p.last_name = ln or None
+        p.second_last_name = (request.form.get('second_last_name') or '').strip() or None
+        p.document_id = (request.form.get('document_id') or '').strip() or None
+        p.email = (request.form.get('email') or '').strip().lower() or None
+        p.phone = (request.form.get('phone') or '').strip() or None
+        p.participant_type = (request.form.get('participant_type') or 'external').strip() or 'external'
+        p.payment_status = (request.form.get('payment_status') or 'not_required').strip() or 'not_required'
+        p.notes = (request.form.get('notes') or '').strip() or None
+        _sync_participant_full_name(p)
+        db.session.commit()
+        flash('Participante actualizado.', 'success')
+        return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
+    return render_template('admin/events/participant_form.html', event=event, participant=p, form=None)
+
+
+@admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/delete', methods=['POST'])
+@admin_required
+def admin_event_participant_delete(event_id, participant_id):
+    ensure_models()
+    _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    p = _scoped_event_participant(event_id, participant_id)
+    for c in list(getattr(p, 'certificates', None) or []):
+        db.session.delete(c)
+    db.session.delete(p)
+    db.session.commit()
+    flash('Participante eliminado.', 'info')
+    return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/certificate')
+@admin_required
+def admin_event_participant_certificate_view(event_id, participant_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    p = _scoped_event_participant(event_id, participant_id)
+    certs = (
+        EventCertificate.query.filter_by(event_id=event_id, participant_id=participant_id)
+        .order_by(EventCertificate.id.desc())
+        .all()
+    )
+    return render_template(
+        'admin/events/participant_certificate.html',
+        event=event,
+        participant=p,
+        certificates=certs,
+    )
+
+
+@admin_events_bp.route('/<int:event_id>/participants/<int:participant_id>/generate-certificate', methods=['POST'])
+@admin_required
+def admin_event_participant_generate_certificate(event_id, participant_id):
+    from nodeone.modules.events.services.certificates import create_event_certificate
+
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    p = _scoped_event_participant(event_id, participant_id)
+    ec, err = create_event_certificate(current_app, event, p, current_user.id)
+    if ec:
+        flash('Certificado generado.', 'success')
+    else:
+        flash(err or 'No se pudo generar el certificado.', 'error')
+    return _redirect_admin_participants(event_id)
+
+
+@admin_events_bp.route('/<int:event_id>/certificates')
+@admin_required
+def admin_event_certificates(event_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    certs = (
+        EventCertificate.query.filter_by(event_id=event_id)
+        .order_by(EventCertificate.id.desc())
+        .all()
+    )
+    return render_template(
+        'admin/events/certificates.html',
+        event=event,
+        certificates=certs,
+    )
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/generate', methods=['POST'])
+@admin_required
+def admin_event_certificates_generate(event_id):
+    from nodeone.modules.events.services.certificates import generate_bulk_for_event
+
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    ids_raw = request.form.get('participant_ids', '').strip()
+    participant_ids = None
+    if ids_raw:
+        participant_ids = []
+        for x in ids_raw.replace(',', ' ').split():
+            try:
+                participant_ids.append(int(x))
+            except ValueError:
+                pass
+        if not participant_ids:
+            participant_ids = None
+    stats = generate_bulk_for_event(current_app, event, current_user.id, participant_ids)
+    flash(
+        f"Certificados generados: {stats['created']}. Omitidos: {stats['skipped']}.",
+        'success' if stats['created'] else 'info',
+    )
+    return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/download')
+@admin_required
+def admin_event_certificate_download(event_id, certificate_id):
+    from flask import send_file
+
+    from nodeone.modules.events.services.certificates import abs_path_from_certificate_url
+
+    ensure_models()
+    ec = _scoped_event_certificate(event_id, certificate_id)
+    path = abs_path_from_certificate_url(current_app, ec.certificate_url)
+    if not path or not os.path.isfile(path):
+        flash('No se encontró el archivo PDF.', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+    return send_file(path, as_attachment=True, download_name=f'{ec.certificate_number}.pdf')
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/revoke', methods=['POST'])
+@admin_required
+def admin_event_certificate_revoke(event_id, certificate_id):
+    from nodeone.modules.events.services.certificates import revoke_event_certificate
+
+    ensure_models()
+    ec = _scoped_event_certificate(event_id, certificate_id)
+    reason = (request.form.get('reason') or '').strip()
+    revoke_event_certificate(ec, current_user.id, reason)
+    flash('Certificado revocado.', 'info')
+    return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/export.xlsx')
+@admin_required
+def admin_event_certificates_export(event_id):
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    rows = EventCertificate.query.filter_by(event_id=event_id).order_by(EventCertificate.id.asc()).all()
+    try:
+        import io
+
+        import pandas as pd
+
+        from nodeone.modules.events.services.certificates import build_verification_url
+
+        data = []
+        for c in rows:
+            part = c.participant
+            pname = ''
+            if part:
+                pname = (part.full_name or '').strip() or ' '.join(
+                    x for x in (part.first_name, part.last_name) if x
+                )
+            verify = build_verification_url(current_app, c.certificate_number)
+            data.append(
+                {
+                    'Código': c.certificate_number,
+                    'Participante': pname,
+                    'Documento': (part.document_id if part else '') or '',
+                    'Evento': event.title,
+                    'Tipo certificado': c.certificate_type or '',
+                    'Estado': c.status or '',
+                    'Fecha emisión': c.issued_date.strftime('%d/%m/%Y %H:%M') if c.issued_date else '',
+                    'URL verificación': verify,
+                }
+            )
+        df = pd.DataFrame(data or [{'Evento': event.title}])
+        buf = io.BytesIO()
+        df.to_excel(buf, index=False, engine='openpyxl')
+        buf.seek(0)
+        from flask import Response
+
+        name = f'certificados_evento_{event_id}.xlsx'
+        return Response(
+            buf.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename={name}'},
+        )
+    except Exception as e:
+        flash(f'Exportación falló: {e}', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))

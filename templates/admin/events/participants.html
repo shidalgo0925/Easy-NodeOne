@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Participantes - {{ event.title }} - Easy NodeOne{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+                <div class="min-w-0">
+                    <h1 class="h5 mb-2">
+                        <i class="fas fa-id-card" aria-hidden="true"></i> Participantes del evento
+                    </h1>
+                    <h2 class="h6 text-muted mb-0 text-break">{{ event.title }}</h2>
+                </div>
+                <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                    <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-secondary text-nowrap">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Eventos
+                    </a>
+                    <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-dark text-nowrap">
+                        <i class="fas fa-sliders-h" aria-hidden="true"></i> Editar evento
+                    </a>
+                    <a href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}" class="btn btn-outline-info text-nowrap">
+                        <i class="fas fa-users" aria-hidden="true"></i> Registros
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_event_participants_import', event_id=event.id) }}" class="btn btn-primary text-nowrap">
+                        <i class="fas fa-file-upload" aria-hidden="true"></i> Importar Excel
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_event_participants_export', event_id=event.id) }}" class="btn btn-outline-success text-nowrap">
+                        <i class="fas fa-file-download" aria-hidden="true"></i> Exportar .xlsx
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_event_participant_new', event_id=event.id) }}" class="btn btn-outline-dark text-nowrap">
+                        <i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}" class="btn btn-warning text-nowrap">
+                        <i class="fas fa-award" aria-hidden="true"></i> Certificados
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted small mb-3">
+        Personas en el evento (miembro o no; no todo participante tiene usuario EN1). Importación tipo
+        «LISTA PARA CERTIFICADOS PARA REVISORES»: columnas A–G obligatorias; opcional H–J (tipo, pago, notas).
+        Certificados se emiten sobre <strong>EventParticipant</strong>, no sobre registro de pago ni solo sobre User.
+    </p>
+
+    {% if participants or attendance_filter != 'all' %}
+    <form method="get" class="row g-2 align-items-center mb-3">
+        <div class="col-auto">
+            <label class="col-form-label col-form-label-sm mb-0" for="attendance">Asistencia</label>
+        </div>
+        <div class="col-auto">
+            <select name="attendance" id="attendance" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="all" {% if attendance_filter == 'all' %}selected{% endif %}>Todos</option>
+                <option value="pending" {% if attendance_filter == 'pending' %}selected{% endif %}>Pendiente</option>
+                <option value="checked_in" {% if attendance_filter == 'checked_in' %}selected{% endif %}>Check-in</option>
+                <option value="absent" {% if attendance_filter == 'absent' %}selected{% endif %}>Ausente</option>
+            </select>
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0"><i class="fas fa-list" aria-hidden="true"></i> Lista ({{ participants|length }})</h5>
+        </div>
+        <div class="card-body">
+            {% if participants %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Documento</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Tipo</th>
+                            <th>Fuente</th>
+                            <th>Pago</th>
+                            <th>Asistencia</th>
+                            <th>Certificado</th>
+                            <th>Usuario</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in participants %}
+                        <tr>
+                            <td>
+                                <strong>{{ p.full_name or ((p.first_name|default('')) ~ ' ' ~ (p.last_name|default('')))|trim or '—' }}</strong>
+                            </td>
+                            <td>{{ p.document_id or '—' }}</td>
+                            <td class="text-break">{{ p.email or '—' }}</td>
+                            <td>{{ p.phone or '—' }}</td>
+                            <td><span class="badge bg-secondary">{{ p.participant_type or '—' }}</span></td>
+                            <td>{{ p.registration_source or '—' }}</td>
+                            <td>{{ p.payment_status or '—' }}</td>
+                            <td>
+                                <span class="badge bg-{% if p.attendance_status in ('checked_in', 'attended') %}success{% elif p.attendance_status == 'absent' %}danger{% else %}warning text-dark{% endif %}">
+                                    {{ (p.attendance_status or 'pending')|replace('_', ' ')|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if p.certificate_status in ('issued', 'generated', 'sent') %}success{% elif p.certificate_status == 'revoked' %}danger{% else %}secondary{% endif %}">
+                                    {{ (p.certificate_status or 'pending')|replace('_', ' ')|title }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if p.user_id and p.user %}
+                                    <span class="text-nowrap">{{ p.user.first_name }} {{ p.user.last_name }}</span>
+                                {% elif p.user_id %}
+                                    <span class="text-muted">#{{ p.user_id }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            {% set acert = active_cert_by_participant_id[p.id] %}
+                            {% set elig_cert = participant_cert_eligible[p.id] %}
+                            <td class="text-end">
+                                <div class="d-flex flex-column align-items-end gap-1">
+                                    <div class="d-flex flex-wrap justify-content-end gap-1">
+                                        {% if p.attendance_status not in ('checked_in', 'attended') %}
+                                        <form method="post" action="{{ url_for('admin_events.admin_event_participant_check_in', event_id=event.id, participant_id=p.id) }}" class="d-inline">
+                                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                            <input type="hidden" name="attendance_filter" value="{{ attendance_filter }}">
+                                            <button type="submit" class="btn btn-outline-success btn-sm">Check-in</button>
+                                        </form>
+                                        {% endif %}
+                                        {% if p.attendance_status != 'absent' %}
+                                        <form method="post" action="{{ url_for('admin_events.admin_event_participant_mark_absent', event_id=event.id, participant_id=p.id) }}" class="d-inline">
+                                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                            <input type="hidden" name="attendance_filter" value="{{ attendance_filter }}">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">Ausente</button>
+                                        </form>
+                                        {% endif %}
+                                        {% if p.attendance_status != 'pending' %}
+                                        <form method="post" action="{{ url_for('admin_events.admin_event_participant_reset_attendance', event_id=event.id, participant_id=p.id) }}" class="d-inline">
+                                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                            <input type="hidden" name="attendance_filter" value="{{ attendance_filter }}">
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm">Pendiente</button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex flex-wrap justify-content-end gap-1">
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_events.admin_event_participant_edit', event_id=event.id, participant_id=p.id) }}">Editar</a>
+                                        <a class="btn btn-sm btn-outline-warning" href="{{ url_for('admin_events.admin_event_participant_certificate_view', event_id=event.id, participant_id=p.id) }}" title="Certificados de este participante">Certs.</a>
+                                        {% if acert and acert.status != 'revoked' and acert.certificate_url %}
+                                        <a class="btn btn-sm btn-outline-success" href="{{ url_for('admin_events.admin_event_certificate_download', event_id=event.id, certificate_id=acert.id) }}">PDF</a>
+                                        <a class="btn btn-sm btn-outline-info" target="_blank" rel="noopener" href="{{ url_for('certificates_public.verify', certificate_code=acert.certificate_number) }}" title="Verificación pública">Ver</a>
+                                        {% endif %}
+                                        {% if elig_cert and not acert %}
+                                        <form method="post" action="{{ url_for('admin_events.admin_event_participant_generate_certificate', event_id=event.id, participant_id=p.id) }}" class="d-inline">
+                                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                            <input type="hidden" name="attendance_filter" value="{{ attendance_filter }}">
+                                            <button type="submit" class="btn btn-sm btn-warning">Certif.</button>
+                                        </form>
+                                        {% endif %}
+                                        <form method="post" action="{{ url_for('admin_events.admin_event_participant_delete', event_id=event.id, participant_id=p.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este participante y sus certificados asociados?');">
+                                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">
+                {% if attendance_filter != 'all' %}
+                    No hay participantes con este filtro de asistencia.
+                    <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}">Ver todos</a>
+                {% else %}
+                    No hay participantes cargados. Usá <strong>Importar Excel</strong> para añadir revisores.
+                {% endif %}
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

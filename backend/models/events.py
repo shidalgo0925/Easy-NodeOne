@@ -380,29 +380,44 @@ class DiscountApplication(db.Model):
 # Modelos adicionales para eventos según el diagrama de flujo
 # ---------------------------------------------------------------------------
 class EventParticipant(db.Model):
-    """Participantes de eventos con categorías (participantes, asistentes, ponentes)"""
+    """Persona en un evento (miembro o externo). Certificados se emiten sobre esta fila, no sobre User."""
+
+    __tablename__ = 'event_participant'
+
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    participation_category = db.Column(db.String(50), nullable=False)  # participant, attendee, speaker
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    # Legacy: categoría de participación (participant / attendee / speaker); preferir participant_type en flujo nuevo.
+    participation_category = db.Column(db.String(50), nullable=True)
+    participant_type = db.Column(db.String(50), nullable=False, default='external')
+    registration_source = db.Column(db.String(50), nullable=False, default='admin_manual')
+    first_name = db.Column(db.String(120), nullable=True)
+    middle_name = db.Column(db.String(120), nullable=True)
+    last_name = db.Column(db.String(120), nullable=True)
+    second_last_name = db.Column(db.String(120), nullable=True)
+    full_name = db.Column(db.String(255), nullable=True)
+    document_id = db.Column(db.String(80), nullable=True)
+    email = db.Column(db.String(255), nullable=True)
+    phone = db.Column(db.String(50), nullable=True)
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
-    check_in_time = db.Column(db.DateTime)  # Hora de llegada/check-in
-    check_out_time = db.Column(db.DateTime)  # Hora de salida/check-out
+    check_in_time = db.Column(db.DateTime)
+    check_out_time = db.Column(db.DateTime)
+    checked_in_at = db.Column(db.DateTime)
+    checked_in_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     attendance_confirmed = db.Column(db.Boolean, default=False)
-    payment_status = db.Column(db.String(20), default='pending')  # pending, paid, refunded
+    attendance_status = db.Column(db.String(50), nullable=False, default='pending')
+    certificate_status = db.Column(db.String(50), nullable=False, default='pending')
+    payment_status = db.Column(db.String(50), nullable=False, default='not_required')
     payment_amount = db.Column(db.Float, default=0.0)
     discount_applied = db.Column(db.Float, default=0.0)
-    membership_type_at_registration = db.Column(db.String(50))  # Para aplicar descuentos históricos
+    membership_type_at_registration = db.Column(db.String(50))
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     event = db.relationship('Event', backref='participants')
-    user = db.relationship('User', backref='event_participations')
-    
-    __table_args__ = (
-        db.UniqueConstraint('event_id', 'user_id', name='uq_event_user'),
-    )
+    user = db.relationship('User', foreign_keys=[user_id], backref='event_participations')
+    checkin_user = db.relationship('User', foreign_keys=[checked_in_by])
 
 
 class EventSpeaker(db.Model):
@@ -430,23 +445,36 @@ class EventSpeaker(db.Model):
 
 
 class EventCertificate(db.Model):
-    """Certificados generados para participantes de eventos"""
+    """Certificado/diploma ligado a EventParticipant (código único + verificación pública)."""
+
+    __tablename__ = 'event_certificate'
+
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
     participant_id = db.Column(db.Integer, db.ForeignKey('event_participant.id'), nullable=False)
     certificate_number = db.Column(db.String(100), unique=True, nullable=False)
-    certificate_url = db.Column(db.String(500))  # URL del PDF generado
-    preview_url = db.Column(db.String(500))  # URL del preview
+    verification_token = db.Column(db.String(120), nullable=True)
+    certificate_type = db.Column(db.String(50), nullable=False, default='participation')
+    title = db.Column(db.String(255), nullable=True)
+    certificate_url = db.Column(db.String(500))
+    preview_url = db.Column(db.String(500))
+    qr_path = db.Column(db.String(500))
     issued_date = db.Column(db.DateTime, default=datetime.utcnow)
-    issued_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # Admin que emitió
+    expires_at = db.Column(db.DateTime, nullable=True)
+    issued_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    status = db.Column(db.String(50), nullable=False, default='generated')
+    revoked_reason = db.Column(db.Text)
+    revoked_at = db.Column(db.DateTime)
+    revoked_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     email_sent = db.Column(db.Boolean, default=False)
     email_sent_at = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     event = db.relationship('Event', backref='certificates')
     participant = db.relationship('EventParticipant', backref='certificates')
-    issuer = db.relationship('User', backref='certificates_issued')
+    issuer = db.relationship('User', foreign_keys=[issued_by], backref='certificates_issued')
+    revoker = db.relationship('User', foreign_keys=[revoked_by], backref='event_certificates_revoked')
 
 
 class EventWorkshop(db.Model):

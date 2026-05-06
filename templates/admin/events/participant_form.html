@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{% if participant %}Editar{% else %}Nuevo{% endif %} participante - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h1 class="h5 mb-0">
+            {% if participant %}Editar participante{% else %}Nuevo participante{% endif %}
+        </h1>
+        <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-secondary btn-sm">Volver</a>
+    </div>
+    <p class="text-muted small">{{ event.title }}</p>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% if csrf_token is defined %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                {% set ffn = form.get('first_name','') if form else (participant.first_name or '' if participant else '') %}
+                {% set fmn = form.get('middle_name','') if form else (participant.middle_name or '' if participant else '') %}
+                {% set fln = form.get('last_name','') if form else (participant.last_name or '' if participant else '') %}
+                {% set fsn = form.get('second_last_name','') if form else (participant.second_last_name or '' if participant else '') %}
+                {% set fd = form.get('document_id','') if form else (participant.document_id or '' if participant else '') %}
+                {% set fe = form.get('email','') if form else (participant.email or '' if participant else '') %}
+                {% set fp = form.get('phone','') if form else (participant.phone or '' if participant else '') %}
+                {% set fpt = form.get('participant_type','external') if form else (participant.participant_type or 'external' if participant else 'external') %}
+                {% set fps = form.get('payment_status','not_required') if form else (participant.payment_status or 'not_required' if participant else 'not_required') %}
+                {% set fnote = form.get('notes','') if form else (participant.notes or '' if participant else '') %}
+
+                <div class="col-md-6">
+                    <label class="form-label">Primer nombre <span class="text-danger">*</span></label>
+                    <input class="form-control" name="first_name" required value="{{ ffn or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Segundo nombre</label>
+                    <input class="form-control" name="middle_name" value="{{ fmn or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Primer apellido <span class="text-danger">*</span></label>
+                    <input class="form-control" name="last_name" required value="{{ fln or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Segundo apellido</label>
+                    <input class="form-control" name="second_last_name" value="{{ fsn or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Documento</label>
+                    <input class="form-control" name="document_id" value="{{ fd or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input class="form-control" type="email" name="email" value="{{ fe or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Teléfono</label>
+                    <input class="form-control" name="phone" value="{{ fp or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Tipo participante</label>
+                    <select name="participant_type" class="form-select">
+                        {% for v in ['external', 'reviewer', 'member', 'invited', 'speaker', 'staff'] %}
+                        <option value="{{ v }}" {% if (fpt or 'external') == v %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Estado de pago</label>
+                    <select name="payment_status" class="form-select">
+                        {% for v in ['not_required', 'pending', 'paid', 'complimentary', 'waived'] %}
+                        <option value="{{ v }}" {% if (fps or 'not_required') == v %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Notas</label>
+                    <textarea class="form-control" name="notes" rows="2">{{ fnote or '' }}</textarea>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

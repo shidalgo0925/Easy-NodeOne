@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Importar participantes - {{ event.title }} - Easy NodeOne{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+                <div class="min-w-0">
+                    <h1 class="h5 mb-2">
+                        <i class="fas fa-file-upload" aria-hidden="true"></i> Importar participantes (Excel)
+                    </h1>
+                    <h2 class="h6 text-muted mb-0 text-break">{{ event.title }}</h2>
+                </div>
+                <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                    <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-secondary text-nowrap">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Lista de participantes
+                    </a>
+                    <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-dark text-nowrap">
+                        <i class="fas fa-sliders-h" aria-hidden="true"></i> Editar evento
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="small text-muted mb-3">
+                Compatible con <strong>LISTA PARA CERTIFICADOS PARA REVISORES.xlsx</strong> (hoja 1, mínimo 7 columnas A–G
+                sin encabezados): primer nombre, segundo nombre, primer apellido, segundo apellido, documento,
+                email, teléfono. Opcionalmente <strong>H–J</strong>: tipo de participante (<code>external</code>,
+                <code>reviewer</code>, <code>member</code>, <code>invited</code>, <code>speaker</code>, <code>staff</code>),
+                estado de pago (<code>pending</code>, <code>paid</code>, <code>complimentary</code>, <code>waived</code>,
+                <code>not_required</code>), notas (texto). Archivos <code>.xlsx</code> o <code>.xls</code>, primera hoja.
+                Si la primera fila parece encabezado, se omite. Si H–J van vacíos, por defecto
+                <code>participant_type=reviewer</code>, <code>payment_status=not_required</code>.
+                Siempre <code>registration_source=import</code>; asistencia y certificado en <code>pending</code>.
+            </p>
+            <form method="post" enctype="multipart/form-data" class="row g-3 align-items-end">
+                {% if csrf_token is defined %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                <div class="col-12 col-md-8">
+                    <label for="file" class="form-label">Archivo Excel</label>
+                    <input class="form-control" type="file" name="file" id="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search" aria-hidden="true"></i> Vista previa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if summary is not none and preview is not none %}
+    <div class="row mb-4 g-3">
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body py-3">
+                    <div class="h5 mb-0">{{ summary.rows }}</div>
+                    <div class="small text-muted">Filas leídas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center border-success h-100">
+                <div class="card-body py-3">
+                    <div class="h5 text-success mb-0">{{ summary.valid }}</div>
+                    <div class="small text-muted">Participantes nuevos</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body py-3">
+                    <div class="h5 mb-0">{{ summary.duplicates_omitted }}</div>
+                    <div class="small text-muted">Duplicados omitidos</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center border-warning h-100">
+                <div class="card-body py-3">
+                    <div class="h5 mb-0">{{ summary.validation_errors }}</div>
+                    <div class="small text-muted">Filas con error</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="small text-muted mb-4">
+        Primera fila tratada como encabezado: <strong>{% if summary.had_header %}sí (omitida){% else %}no{% endif %}</strong>.
+    </p>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h5 class="mb-0">Vista previa</h5>
+            {% if summary.valid > 0 %}
+            <form method="post" action="{{ url_for('admin_events.admin_event_participants_import_confirm', event_id=event.id) }}" class="m-0">
+                {% if csrf_token is defined %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-check" aria-hidden="true"></i> Confirmar importación ({{ summary.valid }})
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Nombre completo</th>
+                            <th>Documento</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Tipo (H)</th>
+                            <th>Pago (I)</th>
+                            <th>Notas (J)</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview %}
+                        <tr class="{% if row.errors %}table-warning{% elif row.skip %}table-secondary{% endif %}">
+                            <td>{{ row.row_index }}</td>
+                            <td>{{ row.full_name or '—' }}</td>
+                            <td>{{ row.document_id or '—' }}</td>
+                            <td class="text-break">{{ row.email or '—' }}</td>
+                            <td>{{ row.phone or '—' }}</td>
+                            <td>{{ row.participant_type_col or '—' }}</td>
+                            <td>{{ row.payment_status_col or '—' }}</td>
+                            <td class="text-break small">{{ row.notes_col or '—' }}</td>
+                            <td>
+                                {% if row.errors %}
+                                    <ul class="small mb-0 ps-3">
+                                        {% for e in row.errors %}<li>{{ e }}</li>{% endfor %}
+                                    </ul>
+                                {% elif row.skip %}
+                                    <span class="badge bg-secondary">Omitida</span>
+                                {% else %}
+                                    <span class="badge bg-success">OK</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

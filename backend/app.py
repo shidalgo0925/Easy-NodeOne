@@ -1477,7 +1477,9 @@ def saas_module_enabled_chain(*module_codes: str) -> bool:
     return has_saas_module_enabled(oid, codes[-1])
 
 
-# Expuesto explícitamente: algunos renders no reciben el dict del context_processor y fallaban en base.html.
+# Expuesto explícitamente: macros {% from ... import %} no heredan context_processor; base/partials lo necesitan.
+app.add_template_global(saas_module_enabled, 'saas_module_enabled')
+app.add_template_global(saas_module_enabled_fallback, 'saas_module_enabled_fallback')
 app.add_template_global(saas_module_enabled_chain, 'saas_module_enabled_chain')
 
 
@@ -3044,6 +3046,12 @@ def bootstrap_nodeone_schema():
             ensure_contador_qty_float_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_contador_qty_float_columns: {e}')
+        try:
+            from nodeone.services.events_participants_schema import ensure_events_participants_certificates_schema
+
+            ensure_events_participants_certificates_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_events_participants_certificates_schema: {e}')
         apply_email_config_from_db()
 
 

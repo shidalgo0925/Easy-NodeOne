@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Certificados - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h5 mb-0"><i class="fas fa-award"></i> Certificados del evento</h1>
+            <p class="text-muted small mb-0">{{ event.title }}</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm">Participantes</a>
+            <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-dark btn-sm">Editar evento</a>
+            <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-secondary btn-sm">Eventos</a>
+            <a href="{{ url_for('admin_events.admin_event_certificates_export', event_id=event.id) }}" class="btn btn-outline-success btn-sm">Exportar .xlsx</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Generación masiva</div>
+        <div class="card-body">
+            <p class="small text-muted mb-2">
+                Solo participantes con <strong>check-in</strong> o tipo <strong>reviewer</strong>, sin certificado activo previo.
+            </p>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <form method="post" action="{{ url_for('admin_events.admin_event_certificates_generate', event_id=event.id) }}" class="d-inline">
+                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                    <button type="submit" class="btn btn-primary btn-sm">Generar todos los elegibles</button>
+                </form>
+                <form method="post" action="{{ url_for('admin_events.admin_event_certificates_generate', event_id=event.id) }}" class="d-flex flex-wrap gap-2 align-items-center">
+                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                    <label class="small mb-0">IDs participantes (separados por coma o espacio):</label>
+                    <input type="text" name="participant_ids" class="form-control form-control-sm" style="min-width:200px" placeholder="ej. 12, 15, 20">
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Generar seleccionados</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Emitidos ({{ certificates|length }})</span>
+        </div>
+        <div class="card-body p-0">
+            {% if certificates %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Participante</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Emisión</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in certificates %}
+                        {% set pr = c.participant %}
+                        <tr>
+                            <td><code>{{ c.certificate_number }}</code></td>
+                            <td>
+                                {% if pr %}
+                                    {{ pr.full_name or ((pr.first_name or '') ~ ' ' ~ (pr.last_name or ''))|trim }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ c.certificate_type or '—' }}</td>
+                            <td>
+                                <span class="badge bg-{% if c.status == 'revoked' %}warning text-dark{% else %}success{% endif %}">{{ c.status or '—' }}</span>
+                            </td>
+                            <td>{{ c.issued_date.strftime('%d/%m/%Y %H:%M') if c.issued_date else '—' }}</td>
+                            <td class="text-end text-nowrap">
+                                {% if c.certificate_url and c.status != 'revoked' %}
+                                <a class="btn btn-sm btn-outline-success" href="{{ url_for('admin_events.admin_event_certificate_download', event_id=event.id, certificate_id=c.id) }}">PDF</a>
+                                {% endif %}
+                                {% if c.status != 'revoked' %}
+                                <form method="post" action="{{ url_for('admin_events.admin_event_certificate_revoke', event_id=event.id, certificate_id=c.id) }}" class="d-inline-block text-start mt-1" style="max-width:14rem;" onsubmit="return confirm('¿Revocar este certificado?');">
+                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                    <label class="form-label visually-hidden" for="revoke-reason-{{ c.id }}">Motivo</label>
+                                    <textarea class="form-control form-control-sm mb-1" name="reason" id="revoke-reason-{{ c.id }}" rows="2" placeholder="Motivo de revocación (opcional)"></textarea>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revocar</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted p-3 mb-0">Aún no hay certificados emitidos para este evento.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

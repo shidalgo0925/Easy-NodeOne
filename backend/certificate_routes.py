@@ -988,44 +988,214 @@ def admin_certificate_event_preview():
     return Response(html, mimetype='text/html; charset=utf-8')
 
 
+def _verify_saas_org_name(organization_id):
+    if not organization_id:
+        return ''
+    try:
+        from models.saas import SaasOrganization
+
+        org = SaasOrganization.query.get(int(organization_id))
+        return (org.name or '').strip() if org else ''
+    except Exception:
+        return ''
+
+
+def _verify_date_range_display(obj):
+    if not obj:
+        return ''
+    sd = getattr(obj, 'start_date', None)
+    ed = getattr(obj, 'end_date', None)
+    if sd and ed:
+        try:
+            return f'{sd.strftime("%d/%m/%Y")} — {ed.strftime("%d/%m/%Y")}'
+        except Exception:
+            pass
+    return ''
+
+
+def _verify_issuer_membership(cert_ev):
+    if not cert_ev:
+        return ''
+    return _verify_saas_org_name(getattr(cert_ev, 'organization_id', None))
+
+
+def _verify_issuer_event(ev):
+    if not ev or not getattr(ev, 'created_by', None):
+        return ''
+    try:
+        from app import User
+
+        u = User.query.get(ev.created_by)
+        if not u:
+            return ''
+        return _verify_saas_org_name(u.organization_id)
+    except Exception:
+        return ''
+
+
+def _verify_expired_cert(ec):
+    exp_at = getattr(ec, 'expires_at', None)
+    if not exp_at:
+        return False
+    try:
+        exp_naive = exp_at.replace(tzinfo=None) if getattr(exp_at, 'tzinfo', None) else exp_at
+        return datetime.utcnow() > exp_naive
+    except Exception:
+        return False
+
+
 @certificates_public_bp.route('/verify/<certificate_code>')
 def verify(certificate_code):
     """Página pública de verificación. Muestra nombre, evento, fecha, estado válido."""
-    from app import Certificate, CertificateEvent
+    from sqlalchemy import or_
+
+    from app import Certificate, Event, EventCertificate, EventParticipant
+
     cert = Certificate.query.filter_by(certificate_code=certificate_code).first()
-    if not cert:
+    if cert:
+        ev = cert.certificate_event
+        user = cert.user
+        full_name = f"{user.first_name} {user.last_name}".strip()
+        event_date_range = _verify_date_range_display(ev)
+        issuer_organization = _verify_issuer_membership(ev)
         return render_template_string(
             _verify_template(),
-            valid=False,
-            full_name=None,
-            event_name=None,
-            date_emission=None,
+            valid=True,
+            revoked=False,
+            expired_cert=False,
+            full_name=full_name,
+            event_name=ev.name if ev else '',
+            date_emission=cert.generated_at.strftime('%Y-%m-%d') if cert.generated_at else None,
             certificate_code=certificate_code,
-        ), 404
-    ev = cert.certificate_event
-    user = cert.user
-    full_name = f"{user.first_name} {user.last_name}".strip()
+            certificate_type='membership',
+            document_masked=None,
+            event_date_range=event_date_range,
+            certificate_title='',
+            issuer_organization=issuer_organization,
+            expires_display=None,
+        ), 200
+
+    ec = (
+        EventCertificate.query.filter(
+            or_(
+                EventCertificate.certificate_number == certificate_code,
+                EventCertificate.verification_token == certificate_code,
+            )
+        )
+        .first()
+    )
+    if ec:
+        revoked = (getattr(ec, 'status', '') or '').lower() == 'revoked' or not ec.is_active
+        expired_cert = _verify_expired_cert(ec)
+        valid_ok = not revoked and not expired_cert
+        part = EventParticipant.query.get(ec.participant_id)
+        ev = Event.query.get(ec.event_id)
+        display = ''
+        if part:
+            display = (part.full_name or '').strip() or ' '.join(
+                p
+                for p in (
+                    part.first_name,
+                    part.middle_name,
+                    part.last_name,
+                    part.second_last_name,
+                )
+                if p
+            ).strip()
+        document_masked = None
+        try:
+            from nodeone.modules.events.services.certificates import mask_document
+
+            if part and getattr(part, 'document_id', None):
+                document_masked = mask_document(part.document_id)
+        except Exception:
+            document_masked = None
+        event_date_range = _verify_date_range_display(ev)
+        issuer_organization = _verify_issuer_event(ev)
+        cert_title = ((getattr(ec, 'title', None) or '').strip()) or ''
+        expires_display = None
+        if ec.expires_at:
+            try:
+                expires_display = ec.expires_at.strftime('%d/%m/%Y %H:%M')
+            except Exception:
+                expires_display = str(ec.expires_at)
+        return render_template_string(
+            _verify_template(),
+            valid=valid_ok,
+            revoked=revoked,
+            expired_cert=expired_cert,
+            full_name=display or None,
+            event_name=(ev.title if ev else '') or '',
+            date_emission=ec.issued_date.strftime('%Y-%m-%d') if ec.issued_date else None,
+            certificate_code=ec.certificate_number,
+            certificate_type=(getattr(ec, 'certificate_type', None) or ''),
+            document_masked=document_masked,
+            event_date_range=event_date_range,
+            certificate_title=cert_title,
+            issuer_organization=issuer_organization,
+            expires_display=expires_display,
+        ), 200
+
     return render_template_string(
         _verify_template(),
-        valid=True,
-        full_name=full_name,
-        event_name=ev.name,
-        date_emission=cert.generated_at.strftime('%Y-%m-%d') if cert.generated_at else None,
+        valid=False,
+        revoked=False,
+        expired_cert=False,
+        full_name=None,
+        event_name=None,
+        date_emission=None,
         certificate_code=certificate_code,
-    ), 200
+        certificate_type='',
+        document_masked=None,
+        event_date_range='',
+        certificate_title='',
+        issuer_organization='',
+        expires_display=None,
+    ), 404
+
+
+@certificates_public_bp.route('/certificates/verify/<certificate_code>')
+def verify_event_certificate_alias(certificate_code):
+    """Alias planificado: mismo cuerpo que /verify/<code> (certificados de membresía o de evento)."""
+    return verify(certificate_code)
 
 
 def _verify_template():
     return """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Verificación de certificado</title>
-<style>body{font-family:sans-serif;max-width:500px;margin:40px auto;padding:20px;} .valid{color:green;} .invalid{color:#999;}</style></head>
+<style>body{font-family:sans-serif;max-width:520px;margin:40px auto;padding:20px;line-height:1.45;} .valid{color:green;} .invalid{color:#999;} .revoked{color:#b45309;} .expired{color:#92400e;}</style></head>
 <body>
 <h1>Verificación de certificado</h1>
 <p><strong>Código:</strong> {{ certificate_code }}</p>
-{% if valid %}
+{% if revoked %}
 <p><strong>Nombre:</strong> {{ full_name }}</p>
 <p><strong>Evento:</strong> {{ event_name }}</p>
+{% if certificate_type %}<p><strong>Tipo:</strong> {{ certificate_type }}</p>{% endif %}
+{% if certificate_title %}<p><strong>Título:</strong> {{ certificate_title }}</p>{% endif %}
+{% if event_date_range %}<p><strong>Fechas del evento:</strong> {{ event_date_range }}</p>{% endif %}
+{% if issuer_organization %}<p><strong>Organización emisora:</strong> {{ issuer_organization }}</p>{% endif %}
+<p class="revoked">Estado: Revocado o anulado</p>
+{% elif expired_cert %}
+<p><strong>Nombre:</strong> {{ full_name }}</p>
+<p><strong>Evento:</strong> {{ event_name }}</p>
+{% if certificate_type %}<p><strong>Tipo:</strong> {{ certificate_type }}</p>{% endif %}
+{% if certificate_title %}<p><strong>Título:</strong> {{ certificate_title }}</p>{% endif %}
+{% if event_date_range %}<p><strong>Fechas del evento:</strong> {{ event_date_range }}</p>{% endif %}
+{% if issuer_organization %}<p><strong>Organización emisora:</strong> {{ issuer_organization }}</p>{% endif %}
+{% if expires_display %}<p><strong>Vencimiento:</strong> {{ expires_display }}</p>{% endif %}
+{% if document_masked %}<p><strong>Documento:</strong> {{ document_masked }}</p>{% endif %}
+<p><strong>Fecha de emisión:</strong> {{ date_emission }}</p>
+<p class="expired">Estado: Caducado por fecha</p>
+{% elif valid %}
+<p><strong>Nombre:</strong> {{ full_name }}</p>
+<p><strong>Evento:</strong> {{ event_name }}</p>
+{% if certificate_type %}<p><strong>Tipo:</strong> {{ certificate_type }}</p>{% endif %}
+{% if certificate_title %}<p><strong>Título:</strong> {{ certificate_title }}</p>{% endif %}
+{% if event_date_range %}<p><strong>Fechas del evento:</strong> {{ event_date_range }}</p>{% endif %}
+{% if issuer_organization %}<p><strong>Organización emisora:</strong> {{ issuer_organization }}</p>{% endif %}
+{% if expires_display %}<p><strong>Vencimiento:</strong> {{ expires_display }}</p>{% endif %}
+{% if document_masked %}<p><strong>Documento:</strong> {{ document_masked }}</p>{% endif %}
 <p><strong>Fecha de emisión:</strong> {{ date_emission }}</p>
 <p class="valid">Estado: Válido</p>
 {% else %}

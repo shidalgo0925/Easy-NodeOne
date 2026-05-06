@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Certificados — {{ participant.full_name or participant.first_name }} — {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h5 mb-0"><i class="fas fa-award" aria-hidden="true"></i> Certificados del participante</h1>
+            <p class="text-muted small mb-0">{{ event.title }}</p>
+            <p class="mb-0 fw-medium">{{ participant.full_name or ((participant.first_name or '') ~ ' ' ~ (participant.last_name or ''))|trim or ('#' ~ participant.id) }}</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm">Participantes</a>
+            <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}" class="btn btn-outline-warning btn-sm">Todos los certificados</a>
+            <a href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='certopts') }}#certificate_feature_card" class="btn btn-outline-dark btn-sm">Editar evento</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Emitidos para este participante ({{ certificates|length }})</span>
+        </div>
+        <div class="card-body p-0">
+            {% if certificates %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Emisión</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in certificates %}
+                        <tr>
+                            <td><code>{{ c.certificate_number }}</code></td>
+                            <td>{{ c.certificate_type or '—' }}</td>
+                            <td>
+                                <span class="badge bg-{% if c.status == 'revoked' %}warning text-dark{% else %}success{% endif %}">{{ c.status or '—' }}</span>
+                            </td>
+                            <td>{{ c.issued_date.strftime('%d/%m/%Y %H:%M') if c.issued_date else '—' }}</td>
+                            <td class="text-end text-nowrap">
+                                {% if c.certificate_url and c.status != 'revoked' %}
+                                <a class="btn btn-sm btn-outline-success" href="{{ url_for('admin_events.admin_event_certificate_download', event_id=event.id, certificate_id=c.id) }}">PDF</a>
+                                {% endif %}
+                                {% if c.status != 'revoked' %}
+                                <a class="btn btn-sm btn-outline-info" target="_blank" rel="noopener" href="{{ url_for('certificates_public.verify', certificate_code=c.certificate_number) }}">Verificar</a>
+                                {% endif %}
+                                {% if c.status != 'revoked' %}
+                                <form method="post" action="{{ url_for('admin_events.admin_event_certificate_revoke', event_id=event.id, certificate_id=c.id) }}" class="d-inline-block text-start mt-1" style="max-width:14rem;" onsubmit="return confirm('¿Revocar este certificado?');">
+                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                    <label class="form-label visually-hidden" for="revoke-reason-{{ c.id }}">Motivo</label>
+                                    <textarea class="form-control form-control-sm mb-1" name="reason" id="revoke-reason-{{ c.id }}" rows="2" placeholder="Motivo de revocación (opcional)"></textarea>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revocar</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted p-3 mb-0">Este participante aún no tiene certificados emitidos.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

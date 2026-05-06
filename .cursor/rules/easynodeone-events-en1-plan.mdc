@@ -1,0 +1,25 @@
+---
+description: Plan EN1 eventos/participantes/certificados — seguimiento obligatorio
+globs:
+  - "**/nodeone/modules/events/**"
+  - "**/models/events.py"
+  - "**/certificate_routes.py"
+  - "**/events_participants_schema.py"
+  - "**/templates/admin/events/**"
+  - "**/templates/events/**"
+alwaysApply: false
+---
+
+# Módulo Eventos EN1 — ejecución según plan
+
+1. **Antes de implementar** en los archivos anteriores, abrir y leer
+   `docs/PLAN_EVENTOS_EN1_SEGUIMIENTO.md` y elegir el siguiente bloque **PEND** o **PARCIAL** según el orden recomendado al final del doc.
+
+2. **Al terminar** una entrega (o un sub-bloque claro): actualizar la tabla en ese markdown — estado `HECHO` / `PARCIAL` y una línea en **Notas** con fecha o PR.
+
+3. **Reglas de negocio fijas**
+   - Certificado nace de **EventParticipant → EventCertificate**, no solo de `User` ni solo de `EventRegistration`.
+   - La importación **no crea usuarios EN1**.
+   - Excel revisores por defecto: `participant_type=reviewer`, `registration_source=import`, `payment_status=not_required`, asistencia y certificado `pending`.
+
+4. No ampliar el alcance a otros módulos salvo dependencia directa del punto del plan.

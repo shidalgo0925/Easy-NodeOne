@@ -115,25 +115,23 @@
         <div id="eventsViewCards" class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 row-cols-xxl-4 g-3 mb-0">
             {% for event in events %}
             <div class="col">
-                <article class="admin-event-card card h-100 border-0 shadow-sm overflow-hidden" aria-labelledby="ev-card-title-{{ event.id }}" style="position:relative;z-index:0;">
-                    <div class="ratio ratio-16x9 bg-body-secondary position-relative">
+                <article class="admin-event-card card h-100 border rounded-3 shadow-sm overflow-hidden bg-white" aria-labelledby="ev-card-title-{{ event.id }}" style="position:relative;z-index:0;">
+                    <div class="admin-event-card-cover position-relative bg-body-secondary" style="height:180px;overflow:hidden;">
                         {% set ev_cover = event.cover_url() %}
                         {% if ev_cover %}
-                        <img src="{{ ev_cover }}" alt="" class="w-100 h-100 object-fit-cover" loading="lazy" decoding="async" width="640" height="360">
+                        <img src="{{ ev_cover }}" alt="" class="w-100 h-100" loading="lazy" decoding="async" width="640" height="360" style="object-fit:cover;display:block;">
                         {% else %}
-                        <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-secondary bg-body-tertiary">
+                        <div class="admin-event-cover-placeholder d-flex flex-column align-items-center justify-content-center w-100 h-100 text-secondary px-3 text-center" style="font-size:13px;">
                             <i class="fas fa-image fa-2x mb-2 opacity-50" aria-hidden="true"></i>
-                            <span class="small">Sin portada (usá galería o subí portada al editar)</span>
+                            <span>Sin portada · editá el evento para subir imagen</span>
                         </div>
                         {% endif %}
-                        <div class="position-absolute top-0 end-0 p-1 d-flex gap-1">
-                            <span class="badge rounded-pill {{ 'bg-success' if event.publish_status == 'published' else 'bg-warning text-dark' if event.publish_status == 'draft' else 'bg-secondary' }}">
-                                {{ event.publish_status|replace('_',' ')|title }}
-                            </span>
-                        </div>
+                        <span class="event-status-badge position-absolute top-0 start-0 m-2 px-2 py-1 small fw-semibold rounded-pill shadow-sm text-truncate {{ 'bg-success text-white' if event.publish_status == 'published' else 'bg-warning text-dark' if event.publish_status == 'draft' else 'bg-secondary text-white' }}" style="font-size:11px;line-height:1;max-width:calc(100% - 1rem);z-index:2;">
+                            {{ event.publish_status|replace('_',' ')|title }}
+                        </span>
                     </div>
-                    <div class="card-body d-flex flex-column p-3">
-                        <h2 class="h6 card-title flex-grow-0" id="ev-card-title-{{ event.id }}">
+                    <div class="card-body d-flex flex-column px-3 pt-3 pb-3">
+                        <h2 class="h6 card-title flex-grow-0 lh-base" style="min-height:2.75rem;" id="ev-card-title-{{ event.id }}">
                             <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="text-decoration-none text-dark">{{ event.title }}</a>
                         </h2>
                         <p class="small text-muted mb-2">
@@ -154,6 +152,8 @@
                         <div class="d-flex flex-wrap justify-content-end gap-1 pt-1 mt-auto" style="position:relative;z-index:1;">
                             {% if event.slug %}{{ qr_link(absolute_site_url(url_for('events.event_detail', slug=event.slug)), '') }}{% endif %}
                             <a href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}" class="btn btn-sm btn-outline-info" title="Inscripciones"><i class="fas fa-users" aria-hidden="true"></i></a>
+                            <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-sm btn-outline-secondary" title="Participantes / import"><i class="fas fa-id-card" aria-hidden="true"></i></a>
+                            <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}" class="btn btn-sm btn-outline-warning" title="Certificados"><i class="fas fa-award" aria-hidden="true"></i></a>
                             <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="fas fa-edit" aria-hidden="true"></i></a>
                             <form method="POST" action="{{ url_for('admin_events.duplicate_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Duplicar el evento «{{ event.title|e }}»?');">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary" title="Duplicar"><i class="fas fa-copy" aria-hidden="true"></i></button>
@@ -197,7 +197,7 @@
                             <td>{{ event.category or '—' }}</td>
                             <td>{{ event.start_date.strftime('%d/%m/%Y %H:%M') if event.start_date else '—' }}</td>
                             <td>{{ event.end_date.strftime('%d/%m/%Y %H:%M') if event.end_date else '—' }}</td>
-                            <td class="text-end">${{ "%.2f"|format(event.base_price) }} {{ event.currency }}</td>
+                            <td class="text-end text-nowrap">{{ '%.2f'|format(event.base_price) }} {{ event.currency or 'USD' }}</td>
                             <td>
                                 <span class="badge {{ 'bg-success' if event.publish_status == 'published' else 'bg-warning text-dark' if event.publish_status == 'draft' else 'bg-secondary' }}">
                                     {{ event.publish_status|title }}
@@ -207,6 +207,8 @@
                                 <div class="btn-group btn-group-sm">
                                     {% if event.slug %}{{ qr_link(absolute_site_url(url_for('events.event_detail', slug=event.slug)), '') }}{% endif %}
                                     <a href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}" class="btn btn-outline-info" title="Inscripciones"><i class="fas fa-users"></i></a>
+                                    <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-outline-secondary" title="Participantes / import"><i class="fas fa-id-card"></i></a>
+                                    <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}" class="btn btn-outline-warning" title="Certificados"><i class="fas fa-award"></i></a>
                                     <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
                                     <form method="POST" action="{{ url_for('admin_events.duplicate_event', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('¿Deseas duplicar el evento?');">
                                         <button type="submit" class="btn btn-outline-info" title="Duplicar"><i class="fas fa-copy"></i></button>
@@ -232,8 +234,14 @@
     </div>
 </div>
 <style>
-.admin-event-card { transition: box-shadow 0.15s ease, transform 0.15s ease; }
-.admin-event-card:hover { box-shadow: 0 0.35rem 1.25rem rgba(15, 23, 42, 0.12) !important; }
+.admin-events-page .admin-event-card {
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    border-color: #e5e7eb !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+.admin-events-page .admin-event-card:hover {
+    box-shadow: 0 0.35rem 1.25rem rgba(15, 23, 42, 0.12) !important;
+}
 </style>
 <script>
 (function() {

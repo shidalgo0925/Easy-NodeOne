@@ -18,13 +18,38 @@
         </div>
     </div>
 
+    {% if action == 'edit' and event %}
+    <div class="sticky-top bg-body border-bottom shadow-sm py-2 mb-3 px-0 event-admin-subnav" style="top: 3.25rem; z-index: 1015;">
+        <div class="container-fluid px-0 px-lg-1">
+            <nav class="d-flex flex-wrap align-items-center gap-1 small fw-medium" aria-label="Secciones del evento">
+                <span class="text-secondary me-1 d-none d-sm-inline">Secciones</span>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'info' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='info') }}#event-section-info">Información</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'dates' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='dates') }}#event-section-dates">Fechas</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'price' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='price') }}#event-section-price">Precio</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'images' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='images') }}#event-section-images">Imágenes</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'certopts' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='certopts') }}#certificate_feature_card">Certif. (opciones)</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'contact' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='contact') }}#event-section-contact">Contacto</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'publish' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='publish') }}#event-section-publish">Publicación</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'roles' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='roles') }}#event-section-roles">Roles</a>
+                <a class="btn btn-sm {% if active_tab|default('info') == 'advanced' %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0 px-2" href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='advanced') }}#event-section-advanced">Avanzado</a>
+                <span class="vr mx-1 opacity-25 d-none d-md-inline"></span>
+                <a class="btn btn-sm btn-outline-primary py-0 px-2" href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}">Inscripciones</a>
+                <a class="btn btn-sm btn-outline-primary py-0 px-2" href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}">Participantes</a>
+                <a class="btn btn-sm btn-outline-primary py-0 px-2" href="{{ url_for('admin_events.admin_event_participants_import', event_id=event.id) }}">Import</a>
+                <a class="btn btn-sm btn-outline-warning py-0 px-2" href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}">Certificados</a>
+                <a class="btn btn-sm btn-outline-secondary py-0 px-2" href="{{ url_for('admin_events.discounts_index') }}">Catálogo descuentos</a>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+
     {# novalidate: la validación HTML5 en campos ocultos (Kahoot, url, etc.) bloqueaba el POST y no subía archivos. Fechas: validación JS abajo. #}
     <form method="POST" enctype="multipart/form-data" id="event_admin_form" novalidate>
         <div class="row g-4 event-form-row">
             <!-- ——— Columna principal (70% en desktop): flujo de creación ——— -->
             <div class="col-12 event-form-main-col">
                 <!-- 1. Identidad del evento -->
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-4" id="event-section-info">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="h5 mb-0 fw-semibold">Identidad del evento</h2>
                         <p class="small text-muted mb-0 mt-1">Título, URL y textos que verán en listados y ficha.</p>
@@ -50,7 +75,7 @@
                 </div>
 
                 <!-- 2. Fechas y modalidad -->
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-4" id="event-section-dates">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="h5 mb-0 fw-semibold">Fechas y modalidad</h2>
                         <p class="small text-muted mb-0 mt-1">Cuándo ocurre, cierre de inscripción y si es presencial, virtual o híbrido.</p>
@@ -106,7 +131,7 @@
                 </div>
 
                 <!-- 3. Precio y comercial -->
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-4" id="event-section-price">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="h5 mb-0 fw-semibold">Precio y comercial</h2>
                         <p class="small text-muted mb-0 mt-1">El precio base se aplica <strong>antes</strong> de los descuentos por membresía.</p>
@@ -156,7 +181,7 @@
                 </div>
 
                 <!-- 4. Imágenes -->
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-4" id="event-section-images">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="h5 mb-0 fw-semibold">Imágenes</h2>
                         <p class="small text-muted mb-0 mt-1">Portada y galería para la ficha pública.</p>
@@ -227,7 +252,7 @@
                 </div>
 
                 <!-- 6. Contacto -->
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-4" id="event-section-contact">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="h5 mb-0 fw-semibold">Contacto</h2>
                         <p class="small text-muted mb-0 mt-1">Canales para consultas; la URL externa es opcional (alternativa al registro interno).</p>
@@ -255,7 +280,7 @@
             <div class="col-12 event-form-side-col">
                 <div class="sticky-lg-top" style="z-index: 1; top: 1rem;">
                 <!-- 1. Publicación -->
-                <div class="card border-0 shadow-sm mb-3">
+                <div class="card border-0 shadow-sm mb-3" id="event-section-publish">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="h6 text-uppercase text-secondary fw-semibold letter-spacing mb-0">Publicación</h2>
                     </div>
@@ -318,7 +343,7 @@
                 </div>
 
                 <!-- 4. Responsables -->
-                <div class="card border-0 shadow-sm mb-0">
+                <div class="card border-0 shadow-sm mb-0" id="event-section-roles">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="h6 text-uppercase text-secondary fw-semibold letter-spacing mb-0">Responsables</h2>
                         <p class="small text-muted mb-0 mt-1">Notificaciones y operación. No reemplazan al creador.</p>
@@ -366,7 +391,7 @@
         <!-- Configuración avanzada, ancho completo, debajo de las columnas -->
         <div class="row g-4 mt-1">
             <div class="col-12">
-                <div class="card border-0 shadow-sm">
+                <div class="card border-0 shadow-sm" id="event-section-advanced">
                     <div class="card-header bg-light border-0 p-0 rounded-2">
                         <button class="btn btn-link text-decoration-none w-100 py-3 px-3 d-flex align-items-center justify-content-between text-start rounded-2" type="button" data-bs-toggle="collapse" data-bs-target="#advanced_event_settings" aria-expanded="false" aria-controls="advanced_event_settings" id="advanced_event_toggle">
                             <span>
@@ -525,6 +550,8 @@
 </script>
 <style>
 .event-admin-form .letter-spacing { letter-spacing: .04em; }
+.event-admin-form [id^="event-section"], .event-admin-form #certificate_feature_card { scroll-margin-top: 6.5rem; }
+.event-admin-subnav .btn { white-space: nowrap; }
 /* Layout 70 / 30 a partir de lg (992px), encima de md apilado */
 @media (min-width: 992px) {
   .event-admin-form .event-form-main-col {

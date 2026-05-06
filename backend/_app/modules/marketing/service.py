@@ -225,6 +225,23 @@ def _parse_exclusion_emails(exclusion_emails_text):
     return out
 
 
+def _effective_marketing_base_url(explicit=None):
+    """URL pública absoluta para src en HTML de email: request → BASE_URL → vacío."""
+    import os
+
+    b = (explicit or '').strip().rstrip('/')
+    if not b:
+        b = (os.getenv('BASE_URL') or '').strip().rstrip('/')
+    if not b:
+        try:
+            from nodeone.services.communication_dispatch import request_base_url_optional
+
+            b = (request_base_url_optional() or '').strip().rstrip('/') or ''
+        except Exception:
+            pass
+    return b
+
+
 def get_recipient_count(segment_id, exclusion_emails_text=None, for_editor=False):
     """Cuenta destinatarios. for_editor=True: todos los que cumplen filtros (para construir segmento); False: solo suscritos (para envío)."""
     users = get_members_from_segment_simple(segment_id, subscribed_only=not for_editor)
@@ -245,14 +262,18 @@ def render_template_html(template_html, variables_json, context, base_url=None):
     for var in vars_list:
         val = context.get(var, '')
         html = html.replace('{{' + var + '}}', str(val))
-    base = (base_url or '').rstrip('/')
-    if base:
-        html = html.replace('{{base_url}}', base)
-    if 'user_id' in context:
-        unsub = base + f"/marketing/unsubscribe/{context['user_id']}" if base else ''
-        html = html.replace('{{unsubscribe_url}}', unsub)
+        html = html.replace('{{ ' + var + ' }}', str(val))
+    base = _effective_marketing_base_url(base_url)
+    html = html.replace('{{base_url}}', base).replace('{{ base_url }}', base)
+    uid = context.get('user_id')
+    if uid is not None:
+        unsub = base + f'/marketing/unsubscribe/{uid}' if base else ''
+        html = html.replace('{{unsubscribe_url}}', unsub).replace('{{ unsubscribe_url }}', unsub)
+    else:
+        html = html.replace('{{unsubscribe_url}}', '#').replace('{{ unsubscribe_url }}', '#')
     reunion_url = (context.get('reunion_url') or context.get('meeting_url') or '').strip()
     html = html.replace('{{reunion_url}}', reunion_url).replace('{{meeting_url}}', reunion_url)
+    html = html.replace('{{ reunion_url }}', reunion_url).replace('{{ meeting_url }}', reunion_url)
     return html
 
 
@@ -298,7 +319,7 @@ def start_campaign(campaign_id):
     db.session.commit()
     from nodeone.services.communication_dispatch import request_base_url_optional
 
-    base_url = request_base_url_optional()
+    base_url = _effective_marketing_base_url(request_base_url_optional())
     body_source = (getattr(c, 'body_html', None) or '').strip()
     if not body_source:
         body_source = template.html

@@ -344,11 +344,19 @@ def register_admin_marketing_routes(app):
         if not test_email or '@' not in test_email:
             flash('Indica un email válido para la prueba.', 'warning')
             return redirect(url_for('admin_marketing_campaign_edit', campaign_id=c.id))
-        from _app.modules.marketing.service import render_template_html
+        from _app.modules.marketing.service import _effective_marketing_base_url, render_template_html
         template = MarketingTemplate.query.get(c.template_id)
         body_source = (getattr(c, 'body_html', None) or '').strip() or (template.html if template else '')
-        base_url = request_base_url_optional() or ''
-        ctx = {'nombre': 'Prueba', 'email': test_email, 'user_id': None}
+        base_url = _effective_marketing_base_url(request_base_url_optional())
+        reunion_url = (getattr(c, 'meeting_url', None) or '').strip()
+        if not reunion_url:
+            reunion_url = 'https://meet.google.com/zac-wmmg-hgb'
+        ctx = {
+            'nombre': 'Prueba',
+            'email': test_email,
+            'user_id': None,
+            'reunion_url': reunion_url,
+        }
         html = render_template_html(body_source, getattr(template, 'variables', '[]') if template else '[]', ctx, base_url=base_url)
         oid_c = int(getattr(c, 'organization_id', None) or ap.default_organization_id())
         try:
@@ -776,8 +784,9 @@ def register_admin_marketing_routes(app):
         """Vista previa de plantilla: reemplaza variables con datos de ejemplo y devuelve HTML."""
         html = request.form.get('html') or (request.get_json(silent=True) or {}).get('html') or ''
         # URL base absoluta para que las imágenes (ej. flyer) carguen en el iframe
-        base_url = request_base_url_optional() or ''
-        from _app.modules.marketing.service import render_template_html
+        from _app.modules.marketing.service import _effective_marketing_base_url, render_template_html
+
+        base_url = _effective_marketing_base_url(request_base_url_optional())
         ctx = {
             'nombre': 'Usuario de ejemplo',
             'email': 'ejemplo@email.com',

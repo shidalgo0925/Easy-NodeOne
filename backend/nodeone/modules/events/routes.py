@@ -1532,6 +1532,39 @@ def _participant_import_opts_session_key(event_id: int) -> str:
     return f'event_participant_import_opts_{int(event_id)}'
 
 
+def _participant_import_preview_release_session_raw(raw) -> None:
+    """Elimina fila SQLite si la sesión guardaba un token (no el payload legacy en lista)."""
+    if not isinstance(raw, str) or not raw.strip():
+        return
+    try:
+        from nodeone.services.participant_import_preview_store import (
+            get_participant_import_preview_store,
+        )
+
+        get_participant_import_preview_store().delete(raw.strip())
+    except Exception:
+        pass
+
+
+def _participant_import_resolve_preview_list(raw_session_val, event_id: int):
+    """Lista serializada para ``deserialize_preview``: legacy lista en sesión o token → SQLite."""
+    if not raw_session_val:
+        return None
+    if isinstance(raw_session_val, list):
+        return raw_session_val
+    if isinstance(raw_session_val, str):
+        from flask_login import current_user
+
+        from nodeone.services.participant_import_preview_store import (
+            get_participant_import_preview_store,
+        )
+
+        return get_participant_import_preview_store().get(
+            raw_session_val.strip(), int(current_user.id), int(event_id)
+        )
+    return None
+
+
 def _scoped_event_participant(event_id: int, participant_id: int):
     """Evento en alcance admin + participante de ese evento."""
     ensure_models()
@@ -1682,7 +1715,18 @@ def admin_event_participants_import(event_id):
         validation_errors = len([x for x in parsed if x.errors and not x.skip])
         duplicates_omitted = len([x for x in parsed if x.skip])
         payload = serialize_preview(parsed)
-        session[_participant_import_session_key(event_id)] = payload
+        prev_raw = session.get(_participant_import_session_key(event_id))
+        _participant_import_preview_release_session_raw(prev_raw)
+        from flask_login import current_user
+
+        from nodeone.services.participant_import_preview_store import (
+            get_participant_import_preview_store,
+        )
+
+        preview_token = get_participant_import_preview_store().put(
+            int(current_user.id), int(event_id), payload
+        )
+        session[_participant_import_session_key(event_id)] = preview_token
         reviewers_list = request.form.get('lista_revisores') == '1'
         type_fallback = 'reviewer' if reviewers_list else 'external'
         session[_participant_import_opts_session_key(event_id)] = {'type_fallback': type_fallback}
@@ -1717,15 +1761,16 @@ def admin_event_participants_import_confirm(event_id):
         deserialize_preview,
     )
 
-    raw = session.get(_participant_import_session_key(event_id))
-    if not raw:
+    raw_session = session.get(_participant_import_session_key(event_id))
+    payload_list = _participant_import_resolve_preview_list(raw_session, event_id)
+    if not payload_list:
         flash('No hay vista previa. Volvé a subir el archivo.', 'error')
         return redirect(url_for('admin_events.admin_event_participants_import', event_id=event_id))
     opts = session.get(_participant_import_opts_session_key(event_id)) or {}
     type_fallback = (opts.get('type_fallback') or 'external').strip().lower()
     if type_fallback not in ('reviewer', 'external'):
         type_fallback = 'external'
-    rows = deserialize_preview(raw)
+    rows = deserialize_preview(payload_list)
     created = 0
     for r in rows:
         if r.errors or r.skip:
@@ -1757,6 +1802,7 @@ def admin_event_participants_import_confirm(event_id):
         db.session.add(p)
         created += 1
     db.session.commit()
+    _participant_import_preview_release_session_raw(raw_session)
     session.pop(_participant_import_session_key(event_id), None)
     session.pop(_participant_import_opts_session_key(event_id), None)
     flash(f'Importación confirmada: {created} participante(s).', 'success')

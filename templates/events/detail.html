@@ -6,24 +6,25 @@
 {% set cover = event.cover_url() %}
 <section class="pt-4 pb-2" style="background: #f8fafc;">
     <div class="container">
-        <div class="row g-4 align-items-start">
-            <div class="col-12 col-lg-5">
+        <div class="course-detail-hero">
+            <div class="course-detail-hero-image-wrap">
                 {% if cover %}
-                <div class="text-center p-2 rounded-3" style="background: #f8f9fa;">
-                    <img src="{{ cover }}" alt="Flyer — {{ event.title }}" class="event-detail-flyer" width="800" height="1200" loading="eager" decoding="async">
+                <div class="text-center rounded-3 p-2" style="background: #f8f9fa;">
+                    <img src="{{ cover }}" alt="Flyer — {{ event.title }}" class="course-main-image" loading="eager" decoding="async">
                 </div>
                 {% else %}
-                <div class="d-flex flex-column align-items-center justify-content-center p-5 rounded-3 border bg-white text-muted" style="min-height: 200px;">
+                <div class="d-flex flex-column align-items-center justify-content-center p-5 rounded-3 border bg-white text-muted course-detail-flyer-placeholder">
                     <i class="fas fa-image fa-3x mb-2"></i>
                     <span class="small">Sin flyer cargado</span>
                 </div>
                 {% endif %}
             </div>
-            <div class="col-12 col-lg-7">
+
+            <div class="course-detail-hero-main">
                 <p class="text-uppercase text-primary small mb-1 fw-bold" style="letter-spacing: 0.1em;">{{ event.category|default('Evento', true) }}</p>
                 <h1 class="h2 fw-bold mb-3">{{ event.title }}</h1>
-                <p class="text-muted lead fs-6">{{ event.summary or (event.description[:300] if event.description else 'Detalles abajo.') }}</p>
-                <ul class="list-unstyled text-muted small mb-3">
+                <p class="text-muted lead fs-6 mb-3">{{ event.summary or (event.description[:300] if event.description else 'Detalles abajo.') }}</p>
+                <ul class="list-unstyled text-muted small mb-0">
                     <li class="mb-1"><i class="far fa-calendar me-2"></i>
                         <strong class="text-dark">Inicio:</strong> {{ event.start_date.strftime('%d %b %Y, %H:%M') if event.start_date else '—' }}
                         {% if event.end_date %}<span class="mx-1">·</span> <strong class="text-dark">Fin:</strong> {{ event.end_date.strftime('%d %b %Y, %H:%M') }}{% endif %}
@@ -34,62 +35,12 @@
                     </li>
                 </ul>
                 {% if event.registration_url %}
-                <p class="small"><a href="{{ event.registration_url }}" target="_blank" rel="noopener" class="link-primary">Registro externo oficial <i class="fas fa-external-link-alt small"></i></a></p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</section>
-
-<section class="py-5" style="background: #f8fafc;">
-    <div class="container">
-        <div class="row g-4">
-            <div class="col-12 col-lg-8">
-                <div class="card shadow-sm border-0 mb-4">
-                    <div class="card-body p-4">
-                        <h2 class="h4 mb-3">Descripción general</h2>
-                        <p class="text-muted mb-0" style="white-space: pre-line;">{{ event.description or 'Próximamente más detalles.' }}</p>
-                    </div>
-                </div>
-
-                {% if event.images %}
-                <div class="card shadow-sm border-0 mb-4">
-                    <div class="card-body p-4">
-                        <h3 class="h5 mb-3">Galería</h3>
-                        <div class="row g-3">
-                            {% for image in event.images %}
-                            <div class="col-12 col-md-6">
-                                <div class="rounded-3 p-2 bg-light">
-                                    <img src="{{ image.public_file_url }}" alt="" class="img-fluid rounded-2 w-100" style="max-height: 280px; object-fit: contain; background: #f8f9fa;" loading="lazy" decoding="async">
-                                    {% if image.caption %}<span class="small d-block mt-1">{{ image.caption }}</span>{% endif %}
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if event.has_certificate or event.certificate_instructions %}
-                <div class="card shadow-sm border-0 mb-4">
-                    <div class="card-body p-4">
-                        <h3 class="h5 mb-3"><i class="fas fa-certificate text-primary me-2"></i>Certificados</h3>
-                        {% if event.has_certificate %}
-                        <p class="mb-0">Este evento incluye certificado digital emitido por Easy NodeOne. Recibirás los pasos para descargarlo después de tu participación.</p>
-                        {% endif %}
-                        {% if event.certificate_instructions %}
-                        <div class="alert alert-info mt-3 mb-0">
-                            <strong>Instrucciones:</strong>
-                            <div class="mt-2" style="white-space: pre-line;">{{ event.certificate_instructions }}</div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
+                <p class="small mt-3 mb-0"><a href="{{ event.registration_url }}" target="_blank" rel="noopener" class="link-primary">Registro externo oficial <i class="fas fa-external-link-alt small"></i></a></p>
                 {% endif %}
             </div>
 
-            <div class="col-12 col-lg-4 mt-4 mt-lg-0" id="registro">
-                <div class="card shadow-sm border-0 mb-4">
+            <aside class="course-sidebar-card" id="registro">
+                <div class="card shadow-sm border-0">
                     <div class="card-body p-4">
                         <h3 class="h5 mb-3">Información clave</h3>
                         <ul class="list-unstyled mb-0 event-info-list">
@@ -123,7 +74,7 @@
                     </div>
                 </div>
 
-                <div class="card shadow-sm border-0 mb-4">
+                <div class="card shadow-sm border-0">
                     <div class="card-body p-4">
                         <h3 class="h5 mb-3">Inversión</h3>
                         {% if pricing.base_price and pricing.base_price > 0 %}
@@ -152,8 +103,7 @@
                             <strong>Incluido en tu membresía.</strong> Acceso sin costo adicional.
                         </div>
                         {% endif %}
-                        
-                        <!-- Botón de registro -->
+
                         <div class="mt-4">
                             {% if registration %}
                                 {% if registration.registration_status == 'confirmed' %}
@@ -232,8 +182,54 @@
                     </div>
                 </div>
                 {% endif %}
+            </aside>
+        </div>
+    </div>
+</section>
+
+<section class="course-detail-body pb-4" style="background: #f8fafc;">
+    <div class="container">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-3">Descripción general</h2>
+                <p class="text-muted mb-0" style="white-space: pre-line;">{{ event.description or 'Próximamente más detalles.' }}</p>
             </div>
         </div>
+
+        {% if event.images %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h3 class="h5 mb-3">Galería</h3>
+                <div class="row g-3">
+                    {% for image in event.images %}
+                    <div class="col-12 col-md-6">
+                        <div class="rounded-3 p-2 bg-light">
+                            <img src="{{ image.public_file_url }}" alt="" class="img-fluid rounded-2 w-100" style="max-height: 280px; object-fit: contain; background: #f8f9fa;" loading="lazy" decoding="async">
+                            {% if image.caption %}<span class="small d-block mt-1">{{ image.caption }}</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if event.has_certificate or event.certificate_instructions %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h3 class="h5 mb-3"><i class="fas fa-certificate text-primary me-2"></i>Certificados</h3>
+                {% if event.has_certificate %}
+                <p class="mb-0">Este evento incluye certificado digital emitido por Easy NodeOne. Recibirás los pasos para descargarlo después de tu participación.</p>
+                {% endif %}
+                {% if event.certificate_instructions %}
+                <div class="alert alert-info mt-3 mb-0">
+                    <strong>Instrucciones:</strong>
+                    <div class="mt-2" style="white-space: pre-line;">{{ event.certificate_instructions }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

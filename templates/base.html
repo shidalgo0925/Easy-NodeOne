@@ -352,9 +352,8 @@
             {# Selector de empresa en sidebar: solo si hay 2+ organizaciones (evita franja vacía con un solo tenant). #}
             {% if show_platform_admin_nav and saas_organizations_nav and (saas_organizations_nav|length > 1) %}
             <div class="sidebar-org-bar px-2 py-2 border-bottom">
-                <label class="small text-muted d-block mb-1" for="sidebarOrgSelect">Empresa</label>
                 <form id="sidebarOrgForm" method="post" action="{{ url_for('admin_switch_organization') }}" class="d-flex flex-column gap-1" onsubmit="return window._submitSidebarOrganization(event);">
-                    <select name="organization_id" id="sidebarOrgSelect" class="form-select form-select-sm" title="Empresa activa (sesión)">
+                    <select name="organization_id" id="sidebarOrgSelect" class="form-select form-select-sm" title="Empresa activa (sesión)" aria-label="Empresa activa (sesión)">
                         {% for org in saas_organizations_nav %}
                         <option value="{{ org.id }}" {% if effective_org_nav == org.id %}selected{% endif %}>{{ org.name|truncate(28) }}</option>
                         {% endfor %}
@@ -364,7 +363,6 @@
             </div>
             {% elif show_member_organization_switcher %}
             <div class="sidebar-org-bar px-2 py-2 border-bottom">
-                <span class="small text-muted d-block mb-1">Empresa activa</span>
                 {% if catalog_admin_context_org_name %}
                 <div class="small fw-semibold text-truncate mb-2" title="{{ catalog_admin_context_org_name }}">{{ catalog_admin_context_org_name }}</div>
                 {% endif %}

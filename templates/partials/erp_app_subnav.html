@@ -34,6 +34,8 @@
 
 {% set _org_zone = (request.endpoint == 'admin_users') or (request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list']) %}
 
+{% set _qr_zone = request.endpoint is defined and request.endpoint == 'admin_tools_qr' %}
+
 {% if show_platform_admin_nav and current_user.is_admin and _platform_zone %}
 <nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="platform" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
@@ -227,6 +229,16 @@
             {% if nav_can('roles.view') %}
             <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}is-active{% endif %}" href="{{ url_for('admin_roles_list') }}">Roles</a></li>
             {% endif %}
+        </ul>
+    </div>
+</nav>
+
+{% elif show_tenant_admin_menu and saas_module_enabled('qr_generator') and _qr_zone %}
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="qr" aria-label="Submenú del módulo">
+    <div class="erp-app-subnav__inner container-fluid">
+        <span class="erp-app-subnav__module">Generador QR</span>
+        <ul class="erp-app-subnav__list">
+            <li><a class="erp-app-subnav__link is-active" href="{{ url_for('admin_tools_qr') }}">Editor</a></li>
         </ul>
     </div>
 </nav>

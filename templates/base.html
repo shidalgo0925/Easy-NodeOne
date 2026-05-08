@@ -711,7 +711,7 @@
                         {% endif %}
 
                         {% if show_tenant_admin_menu and saas_module_enabled('qr_generator') %}
-                        <li class="nav-item sidebar-nav-app sidebar-nav-app--tools">
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--qr">
                             <a class="nav-link {% if request.endpoint == 'admin_tools_qr' %}active{% endif %}" href="{{ url_for('admin_tools_qr') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Generador QR">
                                 <i class="menu-icon fas fa-qrcode"></i>
                                 <span class="menu-title-text">Generador QR</span>

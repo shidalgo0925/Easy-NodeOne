@@ -1,5 +1,5 @@
 /**
- * Sidebar tema ERP / Odoo — fondo oscuro, íconos app en SVG multicolor (static/icons/apps/).
+ * Sidebar tema ERP — fondo oscuro; apps admin: FA + mosaico azul unificado.
  * Requiere class "sidebar-erp" en aside.left-panel (templates/base.html).
  */
 
@@ -108,30 +108,16 @@ aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .m
     float: none !important;
 }
 
-/*
- * Apps administración: SVG multicolor (static/icons/apps/*.svg) sobre tile claro.
- */
-aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon-app,
-aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon-app {
-    background: rgba(255, 255, 255, 0.94) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    padding: 4px;
-    box-sizing: border-box;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
+/* Apps administración: mosaico azul (FA blanco), unificado */
+aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
+    background: linear-gradient(145deg, #38bdf8 0%, #2563eb 38%, #6366f1 72%, #1e3a8a 100%);
+    color: #fefce8 !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 }
 
-aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon-app img,
-aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon-app img {
-    display: block;
-    width: 16px;
-    height: 16px;
-    object-fit: contain;
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app:hover > a .menu-icon-app {
-    filter: none;
-    background: #ffffff !important;
-    border-color: rgba(56, 189, 248, 0.5);
+aside.left-panel.sidebar-erp .sidebar-nav-app:hover > a .menu-icon:not(.menu-arrow) {
+    filter: saturate(1.15) brightness(1.08);
 }
 
 /* Fallback: ítem admin sin clase --* (no debería ocurrir) */
@@ -329,12 +315,6 @@ body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-eventos-badge {
 }
 
 /* Sidebar colapsado: quitar posición absoluta legacy del icono y mantener mosaico */
-body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon-app img,
-body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon-app img {
-    width: 14px !important;
-    height: 14px !important;
-}
-
 body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon,
 body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon {
     position: relative !important;

@@ -91,13 +91,32 @@ aside.left-panel.sidebar-erp .navbar .navbar-nav .menu-title-text {
     hyphens: auto;
 }
 
-aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon {
-    color: #94a3b8 !important;
+/* Iconos en “mosaico” con gradiente (estilo Odoo / ERP) */
+aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link .menu-icon,
+aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon {
+    width: 2.375rem;
+    height: 2.375rem;
+    min-width: 2.375rem;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 0.95rem !important;
+    margin-right: 10px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+    flex-shrink: 0;
+    float: none !important;
+}
+
+/* Admin u otros ítems sin clase miembro: tile neutro multicolor suave */
+aside.left-panel.sidebar-erp .navbar .navbar-nav li:not(.sidebar-nav-member) > a .menu-icon:not(.menu-arrow) {
+    background: linear-gradient(145deg, #64748b 0%, #475569 45%, #334155 100%);
+    color: #f8fafc !important;
 }
 
 aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.active .menu-icon,
 aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon {
-    color: #ffffff !important;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.65), 0 3px 10px rgba(0, 0, 0, 0.35);
 }
 
 aside.left-panel.sidebar-erp .menu-arrow {
@@ -128,46 +147,62 @@ aside.left-panel.sidebar-erp .nav-group-items .nav-link.active {
     color: #fff !important;
 }
 
-/* Íconos coloridos — miembro */
+/* Íconos miembro — gradientes por sección (icono blanco sobre tile) */
 aside.left-panel.sidebar-erp .sidebar-nav-member--inicio .menu-icon {
-    color: #fb923c !important;
+    background: linear-gradient(145deg, #fb923c 0%, #ea580c 55%, #c2410c 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--membership .menu-icon {
-    color: #a855f7 !important;
+    background: linear-gradient(145deg, #c084fc 0%, #9333ea 50%, #7e22ce 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--services .menu-icon {
-    color: #14b8a6 !important;
+    background: linear-gradient(145deg, #2dd4bf 0%, #14b8a6 45%, #0d9488 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--explore .menu-icon {
-    color: #3b82f6 !important;
+    background: linear-gradient(145deg, #60a5fa 0%, #2563eb 50%, #1d4ed8 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--agenda .menu-icon {
-    color: #8b5cf6 !important;
+    background: linear-gradient(145deg, #a78bfa 0%, #7c3aed 45%, #6d28d9 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--payments .menu-icon {
-    color: #10b981 !important;
+    background: linear-gradient(145deg, #34d399 0%, #059669 50%, #047857 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--mail .menu-icon {
-    color: #0ea5e9 !important;
+    background: linear-gradient(145deg, #38bdf8 0%, #0284c7 50%, #0369a1 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--benefits .menu-icon {
-    color: #f472b6 !important;
+    background: linear-gradient(145deg, #f472b6 0%, #db2777 50%, #be185d 100%);
+    color: #ffffff !important;
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--documents .menu-icon {
-    color: #94a3b8 !important;
+    background: linear-gradient(145deg, #94a3b8 0%, #64748b 45%, #475569 100%);
+    color: #f8fafc !important;
 }
 
+/* Eventos (lista miembro): tile azul/cyan */
+aside.left-panel.sidebar-erp .sidebar-nav-member--eventos .menu-icon {
+    background: linear-gradient(145deg, #3b82f6 0%, #2563eb 40%, #0ea5e9 100%);
+    color: #ffffff !important;
+}
+
+/* Activo: se mantiene el color del tile + anillo sky */
 aside.left-panel.sidebar-erp .sidebar-nav-member:not(.nav-item-eventos-cta) > a.nav-link.active .menu-icon,
 aside.left-panel.sidebar-erp .sidebar-nav-member:not(.nav-item-eventos-cta) > a.active .menu-icon {
-    color: #ffffff !important;
+    filter: saturate(1.15) brightness(1.08);
 }
 
 /* Scrollbar */
@@ -203,7 +238,9 @@ aside.left-panel.sidebar-erp .nav-item-eventos-cta .nav-link.sidebar-eventos-lin
 }
 
 aside.left-panel.sidebar-erp .sidebar-eventos-link .menu-icon {
-    color: #e0f2fe !important;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.35) 0%, rgba(56, 189, 248, 0.45) 100%);
+    color: #ffffff !important;
+    box-shadow: 0 2px 12px rgba(14, 165, 233, 0.35);
 }
 
 aside.left-panel.sidebar-erp .sidebar-eventos-menu-label .fw-semibold {
@@ -244,6 +281,20 @@ body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-eventos-badge {
     display: none !important;
 }
 
+/* Sidebar colapsado: quitar posición absoluta legacy del icono y mantener mosaico */
+body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon,
+body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    width: 2rem !important;
+    height: 2rem !important;
+    min-width: 2rem !important;
+    margin-right: 0 !important;
+    font-size: 0.82rem !important;
+}
+
 /* Etiqueta Eventos (dos líneas) */
 .sidebar-eventos-menu-label {
     display: flex;
@@ -260,28 +311,31 @@ body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-eventos-badge {
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--inicio:hover .menu-icon {
-    color: #fb923c !important;
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp .sidebar-nav-member--membership:hover .menu-icon {
-    color: #a855f7 !important;
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp .sidebar-nav-member--services:hover .menu-icon {
-    color: #14b8a6 !important;
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp .sidebar-nav-member--explore:hover .menu-icon {
-    color: #3b82f6 !important;
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp .sidebar-nav-member--agenda:hover .menu-icon {
-    color: #8b5cf6 !important;
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp .sidebar-nav-member--payments:hover .menu-icon {
-    color: #10b981 !important;
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp .sidebar-nav-member--mail:hover .menu-icon {
-    color: #0ea5e9 !important;
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp .sidebar-nav-member--benefits:hover .menu-icon {
-    color: #f472b6 !important;
+    filter: brightness(1.12);
+}
+aside.left-panel.sidebar-erp .sidebar-nav-member--documents:hover .menu-icon {
+    filter: brightness(1.12);
 }
 aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
     border-color: rgba(148, 163, 184, 0.2) !important;

@@ -468,3 +468,41 @@ body:has(#erpAppSubnav) #right-panel {
 body:has(#erpAppSubnav) #right-panel .content {
     min-height: calc(100vh - 56px - 42px);
 }
+
+/*
+ * Submenú Odoo arriba: ocultar solo el desplegable lateral del mismo módulo (evita duplicado;
+ * otros grupos del sidebar siguen expandibles).
+ */
+body:has(#erpAppSubnav[data-erp-zone="platform"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--platform .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="contador"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--contador .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="accounting"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--accounting .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="sales"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--sales .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="workshop"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--workshop .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="crm"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--crm .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="education"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--education .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="agenda"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--agenda .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="communications"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--communications .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="products"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--products .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="documents"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--documents .nav-group-items,
+body:has(#erpAppSubnav[data-erp-zone="organization"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--organization .nav-group-items {
+    display: none !important;
+}
+
+body:has(#erpAppSubnav[data-erp-zone="platform"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--platform > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="contador"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--contador > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="accounting"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--accounting > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="sales"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--sales > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="workshop"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--workshop > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="crm"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--crm > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="education"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--education > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="agenda"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--agenda > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="communications"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--communications > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="products"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--products > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="documents"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--documents > a.nav-group-toggle .menu-arrow,
+body:has(#erpAppSubnav[data-erp-zone="organization"]) aside.left-panel.sidebar-erp li.sidebar-nav-app--organization > a.nav-group-toggle .menu-arrow {
+    opacity: 0;
+    width: 0;
+    margin: 0;
+    overflow: hidden;
+    pointer-events: none;
+}

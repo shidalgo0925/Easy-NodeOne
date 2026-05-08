@@ -35,7 +35,7 @@
 {% set _org_zone = (request.endpoint == 'admin_users') or (request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list']) %}
 
 {% if show_platform_admin_nav and current_user.is_admin and _platform_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="platform" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Plataforma</span>
         <ul class="erp-app-subnav__list">
@@ -47,7 +47,7 @@
 </nav>
 
 {% elif saas_module_enabled('contador') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) and _contador_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="contador" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Contador</span>
         <ul class="erp-app-subnav__list">
@@ -65,7 +65,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and nav_can('payments.view') and _nav_contabilidad and _accounting_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="accounting" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Contabilidad</span>
         <ul class="erp-app-subnav__list">
@@ -82,7 +82,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and nav_can('payments.view') and _nav_sales and _sales_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="sales" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Ventas</span>
         <ul class="erp-app-subnav__list">
@@ -93,7 +93,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and saas_module_enabled('workshop') and _workshop_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="workshop" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Taller</span>
         <ul class="erp-app-subnav__list">
@@ -104,7 +104,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and (_nav_clientes_crm or _nav_clientes_mem) and _crm_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="crm" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Clientes</span>
         <ul class="erp-app-subnav__list">
@@ -119,7 +119,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and show_academic_admin_nav and _edu_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="education" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Educación</span>
         <ul class="erp-app-subnav__list">
@@ -132,7 +132,7 @@
 </nav>
 
 {% elif saas_module_enabled('appointments') and show_tenant_admin_menu and _agenda_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="agenda" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Agenda</span>
         <ul class="erp-app-subnav__list">
@@ -149,7 +149,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and nav_can('integrations.view') and _comm_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="communications" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Comunicación</span>
         <ul class="erp-app-subnav__list">
@@ -172,7 +172,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and (nav_can('memberships.view') or nav_can('services.view') or _nav_prod_evt or _nav_prod_pay) and _products_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="products" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Productos</span>
         <ul class="erp-app-subnav__list">
@@ -199,7 +199,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and (saas_module_enabled('certificates') or saas_module_enabled('policies')) and _documents_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="documents" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Documentos</span>
         <ul class="erp-app-subnav__list">
@@ -217,7 +217,7 @@
 </nav>
 
 {% elif show_tenant_admin_menu and (nav_can('users.view') or nav_can('roles.view')) and _org_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" aria-label="Submenú del módulo">
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="organization" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Organización</span>
         <ul class="erp-app-subnav__list">

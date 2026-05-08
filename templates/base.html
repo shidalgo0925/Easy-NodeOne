@@ -20,7 +20,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-6" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=10" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=11" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
@@ -1224,6 +1224,18 @@
                     if (!group) return;
                     e.preventDefault();
                     e.stopPropagation();
+                    /* Con barra Odoo superior: no expandir lateral; entrar al módulo por su primer enlace */
+                    var leftPanel = document.getElementById('left-panel');
+                    if (document.getElementById('erpAppSubnav') && leftPanel && leftPanel.classList.contains('sidebar-erp')) {
+                        var subLinks = group.querySelectorAll('.nav-group-items a.nav-link[href]');
+                        for (var si = 0; si < subLinks.length; si++) {
+                            var hv = subLinks[si].getAttribute('href') || '';
+                            if (!hv || hv === '#' || hv.indexOf('javascript:') === 0) continue;
+                            window.location.href = subLinks[si].href;
+                            return;
+                        }
+                        return;
+                    }
                     if (document.body.classList.contains('sidebar-collapsed')) return;
                     group.classList.toggle('show');
                     saveNavGroupsState();

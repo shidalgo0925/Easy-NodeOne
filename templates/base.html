@@ -20,7 +20,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-6" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=5" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=6" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
@@ -332,6 +332,10 @@
             </div>
         </div>
     </nav>
+
+    {% if current_user.is_authenticated and show_tenant_admin_menu and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
+    {% include 'partials/erp_app_subnav.html' %}
+    {% endif %}
 
     <!-- Main Content -->
     <main id="main-content" tabindex="-1">

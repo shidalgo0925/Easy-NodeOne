@@ -349,7 +349,8 @@
         <!-- Sidebar: operación (estructura SaaS: producto / tenant / plataforma) -->
         <aside id="left-panel" class="left-panel sidebar-erp">
             {# Mostrar selector si hay más de una empresa, o modo multi-tenant / admin plataforma (evita ocultar en single-tenant cuando RBAC tiene varias orgs). #}
-            {% if show_platform_admin_nav and saas_organizations_nav and (saas_organizations_nav|length > 1 or not single_tenant_default_only() or current_user.is_admin) %}
+            {# Selector de empresa en sidebar: solo si hay 2+ organizaciones (evita franja vacía con un solo tenant). #}
+            {% if show_platform_admin_nav and saas_organizations_nav and (saas_organizations_nav|length > 1) %}
             <div class="sidebar-org-bar px-2 py-2 border-bottom">
                 <label class="small text-muted d-block mb-1" for="sidebarOrgSelect">Empresa</label>
                 <form id="sidebarOrgForm" method="post" action="{{ url_for('admin_switch_organization') }}" class="d-flex flex-column gap-1" onsubmit="return window._submitSidebarOrganization(event);">

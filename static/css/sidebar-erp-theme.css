@@ -108,10 +108,17 @@ aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .m
     float: none !important;
 }
 
-/* Admin u otros ítems sin clase miembro: tile neutro multicolor suave */
+/* Admin u otros ítems sin clase miembro: mosaico multicolor suave */
 aside.left-panel.sidebar-erp .navbar .navbar-nav li:not(.sidebar-nav-member) > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #64748b 0%, #475569 45%, #334155 100%);
-    color: #f8fafc !important;
+    background: linear-gradient(
+        145deg,
+        #64748b 0%,
+        #8b5cf6 38%,
+        #0ea5e9 72%,
+        #475569 100%
+    );
+    color: #fefce8 !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 }
 
 aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.active .menu-icon,
@@ -147,56 +154,66 @@ aside.left-panel.sidebar-erp .nav-group-items .nav-link.active {
     color: #fff !important;
 }
 
-/* Íconos miembro — gradientes por sección (icono blanco sobre tile) */
+/* Íconos miembro — gradientes vivos (dos o tres tonos por ítem) */
 aside.left-panel.sidebar-erp .sidebar-nav-member--inicio .menu-icon {
-    background: linear-gradient(145deg, #fb923c 0%, #ea580c 55%, #c2410c 100%);
+    background: linear-gradient(145deg, #fde047 0%, #fb923c 42%, #ea580c 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(124, 45, 18, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--membership .menu-icon {
-    background: linear-gradient(145deg, #c084fc 0%, #9333ea 50%, #7e22ce 100%);
+    background: linear-gradient(145deg, #e9d5ff 0%, #a855f7 38%, #7c3aed 78%, #5b21b6 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(76, 29, 149, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--services .menu-icon {
-    background: linear-gradient(145deg, #2dd4bf 0%, #14b8a6 45%, #0d9488 100%);
+    background: linear-gradient(145deg, #5eead4 0%, #14b8a6 45%, #0f766e 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(15, 118, 110, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--explore .menu-icon {
-    background: linear-gradient(145deg, #60a5fa 0%, #2563eb 50%, #1d4ed8 100%);
+    background: linear-gradient(145deg, #93c5fd 0%, #3b82f6 40%, #1d4ed8 85%, #1e3a8a 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(30, 58, 138, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--agenda .menu-icon {
-    background: linear-gradient(145deg, #a78bfa 0%, #7c3aed 45%, #6d28d9 100%);
+    background: linear-gradient(145deg, #ddd6fe 0%, #a78bfa 35%, #7c3aed 70%, #6d28d9 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(91, 33, 182, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--payments .menu-icon {
-    background: linear-gradient(145deg, #34d399 0%, #059669 50%, #047857 100%);
+    background: linear-gradient(145deg, #bbf7d0 0%, #34d399 40%, #059669 85%, #065f46 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(6, 95, 70, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--mail .menu-icon {
-    background: linear-gradient(145deg, #38bdf8 0%, #0284c7 50%, #0369a1 100%);
+    background: linear-gradient(145deg, #bae6fd 0%, #38bdf8 38%, #0284c7 78%, #075985 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(7, 89, 133, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--benefits .menu-icon {
-    background: linear-gradient(145deg, #f472b6 0%, #db2777 50%, #be185d 100%);
+    background: linear-gradient(145deg, #fbcfe8 0%, #f472b6 35%, #db2777 75%, #9d174d 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(131, 24, 67, 0.45);
 }
 
 aside.left-panel.sidebar-erp .sidebar-nav-member--documents .menu-icon {
-    background: linear-gradient(145deg, #94a3b8 0%, #64748b 45%, #475569 100%);
+    background: linear-gradient(145deg, #cbd5e1 0%, #94a3b8 40%, #64748b 85%, #334155 100%);
     color: #f8fafc !important;
+    text-shadow: 0 1px 1px rgba(15, 23, 42, 0.35);
 }
 
-/* Eventos (lista miembro): tile azul/cyan */
+/* Eventos: azul + cyan + violeta */
 aside.left-panel.sidebar-erp .sidebar-nav-member--eventos .menu-icon {
-    background: linear-gradient(145deg, #3b82f6 0%, #2563eb 40%, #0ea5e9 100%);
+    background: linear-gradient(145deg, #60a5fa 0%, #2563eb 35%, #06b6d4 70%, #4f46e5 100%);
     color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(30, 27, 75, 0.45);
 }
 
 /* Activo: se mantiene el color del tile + anillo sky */
@@ -238,9 +255,16 @@ aside.left-panel.sidebar-erp .nav-item-eventos-cta .nav-link.sidebar-eventos-lin
 }
 
 aside.left-panel.sidebar-erp .sidebar-eventos-link .menu-icon {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.35) 0%, rgba(56, 189, 248, 0.45) 100%);
+    background: linear-gradient(
+        145deg,
+        #fef08a 0%,
+        #38bdf8 38%,
+        #2563eb 68%,
+        #6366f1 100%
+    );
     color: #ffffff !important;
-    box-shadow: 0 2px 12px rgba(14, 165, 233, 0.35);
+    box-shadow: 0 2px 14px rgba(56, 189, 248, 0.45);
+    text-shadow: 0 1px 1px rgba(30, 27, 75, 0.4);
 }
 
 aside.left-panel.sidebar-erp .sidebar-eventos-menu-label .fw-semibold {
@@ -310,33 +334,10 @@ body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-lin
     list-style: none;
 }
 
-aside.left-panel.sidebar-erp .sidebar-nav-member--inicio:hover .menu-icon {
-    filter: brightness(1.12);
+aside.left-panel.sidebar-erp .sidebar-nav-member:hover:not(.nav-item-eventos-cta) > a .menu-icon {
+    filter: saturate(1.35) brightness(1.08);
 }
-aside.left-panel.sidebar-erp .sidebar-nav-member--membership:hover .menu-icon {
-    filter: brightness(1.12);
-}
-aside.left-panel.sidebar-erp .sidebar-nav-member--services:hover .menu-icon {
-    filter: brightness(1.12);
-}
-aside.left-panel.sidebar-erp .sidebar-nav-member--explore:hover .menu-icon {
-    filter: brightness(1.12);
-}
-aside.left-panel.sidebar-erp .sidebar-nav-member--agenda:hover .menu-icon {
-    filter: brightness(1.12);
-}
-aside.left-panel.sidebar-erp .sidebar-nav-member--payments:hover .menu-icon {
-    filter: brightness(1.12);
-}
-aside.left-panel.sidebar-erp .sidebar-nav-member--mail:hover .menu-icon {
-    filter: brightness(1.12);
-}
-aside.left-panel.sidebar-erp .sidebar-nav-member--benefits:hover .menu-icon {
-    filter: brightness(1.12);
-}
-aside.left-panel.sidebar-erp .sidebar-nav-member--documents:hover .menu-icon {
-    filter: brightness(1.12);
-}
+
 aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
     border-color: rgba(148, 163, 184, 0.2) !important;
     opacity: 1 !important;

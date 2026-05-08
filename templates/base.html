@@ -470,25 +470,17 @@
                         {% if show_tenant_admin_menu %}
                         {# 👥 Clientes: CRM alineado a users.view; Miembros a memberships.view #}
                         {% set _nav_clientes_crm = (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and nav_can('users.view') %}
-                        {% set _nav_clientes_mem = nav_can('memberships.view') %}
-                        {% if _nav_clientes_crm or _nav_clientes_mem %}
-                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--crm {% if request.endpoint in ['admin_tenant_contacts', 'admin_memberships', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}show{% endif %}">
+                        {% if _nav_clientes_crm %}
+                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--crm {% if request.endpoint in ['admin_tenant_contacts', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Clientes">
                                 <i class="menu-icon fas fa-handshake"></i>
                                 <span class="menu-title-text">Clientes</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
                             <ul class="nav-group-items">
-                                {% if _nav_clientes_crm %}
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint in ['admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a>
                                 </li>
-                                {% endif %}
-                                {% if _nav_clientes_mem %}
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_memberships' %}active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a>
-                                </li>
-                                {% endif %}
                             </ul>
                         </li>
                         {% endif %}
@@ -869,13 +861,22 @@
                         </li>
                         {% endif %}
 
-                        {# 💳 Plan #}
+                        {# 💳 Membresía: mismo patrón que otros módulos (grupo + subnav Odoo) #}
                         {% if nav_can('memberships.view') %}
-                        <li class="nav-item sidebar-nav-app sidebar-nav-app--membership">
-                            <a class="nav-link {% if request.endpoint == 'admin_plans' %}active{% endif %}" href="{{ url_for('admin_plans') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía">
+                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--membership {% if request.endpoint in ['admin_plans', 'admin_memberships'] %}show{% endif %}" data-nav-group-key="tenant_membership">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía">
                                 <i class="menu-icon fas fa-crown"></i>
                                 <span class="menu-title-text">Membresía</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_plans' %}active{% endif %}" href="{{ url_for('admin_plans') }}">Planes</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_memberships' %}active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a>
+                                </li>
+                            </ul>
                         </li>
                         {% endif %}
                         {% endif %}

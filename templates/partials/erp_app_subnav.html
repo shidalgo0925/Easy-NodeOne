@@ -1,14 +1,15 @@
 {# Submenú horizontal estilo Odoo: aparece solo sobre el área de contenido cuando hay rutas hijas. #}
 {% set _nav_clientes_crm = (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and nav_can('users.view') %}
-{% set _nav_clientes_mem = nav_can('memberships.view') %}
 {% set _nav_sales = saas_module_enabled('sales') %}
 {% set _nav_contabilidad = saas_module_enabled_chain('accounting_core', 'sales') %}
 {% set _nav_ajustes = saas_module_enabled_chain('accounting_adjustments', 'accounting_core', 'sales') %}
 {% set _nav_prod_evt = saas_module_enabled('events') and nav_can('reports.view') %}
 {% set _nav_prod_pay = nav_can('payments.view') %}
 
-{% set _crm_ep = ['admin_tenant_contacts', 'admin_memberships', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}
+{% set _crm_ep = ['admin_tenant_contacts', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}
 {% set _crm_zone = request.endpoint is defined and request.endpoint in _crm_ep %}
+
+{% set _membership_zone = request.endpoint is defined and request.endpoint in ['admin_plans', 'admin_memberships'] %}
 
 {% set _platform_ep = ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page', 'admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}
 {% set _platform_zone = request.endpoint is defined and request.endpoint in _platform_ep %}
@@ -105,17 +106,23 @@
     </div>
 </nav>
 
-{% elif show_tenant_admin_menu and (_nav_clientes_crm or _nav_clientes_mem) and _crm_zone %}
+{% elif show_tenant_admin_menu and nav_can('memberships.view') and _membership_zone %}
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="membership" aria-label="Submenú del módulo">
+    <div class="erp-app-subnav__inner container-fluid">
+        <span class="erp-app-subnav__module">Membresía</span>
+        <ul class="erp-app-subnav__list">
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_plans' %}is-active{% endif %}" href="{{ url_for('admin_plans') }}">Planes</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_memberships' %}is-active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a></li>
+        </ul>
+    </div>
+</nav>
+
+{% elif show_tenant_admin_menu and _nav_clientes_crm and _crm_zone %}
 <nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="crm" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Clientes</span>
         <ul class="erp-app-subnav__list">
-            {% if _nav_clientes_crm %}
             <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_tenant_contacts', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}is-active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a></li>
-            {% endif %}
-            {% if _nav_clientes_mem %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_memberships' %}is-active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a></li>
-            {% endif %}
         </ul>
     </div>
 </nav>

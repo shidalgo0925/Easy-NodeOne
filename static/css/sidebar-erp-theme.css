@@ -460,7 +460,7 @@ body.open .erp-app-subnav {
     }
 }
 
-/* Desplazar contenido y ocultar sublistas duplicadas en el lateral */
+/* Desplazar contenido cuando hay subnav Odoo */
 body:has(#erpAppSubnav) #right-panel {
     margin-top: calc(56px + 42px);
 }
@@ -468,16 +468,3 @@ body:has(#erpAppSubnav) #right-panel {
 body:has(#erpAppSubnav) #right-panel .content {
     min-height: calc(100vh - 56px - 42px);
 }
-
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp .nav-group-items {
-    display: none !important;
-}
-
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp .nav-group > a.nav-group-toggle .menu-arrow {
-    opacity: 0;
-    width: 0;
-    margin: 0;
-    overflow: hidden;
-    pointer-events: none;
-}
-

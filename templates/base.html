@@ -20,7 +20,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-6" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=11" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=12" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
@@ -450,11 +450,29 @@
                         </li>
                         {% endif %}
                         {% if show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') %}
-                        <li class="nav-item sidebar-nav-app sidebar-nav-app--analytics">
-                            <a class="nav-link {% if request.endpoint in ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}active{% endif %}" href="/admin/analytics" data-bs-toggle="tooltip" data-bs-placement="right" title="KPIs y tableros">
+                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--analytics {% if request.endpoint in ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}show{% endif %}" data-nav-group-key="tenant_analytics">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="KPIs y tableros">
                                 <i class="menu-icon fas fa-chart-line"></i>
                                 <span class="menu-title-text">Analítica</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_analytics' %}active{% endif %}" href="{{ url_for('admin_analytics') }}">Ejecutivo</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_analytics_sales' %}active{% endif %}" href="{{ url_for('admin_analytics_sales') }}">Ventas</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_analytics_crm' %}active{% endif %}" href="{{ url_for('admin_analytics_crm') }}">CRM</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_analytics_members' %}active{% endif %}" href="{{ url_for('admin_analytics_members') }}">Miembros</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'admin_analytics_registrations' %}active{% endif %}" href="{{ url_for('admin_analytics_registrations') }}">Registros</a>
+                                </li>
+                            </ul>
                         </li>
                         {% endif %}
                         {# Catálogo de servicios: solo admin de tenant (miembros usan «Mis servicios» arriba). #}
@@ -479,7 +497,7 @@
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a>
+                                    <a class="nav-link {% if request.endpoint in ['admin_tenant_contacts', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a>
                                 </li>
                             </ul>
                         </li>

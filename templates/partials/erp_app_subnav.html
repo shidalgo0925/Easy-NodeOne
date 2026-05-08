@@ -37,6 +37,9 @@
 
 {% set _qr_zone = request.endpoint is defined and request.endpoint == 'admin_tools_qr' %}
 
+{% set _analytics_ep = ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}
+{% set _analytics_zone = request.endpoint is defined and request.endpoint in _analytics_ep %}
+
 {% if show_platform_admin_nav and current_user.is_admin and _platform_zone %}
 <nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="platform" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
@@ -63,6 +66,20 @@
             {% if nav_can('contador.admin') %}
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'contador.contador_config' %}is-active{% endif %}" href="{{ url_for('contador.contador_config') }}">Configuración</a></li>
             {% endif %}
+        </ul>
+    </div>
+</nav>
+
+{% elif show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') and _analytics_zone %}
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="analytics" aria-label="Submenú del módulo">
+    <div class="erp-app-subnav__inner container-fluid">
+        <span class="erp-app-subnav__module">Analítica</span>
+        <ul class="erp-app-subnav__list">
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics' %}is-active{% endif %}" href="{{ url_for('admin_analytics') }}">Ejecutivo</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_sales' %}is-active{% endif %}" href="{{ url_for('admin_analytics_sales') }}">Ventas</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_crm' %}is-active{% endif %}" href="{{ url_for('admin_analytics_crm') }}">CRM</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_members' %}is-active{% endif %}" href="{{ url_for('admin_analytics_members') }}">Miembros</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_registrations' %}is-active{% endif %}" href="{{ url_for('admin_analytics_registrations') }}">Registros</a></li>
         </ul>
     </div>
 </nav>

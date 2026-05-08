@@ -485,3 +485,8 @@ body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > a
     overflow: hidden;
     pointer-events: none;
 }
+
+/* Analítica: pestañas internas duplican la barra Odoo */
+body:has(#erpAppSubnav[data-erp-zone="analytics"]) .analytics-dashboard-page .analytics-board-nav {
+    display: none !important;
+}

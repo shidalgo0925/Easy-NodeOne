@@ -1,5 +1,5 @@
 /**
- * Sidebar tema ERP / Odoo — fondo oscuro, íconos por ítem, activo claro.
+ * Sidebar tema ERP / Odoo — fondo oscuro, íconos app en SVG multicolor (static/icons/apps/).
  * Requiere class "sidebar-erp" en aside.left-panel (templates/base.html).
  */
 
@@ -109,92 +109,29 @@ aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .m
 }
 
 /*
- * Apps administración: una paleta por entrada (patrón tipo Odoo «un color por módulo»).
- * Odoo usa SVG multicolor por app; aquí FA monocromo + tile con gradiente propio.
+ * Apps administración: SVG multicolor (static/icons/apps/*.svg) sobre tile claro.
  */
-aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow) {
-    color: #fefce8 !important;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon-app,
+aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon-app {
+    background: rgba(255, 255, 255, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 4px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
 }
 
-aside.left-panel.sidebar-erp .sidebar-nav-app--dashboard > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #38bdf8 0%, #2563eb 42%, #1d4ed8 100%);
+aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon-app img,
+aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon-app img {
+    display: block;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
 }
 
-aside.left-panel.sidebar-erp .sidebar-nav-app--analytics > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #f472b6 0%, #a855f7 38%, #7c3aed 78%, #5b21b6 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--services > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #5eead4 0%, #14b8a6 45%, #0f766e 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--crm > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #c4b5fd 0%, #8b5cf6 35%, #7c3aed 72%, #6d28d9 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--workshop > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #fdba74 0%, #f97316 40%, #ea580c 85%, #9a3412 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--contador > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #fde68a 0%, #fbbf24 38%, #d97706 78%, #92400e 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--sales > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #86efac 0%, #22c55e 35%, #15803d 85%, #14532d 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--accounting > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #99f6e4 0%, #2dd4bf 32%, #6366f1 68%, #4338ca 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--education > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #c7d2fe 0%, #6366f1 38%, #4338ca 78%, #312e81 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--agenda > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #fecdd3 0%, #fb7185 35%, #e11d48 72%, #9f1239 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--communications > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #fcd34d 0%, #f59e0b 35%, #ea580c 72%, #c2410c 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--tools > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #94a3b8 0%, #64748b 38%, #475569 72%, #334155 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--products > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #fcd34d 0%, #eab308 30%, #ca8a04 70%, #a16207 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--documents > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #e2e8f0 0%, #94a3b8 40%, #475569 85%, #1e293b 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--organization > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #bfdbfe 0%, #3b82f6 38%, #1e40af 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--membership > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #fde047 0%, #eab308 35%, #ca8a04 78%, #854d0e 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--platform > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #bae6fd 0%, #0ea5e9 40%, #0369a1 85%, #0c4a6e 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--logs > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #cbd5e1 0%, #64748b 45%, #334155 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app--backup > a .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #6ee7b7 0%, #059669 42%, #047857 100%);
-}
-
-aside.left-panel.sidebar-erp .sidebar-nav-app:hover > a .menu-icon:not(.menu-arrow) {
-    filter: saturate(1.2) brightness(1.06);
+aside.left-panel.sidebar-erp .sidebar-nav-app:hover > a .menu-icon-app {
+    filter: none;
+    background: #ffffff !important;
+    border-color: rgba(56, 189, 248, 0.5);
 }
 
 /* Fallback: ítem admin sin clase --* (no debería ocurrir) */
@@ -392,6 +329,12 @@ body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-eventos-badge {
 }
 
 /* Sidebar colapsado: quitar posición absoluta legacy del icono y mantener mosaico */
+body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon-app img,
+body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon-app img {
+    width: 14px !important;
+    height: 14px !important;
+}
+
 body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon,
 body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon {
     position: relative !important;

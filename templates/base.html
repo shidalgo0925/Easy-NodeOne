@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}">
 <head>
+    {% from 'macros/sidebar_app_icon.html' import sidebar_app_icon %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="{{ theme_primary|default('#2563eb') }}">
@@ -20,7 +21,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-6" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=6" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=7" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
@@ -445,7 +446,7 @@
                         {% else %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--dashboard">
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
-                                <i class="menu-icon fas fa-tachometer-alt"></i>
+                                {{ sidebar_app_icon('dashboard') }}
                                 <span class="menu-title-text">Dashboard</span>
                             </a>
                         </li>
@@ -453,7 +454,7 @@
                         {% if show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--analytics">
                             <a class="nav-link {% if request.endpoint in ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}active{% endif %}" href="/admin/analytics" data-bs-toggle="tooltip" data-bs-placement="right" title="KPIs y tableros">
-                                <i class="menu-icon fas fa-chart-line"></i>
+                                {{ sidebar_app_icon('analytics') }}
                                 <span class="menu-title-text">Analítica</span>
                             </a>
                         </li>
@@ -462,7 +463,7 @@
                         {% if show_tenant_admin_menu and saas_module_enabled('appointments') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--services">
                             <a class="nav-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de servicios y reservas">
-                                <i class="menu-icon fas fa-th-large"></i>
+                                {{ sidebar_app_icon('services') }}
                                 <span class="menu-title-text">Servicios</span>
                             </a>
                         </li>
@@ -475,7 +476,7 @@
                         {% if _nav_clientes_crm or _nav_clientes_mem %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--crm {% if request.endpoint in ['admin_tenant_contacts', 'admin_memberships', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Clientes">
-                                <i class="menu-icon fas fa-handshake"></i>
+                                {{ sidebar_app_icon('crm') }}
                                 <span class="menu-title-text">Clientes</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -499,7 +500,7 @@
                         {% if show_tenant_admin_menu and saas_module_enabled('workshop') %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--workshop {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail', 'admin_workshop_process_config'] %}show{% endif %}" data-nav-group-key="workshop_taller">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Recepción y tiempos por etapa">
-                                <i class="menu-icon fas fa-car-side"></i>
+                                {{ sidebar_app_icon('workshop') }}
                                 <span class="menu-title-text">Taller</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -517,7 +518,7 @@
                         {% if show_tenant_admin_menu and saas_module_enabled('contador') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--contador {% if request.blueprint in ['contador', 'contador_api'] or (request.path or '').startswith('/admin/contador') or (request.path or '').startswith('/api/contador') %}show{% endif %}" data-nav-group-key="contador">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Conteos físicos por variante">
-                                <i class="menu-icon fas fa-clipboard-list"></i>
+                                {{ sidebar_app_icon('contador') }}
                                 <span class="menu-title-text">Contador</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -552,7 +553,7 @@
                         {% if show_tenant_admin_menu and nav_can('payments.view') and _nav_sales %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--sales {% if request.endpoint in ['admin_sales_quotations', 'admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}show{% endif %}" data-nav-group-key="sales_ventas">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Ventas">
-                                <i class="menu-icon fas fa-file-invoice-dollar"></i>
+                                {{ sidebar_app_icon('sales') }}
                                 <span class="menu-title-text">Ventas</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -569,7 +570,7 @@
                         {% if show_tenant_admin_menu and nav_can('payments.view') and _nav_contabilidad %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--accounting {% if request.endpoint in ['accounting_core.accounts_list', 'accounting_core.journals_list', 'accounting_core.entries_list', 'accounting_core.entries_new', 'accounting_core.entry_detail', 'accounting_core.receivables_list', 'accounting_core.receivables_customers_list', 'accounting_core.adjustments_list'] %}show{% endif %}" data-nav-group-key="accounting_contabilidad">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Contabilidad">
-                                <i class="menu-icon fas fa-book"></i>
+                                {{ sidebar_app_icon('accounting') }}
                                 <span class="menu-title-text">Contabilidad</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -601,7 +602,7 @@
                         {% if show_tenant_admin_menu and show_academic_admin_nav %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--education {% if request.blueprint == 'academic_admin' %}show{% endif %}" data-nav-group-key="academic_lms">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Educación">
-                                <i class="menu-icon fas fa-graduation-cap"></i>
+                                {{ sidebar_app_icon('education') }}
                                 <span class="menu-title-text">Educación</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -626,7 +627,7 @@
                         {# 📅 Agenda / Citas — solo administración tenant #}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--agenda {% if request.blueprint == 'appointments' or request.blueprint == 'admin_appointments' or request.endpoint == 'appointments.advisor_queue' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Agenda">
-                                <i class="menu-icon fas fa-calendar-alt"></i>
+                                {{ sidebar_app_icon('agenda') }}
                                 <span class="menu-title-text">Agenda</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -672,7 +673,7 @@
                         {% elif show_tenant_admin_menu and nav_can('integrations.view') %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--communications {% if (office365_module_enabled and request.blueprint == 'integrations') or request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'admin_communications.admin_communications_settings'] or (office365_module_enabled and request.endpoint == 'office365_admin.admin_office365_requests') %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Comunicación">
-                                <i class="menu-icon fas fa-comments"></i>
+                                {{ sidebar_app_icon('communications') }}
                                 <span class="menu-title-text">Comunicación</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -714,7 +715,7 @@
                         {% if show_tenant_admin_menu and saas_module_enabled('qr_generator') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--tools">
                             <a class="nav-link {% if request.endpoint == 'admin_tools_qr' %}active{% endif %}" href="{{ url_for('admin_tools_qr') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Generador QR">
-                                <i class="menu-icon fas fa-qrcode"></i>
+                                {{ sidebar_app_icon('tools') }}
                                 <span class="menu-title-text">Generador QR</span>
                             </a>
                         </li>
@@ -734,7 +735,7 @@
                         {% if nav_can('memberships.view') or nav_can('services.view') or _nav_prod_evt or _nav_prod_pay %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--products {% if request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories'] or request.blueprint in ['events', 'admin_events'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos">
-                                <i class="menu-icon fas fa-store"></i>
+                                {{ sidebar_app_icon('products') }}
                                 <span class="menu-title-text">Productos</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -815,7 +816,7 @@
                         {% else %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--documents {% if request.endpoint in ['certificates_page.certificates_page', 'admin_certificate_events', 'admin_certificate_templates', 'admin_certificate_template_editor'] or request.blueprint == 'policies' or request.endpoint == 'admin_policies' %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Documentos">
-                                <i class="menu-icon fas fa-folder-open"></i>
+                                {{ sidebar_app_icon('documents') }}
                                 <span class="menu-title-text">Documentos</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -851,7 +852,7 @@
                         {% if nav_can('users.view') or nav_can('roles.view') %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--organization {% if request.endpoint == 'admin_users' or request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Organización">
-                                <i class="menu-icon fas fa-sitemap"></i>
+                                {{ sidebar_app_icon('organization') }}
                                 <span class="menu-title-text">Organización</span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -874,7 +875,7 @@
                         {% if nav_can('memberships.view') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--membership">
                             <a class="nav-link {% if request.endpoint == 'admin_plans' %}active{% endif %}" href="{{ url_for('admin_plans') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía">
-                                <i class="menu-icon fas fa-crown"></i>
+                                {{ sidebar_app_icon('membership') }}
                                 <span class="menu-title-text">Membresía</span>
                             </a>
                         </li>
@@ -886,7 +887,7 @@
                         {# 🧩 Plataforma (solo is_admin; rutas con platform_admin_required) #}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--platform {% if request.endpoint in ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page'] or request.endpoint in ['admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Plataforma">
-                                <i class="menu-icon fas fa-cloud"></i>
+                                {{ sidebar_app_icon('platform') }}
                                 <span class="menu-title-text">Plataforma <span class="text-muted small fw-normal">(solo tú)</span></span>
                                 <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
@@ -909,7 +910,7 @@
                         {% if nav_can('reports.view') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--logs">
                             <a class="nav-link {% if request.endpoint == 'admin_messaging' or request.endpoint == 'admin_messaging_detail' %}active{% endif %}" href="{{ url_for('admin_messaging') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Logs">
-                                <i class="menu-icon fas fa-stream"></i>
+                                {{ sidebar_app_icon('logs') }}
                                 <span class="menu-title-text">Logs</span>
                             </a>
                         </li>
@@ -917,7 +918,7 @@
                         {% if nav_can('system.settings.view') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--backup">
                             <a class="nav-link {% if request.endpoint == 'admin_backup.admin_backup' %}active{% endif %}" href="{{ url_for('admin_backup.admin_backup') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Respaldos">
-                                <i class="menu-icon fas fa-database"></i>
+                                {{ sidebar_app_icon('backup') }}
                                 <span class="menu-title-text">Respaldos</span>
                             </a>
                         </li>

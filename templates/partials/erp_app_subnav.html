@@ -6,9 +6,6 @@
 {% set _nav_prod_evt = saas_module_enabled('events') and nav_can('reports.view') %}
 {% set _nav_prod_pay = nav_can('payments.view') %}
 
-{% set _crm_ep = ['admin_tenant_contacts', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}
-{% set _crm_zone = request.endpoint is defined and request.endpoint in _crm_ep %}
-
 {% set _membership_zone = request.endpoint is defined and request.endpoint in ['admin_plans', 'admin_memberships'] %}
 
 {% set _platform_ep = ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page', 'admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}
@@ -34,8 +31,7 @@
 {% set _documents_zone = (request.endpoint in ['certificates_page.certificates_page', 'admin_certificate_events', 'admin_certificate_templates', 'admin_certificate_template_editor']) or (request.blueprint == 'policies') or (request.endpoint == 'admin_policies') %}
 
 {% set _org_zone = (request.endpoint == 'admin_users') or (request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list']) %}
-
-{% set _qr_zone = request.endpoint is defined and request.endpoint == 'admin_tools_qr' %}
+{% set _org_subnav = nav_can('users.view') and nav_can('roles.view') %}
 
 {% set _analytics_ep = ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}
 {% set _analytics_zone = request.endpoint is defined and request.endpoint in _analytics_ep %}
@@ -130,16 +126,6 @@
         <ul class="erp-app-subnav__list">
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_plans' %}is-active{% endif %}" href="{{ url_for('admin_plans') }}">Planes</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_memberships' %}is-active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and _nav_clientes_crm and _crm_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="crm" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Clientes</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_tenant_contacts', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports', 'admin_crm_settings'] %}is-active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">CRM</a></li>
         </ul>
     </div>
 </nav>
@@ -242,7 +228,7 @@
     </div>
 </nav>
 
-{% elif show_tenant_admin_menu and (nav_can('users.view') or nav_can('roles.view')) and _org_zone %}
+{% elif show_tenant_admin_menu and _org_subnav and _org_zone %}
 <nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="organization" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Organización</span>
@@ -253,16 +239,6 @@
             {% if nav_can('roles.view') %}
             <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}is-active{% endif %}" href="{{ url_for('admin_roles_list') }}">Roles</a></li>
             {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and saas_module_enabled('qr_generator') and _qr_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="qr" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Generador QR</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link is-active" href="{{ url_for('admin_tools_qr') }}">Editor</a></li>
         </ul>
     </div>
 </nav>

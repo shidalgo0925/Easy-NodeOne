@@ -470,15 +470,17 @@ body:has(#erpAppSubnav) #right-panel .content {
 }
 
 /*
- * Submenú Odoo arriba: sin subopciones en el lateral (todas las filas tipo nav-group).
- * Cubre tanto admin (sidebar-nav-app--*) como asesores (sidebar-nav-member--*) y evita que
- * un grupo con clase .show ajeno al módulo activo siga mostrando su lista debajo del icono.
+ * Modo horizontal (Odoo): sin acordeón lateral en nav-group.
+ * - Con barra visible: body:has(#erpAppSubnav)
+ * - Sin barra (p. ej. Dashboard): data-erp-app-chrome en body (mismo shell admin que el include del subnav)
  */
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > ul.nav-group-items {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > ul.nav-group-items,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group > ul.nav-group-items {
     display: none !important;
 }
 
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > a.nav-group-toggle .menu-arrow {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > a.nav-group-toggle .menu-arrow,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group > a.nav-group-toggle .menu-arrow {
     opacity: 0;
     width: 0;
     margin: 0;

@@ -22,7 +22,8 @@ class Payment(db.Model):
     # Información del pago
     amount = db.Column(db.Integer, nullable=False)  # Amount in cents
     currency = db.Column(db.String(3), default='usd')
-    status = db.Column(db.String(20), default='pending')  # pending, awaiting_confirmation, succeeded, failed, cancelled
+    # pending, succeeded, …; yappy_manual: pending_receipt|pending_payment, pending_admin_review|pending_validation, …
+    status = db.Column(db.String(32), default='pending')
     
     # Información adicional
     membership_type = db.Column(db.String(50), nullable=False)  # 'cart' para pagos del carrito, o tipo específico
@@ -35,7 +36,25 @@ class Payment(db.Model):
     ocr_status = db.Column(db.String(20), default='pending')  # pending, verified, rejected, needs_review
     ocr_verified_at = db.Column(db.DateTime)  # Fecha de verificación OCR
     admin_notes = db.Column(db.Text)  # Notas del administrador
-    
+
+    # Yappy manual (QR sin API): validación administrativa
+    amount_received_cents = db.Column(db.Integer, nullable=True)  # monto que reportó/validó el admin (centavos)
+    validated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    validated_at = db.Column(db.DateTime, nullable=True)
+    validation_observations = db.Column(db.Text)  # observaciones al aprobar/rechazar/marcar parcial
+    yappy_manual_audit_json = db.Column(db.Text)  # lista JSON de eventos de auditoría
+
+    organization_id = db.Column(
+        db.Integer,
+        db.ForeignKey('saas_organization.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+    payment_user_reference = db.Column(db.String(500))  # nota / referencia del cliente (Yappy manual)
+    receipt_uploaded_at = db.Column(db.DateTime, nullable=True)
+    receipt_disk_path = db.Column(db.String(500))  # ruta relativa bajo uploads/payments/yappy/{org_id}/
+    rejection_reason = db.Column(db.Text)
+
     # Metadata adicional (JSON) - usando payment_metadata porque metadata es reservado en SQLAlchemy
     payment_metadata = db.Column(db.Text)  # JSON con información adicional del pago
     
@@ -44,7 +63,10 @@ class Payment(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     paid_at = db.Column(db.DateTime)  # Fecha cuando se confirmó el pago
     
-    user = db.relationship('User', backref=db.backref('payments', lazy=True))
+    user = db.relationship('User', backref=db.backref('payments', lazy=True), foreign_keys=[user_id])
+    validated_by = db.relationship(
+        'User', foreign_keys=[validated_by_user_id], viewonly=True, overlaps='payments'
+    )
     
     def to_dict(self):
         """Convertir a diccionario para JSON"""
@@ -65,6 +87,10 @@ class Payment(db.Model):
             'ocr_status': self.ocr_status,
             'ocr_verified_at': self.ocr_verified_at.isoformat() if self.ocr_verified_at else None,
             'admin_notes': self.admin_notes,
+            'amount_received_cents': self.amount_received_cents,
+            'validated_by_user_id': self.validated_by_user_id,
+            'validated_at': self.validated_at.isoformat() if self.validated_at else None,
+            'validation_observations': self.validation_observations,
             'metadata': json.loads(self.payment_metadata) if self.payment_metadata else {},
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
@@ -129,7 +155,30 @@ class PaymentConfig(db.Model):
     yappy_api_key = db.Column(db.String(500))
     yappy_merchant_id = db.Column(db.String(200))
     yappy_api_url = db.Column(db.String(500), default='https://api.yappy.im')
-    
+    # Yappy en checkout (QR / directorio; usado también por yappy_manual)
+    yappy_directory_name = db.Column(db.String(100))
+    yappy_qr_image_path = db.Column(db.String(500))
+    yappy_business_name = db.Column(db.String(200))
+    # Yappy solo QR + validación admin (sin API bancaria)
+    yappy_manual_enabled = db.Column(db.Boolean, default=False)
+    yappy_manual_instructions = db.Column(db.Text)  # HTML o texto visible al cliente
+    yappy_manual_admin_emails = db.Column(db.Text)  # correos separados por coma para alertas
+    yappy_display_name = db.Column(db.String(200))  # nombre visible en checkout (si vacío → yappy_business_name)
+    yappy_phone_or_identifier = db.Column(db.String(120))
+    yappy_instructions = db.Column(db.Text)  # si vacío → yappy_manual_instructions
+    yappy_requires_receipt = db.Column(db.Boolean, default=True, nullable=False)
+    yappy_admin_validation_required = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Transferencia internacional (SWIFT / cuenta Panamá)
+    intl_wire_enabled = db.Column(db.Boolean, default=True)
+    intl_wire_beneficiary_name = db.Column(db.String(400))
+    intl_wire_bank_name = db.Column(db.String(200))
+    intl_wire_swift = db.Column(db.String(32))
+    intl_wire_account = db.Column(db.String(80))
+    intl_wire_account_type = db.Column(db.String(80))
+    intl_wire_country = db.Column(db.String(120))
+    intl_wire_instructions = db.Column(db.Text)
+
     # Configuración general
     use_environment_variables = db.Column(db.Boolean, default=True)  # Si usa vars de entorno o BD
     is_active = db.Column(db.Boolean, default=True)
@@ -142,6 +191,7 @@ class PaymentConfig(db.Model):
             'id': self.id,
             'organization_id': self.organization_id,
             'stripe_publishable_key': self.stripe_publishable_key if not self.use_environment_variables else '[Desde variables de entorno]',
+            'paypal_client_id': self.paypal_client_id if not self.use_environment_variables else '[Desde variables de entorno]',
             'paypal_mode': self.paypal_mode,
             'paypal_return_url': self.paypal_return_url,
             'paypal_cancel_url': self.paypal_cancel_url,
@@ -149,11 +199,81 @@ class PaymentConfig(db.Model):
             'banco_general_api_url': self.banco_general_api_url,
             'yappy_merchant_id': self.yappy_merchant_id if not self.use_environment_variables else '[Desde variables de entorno]',
             'yappy_api_url': self.yappy_api_url,
+            'yappy_directory_name': self.yappy_directory_name or '',
+            'yappy_qr_image_path': self.yappy_qr_image_path or '',
+            'yappy_business_name': self.yappy_business_name or '',
+            'yappy_manual_enabled': bool(self.yappy_manual_enabled),
+            'yappy_manual_instructions': self.yappy_manual_instructions or '',
+            'yappy_manual_admin_emails': self.yappy_manual_admin_emails or '',
+            'yappy_display_name': (self.yappy_display_name or '') if getattr(self, 'yappy_display_name', None) is not None else '',
+            'yappy_phone_or_identifier': (self.yappy_phone_or_identifier or '')
+            if getattr(self, 'yappy_phone_or_identifier', None) is not None
+            else '',
+            'yappy_instructions': (self.yappy_instructions or '') if getattr(self, 'yappy_instructions', None) is not None else '',
+            'yappy_requires_receipt': bool(getattr(self, 'yappy_requires_receipt', True)),
+            'yappy_admin_validation_required': bool(getattr(self, 'yappy_admin_validation_required', True)),
+            'intl_wire_enabled': bool(getattr(self, 'intl_wire_enabled', True)),
+            'intl_wire_beneficiary_name': self.intl_wire_beneficiary_name or '',
+            'intl_wire_bank_name': self.intl_wire_bank_name or '',
+            'intl_wire_swift': self.intl_wire_swift or '',
+            'intl_wire_account': self.intl_wire_account or '',
+            'intl_wire_account_type': self.intl_wire_account_type or '',
+            'intl_wire_country': self.intl_wire_country or '',
+            'intl_wire_instructions': self.intl_wire_instructions or '',
             'use_environment_variables': self.use_environment_variables,
             'is_active': self.is_active,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-    
+
+    @staticmethod
+    def empty_config_api_dict(organization_id=None):
+        """Diccionario para GET /api/admin/payments/config cuando aún no hay fila activa (formulario vacío)."""
+        oid = None
+        if organization_id is not None:
+            try:
+                oid = int(organization_id)
+            except (TypeError, ValueError):
+                oid = None
+        return {
+            'id': None,
+            'organization_id': oid,
+            'stripe_publishable_key': '',
+            'stripe_secret_key': '',
+            'stripe_webhook_secret': '',
+            'paypal_client_id': '',
+            'paypal_client_secret': '',
+            'paypal_mode': 'sandbox',
+            'paypal_return_url': '',
+            'paypal_cancel_url': '',
+            'banco_general_merchant_id': '',
+            'banco_general_api_url': 'https://api.cybersource.com',
+            'yappy_merchant_id': '',
+            'yappy_api_url': 'https://api.yappy.im',
+            'yappy_directory_name': '',
+            'yappy_qr_image_path': '',
+            'yappy_business_name': '',
+            'yappy_merchant_phone': '',
+            'yappy_manual_enabled': False,
+            'yappy_manual_instructions': '',
+            'yappy_manual_admin_emails': '',
+            'yappy_display_name': '',
+            'yappy_phone_or_identifier': '',
+            'yappy_instructions': '',
+            'yappy_requires_receipt': True,
+            'yappy_admin_validation_required': True,
+            'intl_wire_enabled': True,
+            'intl_wire_beneficiary_name': '',
+            'intl_wire_bank_name': '',
+            'intl_wire_swift': '',
+            'intl_wire_account': '',
+            'intl_wire_account_type': '',
+            'intl_wire_country': '',
+            'intl_wire_instructions': '',
+            'use_environment_variables': True,
+            'is_active': False,
+            'updated_at': None,
+        }
+
     @staticmethod
     def get_active_config(organization_id=None, allow_fallback_to_default_org=True):
         """

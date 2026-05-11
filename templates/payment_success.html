@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}
-    {% if payment.status == 'succeeded' %}
+    {% if payment.status == 'succeeded' or payment.status == 'paid' %}
         Pago Exitoso - Easy NodeOne
     {% else %}
         Pago Pendiente - Easy NodeOne
@@ -12,7 +12,7 @@
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-12 col-lg-8">
-            {% if payment.status == 'succeeded' %}
+            {% if payment.status == 'succeeded' or payment.status == 'paid' %}
             <!-- ========== PAGO CONFIRMADO - Mostrar éxito ========== -->
             <div class="card border-success">
                 <div class="card-header bg-success text-white text-center">
@@ -140,6 +140,13 @@
                 </div>
                 <div class="card-body text-center">
                     <div class="mb-4">
+                        {% if payment.payment_method == 'wire_international' %}
+                        <i class="fas fa-globe fa-4x text-warning mb-3"></i>
+                        <h3>Transferencia internacional pendiente</h3>
+                        <p class="lead text-muted">
+                            Envía el monto en USD desde tu banco usando los datos SWIFT indicados abajo. Tu compra se activará cuando validemos el comprobante.
+                        </p>
+                        {% elif payment.payment_method == 'yappy' %}
                         <i class="fas fa-mobile-alt fa-4x text-warning mb-3"></i>
                         <h3>Tu pago con Yappy está pendiente</h3>
                         <p class="lead text-muted">
@@ -158,10 +165,16 @@
                                 </div>
                             </div>
                         </div>
+                        {% else %}
+                        <i class="fas fa-hourglass-half fa-4x text-warning mb-3"></i>
+                        <h3>Pago pendiente de confirmación</h3>
+                        <p class="lead text-muted">Completa el pago según las instrucciones o espera la validación del equipo.</p>
+                        {% endif %}
                     </div>
                     
                     <div class="row justify-content-center mb-4">
                         <div class="col-12 col-md-10 mx-auto">
+                            {% if payment.payment_method == 'yappy' %}
                             <!-- Formulario para código de comprobante -->
                             <div class="card border-info mb-4">
                                 <div class="card-body">
@@ -201,6 +214,7 @@
                                     <div id="verify-result" class="mt-3" style="display: none;"></div>
                                 </div>
                             </div>
+                            {% endif %}
                             
                             <!-- Información del Pago -->
                             <div class="card bg-light mb-4">
@@ -233,8 +247,36 @@
                                     {% endif %}
                                 </div>
                             </div>
+
+                            {% if payment.payment_method == 'wire_international' %}
+                            <div class="card border-primary mb-4 text-start">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="fas fa-university"></i> Datos para transferencia internacional (USD)</h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if intl_wire %}
+                                    <p class="mb-2"><strong>Beneficiario:</strong> {{ intl_wire.beneficiary_name }}</p>
+                                    <p class="mb-2"><strong>Banco:</strong> {{ intl_wire.bank }}</p>
+                                    <p class="mb-2"><strong>SWIFT / BIC:</strong> <code>{{ intl_wire.swift }}</code></p>
+                                    <p class="mb-2"><strong>Cuenta:</strong> <code>{{ intl_wire.account_number }}</code></p>
+                                    <p class="mb-2"><strong>Tipo de cuenta:</strong> {{ intl_wire.account_type }}</p>
+                                    <p class="mb-2"><strong>País:</strong> {{ intl_wire.country }}</p>
+                                    {% if intl_wire.note %}
+                                    <hr>
+                                    <div class="small text-muted">{{ intl_wire.note | safe }}</div>
+                                    {% endif %}
+                                    {% else %}
+                                    <p class="text-muted">Los datos bancarios completos deberían aparecer aquí. Si no los ves, contacta a soporte con tu referencia <code>{{ payment.payment_reference }}</code>.</p>
+                                    {% endif %}
+                                    <hr>
+                                    <p class="mb-0"><strong>Referencia / concepto sugerido:</strong> <code>{{ payment.payment_reference }}</code></p>
+                                    <p class="mt-2 mb-0"><strong>Monto (USD):</strong> ${{ "%.2f"|format(payment.amount / 100) }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
                             
                             <!-- Opciones de Pago Yappy -->
+                            {% if payment.payment_method == 'yappy' %}
                             <div class="card border-primary">
                                 <div class="card-header bg-primary text-white">
                                     <h6 class="mb-0">
@@ -307,6 +349,7 @@
                                     </div>
                                 </div>
                             </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

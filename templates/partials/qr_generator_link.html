@@ -1,6 +1,7 @@
 {# Enlace al Generador QR con contenido precargado (URL absoluta https recomendada). #}
 {% macro qr_link(url, label='') %}
-  {% if saas_module_enabled('qr_generator') and url %}
+  {# Si el módulo está ON en SaaS pero las rutas no se registraron (p. ej. NODEONE_SKIP_QR_GENERATOR_MODULE), url_for rompe con BuildError → 500. #}
+  {% if saas_module_enabled('qr_generator') and url and has_view_endpoint('admin_tools_qr') %}
   <a href="{{ url_for('admin_tools_qr', content=url) }}" class="btn btn-sm btn-outline-secondary" title="Abrir generador QR con este enlace">
       <i class="fas fa-qrcode" aria-hidden="true"></i>{% if label %} {{ label }}{% endif %}
   </a>

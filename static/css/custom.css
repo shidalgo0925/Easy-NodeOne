@@ -2875,8 +2875,10 @@ button[data-bs-target="#serviceCategoriesExplain"][aria-expanded="true"] .collap
 .admin-filter-collapsible .admin-filter-collapse-toggle:not(.collapsed) .admin-filter-chevron {
     transform: rotate(-180deg);
 }
-[data-theme='dark'] .admin-filter-collapsible .admin-filter-collapse-toggle {
-    color: var(--gray-100, #f3f4f6) !important;
+/* Sobrescribe .text-dark del botón: en tema auto/dark el card-header ya define color legible */
+html[data-theme='dark'] .admin-filter-collapsible .admin-filter-collapse-toggle,
+html[data-theme='auto'] .admin-filter-collapsible .admin-filter-collapse-toggle {
+    color: inherit !important;
 }
 
 /* Mis servicios (cliente) - cards tipo marketplace */

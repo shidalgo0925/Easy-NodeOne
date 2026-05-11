@@ -45,6 +45,15 @@ def process_cart_after_payment(cart, payment):
     import app as M
 
     import json
+
+    st = (getattr(payment, "status", None) or "").strip()
+    if getattr(payment, "payment_method", None) == "yappy_manual":
+        if st != "paid":
+            raise RuntimeError(
+                "Yappy manual: la compra solo se activa con estado paid tras validación administrativa."
+            )
+    elif st != "succeeded":
+        raise RuntimeError("El carrito solo se procesa con pago confirmado (succeeded).")
     subscriptions_created = []
     events_registered = []
     user_services_created = []

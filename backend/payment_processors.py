@@ -12,7 +12,9 @@ from flask import current_app
 PAYMENT_METHODS = {
     'paypal': 'PayPal',
     'banco_general': 'Banco General',
-    'yappy': 'Yappy'
+    'yappy': 'Yappy',
+    'yappy_manual': 'Pago por Yappy (manual)',
+    'wire_international': 'Transferencia internacional (SWIFT)',
 }
 
 # Estados de pago
@@ -21,7 +23,15 @@ PAYMENT_STATUS = {
     'awaiting_confirmation': 'Esperando Confirmación',
     'succeeded': 'Completado',
     'failed': 'Fallido',
-    'cancelled': 'Cancelado'
+    'cancelled': 'Cancelado',
+    'pending_receipt': 'Pendiente de comprobante (Yappy)',
+    'pending_payment': 'Pendiente de comprobante (Yappy)',
+    'pending_admin_review': 'Pendiente de validación',
+    'pending_validation': 'Pendiente de validación',
+    'partially_paid': 'Pago incompleto',
+    'paid': 'Pagado',
+    'rejected': 'Rechazado',
+    'manual_review': 'En revisión manual',
 }
 
 
@@ -426,6 +436,67 @@ class BancoGeneralProcessor(PaymentProcessor):
         }
 
 
+# Valores por defecto (Panamá / Banco General) — editables en Administración → Pagos
+INTL_WIRE_DEFAULTS = {
+    'beneficiary_name': 'RED LATINOAMERICANA DE INVESTIVACIONES CUALITATIVAS',
+    'bank_name': 'Banco General, S.A.',
+    'swift': 'BAGEPAPA',
+    'account_number': '04-18-00-004229-1',
+    'account_type': 'Ahorros',
+    'country': 'Panamá',
+}
+
+
+class WireInternationalProcessor(PaymentProcessor):
+    """Transferencias internacionales en USD (datos SWIFT / cuenta en Panamá)."""
+
+    def __init__(self, config=None):
+        super().__init__('wire_international')
+        self._config = config
+
+    def _display(self):
+        c = self._config
+        d = INTL_WIRE_DEFAULTS
+        if not c:
+            return dict(d)
+        return {
+            'beneficiary_name': (getattr(c, 'intl_wire_beneficiary_name', None) or '').strip() or d['beneficiary_name'],
+            'bank_name': (getattr(c, 'intl_wire_bank_name', None) or '').strip() or d['bank_name'],
+            'swift': (getattr(c, 'intl_wire_swift', None) or '').strip() or d['swift'],
+            'account_number': (getattr(c, 'intl_wire_account', None) or '').strip() or d['account_number'],
+            'account_type': (getattr(c, 'intl_wire_account_type', None) or '').strip() or d['account_type'],
+            'country': (getattr(c, 'intl_wire_country', None) or '').strip() or d['country'],
+        }
+
+    def create_payment(self, amount, currency='USD', metadata=None):
+        import secrets
+
+        reference = f"INT-WIRE-{secrets.token_hex(6).upper()}"
+        disp = self._display()
+        note = ''
+        if self._config and getattr(self._config, 'intl_wire_instructions', None):
+            note = (self._config.intl_wire_instructions or '').strip()
+        return True, {
+            'payment_reference': reference,
+            'payment_url': None,
+            'manual': True,
+            'bank_account': {
+                'transfer_type': 'international',
+                'beneficiary_name': disp['beneficiary_name'],
+                'bank': disp['bank_name'],
+                'swift': disp['swift'],
+                'account_number': disp['account_number'],
+                'account_type': disp['account_type'],
+                'country': disp['country'],
+                'currency': (currency or 'USD').upper(),
+                'note': note,
+            },
+        }, None
+
+    def verify_payment(self, payment_reference):
+        return True, 'awaiting_confirmation', {'note': 'Transferencia internacional — confirmación manual'}
+
+
 class YappyProcessor(PaymentProcessor):
     """Procesador para pagos con Yappy"""
     
@@ -718,7 +789,8 @@ def get_payment_processor(payment_method, config=None):
     processors = {
         'paypal': PayPalProcessor,
         'banco_general': BancoGeneralProcessor,
-        'yappy': YappyProcessor
+        'yappy': YappyProcessor,
+        'wire_international': WireInternationalProcessor,
     }
     
     processor_class = processors.get(payment_method)

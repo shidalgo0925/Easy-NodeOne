@@ -100,6 +100,11 @@ except ImportError:
     print("⚠️ Payment processors no disponibles.")
     PAYMENT_METHODS = {}
 
+# Copia mutable; yappy_manual no requiere procesador externo
+PAYMENT_METHODS = dict(PAYMENT_METHODS or {})
+PAYMENT_METHODS.setdefault('yappy_manual', 'Pago por Yappy (manual)')
+PAYMENT_METHODS.setdefault('wire_international', 'Transferencia internacional (SWIFT)')
+
 # OAuth (login social)
 try:
     from authlib.integrations.flask_client import OAuth
@@ -1670,6 +1675,13 @@ def allowed_file(filename):
 # Carpeta para guardar comprobantes de pago
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'receipts')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Comprobantes Yappy manual: fuera de /static (solo descarga autenticada)
+YAPPY_PAYMENT_UPLOAD_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), '..', 'uploads', 'payments', 'yappy')
+)
+os.makedirs(YAPPY_PAYMENT_UPLOAD_ROOT, exist_ok=True)
+YAPPY_RECEIPT_MAX_BYTES = 5 * 1024 * 1024
 
 # Configuración del login manager
 @login_manager.user_loader

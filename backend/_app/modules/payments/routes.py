@@ -244,12 +244,63 @@ def checkout():
         return redirect(url_for(data[1]))
     cart, total_amount, discount_breakdown = data
     try:
-        from app import PAYMENT_METHODS, PAYMENT_PROCESSORS_AVAILABLE, STRIPE_PUBLISHABLE_KEY
-        payment_methods = PAYMENT_METHODS if PAYMENT_PROCESSORS_AVAILABLE else {'stripe': 'Stripe (Tarjeta de Crédito)'}
+        from app import PAYMENT_METHODS, PAYMENT_PROCESSORS_AVAILABLE, STRIPE_PUBLISHABLE_KEY, PaymentConfig
+        from payment_processors import INTL_WIRE_DEFAULTS
+        from utils.organization import payment_organization_id_for_request
+
+        pay_oid = payment_organization_id_for_request()
+        pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
+        payment_methods = dict(PAYMENT_METHODS or {})
+        if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
+            payment_methods.pop('yappy_manual', None)
+        yappy_checkout = None
+        if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
+            from nodeone.services.yappy_manual import effective_yappy_display_name, effective_yappy_instructions_html
+
+            yappy_checkout = {
+                'display_name': effective_yappy_display_name(pcfg),
+                'directory_name': (getattr(pcfg, 'yappy_directory_name', None) or '').strip(),
+                'phone': (getattr(pcfg, 'yappy_phone_or_identifier', None) or '').strip(),
+                'instructions_html': effective_yappy_instructions_html(pcfg),
+                'qr_src': (getattr(pcfg, 'yappy_qr_image_path', None) or '').strip()
+                or '/static/images/yappy-qr-multiserviciostk.png',
+                'requires_receipt': bool(getattr(pcfg, 'yappy_requires_receipt', True)),
+                'currency': 'USD',
+            }
+        if pcfg is not None and getattr(pcfg, 'intl_wire_enabled', True) is False:
+            payment_methods.pop('wire_international', None)
+        if not PAYMENT_PROCESSORS_AVAILABLE:
+            payment_methods = {
+                k: v
+                for k, v in payment_methods.items()
+                if k in ('yappy_manual', 'wire_international')
+            }
+            if not payment_methods:
+                payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}
+        if not payment_methods:
+            payment_methods = {'paypal': 'PayPal'}
         stripe_pk = STRIPE_PUBLISHABLE_KEY
+        intl_wire_display = dict(INTL_WIRE_DEFAULTS)
+        if pcfg:
+            if (getattr(pcfg, 'intl_wire_beneficiary_name', None) or '').strip():
+                intl_wire_display['beneficiary_name'] = pcfg.intl_wire_beneficiary_name.strip()
+            if (getattr(pcfg, 'intl_wire_bank_name', None) or '').strip():
+                intl_wire_display['bank_name'] = pcfg.intl_wire_bank_name.strip()
+            if (getattr(pcfg, 'intl_wire_swift', None) or '').strip():
+                intl_wire_display['swift'] = pcfg.intl_wire_swift.strip()
+            if (getattr(pcfg, 'intl_wire_account', None) or '').strip():
+                intl_wire_display['account_number'] = pcfg.intl_wire_account.strip()
+            if (getattr(pcfg, 'intl_wire_account_type', None) or '').strip():
+                intl_wire_display['account_type'] = pcfg.intl_wire_account_type.strip()
+            if (getattr(pcfg, 'intl_wire_country', None) or '').strip():
+                intl_wire_display['country'] = pcfg.intl_wire_country.strip()
     except Exception:
+        from payment_processors import INTL_WIRE_DEFAULTS
+
         payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}
         stripe_pk = None
+        intl_wire_display = dict(INTL_WIRE_DEFAULTS)
+        yappy_checkout = None
     return render_template(
         'checkout.html',
         cart=cart,
@@ -257,6 +308,8 @@ def checkout():
         discount_breakdown=discount_breakdown,
         stripe_publishable_key=stripe_pk,
         payment_methods=payment_methods,
+        intl_wire_display=intl_wire_display,
+        yappy_checkout=yappy_checkout,
     )
 
 

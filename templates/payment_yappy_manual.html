@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Pago por Yappy — {{ payment.payment_reference }}{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-9">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-mobile-alt"></i> Pago por Yappy</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <strong><i class="fas fa-exclamation-circle"></i> Importante:</strong>
+                        Realiza el pago desde tu app bancaria usando Yappy. Tu compra se activará <strong>solo</strong> cuando administración valide el comprobante.
+                        Usa la <strong>referencia exacta</strong> y el <strong>monto exacto</strong> indicados.
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light h-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">Monto a pagar ({{ (payment.currency or 'usd')|upper }})</h6>
+                                    <p class="display-6 mb-0">${{ "%.2f"|format(payment.amount / 100) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light h-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">Referencia en Yappy / nota</h6>
+                                    <p class="mb-0"><code class="fs-4 user-select-all">{{ payment.payment_reference }}</code></p>
+                                    <small class="text-muted">Incluye este texto en el detalle del pago si tu app lo permite.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-muted mb-1">Comercio</h6>
+                        <p class="mb-0 fs-5"><strong>{{ yappy_display_name or 'Comercio' }}</strong></p>
+                        {% if payment_config and payment_config.yappy_directory_name %}
+                        <p class="mb-0 mt-2"><strong>Buscar en directorio Yappy:</strong> <code>{{ payment_config.yappy_directory_name }}</code></p>
+                        {% endif %}
+                        {% if yappy_phone %}
+                        <p class="mb-0 mt-1"><strong>Teléfono / identificador:</strong> {{ yappy_phone }}</p>
+                        {% endif %}
+                    </div>
+
+                    {% if yappy_instructions_html %}
+                    <div class="mb-4 border rounded p-3 bg-white small">
+                        {{ yappy_instructions_html | safe }}
+                    </div>
+                    {% else %}
+                    <div class="mb-4 border rounded p-3 bg-light small">
+                        <p class="mb-1"><strong>Para pagar por Yappy:</strong></p>
+                        <ol class="mb-0 ps-3">
+                            <li>Abre tu app de banco.</li>
+                            <li>Entra a Yappy.</li>
+                            <li>Busca en el directorio el comercio indicado arriba.</li>
+                            <li>Realiza el pago por el monto exacto.</li>
+                            <li>Guarda captura o PDF del comprobante.</li>
+                            <li>Adjunta el comprobante aquí abajo.</li>
+                            <li>Tu pago quedará pendiente hasta ser validado por administración.</li>
+                        </ol>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="fas fa-qrcode"></i> Código QR (opcional)</div>
+                                <div class="card-body text-center">
+                                    {% set qr = payment_config.yappy_qr_image_path if payment_config and payment_config.yappy_qr_image_path else '/static/images/yappy-qr-multiserviciostk.png' %}
+                                    <img src="{{ qr }}" alt="QR Yappy" class="img-fluid" style="max-width:280px;border:1px solid #dee2e6;padding:8px;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="fas fa-info-circle"></i> Resumen</div>
+                                <div class="card-body small text-muted">
+                                    <p class="mb-0">Cuando envíes el comprobante recibirás un correo de confirmación de recepción. No se activará el pedido hasta la aprobación administrativa.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if yappy_can_upload %}
+                    <hr>
+                    <h5><i class="fas fa-paperclip"></i> Adjuntar comprobante</h5>
+                    <p class="text-muted small">Formatos: JPG, JPEG, PNG, WEBP o PDF. Tamaño máximo 5 MB.</p>
+                    <form id="ym-receipt-form" enctype="multipart/form-data" data-receipt-required="{{ 1 if (receipt_requires|default(true)) else 0 }}">
+                        <div class="mb-3">
+                            <label class="form-label" for="ym-user-ref">Referencia o comentario (opcional)</label>
+                            <input type="text" class="form-control" id="ym-user-ref" name="user_reference" maxlength="500" placeholder="Ej. confirmación del banco, nota">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="ym-receipt">{% if receipt_requires %}Comprobante{% else %}Comprobante (opcional){% endif %}</label>
+                            <input type="file" class="form-control" name="receipt" id="ym-receipt" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" {% if receipt_requires %}required{% endif %}>
+                        </div>
+                        <button type="submit" class="btn btn-success" id="ym-submit">
+                            <i class="fas fa-paper-plane"></i> Enviar comprobante
+                        </button>
+                    </form>
+                    <div id="ym-msg" class="mt-3"></div>
+                    {% elif yappy_pending_review %}
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-hourglass-half"></i> Comprobante recibido. Tu pago está <strong>pendiente de validación administrativa</strong>. Recibirás una notificación cuando sea aprobado.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-secondary mb-0">Estado: <strong>{{ payment.status }}</strong></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% if yappy_can_upload %}
+<script>
+document.getElementById('ym-receipt-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const fd = new FormData();
+    const f = document.getElementById('ym-receipt').files[0];
+    var formEl = document.getElementById('ym-receipt-form');
+    var req = formEl && String(formEl.getAttribute('data-receipt-required') || '1') === '1';
+    if (req && !f) { alert('Adjunta un comprobante.'); return; }
+    if (f) fd.append('receipt', f);
+    const ref = document.getElementById('ym-user-ref');
+    if (ref && ref.value) fd.append('user_reference', ref.value);
+    const btn = document.getElementById('ym-submit');
+    const msg = document.getElementById('ym-msg');
+    btn.disabled = true;
+    msg.innerHTML = '';
+    try {
+        const r = await fetch('{{ url_for("payments_checkout.api_yappy_manual_submit_receipt", payment_id=payment.id) }}', {
+            method: 'POST',
+            body: fd
+        });
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || 'Error');
+        msg.innerHTML = '<div class="alert alert-success">' + (data.message || 'Listo') + '</div>';
+        setTimeout(() => window.location.reload(), 1400);
+    } catch (err) {
+        msg.innerHTML = '<div class="alert alert-danger">' + (err.message || 'Error') + '</div>';
+        btn.disabled = false;
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

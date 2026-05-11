@@ -5,7 +5,7 @@ import os
 from collections import Counter
 from datetime import datetime, timedelta
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from flask_login import current_user, login_required
 from functools import wraps
 
@@ -108,6 +108,109 @@ def generate_external_payment_url(payment, payment_method):
     
     return callback_url
 
+
+def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown, payment_config):
+    """
+    Crea un Payment en pending_receipt (sin comprobante); sin vaciar carrito.
+    La activación ocurre solo tras validación admin (estado paid).
+    """
+    from flask import url_for
+
+    from nodeone.services.yappy_manual import append_yappy_manual_audit, effective_yappy_display_name
+
+    if not payment_config or not getattr(payment_config, "yappy_manual_enabled", False):
+        return jsonify({"error": "Yappy manual no está activado para esta organización."}), 400
+    has_qr = bool((getattr(payment_config, "yappy_qr_image_path", None) or "").strip())
+    has_dir = bool((getattr(payment_config, "yappy_directory_name", None) or "").strip())
+    has_display = bool(effective_yappy_display_name(payment_config))
+    if not has_qr and not has_dir and not has_display:
+        return jsonify(
+            {
+                "error": "Configura el nombre en directorio Yappy, el nombre visible del comercio o la ruta del QR en Administración → Pagos."
+            }
+        ), 400
+
+    pay_oid = payment_organization_id_for_request()
+    try:
+        oid = int(pay_oid) if pay_oid is not None else None
+    except (TypeError, ValueError):
+        oid = None
+    if oid is None:
+        oid = getattr(current_user, "organization_id", None)
+
+    metadata = {
+        "user_id": current_user.id,
+        "cart_id": cart.id,
+        "items_count": cart.get_items_count(),
+        "yappy_manual": True,
+        "integration": "manual_qr",
+        "organization_id": oid,
+    }
+    payment = M.Payment(
+        user_id=current_user.id,
+        organization_id=oid,
+        payment_method="yappy_manual",
+        payment_reference="PENDING",
+        amount=total_amount,
+        currency="usd",
+        status="pending_receipt",
+        membership_type="cart",
+        payment_url=None,
+        payment_metadata=json.dumps(metadata),
+        receipt_url=None,
+        receipt_filename=None,
+        ocr_data=None,
+        ocr_status="pending",
+    )
+    M.db.session.add(payment)
+    M.db.session.flush()
+    payment.payment_reference = f"ORD-{payment.id}"
+    append_yappy_manual_audit(
+        payment,
+        {
+            "event": "order_created",
+            "expected_amount_cents": total_amount,
+            "reference": payment.payment_reference,
+            "cart_id": cart.id,
+        },
+    )
+    M.db.session.commit()
+
+    try:
+        from history_module import HistoryLogger
+
+        HistoryLogger.log_user_action(
+            user_id=current_user.id,
+            action=f"Pago Yappy manual creado — {payment.payment_reference} — USD {total_amount / 100:.2f}",
+            status="pending_receipt",
+            context={"app": "web", "screen": "checkout", "module": "payment"},
+            payload={
+                "payment_id": payment.id,
+                "payment_method": "yappy_manual",
+                "amount": total_amount,
+                "cart_id": cart.id,
+                "discount_breakdown": discount_breakdown,
+            },
+            result={"payment_id": payment.id, "reference": payment.payment_reference},
+            visibility="both",
+        )
+    except Exception as e:
+        print(f"⚠️ historial yappy_manual: {e}")
+
+    redirect_url = url_for("payments_checkout.payment_yappy_manual_instructions", payment_id=payment.id)
+    return jsonify(
+        {
+            "payment_id": payment.id,
+            "payment_method": "yappy_manual",
+            "amount": total_amount,
+            "status": "pending_receipt",
+            "payment_reference": payment.payment_reference,
+            "redirect_url": redirect_url,
+            "yappy_manual": True,
+        }
+    )
+
+
 @payments_checkout_bp.route('/create-payment-intent', methods=['POST'])
 @_email_verified_check_then
 def create_payment_intent():
@@ -129,7 +232,7 @@ def create_payment_intent():
         ocr_data = None
         ocr_status = 'pending'
         
-        if 'receipt' in request.files:
+        if payment_method != 'yappy_manual' and 'receipt' in request.files:
             file = request.files['receipt']
             if file and file.filename != '' and M.allowed_file(file.filename):
                 # Generar nombre único para el archivo
@@ -171,14 +274,17 @@ def create_payment_intent():
         # Validar método de pago
         if payment_method not in M.PAYMENT_METHODS:
             return jsonify({'error': f'Método de pago no válido: {payment_method}'}), 400
-        
-        # Obtener procesador de pago
-        if not M.PAYMENT_PROCESSORS_AVAILABLE:
-            return jsonify({'error': 'Sistema de pagos no disponible'}), 500
-        
-        # Config de pagos del tenant (sesión / usuario)
+
         pay_oid = payment_organization_id_for_request()
         payment_config = M.PaymentConfig.get_active_config(organization_id=pay_oid)
+
+        if payment_method == 'yappy_manual':
+            return _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown, payment_config)
+
+        # Obtener procesador de pago (métodos con integración)
+        if not M.PAYMENT_PROCESSORS_AVAILABLE:
+            return jsonify({'error': 'Sistema de pagos no disponible'}), 500
+
         processor = M.get_payment_processor(payment_method, payment_config)
         
         # Crear metadata para el pago
@@ -198,6 +304,9 @@ def create_payment_intent():
         
         if not success:
             return jsonify({'error': error_message or 'Error al crear el pago'}), 400
+
+        if payment_method == 'wire_international' and payment_data.get('bank_account'):
+            metadata['intl_wire'] = payment_data.get('bank_account')
         
         # Detectar si estamos en modo demo
         is_demo_mode = payment_data.get('demo_mode', False)
@@ -221,6 +330,9 @@ def create_payment_intent():
             else:
                 # Métodos manuales siempre están en modo demo hasta que se configuren APIs
                 is_demo_mode = True
+
+        if payment_method == 'wire_international':
+            is_demo_mode = False
         
         # Validar datos OCR si existen
         ocr_verified = False
@@ -248,6 +360,8 @@ def create_payment_intent():
         # Si OCR necesita revisión, dejar en pending
         if ocr_verified:
             initial_status = 'succeeded'
+        elif payment_method == 'wire_international':
+            initial_status = 'pending'
         elif is_demo_mode and not receipt_url:  # Demo sin archivo
             initial_status = 'succeeded'
         else:
@@ -365,6 +479,10 @@ def create_payment_intent():
             response_data['payment_url'] = payment_data.get('payment_url')
             response_data['order_id'] = payment_data.get('payment_reference')
         elif payment_method == 'banco_general':
+            response_data['bank_account'] = payment_data.get('bank_account')
+            response_data['payment_reference'] = payment_data.get('payment_reference')
+            response_data['manual'] = True
+        elif payment_method == 'wire_international':
             response_data['bank_account'] = payment_data.get('bank_account')
             response_data['payment_reference'] = payment_data.get('payment_reference')
             response_data['manual'] = True
@@ -514,7 +632,10 @@ def payment_success():
         payment = M.Payment.query.get(payment_id)
         if payment and payment.user_id == current_user.id:
             # Registrar confirmación de pago en historial si cambió de estado
-            if payment.status == 'succeeded':
+            _confirmed = payment.status == 'succeeded' or (
+                payment.payment_method == 'yappy_manual' and payment.status == 'paid'
+            )
+            if _confirmed:
                 try:
                     from history_module import HistoryLogger
                     HistoryLogger.log_user_action(
@@ -530,20 +651,20 @@ def payment_success():
                         },
                         result={
                             "payment_id": payment.id,
-                            "status": "succeeded",
+                            "status": payment.status,
                             "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
                         },
                         visibility="both"
                     )
                 except Exception as e:
                     print(f"⚠️ Error registrando confirmación de pago en historial: {e}")
-            
-            # Procesar items del carrito si el pago fue exitoso y aún no se procesó
-            if payment.status == 'succeeded':
+
+            # succeeded (integraciones) o yappy_manual en paid: activar compra si el carrito sigue con ítems
+            _fulfill = payment.status == 'succeeded' or (
+                payment.payment_method == 'yappy_manual' and payment.status == 'paid'
+            )
+            if _fulfill:
                 cart = M.get_or_create_cart(current_user.id)
-                
-                # Verificar si el carrito ya fue procesado (tiene items)
-                # Si el carrito está vacío, significa que ya fue procesado en modo demo
                 if cart.get_items_count() > 0:
                     try:
                         process_cart_after_payment(cart, payment)
@@ -557,17 +678,274 @@ def payment_success():
                         M.db.session.rollback()
                 else:
                     print(f"ℹ️ Carrito ya procesado previamente para Payment ID: {payment.id}")
-                
-                # Enviar webhook a Odoo (no bloquea si falla)
                 try:
                     send_payment_to_odoo(payment, current_user, cart)
                 except Exception as e:
                     print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
-            
-            return render_template('payment_success.html', payment=payment)
+
+            pcfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id)
+            intl_wire = None
+            if payment.payment_metadata:
+                try:
+                    intl_wire = json.loads(payment.payment_metadata).get('intl_wire')
+                except Exception:
+                    intl_wire = None
+            return render_template(
+                'payment_success.html',
+                payment=payment,
+                payment_config=pcfg,
+                intl_wire=intl_wire,
+            )
     
     flash('Información de pago no encontrada.', 'error')
     return redirect(url_for('membership'))
+
+
+def _yappy_manual_submit_receipt_core(payment_id: int):
+    """Lógica compartida: subir comprobante Yappy manual → pending_admin_review."""
+    import app as M
+
+    from flask import current_app
+    from nodeone.services.yappy_manual import (
+        append_yappy_manual_audit,
+        effective_yappy_instructions_html,
+        notify_admin_new_receipt,
+        notify_client_receipt_received,
+    )
+    from nodeone.services.yappy_manual_status import is_pending_receipt
+    from nodeone.services.yappy_receipt_storage import save_yappy_receipt_file
+
+    payment = M.Payment.query.get_or_404(payment_id)
+    if payment.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 403
+    if payment.payment_method != 'yappy_manual':
+        return jsonify({'success': False, 'error': 'No es un pago Yappy manual'}), 400
+
+    cfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id) if payment.user_id else None
+    requires = True if not cfg else bool(getattr(cfg, 'yappy_requires_receipt', True))
+
+    st = (payment.status or '').strip()
+    allow_resubmit = st == 'rejected'
+    if not is_pending_receipt(st) and not allow_resubmit:
+        return jsonify({'success': False, 'error': 'Este pago ya no admite comprobante en este paso.'}), 400
+
+    user_ref = (request.form.get('user_reference') or request.form.get('payment_user_reference') or '').strip()[:500]
+    if user_ref:
+        payment.payment_user_reference = user_ref
+
+    file = request.files.get('receipt')
+    if requires:
+        if not file or not file.filename:
+            return jsonify({'success': False, 'error': 'Debes adjuntar un comprobante (JPG, PNG, WEBP o PDF, máx. 5 MB).'}), 400
+    elif not file or not file.filename:
+        payment.status = 'pending_admin_review'
+        payment.ocr_status = 'needs_review'
+        payment.receipt_uploaded_at = datetime.utcnow()
+        append_yappy_manual_audit(
+            payment,
+            {
+                'event': 'receipt_optional_skipped',
+                'expected_amount_cents': payment.amount,
+                'user_reference': user_ref or None,
+            },
+        )
+        M.db.session.commit()
+        payer = M.User.query.get(payment.user_id)
+        if payer:
+            try:
+                notify_client_receipt_received(payment, payer)
+            except Exception as e:
+                print(f"⚠️ email cliente yappy_manual: {e}")
+        if payer and cfg:
+            try:
+                notify_admin_new_receipt(payment, payer, cfg)
+            except Exception as e:
+                print(f"⚠️ email admin yappy_manual: {e}")
+        return (
+            jsonify(
+                {
+                    'success': True,
+                    'message': 'Solicitud registrada. Tu pago está pendiente de validación administrativa.',
+                }
+            ),
+            200,
+        )
+
+    if allow_resubmit and payment.receipt_disk_path:
+        try:
+            from nodeone.services.yappy_receipt_storage import absolute_path_for_disk_rel
+
+            old_abs = absolute_path_for_disk_rel(current_app, payment.receipt_disk_path)
+            if old_abs and os.path.isfile(old_abs):
+                os.remove(old_abs)
+        except Exception:
+            pass
+        payment.rejection_reason = None
+
+    try:
+        rel_path, orig_name = save_yappy_receipt_file(
+            current_app, file, organization_id=getattr(payment, 'organization_id', None)
+        )
+    except ValueError as ve:
+        return jsonify({'success': False, 'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'No se pudo guardar el archivo: {e}'}), 500
+
+    payment.receipt_disk_path = rel_path
+    payment.receipt_filename = orig_name
+    payment.receipt_url = None
+    payment.status = 'pending_admin_review'
+    payment.receipt_uploaded_at = datetime.utcnow()
+    payment.ocr_status = 'needs_review'
+    append_yappy_manual_audit(
+        payment,
+        {
+            'event': 'receipt_submitted',
+            'receipt_disk_path': rel_path,
+            'receipt_filename': orig_name,
+            'expected_amount_cents': payment.amount,
+            'user_reference': user_ref or None,
+            'instructions_preview': (effective_yappy_instructions_html(cfg) if cfg else '')[:200],
+        },
+    )
+    M.db.session.commit()
+
+    payer = M.User.query.get(payment.user_id)
+    if payer:
+        try:
+            notify_client_receipt_received(payment, payer)
+        except Exception as e:
+            print(f"⚠️ email cliente yappy_manual: {e}")
+    if payer and cfg:
+        try:
+            notify_admin_new_receipt(payment, payer, cfg)
+        except Exception as e:
+            print(f"⚠️ email admin yappy_manual: {e}")
+
+    return (
+        jsonify(
+            {
+                'success': True,
+                'message': 'Comprobante enviado correctamente. Tu pago está pendiente de validación.',
+            }
+        ),
+        200,
+    )
+
+
+@payments_checkout_bp.route('/payment/yappy-manual/<int:payment_id>')
+@login_required
+def payment_yappy_manual_instructions(payment_id):
+    """Instrucciones QR, referencia ORD-*, subida de comprobante (Yappy manual)."""
+    import app as M
+
+    payment = M.Payment.query.get_or_404(payment_id)
+    if payment.user_id != current_user.id:
+        flash('No autorizado.', 'error')
+        return redirect(url_for('payments.checkout'))
+    if payment.payment_method != 'yappy_manual':
+        return redirect(url_for('payments_checkout.payment_success', payment_id=payment.id))
+    cfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id)
+    from nodeone.services.yappy_manual_status import is_pending_admin_review, is_pending_receipt
+
+    can_upload = is_pending_receipt(payment.status) or (payment.status or '').strip() == 'rejected'
+    pending_review = is_pending_admin_review(payment.status)
+    from nodeone.services.yappy_manual import effective_yappy_display_name, effective_yappy_instructions_html
+
+    ydisp = effective_yappy_display_name(cfg) if cfg else ''
+    yinstr = effective_yappy_instructions_html(cfg) if cfg else ''
+    yphone = ((getattr(cfg, 'yappy_phone_or_identifier', None) or '') if cfg else '').strip()
+    receipt_requires = bool(getattr(cfg, 'yappy_requires_receipt', True)) if cfg else True
+    return render_template(
+        'payment_yappy_manual.html',
+        payment=payment,
+        payment_config=cfg,
+        yappy_can_upload=can_upload,
+        yappy_pending_review=pending_review,
+        yappy_display_name=ydisp,
+        yappy_instructions_html=yinstr,
+        yappy_phone=yphone,
+        receipt_requires=receipt_requires,
+    )
+
+
+@payments_checkout_bp.route('/api/payment/yappy-manual/<int:payment_id>/submit-receipt', methods=['POST'])
+@login_required
+def api_yappy_manual_submit_receipt(payment_id):
+    return _yappy_manual_submit_receipt_core(payment_id)
+
+
+@payments_checkout_bp.route('/checkout/yappy/submit', methods=['POST'])
+@_email_verified_check_then
+def checkout_yappy_submit():
+    """Alias del formulario checkout: multipart con payment_id + receipt (+ user_reference)."""
+    pid = request.form.get('payment_id', type=int)
+    if not pid:
+        return jsonify({'success': False, 'error': 'Falta payment_id.'}), 400
+    return _yappy_manual_submit_receipt_core(pid)
+
+
+@payments_checkout_bp.route('/payments/yappy/status/<int:payment_id>', methods=['GET'])
+@login_required
+def payment_yappy_status_json(payment_id):
+    import app as M
+
+    from nodeone.services.yappy_manual_status import yappy_status_label
+
+    payment = M.Payment.query.get_or_404(payment_id)
+    if payment.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 403
+    if payment.payment_method != 'yappy_manual':
+        return jsonify({'success': False, 'error': 'No es Yappy manual'}), 400
+    return jsonify(
+        {
+            'success': True,
+            'payment_id': payment.id,
+            'status': payment.status,
+            'status_label': yappy_status_label(payment.status),
+            'payment_reference': payment.payment_reference,
+            'amount_cents': payment.amount,
+            'currency': (payment.currency or 'usd').upper(),
+            'receipt_uploaded_at': (
+                getattr(payment, 'receipt_uploaded_at', None).isoformat()
+                if getattr(payment, 'receipt_uploaded_at', None)
+                else None
+            ),
+            'user_reference': (getattr(payment, 'payment_user_reference', None) or '') or '',
+        }
+    )
+
+
+@payments_checkout_bp.route('/api/payment/yappy-manual/<int:payment_id>/receipt', methods=['GET'])
+@login_required
+def api_yappy_manual_download_receipt_owner(payment_id):
+    """Descarga del comprobante solo para el titular del pago."""
+    import app as M
+
+    from flask import current_app, send_file
+
+    from nodeone.services.yappy_receipt_storage import absolute_path_for_disk_rel
+
+    payment = M.Payment.query.get_or_404(payment_id)
+    if payment.user_id != current_user.id:
+        abort(403)
+    if payment.payment_method != 'yappy_manual':
+        abort(404)
+    rel = getattr(payment, 'receipt_disk_path', None) or ''
+    abs_path = absolute_path_for_disk_rel(current_app, rel) if rel else None
+    if abs_path:
+        dl_name = payment.receipt_filename or os.path.basename(abs_path)
+        return send_file(abs_path, as_attachment=True, download_name=dl_name)
+    if payment.receipt_url and payment.receipt_url.startswith('/static/'):
+        static_rel = payment.receipt_url.replace('/static/', '', 1)
+        return send_from_directory(
+            current_app.static_folder,
+            static_rel,
+            as_attachment=True,
+            download_name=payment.receipt_filename or 'comprobante',
+        )
+    abort(404)
+
 
 @payments_checkout_bp.route('/payment/paypal/return', methods=['GET'])
 @login_required

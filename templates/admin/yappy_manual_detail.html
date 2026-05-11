@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Yappy #{{ payment.id }}{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+    <p class="text-muted mb-3">
+        <a href="{{ url_for('payments_admin.admin_yappy_alias_list') }}">← Validaciones Yappy</a>
+    </p>
+    <h1 class="h4 mb-3">Validar pago Yappy #{{ payment.id }}</h1>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card"><div class="card-body">
+                <h6 class="text-muted">Cliente</h6>
+                <p class="mb-0">{{ payer.first_name }} {{ payer.last_name }}<br><small>{{ payer.email }}</small></p>
+                <p class="mb-0 mt-2 small text-muted">Organización ID: {{ payment.organization_id or payer.organization_id or '—' }}</p>
+            </div></div>
+        </div>
+        <div class="col-md-6">
+            <div class="card"><div class="card-body">
+                <h6 class="text-muted">Monto esperado</h6>
+                <p class="display-6 mb-0">${{ "%.2f"|format(payment.amount / 100) }}</p>
+                <small>Referencia: <code>{{ payment.payment_reference }}</code></small>
+            </div></div>
+        </div>
+    </div>
+
+    {% if payment.payment_user_reference %}
+    <div class="mb-3">
+        <h6>Referencia / comentario del cliente</h6>
+        <p class="border rounded p-2 bg-light mb-0">{{ payment.payment_user_reference }}</p>
+    </div>
+    {% endif %}
+
+    {% if payment.receipt_disk_path or payment.receipt_url %}
+    <div class="mb-4">
+        <h6>Comprobante</h6>
+        <p class="mb-2">
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('payments_admin.api_admin_yappy_manual_receipt', payment_id=payment.id) }}" target="_blank" rel="noopener">
+                <i class="fas fa-file-download"></i> Ver comprobante
+            </a>
+            <small class="text-muted ms-2">{{ payment.receipt_filename or '' }}</small>
+        </p>
+        {% set fn = (payment.receipt_filename or '')|lower %}
+        {% if fn.endswith('.png') or fn.endswith('.jpg') or fn.endswith('.jpeg') or fn.endswith('.webp') %}
+        <div class="mt-2">
+            <img src="{{ url_for('payments_admin.api_admin_yappy_manual_receipt', payment_id=payment.id) }}" alt="Comprobante" class="img-fluid border rounded" style="max-height:420px;">
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if payment.status not in ('pending_admin_review', 'pending_validation', 'manual_review') %}
+    <div class="alert alert-secondary">Este pago ya no admite validación desde esta pantalla (estado: {{ payment.status }}).</div>
+    {% else %}
+    <div class="card border-primary mb-4">
+        <div class="card-header bg-primary text-white">Registrar validación</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Monto recibido (USD)</label>
+                <input type="number" step="0.01" min="0" class="form-control" id="ym-received-usd" value="{{ '%.2f'|format(payment.amount / 100) }}">
+                <small class="text-muted">Se enviará al servidor en centavos.</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Observaciones / motivo (rechazo)</label>
+                <textarea class="form-control" id="ym-obs" rows="2" placeholder="Opcional; obligatorio recomendado al rechazar"></textarea>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-success" data-decision="paid"><i class="fas fa-check"></i> Aprobar (activar compra)</button>
+                <button type="button" class="btn btn-warning text-dark" data-decision="partially_paid"><i class="fas fa-adjust"></i> Pago incompleto</button>
+                <button type="button" class="btn btn-secondary" data-decision="manual_review"><i class="fas fa-pause"></i> Revisión manual</button>
+                <button type="button" class="btn btn-danger" data-decision="rejected"><i class="fas fa-times"></i> Rechazar comprobante</button>
+            </div>
+            <div id="ym-admin-msg" class="mt-3"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <h6>Auditoría</h6>
+    <pre class="bg-light p-3 rounded small" style="max-height:280px;overflow:auto;">{{ audit_events | tojson(indent=2) }}</pre>
+</div>
+<script>
+(function() {
+  const paymentId = {{ payment.id }};
+  const expectedCents = {{ payment.amount }};
+  function usdToCents(v) {
+    const n = parseFloat(String(v).replace(',', '.'));
+    if (isNaN(n) || n < 0) return null;
+    return Math.round(n * 100);
+  }
+  document.querySelectorAll('[data-decision]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const decision = btn.getAttribute('data-decision');
+      const cents = usdToCents(document.getElementById('ym-received-usd').value);
+      if (cents === null) { alert('Monto inválido'); return; }
+      const observations = document.getElementById('ym-obs').value.trim();
+      const msg = document.getElementById('ym-admin-msg');
+      msg.innerHTML = '';
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/admin/payments/' + paymentId + '/yappy-manual/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision, amount_received_cents: cents, observations })
+        });
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || 'Error');
+        msg.innerHTML = '<div class="alert alert-success">' + (data.message || 'OK') + '</div>';
+        setTimeout(function() { window.location.reload(); }, 900);
+      } catch (e) {
+        msg.innerHTML = '<div class="alert alert-danger">' + e.message + '</div>';
+        btn.disabled = false;
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

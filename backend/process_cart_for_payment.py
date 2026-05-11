@@ -28,7 +28,10 @@ try:
                 print(f"❌ Pago {payment_id} no encontrado")
                 return False
             
-            if payment.status != 'succeeded':
+            ok = payment.status == 'succeeded' or (
+                getattr(payment, 'payment_method', None) == 'yappy_manual' and payment.status == 'paid'
+            )
+            if not ok:
                 print(f"⚠️ El pago {payment_id} no está confirmado (estado: {payment.status})")
                 print(f"   Confirma el pago primero")
                 return False

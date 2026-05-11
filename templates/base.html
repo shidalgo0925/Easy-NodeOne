@@ -19,7 +19,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-6" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-7" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=13" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
@@ -714,7 +714,7 @@
                         {% endif %}
                         {% endif %}
 
-                        {% if show_tenant_admin_menu and saas_module_enabled('qr_generator') %}
+                        {% if show_tenant_admin_menu and saas_module_enabled('qr_generator') and has_view_endpoint('admin_tools_qr') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--qr">
                             <a class="nav-link {% if request.endpoint == 'admin_tools_qr' %}active{% endif %}" href="{{ url_for('admin_tools_qr') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Generador QR">
                                 <i class="menu-icon fas fa-qrcode"></i>
@@ -1389,6 +1389,11 @@
                     if (elM) elM.classList.remove('d-none');
                 }
             }
+            /*
+             * preventDefault(): pospone el mini-banner nativo de Chrome; la instalación se hace desde el modal
+             * (Perfil → Instalar aplicación → «Instalar ahora» → prompt()). Chrome puede registrar en consola
+             * «Banner not shown… must call prompt()»: es informativo hasta que el usuario pulse «Instalar ahora».
+             */
             window.addEventListener('beforeinstallprompt', function (e) {
                 e.preventDefault();
                 deferredPrompt = e;
@@ -1407,15 +1412,30 @@
                 if (doBtn) {
                     doBtn.addEventListener('click', function () {
                         if (!deferredPrompt) return;
-                        deferredPrompt.prompt();
-                        deferredPrompt.userChoice.then(function () {
-                            deferredPrompt = null;
+                        var dp = deferredPrompt;
+                        try {
+                            dp.prompt();
+                        } catch (err) {
+                            console.warn('PWA: prompt() no disponible', err);
+                            return;
+                        }
+                        deferredPrompt = null;
+                        var choice = dp.userChoice;
+                        if (!choice || typeof choice.then !== 'function') {
                             refreshPwaInstallModal();
-                            try {
-                                var modal = bootstrap.Modal.getInstance(modalEl);
-                                if (modal) modal.hide();
-                            } catch (err) {}
-                        });
+                            return;
+                        }
+                        choice
+                            .then(function () {
+                                refreshPwaInstallModal();
+                                try {
+                                    var modal = bootstrap.Modal.getInstance(modalEl);
+                                    if (modal) modal.hide();
+                                } catch (err2) {}
+                            })
+                            .catch(function () {
+                                refreshPwaInstallModal();
+                            });
                     });
                 }
             });

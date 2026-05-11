@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import os
 import secrets
 from functools import wraps
-from sqlalchemy import text as sql_text
+from sqlalchemy import func, text as sql_text
 
 try:
     from dotenv import load_dotenv
@@ -2334,8 +2334,8 @@ def generate_discount_code(prefix="DSC", length=8, custom_part=None):
         else:
             code = f"{prefix}-{random_part}"
         
-        # Verificar que no exista
-        if not DiscountCode.query.filter_by(code=code).first():
+        # Verificar que no exista (insensible a mayúsculas)
+        if not DiscountCode.query.filter(func.lower(DiscountCode.code) == code.lower()).first():
             return code
         
         attempt += 1
@@ -2346,7 +2346,7 @@ def generate_discount_code(prefix="DSC", length=8, custom_part=None):
     code = f"{prefix}-{timestamp}"
     
     # Verificar unicidad final
-    if DiscountCode.query.filter_by(code=code).first():
+    if DiscountCode.query.filter(func.lower(DiscountCode.code) == code.lower()).first():
         code = f"{prefix}-{timestamp}-{random.randint(1000, 9999)}"
     
     return code

@@ -18,6 +18,7 @@ def generate_discount_code(prefix='DSC', length=8, custom_part=None):
         str: Código único generado
     """
     import app as M
+    from sqlalchemy import func
 
     max_attempts = 100
     attempt = 0
@@ -30,7 +31,7 @@ def generate_discount_code(prefix='DSC', length=8, custom_part=None):
         else:
             code = f'{prefix}-{random_part}'
 
-        if not M.DiscountCode.query.filter_by(code=code).first():
+        if not M.DiscountCode.query.filter(func.lower(M.DiscountCode.code) == code.lower()).first():
             return code
 
         attempt += 1
@@ -38,7 +39,7 @@ def generate_discount_code(prefix='DSC', length=8, custom_part=None):
     timestamp = str(int(time.time()))[-6:]
     code = f'{prefix}-{timestamp}'
 
-    if M.DiscountCode.query.filter_by(code=code).first():
+    if M.DiscountCode.query.filter(func.lower(M.DiscountCode.code) == code.lower()).first():
         code = f'{prefix}-{timestamp}-{random.randint(1000, 9999)}'
 
     return code

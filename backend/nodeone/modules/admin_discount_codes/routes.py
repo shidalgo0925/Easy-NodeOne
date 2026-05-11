@@ -6,6 +6,7 @@ from datetime import datetime
 from functools import wraps
 
 from flask import Blueprint, jsonify, render_template, request
+from sqlalchemy import func
 from flask_login import current_user, login_required
 
 from nodeone.services.discount_codes import generate_discount_code
@@ -125,7 +126,7 @@ def admin_discount_code_create():
             if not code_input:
                 return jsonify({'success': False, 'error': 'El código es requerido'}), 400
 
-            if _scoped_discount_codes_query(M).filter_by(code=code_input).first():
+            if _scoped_discount_codes_query(M).filter(func.lower(M.DiscountCode.code) == code_input.lower()).first():
                 return jsonify({'success': False, 'error': 'Este código ya existe'}), 400
 
             code = code_input

@@ -2,6 +2,8 @@
 import re
 import html as html_module
 
+from sqlalchemy import func
+
 from app import (
     app,
     db,
@@ -135,7 +137,8 @@ def submit_request(user, data, request=None):
                 'error': 'Necesitas una membresía Pro o superior, o un código de autorización válido para solicitar correo.',
                 'code_required': True,
             }, 403)
-        dc = DiscountCode.query.filter(DiscountCode.code == authorization_code.strip().upper()).first()
+        needle = (authorization_code or "").strip().lower()
+        dc = DiscountCode.query.filter(func.lower(DiscountCode.code) == needle).first()
         if not dc:
             return None, ({'success': False, 'error': 'Código de autorización no encontrado o incorrecto.'}, 400)
         if not getattr(dc, 'valid_for_office365', False):

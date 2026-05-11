@@ -6,7 +6,7 @@ import re
 import secrets
 from flask import has_request_context, url_for
 from flask_login import UserMixin, current_user
-from sqlalchemy import text as sql_text
+from sqlalchemy import func, text as sql_text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from nodeone.core.db import db
@@ -235,7 +235,10 @@ class Cart(db.Model):
         """Aplicar un código de descuento al carrito"""
         from .events import DiscountCode
 
-        code = DiscountCode.query.filter_by(code=code_string.upper().strip()).first()
+        needle = (code_string or "").strip().lower()
+        if not needle:
+            return False, "Código de descuento no encontrado"
+        code = DiscountCode.query.filter(func.lower(DiscountCode.code) == needle).first()
         if not code:
             return False, "Código de descuento no encontrado"
         

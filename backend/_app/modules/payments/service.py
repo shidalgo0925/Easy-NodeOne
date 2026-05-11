@@ -413,7 +413,7 @@ def _breakdown_to_dict(breakdown):
 
 def apply_discount_code(user_id, code):
     """Aplica código de descuento al carrito. Retorna (success, message, breakdown_dict) o (False, message, None)."""
-    code = (code or '').strip().upper()
+    code = (code or '').strip()
     if not code:
         return False, 'El código es requerido', None
     cart = repository.get_or_create_cart(user_id)

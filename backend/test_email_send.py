@@ -40,7 +40,7 @@ def main():
             print('   Destinatario: info@example.com')
 
             success = ap.email_service.send_email(
-                subject='[PRUEBA] Test de Email - Easy Thesis',
+                subject='[PRUEBA] Test de Email - Easy NodeOne',
                 recipients=['info@example.com'],
                 html_content='<h1>Email de Prueba</h1><p>Este es un email de prueba para verificar la configuración SMTP.</p>',
                 email_type='test',

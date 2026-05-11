@@ -431,7 +431,7 @@
     background: linear-gradient(90deg, transparent 0%, var(--secondary-blue) 50%, transparent 100%);
 }
 
-    /* Logo Easy Thesis */
+    /* Logo Easy NodeOne */
     .logo-container {
         display: flex;
         flex-direction: column;
@@ -614,7 +614,7 @@ body.sidebar-collapsed .sidebar-brand-full {
     display: none !important;
 }
 
-/* Ocultar todos los textos de Easy Thesis cuando está colapsado */
+/* Ocultar todos los textos de Easy NodeOne cuando está colapsado */
 body.sidebar-collapsed .sidebar-brand-text,
 body.sidebar-collapsed .sidebar-brand-text-small {
     display: none !important;
@@ -1480,7 +1480,7 @@ body:has(aside.left-panel) .navbar-landing .nav-icon-link {
     font-size: 1rem;
 }
 
-/* Móvil / tablet: menú lateral como drawer (Easy Thesis modular, una sola app) */
+/* Móvil / tablet: menú lateral como drawer (Easy NodeOne modular, una sola app) */
 .sidebar-mobile-backdrop {
     display: none;
 }
@@ -1554,7 +1554,7 @@ body:has(aside.left-panel) .navbar-landing .nav-icon-link {
         -webkit-overflow-scrolling: touch;
     }
 
-    /* ========== Fase 2 — Estandarización UI móvil (Easy Thesis) ========== */
+    /* ========== Fase 2 — Estandarización UI móvil (Easy NodeOne) ========== */
 
     /* 4.1 Grid: una columna en contenido autenticado (.col-auto se conserva para toolbars) */
     #right-panel .content .row > [class*="col-"]:not(.col-auto):not(.crm-kanban-column) {

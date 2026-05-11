@@ -50,14 +50,14 @@ def test_smtp_connection():
         msg = MIMEMultipart()
         msg['From'] = from_email
         msg['To'] = to_email
-        msg['Subject'] = '[Prueba] Test SMTP - Easy Thesis'
+        msg['Subject'] = '[Prueba] Test SMTP - Easy NodeOne'
         
         body = """
         <h2>Correo de Prueba SMTP</h2>
         <p>Este es un correo de prueba enviado directamente vía SMTP.</p>
         <p>Si recibes este correo, significa que la conexión SMTP funciona correctamente.</p>
         <p><strong>Remitente:</strong> info@example.com</p>
-        <p>Saludos,<br>Equipo Easy Thesis</p>
+        <p>Saludos,<br>Equipo Easy NodeOne</p>
         """
         msg.attach(MIMEText(body, 'html'))
         

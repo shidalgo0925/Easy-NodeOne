@@ -294,7 +294,7 @@ def api_email_test():
         from flask_mail import Message
 
         msg = Message(
-            subject='[Prueba] Configuración de Email - Easy Thesis',
+            subject='[Prueba] Configuración de Email - Easy NodeOne',
             recipients=[test_email],
             sender=email_config.mail_default_sender,
             html=f"""
@@ -304,7 +304,7 @@ def api_email_test():
             <p><strong>Remitente:</strong> {email_config.mail_default_sender}</p>
             <p><strong>Servidor:</strong> {email_config.mail_server}</p>
             <p><strong>Fecha:</strong> {datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')}</p>
-            <p>Saludos,<br>Equipo Easy Thesis</p>
+            <p>Saludos,<br>Equipo Easy NodeOne</p>
             """
         )
         M.mail.send(msg)
@@ -358,7 +358,7 @@ def api_email_test():
             error_details.append('4. Selecciona:')
             error_details.append('   - App: "Correo"')
             error_details.append('   - Device: "Otro (nombre personalizado)"')
-            error_details.append('   - Escribe: "Easy Thesis"')
+            error_details.append('   - Escribe: "Easy NodeOne"')
             error_details.append('5. Haz clic en "Generar"')
             error_details.append('6. Copia la contraseña de 16 caracteres (sin espacios)')
             error_details.append('7. Actualiza la contraseña en /admin/email')

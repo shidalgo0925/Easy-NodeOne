@@ -50,7 +50,7 @@ def _promote_existing(u, only_sa: bool) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Crear usuario admin + superusuario SA (Easy Thesis).")
+    parser = argparse.ArgumentParser(description="Crear usuario admin + superusuario SA (Easy NodeOne).")
     parser.add_argument("--email", default="shidalgo@easytech.services")
     parser.add_argument("--first-name", default="Seul")
     parser.add_argument("--last-name", default="Hidalgo")

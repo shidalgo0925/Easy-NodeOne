@@ -1,5 +1,5 @@
 """
-Configuración para Easy Thesis
+Configuración para Easy NodeOne
 """
 import os
 

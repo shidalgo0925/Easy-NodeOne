@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Easy Thesis - Backend Flask para gestión modular
+Easy NodeOne - Backend Flask para gestión modular
 """
 
 import sys
@@ -119,7 +119,7 @@ from nodeone.services.security_headers import init_security_headers
 init_security_headers(app)
 
 # Branding unificado (GLOBAL = misma marca en topbar; TENANT = nombre de org activa en sesión)
-app.config['APP_BRAND_NAME'] = (os.environ.get('APP_BRAND_NAME') or 'Easy Thesis').strip() or 'Easy Thesis'
+app.config['APP_BRAND_NAME'] = (os.environ.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
 _brand_mode = (os.environ.get('BRAND_MODE') or 'GLOBAL').strip().upper()
 app.config['BRAND_MODE'] = _brand_mode if _brand_mode in ('GLOBAL', 'TENANT') else 'GLOBAL'
 
@@ -1394,7 +1394,7 @@ def web_app_manifest():
         'id': '/',
         'name': brand,
         'short_name': short,
-        'description': 'Plataforma Easy Thesis — miembros y servicios',
+        'description': 'Portal de miembros y servicios',
         'lang': 'es',
         'dir': 'ltr',
         'start_url': '/',
@@ -1733,7 +1733,7 @@ def send_verification_email(user):
         
         # Enviar email
         success = email_service.send_email(
-            subject='Verifica tu Email - Easy Thesis',
+            subject='Verifica tu Email - Easy NodeOne',
             recipients=[user.email],
             html_content=html_content,
             email_type='email_verification',
@@ -2529,7 +2529,7 @@ def ensure_membership_plan_table():
 def _politica_correo_institucional_html():
     """Contenido HTML de la Política de Uso de Correo Institucional (versión 1.0)."""
     return """
-<p><strong>Easy Thesis</strong><br>Versión 1.0</p>
+<p><strong>Easy NodeOne</strong><br>Versión 1.0</p>
 
 <h2>1. Naturaleza del Servicio</h2>
 <p>El correo institucional en el dominio configurado por su organización es un beneficio para miembros activos dentro de la plataforma.</p>

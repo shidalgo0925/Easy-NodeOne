@@ -1,5 +1,5 @@
 /**
- * Tour guiado para administradores de Easy Thesis
+ * Tour guiado para administradores de Easy NodeOne
  * Incluye todas las funciones del tour de usuarios + funciones administrativas
  */
 

@@ -362,7 +362,7 @@ def register_admin_users_roles_routes(app):
             if not user.advisor_profile:
                 new_profile = Advisor(
                     user_id=user.id,
-                    headline=request.form.get('advisor_headline', '').strip() or 'Asesor Easy Thesis',
+                    headline=request.form.get('advisor_headline', '').strip() or 'Asesor Easy NodeOne',
                     specializations=request.form.get('advisor_specializations', '').strip(),
                     meeting_url=request.form.get('advisor_meeting_url', '').strip(),
                 )
@@ -494,7 +494,7 @@ def register_admin_users_roles_routes(app):
                 db.session.add(
                     Advisor(
                         user_id=new_user.id,
-                        headline='Asesor Easy Thesis',
+                        headline='Asesor Easy NodeOne',
                         specializations='',
                         meeting_url='',
                     )

@@ -45,7 +45,7 @@ def configure_gmail_smtp():
         print("\n📝 Pasos para generar contraseña de aplicación:")
         print("   1. Ve a: https://myaccount.google.com/apppasswords")
         print("   2. Selecciona 'Correo' → 'Otro (nombre personalizado)'")
-        print("   3. Escribe: 'Easy Thesis'")
+        print("   3. Escribe: 'Easy NodeOne'")
         print("   4. Copia la contraseña de 16 caracteres (sin espacios)")
         print("\n🔑 Ingresa la contraseña de aplicación (16 caracteres):")
         password = input("   Contraseña: ").strip().replace(' ', '')

@@ -119,7 +119,7 @@ def admin_update_office365_request(request_id):
     user_email = req.user.email if req.user else req.email
     if user_email and M.Mail and M.Message:
         subject = f'Solicitud Office 365 – {new_status.upper()}'
-        body_text = f"""Tu solicitud de acceso Office 365 (ID {req.id}) ha sido {new_status}.\n\nNotas del administrador:\n{admin_notes or 'Sin observaciones.'}\n\n— Easy Thesis"""
+        body_text = f"""Tu solicitud de acceso Office 365 (ID {req.id}) ha sido {new_status}.\n\nNotas del administrador:\n{admin_notes or 'Sin observaciones.'}\n\n— Easy NodeOne"""
         try:
             ok_smtp, _ = M.apply_transactional_smtp_for_organization(int(scope_oid))
             if ok_smtp and M.mail:

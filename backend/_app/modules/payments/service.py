@@ -324,7 +324,7 @@ def resolve_product_for_cart(user, data):
         final_price = pricing['final_price']
         unit_price = int(final_price * 100)
         product_name = service.name
-        product_description = service.description or 'Servicio de Easy Thesis'
+        product_description = service.description or 'Servicio de Easy NodeOne'
         metadata = {
             'service_id': service.id,
             'base_price': pricing['base_price'],

@@ -12,7 +12,7 @@ def _base_dir() -> Path:
 
 
 class Settings:
-    APP_NAME = (os.getenv('APP_NAME') or 'EasyThesis').strip() or 'EasyThesis'
+    APP_NAME = (os.getenv('APP_NAME') or 'EasyNodeOne').strip() or 'EasyNodeOne'
     BASE_DIR = str(_base_dir())
     LICENSE_PATH = (os.getenv('LICENSE_PATH') or '/opt/nodeone/licenses').strip() or '/opt/nodeone/licenses'
     ENV = (os.getenv('ENV') or 'production').strip() or 'production'

@@ -243,7 +243,7 @@ class MarketingCampaign(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     body_html = db.Column(db.Text, nullable=True)  # override: si está definido se usa en lugar de template.html
     exclusion_emails = db.Column(db.Text, nullable=True)  # JSON array de emails a excluir
-    from_name = db.Column(db.String(200), nullable=True)   # ej. "Easy Thesis" o "Nombre <email@x.com>"
+    from_name = db.Column(db.String(200), nullable=True)   # ej. "Easy NodeOne" o "Nombre <email@x.com>"
     reply_to = db.Column(db.String(200), nullable=True)   # email de respuesta
     subject_b = db.Column(db.String(500), nullable=True)  # variante B para prueba A/B de asunto
     meeting_url = db.Column(db.String(500), nullable=True)  # URL reunión / Meet; en plantilla {{ reunion_url }}

@@ -5,7 +5,7 @@ import os
 
 def platform_nav_logo_relpath():
     """
-    Logo de barra/favicon fijo de producto (Easy NodeOne).
+    Logo de barra/favicon fijo de producto (Easy Thesis por defecto).
     El upload de branding en /admin guarda el logo del tenant en static/uploads/emails/logos (gitignored);
     el nombre por defecto del asset de producto es distinto (logo-easy-nodeone / logo-primary).
     """
@@ -101,7 +101,7 @@ def get_nav_brand_name():
     import app as M
 
     if os.environ.get('NODEONE_NAV_FORCE_PRODUCT_NAME', '').strip().lower() in ('1', 'true', 'yes', 'on'):
-        return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
+        return (M.app.config.get('APP_BRAND_NAME') or 'Easy Thesis').strip() or 'Easy Thesis'
 
     def _name_for_org_id(oid):
         if oid is None:
@@ -162,5 +162,5 @@ def get_nav_brand_name():
     except Exception:
         pass
 
-    return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
+    return (M.app.config.get('APP_BRAND_NAME') or 'Easy Thesis').strip() or 'Easy Thesis'
 

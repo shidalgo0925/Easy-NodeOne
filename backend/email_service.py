@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Servicio de envío de correos electrónicos para Easy NodeOne
+Servicio de envío de correos electrónicos para Easy Thesis
 Maneja el envío de correos con reintentos y manejo de errores
 """
 
@@ -242,7 +242,7 @@ class EmailService:
         try:
             html_content = template_func(*args, **kwargs)
             # Extraer el subject del HTML si es posible, o usar uno por defecto
-            subject = kwargs.get('subject', 'Notificación de Easy NodeOne')
+            subject = kwargs.get('subject', 'Notificación de Easy Thesis')
             
             recipients = kwargs.get('recipients')
             if not recipients:

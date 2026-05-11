@@ -59,7 +59,7 @@ def main():
 
             print('\n📤 Enviando email de bienvenida...')
             success = ap.email_service.send_email(
-                subject='Bienvenido a Easy NodeOne',
+                subject='Bienvenido a Easy Thesis',
                 recipients=[args.email],
                 html_content=html_content,
                 email_type='welcome',

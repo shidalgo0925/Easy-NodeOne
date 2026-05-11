@@ -36,7 +36,7 @@ def set_gmail_app_password():
     print("   4. Selecciona:")
     print("      - App: 'Correo'")
     print("      - Device: 'Otro (nombre personalizado)'")
-    print("      - Escribe: 'Easy NodeOne'")
+    print("      - Escribe: 'Easy Thesis'")
     print("   5. Haz clic en 'Generar'")
     print("   6. Copia la contraseña de 16 caracteres (sin espacios)")
     

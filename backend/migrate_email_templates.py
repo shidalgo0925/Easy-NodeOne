@@ -18,35 +18,35 @@ EMAIL_TEMPLATES = [
     {
         'template_key': 'welcome',
         'name': 'Email de Bienvenida',
-        'subject': 'Bienvenido a Easy NodeOne',
+        'subject': 'Bienvenido a Easy Thesis',
         'category': 'system',
         'variables': '{"user": ["first_name", "last_name", "email"]}'
     },
     {
         'template_key': 'membership_payment',
         'name': 'Confirmación de Pago de Membresía',
-        'subject': 'Confirmación de Pago - Easy NodeOne',
+        'subject': 'Confirmación de Pago - Easy Thesis',
         'category': 'membership',
         'variables': '{"user": ["first_name", "last_name", "email"], "payment": ["membership_type", "amount", "created_at"], "subscription": ["end_date"]}'
     },
     {
         'template_key': 'membership_expiring',
         'name': 'Membresía por Expirar',
-        'subject': 'Tu Membresía Expirará en {days_left} Días - Easy NodeOne',
+        'subject': 'Tu Membresía Expirará en {days_left} Días - Easy Thesis',
         'category': 'membership',
         'variables': '{"user": ["first_name", "last_name", "email"], "subscription": ["membership_type", "end_date"], "days_left": "number"}'
     },
     {
         'template_key': 'membership_expired',
         'name': 'Membresía Expirada',
-        'subject': 'Tu Membresía Ha Expirado - Easy NodeOne',
+        'subject': 'Tu Membresía Ha Expirado - Easy Thesis',
         'category': 'membership',
         'variables': '{"user": ["first_name", "last_name", "email"], "subscription": ["membership_type", "end_date"]}'
     },
     {
         'template_key': 'membership_renewed',
         'name': 'Membresía Renovada',
-        'subject': 'Membresía Renovada - Easy NodeOne',
+        'subject': 'Membresía Renovada - Easy Thesis',
         'category': 'membership',
         'variables': '{"user": ["first_name", "last_name", "email"], "subscription": ["membership_type", "start_date", "end_date"]}'
     },
@@ -74,28 +74,28 @@ EMAIL_TEMPLATES = [
     {
         'template_key': 'appointment_confirmation',
         'name': 'Confirmación de Cita',
-        'subject': 'Cita Confirmada - Easy NodeOne',
+        'subject': 'Cita Confirmada - Easy Thesis',
         'category': 'appointment',
         'variables': '{"user": ["first_name", "last_name", "email"], "advisor": ["first_name", "last_name"], "appointment": ["appointment_date", "appointment_time", "duration", "appointment_type", "status"]}'
     },
     {
         'template_key': 'appointment_reminder',
         'name': 'Recordatorio de Cita',
-        'subject': 'Recordatorio: Cita en {hours_before} horas - Easy NodeOne',
+        'subject': 'Recordatorio: Cita en {hours_before} horas - Easy Thesis',
         'category': 'appointment',
         'variables': '{"user": ["first_name", "last_name", "email"], "advisor": ["first_name", "last_name"], "appointment": ["appointment_date", "appointment_time", "duration"], "hours_before": "number"}'
     },
     {
         'template_key': 'appointment_cancellation',
         'name': 'Cancelación de Cita',
-        'subject': 'Cancelación de cita - Easy NodeOne',
+        'subject': 'Cancelación de cita - Easy Thesis',
         'category': 'appointment',
         'variables': '{"user": ["first_name", "last_name", "email"], "appointment": ["reference", "start_datetime"], "cancellation_reason": "string", "cancelled_by": "string"}'
     },
     {
         'template_key': 'password_reset',
         'name': 'Restablecimiento de Contraseña',
-        'subject': 'Restablecer Contraseña - Easy NodeOne',
+        'subject': 'Restablecer Contraseña - Easy Thesis',
         'category': 'system',
         'variables': '{"user": ["first_name", "last_name", "email"], "reset_token": "string", "reset_url": "string"}'
     },

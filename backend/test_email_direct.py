@@ -56,7 +56,7 @@ def main():
             print(f'\n📤 Enviando correo de prueba a {test_email}...')
 
             msg = Message(
-                subject='[Prueba] Test Email - Easy NodeOne',
+                subject='[Prueba] Test Email - Easy Thesis',
                 recipients=[test_email],
                 html="""
                 <h2>Correo de Prueba</h2>

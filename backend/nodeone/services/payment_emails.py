@@ -29,7 +29,7 @@ def send_payment_confirmation_email(user, payment, subscription):
         print(f'Error sending email: {e}')
         log_email_sent(
             recipient_email=user.email,
-            subject='Confirmación de Pago - Easy NodeOne',
+            subject='Confirmación de Pago - Easy Thesis',
             html_content='',
             email_type='membership_payment',
             related_entity_type='payment',

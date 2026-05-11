@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Promueve un usuario a superusuario de plataforma (Easy NodeOne).
+Promueve un usuario a superusuario de plataforma (Easy Thesis).
 
 Qué hace:
   1) Asegura semilla RBAC (roles SA/AD/… y permisos) si la tabla `role` está vacía

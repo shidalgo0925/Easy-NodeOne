@@ -42,7 +42,7 @@ def update_gmail_password():
         print(f"   Longitud actual: {len(config.mail_password) if config.mail_password else 0} caracteres")
         
         # Actualizar contraseña
-        new_password = "Easy NodeOne2025"
+        new_password = "Easy Thesis2025"
         config.mail_password = new_password
         config.updated_at = datetime.utcnow()
         
@@ -57,7 +57,7 @@ def update_gmail_password():
             print("\n📝 Para generar contraseña de aplicación:")
             print("   1. Ve a: https://myaccount.google.com/apppasswords")
             print("   2. Selecciona 'Correo' → 'Otro (nombre personalizado)'")
-            print("   3. Escribe: 'Easy NodeOne'")
+            print("   3. Escribe: 'Easy Thesis'")
             print("   4. Copia la contraseña de 16 caracteres")
             print("   5. Actualiza desde /admin/email")
         

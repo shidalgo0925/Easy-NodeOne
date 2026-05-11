@@ -11,7 +11,7 @@ from flask import render_template, request
 
 
 def _default_platform_display_name():
-    return (os.environ.get('PLATFORM_DISPLAY_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
+    return (os.environ.get('PLATFORM_DISPLAY_NAME') or 'Easy Thesis').strip() or 'Easy Thesis'
 
 
 def _default_base_url():

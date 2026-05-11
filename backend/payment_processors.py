@@ -250,7 +250,7 @@ class PayPalProcessor(PaymentProcessor):
             'application_context': {
                 'return_url': return_url,
                 'cancel_url': cancel_url,
-                'brand_name': 'Easy NodeOne'
+                'brand_name': 'Easy Thesis'
             }
         }
         
@@ -517,7 +517,7 @@ class YappyProcessor(PaymentProcessor):
             'amount': amount_value,
             'currency': currency.upper(),
             'reference': reference,  # ID interno de referencia
-            'description': metadata.get('description', 'Membresía Easy NodeOne') if metadata else 'Membresía Easy NodeOne',
+            'description': metadata.get('description', 'Membresía Easy Thesis') if metadata else 'Membresía Easy Thesis',
             'returnUrl': return_url,
             'cancelUrl': cancel_url,
             'webhookUrl': webhook_url  # URL donde Yappy notificará el resultado

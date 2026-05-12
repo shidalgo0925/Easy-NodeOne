@@ -1,4 +1,6 @@
 # Rutas del carrito y checkout.
+import os
+
 from flask import Blueprint, current_app, request, jsonify, render_template, redirect, url_for, abort, session
 from flask_login import login_required, current_user
 
@@ -311,6 +313,8 @@ def checkout():
         payment_methods=payment_methods,
         intl_wire_display=intl_wire_display,
         yappy_checkout=yappy_checkout,
+        checkout_demo_hold=(os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower()
+        in ('1', 'true', 'yes'),
     )
 
 

@@ -89,6 +89,11 @@
                             <div class="alert alert-primary shadow-sm mb-3" role="region" aria-label="Método de pago">
                                 <h5 class="alert-heading h6 mb-2"><i class="fas fa-wallet me-2"></i>Método de pago</h5>
                                 <p class="small mb-3 mb-md-2">Elige una opción. Puedes pulsar en toda la fila del recuadro blanco.</p>
+                            {% if checkout_demo_hold %}
+                            <div class="alert alert-secondary py-2 small mb-2" role="status">
+                                <strong>Modo prueba:</strong> <code>NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS</code> está activo: en demo (Stripe/PayPal sin credenciales reales) el pago <strong>no</strong> se confirma al crear el intent; podés cambiar de método y revisar instrucciones sin salto automático a éxito.
+                            </div>
+                            {% endif %}
                             {% if current_user.is_authenticated and current_user.is_admin %}
                                 <p class="small mb-2 border-top pt-2 mt-2 opacity-75">Solo admins: esta UI sale de <code>dev/app/templates/checkout.html</code>. Si no ves el recuadro blanco, no estás sirviendo esa plantilla (p. ej. prod/staging sin <code>git pull</code> en <code>app/</code>).</p>
                             {% endif %}

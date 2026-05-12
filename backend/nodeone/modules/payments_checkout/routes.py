@@ -15,6 +15,15 @@ from utils.organization import resolve_current_organization
 payments_checkout_bp = Blueprint('payments_checkout', __name__)
 
 
+def _checkout_no_demo_auto_success():
+    """
+    Si está activo (1/true/yes), los pagos demo (Stripe/PayPal sin credenciales)
+    no pasan a succeeded al crearlos: quedan pending para poder probar el checkout
+    sin redirección inmediata a éxito. Ver NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS en .env.example.
+    """
+    return (os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower() in ('1', 'true', 'yes')
+
+
 def _email_verified_check_then(f):
     """Delega en app.email_verified_required sin import circular al cargar el módulo."""
     import app as M
@@ -356,8 +365,9 @@ def create_payment_intent():
             initial_status = 'succeeded'
         elif payment_method == 'wire_international':
             initial_status = 'pending'
-        elif is_demo_mode and not receipt_url:  # Demo sin archivo
-            initial_status = 'succeeded'
+        elif is_demo_mode and not receipt_url:
+            # Demo sin comprobante: por defecto auto-aprobado; con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS queda pending para QA.
+            initial_status = 'pending' if _checkout_no_demo_auto_success() else 'succeeded'
         else:
             initial_status = 'pending'
         
@@ -461,6 +471,7 @@ def create_payment_intent():
             'amount': total_amount,
             'status': initial_status,
             'demo_mode': is_demo_mode,
+            'demo_hold_for_ui': bool(is_demo_mode and initial_status == 'pending' and _checkout_no_demo_auto_success()),
             'ocr_data': json.loads(ocr_data) if ocr_data else None,
             'ocr_status': ocr_status,
             'ocr_verified': ocr_verified
@@ -507,9 +518,30 @@ def create_payment_intent_legacy():
         
         total_amount = cart.get_total()
         
-        # Modo Demo - Simular pago exitoso
+        # Modo Demo - Simular pago exitoso (salvo pruebas con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS)
         demo_mode = True  # Cambiar a False cuando tengas Stripe configurado
-        
+
+        if demo_mode and _checkout_no_demo_auto_success():
+            fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"
+            payment = M.Payment(
+                user_id=current_user.id,
+                payment_method='stripe',
+                payment_reference=fake_intent_id,
+                amount=total_amount,
+                membership_type='cart',
+                status='pending',
+            )
+            M.db.session.add(payment)
+            M.db.session.commit()
+            return jsonify(
+                {
+                    'client_secret': 'demo_client_secret',
+                    'payment_id': payment.id,
+                    'demo_mode': True,
+                    'status': 'pending',
+                }
+            )
+
         if demo_mode:
             # Simular Payment Intent
             fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"

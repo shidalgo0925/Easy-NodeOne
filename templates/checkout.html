@@ -139,7 +139,7 @@
                                             <p class="mb-2 fw-semibold text-success mb-1">Yappy (integración)</p>
                                             <p class="mb-0">Pago móvil vía flujo integrado. Sigue las indicaciones en pantalla después de pulsar <strong>Pagar</strong>.</p>
                                         {% elif method_key == 'yappy_manual' %}
-                                            <p class="mb-2 fw-semibold text-success mb-1">Yappy manual</p>
+                                            <p class="mb-2 fw-semibold text-success mb-1">Pago por Yappy</p>
                                             {% if yappy_checkout %}
                                             <p class="mb-2">Paga desde tu app bancaria con Yappy. Busca en el directorio: <strong>{{ yappy_checkout.directory_name or yappy_checkout.display_name }}</strong>.</p>
                                             <ul class="mb-2 ps-3">
@@ -147,16 +147,20 @@
                                                 {% if yappy_checkout.directory_name %}<li><strong>Directorio:</strong> <code>{{ yappy_checkout.directory_name }}</code></li>{% endif %}
                                                 {% if yappy_checkout.phone %}<li><strong>Teléfono / identificador:</strong> {{ yappy_checkout.phone }}</li>{% endif %}
                                                 <li><strong>Monto a pagar:</strong> ${{ "%.2f"|format(total_amount / 100) }} {{ yappy_checkout.currency }}</li>
-                                                {% if yappy_checkout.requires_receipt %}<li>Se pedirá <strong>comprobante</strong> en el siguiente paso.</li>{% endif %}
+                                                {% if yappy_checkout.requires_receipt %}<li>Podés adjuntar el <strong>comprobante</strong> aquí mismo al pulsar <strong>Pagar</strong> o en la página de instrucciones.</li>{% endif %}
                                             </ul>
                                             {% if yappy_checkout.instructions_html %}
                                             <div class="border rounded p-2 mb-2 bg-light checkout-yappy-instr-html">{{ yappy_checkout.instructions_html | safe }}</div>
                                             {% else %}
+                                            <p class="mb-1 small"><strong>Para pagar por Yappy:</strong></p>
                                             <ol class="mb-2 ps-3 small">
-                                                <li>Abre tu app de banco y entra a Yappy.</li>
-                                                <li>Busca el comercio en el directorio.</li>
-                                                <li>Paga el monto exacto.</li>
-                                                <li>Guarda captura o PDF y adjúntalo en el paso siguiente.</li>
+                                                <li>Abre tu app bancaria.</li>
+                                                <li>Entra a Yappy.</li>
+                                                <li>Busca nuestro comercio en el directorio como: <strong>{{ yappy_checkout.directory_name or yappy_checkout.display_name }}</strong>.</li>
+                                                <li>Realiza el pago por el monto exacto indicado arriba.</li>
+                                                <li>Toma captura o guarda PDF del comprobante.</li>
+                                                <li>Adjunta el comprobante aquí (tras pulsar <strong>Pagar</strong>) o en la página siguiente.</li>
+                                                <li>Tu pago quedará pendiente hasta validación administrativa.</li>
                                             </ol>
                                             {% endif %}
                                             <div class="text-center mb-0">
@@ -349,6 +353,43 @@
                                     </button>
                                 </div>
                             </form>
+                            <div id="en1-checkout-yappy-inline" class="card border-success mt-3 d-none" role="region" aria-label="Comprobante pago por Yappy">
+                                <div class="card-header bg-success text-white py-2">
+                                    <h6 class="mb-0"><i class="fas fa-paperclip me-2"></i>Pago por Yappy — pedido creado</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted mb-2">Usá la referencia y el monto exactos en tu app Yappy. Podés adjuntar el comprobante aquí o en la página de instrucciones.</p>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-sm-6">
+                                            <span class="text-muted small d-block">Monto</span>
+                                            <span class="fs-5" id="en1-yappy-inline-amount">—</span> <span class="text-muted">USD</span>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <span class="text-muted small d-block">Referencia</span>
+                                            <code class="user-select-all fs-6" id="en1-yappy-ref">—</code>
+                                        </div>
+                                    </div>
+                                    <form id="en1-yappy-receipt-form" enctype="multipart/form-data" data-payment-id="">
+                                        <div class="mb-2">
+                                            <label class="form-label small mb-0" for="en1-yappy-user-ref">Referencia o comentario (opcional)</label>
+                                            <input type="text" class="form-control form-control-sm" id="en1-yappy-user-ref" name="user_reference" maxlength="500" placeholder="Ej. nota del banco">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small mb-0" for="en1-yappy-receipt-file"><span id="en1-yappy-receipt-label">Comprobante</span></label>
+                                            <input type="file" class="form-control form-control-sm" name="receipt" id="en1-yappy-receipt-file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+                                            <small class="text-muted">JPG, PNG, WEBP o PDF. Máx. 5 MB.</small>
+                                        </div>
+                                        <button type="submit" class="btn btn-success btn-sm" id="en1-yappy-receipt-submit">
+                                            <i class="fas fa-paper-plane"></i> Enviar comprobante
+                                        </button>
+                                        <span id="en1-yappy-receipt-spinner" class="spinner-border spinner-border-sm d-none ms-2" role="status"></span>
+                                    </form>
+                                    <div id="en1-yappy-receipt-msg" class="mt-2 small"></div>
+                                    <p class="mb-0 mt-3 small">
+                                        <a href="#" id="en1-yappy-full-page-link" class="link-primary">Instrucciones completas, código QR y seguimiento</a>
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -379,12 +420,60 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
     const INTL_WIRE_DISPLAY = {{ intl_wire_display | default({}) | tojson }};
+    const EN1_YAPPY_RECEIPT_REQUIRES = {{ (yappy_checkout.requires_receipt if yappy_checkout else True)|tojson }};
     const firstCheckedMethod = document.querySelector('input[name="payment_method"]:checked');
     let currentPaymentMethod = firstCheckedMethod ? firstCheckedMethod.value : 'paypal';
     let stripe = null;
     let stripeElements = null;
     let stripeCardElement = null;
     let stripeClientSecret = null;
+    let en1YappyFullPageUrl = '';
+
+    function en1YappySubmitWrap() {
+        const b = document.getElementById('submit-button');
+        return b ? b.closest('.d-grid') : null;
+    }
+
+    function en1HideYappyInlinePanel() {
+        const panel = document.getElementById('en1-checkout-yappy-inline');
+        if (panel) panel.classList.add('d-none');
+        const wrap = en1YappySubmitWrap();
+        if (wrap) wrap.classList.remove('d-none');
+        en1YappyFullPageUrl = '';
+    }
+
+    function en1ShowYappyInlineReceiptPanel(data, fullPageUrl) {
+        const panel = document.getElementById('en1-checkout-yappy-inline');
+        const form = document.getElementById('en1-yappy-receipt-form');
+        const refEl = document.getElementById('en1-yappy-ref');
+        const amtEl = document.getElementById('en1-yappy-inline-amount');
+        const fileInput = document.getElementById('en1-yappy-receipt-file');
+        const lbl = document.getElementById('en1-yappy-receipt-label');
+        const msg = document.getElementById('en1-yappy-receipt-msg');
+        const link = document.getElementById('en1-yappy-full-page-link');
+        if (!panel || !form || !data.payment_id) return;
+        en1YappyFullPageUrl = fullPageUrl || '';
+        if (refEl) refEl.textContent = data.payment_reference || ('#' + data.payment_id);
+        if (amtEl && typeof data.amount === 'number') amtEl.textContent = (data.amount / 100).toFixed(2);
+        form.setAttribute('data-payment-id', String(data.payment_id));
+        if (fileInput) {
+            fileInput.value = '';
+            fileInput.required = !!EN1_YAPPY_RECEIPT_REQUIRES;
+        }
+        const urInput = document.getElementById('en1-yappy-user-ref');
+        if (urInput) urInput.value = '';
+        if (lbl) lbl.textContent = EN1_YAPPY_RECEIPT_REQUIRES ? 'Comprobante' : 'Comprobante (opcional)';
+        if (msg) msg.innerHTML = '';
+        if (link) {
+            link.href = fullPageUrl || '#';
+            if (!fullPageUrl) link.classList.add('d-none');
+            else link.classList.remove('d-none');
+        }
+        const wrap = en1YappySubmitWrap();
+        if (wrap) wrap.classList.add('d-none');
+        panel.classList.remove('d-none');
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
     
     document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
         radio.addEventListener('change', function() {
@@ -406,6 +495,7 @@
     }
     
     function updatePaymentForm() {
+        en1HideYappyInlinePanel();
         // Ocultar todas las secciones
         document.querySelectorAll('.payment-section').forEach(section => {
             section.classList.add('d-none');
@@ -833,11 +923,10 @@
                 }
             } else if (currentPaymentMethod === 'yappy_manual') {
                 const dest = data.redirect_url || (data.payment_id ? `/payment/yappy-manual/${data.payment_id}` : null);
-                if (dest) {
-                    window.location.href = dest;
-                } else {
-                    throw new Error(data.error || 'No se pudo iniciar Yappy manual.');
+                if (!data.payment_id || !dest) {
+                    throw new Error(data.error || 'No se pudo iniciar el pago por Yappy.');
                 }
+                en1ShowYappyInlineReceiptPanel(data, dest);
             } else if (currentPaymentMethod === 'yappy') {
                 // Yappy puede ser automático (con API) o manual (si API no disponible)
                 if (data.manual && data.api_unavailable) {
@@ -893,6 +982,52 @@
             }
         }
     });
+
+    (function () {
+        const yForm = document.getElementById('en1-yappy-receipt-form');
+        const yLink = document.getElementById('en1-yappy-full-page-link');
+        if (yLink) {
+            yLink.addEventListener('click', function (e) {
+                if (en1YappyFullPageUrl) {
+                    e.preventDefault();
+                    window.location.href = en1YappyFullPageUrl;
+                }
+            });
+        }
+        if (!yForm) return;
+        yForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const pid = yForm.getAttribute('data-payment-id');
+            if (!pid) return;
+            const btn = document.getElementById('en1-yappy-receipt-submit');
+            const sp = document.getElementById('en1-yappy-receipt-spinner');
+            const msg = document.getElementById('en1-yappy-receipt-msg');
+            const f = document.getElementById('en1-yappy-receipt-file');
+            const ur = document.getElementById('en1-yappy-user-ref');
+            if (EN1_YAPPY_RECEIPT_REQUIRES && (!f || !f.files || !f.files[0])) {
+                if (msg) msg.innerHTML = '<div class="alert alert-warning py-2 mb-0">Adjuntá un comprobante.</div>';
+                return;
+            }
+            const fd = new FormData();
+            if (f && f.files && f.files[0]) fd.append('receipt', f.files[0]);
+            if (ur && ur.value) fd.append('user_reference', ur.value);
+            if (btn) btn.disabled = true;
+            if (sp) sp.classList.remove('d-none');
+            if (msg) msg.innerHTML = '';
+            try {
+                const r = await fetch('/api/payment/yappy-manual/' + pid + '/submit-receipt', { method: 'POST', body: fd });
+                const data = await r.json().catch(function () { return {}; });
+                if (!r.ok || !data.success) throw new Error(data.error || ('Error ' + r.status));
+                if (msg) msg.innerHTML = '<div class="alert alert-success py-2 mb-0">' + (data.message || 'Listo') + '</div>';
+                if (en1YappyFullPageUrl) setTimeout(function () { window.location.href = en1YappyFullPageUrl; }, 1200);
+            } catch (err) {
+                if (msg) msg.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + (err.message || 'Error') + '</div>';
+                if (btn) btn.disabled = false;
+            } finally {
+                if (sp) sp.classList.add('d-none');
+            }
+        });
+    })();
 
     // Funciones para códigos de descuento
     function applyDiscountCode() {

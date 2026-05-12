@@ -13,7 +13,7 @@ PAYMENT_METHODS = {
     'paypal': 'PayPal',
     'banco_general': 'Banco General',
     'yappy': 'Yappy',
-    'yappy_manual': 'Pago por Yappy (manual)',
+    'yappy_manual': 'Pago por Yappy',
     'wire_international': 'Transferencia internacional (SWIFT)',
 }
 

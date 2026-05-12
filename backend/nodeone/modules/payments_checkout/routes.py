@@ -184,7 +184,7 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
 
         HistoryLogger.log_user_action(
             user_id=current_user.id,
-            action=f"Pago Yappy manual creado — {payment.payment_reference} — USD {total_amount / 100:.2f}",
+            action=f"Pago por Yappy creado — {payment.payment_reference} — USD {total_amount / 100:.2f}",
             status="pending_receipt",
             context={"app": "web", "screen": "checkout", "module": "payment"},
             payload={

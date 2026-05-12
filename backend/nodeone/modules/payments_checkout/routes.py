@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 from functools import wraps
 
 from nodeone.services.payment_post_process import process_cart_after_payment, send_payment_to_odoo
-from utils.organization import payment_organization_id_for_request
+from utils.organization import resolve_current_organization
 
 payments_checkout_bp = Blueprint('payments_checkout', __name__)
 
@@ -130,13 +130,7 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
             }
         ), 400
 
-    pay_oid = payment_organization_id_for_request()
-    try:
-        oid = int(pay_oid) if pay_oid is not None else None
-    except (TypeError, ValueError):
-        oid = None
-    if oid is None:
-        oid = getattr(current_user, "organization_id", None)
+    oid = int(resolve_current_organization())
 
     metadata = {
         "user_id": current_user.id,
@@ -275,7 +269,7 @@ def create_payment_intent():
         if payment_method not in M.PAYMENT_METHODS:
             return jsonify({'error': f'Método de pago no válido: {payment_method}'}), 400
 
-        pay_oid = payment_organization_id_for_request()
+        pay_oid = int(resolve_current_organization())
         payment_config = M.PaymentConfig.get_active_config(organization_id=pay_oid)
 
         if payment_method == 'yappy_manual':
@@ -967,7 +961,7 @@ def paypal_return():
     # Capturar el pago de PayPal
     if M.PAYMENT_PROCESSORS_AVAILABLE:
         try:
-            pay_oid = payment_organization_id_for_request()
+            pay_oid = int(resolve_current_organization())
             payment_config = M.PaymentConfig.get_active_config(organization_id=pay_oid)
             processor = M.get_payment_processor('paypal', payment_config)
             # PayPal ya captura automáticamente, solo verificamos

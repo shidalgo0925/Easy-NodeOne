@@ -246,9 +246,10 @@ def checkout():
     try:
         from app import PAYMENT_METHODS, PAYMENT_PROCESSORS_AVAILABLE, STRIPE_PUBLISHABLE_KEY, PaymentConfig
         from payment_processors import INTL_WIRE_DEFAULTS
-        from utils.organization import payment_organization_id_for_request
+        # Misma org operativa que catálogo / host (evita usar solo default 1 y perder yappy_manual_enabled del tenant).
+        from utils.organization import resolve_current_organization
 
-        pay_oid = payment_organization_id_for_request()
+        pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
         if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):

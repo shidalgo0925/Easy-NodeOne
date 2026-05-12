@@ -27,7 +27,8 @@
             <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
                 <a href="/admin/payments/verify" class="btn btn-sm btn-primary"><i class="fas fa-sync-alt"></i> Verificar Pagos Pendientes</a>
                 {% if has_view_endpoint('payments_admin.admin_yappy_manual_list') %}
-                <a href="{{ url_for('payments_admin.admin_yappy_manual_list') }}" class="btn btn-sm btn-success"><i class="fas fa-mobile-alt"></i> Validaciones Yappy</a>
+                {# Ruta fija: evita BuildError si url_for falla por endpoint alias no registrado en algún worker. #}
+                <a href="/admin/payments/yappy-manual" class="btn btn-sm btn-success"><i class="fas fa-mobile-alt"></i> Validaciones Yappy</a>
                 {% endif %}
                 {% if has_view_endpoint('payments.cart') %}{{ qr_link(absolute_site_url(url_for('payments.cart')), 'QR carrito') }}{% endif %}
             </div>

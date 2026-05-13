@@ -17,7 +17,7 @@ payments_admin_bp = Blueprint('payments_admin', __name__)
 def _likely_missing_sql_column_error(exc: BaseException) -> bool:
     """MySQL/PyMySQL/SQLite suelen incluir el texto en OperationalError o en orig de StatementError."""
     msg = str(exc).lower()
-    if 'unknown column' in msg or 'no such column' in msg:
+    if 'unknown column' in msg or 'no such column' in msg or 'undefined column' in msg:
         return True
     # MySQL ER_BAD_FIELD_ERROR (p. ej. PyMySQL (1054, "Unknown column ..."))
     if '1054' in msg and 'column' in msg:
@@ -355,6 +355,10 @@ def _admin_payments_page_inner(M):
         print(f"❌ Error obteniendo PaymentConfig: {e}")
         import traceback
         traceback.print_exc()
+        try:
+            M.db.session.rollback()
+        except Exception:
+            pass
         config_dict = None
 
     pending_payments = []

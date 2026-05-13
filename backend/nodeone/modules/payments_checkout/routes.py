@@ -228,7 +228,9 @@ def create_payment_intent():
             data = request.form.to_dict()
         
         payment_method = data.get('payment_method', 'stripe')
-        
+        if isinstance(payment_method, str) and payment_method.lower().startswith('yappy'):
+            return jsonify({'error': 'El método Yappy no está disponible en el checkout.'}), 400
+
         # Manejar archivo de comprobante si existe (métodos manuales)
         receipt_file = None
         receipt_filename = None

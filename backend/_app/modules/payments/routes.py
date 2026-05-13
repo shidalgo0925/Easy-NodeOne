@@ -254,9 +254,12 @@ def checkout():
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
-        # Checkout: no se ofrece Yappy (ni API ni manual). La config en Admin → Pagos puede seguir existiendo por si se reactiva vía código.
-        payment_methods.pop('yappy', None)
-        payment_methods.pop('yappy_manual', None)
+        # Checkout: sin Yappy (ninguna variante yappy / yappy_manual / futuras claves).
+        payment_methods = {
+            k: v
+            for k, v in payment_methods.items()
+            if not str(k).lower().startswith('yappy')
+        }
         yappy_checkout = None
         if pcfg is not None and getattr(pcfg, 'intl_wire_enabled', True) is False:
             payment_methods.pop('wire_international', None)

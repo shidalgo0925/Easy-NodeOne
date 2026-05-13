@@ -1,44 +1,123 @@
 {% extends "base.html" %}
 {% block title %}Validaciones Yappy — Easy NodeOne{% endblock %}
+{% block head %}
+<style>
+    .en1-yappy-admin .nav-link { font-weight: 600; color: #495057; }
+    .en1-yappy-admin .nav-link.active { color: var(--color-primary, #0d6efd); }
+</style>
+{% endblock %}
 {% block page_content %}
-<div class="container py-4">
-    <h1 class="h4 mb-3"><i class="fas fa-mobile-alt text-success"></i> Validaciones Yappy (pago manual)</h1>
-    <p class="text-muted"><a href="{{ url_for('payments_admin.admin_payments') }}">← Configuración de pagos</a></p>
-    {% if not payments %}
-    <div class="alert alert-info">No hay pagos pendientes en este momento.</div>
-    {% else %}
-    <div class="table-responsive">
-        <table class="table table-striped table-hover table-sm">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Usuario</th>
-                    <th>Org.</th>
-                    <th>Ref.</th>
-                    <th>Monto</th>
-                    <th>Estado</th>
-                    <th>Nota cliente</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in payments %}
-                <tr>
-                    <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
-                    <td><small>{{ p.user.email if p.user else p.user_id }}</small></td>
-                    <td><small>{{ p.organization_id or (p.user.organization_id if p.user else '—') }}</small></td>
-                    <td><code>{{ p.payment_reference }}</code></td>
-                    <td>${{ "%.2f"|format(p.amount / 100) }}</td>
-                    <td><span class="badge bg-secondary">{{ p.status }}</span></td>
-                    <td><small class="text-muted">{{ (p.payment_user_reference or '')[:40] }}{% if p.payment_user_reference and p.payment_user_reference|length > 40 %}…{% endif %}</small></td>
-                    <td>
-                        <a class="btn btn-sm btn-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Abrir</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="container py-4 en1-yappy-admin">
+    <h1 class="h4 mb-2"><i class="fas fa-mobile-alt text-success"></i> Validación de pagos Yappy manual</h1>
+    <p class="text-muted mb-4"><a href="{{ url_for('payments_admin.admin_payments') }}">← Configuración de pagos</a></p>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-pend-tab" data-bs-toggle="tab" data-bs-target="#tab-pend" type="button" role="tab">Pendientes <span class="badge bg-secondary">{{ payments_pending|length }}</span></button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-apr-tab" data-bs-toggle="tab" data-bs-target="#tab-apr" type="button" role="tab">Aprobados <span class="badge bg-success">{{ payments_approved|length }}</span></button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-rej-tab" data-bs-toggle="tab" data-bs-target="#tab-rej" type="button" role="tab">Rechazados <span class="badge bg-danger">{{ payments_rejected|length }}</span></button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="tab-pend" role="tabpanel">
+            {% if not payments_pending %}
+            <div class="alert alert-light border">No hay pagos pendientes en este momento.</div>
+            {% else %}
+            <div class="table-responsive card border-0 shadow-sm">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Ref.</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in payments_pending %}
+                        <tr>
+                            <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
+                            <td><small>{{ p.user.email if p.user else p.user_id }}</small></td>
+                            <td><code>{{ p.payment_reference }}</code></td>
+                            <td>${{ "%.2f"|format(p.amount / 100) }}</td>
+                            <td><span class="badge bg-warning text-dark">{{ p.status }}</span></td>
+                            <td><a class="btn btn-sm btn-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Abrir</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+        <div class="tab-pane fade" id="tab-apr" role="tabpanel">
+            {% if not payments_approved %}
+            <div class="alert alert-light border">No hay pagos aprobados recientes en esta lista.</div>
+            {% else %}
+            <div class="table-responsive card border-0 shadow-sm">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Ref.</th>
+                            <th>Monto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in payments_approved %}
+                        <tr>
+                            <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
+                            <td><small>{{ p.user.email if p.user else p.user_id }}</small></td>
+                            <td><code>{{ p.payment_reference }}</code></td>
+                            <td>${{ "%.2f"|format(p.amount / 100) }}</td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Ver</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+        <div class="tab-pane fade" id="tab-rej" role="tabpanel">
+            {% if not payments_rejected %}
+            <div class="alert alert-light border">No hay pagos rechazados o cancelados recientes.</div>
+            {% else %}
+            <div class="table-responsive card border-0 shadow-sm">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Ref.</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in payments_rejected %}
+                        <tr>
+                            <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
+                            <td><small>{{ p.user.email if p.user else p.user_id }}</small></td>
+                            <td><code>{{ p.payment_reference }}</code></td>
+                            <td>${{ "%.2f"|format(p.amount / 100) }}</td>
+                            <td><span class="badge bg-secondary">{{ p.status }}</span></td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Ver</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
     </div>
-    {% endif %}
 </div>
 {% endblock %}

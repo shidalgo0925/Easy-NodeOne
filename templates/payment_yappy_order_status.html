@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Estado del pedido — Yappy{% endblock %}
+{% block head %}
+<style>
+    .en1-ym-status-hero { border-radius: 0.75rem; border: 1px solid #e9ecef; background: #fff; }
+    .en1-ym-status-badge { font-size: 0.85rem; }
+</style>
+{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <p class="text-muted small mb-2">
+                <a href="{{ url_for('payments_checkout.payment_yappy_manual_instructions', payment_id=payment.id) }}">← Volver a instrucciones de pago</a>
+            </p>
+            <div class="en1-ym-status-hero shadow-sm p-4 mb-3">
+                <h1 class="h4 mb-3">Estado del pedido</h1>
+                {% set st = (payment.status or '') %}
+                {% if st in ('pending_admin_review', 'pending_validation', 'manual_review') %}
+                <span class="badge bg-warning text-dark en1-ym-status-badge">Pendiente de validación</span>
+                {% elif st in ('pending_receipt', 'pending_payment') %}
+                <span class="badge bg-secondary en1-ym-status-badge">Pendiente de comprobante</span>
+                {% elif st == 'paid' %}
+                <span class="badge bg-success en1-ym-status-badge">Pagado / aprobado</span>
+                {% elif st == 'rejected' %}
+                <span class="badge bg-danger en1-ym-status-badge">Rechazado</span>
+                {% elif st == 'partially_paid' %}
+                <span class="badge bg-warning text-dark en1-ym-status-badge">Pago incompleto</span>
+                {% else %}
+                <span class="badge bg-secondary en1-ym-status-badge">{{ status_label }}</span>
+                {% endif %}
+                <p class="text-muted small mt-3 mb-0">{{ status_label }}</p>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-4">Método</dt>
+                        <dd class="col-sm-8">Yappy manual</dd>
+                        <dt class="col-sm-4">Referencia</dt>
+                        <dd class="col-sm-8"><code>{{ payment.payment_reference or '—' }}</code></dd>
+                        <dt class="col-sm-4">Monto</dt>
+                        <dd class="col-sm-8 fw-semibold">${{ "%.2f"|format(payment.amount / 100) }} {{ (payment.currency or 'usd')|upper }}</dd>
+                        <dt class="col-sm-4">Fecha</dt>
+                        <dd class="col-sm-8">{{ payment.created_at.strftime('%d/%m/%Y %H:%M') if payment.created_at else '—' }}</dd>
+                        {% if payment.receipt_filename %}
+                        <dt class="col-sm-4">Comprobante</dt>
+                        <dd class="col-sm-8 text-break">{{ payment.receipt_filename }}</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

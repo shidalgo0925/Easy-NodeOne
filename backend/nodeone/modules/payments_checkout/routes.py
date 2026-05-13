@@ -17,11 +17,32 @@ payments_checkout_bp = Blueprint('payments_checkout', __name__)
 
 def _checkout_no_demo_auto_success():
     """
-    Si está activo (1/true/yes), los pagos demo (Stripe/PayPal sin credenciales)
-    no pasan a succeeded al crearlos: quedan pending para poder probar el checkout
-    sin redirección inmediata a éxito. Ver NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS en .env.example.
+    True = en modo demo NO marcar el pago como succeeded al crear el intent (queda ``pending``:
+    no se vacía el carrito ni se confirma solo).
+
+    Por defecto True para poder probar sin tocar variables.
+
+    Opt-in al comportamiento legacy (auto-éxito demo al crear intent):
+        NODEONE_CHECKOUT_DEMO_AUTO_SUCCESS=1   (o true/yes/on)
+
+    Compatibilidad con el nombre anterior:
+        NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS=0|false|no|off  → sin hold (auto succeeded en demo)
+        NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS=1|true|yes     → forzar hold
     """
-    return (os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower() in ('1', 'true', 'yes')
+    demo_auto = (os.environ.get('NODEONE_CHECKOUT_DEMO_AUTO_SUCCESS') or '').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+        'on',
+    )
+    if demo_auto:
+        return False
+    no_demo = (os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower()
+    if no_demo in ('0', 'false', 'no', 'off'):
+        return False
+    if no_demo in ('1', 'true', 'yes', 'on'):
+        return True
+    return True
 
 
 def _email_verified_check_then(f):
@@ -896,6 +917,29 @@ def payment_yappy_manual_instructions(payment_id):
         yappy_instructions_html=yinstr,
         yappy_phone=yphone,
         receipt_requires=receipt_requires,
+    )
+
+
+@payments_checkout_bp.route('/payment/yappy-manual/<int:payment_id>/estado')
+@login_required
+def payment_yappy_manual_order_status(payment_id):
+    """Estado del pedido (cliente): resumen visual alineado al flujo mockup."""
+    import app as M
+
+    from nodeone.services.yappy_manual_status import yappy_status_label
+
+    payment = M.Payment.query.get_or_404(payment_id)
+    if payment.user_id != current_user.id:
+        flash('No autorizado.', 'error')
+        return redirect(url_for('payments.checkout'))
+    if payment.payment_method != 'yappy_manual':
+        return redirect(url_for('payments_checkout.payment_success', payment_id=payment.id))
+    cfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id)
+    return render_template(
+        'payment_yappy_order_status.html',
+        payment=payment,
+        payment_config=cfg,
+        status_label=yappy_status_label(payment.status),
     )
 
 

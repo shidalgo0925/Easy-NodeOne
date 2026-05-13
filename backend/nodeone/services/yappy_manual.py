@@ -47,6 +47,34 @@ def _brand_name():
         return "Easy NodeOne"
 
 
+def _yappy_status_page_url(payment_id: int) -> str:
+    try:
+        from flask import url_for
+
+        return url_for("payments_checkout.payment_yappy_manual_order_status", payment_id=payment_id, _external=True)
+    except Exception:
+        return f"/payment/yappy-manual/{int(payment_id)}/estado"
+
+
+def _tx_email_html(title: str, inner: str, cta_url: str | None = None, cta_label: str | None = None) -> str:
+    cta_block = ""
+    if cta_url and cta_label:
+        cta_block = (
+            f'<p style="margin:20px 0 0;"><a href="{cta_url}" '
+            'style="display:inline-block;background:#0d6efd;color:#ffffff;padding:12px 22px;'
+            'border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">'
+            f"{cta_label}</a></p>"
+        )
+    return f"""<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#f4f6f8;font-family:system-ui,Segoe UI,Roboto,sans-serif;">
+<table width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 8px;"><tr><td align="center">
+<table width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #e9ecef;overflow:hidden;">
+<tr><td style="padding:24px 24px 8px;font-size:20px;font-weight:700;color:#212529;">{title}</td></tr>
+<tr><td style="padding:8px 24px 24px;font-size:15px;line-height:1.55;color:#495057;">{inner}</td></tr>
+<tr><td style="padding:0 24px 28px;">{cta_block}</td></tr>
+</table></td></tr></table></body></html>"""
+
+
 def _send_html(recipients: List[str], subject: str, html: str, **kwargs):
     import app as M
 
@@ -79,17 +107,16 @@ def notify_admin_new_receipt(payment, payer_user, config) -> None:
         link = url_for("payments_admin.admin_yappy_manual_detail", payment_id=payment.id, _external=True)
     except Exception:
         link = f"/admin/payments/yappy-manual/{payment.id}"
-    html = f"""
-    <h2>Nuevo pago Yappy pendiente de validación</h2>
-    <p>El cliente <strong>{payer_user.first_name} {payer_user.last_name}</strong> ({payer_user.email})
+    inner = f"""
+    <p style="margin:0 0 12px;">El cliente <strong>{payer_user.first_name} {payer_user.last_name}</strong> ({payer_user.email})
     subió un comprobante.</p>
-    <ul>
+    <ul style="margin:0;padding-left:20px;">
       <li><strong>Pago ID:</strong> {payment.id}</li>
       <li><strong>Referencia:</strong> {ref}</li>
       <li><strong>Monto esperado:</strong> USD {amount:.2f}</li>
     </ul>
-    <p><a href="{link}">Revisar en el panel</a></p>
     """
+    html = _tx_email_html("Nuevo comprobante Yappy", inner, link, "Revisar en el panel")
     _send_html(
         recipients,
         f"[{_brand_name()}] Nuevo comprobante Yappy — revisar",
@@ -103,14 +130,15 @@ def notify_admin_new_receipt(payment, payer_user, config) -> None:
 def notify_client_receipt_received(payment, user) -> None:
     import app as M
 
-    html = f"""
-    <h2>Comprobante recibido</h2>
-    <p>Hola {user.first_name},</p>
-    <p>Recibimos tu comprobante para el pago <strong>#{payment.id}</strong>
-    (referencia <code>{payment.payment_reference or ''}</code>).</p>
-    <p><strong>Estado:</strong> pendiente de validación por nuestro equipo.</p>
-    <p>Te avisaremos por correo cuando sea revisado.</p>
+    st_url = _yappy_status_page_url(payment.id)
+    inner = f"""
+    <p style="margin:0 0 12px;">Hola <strong>{user.first_name}</strong>,</p>
+    <p style="margin:0 0 12px;">Recibimos tu comprobante para el pago <strong>#{payment.id}</strong>
+    (referencia <code style="background:#f1f3f5;padding:2px 6px;border-radius:4px;">{payment.payment_reference or ''}</code>).</p>
+    <p style="margin:0;"><strong>Estado:</strong> pendiente de validación por nuestro equipo.</p>
+    <p style="margin:16px 0 0;">Te avisaremos por correo cuando sea revisado.</p>
     """
+    html = _tx_email_html("Comprobante recibido", inner, st_url, "Ver estado del pedido")
     _send_html(
         [user.email],
         f"[{_brand_name()}] Comprobante recibido — pago pendiente de validación",
@@ -126,12 +154,12 @@ def notify_client_receipt_received(payment, user) -> None:
 def notify_client_approved(payment, user) -> None:
     import app as M
 
-    html = f"""
-    <h2>Pago aprobado</h2>
-    <p>Hola {user.first_name},</p>
-    <p>Tu pago Yappy <strong>#{payment.id}</strong> fue <strong>aprobado</strong>.</p>
-    <p>Tu compra quedó activada según los productos que habías seleccionado.</p>
+    inner = f"""
+    <p style="margin:0 0 12px;">Hola <strong>{user.first_name}</strong>,</p>
+    <p style="margin:0;">Tu pago Yappy <strong>#{payment.id}</strong> fue <strong>aprobado</strong>.</p>
+    <p style="margin:16px 0 0;">Tu compra quedó activada según los productos que habías seleccionado.</p>
     """
+    html = _tx_email_html("Pago confirmado", inner, None, None)
     _send_html(
         [user.email],
         f"[{_brand_name()}] Pago confirmado",
@@ -149,15 +177,15 @@ def notify_client_partial(payment, user, notes: Optional[str] = None) -> None:
 
     exp = (payment.amount or 0) / 100.0
     got = (payment.amount_received_cents or 0) / 100.0
-    html = f"""
-    <h2>Pago incompleto</h2>
-    <p>Hola {user.first_name},</p>
-    <p>Revisamos tu comprobante del pago <strong>#{payment.id}</strong>.</p>
-    <p>El monto recibido (<strong>USD {got:.2f}</strong>) es menor al esperado
+    inner = f"""
+    <p style="margin:0 0 12px;">Hola <strong>{user.first_name}</strong>,</p>
+    <p style="margin:0 0 12px;">Revisamos tu comprobante del pago <strong>#{payment.id}</strong>.</p>
+    <p style="margin:0 0 12px;">El monto recibido (<strong>USD {got:.2f}</strong>) es menor al esperado
     (<strong>USD {exp:.2f}</strong>). Tu compra <strong>no</strong> se activó.</p>
-    {f'<p><strong>Observaciones:</strong> {notes}</p>' if notes else ''}
-    <p>Puedes completar el saldo y contactarnos o iniciar un nuevo pago desde el checkout.</p>
+    {f'<p style="margin:0 0 12px;"><strong>Observaciones:</strong> {notes}</p>' if notes else ''}
+    <p style="margin:0;">Puedes completar el saldo y contactarnos o iniciar un nuevo pago desde el checkout.</p>
     """
+    html = _tx_email_html("Pago incompleto", inner, None, None)
     _send_html(
         [user.email],
         f"[{_brand_name()}] Pago incompleto",
@@ -173,13 +201,14 @@ def notify_client_partial(payment, user, notes: Optional[str] = None) -> None:
 def notify_client_rejected(payment, user, notes: Optional[str] = None) -> None:
     import app as M
 
-    html = f"""
-    <h2>Pago no validado</h2>
-    <p>Hola {user.first_name},</p>
-    <p>No pudimos validar el comprobante del pago <strong>#{payment.id}</strong>.</p>
-    {f'<p><strong>Motivo:</strong> {notes}</p>' if notes else ''}
-    <p>Si crees que es un error, responde a este correo o sube un nuevo comprobante desde la misma página de tu pago Yappy (enlace en tu cuenta o historial de pedidos).</p>
+    inner = f"""
+    <p style="margin:0 0 12px;">Hola <strong>{user.first_name}</strong>,</p>
+    <p style="margin:0 0 12px;">No pudimos validar el comprobante del pago <strong>#{payment.id}</strong>.</p>
+    {f'<p style="margin:0 0 12px;"><strong>Motivo:</strong> {notes}</p>' if notes else ''}
+    <p style="margin:0;">Si crees que es un error, responde a este correo o sube un nuevo comprobante desde la página de tu pago Yappy.</p>
     """
+    st = _yappy_status_page_url(payment.id)
+    html = _tx_email_html("Pago no aprobado", inner, st, "Ir a mi pago Yappy")
     _send_html(
         [user.email],
         f"[{_brand_name()}] Pago no aprobado — requiere revisión",
@@ -216,14 +245,14 @@ def notify_client_manual_review(payment, user, notes: Optional[str] = None) -> N
     """Monto mayor al esperado u otro caso que requiere revisión antes de activar."""
     import app as M
 
-    html = f"""
-    <h2>Pago en revisión</h2>
-    <p>Hola {user.first_name},</p>
-    <p>Tu comprobante del pago <strong>#{payment.id}</strong> está en <strong>revisión manual</strong>
+    inner = f"""
+    <p style="margin:0 0 12px;">Hola <strong>{user.first_name}</strong>,</p>
+    <p style="margin:0 0 12px;">Tu comprobante del pago <strong>#{payment.id}</strong> está en <strong>revisión manual</strong>
     por un posible desajuste de monto u otra observación.</p>
-    {f'<p><strong>Detalle:</strong> {notes}</p>' if notes else ''}
-    <p>Te contactaremos cuando haya una resolución.</p>
+    {f'<p style="margin:0 0 12px;"><strong>Detalle:</strong> {notes}</p>' if notes else ''}
+    <p style="margin:0;">Te contactaremos cuando haya una resolución.</p>
     """
+    html = _tx_email_html("Pago en revisión", inner, _yappy_status_page_url(payment.id), "Ver estado del pedido")
     _send_html(
         [user.email],
         f"[{_brand_name()}] Pago en revisión",

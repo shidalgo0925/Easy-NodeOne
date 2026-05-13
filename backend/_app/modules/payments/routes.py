@@ -18,6 +18,15 @@ DIPLOMADO_LANDING_TEMPLATES = {
 }
 
 
+def _checkout_demo_hold_for_ui():
+    """True = mostrar aviso de modo prueba (pagos demo en pending). Misma regla que payments_checkout._checkout_no_demo_auto_success."""
+    if (os.environ.get('NODEONE_CHECKOUT_DEMO_AUTO_SUCCESS') or '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return False
+    if (os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower() in ('0', 'false', 'no', 'off'):
+        return False
+    return True
+
+
 def _inscripcion_get_org_from_request():
     """SaaS org asociada al host (mismo criterio que catálogo; sin sesión forzada en anónimos)."""
     from app import SaasOrganization, _organization_id_from_request_host
@@ -304,6 +313,14 @@ def checkout():
         stripe_pk = None
         intl_wire_display = dict(INTL_WIRE_DEFAULTS)
         yappy_checkout = None
+
+    _pm_keys = list(payment_methods.keys())
+    _pref_order = ('stripe', 'paypal', 'yappy_manual', 'wire_international', 'banco_general')
+    checkout_first_method = next((k for k in _pref_order if k in payment_methods), _pm_keys[0] if _pm_keys else 'stripe')
+    checkout_has_immediate = any(k in payment_methods for k in ('stripe', 'paypal'))
+    checkout_has_manual_validation = any(k in payment_methods for k in ('yappy_manual', 'wire_international'))
+    checkout_other_method_keys = [k for k in _pm_keys if k not in ('stripe', 'paypal', 'yappy_manual', 'wire_international')]
+
     return render_template(
         'checkout.html',
         cart=cart,
@@ -313,8 +330,11 @@ def checkout():
         payment_methods=payment_methods,
         intl_wire_display=intl_wire_display,
         yappy_checkout=yappy_checkout,
-        checkout_demo_hold=(os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower()
-        in ('1', 'true', 'yes'),
+        checkout_first_method=checkout_first_method,
+        checkout_has_immediate=checkout_has_immediate,
+        checkout_has_manual_validation=checkout_has_manual_validation,
+        checkout_other_method_keys=checkout_other_method_keys,
+        checkout_demo_hold=_checkout_demo_hold_for_ui(),
     )
 
 

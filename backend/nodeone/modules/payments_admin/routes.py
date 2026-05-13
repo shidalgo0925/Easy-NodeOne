@@ -842,23 +842,48 @@ def admin_yappy_manual_list():
     import app as M
 
     uids_sq = _admin_scope_user_ids_only_safe(M)
-    ymq = M.Payment.query.filter(
-        M.Payment.payment_method == 'yappy_manual',
-        M.Payment.status.in_(
-            [
-                'pending_receipt',
-                'pending_payment',
-                'pending_admin_review',
-                'pending_validation',
-                'manual_review',
-                'partially_paid',
-            ]
-        ),
+
+    def _base_yappy_query():
+        q = M.Payment.query.filter(M.Payment.payment_method == 'yappy_manual')
+        if uids_sq is not None:
+            q = q.filter(M.Payment.user_id.in_(uids_sq))
+        return q
+
+    pending_statuses = (
+        'pending_receipt',
+        'pending_payment',
+        'pending_admin_review',
+        'pending_validation',
+        'manual_review',
+        'partially_paid',
     )
-    if uids_sq is not None:
-        ymq = ymq.filter(M.Payment.user_id.in_(uids_sq))
-    payments = ymq.order_by(M.Payment.created_at.desc()).limit(100).all()
-    return render_template('admin/yappy_manual_list.html', payments=payments)
+    payments_pending = (
+        _base_yappy_query()
+        .filter(M.Payment.status.in_(pending_statuses))
+        .order_by(M.Payment.created_at.desc())
+        .limit(100)
+        .all()
+    )
+    payments_approved = (
+        _base_yappy_query()
+        .filter(M.Payment.status == 'paid')
+        .order_by(M.Payment.created_at.desc())
+        .limit(100)
+        .all()
+    )
+    payments_rejected = (
+        _base_yappy_query()
+        .filter(M.Payment.status.in_(('rejected', 'cancelled')))
+        .order_by(M.Payment.created_at.desc())
+        .limit(100)
+        .all()
+    )
+    return render_template(
+        'admin/yappy_manual_list.html',
+        payments_pending=payments_pending,
+        payments_approved=payments_approved,
+        payments_rejected=payments_rejected,
+    )
 
 
 @payments_admin_bp.route('/admin/payments/yappy-manual/<int:payment_id>')

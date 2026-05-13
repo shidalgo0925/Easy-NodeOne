@@ -79,6 +79,7 @@
                     <p class="mb-0 fs-5">${{ "%.2f"|format(total_amount / 100) }} {{ yappy_checkout.currency }}</p>
                 </div>
                 {% if yappy_checkout.instructions_html %}
+                <p class="small fw-semibold text-body mb-1">Instrucciones del comercio</p>
                 <div class="border rounded p-2 mb-2 bg-white checkout-yappy-instr-html small">{{ yappy_checkout.instructions_html | safe }}</div>
                 {% else %}
                 <ol class="mb-2 ps-3 small">
@@ -131,6 +132,14 @@
                     <li><strong>Cuenta:</strong> {{ intl_wire_display.account_number | default('—', true) }}</li>
                     <li><strong>Tipo / País:</strong> {{ intl_wire_display.account_type | default('—', true) }} / {{ intl_wire_display.country | default('—', true) }}</li>
                 </ul>
+                {% if intl_wire_display.get('instructions_html') %}
+                <p class="small fw-semibold text-body mt-2 mb-1">Instrucciones del comercio</p>
+                <div class="border rounded p-2 mt-0 small bg-white checkout-intl-wire-instr-html">{{ intl_wire_display.instructions_html | safe }}</div>
+                {% endif %}
+                <ol class="mb-0 ps-3 small mt-2 text-muted">
+                    <li>Transferí el <strong>monto exacto</strong> en USD a los datos indicados.</li>
+                    <li>Conservá el comprobante: tras continuar podrás adjuntarlo o completar la referencia según el flujo.</li>
+                </ol>
             </div>
         </div>
     </div>

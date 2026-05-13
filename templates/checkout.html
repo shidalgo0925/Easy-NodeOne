@@ -662,6 +662,7 @@
                 <p><strong>Cuenta:</strong> ${w.account_number || ''}</p>
                 <p><strong>Tipo de cuenta:</strong> ${w.account_type || ''}</p>
                 <p><strong>País:</strong> ${w.country || ''}</p>
+                ${w.instructions_html ? '<div class="mt-2 border rounded p-2 small">' + w.instructions_html + '</div>' : ''}
                 <p class="mb-0 small text-muted">Tras confirmar verás la referencia de pago y podrás adjuntar el comprobante de la transferencia.</p>
             `;
         }

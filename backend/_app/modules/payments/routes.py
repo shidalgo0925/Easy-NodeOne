@@ -310,6 +310,9 @@ def checkout():
                 intl_wire_display['account_type'] = pcfg.intl_wire_account_type.strip()
             if (getattr(pcfg, 'intl_wire_country', None) or '').strip():
                 intl_wire_display['country'] = pcfg.intl_wire_country.strip()
+            _iw_note = (getattr(pcfg, 'intl_wire_instructions', None) or '').strip()
+            if _iw_note:
+                intl_wire_display['instructions_html'] = _iw_note
     except Exception:
         from payment_processors import INTL_WIRE_DEFAULTS
 

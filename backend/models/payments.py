@@ -159,6 +159,8 @@ class PaymentConfig(db.Model):
     yappy_directory_name = db.Column(db.String(100))
     yappy_qr_image_path = db.Column(db.String(500))
     yappy_business_name = db.Column(db.String(200))
+    # Teléfono en tarjeta «visualización checkout»; si no hay yappy_phone_or_identifier, cuenta para Yappy manual
+    yappy_merchant_phone = db.Column(db.String(64))
     # Yappy solo QR + validación admin (sin API bancaria)
     yappy_manual_enabled = db.Column(db.Boolean, default=False)
     yappy_manual_instructions = db.Column(db.Text)  # HTML o texto visible al cliente
@@ -202,6 +204,9 @@ class PaymentConfig(db.Model):
             'yappy_directory_name': self.yappy_directory_name or '',
             'yappy_qr_image_path': self.yappy_qr_image_path or '',
             'yappy_business_name': self.yappy_business_name or '',
+            'yappy_merchant_phone': (self.yappy_merchant_phone or '')
+            if getattr(self, 'yappy_merchant_phone', None) is not None
+            else '',
             'yappy_manual_enabled': bool(self.yappy_manual_enabled),
             'yappy_manual_instructions': self.yappy_manual_instructions or '',
             'yappy_manual_admin_emails': self.yappy_manual_admin_emails or '',

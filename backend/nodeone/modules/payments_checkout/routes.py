@@ -17,11 +17,32 @@ payments_checkout_bp = Blueprint('payments_checkout', __name__)
 
 def _checkout_no_demo_auto_success():
     """
-    Si está activo (1/true/yes), los pagos demo (Stripe/PayPal sin credenciales)
-    no pasan a succeeded al crearlos: quedan pending para poder probar el checkout
-    sin redirección inmediata a éxito. Ver NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS en .env.example.
+    True = en modo demo NO marcar el pago como succeeded al crear el intent (queda ``pending``:
+    no se vacía el carrito ni se confirma solo).
+
+    Por defecto True para poder probar sin tocar variables.
+
+    Opt-in al comportamiento legacy (auto-éxito demo al crear intent):
+        NODEONE_CHECKOUT_DEMO_AUTO_SUCCESS=1   (o true/yes/on)
+
+    Compatibilidad con el nombre anterior:
+        NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS=0|false|no|off  → sin hold (auto succeeded en demo)
+        NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS=1|true|yes     → forzar hold
     """
-    return (os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower() in ('1', 'true', 'yes')
+    demo_auto = (os.environ.get('NODEONE_CHECKOUT_DEMO_AUTO_SUCCESS') or '').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+        'on',
+    )
+    if demo_auto:
+        return False
+    no_demo = (os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower()
+    if no_demo in ('0', 'false', 'no', 'off'):
+        return False
+    if no_demo in ('1', 'true', 'yes', 'on'):
+        return True
+    return True
 
 
 def _email_verified_check_then(f):
@@ -125,14 +146,18 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
     """
     from flask import url_for
 
-    from nodeone.services.yappy_manual import append_yappy_manual_audit, effective_yappy_display_name
+    from nodeone.services.yappy_manual import (
+        append_yappy_manual_audit,
+        effective_yappy_display_name,
+        effective_yappy_phone_or_identifier,
+    )
 
     if not payment_config or not getattr(payment_config, "yappy_manual_enabled", False):
         return jsonify({"error": "Yappy manual no está activado para esta organización."}), 400
     has_qr = bool((getattr(payment_config, "yappy_qr_image_path", None) or "").strip())
     has_dir = bool((getattr(payment_config, "yappy_directory_name", None) or "").strip())
     has_display = bool(effective_yappy_display_name(payment_config))
-    has_phone = bool((getattr(payment_config, "yappy_phone_or_identifier", None) or "").strip())
+    has_phone = bool(effective_yappy_phone_or_identifier(payment_config))
     if not has_qr and not has_dir and not has_display and not has_phone:
         return jsonify(
             {
@@ -880,11 +905,15 @@ def payment_yappy_manual_instructions(payment_id):
 
     can_upload = is_pending_receipt(payment.status) or (payment.status or '').strip() == 'rejected'
     pending_review = is_pending_admin_review(payment.status)
-    from nodeone.services.yappy_manual import effective_yappy_display_name, effective_yappy_instructions_html
+    from nodeone.services.yappy_manual import (
+        effective_yappy_display_name,
+        effective_yappy_instructions_html,
+        effective_yappy_phone_or_identifier,
+    )
 
     ydisp = effective_yappy_display_name(cfg) if cfg else ''
     yinstr = effective_yappy_instructions_html(cfg) if cfg else ''
-    yphone = ((getattr(cfg, 'yappy_phone_or_identifier', None) or '') if cfg else '').strip()
+    yphone = effective_yappy_phone_or_identifier(cfg) if cfg else ''
     receipt_requires = bool(getattr(cfg, 'yappy_requires_receipt', True)) if cfg else True
     return render_template(
         'payment_yappy_manual.html',
@@ -896,6 +925,29 @@ def payment_yappy_manual_instructions(payment_id):
         yappy_instructions_html=yinstr,
         yappy_phone=yphone,
         receipt_requires=receipt_requires,
+    )
+
+
+@payments_checkout_bp.route('/payment/yappy-manual/<int:payment_id>/estado')
+@login_required
+def payment_yappy_manual_order_status(payment_id):
+    """Estado del pedido (cliente): resumen visual alineado al flujo mockup."""
+    import app as M
+
+    from nodeone.services.yappy_manual_status import yappy_status_label
+
+    payment = M.Payment.query.get_or_404(payment_id)
+    if payment.user_id != current_user.id:
+        flash('No autorizado.', 'error')
+        return redirect(url_for('payments.checkout'))
+    if payment.payment_method != 'yappy_manual':
+        return redirect(url_for('payments_checkout.payment_success', payment_id=payment.id))
+    cfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id)
+    return render_template(
+        'payment_yappy_order_status.html',
+        payment=payment,
+        payment_config=cfg,
+        status_label=yappy_status_label(payment.status),
     )
 
 

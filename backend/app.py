@@ -102,7 +102,7 @@ except ImportError:
 
 # Copia mutable; yappy_manual no requiere procesador externo
 PAYMENT_METHODS = dict(PAYMENT_METHODS or {})
-PAYMENT_METHODS.setdefault('yappy_manual', 'Pago por Yappy')
+PAYMENT_METHODS.setdefault('yappy_manual', 'Yappy (validación administrativa)')
 PAYMENT_METHODS.setdefault('wire_international', 'Transferencia internacional (SWIFT)')
 
 # OAuth (login social)

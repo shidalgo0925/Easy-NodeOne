@@ -132,10 +132,11 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
     has_qr = bool((getattr(payment_config, "yappy_qr_image_path", None) or "").strip())
     has_dir = bool((getattr(payment_config, "yappy_directory_name", None) or "").strip())
     has_display = bool(effective_yappy_display_name(payment_config))
-    if not has_qr and not has_dir and not has_display:
+    has_phone = bool((getattr(payment_config, "yappy_phone_or_identifier", None) or "").strip())
+    if not has_qr and not has_dir and not has_display and not has_phone:
         return jsonify(
             {
-                "error": "Configura el nombre en directorio Yappy, el nombre visible del comercio o la ruta del QR en Administración → Pagos."
+                "error": "Configura en Administración → Pagos el nombre visible del comercio, el teléfono o identificador Yappy, el nombre en directorio o la ruta del QR."
             }
         ), 400
 

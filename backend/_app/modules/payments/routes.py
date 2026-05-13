@@ -254,8 +254,9 @@ def checkout():
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
-        # Prioridad Yappy manual: no ofrecer Yappy por API en el mismo checkout (evita confusión).
-        if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
+        # Checkout web: no ofrecer Yappy por «API» (no hay integración real en este flujo).
+        # Reactivar solo con NODEONE_CHECKOUT_YAPPY_API=1 si en el futuro se expone de nuevo.
+        if (os.environ.get('NODEONE_CHECKOUT_YAPPY_API', '').strip().lower() not in ('1', 'true', 'yes')):
             payment_methods.pop('yappy', None)
         if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
             payment_methods.pop('yappy_manual', None)

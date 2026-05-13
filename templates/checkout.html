@@ -95,7 +95,7 @@
                             </div>
                             {% endif %}
                             {% if current_user.is_authenticated and current_user.is_admin %}
-                                <p class="small mb-2 border-top pt-2 mt-2 opacity-75">Solo admins: esta UI sale de <code>dev/app/templates/checkout.html</code>. Si no ves el recuadro blanco, no estás sirviendo esa plantilla (p. ej. prod/staging sin <code>git pull</code> en <code>app/</code>).</p>
+                                <p class="small mb-2 border-top pt-2 mt-2 opacity-75">Solo admins: esta UI sale de <code>templates/checkout.html</code> del despliegue activo. Si no coincide con el repo, revisá <code>git pull</code> en <code>app/</code> y reinicio de Gunicorn.</p>
                             {% endif %}
                             <div id="payment-methods">
                                 {% if payment_methods %}
@@ -136,16 +136,16 @@
                                             <p class="mb-2 fw-semibold text-primary mb-1">PayPal</p>
                                             <p class="mb-0">Serás redirigido a PayPal para iniciar sesión y autorizar el pago del total mostrado.</p>
                                         {% elif method_key == 'yappy' %}
-                                            <p class="mb-2 fw-semibold text-success mb-1">Yappy (integración)</p>
-                                            <p class="mb-0">Pago móvil vía flujo integrado. Sigue las indicaciones en pantalla después de pulsar <strong>Pagar</strong>.</p>
+                                            <p class="mb-2 fw-semibold text-success mb-1">Yappy</p>
+                                            <p class="mb-0 text-muted">Este método no está disponible en el checkout web. Use <strong>Yappy (validación administrativa)</strong> si su organización lo tiene habilitado en Administración → Pagos.</p>
                                         {% elif method_key == 'yappy_manual' %}
-                                            <p class="mb-2 fw-semibold text-success mb-1">Pagar con Yappy</p>
+                                            <p class="mb-2 fw-semibold text-success mb-1">Yappy (validación administrativa)</p>
                                             {% if yappy_checkout %}
                                             <div class="mb-2 border rounded p-2 bg-light">
                                                 <p class="mb-1 small text-uppercase text-muted">Comercio</p>
                                                 <p class="mb-2 fs-6 fw-semibold mb-0">{{ yappy_checkout.display_name }}</p>
                                                 {% if yappy_checkout.phone %}
-                                                <p class="mb-1 small text-uppercase text-muted">Teléfono Yappy</p>
+                                                <p class="mb-1 small text-uppercase text-muted">Teléfono / Yappy</p>
                                                 <p class="mb-2 fs-6 mb-0">{{ yappy_checkout.phone }}</p>
                                                 {% endif %}
                                                 <p class="mb-1 small text-uppercase text-muted">Monto a pagar</p>
@@ -154,18 +154,26 @@
                                             {% if yappy_checkout.instructions_html %}
                                             <div class="border rounded p-2 mb-2 bg-white checkout-yappy-instr-html small">{{ yappy_checkout.instructions_html | safe }}</div>
                                             {% else %}
-                                            <p class="mb-1 small"><strong>Instrucciones:</strong></p>
+                                            <p class="mb-1 small"><strong>Instrucciones</strong></p>
                                             <ol class="mb-2 ps-3 small">
-                                                <li>Abrí tu app bancaria.</li>
-                                                <li>Entrá a Yappy.</li>
-                                                <li>Buscá el comercio <strong>{{ yappy_checkout.display_name }}</strong>{% if yappy_checkout.directory_name %} (en el directorio podés buscar <strong>{{ yappy_checkout.directory_name }}</strong>){% endif %}.</li>
-                                                <li>Realizá el pago por el <strong>monto exacto</strong> indicado arriba.</li>
-                                                <li>Adjuntá el comprobante abajo (tras pulsar <strong>Pagar</strong>) o en la página siguiente.</li>
-                                                <li>El pago quedará <strong>pendiente de validación administrativa</strong>; no se activa el pedido hasta que lo aprueben.</li>
+                                                <li>Abra su app bancaria.</li>
+                                                <li>Entre a Yappy.</li>
+                                                <li>Busque el comercio <strong>{{ yappy_checkout.display_name }}</strong>{% if yappy_checkout.directory_name %} (en el directorio puede buscar <strong>{{ yappy_checkout.directory_name }}</strong>){% endif %}.</li>
+                                                <li>Realice el pago por el <strong>monto exacto</strong> indicado arriba.</li>
+                                                <li>Adjunte el comprobante abajo{% if yappy_checkout.requires_receipt %} <span class="text-danger">(obligatorio)</span>{% endif %} y pulse <strong>Pagar</strong>.</li>
+                                                <li>Administración validará el pago manualmente; el pedido no se activa hasta la aprobación.</li>
                                             </ol>
                                             {% endif %}
+                                            <div class="mb-2 p-2 border rounded bg-white">
+                                                <label class="form-label small mb-1" for="en1-yappy-precheck-receipt">
+                                                    Comprobante de pago{% if yappy_checkout.requires_receipt %} <span class="text-danger">*</span>{% else %} <span class="text-muted">(opcional)</span>{% endif %}
+                                                </label>
+                                                <input type="file" class="form-control form-control-sm" id="en1-yappy-precheck-receipt" name="en1_yappy_precheck_receipt" autocomplete="off"
+                                                       accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+                                                <small class="text-muted">JPG, PNG, WEBP o PDF (máx. 5 MB según validación del servidor).</small>
+                                            </div>
                                             {% else %}
-                                            <p class="mb-0 text-muted">Este método no está disponible para tu organización en este momento.</p>
+                                            <p class="mb-0 text-muted">Este método no está disponible para su organización en este momento.</p>
                                             {% endif %}
                                         {% elif method_key == 'wire_international' %}
                                             <p class="mb-2 fw-semibold text-primary mb-1">Transferencia internacional (SWIFT)</p>
@@ -509,7 +517,7 @@
         } else if (currentPaymentMethod === 'paypal') {
             document.getElementById('paypal-payment-section').classList.remove('d-none');
             initPayPal();
-        } else if (currentPaymentMethod === 'yappy_manual' || currentPaymentMethod === 'yappy') {
+        } else if (currentPaymentMethod === 'yappy_manual') {
             document.getElementById('submit-button').classList.remove('d-none');
         } else {
             // Métodos manuales (solo banco_general ahora)
@@ -751,8 +759,6 @@
                 <p class="mb-0 small text-muted">Tras confirmar verás la referencia de pago y podrás adjuntar el comprobante de la transferencia.</p>
             `;
         }
-        // Yappy ya no es manual - se maneja automáticamente con Botón de Pago
-        
         content.innerHTML = html;
     }
     
@@ -763,7 +769,53 @@
             cart_id: {{ cart.id }},
             amount: {{ total_amount }}
         };
-        
+
+        if (paymentMethod === 'yappy_manual') {
+            const pre = document.getElementById('en1-yappy-precheck-receipt');
+            if (EN1_YAPPY_RECEIPT_REQUIRES) {
+                if (!pre || !pre.files || !pre.files[0]) {
+                    return { success: false, error: 'Adjunte un comprobante de pago (JPG, PNG, WEBP o PDF) antes de pulsar Pagar.' };
+                }
+            }
+            try {
+                const response = await fetch('/create-payment-intent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData),
+                });
+                const contentType = response.headers.get('content-type') || '';
+                let data;
+                if (contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    console.error('Respuesta no JSON:', response.status, text.substring(0, 400));
+                    throw new Error(`Error del servidor (${response.status}): respuesta no JSON.`);
+                }
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || `Error ${response.status}`);
+                }
+                let yappyReceiptUploaded = false;
+                if (pre && pre.files && pre.files[0]) {
+                    const fd = new FormData();
+                    fd.append('receipt', pre.files[0]);
+                    const r2 = await fetch('/api/payment/yappy-manual/' + data.payment_id + '/submit-receipt', { method: 'POST', body: fd });
+                    const d2 = await r2.json().catch(function () { return {}; });
+                    if (!r2.ok || !d2.success) {
+                        throw new Error(d2.error || ('No se pudo registrar el comprobante (HTTP ' + r2.status + ').'));
+                    }
+                    yappyReceiptUploaded = true;
+                }
+                if (EN1_YAPPY_RECEIPT_REQUIRES && !yappyReceiptUploaded) {
+                    throw new Error('Adjunte un comprobante de pago antes de continuar.');
+                }
+                return { success: true, data: data, yappyReceiptUploaded: yappyReceiptUploaded };
+            } catch (error) {
+                console.error('Error creando pago yappy_manual:', error);
+                return { success: false, error: error.message || 'Error al crear el pago' };
+            }
+        }
+
         try {
             const response = await fetch('/create-payment-intent', {
                 method: 'POST',
@@ -794,7 +846,7 @@
                 throw new Error(data.error || data.message || `Error ${response.status}: ${response.statusText}`);
             }
             
-            return { success: true, data: data };
+            return { success: true, data: data, yappyReceiptUploaded: false };
         } catch (error) {
             console.error(`❌ Error creando pago con ${paymentMethod}:`, error);
             return { success: false, error: error.message || 'Error al crear el pago' };
@@ -907,6 +959,7 @@
             }
             
             const data = result.data;
+            const yappyReceiptUploaded = !!result.yappyReceiptUploaded;
             
             // Procesar según el método
             if (currentPaymentMethod === 'paypal') {
@@ -924,12 +977,13 @@
                 if (!data.payment_id || !dest) {
                     throw new Error(data.error || 'No se pudo iniciar el pago por Yappy.');
                 }
+                if (yappyReceiptUploaded) {
+                    window.location.href = dest;
+                    return;
+                }
                 en1ShowYappyInlineReceiptPanel(data, dest);
             } else if (currentPaymentMethod === 'yappy') {
-                // Yappy puede ser automático (con API) o manual (si API no disponible)
                 if (data.manual && data.api_unavailable) {
-                    // Modo manual: redirigir a success con información del pago
-                    // El pago ya fue creado en el backend con estado 'pending'
                     const params = new URLSearchParams({
                         payment_id: data.payment_id,
                         manual: 'true',
@@ -938,7 +992,6 @@
                     });
                     window.location.href = `/payment-success?${params.toString()}`;
                 } else if (data.payment_url) {
-                    // Modo automático: redirigir a Yappy
                     window.location.href = data.payment_url;
                 } else {
                     throw new Error(data.error || 'No se pudo crear el pago con Yappy. Verifica la configuración.');

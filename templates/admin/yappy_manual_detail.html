@@ -50,7 +50,7 @@
     {% endif %}
 
     {% if payment.status not in ('pending_admin_review', 'pending_validation', 'manual_review') %}
-    <div class="alert alert-secondary">Este pago ya no admite validación desde esta pantalla (estado: {{ payment.status }}).</div>
+    <div class="alert alert-secondary">Este pago ya no admite validación desde esta pantalla (estado: {{ yappy_status_label(payment.status) }}).</div>
     {% else %}
     <div class="card border-primary mb-4">
         <div class="card-header bg-primary text-white">Registrar validación</div>
@@ -61,8 +61,8 @@
                 <small class="text-muted">Se enviará al servidor en centavos.</small>
             </div>
             <div class="mb-3">
-                <label class="form-label">Observaciones / motivo (rechazo)</label>
-                <textarea class="form-control" id="ym-obs" rows="2" placeholder="Opcional; obligatorio recomendado al rechazar"></textarea>
+                <label class="form-label" for="ym-obs">Observaciones / motivo <span class="text-danger" id="ym-obs-required" style="display:none;">(obligatorio al rechazar)</span></label>
+                <textarea class="form-control" id="ym-obs" rows="2" placeholder="Opcional salvo al rechazar, donde el motivo es obligatorio (ej. comprobante ilegible, monto incorrecto)."></textarea>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-success px-4" data-decision="paid"><i class="fas fa-check"></i> Aprobar pago</button>
@@ -95,6 +95,13 @@
       const observations = document.getElementById('ym-obs').value.trim();
       const msg = document.getElementById('ym-admin-msg');
       msg.innerHTML = '';
+      if (decision === 'rejected' && !observations) {
+        alert('Debés indicar el motivo de rechazo en el campo de observaciones.');
+        var rq = document.getElementById('ym-obs-required');
+        if (rq) rq.style.display = 'inline';
+        document.getElementById('ym-obs').focus();
+        return;
+      }
       btn.disabled = true;
       try {
         const r = await fetch('/api/admin/payments/' + paymentId + '/yappy-manual/validate', {
@@ -104,7 +111,11 @@
         });
         const data = await r.json();
         if (!data.success) throw new Error(data.error || 'Error');
-        msg.innerHTML = '<div class="alert alert-success">' + (data.message || 'OK') + '</div>';
+        var inner = '<div class="alert alert-success">' + (data.message || 'OK') + '</div>';
+        if (data.email_notification_warning) {
+          inner += '<div class="alert alert-warning mt-2">' + data.email_notification_warning + '</div>';
+        }
+        msg.innerHTML = inner;
         setTimeout(function() { window.location.reload(); }, 900);
       } catch (e) {
         msg.innerHTML = '<div class="alert alert-danger">' + e.message + '</div>';

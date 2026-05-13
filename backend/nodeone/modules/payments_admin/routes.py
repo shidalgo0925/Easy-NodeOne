@@ -11,7 +11,7 @@ from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, State
 
 from nodeone.services.payment_post_process import process_cart_after_payment, send_payment_to_odoo
 
-payments_admin_bp = Blueprint('payments_admin', __name__)
+from app import require_permission
 
 
 def _likely_missing_sql_column_error(exc: BaseException) -> bool:
@@ -638,6 +638,16 @@ def api_payment_config():
             except Exception:
                 scope_oid = 1
 
+        if bool(data.get('yappy_manual_enabled', False)):
+            from nodeone.services.yappy_manual import validate_yappy_manual_admin_emails_when_enabled
+
+            norm_emails, em_err = validate_yappy_manual_admin_emails_when_enabled(
+                data.get('yappy_manual_admin_emails', '')
+            )
+            if em_err:
+                return jsonify({'success': False, 'error': em_err}), 400
+            data['yappy_manual_admin_emails'] = ','.join(norm_emails)
+
         try:
             M.PaymentConfig.query.filter_by(organization_id=scope_oid).update({'is_active': False})
             config = (
@@ -846,10 +856,11 @@ def api_verify_pending_payments():
 
 
 @payments_admin_bp.route('/admin/payments/yappy-manual')
-@_admin_required_lazy
+@require_permission('payments.manage')
 def admin_yappy_manual_list():
     import app as M
 
+    from nodeone.services.yappy_manual_status import yappy_status_label
     uids_sq = _admin_scope_user_ids_only_safe(M)
 
     def _base_yappy_query():
@@ -892,14 +903,16 @@ def admin_yappy_manual_list():
         payments_pending=payments_pending,
         payments_approved=payments_approved,
         payments_rejected=payments_rejected,
+        yappy_status_label=yappy_status_label,
     )
 
 
 @payments_admin_bp.route('/admin/payments/yappy-manual/<int:payment_id>')
-@_admin_required_lazy
+@require_permission('payments.manage')
 def admin_yappy_manual_detail(payment_id):
     import app as M
 
+    from nodeone.services.yappy_manual_status import yappy_status_label
     payment = M.Payment.query.get_or_404(payment_id)
     payer = _payment_in_admin_scope_or_403(M, payment)
     if not payer:
@@ -919,24 +932,25 @@ def admin_yappy_manual_detail(payment_id):
         payer=payer,
         payment_config=cfg,
         audit_events=audit_events,
+        yappy_status_label=yappy_status_label,
     )
 
 
 @payments_admin_bp.route('/admin/payments/yappy')
-@_admin_required_lazy
+@require_permission('payments.manage')
 def admin_yappy_alias_list():
     return redirect(url_for('payments_admin.admin_yappy_manual_list'))
 
 
 @payments_admin_bp.route('/admin/payments/yappy/<int:payment_id>')
-@_admin_required_lazy
+@require_permission('payments.manage')
 def admin_yappy_alias_detail(payment_id):
     return redirect(url_for('payments_admin.admin_yappy_manual_detail', payment_id=payment_id))
 
 
 @payments_admin_bp.route('/api/admin/payments/yappy/<int:payment_id>/receipt', methods=['GET'])
 @payments_admin_bp.route('/admin/payments/yappy/<int:payment_id>/receipt', methods=['GET'])
-@_admin_required_lazy
+@require_permission('payments.manage')
 def api_admin_yappy_manual_receipt(payment_id):
     import app as M
 
@@ -965,12 +979,13 @@ def api_admin_yappy_manual_receipt(payment_id):
 
 
 @payments_admin_bp.route('/api/admin/payments/<int:payment_id>/yappy-manual/validate', methods=['POST'])
-@_admin_required_lazy
+@require_permission('payments.manage')
 def api_yappy_manual_validate(payment_id):
     """Aprobar (paid), incompleto (partially_paid), rechazar (rejected) o revisión manual (manual_review)."""
     import app as M
 
     from nodeone.services.yappy_manual import (
+        YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE,
         append_yappy_manual_audit,
         notify_client_approved,
         notify_client_manual_review,
@@ -1000,7 +1015,17 @@ def api_yappy_manual_validate(payment_id):
         expected = int(payment.amount or 0)
         admin_id = current_user.id
 
+        def _json_ok(message: str, mail_ok: bool):
+            out = {'success': True, 'message': message}
+            if not mail_ok:
+                out['email_notification_warning'] = YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE
+            return jsonify(out)
+
         if decision == 'rejected':
+            if not observations:
+                return jsonify(
+                    {'success': False, 'error': 'El motivo de rechazo es obligatorio (campo observaciones / motivo).'}
+                ), 400
             payment.status = 'rejected'
             payment.validated_by_user_id = admin_id
             payment.validated_at = datetime.utcnow()
@@ -1018,8 +1043,8 @@ def api_yappy_manual_validate(payment_id):
                 },
             )
             M.db.session.commit()
-            notify_client_rejected(payment, payer, observations or None)
-            return jsonify({'success': True, 'message': 'Pago rechazado.'})
+            mail_ok = bool(notify_client_rejected(payment, payer, observations))
+            return _json_ok('Pago rechazado.', mail_ok)
 
         if decision == 'partially_paid':
             if amount_received_cents >= expected:
@@ -1042,8 +1067,8 @@ def api_yappy_manual_validate(payment_id):
                 },
             )
             M.db.session.commit()
-            notify_client_partial(payment, payer, observations or None)
-            return jsonify({'success': True, 'message': 'Marcado como pago incompleto.'})
+            mail_ok = bool(notify_client_partial(payment, payer, observations or None))
+            return _json_ok('Marcado como pago incompleto.', mail_ok)
 
         if decision == 'manual_review':
             payment.status = 'manual_review'
@@ -1062,8 +1087,8 @@ def api_yappy_manual_validate(payment_id):
                 },
             )
             M.db.session.commit()
-            notify_client_manual_review(payment, payer, observations or None)
-            return jsonify({'success': True, 'message': 'Dejado en revisión manual.'})
+            mail_ok = bool(notify_client_manual_review(payment, payer, observations or None))
+            return _json_ok('Dejado en revisión manual.', mail_ok)
 
         if decision == 'paid':
             if amount_received_cents < expected:
@@ -1114,17 +1139,14 @@ def api_yappy_manual_validate(payment_id):
             except Exception:
                 pass
 
-            try:
-                notify_client_approved(payment, payer)
-            except Exception:
-                pass
+            mail_ok = bool(notify_client_approved(payment, payer))
 
             try:
                 send_payment_to_odoo(payment, payer, cart)
             except Exception as e:
                 print(f"⚠️ Odoo yappy_manual: {e}")
 
-            return jsonify({'success': True, 'message': 'Pago aprobado y compra activada.'})
+            return _json_ok('Pago aprobado y compra activada.', mail_ok)
 
         return jsonify({'success': False, 'error': 'decision inválida (paid|partially_paid|rejected|manual_review).'}), 400
     except Exception as e:

@@ -26,8 +26,8 @@ def yappy_status_label(status: str | None) -> str:
     mapping = {
         'pending_receipt': 'Pendiente de comprobante',
         'pending_payment': 'Pendiente de comprobante',
-        'pending_admin_review': 'Pendiente de validación',
-        'pending_validation': 'Pendiente de validación',
+        'pending_admin_review': 'Pendiente de validación administrativa',
+        'pending_validation': 'Pendiente de validación administrativa',
         'manual_review': 'En revisión manual',
         'partially_paid': 'Pago incompleto',
         'paid': 'Pagado',

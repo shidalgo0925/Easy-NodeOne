@@ -281,6 +281,9 @@
                             {% if show_tenant_admin_menu %}
                             {% if saas_module_enabled('payments') and nav_can('payments.manage') %}
                             <li><a class="dropdown-item" href="{{ url_for('payments_admin.admin_payments') }}"><i class="fas fa-credit-card me-2"></i> Pagos (integración)</a></li>
+                            {% if has_view_endpoint('payments_admin.admin_yappy_manual_list') and nav_can('payments.manage') %}
+                            <li><a class="dropdown-item" href="{{ url_for('payments_admin.admin_yappy_manual_list') }}"><i class="fas fa-mobile-alt me-2 text-success"></i> Validación pagos Yappy</a></li>
+                            {% endif %}
                             {% endif %}
                             {% if nav_can('system.settings.view') %}
                             <li><hr class="dropdown-divider"></li>

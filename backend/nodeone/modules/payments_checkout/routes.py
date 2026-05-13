@@ -762,6 +762,7 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
 
     from flask import current_app
     from nodeone.services.yappy_manual import (
+        YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE,
         append_yappy_manual_audit,
         effective_yappy_instructions_html,
         notify_admin_new_receipt,
@@ -806,21 +807,18 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
         )
         M.db.session.commit()
         payer = M.User.query.get(payment.user_id)
+        mail_flags = []
         if payer:
-            try:
-                notify_client_receipt_received(payment, payer)
-            except Exception as e:
-                print(f"⚠️ email cliente yappy_manual: {e}")
+            mail_flags.append(bool(notify_client_receipt_received(payment, payer)))
         if payer and cfg:
-            try:
-                notify_admin_new_receipt(payment, payer, cfg)
-            except Exception as e:
-                print(f"⚠️ email admin yappy_manual: {e}")
+            mail_flags.append(bool(notify_admin_new_receipt(payment, payer, cfg)))
+        warn = YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE if mail_flags and not all(mail_flags) else None
         return (
             jsonify(
                 {
                     'success': True,
                     'message': 'Solicitud registrada. Tu pago está pendiente de validación administrativa.',
+                    'email_notification_warning': warn,
                 }
             ),
             200,
@@ -866,22 +864,19 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
     M.db.session.commit()
 
     payer = M.User.query.get(payment.user_id)
+    mail_flags = []
     if payer:
-        try:
-            notify_client_receipt_received(payment, payer)
-        except Exception as e:
-            print(f"⚠️ email cliente yappy_manual: {e}")
+        mail_flags.append(bool(notify_client_receipt_received(payment, payer)))
     if payer and cfg:
-        try:
-            notify_admin_new_receipt(payment, payer, cfg)
-        except Exception as e:
-            print(f"⚠️ email admin yappy_manual: {e}")
+        mail_flags.append(bool(notify_admin_new_receipt(payment, payer, cfg)))
+    warn = YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE if mail_flags and not all(mail_flags) else None
 
     return (
         jsonify(
             {
                 'success': True,
                 'message': 'Comprobante enviado correctamente. Tu pago está pendiente de validación.',
+                'email_notification_warning': warn,
             }
         ),
         200,

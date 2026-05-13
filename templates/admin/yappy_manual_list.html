@@ -29,26 +29,42 @@
             <div class="alert alert-light border">No hay pagos pendientes en este momento.</div>
             {% else %}
             <div class="table-responsive card border-0 shadow-sm">
-                <table class="table table-hover table-sm mb-0">
+                <table class="table table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Fecha</th>
+                            <th>Pedido</th>
                             <th>Cliente</th>
-                            <th>Ref.</th>
+                            <th>Método</th>
+                            <th>Fecha</th>
                             <th>Monto</th>
                             <th>Estado</th>
-                            <th></th>
+                            <th>Comprobante</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for p in payments_pending %}
+                        {% set has_rc = p.receipt_disk_path or p.receipt_url or p.receipt_filename %}
                         <tr>
+                            <td><strong>#{{ p.id }}</strong></td>
+                            <td>
+                                <small>
+                                    {% if p.user %}
+                                    {{ (p.user.first_name ~ ' ' ~ p.user.last_name)|trim }}<br>
+                                    <span class="text-muted">{{ p.user.email }}</span>
+                                    {% else %}
+                                    <span class="text-muted">user_id {{ p.user_id }}</span>
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td><small>{% if p.payment_method == 'yappy_manual' %}Yappy Manual{% else %}{{ p.payment_method }}{% endif %}</small></td>
                             <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
-                            <td><small>{{ p.user.email if p.user else p.user_id }}</small></td>
-                            <td><code>{{ p.payment_reference }}</code></td>
-                            <td>${{ "%.2f"|format(p.amount / 100) }}</td>
-                            <td><span class="badge bg-warning text-dark">{{ p.status }}</span></td>
-                            <td><a class="btn btn-sm btn-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Abrir</a></td>
+                            <td>USD {{ "%.2f"|format(p.amount / 100) }}</td>
+                            <td><span class="badge bg-warning text-dark">{{ yappy_status_label(p.status) }}</span></td>
+                            <td>{% if has_rc %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}" title="Ver comprobante, aprobar o rechazar">Ver comprobante</a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -61,24 +77,42 @@
             <div class="alert alert-light border">No hay pagos aprobados recientes en esta lista.</div>
             {% else %}
             <div class="table-responsive card border-0 shadow-sm">
-                <table class="table table-hover table-sm mb-0">
+                <table class="table table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Fecha</th>
+                            <th>Pedido</th>
                             <th>Cliente</th>
-                            <th>Ref.</th>
+                            <th>Método</th>
+                            <th>Fecha</th>
                             <th>Monto</th>
-                            <th></th>
+                            <th>Estado</th>
+                            <th>Comprobante</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for p in payments_approved %}
+                        {% set has_rc = p.receipt_disk_path or p.receipt_url or p.receipt_filename %}
                         <tr>
+                            <td><strong>#{{ p.id }}</strong></td>
+                            <td>
+                                <small>
+                                    {% if p.user %}
+                                    {{ (p.user.first_name ~ ' ' ~ p.user.last_name)|trim }}<br>
+                                    <span class="text-muted">{{ p.user.email }}</span>
+                                    {% else %}
+                                    <span class="text-muted">user_id {{ p.user_id }}</span>
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td><small>{% if p.payment_method == 'yappy_manual' %}Yappy Manual{% else %}{{ p.payment_method }}{% endif %}</small></td>
                             <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
-                            <td><small>{{ p.user.email if p.user else p.user_id }}</small></td>
-                            <td><code>{{ p.payment_reference }}</code></td>
-                            <td>${{ "%.2f"|format(p.amount / 100) }}</td>
-                            <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Ver</a></td>
+                            <td>USD {{ "%.2f"|format(p.amount / 100) }}</td>
+                            <td><span class="badge bg-success">{{ yappy_status_label(p.status) }}</span></td>
+                            <td>{% if has_rc %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Ver</a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -91,26 +125,42 @@
             <div class="alert alert-light border">No hay pagos rechazados o cancelados recientes.</div>
             {% else %}
             <div class="table-responsive card border-0 shadow-sm">
-                <table class="table table-hover table-sm mb-0">
+                <table class="table table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Fecha</th>
+                            <th>Pedido</th>
                             <th>Cliente</th>
-                            <th>Ref.</th>
+                            <th>Método</th>
+                            <th>Fecha</th>
                             <th>Monto</th>
                             <th>Estado</th>
-                            <th></th>
+                            <th>Comprobante</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for p in payments_rejected %}
+                        {% set has_rc = p.receipt_disk_path or p.receipt_url or p.receipt_filename %}
                         <tr>
+                            <td><strong>#{{ p.id }}</strong></td>
+                            <td>
+                                <small>
+                                    {% if p.user %}
+                                    {{ (p.user.first_name ~ ' ' ~ p.user.last_name)|trim }}<br>
+                                    <span class="text-muted">{{ p.user.email }}</span>
+                                    {% else %}
+                                    <span class="text-muted">user_id {{ p.user_id }}</span>
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td><small>{% if p.payment_method == 'yappy_manual' %}Yappy Manual{% else %}{{ p.payment_method }}{% endif %}</small></td>
                             <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
-                            <td><small>{{ p.user.email if p.user else p.user_id }}</small></td>
-                            <td><code>{{ p.payment_reference }}</code></td>
-                            <td>${{ "%.2f"|format(p.amount / 100) }}</td>
-                            <td><span class="badge bg-secondary">{{ p.status }}</span></td>
-                            <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Ver</a></td>
+                            <td>USD {{ "%.2f"|format(p.amount / 100) }}</td>
+                            <td><span class="badge bg-danger">{{ yappy_status_label(p.status) }}</span></td>
+                            <td>{% if has_rc %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments_admin.admin_yappy_manual_detail', payment_id=p.id) }}">Ver</a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

@@ -711,6 +711,9 @@
                     if (!r2.ok || !d2.success) {
                         throw new Error(d2.error || ('No se pudo registrar el comprobante (HTTP ' + r2.status + ').'));
                     }
+                    if (d2.email_notification_warning) {
+                        console.warn(d2.email_notification_warning);
+                    }
                     yappyReceiptUploaded = true;
                 }
                 if (EN1_YAPPY_RECEIPT_REQUIRES && !yappyReceiptUploaded) {
@@ -996,7 +999,11 @@
                 const r = await fetch('/api/payment/yappy-manual/' + pid + '/submit-receipt', { method: 'POST', body: fd });
                 const data = await r.json().catch(function () { return {}; });
                 if (!r.ok || !data.success) throw new Error(data.error || ('Error ' + r.status));
-                if (msg) msg.innerHTML = '<div class="alert alert-success py-2 mb-0">' + (data.message || 'Listo') + '</div>';
+                var okHtml = '<div class="alert alert-success py-2 mb-0">' + (data.message || 'Listo') + '</div>';
+                if (data.email_notification_warning) {
+                    okHtml += '<div class="alert alert-warning py-2 mt-2 mb-0 small">' + data.email_notification_warning + '</div>';
+                }
+                if (msg) msg.innerHTML = okHtml;
                 var est = '/payment/yappy-manual/' + pid + '/estado';
                 setTimeout(function () { window.location.href = est; }, 1200);
             } catch (err) {

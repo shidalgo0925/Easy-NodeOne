@@ -192,7 +192,11 @@
             var r = await fetch('{{ url_for("payments_checkout.api_yappy_manual_submit_receipt", payment_id=payment.id) }}', { method: 'POST', body: fd });
             var data = await r.json();
             if (!data.success) throw new Error(data.error || 'Error');
-            msg.innerHTML = '<div class="alert alert-success">' + (data.message || 'Listo') + '</div>';
+            var okHtml = '<div class="alert alert-success">' + (data.message || 'Listo') + '</div>';
+            if (data.email_notification_warning) {
+                okHtml += '<div class="alert alert-warning mt-2 small">' + data.email_notification_warning + '</div>';
+            }
+            msg.innerHTML = okHtml;
             var estUrl = '{{ url_for("payments_checkout.payment_yappy_manual_order_status", payment_id=payment.id) }}';
             setTimeout(function() { window.location.href = estUrl; }, 900);
         } catch (err) {

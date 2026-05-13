@@ -254,32 +254,17 @@ def checkout():
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
-        # Checkout web: no ofrecer Yappy por «API» (no hay integración real en este flujo).
-        # Reactivar solo con NODEONE_CHECKOUT_YAPPY_API=1 si en el futuro se expone de nuevo.
-        if (os.environ.get('NODEONE_CHECKOUT_YAPPY_API', '').strip().lower() not in ('1', 'true', 'yes')):
-            payment_methods.pop('yappy', None)
-        if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
-            payment_methods.pop('yappy_manual', None)
+        # Checkout: no se ofrece Yappy (ni API ni manual). La config en Admin → Pagos puede seguir existiendo por si se reactiva vía código.
+        payment_methods.pop('yappy', None)
+        payment_methods.pop('yappy_manual', None)
         yappy_checkout = None
-        if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
-            from nodeone.services.yappy_manual import effective_yappy_display_name, effective_yappy_instructions_html
-
-            # Checkout manual: solo datos de negocio visibles al cliente (sin QR ni rutas técnicas).
-            yappy_checkout = {
-                'display_name': effective_yappy_display_name(pcfg),
-                'directory_name': (getattr(pcfg, 'yappy_directory_name', None) or '').strip(),
-                'phone': (getattr(pcfg, 'yappy_phone_or_identifier', None) or '').strip(),
-                'instructions_html': effective_yappy_instructions_html(pcfg),
-                'requires_receipt': bool(getattr(pcfg, 'yappy_requires_receipt', True)),
-                'currency': 'USD',
-            }
         if pcfg is not None and getattr(pcfg, 'intl_wire_enabled', True) is False:
             payment_methods.pop('wire_international', None)
         if not PAYMENT_PROCESSORS_AVAILABLE:
             payment_methods = {
                 k: v
                 for k, v in payment_methods.items()
-                if k in ('yappy_manual', 'wire_international')
+                if k == 'wire_international'
             }
             if not payment_methods:
                 payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}

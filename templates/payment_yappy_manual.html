@@ -65,24 +65,9 @@
                     </div>
                     {% endif %}
 
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header"><i class="fas fa-qrcode"></i> Código QR (opcional)</div>
-                                <div class="card-body text-center">
-                                    {% set qr = payment_config.yappy_qr_image_path if payment_config and payment_config.yappy_qr_image_path else '/static/images/yappy-qr-multiserviciostk.png' %}
-                                    <img src="{{ qr }}" alt="QR Yappy" class="img-fluid" style="max-width:280px;border:1px solid #dee2e6;padding:8px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header"><i class="fas fa-info-circle"></i> Resumen</div>
-                                <div class="card-body small text-muted">
-                                    <p class="mb-0">Cuando envíes el comprobante recibirás un correo de confirmación de recepción. No se activará el pedido hasta la aprobación administrativa.</p>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="alert alert-light border small text-muted mb-3">
+                        <i class="fas fa-info-circle text-primary"></i>
+                        Cuando envíes el comprobante recibirás un correo de confirmación de recepción. No se activará el pedido hasta la aprobación administrativa.
                     </div>
 
                     {% if yappy_can_upload %}

@@ -102,7 +102,7 @@ except ImportError:
 
 # Copia mutable; yappy_manual no requiere procesador externo
 PAYMENT_METHODS = dict(PAYMENT_METHODS or {})
-PAYMENT_METHODS.setdefault('yappy_manual', 'Pago por Yappy (manual)')
+PAYMENT_METHODS.setdefault('yappy_manual', 'Yappy manual')
 PAYMENT_METHODS.setdefault('wire_international', 'Transferencia internacional (SWIFT)')
 
 # OAuth (login social)
@@ -1682,6 +1682,11 @@ YAPPY_PAYMENT_UPLOAD_ROOT = os.path.normpath(
 )
 os.makedirs(YAPPY_PAYMENT_UPLOAD_ROOT, exist_ok=True)
 YAPPY_RECEIPT_MAX_BYTES = 5 * 1024 * 1024
+_ym = (os.environ.get('YAPPY_RECEIPT_MAX_BYTES') or '').strip()
+if _ym.isdigit():
+    _ymi = int(_ym)
+    if 102400 <= _ymi <= 50 * 1024 * 1024:
+        YAPPY_RECEIPT_MAX_BYTES = _ymi
 
 # Configuración del login manager
 @login_manager.user_loader

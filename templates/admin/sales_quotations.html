@@ -16,27 +16,27 @@
         <table class="table table-sm align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th style="width:30px"><input type="checkbox"></th>
-                    <th>Número</th>
-                    <th>Fecha de creación</th>
-                    <th>Cliente</th>
-                    <th class="text-nowrap" style="min-width:7.5rem">Vendedor</th>
-                    <th>Actividades</th>
-                    <th class="text-end">Total</th>
-                    <th>Estado</th>
+                    <th class="text-center align-middle" style="width:30px"><input type="checkbox" aria-label="Seleccionar todas"></th>
+                    <th class="text-start align-middle">Número</th>
+                    <th class="text-start align-middle text-nowrap">Fecha</th>
+                    <th class="text-start align-middle">Cliente</th>
+                    <th class="text-start align-middle">Email</th>
+                    <th class="text-start align-middle text-nowrap" style="min-width:7.5rem">Vendedor</th>
+                    <th class="text-end align-middle">Total</th>
+                    <th class="text-start align-middle">Estado</th>
                 </tr>
             </thead>
             <tbody id="tbodyQuotations"></tbody>
             <tfoot>
                 <tr>
-                    <td colspan="6"></td>
-                    <td class="text-end fw-bold" id="qTotalFooter">B/. 0.00</td>
-                    <td></td>
+                    <td colspan="6" class="border-0"></td>
+                    <td class="text-end fw-bold border-0" id="qTotalFooter">B/. 0.00</td>
+                    <td class="border-0"></td>
                 </tr>
             </tfoot>
         </table>
     </div>
 </div>
-<script src="{{ url_for('static', filename='js/modules/sales/quotations_list.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotations_list.js') }}?v=13"></script>
 {% endblock %}
 

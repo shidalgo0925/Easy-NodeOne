@@ -10,9 +10,18 @@ from flask_login import current_user, login_required
 from functools import wraps
 
 from nodeone.services.payment_post_process import process_cart_after_payment, send_payment_to_odoo
-from utils.organization import payment_organization_id_for_request
+from utils.organization import resolve_current_organization
 
 payments_checkout_bp = Blueprint('payments_checkout', __name__)
+
+
+def _checkout_no_demo_auto_success():
+    """
+    Si está activo (1/true/yes), los pagos demo (Stripe/PayPal sin credenciales)
+    no pasan a succeeded al crearlos: quedan pending para poder probar el checkout
+    sin redirección inmediata a éxito. Ver NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS en .env.example.
+    """
+    return (os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower() in ('1', 'true', 'yes')
 
 
 def _email_verified_check_then(f):
@@ -123,27 +132,22 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
     has_qr = bool((getattr(payment_config, "yappy_qr_image_path", None) or "").strip())
     has_dir = bool((getattr(payment_config, "yappy_directory_name", None) or "").strip())
     has_display = bool(effective_yappy_display_name(payment_config))
-    if not has_qr and not has_dir and not has_display:
+    has_phone = bool((getattr(payment_config, "yappy_phone_or_identifier", None) or "").strip())
+    if not has_qr and not has_dir and not has_display and not has_phone:
         return jsonify(
             {
-                "error": "Configura el nombre en directorio Yappy, el nombre visible del comercio o la ruta del QR en Administración → Pagos."
+                "error": "Active «Yappy manual» en Administración → Pagos e indique al menos el nombre del comercio o el identificador/teléfono en Yappy."
             }
         ), 400
 
-    pay_oid = payment_organization_id_for_request()
-    try:
-        oid = int(pay_oid) if pay_oid is not None else None
-    except (TypeError, ValueError):
-        oid = None
-    if oid is None:
-        oid = getattr(current_user, "organization_id", None)
+    oid = int(resolve_current_organization())
 
     metadata = {
         "user_id": current_user.id,
         "cart_id": cart.id,
         "items_count": cart.get_items_count(),
         "yappy_manual": True,
-        "integration": "manual_qr",
+        "integration": "manual_receipt",
         "organization_id": oid,
     }
     payment = M.Payment(
@@ -181,7 +185,7 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
 
         HistoryLogger.log_user_action(
             user_id=current_user.id,
-            action=f"Pago Yappy manual creado — {payment.payment_reference} — USD {total_amount / 100:.2f}",
+            action=f"Pago por Yappy creado — {payment.payment_reference} — USD {total_amount / 100:.2f}",
             status="pending_receipt",
             context={"app": "web", "screen": "checkout", "module": "payment"},
             payload={
@@ -224,7 +228,10 @@ def create_payment_intent():
             data = request.form.to_dict()
         
         payment_method = data.get('payment_method', 'stripe')
-        
+        # Bloquear solo Yappy por API; `yappy_manual` es el flujo independiente por comprobante.
+        if payment_method == 'yappy':
+            return jsonify({'error': 'El método Yappy con API no está disponible. Use Yappy manual.'}), 400
+
         # Manejar archivo de comprobante si existe (métodos manuales)
         receipt_file = None
         receipt_filename = None
@@ -275,7 +282,7 @@ def create_payment_intent():
         if payment_method not in M.PAYMENT_METHODS:
             return jsonify({'error': f'Método de pago no válido: {payment_method}'}), 400
 
-        pay_oid = payment_organization_id_for_request()
+        pay_oid = int(resolve_current_organization())
         payment_config = M.PaymentConfig.get_active_config(organization_id=pay_oid)
 
         if payment_method == 'yappy_manual':
@@ -362,8 +369,9 @@ def create_payment_intent():
             initial_status = 'succeeded'
         elif payment_method == 'wire_international':
             initial_status = 'pending'
-        elif is_demo_mode and not receipt_url:  # Demo sin archivo
-            initial_status = 'succeeded'
+        elif is_demo_mode and not receipt_url:
+            # Demo sin comprobante: por defecto auto-aprobado; con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS queda pending para QA.
+            initial_status = 'pending' if _checkout_no_demo_auto_success() else 'succeeded'
         else:
             initial_status = 'pending'
         
@@ -467,6 +475,7 @@ def create_payment_intent():
             'amount': total_amount,
             'status': initial_status,
             'demo_mode': is_demo_mode,
+            'demo_hold_for_ui': bool(is_demo_mode and initial_status == 'pending' and _checkout_no_demo_auto_success()),
             'ocr_data': json.loads(ocr_data) if ocr_data else None,
             'ocr_status': ocr_status,
             'ocr_verified': ocr_verified
@@ -513,9 +522,30 @@ def create_payment_intent_legacy():
         
         total_amount = cart.get_total()
         
-        # Modo Demo - Simular pago exitoso
+        # Modo Demo - Simular pago exitoso (salvo pruebas con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS)
         demo_mode = True  # Cambiar a False cuando tengas Stripe configurado
-        
+
+        if demo_mode and _checkout_no_demo_auto_success():
+            fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"
+            payment = M.Payment(
+                user_id=current_user.id,
+                payment_method='stripe',
+                payment_reference=fake_intent_id,
+                amount=total_amount,
+                membership_type='cart',
+                status='pending',
+            )
+            M.db.session.add(payment)
+            M.db.session.commit()
+            return jsonify(
+                {
+                    'client_secret': 'demo_client_secret',
+                    'payment_id': payment.id,
+                    'demo_mode': True,
+                    'status': 'pending',
+                }
+            )
+
         if demo_mode:
             # Simular Payment Intent
             fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"
@@ -967,7 +997,7 @@ def paypal_return():
     # Capturar el pago de PayPal
     if M.PAYMENT_PROCESSORS_AVAILABLE:
         try:
-            pay_oid = payment_organization_id_for_request()
+            pay_oid = int(resolve_current_organization())
             payment_config = M.PaymentConfig.get_active_config(organization_id=pay_oid)
             processor = M.get_payment_processor('paypal', payment_config)
             # PayPal ya captura automáticamente, solo verificamos

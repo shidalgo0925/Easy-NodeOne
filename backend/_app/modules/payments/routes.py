@@ -1,4 +1,6 @@
 # Rutas del carrito y checkout.
+import os
+
 from flask import Blueprint, current_app, request, jsonify, render_template, redirect, url_for, abort, session
 from flask_login import login_required, current_user
 
@@ -246,11 +248,14 @@ def checkout():
     try:
         from app import PAYMENT_METHODS, PAYMENT_PROCESSORS_AVAILABLE, STRIPE_PUBLISHABLE_KEY, PaymentConfig
         from payment_processors import INTL_WIRE_DEFAULTS
-        from utils.organization import payment_organization_id_for_request
+        # Misma org operativa que catálogo / host (evita usar solo default 1 y perder yappy_manual_enabled del tenant).
+        from utils.organization import resolve_current_organization
 
-        pay_oid = payment_organization_id_for_request()
+        pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
+        # Solo Yappy manual en checkout (sin API `yappy` ni integración automática).
+        payment_methods.pop('yappy', None)
         if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
             payment_methods.pop('yappy_manual', None)
         yappy_checkout = None
@@ -262,8 +267,6 @@ def checkout():
                 'directory_name': (getattr(pcfg, 'yappy_directory_name', None) or '').strip(),
                 'phone': (getattr(pcfg, 'yappy_phone_or_identifier', None) or '').strip(),
                 'instructions_html': effective_yappy_instructions_html(pcfg),
-                'qr_src': (getattr(pcfg, 'yappy_qr_image_path', None) or '').strip()
-                or '/static/images/yappy-qr-multiserviciostk.png',
                 'requires_receipt': bool(getattr(pcfg, 'yappy_requires_receipt', True)),
                 'currency': 'USD',
             }
@@ -310,6 +313,8 @@ def checkout():
         payment_methods=payment_methods,
         intl_wire_display=intl_wire_display,
         yappy_checkout=yappy_checkout,
+        checkout_demo_hold=(os.environ.get('NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS') or '').strip().lower()
+        in ('1', 'true', 'yes'),
     )
 
 

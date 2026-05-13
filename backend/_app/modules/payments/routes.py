@@ -254,20 +254,29 @@ def checkout():
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
-        # Checkout: sin Yappy (ninguna variante yappy / yappy_manual / futuras claves).
-        payment_methods = {
-            k: v
-            for k, v in payment_methods.items()
-            if not str(k).lower().startswith('yappy')
-        }
+        # Solo Yappy manual en checkout (sin API `yappy` ni integración automática).
+        payment_methods.pop('yappy', None)
+        if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
+            payment_methods.pop('yappy_manual', None)
         yappy_checkout = None
+        if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
+            from nodeone.services.yappy_manual import effective_yappy_display_name, effective_yappy_instructions_html
+
+            yappy_checkout = {
+                'display_name': effective_yappy_display_name(pcfg),
+                'directory_name': (getattr(pcfg, 'yappy_directory_name', None) or '').strip(),
+                'phone': (getattr(pcfg, 'yappy_phone_or_identifier', None) or '').strip(),
+                'instructions_html': effective_yappy_instructions_html(pcfg),
+                'requires_receipt': bool(getattr(pcfg, 'yappy_requires_receipt', True)),
+                'currency': 'USD',
+            }
         if pcfg is not None and getattr(pcfg, 'intl_wire_enabled', True) is False:
             payment_methods.pop('wire_international', None)
         if not PAYMENT_PROCESSORS_AVAILABLE:
             payment_methods = {
                 k: v
                 for k, v in payment_methods.items()
-                if k == 'wire_international'
+                if k in ('yappy_manual', 'wire_international')
             }
             if not payment_methods:
                 payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}

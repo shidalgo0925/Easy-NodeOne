@@ -136,7 +136,7 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
     if not has_qr and not has_dir and not has_display and not has_phone:
         return jsonify(
             {
-                "error": "Configura en Administración → Pagos el nombre visible del comercio, el teléfono o identificador Yappy, el nombre en directorio o la ruta del QR."
+                "error": "Active «Yappy manual» en Administración → Pagos e indique al menos el nombre del comercio o el identificador/teléfono en Yappy."
             }
         ), 400
 
@@ -147,7 +147,7 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
         "cart_id": cart.id,
         "items_count": cart.get_items_count(),
         "yappy_manual": True,
-        "integration": "manual_qr",
+        "integration": "manual_receipt",
         "organization_id": oid,
     }
     payment = M.Payment(
@@ -228,8 +228,9 @@ def create_payment_intent():
             data = request.form.to_dict()
         
         payment_method = data.get('payment_method', 'stripe')
-        if isinstance(payment_method, str) and payment_method.lower().startswith('yappy'):
-            return jsonify({'error': 'El método Yappy no está disponible en el checkout.'}), 400
+        # Bloquear solo Yappy por API; `yappy_manual` es el flujo independiente por comprobante.
+        if payment_method == 'yappy':
+            return jsonify({'error': 'El método Yappy con API no está disponible. Use Yappy manual.'}), 400
 
         # Manejar archivo de comprobante si existe (métodos manuales)
         receipt_file = None

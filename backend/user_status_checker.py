@@ -287,7 +287,7 @@ class UserStatusChecker:
                         'product_type': item.product_type,
                         'product_name': item.product_name,
                         'quantity': item.quantity,
-                        'price': item.price / 100.0 if item.price else 0,
+                        'price': item.get_subtotal() / 100.0 if item.unit_price is not None else 0,
                         'added_at': item.created_at.isoformat() if item.created_at else None
                     }
                     status['cart_items'].append(item_info)

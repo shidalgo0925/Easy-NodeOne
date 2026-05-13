@@ -10,6 +10,7 @@ from flask import current_app
 
 # Constantes para métodos de pago
 PAYMENT_METHODS = {
+    'stripe': 'Stripe (Tarjeta de crédito / débito)',
     'paypal': 'PayPal',
     'banco_general': 'Banco General',
     'yappy': 'Yappy',
@@ -787,6 +788,7 @@ class YappyProcessor(PaymentProcessor):
 def get_payment_processor(payment_method, config=None):
     """Factory para obtener el procesador de pago correcto"""
     processors = {
+        'stripe': StripeProcessor,
         'paypal': PayPalProcessor,
         'banco_general': BancoGeneralProcessor,
         'yappy': YappyProcessor,

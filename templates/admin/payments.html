@@ -205,52 +205,10 @@
                     </button>
                 </div>
                 <div id="payment-body-yappy" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="yappy">
-                    <div class="row mb-3">
-                        <div class="col-12 col-md-6">
-                            <label for="yappy_api_key" class="form-label">API Key</label>
-                            <input type="password" class="form-control" id="yappy_api_key" name="yappy_api_key" placeholder="Tu API Key de Yappy">
-                            <small class="form-text text-muted">Clave de API de Yappy</small>
-                        </div>
-                        <div class="col-12 col-md-6">
-                            <label for="yappy_merchant_id" class="form-label">Merchant ID</label>
-                            <input type="text" class="form-control" id="yappy_merchant_id" name="yappy_merchant_id" placeholder="Tu Merchant ID de Yappy"
-                                   value="{% if payment_config %}{{ payment_config.yappy_merchant_id }}{% endif %}">
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label for="yappy_api_url" class="form-label">API URL</label>
-                            <input type="url" class="form-control" id="yappy_api_url" name="yappy_api_url"
-                                   value="{% if payment_config %}{{ payment_config.yappy_api_url }}{% else %}https://api.yappy.im{% endif %}">
-                        </div>
-                    </div>
-                    <hr>
-                    <h6 class="mb-3"><i class="fas fa-info-circle"></i> Visualización en checkout</h6>
-                    <div class="row mb-3">
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <label for="yappy_directory_name" class="form-label">Nombre en directorio</label>
-                            <input type="text" class="form-control" id="yappy_directory_name" name="yappy_directory_name" placeholder="@multiserviciostk"
-                                   value="{% if payment_config and payment_config.yappy_directory_name %}{{ payment_config.yappy_directory_name }}{% else %}@multiserviciostk{% endif %}">
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <label for="yappy_business_name" class="form-label">Nombre del negocio</label>
-                            <input type="text" class="form-control" id="yappy_business_name" name="yappy_business_name" placeholder="MULTISERVICIOS TK"
-                                   value="{% if payment_config and payment_config.yappy_business_name %}{{ payment_config.yappy_business_name }}{% else %}MULTISERVICIOS TK{% endif %}">
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <label for="yappy_merchant_phone" class="form-label">Teléfono del comercio</label>
-                            <input type="tel" class="form-control" id="yappy_merchant_phone" name="yappy_merchant_phone" placeholder="+507 …"
-                                   value="{% if payment_config %}{% if payment_config is mapping %}{{ payment_config.get('yappy_merchant_phone', '') }}{% else %}{{ payment_config.yappy_merchant_phone|default('', true) }}{% endif %}{% endif %}">
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <label for="yappy_qr_image_path" class="form-label">Ruta imagen QR</label>
-                            <input type="text" class="form-control" id="yappy_qr_image_path" name="yappy_qr_image_path"
-                                   value="{% if payment_config and payment_config.yappy_qr_image_path %}{{ payment_config.yappy_qr_image_path }}{% else %}/static/images/yappy-qr-multiserviciostk.png{% endif %}">
-                        </div>
-                    </div>
-                    <hr>
-                    <h6 class="mb-2"><i class="fas fa-hand-paper"></i> Yappy manual (QR / validación admin)</h6>
-                    <p class="small text-muted">Los pagos se confirman tras revisión administrativa.</p>
+                    <p class="small text-muted mb-3">Configura primero el <strong>pago manual con Yappy</strong> (comercio, teléfono, instrucciones y comprobante). La integración por API y campos técnicos van en el bloque inferior, colapsado.</p>
+
+                    <h6 class="mb-2"><i class="fas fa-hand-paper"></i> Yappy manual (validación administrativa)</h6>
+                    <p class="small text-muted mb-3">Los pagos se confirman tras revisión administrativa.</p>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" id="yappy_manual_enabled" name="yappy_manual_enabled"
                                {% if payment_config and payment_config.yappy_manual_enabled %}checked{% endif %}>
@@ -286,11 +244,59 @@
                                {% if not payment_config or payment_config.get('yappy_requires_receipt', True) %}checked{% endif %}>
                         <label class="form-check-label" for="yappy_requires_receipt">Exigir comprobante para enviar</label>
                     </div>
-                    <div class="form-check form-switch mb-0">
+                    <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" id="yappy_admin_validation_required" name="yappy_admin_validation_required"
                                {% if not payment_config or payment_config.get('yappy_admin_validation_required', True) %}checked{% endif %}>
                         <label class="form-check-label" for="yappy_admin_validation_required">Requerir validación administrativa (recomendado)</label>
                     </div>
+
+                    <details class="border rounded p-3 bg-light">
+                        <summary class="fw-semibold" style="cursor:pointer;">Integración API Yappy (opcional)</summary>
+                        <p class="small text-muted mt-2 mb-3">Credenciales y ajustes técnicos para Yappy por API. No son necesarios si solo usás el flujo manual.</p>
+                        <div class="row mb-3">
+                            <div class="col-12 col-md-6">
+                                <label for="yappy_api_key" class="form-label">API Key</label>
+                                <input type="password" class="form-control" id="yappy_api_key" name="yappy_api_key" placeholder="Tu API Key de Yappy">
+                                <small class="form-text text-muted">Clave de API de Yappy</small>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="yappy_merchant_id" class="form-label">Merchant ID</label>
+                                <input type="text" class="form-control" id="yappy_merchant_id" name="yappy_merchant_id" placeholder="Tu Merchant ID de Yappy"
+                                       value="{% if payment_config %}{{ payment_config.yappy_merchant_id }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label for="yappy_api_url" class="form-label">API URL</label>
+                                <input type="url" class="form-control" id="yappy_api_url" name="yappy_api_url"
+                                       value="{% if payment_config %}{{ payment_config.yappy_api_url }}{% else %}https://api.yappy.im{% endif %}">
+                            </div>
+                        </div>
+                        <hr class="my-3">
+                        <h6 class="mb-3 text-muted small text-uppercase">Visualización / técnico (integración, QR en otros contextos)</h6>
+                        <div class="row mb-0">
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label for="yappy_directory_name" class="form-label">Nombre en directorio</label>
+                                <input type="text" class="form-control" id="yappy_directory_name" name="yappy_directory_name" placeholder="@multiserviciostk"
+                                       value="{% if payment_config and payment_config.yappy_directory_name %}{{ payment_config.yappy_directory_name }}{% else %}@multiserviciostk{% endif %}">
+                            </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label for="yappy_business_name" class="form-label">Nombre del negocio</label>
+                                <input type="text" class="form-control" id="yappy_business_name" name="yappy_business_name" placeholder="MULTISERVICIOS TK"
+                                       value="{% if payment_config and payment_config.yappy_business_name %}{{ payment_config.yappy_business_name }}{% else %}MULTISERVICIOS TK{% endif %}">
+                            </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label for="yappy_merchant_phone" class="form-label">Teléfono del comercio</label>
+                                <input type="tel" class="form-control" id="yappy_merchant_phone" name="yappy_merchant_phone" placeholder="+507 …"
+                                       value="{% if payment_config %}{% if payment_config is mapping %}{{ payment_config.get('yappy_merchant_phone', '') }}{% else %}{{ payment_config.yappy_merchant_phone|default('', true) }}{% endif %}{% endif %}">
+                            </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label for="yappy_qr_image_path" class="form-label">Ruta imagen QR</label>
+                                <input type="text" class="form-control" id="yappy_qr_image_path" name="yappy_qr_image_path"
+                                       value="{% if payment_config and payment_config.yappy_qr_image_path %}{{ payment_config.yappy_qr_image_path }}{% else %}/static/images/yappy-qr-multiserviciostk.png{% endif %}">
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>

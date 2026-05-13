@@ -254,19 +254,21 @@ def checkout():
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
+        # Prioridad Yappy manual: no ofrecer Yappy por API en el mismo checkout (evita confusión).
+        if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
+            payment_methods.pop('yappy', None)
         if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
             payment_methods.pop('yappy_manual', None)
         yappy_checkout = None
         if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
             from nodeone.services.yappy_manual import effective_yappy_display_name, effective_yappy_instructions_html
 
+            # Checkout manual: solo datos de negocio visibles al cliente (sin QR ni rutas técnicas).
             yappy_checkout = {
                 'display_name': effective_yappy_display_name(pcfg),
                 'directory_name': (getattr(pcfg, 'yappy_directory_name', None) or '').strip(),
                 'phone': (getattr(pcfg, 'yappy_phone_or_identifier', None) or '').strip(),
                 'instructions_html': effective_yappy_instructions_html(pcfg),
-                'qr_src': (getattr(pcfg, 'yappy_qr_image_path', None) or '').strip()
-                or '/static/images/yappy-qr-multiserviciostk.png',
                 'requires_receipt': bool(getattr(pcfg, 'yappy_requires_receipt', True)),
                 'currency': 'USD',
             }

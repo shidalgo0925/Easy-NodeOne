@@ -95,8 +95,9 @@ def _recompute_quote_totals(quotation):
 
 
 def _next_number(prefix, model, org_id):
-    cnt = model.query.filter_by(organization_id=org_id).count() + 1
-    return f'{prefix}-{cnt:04d}'
+    from nodeone.services.sequential_document_number import next_org_document_number
+
+    return next_org_document_number(prefix, model, org_id)
 
 
 def _serialize_line(ln, product_name=''):
@@ -312,23 +313,42 @@ def quotations_post():
     if customer_id < 1:
         return jsonify({'error': 'customer_id_required'}), 400
 
-    q = Quotation(
-        organization_id=oid,
-        number=_next_number('Q', Quotation, oid),
-        customer_id=customer_id,
-        crm_lead_id=(int(data.get('crm_lead_id')) if data.get('crm_lead_id') else None),
-        date=datetime.utcnow(),
-        validity_date=(
-            datetime.fromisoformat(str(data.get('validity_date')).replace('Z', '+00:00')).replace(tzinfo=None)
-            if data.get('validity_date')
-            else None
-        ),
-        payment_terms=(str(data.get('payment_terms') or '').strip() or None),
-        status='draft',
-        created_by=getattr(current_user, 'id', None),
-    )
-    db.session.add(q)
-    db.session.flush()
+    from sqlalchemy.exc import IntegrityError
+
+    from nodeone.services.sequential_document_number import next_org_document_number
+
+    q = None
+    last_exc = None
+    for _attempt in range(8):
+        number = next_org_document_number('Q', Quotation, oid)
+        q = Quotation(
+            organization_id=oid,
+            number=number,
+            customer_id=customer_id,
+            crm_lead_id=(int(data.get('crm_lead_id')) if data.get('crm_lead_id') else None),
+            date=datetime.utcnow(),
+            validity_date=(
+                datetime.fromisoformat(str(data.get('validity_date')).replace('Z', '+00:00')).replace(tzinfo=None)
+                if data.get('validity_date')
+                else None
+            ),
+            payment_terms=(str(data.get('payment_terms') or '').strip() or None),
+            status='draft',
+            created_by=getattr(current_user, 'id', None),
+        )
+        db.session.add(q)
+        try:
+            db.session.flush()
+            last_exc = None
+            break
+        except IntegrityError as ex:
+            db.session.rollback()
+            last_exc = ex
+            msg = (str(getattr(ex, 'orig', ex) or '') + ' ' + str(ex)).lower()
+            if 'uq_quotations_org_number' not in msg and 'uniqueviolation' not in msg and 'unique constraint' not in msg:
+                raise
+    if last_exc is not None:
+        raise last_exc
 
     for row in (data.get('lines') or []):
         is_note = bool(row.get('is_note'))

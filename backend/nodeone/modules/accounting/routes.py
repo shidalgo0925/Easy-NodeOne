@@ -254,8 +254,9 @@ def _serialize_invoice(inv: Invoice, user_by_id=None):
 
 
 def _next_number(prefix, model, org_id):
-    cnt = model.query.filter_by(organization_id=org_id).count() + 1
-    return f'{prefix}-{cnt:04d}'
+    from nodeone.services.sequential_document_number import next_org_document_number
+
+    return next_org_document_number(prefix, model, org_id)
 
 
 def _serialize_tax(t: Tax):

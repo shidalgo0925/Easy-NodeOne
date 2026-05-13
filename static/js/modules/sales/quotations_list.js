@@ -62,6 +62,26 @@
     return data;
   }
 
+  /** Celda «Cliente»: solo nombre legible (sin código/id). El id sigue en datos y en búsqueda; correo en columna aparte. */
+  function formatClientCell(r) {
+    const cid = r.customer_id != null && r.customer_id !== '' ? String(r.customer_id) : '';
+    const rawName = (r.customer_name && String(r.customer_name).trim()) || '';
+
+    if (rawName) {
+      return `<span class="d-block fw-medium">${escHtml(rawName)}</span>`;
+    }
+    if (cid) {
+      return '<span class="d-block text-muted small">Sin nombre en ficha</span>';
+    }
+    return '<span class="text-muted">—</span>';
+  }
+
+  /** Celda «Correo cliente» (mismo origen que customer_email en el API). */
+  function formatCustomerEmailCell(r) {
+    const em = (r.customer_email && String(r.customer_email).trim()) || '';
+    return em ? `<span class="text-break small">${escHtml(em)}</span>` : '<span class="text-muted">—</span>';
+  }
+
   function render(rows) {
     tb.innerHTML = '';
     let sum = 0;
@@ -69,14 +89,14 @@
       sum += Number(r.grand_total || 0);
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><input type="checkbox"></td>
-        <td><a href="/admin/sales/quotations/${r.id}" class="fw-semibold text-decoration-none">${r.number}</a></td>
-        <td>${(r.date || '').slice(0, 19).replace('T', ' ')}</td>
-        <td>${r.customer_id || ''}</td>
-        <td>${r.salesperson_name ? escHtml(r.salesperson_name) : '<span class="text-muted">—</span>'}</td>
-        <td><i class="far fa-clock"></i></td>
-        <td class="text-end">${fmt(r.grand_total)}</td>
-        <td>${statusBadge(r.status)}</td>`;
+        <td class="text-center align-middle"><input type="checkbox" aria-label="Seleccionar fila"></td>
+        <td class="text-start align-middle"><a href="/admin/sales/quotations/${r.id}" class="fw-semibold text-decoration-none">${r.number}</a></td>
+        <td class="text-start align-middle text-nowrap small text-muted">${(r.date || '').slice(0, 19).replace('T', ' ')}</td>
+        <td class="text-start align-middle">${formatClientCell(r)}</td>
+        <td class="text-start align-middle">${formatCustomerEmailCell(r)}</td>
+        <td class="text-start align-middle">${r.salesperson_name ? escHtml(r.salesperson_name) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-end align-middle">${fmt(r.grand_total)}</td>
+        <td class="text-start align-middle">${statusBadge(r.status)}</td>`;
       tb.appendChild(tr);
     });
     qTotal.textContent = fmt(sum);
@@ -105,9 +125,12 @@
   search.addEventListener('input', () => {
     const q = (search.value || '').toLowerCase().trim();
     if (!q) return render(rowsCache);
+    // Incluir nombre y correo del cliente (el API ya envía customer_name / customer_email).
     render(
       rowsCache.filter((r) =>
-        `${r.number} ${r.customer_id} ${r.status} ${r.salesperson_name || ''} ${r.salesperson_email || ''}`
+        `${r.number} ${r.customer_id} ${r.customer_name || ''} ${r.customer_email || ''} ${r.status} ${
+          r.salesperson_name || ''
+        } ${r.salesperson_email || ''}`
           .toLowerCase()
           .includes(q),
       ),

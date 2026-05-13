@@ -115,7 +115,7 @@
                                                 {% elif method_key == 'yappy' %}
                                                     <i class="fas fa-mobile-alt text-success" aria-hidden="true"></i>
                                                 {% elif method_key == 'yappy_manual' %}
-                                                    <i class="fas fa-qrcode text-success" aria-hidden="true"></i>
+                                                    <i class="fas fa-mobile-alt text-success" aria-hidden="true"></i>
                                                 {% elif method_key == 'wire_international' %}
                                                     <i class="fas fa-globe text-primary" aria-hidden="true"></i>
                                                 {% elif method_key == 'banco_general' %}
@@ -139,33 +139,31 @@
                                             <p class="mb-2 fw-semibold text-success mb-1">Yappy (integración)</p>
                                             <p class="mb-0">Pago móvil vía flujo integrado. Sigue las indicaciones en pantalla después de pulsar <strong>Pagar</strong>.</p>
                                         {% elif method_key == 'yappy_manual' %}
-                                            <p class="mb-2 fw-semibold text-success mb-1">Pago por Yappy</p>
+                                            <p class="mb-2 fw-semibold text-success mb-1">Pagar con Yappy</p>
                                             {% if yappy_checkout %}
-                                            <p class="mb-2">Paga desde tu app bancaria con Yappy. Busca en el directorio: <strong>{{ yappy_checkout.directory_name or yappy_checkout.display_name }}</strong>.</p>
-                                            <ul class="mb-2 ps-3">
-                                                <li><strong>Comercio:</strong> {{ yappy_checkout.display_name }}</li>
-                                                {% if yappy_checkout.directory_name %}<li><strong>Directorio:</strong> <code>{{ yappy_checkout.directory_name }}</code></li>{% endif %}
-                                                {% if yappy_checkout.phone %}<li><strong>Teléfono / identificador:</strong> {{ yappy_checkout.phone }}</li>{% endif %}
-                                                <li><strong>Monto a pagar:</strong> ${{ "%.2f"|format(total_amount / 100) }} {{ yappy_checkout.currency }}</li>
-                                                {% if yappy_checkout.requires_receipt %}<li>Podés adjuntar el <strong>comprobante</strong> aquí mismo al pulsar <strong>Pagar</strong> o en la página de instrucciones.</li>{% endif %}
-                                            </ul>
+                                            <div class="mb-2 border rounded p-2 bg-light">
+                                                <p class="mb-1 small text-uppercase text-muted">Comercio</p>
+                                                <p class="mb-2 fs-6 fw-semibold mb-0">{{ yappy_checkout.display_name }}</p>
+                                                {% if yappy_checkout.phone %}
+                                                <p class="mb-1 small text-uppercase text-muted">Teléfono Yappy</p>
+                                                <p class="mb-2 fs-6 mb-0">{{ yappy_checkout.phone }}</p>
+                                                {% endif %}
+                                                <p class="mb-1 small text-uppercase text-muted">Monto a pagar</p>
+                                                <p class="mb-0 fs-5">${{ "%.2f"|format(total_amount / 100) }} {{ yappy_checkout.currency }}</p>
+                                            </div>
                                             {% if yappy_checkout.instructions_html %}
-                                            <div class="border rounded p-2 mb-2 bg-light checkout-yappy-instr-html">{{ yappy_checkout.instructions_html | safe }}</div>
+                                            <div class="border rounded p-2 mb-2 bg-white checkout-yappy-instr-html small">{{ yappy_checkout.instructions_html | safe }}</div>
                                             {% else %}
-                                            <p class="mb-1 small"><strong>Para pagar por Yappy:</strong></p>
+                                            <p class="mb-1 small"><strong>Instrucciones:</strong></p>
                                             <ol class="mb-2 ps-3 small">
-                                                <li>Abre tu app bancaria.</li>
-                                                <li>Entra a Yappy.</li>
-                                                <li>Busca nuestro comercio en el directorio como: <strong>{{ yappy_checkout.directory_name or yappy_checkout.display_name }}</strong>.</li>
-                                                <li>Realiza el pago por el monto exacto indicado arriba.</li>
-                                                <li>Toma captura o guarda PDF del comprobante.</li>
-                                                <li>Adjunta el comprobante aquí (tras pulsar <strong>Pagar</strong>) o en la página siguiente.</li>
-                                                <li>Tu pago quedará pendiente hasta validación administrativa.</li>
+                                                <li>Abrí tu app bancaria.</li>
+                                                <li>Entrá a Yappy.</li>
+                                                <li>Buscá el comercio <strong>{{ yappy_checkout.display_name }}</strong>{% if yappy_checkout.directory_name %} (en el directorio podés buscar <strong>{{ yappy_checkout.directory_name }}</strong>){% endif %}.</li>
+                                                <li>Realizá el pago por el <strong>monto exacto</strong> indicado arriba.</li>
+                                                <li>Adjuntá el comprobante abajo (tras pulsar <strong>Pagar</strong>) o en la página siguiente.</li>
+                                                <li>El pago quedará <strong>pendiente de validación administrativa</strong>; no se activa el pedido hasta que lo aprueben.</li>
                                             </ol>
                                             {% endif %}
-                                            <div class="text-center mb-0">
-                                                <img src="{{ yappy_checkout.qr_src }}" alt="" class="img-fluid border rounded" style="max-width:200px;" width="200" height="200" loading="lazy" decoding="async">
-                                            </div>
                                             {% else %}
                                             <p class="mb-0 text-muted">Este método no está disponible para tu organización en este momento.</p>
                                             {% endif %}
@@ -386,7 +384,7 @@
                                     </form>
                                     <div id="en1-yappy-receipt-msg" class="mt-2 small"></div>
                                     <p class="mb-0 mt-3 small">
-                                        <a href="#" id="en1-yappy-full-page-link" class="link-primary">Instrucciones completas, código QR y seguimiento</a>
+                                        <a href="#" id="en1-yappy-full-page-link" class="link-primary">Instrucciones completas y seguimiento</a>
                                     </p>
                                 </div>
                             </div>

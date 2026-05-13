@@ -313,6 +313,12 @@ def checkout():
     except Exception:
         from payment_processors import INTL_WIRE_DEFAULTS
 
+        try:
+            from app import db
+
+            db.session.rollback()
+        except Exception:
+            pass
         payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}
         stripe_pk = None
         intl_wire_display = dict(INTL_WIRE_DEFAULTS)

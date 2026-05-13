@@ -231,6 +231,16 @@ def effective_yappy_display_name(config) -> str:
     return ((getattr(config, 'yappy_business_name', None) or '') or '').strip()
 
 
+def effective_yappy_phone_or_identifier(config) -> str:
+    """Teléfono/identificador para checkout y validación: yappy_phone_or_identifier o teléfono del comercio."""
+    if not config:
+        return ''
+    a = (getattr(config, 'yappy_phone_or_identifier', None) or '').strip()
+    if a:
+        return a
+    return ((getattr(config, 'yappy_merchant_phone', None) or '') or '').strip()
+
+
 def effective_yappy_instructions_html(config) -> str:
     """Texto/HTML de instrucciones: yappy_instructions o, si vacío, yappy_manual_instructions."""
     if not config:

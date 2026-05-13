@@ -38,6 +38,7 @@ with app.app_context():
 
     _add_column("payment_config", "yappy_display_name", "VARCHAR(200)", "VARCHAR(200)")
     _add_column("payment_config", "yappy_phone_or_identifier", "VARCHAR(120)", "VARCHAR(120)")
+    _add_column("payment_config", "yappy_merchant_phone", "VARCHAR(64)", "VARCHAR(64)")
     _add_column("payment_config", "yappy_instructions", "TEXT", "TEXT")
     _add_column(
         "payment_config",

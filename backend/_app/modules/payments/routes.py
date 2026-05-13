@@ -269,12 +269,16 @@ def checkout():
             payment_methods.pop('yappy_manual', None)
         yappy_checkout = None
         if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
-            from nodeone.services.yappy_manual import effective_yappy_display_name, effective_yappy_instructions_html
+            from nodeone.services.yappy_manual import (
+                effective_yappy_display_name,
+                effective_yappy_instructions_html,
+                effective_yappy_phone_or_identifier,
+            )
 
             yappy_checkout = {
                 'display_name': effective_yappy_display_name(pcfg),
                 'directory_name': (getattr(pcfg, 'yappy_directory_name', None) or '').strip(),
-                'phone': (getattr(pcfg, 'yappy_phone_or_identifier', None) or '').strip(),
+                'phone': effective_yappy_phone_or_identifier(pcfg),
                 'instructions_html': effective_yappy_instructions_html(pcfg),
                 'requires_receipt': bool(getattr(pcfg, 'yappy_requires_receipt', True)),
                 'currency': 'USD',

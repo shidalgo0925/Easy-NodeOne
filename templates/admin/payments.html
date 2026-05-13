@@ -205,7 +205,7 @@
                     </button>
                 </div>
                 <div id="payment-body-yappy" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="yappy">
-                    <p class="small text-muted mb-3">Configura primero el <strong>pago manual con Yappy</strong> (comercio, teléfono, instrucciones y comprobante). La <strong>integración API</strong> va en el bloque colapsado de abajo. Los campos de <strong>visualización en checkout</strong> (directorio, nombre comercial, teléfono comercio, ruta QR) están en la <strong>tarjeta siguiente</strong>, separada.</p>
+                    <p class="small text-muted mb-3">Para que <strong>Yappy manual</strong> funcione en checkout hace falta el interruptor de abajo y al menos uno de: <strong>Nombre visible</strong> o <strong>Teléfono o identificador Yappy</strong> (este bloque), o <strong>Nombre del negocio</strong> / <strong>Nombre en directorio</strong> / <strong>Ruta imagen QR</strong> (tarjeta siguiente). El <strong>Teléfono del comercio</strong> de la tarjeta siguiente también se guarda y cuenta si no rellenaste «Teléfono o identificador» aquí. La <strong>integración API</strong> va en el bloque colapsado de abajo.</p>
 
                     <h6 class="mb-2"><i class="fas fa-hand-paper"></i> Yappy manual (validación administrativa)</h6>
                     <p class="small text-muted mb-3">Los pagos se confirman tras revisión administrativa.</p>
@@ -292,7 +292,7 @@
                     </button>
                 </div>
                 <div id="payment-body-yappy-checkout-viz" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="yappy_checkout_display">
-                    <p class="small text-muted mb-3">Datos de apoyo para búsqueda en el directorio Yappy, nombre comercial, teléfono del comercio y ruta de imagen QR (p. ej. materiales internos u otros flujos). El <strong>checkout manual</strong> usa sobre todo «Nombre visible» y «Teléfono o identificador» del bloque <strong>Yappy</strong> de arriba.</p>
+                    <p class="small text-muted mb-3">Directorio, nombre comercial, teléfono del comercio y QR. El <strong>teléfono del comercio</strong> se usa en Yappy manual si dejaste vacío «Teléfono o identificador Yappy» en la tarjeta anterior.</p>
                     <h6 class="mb-3"><i class="fas fa-eye"></i> Visualización en checkout</h6>
                     <div class="row mb-0">
                         <div class="col-12 col-sm-6 col-lg-3">
@@ -307,7 +307,7 @@
                         </div>
                         <div class="col-12 col-sm-6 col-lg-3">
                             <label for="yappy_merchant_phone" class="form-label">Teléfono del comercio</label>
-                            <input type="tel" class="form-control" id="yappy_merchant_phone" name="yappy_merchant_phone" placeholder="+507 …"
+                            <input type="tel" class="form-control" id="yappy_merchant_phone" name="yappy_merchant_phone" placeholder="+507 …" maxlength="64"
                                    value="{% if payment_config %}{% if payment_config is mapping %}{{ payment_config.get('yappy_merchant_phone', '') }}{% else %}{{ payment_config.yappy_merchant_phone|default('', true) }}{% endif %}{% endif %}">
                         </div>
                         <div class="col-12 col-sm-6 col-lg-3">
@@ -976,7 +976,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (config.yappy_directory_name) document.getElementById('yappy_directory_name').value = config.yappy_directory_name;
                 if (config.yappy_qr_image_path) document.getElementById('yappy_qr_image_path').value = config.yappy_qr_image_path;
                 if (config.yappy_business_name) document.getElementById('yappy_business_name').value = config.yappy_business_name;
-                if (config.yappy_merchant_phone) document.getElementById('yappy_merchant_phone').value = config.yappy_merchant_phone;
+                if (document.getElementById('yappy_merchant_phone') && config.yappy_merchant_phone !== undefined) {
+                    document.getElementById('yappy_merchant_phone').value = config.yappy_merchant_phone || '';
+                }
                 if (config.yappy_manual_enabled !== undefined) {
                     document.getElementById('yappy_manual_enabled').checked = !!config.yappy_manual_enabled;
                 }

@@ -6,7 +6,8 @@
         <div class="en1-pay-card-head">
             <span class="badge rounded-pill en1-badge-immediate">Pago inmediato</span>
         </div>
-        <div class="px-3 pb-1 pt-0 small text-muted">Tarjeta o PayPal: el cargo se confirma al completar el pago en la pasarela.</div>
+        <div class="px-3 pb-1 pt-0 small text-muted">PayPal: el cargo se confirma al completar el pago en la pasarela.</div>
+        {# Stripe deshabilitado — reactivar junto con PAYMENT_METHODS['stripe']
         {% if 'stripe' in payment_methods %}
         <div class="checkout-pay-method-block px-3 pb-2{% if checkout_first_method == 'stripe' %} is-selected{% endif %}" data-checkout-method-block data-method-key="stripe">
             <label class="checkout-pay-method-row list-group-item list-group-item-action d-flex align-items-start gap-3 rounded mb-2 py-3 px-3" for="method_stripe">
@@ -26,6 +27,7 @@
             </div>
         </div>
         {% endif %}
+        #}
         {% if 'paypal' in payment_methods %}
         <div class="checkout-pay-method-block px-3 pb-3{% if checkout_first_method == 'paypal' %} is-selected{% endif %}" data-checkout-method-block data-method-key="paypal">
             <label class="checkout-pay-method-row list-group-item list-group-item-action d-flex align-items-start gap-3 rounded mb-0 py-3 px-3" for="method_paypal">

@@ -48,7 +48,7 @@
     </div>
 </nav>
 
-{% elif saas_module_enabled('contador') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) and _contador_zone %}
+{% elif saas_module_enabled('contador') and has_view_endpoint('contador.contador_index') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) and _contador_zone %}
 <nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="contador" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Contador</span>

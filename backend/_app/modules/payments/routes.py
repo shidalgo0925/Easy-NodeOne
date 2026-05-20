@@ -263,6 +263,7 @@ def checkout():
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         payment_methods = dict(PAYMENT_METHODS or {})
+        payment_methods.pop('stripe', None)
         # Solo Yappy manual en checkout (sin API `yappy` ni integración automática).
         payment_methods.pop('yappy', None)
         if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
@@ -292,7 +293,7 @@ def checkout():
                 if k in ('yappy_manual', 'wire_international')
             }
             if not payment_methods:
-                payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}
+                payment_methods = {'paypal': 'PayPal'}
         if not payment_methods:
             payment_methods = {'paypal': 'PayPal'}
         stripe_pk = STRIPE_PUBLISHABLE_KEY
@@ -322,7 +323,7 @@ def checkout():
             db.session.rollback()
         except Exception:
             pass
-        payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}
+        payment_methods = {'paypal': 'PayPal'}
         stripe_pk = None
         intl_wire_display = dict(INTL_WIRE_DEFAULTS)
         yappy_checkout = None

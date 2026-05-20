@@ -3058,6 +3058,16 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_default_percent_taxes: {e}')
         try:
+            from nodeone.services.payment_config_schema import ensure_payment_config_yappy_columns
+
+            ensure_payment_config_yappy_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_payment_config_yappy_columns: {e}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        try:
             from nodeone.services.contador_schema import ensure_contador_qty_float_columns
 
             ensure_contador_qty_float_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

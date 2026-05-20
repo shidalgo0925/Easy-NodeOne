@@ -13,6 +13,8 @@ from nodeone.services.payment_post_process import process_cart_after_payment, se
 
 from app import require_permission
 
+payments_admin_bp = Blueprint('payments_admin', __name__)
+
 
 def _likely_missing_sql_column_error(exc: BaseException) -> bool:
     """MySQL/PyMySQL/SQLite suelen incluir el texto en OperationalError o en orig de StatementError."""

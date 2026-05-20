@@ -279,7 +279,7 @@
                             <li><a class="dropdown-item" href="{{ url_for('member_pages.settings_communications') }}"><i class="fas fa-sliders-h me-2"></i> Comunicaciones (preferencias)</a></li>
                             {% endif %}
                             {% if show_tenant_admin_menu %}
-                            {% if saas_module_enabled('payments') and nav_can('payments.manage') %}
+                            {% if saas_module_enabled('payments') and nav_can('payments.manage') and has_view_endpoint('payments_admin.admin_payments') %}
                             <li><a class="dropdown-item" href="{{ url_for('payments_admin.admin_payments') }}"><i class="fas fa-credit-card me-2"></i> Pagos (integración)</a></li>
                             {% if has_view_endpoint('payments_admin.admin_yappy_manual_list') and nav_can('payments.manage') %}
                             <li><a class="dropdown-item" href="{{ url_for('payments_admin.admin_yappy_manual_list') }}"><i class="fas fa-mobile-alt me-2 text-success"></i> Validación pagos Yappy</a></li>
@@ -520,7 +520,7 @@
                         </li>
                         {% endif %}
 
-                        {% if show_tenant_admin_menu and saas_module_enabled('contador') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) %}
+                        {% if show_tenant_admin_menu and saas_module_enabled('contador') and has_view_endpoint('contador.contador_index') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--contador {% if request.blueprint in ['contador', 'contador_api'] or (request.path or '').startswith('/admin/contador') or (request.path or '').startswith('/api/contador') %}show{% endif %}" data-nav-group-key="contador">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Conteos físicos por variante">
                                 <i class="menu-icon fas fa-clipboard-list"></i>

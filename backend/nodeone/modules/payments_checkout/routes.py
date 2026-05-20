@@ -252,10 +252,13 @@ def create_payment_intent():
         else:
             data = request.form.to_dict()
         
-        payment_method = data.get('payment_method', 'stripe')
+        payment_method = data.get('payment_method', 'paypal')
         # Bloquear solo Yappy por API; `yappy_manual` es el flujo independiente por comprobante.
         if payment_method == 'yappy':
             return jsonify({'error': 'El método Yappy con API no está disponible. Use Yappy manual.'}), 400
+        # Stripe deshabilitado temporalmente (reactivar con PAYMENT_METHODS y checkout).
+        # if payment_method == 'stripe':
+        #     return jsonify({'error': 'El método Stripe no está disponible temporalmente.'}), 400
 
         # Manejar archivo de comprobante si existe (métodos manuales)
         receipt_file = None
@@ -345,15 +348,15 @@ def create_payment_intent():
         
         # Si es modo demo, también verificar si no hay credenciales configuradas
         if not is_demo_mode:
-            if payment_method == 'stripe':
-                if payment_config:
-                    has_stripe_key = bool(payment_config.get_stripe_secret_key() and 
-                                        not payment_config.get_stripe_secret_key().startswith('sk_test_your_'))
-                else:
-                    has_stripe_key = bool(os.getenv('STRIPE_SECRET_KEY') and 
-                                        not os.getenv('STRIPE_SECRET_KEY', '').startswith('sk_test_your_'))
-                is_demo_mode = not has_stripe_key
-            elif payment_method == 'paypal':
+            # if payment_method == 'stripe':
+            #     if payment_config:
+            #         has_stripe_key = bool(payment_config.get_stripe_secret_key() and
+            #                             not payment_config.get_stripe_secret_key().startswith('sk_test_your_'))
+            #     else:
+            #         has_stripe_key = bool(os.getenv('STRIPE_SECRET_KEY') and
+            #                             not os.getenv('STRIPE_SECRET_KEY', '').startswith('sk_test_your_'))
+            #     is_demo_mode = not has_stripe_key
+            if payment_method == 'paypal':
                 if payment_config:
                     has_paypal_creds = bool(payment_config.get_paypal_client_id() and payment_config.get_paypal_client_secret())
                 else:
@@ -507,9 +510,9 @@ def create_payment_intent():
         }
         
         # Agregar datos específicos según el método
-        if payment_method == 'stripe':
-            response_data['client_secret'] = payment_data.get('client_secret', 'demo_client_secret')
-        elif payment_method == 'paypal':
+        # if payment_method == 'stripe':
+        #     response_data['client_secret'] = payment_data.get('client_secret', 'demo_client_secret')
+        if payment_method == 'paypal':
             response_data['payment_url'] = payment_data.get('payment_url')
             response_data['order_id'] = payment_data.get('payment_reference')
         elif payment_method == 'banco_general':
@@ -534,149 +537,149 @@ def create_payment_intent():
         return jsonify({'error': str(e)}), 500
 
 # Ruta legacy para compatibilidad (solo Stripe)
-@payments_checkout_bp.route('/create-payment-intent-legacy', methods=['POST'])
-@_email_verified_check_then
-def create_payment_intent_legacy():
-    """Crear Payment Intent de Stripe desde el carrito (método legacy)"""
-    import app as M
-    try:
-        cart = M.get_or_create_cart(current_user.id)
+# @payments_checkout_bp.route('/create-payment-intent-legacy', methods=['POST'])
+# @_email_verified_check_then
+# def create_payment_intent_legacy():
+#     """Crear Payment Intent de Stripe desde el carrito (método legacy)"""
+#     import app as M
+#     try:
+#         cart = M.get_or_create_cart(current_user.id)
         
-        if cart.get_items_count() == 0:
-            return jsonify({'error': 'El carrito está vacío'}), 400
+#         if cart.get_items_count() == 0:
+#             return jsonify({'error': 'El carrito está vacío'}), 400
         
-        total_amount = cart.get_total()
+#         total_amount = cart.get_total()
         
-        # Modo Demo - Simular pago exitoso (salvo pruebas con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS)
-        demo_mode = True  # Cambiar a False cuando tengas Stripe configurado
+#         # Modo Demo - Simular pago exitoso (salvo pruebas con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS)
+#         demo_mode = True  # Cambiar a False cuando tengas Stripe configurado
 
-        if demo_mode and _checkout_no_demo_auto_success():
-            fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"
-            payment = M.Payment(
-                user_id=current_user.id,
-                payment_method='stripe',
-                payment_reference=fake_intent_id,
-                amount=total_amount,
-                membership_type='cart',
-                status='pending',
-            )
-            M.db.session.add(payment)
-            M.db.session.commit()
-            return jsonify(
-                {
-                    'client_secret': 'demo_client_secret',
-                    'payment_id': payment.id,
-                    'demo_mode': True,
-                    'status': 'pending',
-                }
-            )
+#         if demo_mode and _checkout_no_demo_auto_success():
+#             fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"
+#             payment = M.Payment(
+#                 user_id=current_user.id,
+#                 payment_method='stripe',
+#                 payment_reference=fake_intent_id,
+#                 amount=total_amount,
+#                 membership_type='cart',
+#                 status='pending',
+#             )
+#             M.db.session.add(payment)
+#             M.db.session.commit()
+#             return jsonify(
+#                 {
+#                     'client_secret': 'demo_client_secret',
+#                     'payment_id': payment.id,
+#                     'demo_mode': True,
+#                     'status': 'pending',
+#                 }
+#             )
 
-        if demo_mode:
-            # Simular Payment Intent
-            fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"
+#         if demo_mode:
+#             # Simular Payment Intent
+#             fake_intent_id = f"pi_demo_{current_user.id}_{datetime.utcnow().timestamp()}"
             
-            # Guardar en la base de datos
-            payment = M.Payment(
-                user_id=current_user.id,
-                payment_method='stripe',
-                payment_reference=fake_intent_id,
-                amount=total_amount,
-                membership_type='cart',  # Indica que es un pago del carrito
-                status='succeeded'  # Simular pago exitoso
-            )
-            M.db.session.add(payment)
-            M.db.session.commit()
+#             # Guardar en la base de datos
+#             payment = M.Payment(
+#                 user_id=current_user.id,
+#                 payment_method='stripe',
+#                 payment_reference=fake_intent_id,
+#                 amount=total_amount,
+#                 membership_type='cart',  # Indica que es un pago del carrito
+#                 status='succeeded'  # Simular pago exitoso
+#             )
+#             M.db.session.add(payment)
+#             M.db.session.commit()
             
-            # Procesar cada item del carrito
-            subscriptions_created = []
-            items_processed = 0
-            import json
+#             # Procesar cada item del carrito
+#             subscriptions_created = []
+#             items_processed = 0
+#             import json
             
-            # Crear copia de la lista antes de procesar
-            cart_items_list = list(cart.items)
+#             # Crear copia de la lista antes de procesar
+#             cart_items_list = list(cart.items)
             
-            for item in cart_items_list:
-                items_processed += 1
+#             for item in cart_items_list:
+#                 items_processed += 1
                 
-                if item.product_type == 'membership':
-                    metadata = json.loads(item.item_metadata) if item.item_metadata else {}
-                    membership_type = metadata.get('membership_type', 'basic')
+#                 if item.product_type == 'membership':
+#                     metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+#                     membership_type = metadata.get('membership_type', 'basic')
                     
-                    # Crear suscripción
-                    end_date = datetime.utcnow() + timedelta(days=365)
-                    subscription = M.Subscription(
-                        user_id=current_user.id,
-                        payment_id=payment.id,
-                        membership_type=membership_type,
-                        status='active',
-                        end_date=end_date
-                    )
-                    M.db.session.add(subscription)
-                    subscriptions_created.append(subscription)
+#                     # Crear suscripción
+#                     end_date = datetime.utcnow() + timedelta(days=365)
+#                     subscription = M.Subscription(
+#                         user_id=current_user.id,
+#                         payment_id=payment.id,
+#                         membership_type=membership_type,
+#                         status='active',
+#                         end_date=end_date
+#                     )
+#                     M.db.session.add(subscription)
+#                     subscriptions_created.append(subscription)
                 
-                elif item.product_type == 'event':
-                    # Registrar al evento (si existe la funcionalidad)
-                    metadata = json.loads(item.item_metadata) if item.item_metadata else {}
-                    event_id = metadata.get('event_id')
-                    if event_id:
-                        # Aquí se podría registrar al evento automáticamente
-                        pass
+#                 elif item.product_type == 'event':
+#                     # Registrar al evento (si existe la funcionalidad)
+#                     metadata = json.loads(item.item_metadata) if item.item_metadata else {}
+#                     event_id = metadata.get('event_id')
+#                     if event_id:
+#                         # Aquí se podría registrar al evento automáticamente
+#                         pass
                 
             
-            M.db.session.commit()
+#             M.db.session.commit()
             
-            # Vaciar el carrito después del pago exitoso
-            cart.clear()
+#             # Vaciar el carrito después del pago exitoso
+#             cart.clear()
             
-            return jsonify({
-                'client_secret': 'demo_client_secret',
-                'payment_id': payment.id,
-                'demo_mode': True,
-                'items_processed': items_processed
-            })
-        else:
-            # Modo real con Stripe
-            # Crear metadata con información del carrito
-            import json
-            cart_metadata = {
-                'user_id': current_user.id,
-                'items_count': cart.get_items_count(),
-                'items': [item.to_dict() for item in cart.items]
-            }
+#             return jsonify({
+#                 'client_secret': 'demo_client_secret',
+#                 'payment_id': payment.id,
+#                 'demo_mode': True,
+#                 'items_processed': items_processed
+#             })
+#         else:
+#             # Modo real con Stripe
+#             # Crear metadata con información del carrito
+#             import json
+#             cart_metadata = {
+#                 'user_id': current_user.id,
+#                 'items_count': cart.get_items_count(),
+#                 'items': [item.to_dict() for item in cart.items]
+#             }
             
-            intent = M.stripe.PaymentIntent.create(
-                amount=total_amount,
-                currency='usd',
-                metadata={
-                    'user_id': str(current_user.id),
-                    'cart_id': str(cart.id),
-                    'items': json.dumps(cart_metadata['items'])
-                }
-            )
+#             intent = M.stripe.PaymentIntent.create(
+#                 amount=total_amount,
+#                 currency='usd',
+#                 metadata={
+#                     'user_id': str(current_user.id),
+#                     'cart_id': str(cart.id),
+#                     'items': json.dumps(cart_metadata['items'])
+#                 }
+#             )
             
-            # Guardar en la base de datos
-            payment = M.Payment(
-                user_id=current_user.id,
-                payment_method='stripe',
-                payment_reference=intent.id,
-                amount=total_amount,
-                membership_type='cart',
-                status='pending'
-            )
-            M.db.session.add(payment)
-            M.db.session.commit()
+#             # Guardar en la base de datos
+#             payment = M.Payment(
+#                 user_id=current_user.id,
+#                 payment_method='stripe',
+#                 payment_reference=intent.id,
+#                 amount=total_amount,
+#                 membership_type='cart',
+#                 status='pending'
+#             )
+#             M.db.session.add(payment)
+#             M.db.session.commit()
             
-            return jsonify({
-                'client_secret': intent.client_secret,
-                'payment_id': payment.id,
-                'demo_mode': False
-            })
+#             return jsonify({
+#                 'client_secret': intent.client_secret,
+#                 'payment_id': payment.id,
+#                 'demo_mode': False
+#             })
         
-    except Exception as e:
-        print(f"Error en create_payment_intent: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 400
+#     except Exception as e:
+#         print(f"Error en create_payment_intent: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         return jsonify({'error': str(e)}), 400
 @payments_checkout_bp.route('/payment-success')
 @login_required
 def payment_success():

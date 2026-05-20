@@ -10,7 +10,7 @@ from flask import current_app
 
 # Constantes para métodos de pago
 PAYMENT_METHODS = {
-    'stripe': 'Stripe (Tarjeta de crédito / débito)',
+    # 'stripe': 'Stripe (Tarjeta de crédito / débito)',  # Reactivar: descomentar y checkout_payment_methods.html
     'paypal': 'PayPal',
     'banco_general': 'Banco General',
     'yappy': 'Yappy',

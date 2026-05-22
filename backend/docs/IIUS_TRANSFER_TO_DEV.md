@@ -1,6 +1,8 @@
 # IIUS → DEV: transferir parches para commit en `develop`
 
-El silo IIUS (`/opt/easynodeone/app`) tiene cambios locales **no commiteados**. La política del proyecto exige commit solo desde **`/opt/easynodeone/dev/app`**.
+> **Estado 2026-05-22:** cerrado por **merge Git** (`release/iius-go-20260522` → `develop` @ `9330cfc`). Ver **`IIUS_CIRCUIT_STATUS.md`**. El tarball sigue siendo opcional (copia manual / histórico).
+
+El silo IIUS (`/opt/easynodeone/app`) tenía cambios empaquetados para commit solo desde **`/opt/easynodeone/dev/app`**.
 
 ## Opción A — Tarball (recomendado)
 

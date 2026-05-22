@@ -551,7 +551,7 @@
                         </li>
                         {% endif %}
 
-                        {% if show_tenant_admin_menu and has_view_endpoint('security_matrix.security_matrix_index') and (current_user.is_admin or nav_can('security_matrix.admin')) %}
+                        {% if show_tenant_admin_menu and saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and (current_user.is_admin or nav_can('security_matrix.admin')) %}
                         <li class="nav-item sidebar-nav-app">
                             <a class="nav-link {% if request.blueprint == 'security_matrix' or (request.path or '').startswith('/admin/security-matrix') %}active{% endif %}" href="{{ url_for('security_matrix.security_matrix_index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Matriz de permisos Odoo (validación, sin ejecutar)">
                                 <i class="menu-icon fas fa-shield-alt"></i>

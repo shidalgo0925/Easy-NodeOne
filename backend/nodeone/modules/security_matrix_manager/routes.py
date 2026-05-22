@@ -374,4 +374,7 @@ def register_security_matrix_manager_blueprints(app):
     ):
         return
     if 'security_matrix' not in app.blueprints:
+        from saas_features import register_simple_saas_guard
+
+        register_simple_saas_guard(security_matrix_bp, 'security_matrix')
         app.register_blueprint(security_matrix_bp)

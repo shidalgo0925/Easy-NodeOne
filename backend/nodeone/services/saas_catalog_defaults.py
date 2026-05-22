@@ -72,6 +72,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'Generación de códigos QR estáticos (PNG, SVG, PDF) e historial por organización.',
         False,
     ),
+    (
+        'security_matrix',
+        'Matriz de permisos Odoo',
+        'Importación y validación de permisos Odoo (catálogo, matriz visual, sin ejecutar en Odoo).',
+        False,
+    ),
 )
 
 
@@ -179,6 +185,7 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'workshop',
     'contador',
     'qr_generator',
+    'security_matrix',
 )
 
 

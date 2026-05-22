@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tablas security_matrix_manager + permiso security_matrix.admin."""
+"""Tablas security_matrix_manager + permiso security_matrix.admin + catálogo SaaS."""
 
 import os
 import sys
@@ -9,6 +9,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sqlalchemy import insert, select
 
 from app import app, db  # noqa: E402
+from nodeone.services.saas_catalog_defaults import (  # noqa: E402
+    ensure_saas_module_catalog,
+    ensure_toggleable_tenant_module_links,
+)
 from models.security_matrix import (  # noqa: E402
     SecurityMatrixCatalogSnapshot,
     SecurityMatrixChangePreview,
@@ -59,7 +63,9 @@ def main():
                 )
                 print(f'📋 Rol {rcode}: {PERM_CODE}')
         db.session.commit()
-        print('Listo.')
+        ensure_saas_module_catalog(printfn=print)
+        ensure_toggleable_tenant_module_links(printfn=print)
+        print('Listo (tablas, permiso, saas_module security_matrix).')
 
 
 if __name__ == '__main__':

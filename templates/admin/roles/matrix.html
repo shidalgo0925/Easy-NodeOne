@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Matriz permisología EN1{% endblock %}
+
+{% block page_content %}
+<style>
+  .rbac-matriz-wrap { overflow-x: auto; max-width: 100%; }
+  .rbac-matriz-table { font-size: 0.8rem; border-collapse: separate; border-spacing: 0; }
+  .rbac-matriz-table th, .rbac-matriz-table td { border: 1px solid #dee2e6; padding: 0.35rem 0.5rem; vertical-align: middle; }
+  .rbac-matriz-table thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 2; }
+  .rbac-matriz-table .rbac-matriz-screen { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 12rem; max-width: 16rem; }
+  .rbac-matriz-table thead .rbac-matriz-screen { z-index: 3; background: #f8f9fa; }
+  .rbac-matriz-cell-btn {
+    width: 2rem; height: 2rem; padding: 0; border: 1px solid #ced4da; border-radius: 0.25rem;
+    background: #fff; cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  .rbac-matriz-cell-btn.is-on { background: #d1e7dd; border-color: #75b798; color: #0f5132; }
+  .rbac-matriz-cell-btn.is-off { background: #f8f9fa; color: #adb5bd; }
+  .rbac-matriz-cell-btn.is-off::after { content: '✗'; }
+  .rbac-matriz-cell-btn.is-on::after { content: '✓'; }
+  .rbac-matriz-cell-btn:disabled { cursor: default; opacity: 0.9; }
+  .rbac-matriz-cell-btn.is-critical-off { box-shadow: inset 0 0 0 1px #ffc107; }
+  .rbac-module-tabs .nav-link { font-weight: 600; padding: 0.4rem 0.9rem; }
+</style>
+<div class="container-fluid py-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-2">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_roles_list') }}">Roles</a></li>
+      <li class="breadcrumb-item active">Matriz permisología</li>
+    </ol>
+  </nav>
+  <h1 class="h5 mb-2"><i class="fas fa-th me-2 text-primary"></i>Matriz permisología EN1</h1>
+  <p class="text-muted small mb-3">
+    Módulos (pestañas) × pantallas/acciones (filas) × roles (columnas).
+    {% if can_edit %}Clic en celda para asignar o quitar permiso.{% else %}Solo lectura (requiere <code>roles.update</code>).{% endif %}
+  </p>
+
+  <ul class="nav nav-tabs rbac-module-tabs mb-3 flex-nowrap overflow-auto">
+    {% for mod in grid.modules %}
+    <li class="nav-item">
+      <a class="nav-link {% if mod.id == grid.active_module %}active{% endif %}"
+         href="{{ url_for('admin_roles_matrix', module=mod.id) }}">{{ mod.label }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% if grid.rows %}
+  <div class="card border-0 shadow-sm rbac-matriz-wrap">
+    <div class="card-body p-0">
+      <table class="table table-sm rbac-matriz-table mb-0">
+        <thead>
+          <tr>
+            <th class="rbac-matriz-screen">Pantalla / opción</th>
+            {% for col in grid.columns %}
+            <th class="text-center" title="{{ col.name }}">
+              <span class="badge bg-secondary">{{ col.code }}</span>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in grid.rows %}
+          <tr>
+            <td class="rbac-matriz-screen">
+              <strong>{{ row.screen }}</strong>
+              <code class="d-block small text-muted">{{ row.code }}</code>
+              {% if row.critical %}<span class="badge bg-warning text-dark mt-1">Crítico</span>{% endif %}
+            </td>
+            {% for cell in row.cells %}
+            <td class="text-center p-1">
+              {% if can_edit and not cell.readonly %}
+              <form method="post" action="{{ url_for('admin_roles_matrix_cell') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+                <input type="hidden" name="role_id" value="{{ cell.role_id }}" />
+                <input type="hidden" name="permission_id" value="{{ cell.permission_id }}" />
+                <input type="hidden" name="active_module" value="{{ grid.active_module }}" />
+                <input type="hidden" name="checked" value="{{ '0' if cell.checked else '1' }}" />
+                <button type="submit"
+                        class="rbac-matriz-cell-btn {% if cell.checked %}is-on{% else %}is-off{% endif %}{% if row.critical and not cell.checked %} is-critical-off{% endif %}"
+                        title="{{ row.code }}"></button>
+              </form>
+              {% else %}
+              <span class="rbac-matriz-cell-btn {% if cell.checked %}is-on{% else %}is-off{% endif %} disabled"
+                    title="{{ row.code }}"></span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-info">No hay permisos en este módulo. Ejecutá la migración RBAC o ampliá el catálogo en <code>permission</code>.</div>
+  {% endif %}
+
+  <div class="mt-3">
+    <a href="{{ url_for('admin_roles_list') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Volver a roles</a>
+    <a href="{{ url_for('admin_permissions_list') }}" class="btn btn-sm btn-outline-info">Listado permisos</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "schema_version": "1.0",
+    "export_type": "security_catalog",
+    "generated_at": "2026-05-20T15:00:00Z",
+    "database": "modecosa",
+    "odoo_version": "19.0+e",
+    "exporter": "en1_connector",
+    "exporter_version": "1.0.0",
+    "record_counts": {
+      "users": 2,
+      "groups": 3,
+      "memberships": 4
+    }
+  },
+  "users": [
+    {
+      "id": 6,
+      "login": "usuario@empresa.com",
+      "name": "Nombre Apellido",
+      "active": true,
+      "email": "usuario@empresa.com",
+      "share": false,
+      "department": "Ventas",
+      "parent_login": "jefe@empresa.com",
+      "group_ids": [1, 9, 12]
+    },
+    {
+      "id": 10,
+      "login": "portal@cliente.com",
+      "name": "Cliente Portal",
+      "active": true,
+      "email": "portal@cliente.com",
+      "share": true,
+      "department": null,
+      "parent_login": null,
+      "group_ids": [3]
+    }
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "name": "Usuario interno",
+      "category": "Tipo de usuario",
+      "xml_id": "base.group_user",
+      "comment": null,
+      "implied_group_ids": []
+    },
+    {
+      "id": 9,
+      "name": "Contabilidad / Facturación",
+      "category": "Contabilidad",
+      "xml_id": "account.group_account_invoice",
+      "comment": null,
+      "implied_group_ids": [1]
+    },
+    {
+      "id": 12,
+      "name": "Administrador",
+      "category": "Administración",
+      "xml_id": "base.group_system",
+      "comment": "Acceso técnico completo",
+      "implied_group_ids": [1]
+    }
+  ],
+  "memberships": [
+    {
+      "user_id": 6,
+      "group_id": 1,
+      "user_login": "usuario@empresa.com",
+      "group_xml_id": "base.group_user"
+    },
+    {
+      "user_id": 6,
+      "group_id": 9,
+      "user_login": "usuario@empresa.com",
+      "group_xml_id": "account.group_account_invoice"
+    },
+    {
+      "user_id": 6,
+      "group_id": 12,
+      "user_login": "usuario@empresa.com",
+      "group_xml_id": "base.group_system"
+    },
+    {
+      "user_id": 10,
+      "group_id": 3,
+      "user_login": "portal@cliente.com",
+      "group_xml_id": "base.group_portal"
+    }
+  ],
+  "critical_groups": [
+    {
+      "group_id": 12,
+      "xml_id": "base.group_system",
+      "name": "Administrador",
+      "risk_level": "critical",
+      "label": "Administración / Ajustes"
+    },
+    {
+      "group_id": 15,
+      "xml_id": "account.group_account_manager",
+      "name": "Contabilidad / Manager",
+      "risk_level": "critical",
+      "label": "Contabilidad manager"
+    }
+  ],
+  "model_access": [],
+  "record_rules": [],
+  "modules": [],
+  "menus": []
+}

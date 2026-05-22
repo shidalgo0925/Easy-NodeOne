@@ -1,54 +1,54 @@
 import { useEffect, useMemo } from 'react'
 import Header from './components/Header'
 import Hero from './components/Hero'
-import Problem from './components/Problem'
-import Solution from './components/Solution'
-import HowItWorks from './components/HowItWorks'
-import MultiTenant from './components/MultiTenant'
-import Security from './components/Security'
+import PlatformProductStrip from './components/landing/PlatformProductStrip'
+import EcosystemEN1 from './components/landing/EcosystemEN1'
+import UseCasesEN1 from './components/landing/UseCasesEN1'
+import MultiTenantShowcase from './components/landing/MultiTenantShowcase'
+import AutomationShowcase from './components/landing/AutomationShowcase'
+import EventsShowcase from './components/landing/EventsShowcase'
+import AcademicShowcase from './components/landing/AcademicShowcase'
+import UserPortalShowcase from './components/landing/UserPortalShowcase'
+import AdminShowcase from './components/landing/AdminShowcase'
+import ApiDevShowcase from './components/landing/ApiDevShowcase'
+import SecurityTrustBand from './components/landing/SecurityTrustBand'
 import Plans from './components/Plans'
-import CTA from './components/CTA'
 import DemoForm from './components/DemoForm'
 import Footer from './components/Footer'
-import Benefits from './components/Benefits'
-import TodayAndSoon from './components/TodayAndSoon'
 import FeatureBlocks from './components/FeatureBlocks'
 import WhatsAppFloat from './components/WhatsAppFloat'
 
 const SEO_BY_PAGE = {
   home: {
-    title: 'EasyNodeOne | Gestión de clientes y conversaciones',
+    title: 'EasyNodeOne | Plataforma modular multi-tenant',
     description:
-      'Gestiona clientes, conversaciones y ventas desde una sola plataforma. Mejora tu atención y seguimiento comercial con EasyNodeOne.',
+      'EN1 centraliza miembros, eventos, pagos, certificados, CRM y marketing en un ecosistema SaaS para instituciones y asociaciones.',
     path: '/',
   },
   features: {
     title: 'Funciones | EasyNodeOne',
     description:
-      'Descubre las funciones de EasyNodeOne para gestionar clientes, conversaciones y seguimiento comercial.',
+      'Módulos EN1: membresías, eventos, pagos, certificados, académico, CRM, servicios y marketing en una sola plataforma.',
     path: '/features',
   },
   pricing: {
     title: 'Precios | EasyNodeOne',
-    description: 'Planes claros para gestionar clientes, conversaciones y seguimiento comercial.',
+    description: 'Planes para equipos que operan membresías, eventos y formación con EN1.',
     path: '/pricing',
   },
   contact: {
     title: 'Contacto | EasyNodeOne',
-    description:
-      'Solicita una demo de EasyNodeOne y recibe asesoría para implementar tu operación comercial.',
+    description: 'Solicita una demo de EasyNodeOne y alinea tu operación con el ecosistema EN1.',
     path: '/contact',
   },
   useCases: {
     title: 'Casos de uso | EasyNodeOne',
-    description:
-      'Casos de uso por industria para aplicar EasyNodeOne en ventas, atención y seguimiento.',
+    description: 'Institutos, asociaciones, empresas, eventos y educación operando con EN1.',
     path: '/use-cases',
   },
   integrations: {
     title: 'Integraciones | EasyNodeOne',
-    description:
-      'Conoce las integraciones disponibles y próximas para conectar EasyNodeOne con tu operación.',
+    description: 'Integraciones, API y extensibilidad del stack EN1.',
     path: '/integrations',
   },
 }
@@ -109,67 +109,56 @@ export default function App() {
       <main>
         {page === 'home' && (
           <>
-            <Hero />
-            <Problem />
-            <Benefits />
-            <TodayAndSoon />
-            <Solution />
-            <HowItWorks />
-            <MultiTenant />
-            <Security />
+            <Hero page="home" />
+            <PlatformProductStrip />
+            <EcosystemEN1 />
+            <UseCasesEN1 />
+            <MultiTenantShowcase />
+            <AutomationShowcase />
+            <EventsShowcase />
+            <AcademicShowcase />
+            <UserPortalShowcase />
+            <AdminShowcase />
+            <ApiDevShowcase />
+            <SecurityTrustBand />
             <Plans />
-            <CTA />
             <DemoForm />
           </>
         )}
         {page === 'features' && (
           <>
-            <Hero />
+            <Hero page="features" />
             <FeatureBlocks />
-            <Solution />
-            <Problem />
-            <HowItWorks />
-            <MultiTenant />
-            <Security />
-            <CTA />
+            <EcosystemEN1 />
+            <ApiDevShowcase />
+            <DemoForm />
           </>
         )}
         {page === 'pricing' && (
           <>
-            <Hero />
+            <Hero page="pricing" />
             <Plans />
-            <CTA />
             <DemoForm />
           </>
         )}
         {page === 'contact' && (
           <>
-            <Hero />
+            <Hero page="contact" />
             <DemoForm />
           </>
         )}
         {page === 'useCases' && (
           <>
-            <Hero />
-            <section className="px-4 py-12 md:py-16">
-              <div className="mx-auto max-w-4xl rounded-2xl border border-gray-mid/15 bg-white p-6 shadow-soft">
-                <h2 className="text-3xl font-bold text-gray-dark">Casos de uso</h2>
-                <p className="mt-4 text-gray-mid">Pagina en preparacion. Incluira escenarios para ventas, atencion y seguimiento por industria.</p>
-              </div>
-            </section>
-            <CTA />
+            <Hero page="useCases" />
+            <UseCasesEN1 />
+            <DemoForm />
           </>
         )}
         {page === 'integrations' && (
           <>
-            <Hero />
-            <section className="px-4 py-12 md:py-16">
-              <div className="mx-auto max-w-4xl rounded-2xl border border-gray-mid/15 bg-white p-6 shadow-soft">
-                <h2 className="text-3xl font-bold text-gray-dark">Integraciones</h2>
-                <p className="mt-4 text-gray-mid">Pagina en preparacion. Mostrara integraciones disponibles y roadmap de conectores.</p>
-              </div>
-            </section>
-            <CTA />
+            <Hero page="integrations" />
+            <ApiDevShowcase />
+            <DemoForm />
           </>
         )}
       </main>

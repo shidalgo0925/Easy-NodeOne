@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Reporte import #{{ report.import.id }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <p><a href="{{ url_for('security_matrix.security_matrix_import_detail', import_id=report.import.id) }}">&larr; Import</a></p>
+  <h1 class="h3 mb-3">Reporte — {{ report.import.filename }}</h1>
+  <div class="card">
+    <div class="card-body">
+      <pre>{{ report | tojson(indent=2) }}</pre>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -551,6 +551,15 @@
                         </li>
                         {% endif %}
 
+                        {% if show_tenant_admin_menu and has_view_endpoint('security_matrix.security_matrix_index') and (current_user.is_admin or nav_can('security_matrix.admin')) %}
+                        <li class="nav-item sidebar-nav-app">
+                            <a class="nav-link {% if request.blueprint == 'security_matrix' or (request.path or '').startswith('/admin/security-matrix') %}active{% endif %}" href="{{ url_for('security_matrix.security_matrix_index') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Matriz de permisos Odoo (validación, sin ejecutar)">
+                                <i class="menu-icon fas fa-shield-alt"></i>
+                                <span class="menu-title-text">Matriz permisos</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
                         {# Ventas (módulo sales) y Contabilidad (accounting_core → sales si no hay fila en catálogo) #}
                         {% set _nav_sales = saas_module_enabled('sales') %}
                         {% set _nav_contabilidad = saas_module_enabled_chain('accounting_core', 'sales') %}
@@ -855,7 +864,7 @@
 
                         {# 👤 Organización #}
                         {% if nav_can('users.view') and nav_can('roles.view') %}
-                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--organization {% if request.endpoint == 'admin_users' or request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}show{% endif %}">
+                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--organization {% if request.endpoint == 'admin_users' or request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list', 'admin_roles_matrix', 'admin_roles_matrix_cell'] %}show{% endif %}">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Organización">
                                 <i class="menu-icon fas fa-sitemap"></i>
                                 <span class="menu-title-text">Organización</span>
@@ -866,7 +875,7 @@
                                     <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}">Usuarios</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}">Roles</a>
+                                    <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list', 'admin_roles_matrix', 'admin_roles_matrix_cell'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}">Roles</a>
                                 </li>
                             </ul>
                         </li>
@@ -879,7 +888,7 @@
                         </li>
                         {% elif nav_can('roles.view') %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--organization">
-                            <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Roles">
+                            <a class="nav-link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list', 'admin_roles_matrix', 'admin_roles_matrix_cell'] %}active{% endif %}" href="{{ url_for('admin_roles_list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Roles">
                                 <i class="menu-icon fas fa-sitemap"></i>
                                 <span class="menu-title-text">Roles</span>
                             </a>

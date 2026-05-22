@@ -1,6 +1,6 @@
 """Registro de rutas admin users/roles/permissions en app (endpoints legacy)."""
 
-from sqlalchemy import insert, text as sql_text
+from sqlalchemy import insert, select, text as sql_text
 
 
 def _user_has_role_sa(user) -> bool:
@@ -816,6 +816,94 @@ def register_admin_users_roles_routes(app):
             roles_with = [r.code for r in p.roles.all()]
             perm_data.append({'permission': p, 'category': category, 'roles': roles_with})
         return render_template('admin/permissions/list.html', perm_data=perm_data)
+
+
+    @app.route('/admin/roles/matrix')
+    @require_permission('roles.view')
+    def admin_roles_matrix():
+        """Matriz permisología EN1: módulos (pestañas) × permisos × roles."""
+        from nodeone.modules.admin_users_roles.rbac_matrix import build_rbac_matrix_view
+
+        try:
+            ActivityLog.log_activity(
+                current_user.id, 'VIEW_ROLES_MATRIX', 'roles', None,
+                'Acceso a matriz roles-permisos', request,
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        active_module = (request.args.get('module') or '').strip() or None
+        grid = build_rbac_matrix_view(active_module)
+        can_edit = bool(
+            getattr(current_user, 'is_admin', False) or current_user.has_permission('roles.update')
+        )
+        return render_template(
+            'admin/roles/matrix.html',
+            grid=grid,
+            can_edit=can_edit,
+        )
+
+
+    @app.route('/admin/roles/matrix/cell', methods=['POST'])
+    @require_permission('roles.update')
+    def admin_roles_matrix_cell():
+        """Activa/desactiva permiso en un rol (matriz)."""
+        from sqlalchemy import delete
+
+        role_id = request.form.get('role_id', type=int)
+        permission_id = request.form.get('permission_id', type=int)
+        checked = request.form.get('checked') in ('1', 'on', 'true', 'yes')
+        active_module = (request.form.get('active_module') or '').strip()
+
+        role = Role.query.get_or_404(role_id)
+        perm = Permission.query.get_or_404(permission_id)
+        if role.code == 'SA':
+            flash('El rol SA tiene todos los permisos y no se edita desde la matriz.', 'warning')
+            return redirect(url_for('admin_roles_matrix', module=active_module or None))
+
+        existing = db.session.execute(
+            select(role_permission_table.c.role_id).where(
+                role_permission_table.c.role_id == role_id,
+                role_permission_table.c.permission_id == permission_id,
+            )
+        ).first()
+
+        if checked and not existing:
+            db.session.execute(
+                insert(role_permission_table).values(role_id=role_id, permission_id=permission_id)
+            )
+            try:
+                ActivityLog.log_activity(
+                    current_user.id,
+                    'ROLE_PERMISSION_ADD',
+                    'roles',
+                    role_id,
+                    f'Matriz: +{perm.code} → {role.code}',
+                    request,
+                )
+            except Exception:
+                pass
+        elif not checked and existing:
+            db.session.execute(
+                delete(role_permission_table).where(
+                    role_permission_table.c.role_id == role_id,
+                    role_permission_table.c.permission_id == permission_id,
+                )
+            )
+            try:
+                ActivityLog.log_activity(
+                    current_user.id,
+                    'ROLE_PERMISSION_REMOVE',
+                    'roles',
+                    role_id,
+                    f'Matriz: -{perm.code} → {role.code}',
+                    request,
+                )
+            except Exception:
+                pass
+        db.session.commit()
+        flash(f'Permiso {perm.code} {"asignado" if checked else "quitado"} del rol {role.code}.', 'success')
+        return redirect(url_for('admin_roles_matrix', module=active_module or None))
 
 
     @app.route('/api/admin/roles')

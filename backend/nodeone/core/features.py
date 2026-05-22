@@ -872,6 +872,24 @@ def register_qr_tools_routes(app):
         print(f'Warning: No se pudo registrar qr_tools: {e}')
 
 
+def register_security_matrix_blueprints(app):
+    """Matriz de permisos Odoo (/admin/security-matrix)."""
+    if os.environ.get('NODEONE_SKIP_SECURITY_MATRIX_MODULE', '').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+    ):
+        return
+    try:
+        from nodeone.modules.security_matrix_manager.routes import (
+            register_security_matrix_manager_blueprints as _reg,
+        )
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar security_matrix_manager: {e}')
+
+
 def register_contador_blueprints(app):
     """Conteos físicos por variante (/admin/contador, /api/contador)."""
     if os.environ.get('NODEONE_SKIP_CONTADOR_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
@@ -971,6 +989,7 @@ def register_modules(app):
     register_workshop_blueprints(app)
     register_academic_module(app)
     register_contador_blueprints(app)
+    register_security_matrix_blueprints(app)
     register_qr_generator_routes(app)
     register_qr_tools_routes(app)
 

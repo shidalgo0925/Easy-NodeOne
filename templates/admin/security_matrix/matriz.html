@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Matriz por módulo{% endblock %}
+{% block content %}
+{% include 'admin/security_matrix/_styles.html' %}
+<style>
+  .sm-matriz-wrap { overflow-x: auto; max-width: 100%; }
+  .sm-matriz-table { font-size: 0.8rem; border-collapse: separate; border-spacing: 0; }
+  .sm-matriz-table th, .sm-matriz-table td { border: 1px solid #dee2e6; padding: 0.35rem 0.5rem; vertical-align: middle; }
+  .sm-matriz-table thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 2; }
+  .sm-matriz-table .sm-matriz-screen { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 11rem; max-width: 14rem; }
+  .sm-matriz-table thead .sm-matriz-screen { z-index: 3; background: #f8f9fa; }
+  .sm-matriz-col-hint { font-size: 0.65rem; color: #6c757d; display: block; max-width: 5.5rem; overflow: hidden; text-overflow: ellipsis; }
+  .sm-matriz-cell-btn {
+    width: 2rem; height: 2rem; padding: 0; border: 1px solid #ced4da; border-radius: 0.25rem;
+    background: #fff; cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  .sm-matriz-cell-btn.is-on { background: #d1e7dd; border-color: #75b798; color: #0f5132; }
+  .sm-matriz-cell-btn.is-off { background: #f8f9fa; color: #adb5bd; }
+  .sm-matriz-cell-btn.is-off::after { content: '✗'; }
+  .sm-matriz-cell-btn.is-on::after { content: '✓'; }
+  .sm-matriz-cell-btn:disabled { cursor: default; opacity: 0.85; }
+  .sm-matriz-cell-btn.is-critical { box-shadow: inset 0 0 0 2px #dc3545; }
+  .sm-matriz-cell-btn.is-invalid { border-color: #ffc107; }
+  .sm-module-tabs .nav-link { font-weight: 600; padding: 0.4rem 0.9rem; }
+</style>
+<div class="container-fluid py-4">
+  <p><a href="{{ url_for('security_matrix.security_matrix_index') }}">&larr; Matriz de permisos</a></p>
+  <h1 class="h3 mb-2">Matriz por módulo</h1>
+  <p class="text-muted mb-2">
+    Pantallas / opciones (filas) × grupos Odoo (columnas). Fuente: <strong>{{ source }}</strong>.
+    {% if snap %}Catálogo {{ snap.synced_at }}.{% endif %}
+  </p>
+
+  {% if not editable %}
+  <p class="small text-muted mb-3">
+    Vista de diseño{% if not imp %} con plantilla base{% endif %}.
+    Para editar celdas, abrí un import desde el detalle (estado borrador o validado, sin aprobar).
+  </p>
+  {% else %}
+  <p class="small text-success mb-3">Modo edición: hacé clic en una celda para marcar o desmarcar el grupo en esa pantalla.</p>
+  {% endif %}
+
+  <ul class="nav nav-tabs sm-module-tabs mb-3 flex-nowrap overflow-auto">
+    {% for mod in grid.modules %}
+    <li class="nav-item">
+      <a class="nav-link {% if mod.id == grid.active_module %}active{% endif %}"
+         href="{{ url_for('security_matrix.security_matrix_matriz_view', module=mod.id, import_id=import_id or none) }}">
+        {{ mod.label }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% if grid.rows %}
+  <div class="sm-matriz-wrap card">
+    <div class="card-body p-0 sm-matriz-wrap">
+      <table class="table table-sm sm-matriz-table mb-0">
+        <thead>
+          <tr>
+            <th class="sm-matriz-screen">Pantalla / opción</th>
+            {% for col in grid.columns %}
+            <th class="text-center" title="{{ col.name }} ({{ col.xml_id }})">
+              <span>{{ col.short }}</span>
+              {% if col.critical %}<span class="text-danger" title="Grupo crítico">*</span>{% endif %}
+              <span class="sm-matriz-col-hint">{{ col.xml_id.split('.')[-1] if '.' in col.xml_id else col.xml_id }}</span>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in grid.rows %}
+          <tr>
+            <td class="sm-matriz-screen">
+              {% if row.area %}<span class="text-muted d-block" style="font-size:0.7rem">{{ row.area }}</span>{% endif %}
+              <strong>{{ row.screen }}</strong>
+            </td>
+            {% for cell in row.cells %}
+            <td class="text-center p-1">
+              {% if editable and imp %}
+              <form method="post" action="{{ url_for('security_matrix.security_matrix_matriz_cell', import_id=imp.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+                <input type="hidden" name="module" value="{{ grid.active_module_raw }}" />
+                <input type="hidden" name="active_module" value="{{ grid.active_module }}" />
+                <input type="hidden" name="area" value="{{ row.area }}" />
+                <input type="hidden" name="screen" value="{{ row.screen }}" />
+                <input type="hidden" name="group_xml_id" value="{{ cell.xml_id }}" />
+                <input type="hidden" name="checked" value="{{ '0' if cell.checked else '1' }}" />
+                <button type="submit"
+                        class="sm-matriz-cell-btn {% if cell.checked %}is-on{% else %}is-off{% endif %}{% if cell.critical %} is-critical{% endif %}{% if not cell.valid %} is-invalid{% endif %}"
+                        title="{{ cell.xml_id }}{% if not cell.valid %} — no está en catálogo{% endif %}"></button>
+              </form>
+              {% else %}
+              <span class="sm-matriz-cell-btn {% if cell.checked %}is-on{% else %}is-off{% endif %}{% if cell.critical %} is-critical{% endif %} disabled"
+                    title="{{ cell.xml_id }}"></span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-info">No hay pantallas definidas para este módulo. Descargá la plantilla XLS, completá <code>MATRIZ_GENERAL</code> y subila.</div>
+  {% endif %}
+
+  <div class="mt-3 d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('security_matrix.security_matrix_template') }}">Plantilla XLS</a>
+    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('security_matrix.security_matrix_catalog_view') }}">Permisos por usuario</a>
+  </div>
+</div>
+{% endblock %}

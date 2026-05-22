@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Permisos Odoo (catálogo){% endblock %}
+{% block content %}
+{% include 'admin/security_matrix/_styles.html' %}
+<div class="container-fluid py-4">
+  <p><a href="{{ url_for('security_matrix.security_matrix_index') }}">&larr; Matriz de permisos</a></p>
+  <h1 class="h3 mb-2">Permisos actuales en Odoo</h1>
+  <p class="text-muted mb-3">
+    Snapshot: {{ snap.synced_at }} — {{ snap.user_count }} usuarios, {{ snap.group_count }} grupos,
+    {{ snap.membership_count }} membresías ({{ snap.database_name }}).
+  </p>
+
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="btn btn-sm {% if tab == 'users' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="{{ url_for('security_matrix.security_matrix_catalog_view', tab='users', q=search) }}">Por usuario</a>
+    <a class="btn btn-sm {% if tab == 'groups' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="{{ url_for('security_matrix.security_matrix_catalog_view', tab='groups', q=search) }}">Por grupo</a>
+  </div>
+
+  <form class="row g-2 mb-3" method="get">
+    <input type="hidden" name="tab" value="{{ tab }}" />
+    <div class="col-md-6">
+      <input type="search" name="q" class="form-control form-control-sm" placeholder="Buscar login, nombre o grupo…" value="{{ search }}" />
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-sm btn-secondary">Filtrar</button>
+    </div>
+  </form>
+
+  <div class="mb-3">
+    <span class="sm-perm-chip sm-perm-chip--current">Actual</span>
+    <span class="sm-perm-chip sm-perm-chip--add">Agregar (preview)</span>
+    <span class="sm-perm-chip sm-perm-chip--remove">Quitar (preview)</span>
+    <span class="sm-perm-chip sm-perm-chip--current sm-perm-chip--critical">Crítico</span>
+  </div>
+
+  {% if tab == 'groups' %}
+  <div class="card">
+    <div class="card-header">Grupos ({{ group_rows|length }})</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead><tr><th>Grupo</th><th>xml_id</th><th class="text-end">Usuarios</th></tr></thead>
+        <tbody>
+          {% for g in group_rows %}
+          <tr>
+            <td>{% if g.critical %}<i class="fas fa-exclamation-triangle text-danger me-1" title="Crítico"></i>{% endif %}{{ g.name }}</td>
+            <td><code class="small">{{ g.xml_id }}</code></td>
+            <td class="text-end">{{ g.member_count }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">Sin resultados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-header">Usuarios y grupos ({{ user_rows|length }})</div>
+    <div class="card-body">
+      {% for row in user_rows %}
+      <div class="sm-user-row">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+          <strong>{{ row.name }}</strong>
+          <code class="small">{{ row.login }}</code>
+          <span class="badge bg-light text-dark">{{ row.group_count }} grupos</span>
+        </div>
+        <div>{% with chips=row.chips %}{% include 'admin/security_matrix/_permission_chips.html' %}{% endwith %}</div>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">Sin resultados. Probá otro filtro o sincronizá de nuevo.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if critical_groups %}
+  <div class="card mt-3 border-warning">
+    <div class="card-header bg-warning bg-opacity-10">Grupos críticos configurados</div>
+    <ul class="list-group list-group-flush small">
+      {% for cg in critical_groups %}
+      <li class="list-group-item"><code>{{ cg.xml_id }}</code> — {{ cg.name or cg.label }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -24,14 +24,15 @@ def _public_landing_options():
     if request.method != 'OPTIONS':
         return None
     path = request.path or ''
-    if not (
-        path.startswith('/api/public/services')
-        or path in ('/api/public/book-service', '/api/public/request-quote')
+    # Preflight CORS: demo-request (landing estático) y rutas de catálogo/reserva OCI.
+    if path == '/api/public/demo-request' or path.startswith('/api/public/services') or path in (
+        '/api/public/book-service',
+        '/api/public/request-quote',
     ):
-        return None
-    _, _, origins = landing_service.landing_config()
-    resp = make_response('', 204)
-    return landing_service.apply_cors_headers(resp, origins)
+        _, _, origins = landing_service.landing_config()
+        resp = make_response('', 204)
+        return landing_service.apply_cors_headers(resp, origins)
+    return None
 
 
 def _landing_org_id_or_response():

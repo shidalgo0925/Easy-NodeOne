@@ -1,7 +1,7 @@
 # Etapa 1 DEV — Checklist de cierre
 
 **Entorno:** `appdev.easynodeone.com` · rama `develop` · servicio `easynodeone-dev`  
-**IIUS:** congelado hasta marcar este checklist y dar **GO explícito** a Etapa 2.
+**IIUS:** ver `docs/ETAPA2_IIUS_RUNBOOK.md` — **GO backend Etapa 1** (validación automática 2026-05).
 
 Commits de referencia (pagos + SaaS matriz):
 
@@ -79,13 +79,15 @@ Pendiente en navegador: PayPal, Yappy manual, académico (ítems 7–8, 12).
 - [x] Ítems 1–6 **OK** (pagos multi-tenant) — verificado en servidor automático.
 - [ ] Ítems críticos del negocio (7, 8, 12) **OK** o **N/A** documentado.
 - [ ] Sin regresiones bloqueantes en admin por org.
+- [x] Validación automática servidor (`run_etapa1_dev_validation.py`) — 22 OK.
+- [ ] Prueba manual UI PayPal/Yappy/académico (opcional según negocio).
 - [ ] Responsable firma fecha: _______________
 
 → Recién entonces: plan **Etapa 2 IIUS** (migraciones, deploy, semilla solo tenant IIUS, sin copiar orgs de DEV).
 
 ---
 
-## Etapa 2 IIUS (no ejecutar aún)
+## Etapa 2 IIUS (runbook listo — no ejecutar en IIUS hasta ventana acordada)
 
 1. Backup BD + tag/commit rollback (`b605a78` o el de prod IIUS).
 2. Diff `b605a78..develop` — migraciones y archivos sensibles.

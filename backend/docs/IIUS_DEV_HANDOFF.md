@@ -1,10 +1,28 @@
 # Handoff IIUS → DEV (estado 2026-05-22)
 
-## Bloqueo actual
+## Bloqueo scp (alternativa Git — preferida si el tar no llega)
 
-El tarball **no está** en DEV (`/tmp/iius-release-to-dev_20260522_2249.tar.gz`).
+Rama publicada desde IIUS: **`release/iius-go-20260522`** (commit `6b0da66`).
 
-Desde IIUS (`vmi3215083`, usuario `adminnode`) el `scp` a `dev@194.60.201.29` falla con **`Permission denied (publickey)`** — falta autorizar la clave SSH de IIUS en DEV o copiar el archivo por otro canal.
+**En DEV:**
+
+```bash
+cd /opt/easynodeone/dev/app
+git fetch origin
+git checkout develop && git pull origin develop
+git merge origin/release/iius-go-20260522 -m "Merge IIUS release mayo 2026"
+git tag -a iius-go-20260522 -m "Release IIUS operativo mayo 2026"
+git push origin develop
+git push origin iius-go-20260522
+```
+
+No hace falta el tarball si el merge anterior es limpio.
+
+## Bloqueo scp (tar manual)
+
+El tarball puede **no estar** en DEV (`/tmp/iius-release-to-dev_*.tar.gz`).
+
+Desde IIUS (`vmi3215083`) el `scp` a `dev@194.60.201.29` falla con **`Permission denied (publickey)`** — copiar por SFTP o autorizar clave SSH.
 
 ## Archivo en IIUS
 

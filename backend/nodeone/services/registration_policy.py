@@ -9,12 +9,14 @@ REGISTRATION_FREE = 'free_registration'
 REGISTRATION_PAID = 'paid_only'
 REGISTRATION_ADMIN = 'admin_only'
 REGISTRATION_INVITE = 'invitation_only'
+REGISTRATION_ACADEMIC_CLOSED = 'academic_closed'
 
 REGISTRATION_POLICIES = (
     REGISTRATION_FREE,
     REGISTRATION_PAID,
     REGISTRATION_ADMIN,
     REGISTRATION_INVITE,
+    REGISTRATION_ACADEMIC_CLOSED,
 )
 
 
@@ -56,6 +58,10 @@ def requires_admin_creation(org_or_id: SaasOrganization | int | None) -> bool:
 
 def requires_invitation(org_or_id: SaasOrganization | int | None) -> bool:
     return registration_policy_for_org(org_or_id) == REGISTRATION_INVITE
+
+
+def is_academic_closed_policy(org_or_id: SaasOrganization | int | None) -> bool:
+    return registration_policy_for_org(org_or_id) == REGISTRATION_ACADEMIC_CLOSED
 
 
 def session_key_paid_registration(org_id: int) -> str:
@@ -112,6 +118,14 @@ def assert_can_create_user_via_public_flow(
             'Si ya pagaste, volvé desde el enlace de confirmación o iniciá sesión si ya tenés cuenta.',
         )
 
+    if pol == REGISTRATION_ACADEMIC_CLOSED:
+        if has_valid_invite:
+            return True, None
+        if session_allows_paid_registration(sess, int(organization_id)):
+            return True, None
+        # Alta permitida para funnel /inscripción; el campus se abre con matrícula (middleware).
+        return True, None
+
     return True, None
 
 
@@ -128,4 +142,9 @@ def registration_notice_for_banner(organization_id: int | None) -> str | None:
         return 'Esta institución solo permite registro con invitación: usá el enlace que te enviaron por correo.'
     if pol == REGISTRATION_PAID:
         return 'Esta institución suele dar de alta tras un pago o invitación. Si ya pagaste, seguí el enlace del comprobante o iniciá sesión.'
+    if pol == REGISTRATION_ACADEMIC_CLOSED:
+        return (
+            'Campus académico cerrado: creá cuenta para inscribirte a un programa; '
+            'el acceso completo se habilita al confirmar tu matrícula.'
+        )
     return None

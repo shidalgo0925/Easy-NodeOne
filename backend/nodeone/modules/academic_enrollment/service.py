@@ -226,9 +226,11 @@ def process_academic_program_items_after_payment(cart, payment) -> None:
                 en.status = 'confirmed'
                 en.payment_status = 'free'
             else:
-                en.status = 'paid'
+                en.status = 'confirmed'
                 en.payment_status = 'paid'
             en.payment_id = payment.id
-            en.confirmed_at = payment.paid_at or en.confirmed_at
+            from datetime import datetime
+
+            en.confirmed_at = payment.paid_at or en.confirmed_at or datetime.utcnow()
             db.session.add(en)
     # El commit lo hace ``process_cart_after_payment`` del monolito.

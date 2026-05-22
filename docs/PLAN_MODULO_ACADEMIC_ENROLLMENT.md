@@ -178,7 +178,12 @@ Orden:
 - **Carrito / API** `add_diplomado_to_cart` y `resolve_product_for_cart` (tipo `diplomado`) intentan BD primero.
 - **Post-pago** `process_academic_program_items_after_payment` en `payment_post_process.py`.
 - **Alias** `GET /checkout/programa/<slug>/<plan_code>`, **gracias** `GET /inscripcion/gracias/<enrollment_id>`.
-- **Admin** mínimo: `GET /admin/academic-enrollment/programs`.
+- **Admin** listado + CRUD: `GET /admin/academic-enrollment/programs`, `.../programs/new`, `.../programs/<id>/edit` (programa + alta de planes).
+- **Menú** Educación → «Programas inscripción».
 - **Semilla de prueba** `backend/scripts/seed_academic_program_iius_neuro.py` (Neuro-Liderazgo + 3 planes, alineados a IIUS).
 
-Pendiente (siguientes iteraciones): CRUD admin completo, sesión `pending_*` en registro/login, `POST /seleccionar-plan`, tests automáticos, enlace opcional a `Service`/facturación avanzada.
+- **POST** `/inscripcion/<slug>/seleccionar-plan` + sesión `pending_*` (login/registro retoman continuar).
+- **Admin:** editar planes existentes (nombre, total, activo).
+- **Test:** `backend/scripts/test_academic_enrollment_iius.py`.
+
+Pendiente: enlace opcional a `Service`/facturación avanzada; más landings migradas desde legacy.

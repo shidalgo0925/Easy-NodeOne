@@ -53,8 +53,18 @@
                 <div class="card-body">
                     <p class="small text-muted mb-3">
                         Define qué métodos ve el checkout de la <strong>organización activa</strong> en el selector de empresa.
+                        La columna <strong>Activo</strong> es la única que controla visibilidad (no los flags legacy de abajo).
                         Las credenciales (PayPal, SWIFT, Yappy) siguen en las secciones de abajo.
                     </p>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <label class="small mb-0 text-muted" for="payment-profile-select">Perfil rápido:</label>
+                        <select class="form-select form-select-sm" id="payment-profile-select" style="max-width: 14rem">
+                            <option value="">— Elegir —</option>
+                            <option value="panama">Panamá (Yappy + Banco General)</option>
+                            <option value="international">Internacional (PayPal + SWIFT)</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btn-apply-payment-profile">Aplicar perfil</button>
+                    </div>
                     <div id="org-methods-alert"></div>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0" id="org-methods-table">
@@ -1166,6 +1176,39 @@ function loadOrgPaymentMethods() {
         });
 }
 
+function applyOrgPaymentProfile() {
+    var sel = document.getElementById('payment-profile-select');
+    var key = sel ? sel.value : '';
+    if (!key) {
+        showOrgMethodsAlert('Elegí un perfil (Panamá o Internacional).', 'warning');
+        return;
+    }
+    if (!confirm('¿Aplicar este perfil a la organización activa? Se actualizarán los métodos Activos.')) {
+        return;
+    }
+    fetch('/api/admin/payments/org-methods/apply-profile', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: key })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                renderOrgMethodsTable(data.methods);
+                if (window.__paymentsLastConfig) {
+                    updatePaymentSectionStatuses(window.__paymentsLastConfig);
+                }
+                showOrgMethodsAlert(data.message || 'Perfil aplicado.', 'success');
+            } else {
+                showOrgMethodsAlert(data.error || 'Error al aplicar perfil', 'danger');
+            }
+        })
+        .catch(function (e) {
+            showOrgMethodsAlert('Error: ' + e, 'danger');
+        });
+}
+
 function saveOrgPaymentMethods() {
     var payload = { methods: collectOrgMethodsPayload() };
     fetch('/api/admin/payments/org-methods', {
@@ -1197,6 +1240,8 @@ document.addEventListener('DOMContentLoaded', function () {
     loadOrgPaymentMethods();
     var btnSaveOrg = document.getElementById('btn-save-org-methods');
     if (btnSaveOrg) btnSaveOrg.addEventListener('click', saveOrgPaymentMethods);
+    var btnProfile = document.getElementById('btn-apply-payment-profile');
+    if (btnProfile) btnProfile.addEventListener('click', applyOrgPaymentProfile);
 
     if (document.getElementById('payments-config-root') && document.getElementById('payments-config-root').getAttribute('data-payments-expand-all') === '1') {
         expandAllPaymentSections();

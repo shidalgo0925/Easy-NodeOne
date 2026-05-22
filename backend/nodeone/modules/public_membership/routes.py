@@ -55,6 +55,12 @@ def register_public_membership_routes(app):
             return ('Ver historial', url_for('appointments.appointments_home'))
         return ('Comprar nuevamente', url_for('services.list'))
 
+    @app.route('/mi-campus')
+    @login_required
+    def member_campus():
+        """Alias del dashboard — sección campus académico (IIUS / academic_closed)."""
+        return redirect(url_for('dashboard') + '#campus-academico')
+
     @app.route('/dashboard')
     @login_required
     def dashboard():

@@ -73,6 +73,32 @@ MANUAL_VALIDATION_METHOD_KEYS = frozenset({
     'manual_payment',
 })
 
+# Perfiles operativos (matriz = única fuente de visibilidad en checkout).
+PAYMENT_PROFILES: dict[str, dict[str, Any]] = {
+    'panama': {
+        'label': 'Panamá — Yappy, Banco General, PayPal opcional',
+        'enabled': {
+            'paypal': True,
+            'yappy_manual': True,
+            'banco_general': True,
+            'wire_international': False,
+            'stripe': False,
+            'manual_payment': False,
+        },
+    },
+    'international': {
+        'label': 'Internacional (IIUS) — PayPal + SWIFT',
+        'enabled': {
+            'paypal': True,
+            'wire_international': True,
+            'stripe': False,
+            'yappy_manual': False,
+            'banco_general': False,
+            'manual_payment': False,
+        },
+    },
+}
+
 
 def ensure_organization_payment_methods_schema() -> None:
     OrganizationPaymentMethod.__table__.create(db.engine, checkfirst=True)
@@ -191,8 +217,36 @@ def is_method_enabled(organization_id: int, method_key: str) -> bool:
     return bool(row and row.enabled)
 
 
+def list_payment_profile_keys() -> list[str]:
+    return list(PAYMENT_PROFILES.keys())
+
+
+def apply_payment_profile(organization_id: int, profile_key: str) -> tuple[list[dict[str, Any]], str]:
+    """
+    Aplica preset de métodos activos en la matriz del tenant.
+    No modifica credenciales en PaymentConfig (solo sync legacy flags tras guardar).
+    """
+    key = (profile_key or '').strip().lower()
+    prof = PAYMENT_PROFILES.get(key)
+    if not prof:
+        raise ValueError(
+            f'Perfil «{profile_key}» no válido. Opciones: {", ".join(PAYMENT_PROFILES)}'
+        )
+    oid = int(organization_id)
+    enabled_map = prof['enabled']
+    seed_organization_payment_methods(oid)
+    payload: list[dict[str, Any]] = []
+    for row in list_methods_for_org(oid, enabled_only=False):
+        d = row.to_dict()
+        if row.method_key in enabled_map:
+            d['enabled'] = bool(enabled_map[row.method_key])
+        payload.append(d)
+    saved = save_methods_payload(oid, payload)
+    return saved, str(prof['label'])
+
+
 def sync_legacy_payment_config_flags(organization_id: int) -> None:
-    """Mantiene flags en PaymentConfig alineados con la matriz (compat yappy/SWIFT)."""
+    """Espejo legacy en PaymentConfig (solo compat); el checkout usa la matriz."""
     oid = int(organization_id)
     pcfg = PaymentConfig.query.filter_by(organization_id=oid, is_active=True).order_by(
         PaymentConfig.id.asc()

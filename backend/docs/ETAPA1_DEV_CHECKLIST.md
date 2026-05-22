@@ -70,7 +70,9 @@ python3 run_etapa1_dev_validation.py
 
 Última corrida en DEV: **22 OK** — matriz/checkout/config, toggle SWIFT, scope API org=2, `is_method_enabled`, `save_methods_payload`, SaaS `security_matrix`.
 
-Pendiente en navegador: PayPal, Yappy manual, académico (ítems 7–8, 12).
+Pendiente en navegador: PayPal live (8), académico (12). Yappy (7) N/A en IIUS.
+
+**Normalización técnica:** ver `docs/ETAPA1_NORMALIZACION_CIERRE.md` — perfiles `panama` / `international` en Admin → Pagos.
 
 ---
 

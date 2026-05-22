@@ -2,11 +2,12 @@
 {% block title %}Inscripción — {{ program.name }} — {{ get_nav_brand_name() }}{% endblock %}
 
 {% block head_extra %}
+<link href="{{ url_for('static', filename='css/iius-enrollment-landings.css') }}?v=iius2" rel="stylesheet">
 <style>
-  .pe-checkout-landing { --pe-navy: #1a2744; --pe-gold: #c9a227; --pe-green: #0f766e; --pe-bg: #f4f6f9; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--pe-bg); margin: -1rem -0.5rem 0; padding: 1.5rem 0.75rem 2.5rem; }
+  .pe-checkout-landing { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--pe-bg); margin: -1rem -0.5rem 0; padding: 1.5rem 0.75rem 2.5rem; }
   .pe-checkout-grid { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
   @media (min-width: 900px) { .pe-checkout-grid { grid-template-columns: 38% 1fr; gap: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 40px rgba(26,39,68,.12); } }
-  .pe-checkout-summary { background: linear-gradient(165deg, #0d5c56 0%, var(--pe-green) 45%, #0a4f4a 100%); color: #fff; padding: 1.5rem 1.35rem; }
+  .pe-checkout-summary { color: #fff; padding: 1.5rem 1.35rem; }
   .pe-checkout-summary h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 .35rem; opacity: .95; }
   .pe-checkout-summary .pe-title { font-size: 1.35rem; font-weight: 600; line-height: 1.35; margin: 0 0 1rem; }
   .pe-checkout-summary .pe-price { font-size: 1.75rem; font-weight: 700; margin: .25rem 0; }
@@ -86,7 +87,10 @@
           {% if current_user.is_authenticated %}
           <a href="{{ url_for('payments.diplomado_continuar', slug=slug, plan=plan.code) }}">Continuar</a>
           {% else %}
-          <a href="{{ url_for('auth.login', next=url_for('payments.diplomado_continuar', slug=slug, plan=plan.code)) }}">Continuar</a>
+          <form method="post" action="{{ url_for('payments.inscripcion_seleccionar_plan', slug=slug) }}" class="d-inline">
+            <input type="hidden" name="plan_code" value="{{ plan.code }}">
+            <button type="submit" class="btn btn-link p-0 align-baseline text-decoration-none">Continuar</button>
+          </form>
           {% endif %}
         </div>
         {% endfor %}

@@ -2,11 +2,12 @@
 {% block title %}Inscripción — Neuro-Decodificación™, Psicogenealogía y PNL — {{ get_nav_brand_name() }}{% endblock %}
 
 {% block head_extra %}
+<link href="{{ url_for('static', filename='css/iius-enrollment-landings.css') }}?v=iius2" rel="stylesheet">
 <style>
-  .ii-checkout-landing { --ii-navy: #1e1b4b; --ii-gold: #c9a227; --ii-accent: #5b21b6; --ii-bg: #f4f6f9; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--ii-bg); margin: -1rem -0.5rem 0; padding: 1.5rem 0.75rem 2.5rem; }
+  .ii-checkout-landing { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--ii-bg); margin: -1rem -0.5rem 0; padding: 1.5rem 0.75rem 2.5rem; }
   .ii-checkout-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
   @media (min-width: 900px) { .ii-checkout-grid { grid-template-columns: 40% 1fr; gap: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 40px rgba(30,27,75,.14); } }
-  .ii-checkout-summary { background: linear-gradient(165deg, #312e81 0%, var(--ii-accent) 48%, #4c1d95 100%); color: #fff; padding: 1.5rem 1.35rem; }
+  .ii-checkout-summary { color: #fff; padding: 1.5rem 1.35rem; }
   .ii-checkout-summary h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 .35rem; opacity: .95; }
   .ii-checkout-summary .ii-title { font-size: 1.2rem; font-weight: 600; line-height: 1.35; margin: 0 0 .75rem; }
   .ii-checkout-summary .ii-lema { font-size: .82rem; font-style: italic; opacity: .92; line-height: 1.45; margin: 0 0 1rem; border-left: 3px solid var(--ii-gold); padding-left: .65rem; }
@@ -27,7 +28,7 @@
   .ii-plan-card .ii-amt { font-size: 1.15rem; font-weight: 700; color: var(--ii-navy); }
   .ii-plan-card .ii-sub { font-size: .72rem; color: #64748b; margin-top: .35rem; line-height: 1.35; }
   .ii-plan-card a { display: block; margin-top: .65rem; padding: .5rem .5rem; border-radius: 6px; background: var(--ii-navy); color: #fff !important; text-decoration: none; font-size: .82rem; font-weight: 600; }
-  .ii-plan-card a:hover { background: #312e81; color: #fff !important; }
+  .ii-plan-card a:hover { color: #fff !important; }
   .ii-foot { font-size: .78rem; color: #64748b; margin-top: 1.25rem; line-height: 1.45; }
   .ii-brand { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; }
   .ii-brand span { font-weight: 700; letter-spacing: .06em; font-size: .72rem; color: rgba(255,255,255,.92); }

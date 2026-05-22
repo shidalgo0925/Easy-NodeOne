@@ -57,6 +57,9 @@ def diplomado_landing(slug):
         getattr(program, 'id', None) if program else None,
     )
     if program is not None:
+        from nodeone.modules.academic_enrollment.session_helpers import capture_utm_from_request
+
+        capture_utm_from_request(request)
         pricing_plans = (
             AcademicProgramPricingPlan.query.filter_by(program_id=program.id, is_active=True)
             .order_by(AcademicProgramPricingPlan.sort_order.asc(), AcademicProgramPricingPlan.id.asc())
@@ -78,10 +81,51 @@ def diplomado_landing(slug):
     return render_template('public/program_inscripcion_not_found.html', slug=slug), 404
 
 
+@payments_bp.route('/inscripcion/<slug>/seleccionar-plan', methods=['POST'])
+def inscripcion_seleccionar_plan(slug):
+    """Guarda plan en sesión y envía a login/registro o al carrito si ya hay sesión."""
+    from nodeone.modules.academic_enrollment import service as academic_enrollment_svc
+    from nodeone.modules.academic_enrollment.session_helpers import set_pending_inscription
+
+    slug = (slug or '').strip().lower()
+    plan_code = (request.form.get('plan_code') or request.args.get('plan_code') or '').strip().lower()
+    if not plan_code:
+        flash('Elegí un plan de pago.', 'error')
+        return redirect(url_for('payments.diplomado_landing', slug=slug))
+
+    prog = academic_enrollment_svc.find_published_academic_program_for_inscripcion(slug)
+    if prog is None and slug not in svc.DIPLOMADOS_IIUS:
+        return render_template('public/program_inscripcion_not_found.html', slug=slug), 404
+
+    if prog is not None:
+        from app import AcademicProgramPricingPlan
+
+        plan_row = AcademicProgramPricingPlan.query.filter_by(
+            program_id=prog.id, code=plan_code, is_active=True
+        ).first()
+        if plan_row is None:
+            flash('Plan no disponible.', 'error')
+            return redirect(url_for('payments.diplomado_landing', slug=slug))
+        set_pending_inscription(slug, plan_code, int(prog.organization_id))
+    else:
+        set_pending_inscription(slug, plan_code)
+
+    if current_user.is_authenticated:
+        return redirect(url_for('payments.diplomado_continuar', slug=slug, plan=plan_code))
+
+    dest = url_for('payments.diplomado_continuar', slug=slug, plan=plan_code)
+    if request.form.get('flow') == 'register':
+        return redirect(url_for('register', next=dest))
+    return redirect(url_for('auth.login', next=dest))
+
+
 @payments_bp.route('/inscripcion/<slug>/continuar/<plan>')
 @login_required
 def diplomado_continuar(slug, plan):
     """Añade el diplomado al carrito y envía al checkout (requiere sesión y email verificado en /checkout)."""
+    from nodeone.modules.academic_enrollment.session_helpers import clear_pending_inscription
+
+    clear_pending_inscription()
     from nodeone.modules.academic_enrollment import service as academic_enrollment_svc
 
     slug = (slug or '').strip().lower()
@@ -107,11 +151,13 @@ def checkout_programa_shortcut(slug, plan_code):
     plan_code = (plan_code or '').strip().lower()
     prog = academic_enrollment_svc.find_published_academic_program_for_inscripcion(slug)
     if prog is not None:
-        session['pending_program_slug'] = slug
-        session['pending_plan_code'] = plan_code
-        session['pending_organization_id'] = int(prog.organization_id)
-        session['pending_return_url'] = url_for(
-            'payments.checkout_programa_shortcut', slug=slug, plan_code=plan_code
+        from nodeone.modules.academic_enrollment.session_helpers import set_pending_inscription
+
+        set_pending_inscription(
+            slug,
+            plan_code,
+            int(prog.organization_id),
+            return_url=url_for('payments.checkout_programa_shortcut', slug=slug, plan_code=plan_code),
         )
     if not current_user.is_authenticated:
         return redirect(

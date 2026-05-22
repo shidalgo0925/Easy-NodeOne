@@ -120,4 +120,20 @@ Usar `docs/ETAPA1_DEV_CHECKLIST.md` ítems 1–6 en el dominio IIUS.
 
 | Fecha | Quién | Resultado |
 |-------|-------|-----------|
-| | | |
+| 2026-05-22 | Etapa 2 ventana IIUS | **GO** — código `63203e6`, backup `iius_pre_etapa2_20260522_204948.db`, tag `iius-pre-etapa2-20260522`. Migraciones + semilla org 1. Validación auto 11 OK / 2 FAIL esperados (mono-tenant). Checklist 1–6 OK; PayPal demo + inscripción `neuro-liderazgo-intercultural`. Yappy: **N/A** cliente. Branding IIUS + menú Usuarios (pendiente commit `dev/app`). |
+
+**Siguiente (post-Etapa 2):** PayPal live → ver `docs/IIUS_PAYPAL_LIVE.md` (pegar credenciales en Admin → Pagos). Inscripción académica + CRUD admin listo. **Yappy: fuera de alcance.**
+
+---
+
+## 8. Post-GO producto (2026-05-22, silo `/opt/easynodeone/app`)
+
+| Hecho en servidor | Script / doc |
+|-------------------|--------------|
+| `academic_closed` + campus | `EN1_IIUS_ACADEMIC_CLOSED.md` |
+| 4 diplomados + taller en BD | `seed_academic_programs_iius_all.py`, `seed_academic_program_iius_sample_taller.py` |
+| Host → org 1 | `bootstrap_iius_org_host.py` |
+| Validación | `go_iius_validate_all.sh` |
+| Empaquetar a DEV | `IIUS_TRANSFER_TO_DEV.md`, `package_iius_release_tar.sh` |
+
+**Pendiente operativo:** commit `develop` desde `dev/app` + tag `iius-go-20260522` + PayPal `client_id` live.

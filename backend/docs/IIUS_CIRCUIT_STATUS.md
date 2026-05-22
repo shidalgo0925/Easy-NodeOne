@@ -9,8 +9,8 @@
 
 | Ref | Commit | Notas |
 |-----|--------|--------|
-| `origin/develop` | `9330cfc` | Merge `release/iius-go-20260522` |
-| Tag `iius-go-20260522` | `9330cfc` | Mismo commit que `develop` |
+| `origin/develop` | `f2b0254`+ | Código release `9330cfc` + docs estado (`2fcfa0a`, `f2b0254`) |
+| Tag `iius-go-20260522` | `9330cfc` | **Código** release IIUS (docs en `develop` más reciente) |
 | Release branch | `6b0da66` + handoff `8240166` | Ya fusionado en `develop` |
 | Rollback IIUS (código) | `iius-pre-etapa2-20260522` | Pre-Etapa 2 en silo IIUS |
 | Baseline histórico | `b605a78` | Solo referencia |

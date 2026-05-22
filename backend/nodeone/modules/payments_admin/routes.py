@@ -600,9 +600,9 @@ def api_payment_config():
     if request.method == 'GET':
         scope_oid = None
         try:
-            scope_oid = M.admin_data_scope_organization_id()
+            scope_oid = _payments_scope_organization_id(M)
         except Exception:
-            current_app.logger.exception('api_payment_config GET: admin_data_scope_organization_id')
+            current_app.logger.exception('api_payment_config GET: admin_payments_scope_organization_id')
             try:
                 from utils.organization import default_organization_id as _def_org_id
 

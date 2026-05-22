@@ -62,9 +62,21 @@ Marcar **OK** / **FAIL** / **N/A** y notas.
 
 ---
 
+## Validación automática (servidor)
+
+```bash
+python3 run_etapa1_dev_validation.py
+```
+
+Última corrida en DEV: **22 OK** — matriz/checkout/config, toggle SWIFT, scope API org=2, `is_method_enabled`, `save_methods_payload`, SaaS `security_matrix`.
+
+Pendiente en navegador: PayPal, Yappy manual, académico (ítems 7–8, 12).
+
+---
+
 ## Criterio GO Etapa 1 (DEV listo)
 
-- [ ] Ítems 1–6 **OK** (pagos multi-tenant).
+- [x] Ítems 1–6 **OK** (pagos multi-tenant) — verificado en servidor automático.
 - [ ] Ítems críticos del negocio (7, 8, 12) **OK** o **N/A** documentado.
 - [ ] Sin regresiones bloqueantes en admin por org.
 - [ ] Responsable firma fecha: _______________

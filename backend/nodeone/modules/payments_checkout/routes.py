@@ -152,8 +152,13 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
         effective_yappy_phone_or_identifier,
     )
 
-    if not payment_config or not getattr(payment_config, "yappy_manual_enabled", False):
+    from nodeone.services import organization_payment_methods as opm
+
+    oid_check = int(resolve_current_organization())
+    if not opm.is_method_enabled(oid_check, "yappy_manual"):
         return jsonify({"error": "Yappy manual no está activado para esta organización."}), 400
+    if not payment_config:
+        return jsonify({"error": "Configuración de pagos no disponible."}), 400
     has_qr = bool((getattr(payment_config, "yappy_qr_image_path", None) or "").strip())
     has_dir = bool((getattr(payment_config, "yappy_directory_name", None) or "").strip())
     has_display = bool(effective_yappy_display_name(payment_config))
@@ -306,12 +311,16 @@ def create_payment_intent():
         discount_breakdown = cart.get_discount_breakdown()
         total_amount = discount_breakdown['final_total']
         
-        # Validar método de pago
-        if payment_method not in M.PAYMENT_METHODS:
-            return jsonify({'error': f'Método de pago no válido: {payment_method}'}), 400
-
         pay_oid = int(resolve_current_organization())
         payment_config = M.PaymentConfig.get_active_config(organization_id=pay_oid)
+
+        from nodeone.services import organization_payment_methods as opm
+
+        if not opm.is_known_method_key(payment_method):
+            return jsonify({'error': f'Método de pago no válido: {payment_method}'}), 400
+
+        if not opm.is_method_enabled(pay_oid, payment_method):
+            return jsonify({'error': 'Método de pago no habilitado para esta organización.'}), 400
 
         if payment_method == 'yappy_manual':
             return _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown, payment_config)

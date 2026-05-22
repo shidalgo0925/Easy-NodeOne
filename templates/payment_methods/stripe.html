@@ -1,0 +1,20 @@
+<div class="checkout-pay-method-block px-3 pb-2{% if checkout_first_method == 'stripe' %} is-selected{% endif %}" data-checkout-method-block data-method-key="stripe">
+  <label class="checkout-pay-method-row list-group-item list-group-item-action d-flex align-items-start gap-3 rounded mb-2 py-3 px-3" for="method_stripe">
+    <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="payment_method" id="method_stripe" value="stripe"
+           {% if checkout_first_method == 'stripe' %}checked{% endif %}>
+    <span class="flex-grow-1">
+      <span class="d-flex align-items-center gap-2 flex-wrap fw-semibold text-body">
+        <i class="fab fa-cc-stripe text-primary" aria-hidden="true"></i>
+        {{ payment_methods.stripe }}
+      </span>
+      <span class="d-block small text-muted mt-1 mb-0">Visa, Mastercard o Amex vía Stripe.</span>
+    </span>
+  </label>
+  <div class="checkout-pay-method-instructions border rounded p-3 mb-2 small bg-white text-body" data-method-instructions aria-live="polite">
+    <p class="mb-2 fw-semibold text-primary mb-1">Tarjeta (Stripe)</p>
+    {% if method_by_key.stripe and method_by_key.stripe.instructions_html %}
+    <div class="mb-2">{{ method_by_key.stripe.instructions_html | safe }}</div>
+    {% endif %}
+    <p class="mb-0">Al continuar se abrirá el formulario seguro de tarjeta.</p>
+  </div>
+</div>

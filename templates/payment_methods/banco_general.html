@@ -1,0 +1,21 @@
+<div class="en1-pay-card">
+  <div class="checkout-pay-method-block px-3 py-3{% if checkout_first_method == 'banco_general' %} is-selected{% endif %}" data-checkout-method-block data-method-key="banco_general">
+    <label class="checkout-pay-method-row list-group-item list-group-item-action d-flex align-items-start gap-3 rounded mb-2 py-3 px-3" for="method_banco_general">
+      <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="payment_method" id="method_banco_general" value="banco_general"
+             {% if checkout_first_method == 'banco_general' %}checked{% endif %}>
+      <span class="flex-grow-1">
+        <span class="d-flex align-items-center gap-2 flex-wrap fw-semibold text-body">
+          <i class="fas fa-university text-info" aria-hidden="true"></i>
+          {{ payment_methods.banco_general }}
+        </span>
+      </span>
+    </label>
+    <div class="checkout-pay-method-instructions border rounded p-3 small bg-white text-body" data-method-instructions aria-live="polite">
+      <p class="mb-2 fw-semibold text-info mb-1">Banco General</p>
+      {% if method_by_key.banco_general and method_by_key.banco_general.instructions_html %}
+      <div class="mb-2">{{ method_by_key.banco_general.instructions_html | safe }}</div>
+      {% endif %}
+      <p class="mb-0">Seguí el flujo de pago indicado por la pasarela.</p>
+    </div>
+  </div>
+</div>

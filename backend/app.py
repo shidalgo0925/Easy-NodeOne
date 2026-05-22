@@ -3079,6 +3079,20 @@ def bootstrap_nodeone_schema():
             ensure_events_participants_certificates_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_events_participants_certificates_schema: {e}')
+        try:
+            from nodeone.modules.security_matrix_manager import service as _sm_schema
+
+            _sm_schema.ensure_security_matrix_schema()
+            print('📋 security_matrix_manager: tablas y permiso security_matrix.admin')
+        except Exception as e:
+            print(f'⚠️ security_matrix_manager bootstrap: {e}')
+        try:
+            from nodeone.services.payment_config_provision import bootstrap_tenant_payment_setup
+
+            bootstrap_tenant_payment_setup()
+            print('📋 organization_payment_methods + PaymentConfig por tenant: listo')
+        except Exception as e:
+            print(f'⚠️ tenant payment bootstrap: {e}')
         apply_email_config_from_db()
 
 

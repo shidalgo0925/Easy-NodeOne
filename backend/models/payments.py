@@ -495,3 +495,47 @@ class MembershipDiscount(db.Model):
             return discount.discount_percentage
         return 0.0  # Sin descuento por defecto
 
+
+class OrganizationPaymentMethod(db.Model):
+    """Métodos de pago habilitados y su UX por organización (checkout dinámico)."""
+
+    __tablename__ = 'organization_payment_methods'
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'method_key', name='uq_org_payment_method'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer,
+        db.ForeignKey('saas_organization.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    method_key = db.Column(db.String(40), nullable=False)
+    label = db.Column(db.String(120), nullable=False, default='')
+    enabled = db.Column(db.Boolean, nullable=False, default=False)
+    display_order = db.Column(db.Integer, nullable=False, default=100)
+    requires_receipt = db.Column(db.Boolean, nullable=False, default=False)
+    requires_admin_approval = db.Column(db.Boolean, nullable=False, default=False)
+    auto_confirm = db.Column(db.Boolean, nullable=False, default=False)
+    instructions_html = db.Column(db.Text, nullable=True)
+    is_international = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'organization_id': self.organization_id,
+            'method_key': self.method_key,
+            'label': self.label,
+            'enabled': bool(self.enabled),
+            'display_order': int(self.display_order or 0),
+            'requires_receipt': bool(self.requires_receipt),
+            'requires_admin_approval': bool(self.requires_admin_approval),
+            'auto_confirm': bool(self.auto_confirm),
+            'instructions_html': self.instructions_html or '',
+            'is_international': bool(self.is_international),
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+

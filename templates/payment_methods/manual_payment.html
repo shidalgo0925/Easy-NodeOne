@@ -1,0 +1,25 @@
+<div class="en1-pay-card">
+  <div class="en1-pay-card-head">
+    <span class="badge rounded-pill en1-badge-admin">Validación administrativa</span>
+  </div>
+  <div class="checkout-pay-method-block px-3 pb-3{% if checkout_first_method == 'manual_payment' %} is-selected{% endif %}" data-checkout-method-block data-method-key="manual_payment">
+    <label class="checkout-pay-method-row list-group-item list-group-item-action d-flex align-items-start gap-3 rounded mb-0 py-3 px-3" for="method_manual_payment">
+      <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="payment_method" id="method_manual_payment" value="manual_payment"
+             {% if checkout_first_method == 'manual_payment' %}checked{% endif %}>
+      <span class="flex-grow-1">
+        <span class="d-flex align-items-center gap-2 flex-wrap fw-semibold text-body">
+          <i class="fas fa-hand-holding-usd text-secondary" aria-hidden="true"></i>
+          {{ payment_methods.manual_payment }}
+        </span>
+        <span class="d-block small text-muted mt-2 mb-0">Transferencia o depósito local; adjuntá comprobante si aplica.</span>
+      </span>
+    </label>
+    <div class="checkout-pay-method-instructions border rounded p-3 mt-2 small bg-white text-body" data-method-instructions aria-live="polite">
+      {% if method_by_key.manual_payment and method_by_key.manual_payment.instructions_html %}
+      {{ method_by_key.manual_payment.instructions_html | safe }}
+      {% else %}
+      <p class="mb-0">Realizá el pago según las instrucciones del comercio y conservá el comprobante.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>

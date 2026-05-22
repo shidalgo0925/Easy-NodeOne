@@ -99,6 +99,39 @@ def admin_scope_user_ids_only():
     return q
 
 
+def admin_payments_scope_organization_id():
+    """
+    Scope para Admin → Pagos (config + matriz).
+    Prioriza session['organization_id'] del selector lateral (empresa activa),
+    sin usar fallback de PaymentConfig de otra org.
+    """
+    from flask import has_request_context, request, session
+    from flask_login import current_user
+
+    import app as M
+
+    if has_request_context() and getattr(current_user, 'is_authenticated', False):
+        raw = session.get('organization_id')
+        if raw not in (None, ''):
+            try:
+                oid = int(raw)
+                if getattr(current_user, 'is_admin', False) or M.user_has_access_to_organization(
+                    current_user, oid
+                ):
+                    return oid
+            except (TypeError, ValueError):
+                pass
+        q = (request.args.get('organization_id') or '').strip()
+        if q and getattr(current_user, 'is_admin', False):
+            try:
+                qoid = int(q)
+                if M.user_has_access_to_organization(current_user, qoid):
+                    return qoid
+            except (TypeError, ValueError):
+                pass
+    return admin_data_scope_organization_id()
+
+
 def admin_data_scope_organization_id():
     """Listados admin: is_admin → sesión (selector); resto en single-tenant → user.organization_id."""
     import app as M

@@ -16,6 +16,7 @@ PAYMENT_METHODS = {
     'yappy': 'Yappy',
     'yappy_manual': 'Yappy manual',
     'wire_international': 'Transferencia internacional (SWIFT)',
+    'manual_payment': 'Pago manual',
 }
 
 # Estados de pago

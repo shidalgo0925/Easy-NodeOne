@@ -1,61 +1,44 @@
 # IIUS — GO operativo (servidor)
 
-**Estado actual:** ver **`IIUS_CIRCUIT_STATUS.md`** (fuente única de verdad).
+**Estado:** GO técnico + Git **cerrado** · Fase 3 (PayPal live + QA manual) **pendiente**
 
-**GO técnico:** cerrado (2026-05-22) · Código: **`9330cfc`** / tag **`iius-go-20260522`** · Silo: `/opt/easynodeone/app` · Org **1**
+| Ref | Valor |
+|-----|--------|
+| Tag / prod | `iius-go-20260522` → **`9330cfc`** |
+| DEV / `origin/develop` | **`9330cfc`** (merge `release/iius-go-20260522`) |
+| Silo | `/opt/easynodeone/app` · org **1** |
 
----
-
-## Backend (IIUS prod)
+## Backend (hecho)
 
 | Ítem | Estado |
 |------|--------|
-| Código `9330cfc` (tag `iius-go-20260522`) | OK |
+| Código en prod = tag = develop | OK (`9330cfc`) |
 | Matriz pagos + perfil Internacional | OK |
 | `registration_policy = academic_closed` | OK |
-| Programas inscripción (4 diplomados + taller demo en BD) | OK — `seed_academic_programs_iius_all.py` |
+| Programas inscripción (4 diplomados + taller) | OK en BD |
 | CRUD admin programas | OK |
-| Branding IIUS + menú Usuarios | OK en release `develop` |
-| `go_iius_validate_all.sh` | OK en IIUS (gate, landings, pagos) |
-| Matrícula demo user 1 (reconcile) | OK en IIUS mono-tenant |
-| Host `apps.internationalinstitute.us` → org 1 | OK — `subdomain=iius` |
-| Pago OK → matrícula `confirmed` | OK |
+| Branding IIUS + menú Usuarios | OK (en release) |
+| `run_etapa1_dev_validation.py` | LISTO (IIUS mono-tenant) |
+| Host → org 1 | `subdomain=iius` |
+| `go_iius_validate_all.sh` en IIUS | OK (gate incluido) |
+| Pago OK → matrícula `confirmed` | OK (código + reconcile) |
 
----
+## Fase 3 — pendiente negocio
 
-## Pendiente negocio (no bloquea GO técnico)
+| Ítem | Doc |
+|------|-----|
+| PayPal live (Client ID + Secret) | `IIUS_PAYPAL_LIVE.md`, `IIUS_FASE3_PAYPAL_Y_QA.md` |
+| QA manual dominio IIUS | `IIUS_FASE3_PAYPAL_Y_QA.md` § B |
+| Yappy | N/A IIUS |
 
-| Ítem | Responsable | Doc |
-|------|-------------|-----|
-| PayPal live (Client ID + Secret, org 1) | Negocio | `IIUS_PAYPAL_LIVE.md` |
-| Prueba inscripción + pago + campus en dominio IIUS | Negocio / QA | `ETAPA1_DEV_CHECKLIST.md` ítems 7–8, 12 |
-| Yappy | N/A IIUS | — |
-
-**Git / DEV:** merge y tag hechos — no requiere tarball ni nuevo push salvo docs o fixes.
-
----
-
-## Scripts útiles
+## Scripts
 
 ```bash
-cd /opt/easynodeone/app/backend && bash scripts/go_iius_validate_all.sh
-# o manual:
-cd /opt/easynodeone/app/backend && source ../.venv/bin/activate
-set -a && source ../.env && set +a
-export NODEONE_BRAND_PRESET=iius
-python3 run_etapa1_dev_validation.py
-python3 verify_payments_tenant_setup.py
-python3 scripts/test_academic_enrollment_iius.py
-python3 scripts/test_academic_gate_iius.py
-python3 scripts/test_iius_inscripcion_landings.py
-python3 scripts/reconcile_academic_enrollments_paid.py
-python3 scripts/seed_academic_programs_iius_all.py 1
-python3 scripts/bootstrap_iius_org_host.py 1
-python3 scripts/check_paypal_readiness_iius.py  # exit 0 = listo live; 2 = falta client_id
+cd /opt/easynodeone/app/backend
+bash scripts/go_iius_validate_all.sh
+python3 scripts/check_paypal_readiness_iius.py
 ```
-
----
 
 ## Rollback
 
-Ver `ETAPA2_IIUS_RUNBOOK.md` §6.
+`docs/ETAPA2_IIUS_RUNBOOK.md` §6 · tag `iius-pre-etapa2-20260522`

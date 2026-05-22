@@ -1,5 +1,7 @@
 # Etapa 2 — IIUS (runbook)
 
+**Estado del circuito:** `IIUS_CIRCUIT_STATUS.md` (commit/tag vigente, pendientes negocio).
+
 **Prerrequisito:** Etapa 1 DEV con **GO** (`run_etapa1_dev_validation.py` OK + commit `046e991` o posterior en `develop`).
 
 **Baseline IIUS histórico:** `b605a78` · **Rama a desplegar:** `develop` (~77 commits después al 2026-05).
@@ -34,12 +36,13 @@ Anotar:
 ## 2. Deploy código
 
 ```bash
-cd <IIUS_APP_ROOT>
-git checkout develop
-git pull origin develop
-# Debe incluir al menos: e63cced, ee33766, b0ede24, 046e991
+cd <IIUS_APP_ROOT>   # ej. /opt/easynodeone/app
+git fetch origin
+git checkout iius-go-20260522   # o develop @ 9330cfc (mismo commit tras merge 2026-05-22)
+git rev-parse HEAD   # debe coincidir con tag iius-go-20260522^{commit}
 source <venv>/bin/activate
-sudo systemctl restart <servicio-iius>
+sudo systemctl restart nodeone.service
+bash backend/scripts/go_iius_validate_all.sh
 ```
 
 ---
@@ -120,20 +123,22 @@ Usar `docs/ETAPA1_DEV_CHECKLIST.md` ítems 1–6 en el dominio IIUS.
 
 | Fecha | Quién | Resultado |
 |-------|-------|-----------|
-| 2026-05-22 | Etapa 2 ventana IIUS | **GO** — código `63203e6`, backup `iius_pre_etapa2_20260522_204948.db`, tag `iius-pre-etapa2-20260522`. Migraciones + semilla org 1. Validación auto 11 OK / 2 FAIL esperados (mono-tenant). Checklist 1–6 OK; PayPal demo + inscripción `neuro-liderazgo-intercultural`. Yappy: **N/A** cliente. Branding IIUS + menú Usuarios (pendiente commit `dev/app`). |
+| 2026-05-22 | Etapa 2 ventana IIUS | **GO** — backup `iius_pre_etapa2_20260522_204948.db`, tag rollback `iius-pre-etapa2-20260522`. Migraciones + semilla org 1. Validación scripts OK. |
+| 2026-05-22 | Release → DEV + tag | Merge `release/iius-go-20260522` en `develop`, tag **`iius-go-20260522`** @ **`9330cfc`**. IIUS prod en tag, `go_iius_validate_all.sh` OK. |
 
-**Siguiente (post-Etapa 2):** PayPal live → ver `docs/IIUS_PAYPAL_LIVE.md` (pegar credenciales en Admin → Pagos). Inscripción académica + CRUD admin listo. **Yappy: fuera de alcance.**
+**Siguiente:** PayPal live → `IIUS_PAYPAL_LIVE.md`. QA manual inscripción/pago en dominio IIUS. Estado completo: **`IIUS_CIRCUIT_STATUS.md`**.
 
 ---
 
-## 8. Post-GO producto (2026-05-22, silo `/opt/easynodeone/app`)
+## 8. Post-GO producto (2026-05-22)
 
-| Hecho en servidor | Script / doc |
-|-------------------|--------------|
+| Hecho | Script / doc |
+|-------|----------------|
 | `academic_closed` + campus | `EN1_IIUS_ACADEMIC_CLOSED.md` |
 | 4 diplomados + taller en BD | `seed_academic_programs_iius_all.py`, `seed_academic_program_iius_sample_taller.py` |
 | Host → org 1 | `bootstrap_iius_org_host.py` |
-| Validación | `go_iius_validate_all.sh` |
-| Empaquetar a DEV | `IIUS_TRANSFER_TO_DEV.md`, `package_iius_release_tar.sh` |
+| Validación IIUS | `go_iius_validate_all.sh` |
+| Código alineado DEV ↔ Git ↔ IIUS | `9330cfc`, tag `iius-go-20260522` — ver `IIUS_CIRCUIT_STATUS.md` |
+| Empaquetar a DEV (histórico) | `IIUS_TRANSFER_TO_DEV.md` — **cerrado por Git**; tar opcional |
 
-**Pendiente operativo:** commit `develop` desde `dev/app` + tag `iius-go-20260522` + PayPal `client_id` live.
+**Pendiente negocio:** PayPal `client_id` live (Admin → Pagos org 1) + prueba manual en `apps.internationalinstitute.us`.

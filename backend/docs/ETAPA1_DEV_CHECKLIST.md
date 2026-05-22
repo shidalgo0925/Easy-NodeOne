@@ -1,7 +1,7 @@
 # Etapa 1 DEV — Checklist de cierre
 
 **Entorno:** `appdev.easynodeone.com` · rama `develop` · servicio `easynodeone-dev`  
-**IIUS:** ver `docs/ETAPA2_IIUS_RUNBOOK.md` — **GO backend Etapa 1** (validación automática 2026-05).
+**IIUS (estado global):** `docs/IIUS_CIRCUIT_STATUS.md` · runbook `ETAPA2_IIUS_RUNBOOK.md` — **GO backend Etapa 1** (validación automática 2026-05).
 
 Commits de referencia (pagos + SaaS matriz):
 

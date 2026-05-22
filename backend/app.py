@@ -526,6 +526,19 @@ def ensure_session_organization():
 
 
 @app.before_request
+def enforce_academic_closed_member_access():
+    """Campus académico cerrado: sin matrícula activa solo inscripción/checkout/cuenta."""
+    try:
+        from nodeone.services.academic_access import maybe_redirect_academic_gate
+
+        resp = maybe_redirect_academic_gate()
+        if resp is not None:
+            return resp
+    except Exception as e:
+        app.logger.warning('academic_gate: %s', e)
+
+
+@app.before_request
 def initialize_email_config():
     """Migraciones ligeras una vez; SMTP se reaplica por request según organización en sesión."""
     global _email_config_initialized
@@ -674,26 +687,49 @@ def _env_brand_hex(key: str):
 _IIUS_BRAND_PRESET_KEYS = frozenset(
     ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
 )
+# IIUS (internationalinstitute.us): morado CTA · marino fondos · dorado emblema · cian copy destacada
+_IIUS_THEME = {
+    'theme_primary': '#8B60AA',
+    'theme_primary_dark': '#00042D',
+    'theme_accent': '#E6BF75',
+    'theme_accent_gold': '#E6BF75',
+    'theme_accent_cyan': '#00B8E0',
+    'theme_background_cream': '#F3E8C8',
+}
 
 
 def resolve_theme_tokens():
     """
     Design tokens: organization_settings (BD) + capa opcional de marca.
-    Orden: valores de sesión/org → preset NODEONE_BRAND_PRESET (IIUS) → overrides NODEONE_BRAND_*.
+    Orden: preset IIUS (si aplica) → BD → overrides NODEONE_BRAND_*.
     """
+    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
+    use_iius = preset in _IIUS_BRAND_PRESET_KEYS
+
     try:
         s = OrganizationSettings.get_settings_for_session()
         from nodeone.services.tenant_email_logo_storage import resolve_tenant_logo_static_relpath
 
-        out = {
-            'theme_primary': s.primary_color or '#2563EB',
-            'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
-            'theme_accent': s.accent_color or '#06B6D4',
-            'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
-            'theme_favicon_url': s.favicon_url or '',
-        }
+        if use_iius:
+            out = {
+                **_IIUS_THEME,
+                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
+                'theme_favicon_url': s.favicon_url or '',
+            }
+        else:
+            out = {
+                'theme_primary': s.primary_color or '#2563EB',
+                'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
+                'theme_accent': s.accent_color or '#06B6D4',
+                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
+                'theme_favicon_url': s.favicon_url or '',
+            }
     except Exception:
         out = {
+            **_IIUS_THEME,
+            'theme_logo_url': '',
+            'theme_favicon_url': '',
+        } if use_iius else {
             'theme_primary': '#2563EB',
             'theme_primary_dark': '#1E3A8A',
             'theme_accent': '#06B6D4',
@@ -701,23 +737,31 @@ def resolve_theme_tokens():
             'theme_favicon_url': '',
         }
 
-    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
-    if preset in _IIUS_BRAND_PRESET_KEYS:
-        # IIUS: morado = botones/CTA; azul marino = fondos y bloques (primary_dark en custom.css / .bg-dark-blue)
-        # Dorado suave = acentos secundarios (borde/highlight), alineado al sitio público
-        out['theme_primary'] = '#8B60AA'
-        out['theme_primary_dark'] = '#00042D'
-        out['theme_accent'] = '#E6BF75'
+    if use_iius:
+        out.update(_IIUS_THEME)
 
     ep = _env_brand_hex('NODEONE_BRAND_PRIMARY')
     ed = _env_brand_hex('NODEONE_BRAND_PRIMARY_DARK')
     ea = _env_brand_hex('NODEONE_BRAND_ACCENT')
+    eg = _env_brand_hex('NODEONE_BRAND_ACCENT_GOLD')
+    ec = _env_brand_hex('NODEONE_BRAND_ACCENT_CYAN')
     if ep:
         out['theme_primary'] = ep
     if ed:
         out['theme_primary_dark'] = ed
     if ea:
         out['theme_accent'] = ea
+        if use_iius:
+            out['theme_accent_gold'] = ea
+    if eg and use_iius:
+        out['theme_accent_gold'] = eg
+        out['theme_accent'] = eg
+    if ec and use_iius:
+        out['theme_accent_cyan'] = ec
+    out.setdefault('theme_accent_gold', out.get('theme_accent', '#06B6D4'))
+    out.setdefault('theme_accent_cyan', out.get('theme_accent', '#06B6D4'))
+    out.setdefault('theme_background_cream', '#F1F5F9')
+    out['brand_preset'] = preset if use_iius else ''
     return out
 
 
@@ -732,6 +776,10 @@ def inject_theme():
             'theme_primary': '#2563EB',
             'theme_primary_dark': '#1E3A8A',
             'theme_accent': '#06B6D4',
+            'theme_accent_gold': '#06B6D4',
+            'theme_accent_cyan': '#06B6D4',
+            'theme_background_cream': '#F1F5F9',
+            'brand_preset': '',
             'theme_logo_url': '',
             'theme_favicon_url': '',
         }
@@ -1518,6 +1566,42 @@ def inject_saas_module_template_helper():
     except Exception:
         events_portal_count = None
 
+    academic_closed_mode = False
+    has_academic_campus_access = True
+    academic_member_enrollments = []
+    academic_inscripcion_url = None
+    academic_published_programs = []
+    academic_enrollments_grouped = {}
+    academic_pending_continue_url = None
+    try:
+        if has_request_context() and getattr(current_user, 'is_authenticated', False):
+            from nodeone.services.academic_access import (
+                continuar_url_for_enrollment,
+                default_inscripcion_url_for_org,
+                group_enrollments_for_display,
+                has_active_enrollment,
+                is_academic_closed_org,
+                list_member_enrollments,
+                list_published_programs_for_org,
+                pending_enrollment_for_user,
+                user_bypasses_academic_gate,
+            )
+
+            oid = _org_id_for_module_visibility()
+            academic_closed_mode = bool(oid is not None and is_academic_closed_org(oid))
+            if oid is not None:
+                academic_inscripcion_url = default_inscripcion_url_for_org(int(oid))
+                academic_published_programs = list_published_programs_for_org(int(oid))
+            if academic_closed_mode and not user_bypasses_academic_gate(current_user):
+                has_academic_campus_access = has_active_enrollment(int(current_user.id), oid)
+                academic_member_enrollments = list_member_enrollments(int(current_user.id), oid)
+                academic_enrollments_grouped = group_enrollments_for_display(academic_member_enrollments)
+                pending = pending_enrollment_for_user(int(current_user.id), oid)
+                if pending is not None:
+                    academic_pending_continue_url = continuar_url_for_enrollment(pending)
+    except Exception:
+        pass
+
     return dict(
         saas_module_enabled=saas_module_enabled,
         saas_module_enabled_fallback=saas_module_enabled_fallback,
@@ -1526,6 +1610,14 @@ def inject_saas_module_template_helper():
         academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
         show_academic_admin_nav=show_academic_nav,
         events_portal_count=events_portal_count,
+        academic_closed_mode=academic_closed_mode,
+        has_academic_campus_access=has_academic_campus_access,
+        academic_member_gate_active=academic_closed_mode and not has_academic_campus_access,
+        academic_member_enrollments=academic_member_enrollments,
+        academic_inscripcion_url=academic_inscripcion_url,
+        academic_published_programs=academic_published_programs,
+        academic_enrollments_grouped=academic_enrollments_grouped,
+        academic_pending_continue_url=academic_pending_continue_url,
     )
 
 

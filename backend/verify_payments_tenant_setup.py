@@ -47,8 +47,10 @@ def main() -> int:
 
         if not opm.is_known_method_key('wire_international'):
             errors.append('catálogo sin wire_international')
-        if opm.is_method_enabled(1, 'wire_international'):
-            errors.append('org1: wire debería estar off en matriz de prueba')
+        # IIUS / perfil internacional: PayPal + SWIFT activos es correcto (no exigir wire off en org 1).
+        preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
+        if preset not in ('iius', 'internationalinstitute') and opm.is_method_enabled(1, 'wire_international'):
+            errors.append('org1: wire on — revisar si no es perfil internacional')
 
     if errors:
         print('FALLOS:')

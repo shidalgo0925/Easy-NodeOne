@@ -492,3 +492,49 @@ body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-gro
 body:has(#erpAppSubnav[data-erp-zone="analytics"]) .analytics-dashboard-page .analytics-board-nav {
     display: none !important;
 }
+
+/* ——— IIUS (internationalinstitute.us): marino + morado; sin mosaico azul EN1 ——— */
+html[data-brand="iius"] aside.left-panel.sidebar-erp {
+    background: var(--color-primary-dark, #00042d) !important;
+    border-right-color: rgba(139, 96, 170, 0.25);
+    box-shadow: 4px 0 24px rgba(0, 4, 45, 0.45);
+}
+
+html[data-brand="iius"] aside.left-panel.sidebar-erp .sidebar-org-bar {
+    background: color-mix(in srgb, var(--color-primary-dark, #00042d) 92%, #000) !important;
+    border-color: rgba(139, 96, 170, 0.2) !important;
+}
+
+html[data-brand="iius"] aside.left-panel.sidebar-erp .sidebar-org-bar .btn-outline-primary {
+    border-color: var(--color-primary, #8b60aa);
+    color: var(--color-accent-gold, #e6bf75);
+}
+
+html[data-brand="iius"] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+html[data-brand="iius"] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
+    background: linear-gradient(
+        145deg,
+        var(--color-primary, #8b60aa) 0%,
+        color-mix(in srgb, var(--color-primary, #8b60aa) 55%, var(--color-primary-dark, #00042d)) 55%,
+        var(--color-primary-dark, #00042d) 100%
+    );
+    color: #fff !important;
+}
+
+html[data-brand="iius"] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand="iius"] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand="iius"] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
+    background: color-mix(in srgb, var(--color-primary, #8b60aa) 28%, transparent) !important;
+    border-left-color: var(--color-accent-gold, #e6bf75) !important;
+}
+
+html[data-brand="iius"] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.active .menu-icon,
+html[data-brand="iius"] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-gold, #e6bf75) 65%, transparent),
+        0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+html[data-brand="iius"] aside.left-panel.sidebar-erp .nav-group-items .nav-link.active {
+    background: color-mix(in srgb, var(--color-primary, #8b60aa) 22%, transparent) !important;
+    border-left: 2px solid var(--color-accent-cyan, #00b8e0);
+}

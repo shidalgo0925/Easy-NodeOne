@@ -1,0 +1,8 @@
+IIUS: matriz pagos, campus academic_closed y programas en BD
+
+Unifica checkout con organization_payment_methods y perfiles Panamá/Internacional.
+Añade política academic_closed, middleware de acceso, Mi campus y CRUD de programas.
+Branding IIUS, landings por AcademicProgram, semillas y scripts de validación GO.
+
+Empaquetar rutas listadas en IIUS_COMMIT_PATHS.txt (no incluir .env con secretos).
+Tag sugerido: iius-go-20260522

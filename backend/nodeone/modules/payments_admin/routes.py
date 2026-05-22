@@ -591,6 +591,49 @@ def api_organization_payment_methods():
     })
 
 
+@payments_admin_bp.route('/api/admin/payments/org-methods/apply-profile', methods=['POST'])
+@require_permission('payments.manage')
+def api_apply_organization_payment_profile():
+    """Aplica perfil Panamá / Internacional a la matriz de la org activa."""
+    import app as M
+    from nodeone.services import organization_payment_methods as opm
+
+    try:
+        scope_oid = _payments_scope_organization_id(M)
+    except Exception:
+        from utils.organization import default_organization_id
+
+        scope_oid = int(default_organization_id())
+
+    payload = request.get_json(silent=True) or {}
+    profile_key = (payload.get('profile') or payload.get('profile_key') or '').strip().lower()
+    if not profile_key:
+        return jsonify({'success': False, 'error': 'Indique profile: panama | international'}), 400
+    try:
+        saved, label = opm.apply_payment_profile(scope_oid, profile_key)
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        M.db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    org_name = None
+    try:
+        org_row = M.SaasOrganization.query.get(int(scope_oid))
+        org_name = getattr(org_row, 'name', None) if org_row else None
+    except Exception:
+        pass
+    return jsonify({
+        'success': True,
+        'organization_id': scope_oid,
+        'organization_name': org_name,
+        'profile': profile_key,
+        'profile_label': label,
+        'methods': saved,
+        'message': f'Perfil aplicado: {label}',
+    })
+
+
 @payments_admin_bp.route('/api/admin/payments/config', methods=['GET', 'POST', 'PUT'])
 @_admin_required_lazy
 def api_payment_config():

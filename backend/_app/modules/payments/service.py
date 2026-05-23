@@ -7,11 +7,18 @@ from . import repository
 
 
 def _membership_catalog_org_id(user):
-    """Organización para resolver ``MembershipPlan`` (alinear con catálogo / tenant)."""
+    """Organización para carrito/checkout: misma que /services (sesión/host), no ``user.organization_id`` legacy."""
     from app import default_organization_id, _catalog_org_for_member_and_theme
 
     try:
-        return int(getattr(user, 'organization_id', None) or _catalog_org_for_member_and_theme() or default_organization_id())
+        from flask import has_request_context
+
+        if has_request_context():
+            return int(_catalog_org_for_member_and_theme())
+    except Exception:
+        pass
+    try:
+        return int(getattr(user, 'organization_id', None) or default_organization_id())
     except Exception:
         return int(default_organization_id())
 
@@ -122,11 +129,11 @@ def _resolve_course_cohort(user, service_id: int, cohort_id: int):
     Valida programa COURSE + cohorte y devuelve (product_id, name, desc, cents, meta) o (None, mensaje).
     No escribe en el carrito.
     """
-    from app import CourseCohort, default_organization_id, _catalog_org_for_member_and_theme
+    from app import CourseCohort
 
     if user is None:
         return None, 'Usuario no encontrado'
-    oid = int(getattr(user, 'organization_id', None) or _catalog_org_for_member_and_theme() or default_organization_id())
+    oid = _membership_catalog_org_id(user)
     svc = Service.query.filter_by(id=int(service_id), organization_id=oid).first()
     if svc is None or (getattr(svc, 'service_type', None) or '').strip().upper() != 'COURSE':
         return None, 'Programa no disponible'
@@ -313,8 +320,7 @@ def resolve_product_for_cart(user, data):
         product_id = int(data.get('product_id', 0))
         if product_id == 0:
             return None, {'success': False, 'error': 'ID de servicio no especificado'}, 400
-        from app import _catalog_org_for_member_and_theme
-        _oid = int(getattr(user, 'organization_id', None) or _catalog_org_for_member_and_theme())
+        _oid = _membership_catalog_org_id(user)
         service = Service.query.filter_by(id=product_id, organization_id=_oid).first()
         if not service:
             return None, {'success': False, 'error': 'Servicio no encontrado'}, 404

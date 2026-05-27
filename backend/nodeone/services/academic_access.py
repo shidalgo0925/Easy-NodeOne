@@ -235,7 +235,9 @@ _ACADEMIC_GATE_ALLOW_PREFIXES = (
     '/payment/',
     '/payments/',
     '/create-payment-intent',
-    '/api/',
+    '/api/public/',
+    '/api/landing/',
+    '/api/catalog/',
     '/member-payments',
     '/membership',
     '/member/plan',
@@ -317,8 +319,6 @@ def maybe_redirect_academic_gate():
     """
     from flask import redirect
 
-    if not require_paid_access_enabled():
-        return None
     if not getattr(current_user, 'is_authenticated', False):
         return None
     if session.get('require_org_selection'):
@@ -334,6 +334,9 @@ def maybe_redirect_academic_gate():
             oid = int(sid)
     except Exception:
         pass
+    # Gate activo cuando el despliegue exige compra o la org está en academic_closed.
+    if not (require_paid_access_enabled() or is_academic_closed_org(oid)):
+        return None
     if user_has_paid_access(current_user, oid):
         return None
     if _path_allowed_without_enrollment():

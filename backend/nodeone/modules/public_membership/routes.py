@@ -121,9 +121,11 @@ def register_public_membership_routes(app):
             Payment.user_id == current_user.id
         ).count()
 
+        from nodeone.services.payment_pending_status import MEMBER_PENDING_PAYMENT_STATUSES
+
         pending_payments_count = Payment.query.filter(
             Payment.user_id == current_user.id,
-            Payment.status.in_(('pending', 'awaiting_confirmation')),
+            Payment.status.in_(tuple(MEMBER_PENDING_PAYMENT_STATUSES)),
         ).count()
     
         # Obtener todos los eventos públicos para el calendario

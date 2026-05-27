@@ -72,15 +72,28 @@ class UserStatusChecker:
         
         try:
             # ========== 1. VERIFICAR PAGOS PENDIENTES ==========
+            from nodeone.services.payment_pending_status import (
+                MEMBER_PENDING_PAYMENT_STATUSES,
+                member_pending_action_url,
+                member_pending_status_label,
+            )
+
             pending_payments = Payment.query.filter(
                 Payment.user_id == user_id,
-                Payment.status.in_(['pending', 'awaiting_confirmation'])
+                Payment.status.in_(tuple(MEMBER_PENDING_PAYMENT_STATUSES)),
             ).order_by(Payment.created_at.desc()).all()
             
             for payment in pending_payments:
                 time_elapsed = (datetime.utcnow() - payment.created_at).total_seconds() / 60 if payment.created_at else 0
                 minutes_elapsed = int(time_elapsed)
                 
+                try:
+                    action_url = member_pending_action_url(
+                        payment.id, payment.payment_method, payment.status
+                    )
+                except Exception:
+                    action_url = '/payments/history'
+
                 payment_info = {
                     'id': payment.id,
                     'amount': payment.amount / 100.0,
@@ -89,26 +102,40 @@ class UserStatusChecker:
                     'payment_reference': payment.payment_reference,
                     'yappy_transaction_id': UserStatusChecker._get_yappy_transaction_id(payment),
                     'status': payment.status,
+                    'status_label': member_pending_status_label(payment.status, payment.payment_method),
                     'created_at': payment.created_at.isoformat() if payment.created_at else None,
                     'minutes_elapsed': minutes_elapsed,
                     'hours_elapsed': int(minutes_elapsed / 60),
-                    'is_urgent': minutes_elapsed > 30,  # Más de 30 minutos es urgente
+                    'is_urgent': minutes_elapsed > 30,
                     'can_verify_manually': minutes_elapsed > 5 and payment.payment_method == 'yappy',
-                    'action': 'verify_payment' if payment.payment_method == 'yappy' and minutes_elapsed > 5 else 'wait'
+                    'action': 'verify_payment' if payment.payment_method == 'yappy' and minutes_elapsed > 5 else 'wait',
+                    'action_url': action_url,
                 }
                 
                 status['pending_payments'].append(payment_info)
                 
                 # Agregar a acciones requeridas
-                if minutes_elapsed > 5:
-                    if payment.payment_method == 'yappy':
+                if minutes_elapsed > 5 or payment.payment_method == 'yappy_manual':
+                    if payment.payment_method in ('yappy', 'yappy_manual'):
+                        title = (
+                            'Subir comprobante Yappy'
+                            if payment.payment_method == 'yappy_manual'
+                            and payment.status in ('pending_receipt', 'pending_payment')
+                            else f'Verificar pago de ${payment.amount/100:.2f}'
+                        )
+                        msg = (
+                            'Subí tu comprobante para que validemos el pago.'
+                            if payment.payment_method == 'yappy_manual'
+                            and payment.status in ('pending_receipt', 'pending_payment')
+                            else f'Tu pago lleva {minutes_elapsed} minutos pendiente.'
+                        )
                         status['action_required'].append({
                             'type': 'payment_verification',
                             'priority': 'urgent' if minutes_elapsed > 30 else 'normal',
-                            'title': f'Verificar pago de ${payment.amount/100:.2f}',
-                            'message': f'Tu pago lleva {minutes_elapsed} minutos pendiente. Verifica con tu código de comprobante.',
+                            'title': title,
+                            'message': msg,
                             'payment_id': payment.id,
-                            'action_url': f'/payments/history'
+                            'action_url': action_url,
                         })
                         status['summary']['urgent_actions'] += 1 if minutes_elapsed > 30 else 0
                         status['summary']['total_pending_actions'] += 1

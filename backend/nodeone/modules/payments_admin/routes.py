@@ -422,18 +422,11 @@ def _admin_payments_page_inner(M):
             raise
 
     try:
+        from nodeone.services.payment_pending_status import ADMIN_YAPPY_OPEN_STATUSES
+
         ymq = M.Payment.query.filter(
             M.Payment.payment_method == 'yappy_manual',
-            M.Payment.status.in_(
-                [
-                    'pending_receipt',
-                    'pending_payment',
-                    'pending_admin_review',
-                    'pending_validation',
-                    'manual_review',
-                    'partially_paid',
-                ]
-            ),
+            M.Payment.status.in_(tuple(ADMIN_YAPPY_OPEN_STATUSES)),
         )
         if uids_sq is not None:
             ymq = ymq.filter(M.Payment.user_id.in_(uids_sq))
@@ -1005,14 +998,9 @@ def admin_yappy_manual_list():
             q = q.filter(M.Payment.user_id.in_(uids_sq))
         return q
 
-    pending_statuses = (
-        'pending_receipt',
-        'pending_payment',
-        'pending_admin_review',
-        'pending_validation',
-        'manual_review',
-        'partially_paid',
-    )
+    from nodeone.services.payment_pending_status import ADMIN_YAPPY_OPEN_STATUSES
+
+    pending_statuses = tuple(ADMIN_YAPPY_OPEN_STATUSES)
     payments_pending = (
         _base_yappy_query()
         .filter(M.Payment.status.in_(pending_statuses))

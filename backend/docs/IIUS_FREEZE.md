@@ -55,7 +55,17 @@ Documento de referencia del **freeze** operativo en el host IIUS. La línea viva
 - **108 archivos** (+13 932 / −336 líneas).
 - Scripts `*_iius_*`, módulos `wp_*_sync`, `catalog_public`, `inscripcion_bridge`, etc.
 
-**Pendiente de implementar** (post-freeze, solo en `iius-product`): recursos descargables `AcademicProgramResource`, separación `/opt/iius/{dev,staging,prod}`.
+**Implementado post-freeze en `iius-product`:**
+
+| Tag / hito | Commit | Contenido |
+|------------|--------|-----------|
+| `iius-resources-v1` | `ea28c2c` | Recursos descargables por programa |
+| `iius-lead-capture-v1` | `e9e67e1` | Lead capture V2 en recursos |
+| (acceso) | `d20d1c8` | Gate campus + API privada 403 |
+| (catálogo) | `24c38b9` | Slugs arte/talleres, redirects `/programs/` → `/inscripcion/` |
+| (pagos) | `05f9067` | Estados `pending` / `pending_receipt` / Yappy manual en UI miembro |
+
+**Pendiente infra:** separación física `/opt/iius/{dev,staging,prod}`, migración Postgres (ver `docs/IIUS_INFRA_READINESS.md`).
 
 ---
 

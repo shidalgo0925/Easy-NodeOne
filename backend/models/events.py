@@ -97,6 +97,7 @@ class Event(db.Model):
     registered_count = db.Column(db.Integer, default=0)
     visibility = db.Column(db.String(20), default='members')  # members, public
     publish_status = db.Column(db.String(20), default='draft')  # draft, published, archived
+    catalog_sort_order = db.Column(db.Integer, nullable=False, default=0, index=True)  # orden tarjetas en /events
     featured = db.Column(db.Boolean, default=False)
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)

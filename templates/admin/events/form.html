@@ -411,6 +411,12 @@
                     <div id="collapse-event-section-classification" class="collapse">
                     <div class="card-body">
                         <div class="mb-3">
+                            <label class="form-label fw-medium" for="catalog_sort_order">Orden en catálogo</label>
+                            <input type="number" class="form-control" id="catalog_sort_order" name="catalog_sort_order" min="0" step="1"
+                                   value="{% if event %}{{ event.catalog_sort_order }}{% else %}0{% endif %}">
+                            <p class="form-text small mb-0">Número menor = aparece antes en <a href="{{ url_for('events.list_events') }}" target="_blank" rel="noopener">/events</a> y en el listado admin. Podés repetir números; en ese caso se desempata por fecha.</p>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label fw-medium">Categoría</label>
                             <input type="text" name="category" class="form-control" value="{{ event.category if event else 'general' }}">
                         </div>

@@ -1,7 +1,10 @@
 """
-Catálogo SaaS por defecto (tabla saas_module) y vínculos org → sales.
+Catálogo SaaS por defecto (tabla saas_module) y vínculos org → módulos por tenant.
 
 Idempotente: seguro en bootstrap (ExecStartPre) y en migraciones.
+
+Documentación operativa y técnica (Ventas vs Contabilidad ERP vs menú):
+  backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md
 """
 
 from __future__ import annotations
@@ -44,8 +47,20 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
     ),
     (
         'accounting',
-        'Contabilidad',
-        'Reservado para contabilidad avanzada (sin guard SaaS en facturas).',
+        'Contabilidad (legacy)',
+        'Alias histórico; sincronizado con accounting_core al activar/desactivar en Módulos.',
+        False,
+    ),
+    (
+        'accounting_core',
+        'Contabilidad ERP',
+        'Plan de cuentas, diarios, asientos, CxC y núcleo contable (/admin/accounting-core).',
+        False,
+    ),
+    (
+        'accounting_adjustments',
+        'Ajustes contables',
+        'Ajustes tipo Odoo sobre el núcleo contable (requiere Contabilidad ERP).',
         False,
     ),
     (
@@ -170,6 +185,10 @@ def ensure_sales_org_module_links(printfn=None) -> None:
 
 # Módulos que el admin puede encender/apagar por empresa (deben tener is_core=False en SAAS_CATALOG_MODULES).
 TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
+    'sales',
+    'accounting',
+    'accounting_core',
+    'accounting_adjustments',
     'analytics',
     'appointments',
     'crm',
@@ -243,8 +262,29 @@ def ensure_office365_module_dependency(printfn=None) -> None:
     db.session.commit()
 
 
-def ensure_academic_module_dependency(printfn=None) -> None:
-    """academic depende de sales (facturación / cotizaciones)."""
+def ensure_accounting_adjustments_module_dependency(printfn=None) -> None:
+    """accounting_adjustments depende de accounting_core."""
+    from app import SaasModule, SaasModuleDependency, db
+
+    child = SaasModule.query.filter_by(code='accounting_adjustments').first()
+    parent = SaasModule.query.filter_by(code='accounting_core').first()
+    if child is None or parent is None:
+        return
+    existing = SaasModuleDependency.query.filter_by(
+        module_id=child.id, depends_on_module_id=parent.id
+    ).first()
+    if existing is not None:
+        return
+    db.session.add(SaasModuleDependency(module_id=child.id, depends_on_module_id=parent.id))
+    _log(printfn, '+ saas_module_dependency: accounting_adjustments → accounting_core')
+    db.session.commit()
+
+
+def remove_academic_sales_module_dependency(printfn=None) -> None:
+    """
+    Quita la dependencia academic → sales (impedía desactivar Ventas con Educación activa).
+    Inscripción académica IIUS usa payments + academic_program; cotizaciones son opcionales por tenant.
+    """
     from app import SaasModule, SaasModuleDependency, db
 
     child = SaasModule.query.filter_by(code='academic').first()
@@ -254,11 +294,16 @@ def ensure_academic_module_dependency(printfn=None) -> None:
     existing = SaasModuleDependency.query.filter_by(
         module_id=child.id, depends_on_module_id=parent.id
     ).first()
-    if existing is not None:
+    if existing is None:
         return
-    db.session.add(SaasModuleDependency(module_id=child.id, depends_on_module_id=parent.id))
-    _log(printfn, '+ saas_module_dependency: academic → sales')
+    db.session.delete(existing)
     db.session.commit()
+    _log(printfn, '- saas_module_dependency: academic ↛ sales (eliminada)')
+
+
+def ensure_academic_module_dependency(printfn=None) -> None:
+    """Obsoleto: ya no se crea academic → sales; ver remove_academic_sales_module_dependency."""
+    remove_academic_sales_module_dependency(printfn=printfn)
 
 
 def ensure_workshop_org_modules_on(printfn=None) -> None:
@@ -280,6 +325,58 @@ def ensure_workshop_org_modules_on(printfn=None) -> None:
     if n:
         db.session.commit()
         _log(printfn, f'* saas_org_module: workshop → on ({n} vínculo(s))')
+
+
+_ACCOUNTING_ALIAS_CODES: tuple[str, ...] = ('accounting', 'accounting_core')
+
+
+def ensure_accounting_core_org_module_links(printfn=None) -> None:
+    """
+    Crea saas_org_module para accounting_core (y accounting_adjustments) si falta.
+    Hereda enabled del vínculo legacy ``accounting``; si no hay fila legacy → off.
+    """
+    from app import SaasModule, SaasOrgModule, SaasOrganization, db
+
+    core = SaasModule.query.filter_by(code='accounting_core').first()
+    if core is None:
+        return
+    legacy = SaasModule.query.filter_by(code='accounting').first()
+    adj = SaasModule.query.filter_by(code='accounting_adjustments').first()
+    created = 0
+    for org in SaasOrganization.query.order_by(SaasOrganization.id.asc()).all():
+        oid = int(org.id)
+        leg_link = None
+        if legacy is not None:
+            leg_link = SaasOrgModule.query.filter_by(organization_id=oid, module_id=legacy.id).first()
+        default_en = bool(leg_link.enabled) if leg_link is not None else False
+        for mod in (core, adj):
+            if mod is None:
+                continue
+            link = SaasOrgModule.query.filter_by(organization_id=oid, module_id=mod.id).first()
+            if link is not None:
+                continue
+            db.session.add(SaasOrgModule(organization_id=oid, module_id=mod.id, enabled=default_en))
+            created += 1
+            _log(printfn, f'+ saas_org_module: org={oid} {mod.code} enabled={default_en} (from accounting legacy)')
+    if created:
+        db.session.commit()
+
+
+def sync_accounting_module_aliases(organization_id: int, enabled: bool, printfn=None) -> None:
+    """Mantiene accounting y accounting_core con el mismo enabled para la org."""
+    from app import SaasModule, SaasOrgModule, db
+
+    for code in _ACCOUNTING_ALIAS_CODES:
+        mod = SaasModule.query.filter_by(code=code).first()
+        if mod is None:
+            continue
+        link = SaasOrgModule.query.filter_by(organization_id=int(organization_id), module_id=mod.id).first()
+        if link is None:
+            link = SaasOrgModule(organization_id=int(organization_id), module_id=mod.id, enabled=bool(enabled))
+            db.session.add(link)
+        else:
+            link.enabled = bool(enabled)
+    db.session.flush()
 
 
 def ensure_academic_org_modules_on(printfn=None) -> None:
@@ -306,8 +403,10 @@ def ensure_academic_org_modules_on(printfn=None) -> None:
 def ensure_saas_catalog_full(printfn=None) -> None:
     ensure_saas_module_catalog(printfn=printfn)
     ensure_office365_module_dependency(printfn=printfn)
-    ensure_academic_module_dependency(printfn=printfn)
+    ensure_accounting_adjustments_module_dependency(printfn=printfn)
+    remove_academic_sales_module_dependency(printfn=printfn)
     ensure_sales_org_module_links(printfn=printfn)
+    ensure_accounting_core_org_module_links(printfn=printfn)
     ensure_toggleable_tenant_module_links(printfn=printfn)
     # No llamar ensure_workshop_org_modules_on / ensure_academic_org_modules_on aquí:
     # forzaban enabled=True en cada arranque y anulaban lo apagado en Admin → Módulos por org.

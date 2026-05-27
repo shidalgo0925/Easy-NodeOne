@@ -16,6 +16,13 @@
             <div class="col-12 col-lg-4 col-md-6">
                 <h6 class="text-uppercase mb-3">Enlaces útiles</h6>
                 <ul class="list-unstyled mb-0">
+                    {% if has_view_endpoint('public_academic_programs_catalog') %}
+                    <li class="mb-2">
+                        <a href="{{ url_for('public_academic_programs_catalog') }}" class="text-light text-decoration-none">
+                            <i class="fas fa-graduation-cap me-2"></i>Programas formativos
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="mb-2">
                         <a href="{{ url_for('membership') }}" class="text-light text-decoration-none">
                             <i class="fas fa-crown me-2"></i>Planes de membresía

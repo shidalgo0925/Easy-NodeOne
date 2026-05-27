@@ -1,8 +1,8 @@
 {# Submenú horizontal estilo Odoo: aparece solo sobre el área de contenido cuando hay rutas hijas. #}
 {% set _nav_clientes_crm = (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and nav_can('users.view') %}
 {% set _nav_sales = saas_module_enabled('sales') %}
-{% set _nav_contabilidad = saas_module_enabled_chain('accounting_core', 'sales') %}
-{% set _nav_ajustes = saas_module_enabled_chain('accounting_adjustments', 'accounting_core', 'sales') %}
+{% set _nav_contabilidad = saas_module_enabled('accounting_core') %}
+{% set _nav_ajustes = saas_module_enabled('accounting_adjustments') %}
 {% set _nav_prod_evt = saas_module_enabled('events') and nav_can('reports.view') %}
 {% set _nav_prod_pay = nav_can('payments.view') %}
 
@@ -20,13 +20,13 @@
 
 {% set _workshop_zone = request.endpoint is defined and request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail', 'admin_workshop_process_config'] %}
 
-{% set _edu_zone = request.blueprint == 'academic_admin' %}
+{% set _edu_zone = request.blueprint in ['academic_admin', 'academic_enrollment_admin'] or request.endpoint == 'public_academic_programs_catalog' %}
 
 {% set _agenda_zone = (request.blueprint == 'appointments') or (request.blueprint == 'admin_appointments') or (request.endpoint == 'appointments.advisor_queue') %}
 
 {% set _comm_zone = ((office365_module_enabled and request.blueprint == 'integrations') or (request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'admin_communications.admin_communications_settings', 'office365_admin.admin_office365_requests'])) %}
 
-{% set _products_zone = (request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories']) or (request.blueprint in ['events', 'admin_events']) %}
+{% set _products_zone = (request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories']) or (request.blueprint in ['events', 'admin_events', 'academic_enrollment_admin']) %}
 
 {% set _documents_zone = (request.endpoint in ['certificates_page.certificates_page', 'admin_certificate_events', 'admin_certificate_templates', 'admin_certificate_template_editor']) or (request.blueprint == 'policies') or (request.endpoint == 'admin_policies') %}
 
@@ -135,6 +135,12 @@
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Educación</span>
         <ul class="erp-app-subnav__list">
+            {% if has_view_endpoint('public_academic_programs_catalog') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'public_academic_programs_catalog' %}is-active{% endif %}" href="{{ url_for('public_academic_programs_catalog') }}">Catálogo</a></li>
+            {% endif %}
+            {% if has_view_endpoint('academic_enrollment_admin.list_programs') %}
+            <li><a class="erp-app-subnav__link {% if request.blueprint == 'academic_enrollment_admin' %}is-active{% endif %}" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Inscripción (admin)</a></li>
+            {% endif %}
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'academic_admin.admin_academic_students' %}is-active{% endif %}" href="{{ url_for('academic_admin.admin_academic_students') }}">Estudiantes</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'academic_admin.admin_academic_courses' %}is-active{% endif %}" href="{{ url_for('academic_admin.admin_academic_courses') }}">Cursos</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'academic_admin.admin_academic_enrollments' %}is-active{% endif %}" href="{{ url_for('academic_admin.admin_academic_enrollments') }}">Matrículas</a></li>
@@ -195,6 +201,9 @@
             {% if nav_can('services.view') %}
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_services_catalog.admin_services' %}is-active{% endif %}" href="{{ url_for('admin_services_catalog.admin_services') }}">Servicios (catálogo)</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_services_catalog.admin_service_categories' %}is-active{% endif %}" href="{{ url_for('admin_services_catalog.admin_service_categories') }}">Categorías servicios</a></li>
+            {% endif %}
+            {% if has_view_endpoint('academic_enrollment_admin.list_programs') %}
+            <li><a class="erp-app-subnav__link {% if request.blueprint == 'academic_enrollment_admin' %}is-active{% endif %}" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Catálogo formativo</a></li>
             {% endif %}
             {% if saas_module_enabled('events') and _nav_prod_evt %}
             <li><a class="erp-app-subnav__link {% if request.blueprint == 'events' %}is-active{% endif %}" href="{{ url_for('events.list_events') }}">Ver eventos</a></li>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmación — Programa académico</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/academic-program-pdf-lead-form.css') }}?v=2" rel="stylesheet">
+</head>
+<body class="lc2-page">
+  <div class="lc2-wrap">
+    <div class="lc2-card">
+      <div class="lc2-card__head">
+        <h1>{% if state == 'expired' %}Enlace vencido{% else %}Correo confirmado{% endif %}</h1>
+        {% if program_name %}<p>{{ program_name }}</p>{% endif %}
+      </div>
+      <div class="lc2-card__body">
+        {% if state == 'expired' %}
+          <p class="lc2-alert lc2-alert--error is-visible">
+            El enlace de confirmación ya no es válido (vence a las 48 horas).
+            Volvé a solicitar el PDF con tus datos.
+          </p>
+          <a class="lc2-btn lc2-btn--submit" href="/programa-academico/{{ program_slug }}/solicitar-pdf">
+            Solicitar PDF de nuevo
+          </a>
+        {% else %}
+          <p class="lc2-alert lc2-alert--success is-visible">
+            Tu correo fue confirmado. El programa académico debería abrirse en otra pestaña.
+          </p>
+          {% if pdf_url %}
+          <a class="lc2-btn lc2-btn--gold" href="{{ pdf_url }}" target="_blank" rel="noopener">Abrir PDF</a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

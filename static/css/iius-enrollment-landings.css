@@ -3,31 +3,52 @@
  * Marino bloques · Morado CTA · Dorado emblema · Cian destacados · Crema fondo suave
  */
 .ii-checkout-landing,
-.pe-checkout-landing {
+.pe-checkout-landing,
+.pe-landing {
   --ii-navy: var(--color-primary-dark);
   --ii-gold: var(--color-accent-gold);
   --ii-cyan: var(--color-accent-cyan);
   --ii-primary: var(--color-primary);
-  --ii-bg: var(--color-background-cream, var(--color-background, #f4f6f9));
+  --ii-bg: #f5f7fb;
   --pe-navy: var(--color-primary-dark);
   --pe-gold: var(--color-accent-gold);
   --pe-cyan: var(--color-accent-cyan);
-  --pe-bg: var(--color-background-cream, var(--color-background, #f4f6f9));
+  --pe-bg: #f5f7fb;
 }
 
-.ii-checkout-landing,
-.pe-checkout-landing {
-  background: var(--ii-bg);
+.ii-checkout-landing {
+  background: var(--color-background-cream, var(--ii-bg));
 }
 
 .ii-checkout-summary,
-.pe-checkout-summary {
+.pe-checkout-summary,
+.pe-checkout-media {
   background: linear-gradient(
     180deg,
     var(--color-primary-dark) 0%,
     color-mix(in srgb, var(--color-primary-dark) 92%, var(--color-primary) 8%) 100%
   ) !important;
   color: #fff;
+}
+
+/* Marco imagen/flyer: sin #fff; letterboxing = color de columna */
+.pe-checkout-media .pe-media-frame,
+.ii-checkout-summary .ii-media-frame {
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-dark) 0%,
+    color-mix(in srgb, var(--color-primary-dark) 92%, var(--color-primary) 8%) 100%
+  ) !important;
+}
+
+/* Escritorio: columna media = alto del flyer (sticky), sin bloque marino vacío arriba */
+@media (min-width: 900px) {
+  .pe-checkout-media .pe-media-frame img {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 85vh !important;
+    object-fit: unset !important;
+  }
 }
 
 .ii-checkout-main h2,

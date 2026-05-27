@@ -1,0 +1,199 @@
+/* Lead capture v2 — solicitar PDF diplomado (IIUS) */
+.lc2-page {
+  --lc2-navy: #1e293b;
+  --lc2-violet: #5b21b6;
+  --lc2-gold: #c9a227;
+  --lc2-cyan: #0891b2;
+  --lc2-bg: #f5f7fb;
+  --lc2-white: #fff;
+  --lc2-muted: #64748b;
+  min-height: 100vh;
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--lc2-bg);
+  color: var(--lc2-navy);
+}
+
+.lc2-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+.lc2-card {
+  background: var(--lc2-white);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(30, 41, 59, 0.1);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.lc2-card__head {
+  background: linear-gradient(135deg, var(--lc2-navy) 0%, var(--lc2-violet) 100%);
+  color: var(--lc2-white);
+  padding: 1.25rem 1.35rem;
+}
+
+.lc2-card__head h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  line-height: 1.3;
+}
+
+.lc2-card__head p {
+  margin: 0;
+  font-size: 0.875rem;
+  opacity: 0.92;
+}
+
+.lc2-card__body {
+  padding: 1.35rem;
+}
+
+.lc2-field {
+  margin-bottom: 1rem;
+}
+
+.lc2-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--lc2-navy);
+}
+
+.lc2-field label .lc2-req {
+  color: var(--lc2-violet);
+}
+
+.lc2-field input,
+.lc2-field textarea,
+.lc2-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.lc2-field input:focus,
+.lc2-field textarea:focus,
+.lc2-field select:focus {
+  outline: 2px solid color-mix(in srgb, var(--lc2-cyan) 40%, transparent);
+  border-color: var(--lc2-cyan);
+}
+
+.lc2-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.lc2-btn {
+  display: block;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--lc2-violet) 0%, #7c3aed 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(91, 33, 182, 0.35);
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.lc2-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.lc2-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.lc2-btn--gold {
+  background: linear-gradient(135deg, var(--lc2-gold) 0%, #d4af37 100%);
+  color: var(--lc2-navy);
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.35);
+}
+
+.lc2-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  display: none;
+}
+
+.lc2-alert.is-visible {
+  display: block;
+}
+
+.lc2-alert--error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.lc2-alert--success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.lc2-foot {
+  font-size: 0.75rem;
+  color: var(--lc2-muted);
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.lc2-state-loading .lc2-btn__label--idle,
+.lc2-state-success .lc2-form-fields,
+.lc2-state-success .lc2-btn--submit {
+  display: none;
+}
+
+.lc2-state-success .lc2-success-panel {
+  display: block;
+}
+
+.lc2-success-panel {
+  display: none;
+  text-align: center;
+  padding: 0.5rem 0 0;
+}
+
+.lc2-success-panel p {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+}
+
+.lc2-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: lc2-spin 0.7s linear infinite;
+  vertical-align: -0.15em;
+  margin-right: 0.35rem;
+}
+
+@keyframes lc2-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lc2-embed .lc2-wrap {
+  padding-top: 0.75rem;
+}

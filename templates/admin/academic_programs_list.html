@@ -1,26 +1,120 @@
 {% extends "base.html" %}
 {% from 'partials/qr_generator_link.html' import qr_link %}
-{% block title %}Programas académicos (inscripción){% endblock %}
+{% block title %}Catálogo formativo (productos){% endblock %}
 {% block page_content %}
 <div class="container py-4">
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-    <h1 class="h3 mb-0">Programas académicos <span class="text-muted small">org {{ organization_id }}</span></h1>
-    <a class="btn btn-primary btn-sm" href="{{ url_for('academic_enrollment_admin.program_new') }}"><i class="fas fa-plus me-1"></i> Nuevo programa</a>
+    <h1 class="h3 mb-0">Catálogo formativo <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      {% if has_view_endpoint('public_academic_programs_catalog') %}
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('public_academic_programs_catalog') }}" target="_blank" rel="noopener">Vitrina /programas</a>
+      {% endif %}
+      {% if has_view_endpoint('academic_enrollment_admin.list_enrollments') %}
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('academic_enrollment_admin.list_enrollments') }}">Inscripciones</a>
+      {% endif %}
+      <form method="post" action="{{ url_for('academic_enrollment_admin.sync_wp_pull') }}" class="d-inline"
+        onsubmit="return confirm('¿Importar los 4 diplomados desde WordPress (pág. /diplomados/)? Sobrescribe textos en apps.');">
+        <button type="submit" class="btn btn-outline-info btn-sm" title="4 diplomados neuro"><i class="fas fa-download me-1"></i> WP → Apps (dipl.)</button>
+      </form>
+      <form method="post" action="{{ url_for('academic_enrollment_admin.sync_wp_cursos_pull') }}" class="d-inline"
+        onsubmit="return confirm('¿Importar los 12 cursos desde WordPress (/cursos-detalle/)? Actualiza categoría, descripción corta e imagen catálogo en apps.');">
+        <button type="submit" class="btn btn-outline-info btn-sm" title="12 cursos en cursos-detalle"><i class="fas fa-download me-1"></i> WP → Apps (cursos)</button>
+      </form>
+      {% if has_view_endpoint('academic_enrollment_admin.sync_wp_arte_pull') %}
+      <form method="post" action="{{ url_for('academic_enrollment_admin.sync_wp_arte_pull') }}" class="d-inline"
+        onsubmit="return confirm('¿Importar los 4 Cursos de Arte desde WordPress (/cursos-detalle/)?');">
+        <button type="submit" class="btn btn-outline-info btn-sm" title="4 cursos en Arte"><i class="fas fa-download me-1"></i> WP → Apps (arte)</button>
+      </form>
+      {% endif %}
+      {% if has_view_endpoint('academic_enrollment_admin.sync_wp_talleres_pull') %}
+      <form method="post" action="{{ url_for('academic_enrollment_admin.sync_wp_talleres_pull') }}" class="d-inline"
+        onsubmit="return confirm('¿Importar los 4 Talleres desde WordPress (fuente pág. 2233)? Solo borradores; no toca image_url/flyer_url.');">
+        <button type="submit" class="btn btn-outline-info btn-sm" title="4 talleres por posición"><i class="fas fa-download me-1"></i> WP → Apps (talleres)</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('academic_enrollment_admin.sync_wp_push') }}" class="d-inline"
+        onsubmit="return confirm('¿Publicar los 4 diplomados neuro en WordPress /diplomados/?');">
+        <button type="submit" class="btn btn-outline-warning btn-sm" title="Solo los 4 neuro de /diplomados/"><i class="fas fa-upload me-1"></i> Apps → WP (4)</button>
+      </form>
+      <form method="post" action="{{ url_for('academic_enrollment_admin.migrate_media_to_apps') }}" class="d-inline"
+        onsubmit="return confirm('¿Copiar imágenes de diplomados a apps y actualizar WP con URLs de apps?');">
+        <button type="submit" class="btn btn-outline-success btn-sm"><i class="fas fa-cloud-download-alt me-1"></i> Imágenes → Apps</button>
+      </form>
+      <a class="btn btn-primary btn-sm" href="{{ url_for('academic_enrollment_admin.program_new') }}"><i class="fas fa-plus me-1"></i> Nuevo producto</a>
+    </div>
   </div>
-  <p class="text-muted">Inscripción pública: <code>/inscripcion/&lt;slug&gt;</code> (estado <strong>published</strong>).</p>
+  <p class="text-muted mb-1">Cursos, diplomados y talleres en <code>/inscripcion/&lt;slug&gt;</code> (estado <strong>published</strong>).</p>
+  <p class="text-muted small mb-3">WordPress: <span class="badge bg-warning text-dark">WP</span> diplomados; <span class="badge bg-info text-dark">WP·C</span> cursos; <span class="badge bg-secondary">WP·A</span> Arte; <span class="badge bg-dark">WP·T</span> Talleres (<code>taller-de-*</code>).</p>
+  {% if events_total_count %}
+  <div class="alert alert-info py-2 mb-3 small">
+    <strong>Eventos:</strong> {{ events_total_count }} en Apps ({{ events_draft_count }} borrador).
+    {% if has_view_endpoint('admin_events.admin_events_index') %}
+    <a href="{{ url_for('admin_events.admin_events_index', status='all') }}" class="alert-link">Gestión eventos</a>
+    {% endif %}
+    {% if has_view_endpoint('academic_enrollment_admin.list_enrollments') %}
+    · <a href="{{ url_for('academic_enrollment_admin.list_enrollments', view='eventos') }}" class="alert-link">Inscripciones → Eventos</a>
+    {% endif %}
+    — no aparecen en <code>/events</code> hasta publicarlos.
+  </div>
+  {% endif %}
+
+  <form method="get" class="card card-body py-2 px-3 mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Buscar</label>
+        <input type="search" name="q" class="form-control form-control-sm" placeholder="Nombre, slug, categoría…" value="{{ filter_q or '' }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Estado</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="all" {% if filter_status == 'all' %}selected{% endif %}>Todos</option>
+          {% for s in statuses %}
+          <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Tipo</label>
+        <select name="program_type" class="form-select form-select-sm">
+          <option value="all" {% if filter_program_type == 'all' %}selected{% endif %}>Todos</option>
+          {% for t in program_types %}
+          <option value="{{ t }}" {% if filter_program_type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Categoría</label>
+        <select name="category" class="form-select form-select-sm">
+          <option value="all" {% if filter_category == 'all' %}selected{% endif %}>Todas</option>
+          {% for c in filter_categories %}
+          <option value="{{ c }}" {% if filter_category == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Limpiar</a>
+      </div>
+    </div>
+    <p class="small text-muted mb-0 mt-2">{{ total_filtered }} de {{ total_all }} programas</p>
+  </form>
+
   {% if not programs %}
-  <div class="alert alert-light border">No hay programas. Crear con <strong>Nuevo programa</strong> o <code>python3 scripts/seed_academic_programs_iius_all.py {{ organization_id }}</code>.</div>
+  <div class="alert alert-light border">{% if total_all %}Ningún programa coincide con el filtro.{% else %}No hay programas. Crear con <strong>Nuevo programa</strong> o <code>python3 scripts/seed_academic_programs_iius_all.py {{ organization_id }}</code>.{% endif %}</div>
   {% else %}
   <div class="table-responsive">
     <table class="table table-sm table-bordered bg-white">
-      <thead><tr><th>Slug</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th></th><th>Enlace</th><th>QR</th></tr></thead>
+      <thead><tr><th>Ord.</th><th>Slug</th><th>Nombre</th><th>Tipo</th><th>Cat.</th><th>Estado</th><th>Planes</th><th></th><th>Enlace</th><th>QR</th></tr></thead>
       <tbody>
         {% for p in programs %}
         <tr>
-          <td><code>{{ p.slug }}</code></td>
+          <td class="text-muted">{{ p.catalog_sort_order }}</td>
+          <td><code>{{ p.slug }}</code>{% if p.slug in wp_diplomado_slugs %} <span class="badge bg-warning text-dark" title="/diplomados/">WP</span>{% elif p.slug in wp_curso_slugs %} <span class="badge bg-info text-dark" title="/cursos-detalle/">WP·C</span>{% elif p.slug in wp_arte_slugs %} <span class="badge bg-secondary" title="Cursos de Arte">WP·A</span>{% elif p.slug in wp_talleres_slugs %} <span class="badge bg-dark" title="Talleres">WP·T</span>{% endif %}</td>
           <td>{{ p.name }}</td>
           <td>{{ p.program_type }}</td>
-          <td>{{ p.status }}</td>
+          <td class="small text-muted">{{ p.category or '—' }}</td>
+          <td>{% if p.status == 'published' %}Publicado{% elif p.status == 'archived' %}Archivado{% else %}Borrador{% endif %}</td>
+          <td class="text-muted small">{{ p.pricing_plans.count() }}</td>
           <td><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('academic_enrollment_admin.program_edit', program_id=p.id) }}">Editar</a></td>
           <td>{% if p.status == 'published' %}<a href="{{ url_for('payments.diplomado_landing', slug=p.slug) }}" target="_blank" rel="noopener">Pública</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td>{% if p.status == 'published' %}{{ qr_link(absolute_site_url(url_for('payments.diplomado_landing', slug=p.slug)), '') }}{% endif %}</td>

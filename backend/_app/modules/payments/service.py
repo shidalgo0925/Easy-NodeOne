@@ -44,32 +44,32 @@ DIPLOMADOS_IIUS = {
         'label': 'Neuro-Liderazgo y Coaching Ejecutivo Intercultural',
         'plans': {
             'full': (194900, 'Diplomado Neuro-Liderazgo — pago completo', 'Pago único USD 1,949 (20% dto. incl.)'),
-            '6': (230000, 'Diplomado Neuro-Liderazgo — plan 6 cuotas', 'Total programa USD 2,300 (6 × USD 383). Un cargo hoy por el total.'),
-            '10': (269000, 'Diplomado Neuro-Liderazgo — plan 10 cuotas', 'Total programa USD 2,690 (10 × USD 269). Un cargo hoy por el total.'),
+            '6': (230000, 'Diplomado Neuro-Liderazgo — plan 6 cuotas', 'Total USD 2,300 · ref. 6 × 383'),
+            '10': (269000, 'Diplomado Neuro-Liderazgo — plan 10 cuotas', 'Total USD 2,690 · ref. 10 × 269'),
         },
     },
     'neuro-descodificacion-psicogenealogia-pnl': {
         'label': 'Neuro-Descodificación™, Psicogenealogía y PNL',
         'plans': {
             'full': (194900, 'Diplomado Neuro-Descodificación — pago completo', 'Pago único USD 1,949 (20% dto. incl.)'),
-            '6': (229900, 'Diplomado Neuro-Descodificación — plan 6 cuotas', 'Total programa USD 2,299 (6 × USD 383). Un cargo hoy por el total.'),
-            '10': (269900, 'Diplomado Neuro-Descodificación — plan 10 cuotas', 'Total programa USD 2,699 (10 × USD 269). Un cargo hoy por el total.'),
+            '6': (229900, 'Diplomado Neuro-Descodificación — plan 6 cuotas', 'Total USD 2,299 · ref. 6 × 383'),
+            '10': (269900, 'Diplomado Neuro-Descodificación — plan 10 cuotas', 'Total USD 2,699 · ref. 10 × 269'),
         },
     },
     'neuro-teologia-coaching-cristiano-transgeneracional': {
         'label': 'Neuro-Teología y Coaching Cristiano Transgeneracional',
         'plans': {
             'full': (149900, 'Diplomado Neuro-Teología Cristiana — pago completo', 'Pago único USD 1,499 (20% dto. incl.)'),
-            '6': (179900, 'Diplomado Neuro-Teología Cristiana — plan 6 cuotas', 'Total programa USD 1,799 (6 × USD 299). Un cargo hoy por el total.'),
-            '10': (219900, 'Diplomado Neuro-Teología Cristiana — plan 10 cuotas', 'Total programa USD 2,199 (10 × USD 219). Un cargo hoy por el total.'),
+            '6': (179900, 'Diplomado Neuro-Teología Cristiana — plan 6 cuotas', 'Total USD 1,799 · ref. 6 × 299'),
+            '10': (219900, 'Diplomado Neuro-Teología Cristiana — plan 10 cuotas', 'Total USD 2,199 · ref. 10 × 219'),
         },
     },
     'neuro-heuristica-coaching-vida': {
         'label': 'Neuro-Heurística™ y Coaching de Vida',
         'plans': {
             'full': (149900, 'Diplomado Neuro-Heurística — pago completo', 'Pago único USD 1,499 (20% dto. incl.)'),
-            '6': (179900, 'Diplomado Neuro-Heurística — plan 6 cuotas', 'Total programa USD 1,799 (6 × USD 299). Un cargo hoy por el total.'),
-            '10': (219900, 'Diplomado Neuro-Heurística — plan 10 cuotas', 'Total programa USD 2,199 (10 × USD 219). Un cargo hoy por el total.'),
+            '6': (179900, 'Diplomado Neuro-Heurística — plan 6 cuotas', 'Total USD 1,799 · ref. 6 × 299'),
+            '10': (219900, 'Diplomado Neuro-Heurística — plan 10 cuotas', 'Total USD 2,199 · ref. 10 × 219'),
         },
     },
 }

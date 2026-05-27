@@ -93,6 +93,7 @@ def saas_set_module_enabled(organization_id, module_code, enabled):
                 return False, f'Active primero el módulo requerido: {parent.code}'
         row = _get_or_create_org_module(organization_id, mod.id)
         row.enabled = True
+        _apply_accounting_alias_side_effects(organization_id, module_code, True)
         db.session.commit()
         clear_saas_request_cache()
         return True, None
@@ -102,19 +103,46 @@ def saas_set_module_enabled(organization_id, module_code, enabled):
         return False, 'Los módulos core no se pueden desactivar'
 
     dependents = SaasModuleDependency.query.filter_by(depends_on_module_id=mod.id).all()
+    blocking = []
     for d in dependents:
         child = SaasModule.query.get(d.module_id)
         if not child:
             continue
         row = SaasOrgModule.query.filter_by(organization_id=organization_id, module_id=d.module_id).first()
         if row and row.enabled:
-            return False, f'Desactive primero el módulo dependiente: {child.code}'
+            blocking.append(child.code)
+    if blocking:
+        codes = ', '.join(sorted(set(blocking)))
+        return (
+            False,
+            f'No se puede desactivar «{module_code}»: primero desactivá {codes} '
+            f'(módulo(s) que dependen de él).',
+        )
 
     row = _get_or_create_org_module(organization_id, mod.id)
     row.enabled = False
+    _apply_accounting_alias_side_effects(organization_id, module_code, False)
     db.session.commit()
     clear_saas_request_cache()
     return True, None
+
+
+def _apply_accounting_alias_side_effects(organization_id, module_code: str, enabled: bool) -> None:
+    from nodeone.services.saas_catalog_defaults import sync_accounting_module_aliases
+
+    code = (module_code or '').strip().lower()
+    if code in ('accounting', 'accounting_core'):
+        sync_accounting_module_aliases(int(organization_id), bool(enabled))
+    if code in ('accounting', 'accounting_core') and not enabled:
+        from app import SaasModule, SaasOrgModule
+
+        adj = SaasModule.query.filter_by(code='accounting_adjustments').first()
+        if adj is not None:
+            link = SaasOrgModule.query.filter_by(
+                organization_id=int(organization_id), module_id=adj.id
+            ).first()
+            if link is not None:
+                link.enabled = False
 
 
 @saas_admin_bp.route('/modules', methods=['GET'])
@@ -134,11 +162,13 @@ def list_saas_modules():
     # Autocorregir catálogo/vínculos para que módulos nuevos (ej. workshop/SLA) aparezcan aquí.
     try:
         from nodeone.services.saas_catalog_defaults import (
+            ensure_accounting_core_org_module_links,
             ensure_saas_module_catalog,
             ensure_toggleable_tenant_module_links,
         )
 
         ensure_saas_module_catalog()
+        ensure_accounting_core_org_module_links()
         ensure_toggleable_tenant_module_links(organization_id=org_id)
     except Exception:
         pass

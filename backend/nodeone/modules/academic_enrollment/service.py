@@ -37,11 +37,34 @@ def get_published_program_by_slug(organization_id: int, slug: str):
     slug = (slug or '').strip().lower()
     if not slug:
         return None
-    return (
-        AcademicProgram.query.filter_by(
-            organization_id=int(organization_id), slug=slug, status='published'
-        ).first()
-    )
+    row = AcademicProgram.query.filter_by(
+        organization_id=int(organization_id), slug=slug, status='published'
+    ).first()
+    if row is not None:
+        return row
+    try:
+        from nodeone.modules.academic_enrollment.wp_talleres_catalog_sync import canonical_talleres_slug
+
+        canonical = canonical_talleres_slug(slug)
+        if canonical and canonical != slug:
+            row = AcademicProgram.query.filter_by(
+                organization_id=int(organization_id), slug=canonical, status='published'
+            ).first()
+            if row is not None:
+                return row
+    except Exception:
+        pass
+    try:
+        from nodeone.modules.academic_enrollment.wp_talleres_sync import canonical_arte_slug
+
+        canonical = canonical_arte_slug(slug)
+        if canonical and canonical != slug:
+            return AcademicProgram.query.filter_by(
+                organization_id=int(organization_id), slug=canonical, status='published'
+            ).first()
+    except Exception:
+        pass
+    return None
 
 
 def find_published_academic_program_for_inscripcion(slug: str):

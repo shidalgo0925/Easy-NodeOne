@@ -30,18 +30,15 @@ def _ensure_schema():
 
 @accounting_core_bp.before_request
 def _guard_saas_accounting_core():
-    """Mismo criterio que el menú Contabilidad: accounting_core, o sales si aún no hay fila en catálogo."""
+    """Mismo criterio que el menú Contabilidad: solo módulo accounting_core."""
     if not current_user.is_authenticated:
         return None
     if getattr(current_user, 'is_admin', False):
         return None
     oid = _org_id()
-    if _saas_chain_enabled(oid, 'accounting_core', 'sales'):
+    if _saas_chain_enabled(oid, 'accounting_core'):
         return None
-    for code in ('accounting_core', 'sales'):
-        if SaasModule.query.filter_by(code=code).first() is not None:
-            return enforce_saas_module_or_response(code)
-    return enforce_saas_module_or_response('sales')
+    return enforce_saas_module_or_response('accounting_core')
 
 
 def _org_id() -> int:
@@ -75,12 +72,12 @@ def _saas_chain_enabled(organization_id: int, *codes: str) -> bool:
 
 
 def _ensure_accounting_core_enabled(organization_id: int) -> None:
-    if not _saas_chain_enabled(organization_id, 'accounting_core', 'sales'):
+    if not _saas_chain_enabled(organization_id, 'accounting_core'):
         abort(404)
 
 
 def _ensure_adjustments_enabled(organization_id: int) -> None:
-    if not _saas_chain_enabled(organization_id, 'accounting_adjustments', 'accounting_core', 'sales'):
+    if not _saas_chain_enabled(organization_id, 'accounting_adjustments', 'accounting_core'):
         abort(404)
 
 

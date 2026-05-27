@@ -209,6 +209,7 @@
             <div id="payment-methods">
                 {% include 'checkout_payment_methods.html' %}
             </div>
+            {% include 'partials/purchase_trust_badge.html' %}
             {% if checkout_has_manual_validation %}
             <div class="alert alert-warning en1-manual-hint small mt-3 mb-0" role="status">
                 <i class="fas fa-info-circle me-1"></i>
@@ -315,11 +316,6 @@
             <div class="alert alert-info" id="demo-mode-alert" style="display: none;">
                 <i class="fas fa-flask"></i>
                 <strong>Modo de prueba:</strong> los pagos se simulan.
-            </div>
-            <div class="alert alert-success mb-0">
-                <i class="fas fa-shield-alt"></i>
-                <strong>Pago seguro:</strong> tu información viaja cifrada (SSL).
-                <span id="production-mode-text" class="d-none">Los pagos se procesan de forma segura.</span>
             </div>
         </div>
     </div>

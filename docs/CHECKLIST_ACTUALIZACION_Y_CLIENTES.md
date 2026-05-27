@@ -38,6 +38,7 @@ Detalle de release (ejemplo operativo): [`PLAN_RELEASE_3.0.1_OPERACION.md`](PLAN
 1. Ventana acordada (si los clientes son sensibles al downtime).
 2. En `prod/app` (y `relatic/app` si toca): `git pull` al commit/tag acordado.
 3. **Migraciones** si hubo cambios de esquema.
+   - Si el release incluye cambios en **catálogo SaaS** (p. ej. `accounting_core`): tras el pull, ejecutar una vez `ensure_saas_catalog_full()` y reiniciar. Ver [`backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md`](../backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md).
 4. **Reinicio** del servicio systemd correspondiente.
 5. **Verificación mínima** (login, pantalla clave, API crítica).
 6. Registrar en tu bitácora interna: **fecha**, **entorno**, **commit**, **quién**.

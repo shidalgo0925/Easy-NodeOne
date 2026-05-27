@@ -261,3 +261,220 @@ def public_book_service():
 def public_request_quote():
     """Misma orquestación que book-service; distinto intent en auditoría/UI."""
     return _handle_book_or_quote(intent='quote')
+
+
+@public_api_bp.route('/api/public/academic-programs/<slug>/lead', methods=['POST', 'OPTIONS'])
+def public_academic_program_pdf_lead(slug: str):
+    """Captura lead (público, sin login) y envía correo de confirmación antes del PDF.
+
+    Contrato:
+      POST /api/public/academic-programs/<slug>/lead
+      Body JSON con campos: name, email, phone, country?, company?, message?, source?, utm_*
+      Responde con {success, message, requires_email_confirmation: true} (sin download_url hasta confirmar).
+    """
+    import re
+
+    from flask import current_app, jsonify, make_response
+
+    from nodeone.modules.public_api import landing_service
+    from utils.organization import resolve_current_organization
+
+    # CORS allowlist (especificación del flujo IIUS).
+    _ALLOWED_ORIGINS = {
+        'https://internationalinstitute.us',
+        'https://www.internationalinstitute.us',
+    }
+
+    def _apply_cors(resp):
+        try:
+            req_origin = (request.headers.get('Origin') or '').strip()
+            if req_origin and req_origin in _ALLOWED_ORIGINS:
+                resp.headers['Access-Control-Allow-Origin'] = req_origin
+                resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+                resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+                resp.headers['Access-Control-Max-Age'] = '600'
+        except Exception:
+            pass
+        return resp
+
+    if request.method == 'OPTIONS':
+        return _apply_cors(make_response('', 204))
+
+    if landing_service.check_rate_limit(kind='post'):
+        return _apply_cors(jsonify({'success': False, 'message': 'rate_limited'})), 429
+
+    from models.academic_program import AcademicProgram
+    from models.academic_program_pdf_lead import AcademicProgramPdfLead
+    from nodeone.modules.academic_enrollment.program_academic_pdf import (
+        program_has_public_academic_pdf,
+        _stored_pdf_filesystem_path,
+    )
+
+    slug_norm = (slug or '').strip().lower()
+    if not slug_norm:
+        return _apply_cors(jsonify({'success': False, 'message': 'program_slug_required'})), 400
+
+    payload = request.get_json(silent=True) or {}
+
+    # Honeypot: cualquier valor en el campo oculto => spam.
+    hp = (
+        payload.get('hp')
+        or payload.get('honeypot')
+        or payload.get('website')
+        or payload.get('leave_blank')
+        or ''
+    )
+    if isinstance(hp, str) and hp.strip():
+        return _apply_cors(jsonify({'success': False, 'message': 'spam_detected'})), 400
+
+    def _strip_nohtml(s: str | None, *, max_len: int | None = None) -> str:
+        # Quita tags HTML/XML (y evita esquemas tipo <script>).
+        out = re.sub(r'<[^>]*?>', '', (s or '').strip())
+        # Bloquea scripts por si venían como texto sin tags.
+        if re.search(r'(?i)script', out):
+            out = ''
+        if max_len is not None:
+            out = out[:max_len]
+        return out
+
+    name = _strip_nohtml(payload.get('name'), max_len=200)
+    email = (payload.get('email') or '').strip().lower()
+    phone = (payload.get('phone') or '').strip()
+    program_slug_body = (payload.get('program_slug') or '').strip().lower()
+    source = _strip_nohtml(payload.get('source'), max_len=120) or 'wp_landing_pdf'
+
+    country = _strip_nohtml(payload.get('country'), max_len=120) or None
+    company = _strip_nohtml(payload.get('company'), max_len=255) or None
+    message = _strip_nohtml(payload.get('message'), max_len=2000) or None
+
+    utm_source = _strip_nohtml(payload.get('utm_source'), max_len=120) or None
+    utm_medium = _strip_nohtml(payload.get('utm_medium'), max_len=120) or None
+    utm_campaign = _strip_nohtml(payload.get('utm_campaign'), max_len=120) or None
+
+    # Validaciones obligatorias (sin “falsos vacíos”).
+    if not name:
+        return _apply_cors(jsonify({'success': False, 'message': 'Nombre es requerido.'})), 400
+    if not program_slug_body:
+        return _apply_cors(jsonify({'success': False, 'message': 'program_slug es requerido.'})), 400
+    if program_slug_body != slug_norm:
+        return _apply_cors(jsonify({'success': False, 'message': 'program_slug inválido para este programa.'})), 400
+    if not email or '@' not in email or len(email) > 255 or re.search(r'\s', email):
+        return _apply_cors(jsonify({'success': False, 'message': 'Email es requerido y debe ser válido.'})), 400
+    if not phone or len(phone) < 6 or len(re.sub(r'\D+', '', phone)) < 6:
+        return _apply_cors(jsonify({'success': False, 'message': 'Teléfono es requerido.'})), 400
+
+    # Anti-spam básico adicional para message (no HTML/script).
+    if message and ('<' in (message or '') or '>' in (message or '')):
+        return _apply_cors(jsonify({'success': False, 'message': 'Mensaje inválido.'})), 400
+
+    oid = resolve_current_organization()
+    if oid is None:
+        return _apply_cors(jsonify({'success': False, 'message': 'organization_not_resolved'})), 503
+
+    program = (
+        AcademicProgram.query.filter_by(slug=slug_norm, organization_id=int(oid), status='published')
+        .order_by(AcademicProgram.id.asc())
+        .first()
+    )
+    if program is None:
+        return _apply_cors(jsonify({'success': False, 'message': 'program_not_found'})), 404
+
+    if not program_has_public_academic_pdf(program):
+        return _apply_cors(jsonify({'success': False, 'message': 'pdf_not_available'})), 404
+
+    # Validar que exista el archivo local cuando está en EN1 (no confundir con URL vacía).
+    stored_path = _stored_pdf_filesystem_path(getattr(program, 'academic_program_pdf_url', '') or '')
+    if stored_path is None:
+        # Si el URL era externa https, program_has_public_academic_pdf ya lo permitiría; en esa fase mínima
+        # tratamos como no disponible (evita “link sin archivo”).
+        return _apply_cors(jsonify({'success': False, 'message': 'pdf_not_available'})), 404
+
+    from nodeone.core.db import db
+    from nodeone.modules.academic_enrollment.pdf_lead_confirmation import (
+        assign_confirmation_token,
+        send_confirmation_email,
+    )
+    from nodeone.services.academic_program_pdf_lead_schema import ensure_academic_program_pdf_lead_schema
+
+    ensure_academic_program_pdf_lead_schema(db, db.engine)
+
+    base_url = request.host_url.rstrip('/')
+
+    existing = (
+        AcademicProgramPdfLead.query.filter_by(
+            organization_id=int(oid),
+            program_id=program.id,
+            email=email,
+        )
+        .filter(AcademicProgramPdfLead.status.in_(('pending', 'new')))
+        .order_by(AcademicProgramPdfLead.id.desc())
+        .first()
+    )
+
+    if existing is not None:
+        lead = existing
+        lead.name = name
+        lead.phone = phone
+        lead.country = country
+        lead.company = company
+        lead.message = message
+        lead.source = source[:120]
+        lead.utm_source = utm_source
+        lead.utm_medium = utm_medium
+        lead.utm_campaign = utm_campaign
+        lead.ip_address = (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:64]
+        lead.user_agent = (request.headers.get('User-Agent') or '')[:500]
+    else:
+        lead = AcademicProgramPdfLead(
+            organization_id=int(oid),
+            program_id=program.id,
+            program_slug=slug_norm,
+            name=name,
+            email=email,
+            phone=phone,
+            country=country,
+            company=company,
+            message=message,
+            source=source[:120],
+            utm_source=utm_source,
+            utm_medium=utm_medium,
+            utm_campaign=utm_campaign,
+            ip_address=(request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:64],
+            user_agent=(request.headers.get('User-Agent') or '')[:500],
+            status='pending',
+        )
+        db.session.add(lead)
+
+    assign_confirmation_token(lead)
+    db.session.commit()
+
+    sent_ok, send_err = send_confirmation_email(lead, program, base_url=base_url)
+    if not sent_ok:
+        current_app.logger.warning(
+            '[pdf_lead] email no enviado lead_id=%s err=%s', lead.id, send_err
+        )
+        if send_err in ('smtp_not_configured', 'smtp_credentials_missing', 'email_service_unavailable'):
+            user_msg = (
+                'El servidor de correo de la plataforma no está configurado. '
+                'Contactá al administrador (Configuración → Email / SMTP).'
+            )
+        else:
+            user_msg = (
+                'No pudimos enviar el correo de confirmación. '
+                'Revisá que el email sea correcto e intentá de nuevo en unos minutos.'
+            )
+        return _apply_cors(jsonify({'success': False, 'message': user_msg})), 503
+
+    return _apply_cors(
+        jsonify(
+            {
+                'success': True,
+                'requires_email_confirmation': True,
+                'message': (
+                    'Te enviamos un correo de confirmación. '
+                    'Abrí el enlace del mensaje para descargar el programa académico. '
+                    'Revisá también la carpeta de spam.'
+                ),
+            }
+        )
+    ), 200

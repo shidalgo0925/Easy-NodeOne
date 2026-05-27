@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Programas formativos — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block head_extra %}
+<link href="{{ url_for('static', filename='css/iius-enrollment-landings.css') }}?v=iius2" rel="stylesheet">
+<style>
+  .ap-catalog { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--pe-bg); margin: -1rem -0.5rem 0; padding: 1.25rem 0.75rem 2.5rem; }
+  .ap-catalog-inner { max-width: 1100px; margin: 0 auto; }
+  .ap-catalog h1 { font-size: 1.5rem; font-weight: 700; color: var(--pe-navy); margin: 0 0 .35rem; }
+  .ap-catalog .ap-lead { color: #64748b; font-size: .95rem; margin-bottom: 1.75rem; max-width: 52rem; line-height: 1.5; }
+  .ap-section { margin-bottom: 2rem; }
+  .ap-section h2 { font-size: 1.1rem; font-weight: 700; color: var(--pe-navy); border-bottom: 2px solid var(--pe-gold, #c9a227); padding-bottom: .35rem; margin-bottom: 1rem; }
+  .ap-grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+  @media (min-width: 600px) { .ap-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 900px) { .ap-grid { grid-template-columns: repeat(3, 1fr); } }
+  .ap-card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(26,39,68,.06); height: 100%; }
+  .ap-card-img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #e2e8f0; }
+  .ap-card-img--missing { display: flex; align-items: center; justify-content: center; font-size: .75rem; color: #b91c1c; background: #fef2f2; padding: .5rem; text-align: center; }
+  .ap-card-body { padding: 1rem 1rem 1.1rem; flex: 1; display: flex; flex-direction: column; }
+  .ap-card-type { font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pe-cyan, #0e7490); margin-bottom: .25rem; }
+  .ap-card-title { font-size: 1rem; font-weight: 600; color: var(--pe-navy); line-height: 1.35; margin: 0 0 .5rem; }
+  .ap-card-date { font-size: .82rem; font-weight: 600; color: var(--pe-navy, #1a2744); margin: 0 0 .5rem; }
+  .ap-card-date i { color: var(--pe-cyan, #0e7490); margin-right: .35rem; }
+  .ap-card-desc { font-size: .82rem; color: #64748b; line-height: 1.45; flex: 1; margin-bottom: .75rem; }
+  .ap-card-price { font-size: .9rem; font-weight: 700; color: var(--pe-navy); margin-bottom: .75rem; }
+  .ap-card-cta { display: block; text-align: center; padding: .55rem .75rem; border-radius: 6px; background: var(--color-primary, var(--pe-navy)); color: #fff !important; text-decoration: none; font-size: .82rem; font-weight: 600; }
+  .ap-card-cta:hover { color: #fff !important; opacity: .92; }
+  .ap-card-cta--secondary { background: #fff; color: var(--pe-navy) !important; border: 1px solid #cbd5e1; font-weight: 500; }
+  .ap-card-cta--secondary:hover { background: #f8fafc; }
+  .ap-catalog-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1.25rem; padding: .75rem 1rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; }
+  .ap-catalog-toolbar .ap-toolbar-label { font-size: .8rem; color: #64748b; margin-right: .25rem; }
+  .ap-card-actions { display: flex; flex-direction: column; gap: .45rem; margin-top: auto; }
+  .ap-card-edit { display: block; text-align: center; padding: .4rem .65rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: var(--pe-navy) !important; text-decoration: none; font-size: .78rem; font-weight: 600; }
+  .ap-card-edit:hover { background: #e2e8f0; color: var(--pe-navy) !important; }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="ap-catalog">
+  <div class="ap-catalog-inner">
+    <h1>Catálogo de cursos y programas</h1>
+    <p class="ap-lead">Elegí tu programa e inscribite en línea. Cada tarjeta te lleva a la página de inscripción y pago seguro en esta plataforma.</p>
+
+    <form method="get" class="ap-catalog-toolbar" role="search" aria-label="Filtrar programas">
+      <span class="ap-toolbar-label"><i class="fas fa-filter me-1"></i> Filtros:</span>
+      <input type="search" name="q" class="form-control form-control-sm" style="max-width:14rem;" placeholder="Buscar…" value="{{ filter_q or '' }}" aria-label="Buscar programas">
+      <select name="category" class="form-select form-select-sm" style="max-width:12rem;" aria-label="Categoría">
+        <option value="all" {% if filter_category == 'all' %}selected{% endif %}>Todas las categorías</option>
+        {% for c in filter_categories %}
+        <option value="{{ c }}" {% if filter_category == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+      <select name="program_type" class="form-select form-select-sm" style="max-width:9rem;" aria-label="Tipo">
+        <option value="all" {% if filter_program_type == 'all' %}selected{% endif %}>Todos los tipos</option>
+        {% for t in program_types %}
+        <option value="{{ t }}" {% if filter_program_type == t %}selected{% endif %}>{{ t|capitalize }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('public_academic_programs_catalog') }}">Limpiar</a>
+      {% if catalog_can_manage and has_view_endpoint('academic_enrollment_admin.list_programs') %}
+      <span class="small text-muted ms-auto d-none d-md-inline">Org {{ organization_id }}</span>
+      {% endif %}
+    </form>
+
+    {% if catalog_can_manage and has_view_endpoint('academic_enrollment_admin.list_programs') %}
+    <div class="ap-catalog-toolbar" role="toolbar" aria-label="Gestión del catálogo">
+      <span class="ap-toolbar-label"><i class="fas fa-pen me-1"></i> Edición:</span>
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Listado admin</a>
+      {% if has_view_endpoint('academic_enrollment_admin.program_new') %}
+      <a class="btn btn-sm btn-primary" href="{{ url_for('academic_enrollment_admin.program_new') }}"><i class="fas fa-plus me-1"></i> Nuevo programa</a>
+      {% endif %}
+      <span class="small text-muted ms-auto">Org {{ organization_id }} · los botones <strong>Editar</strong> en cada tarjeta abren el formulario.</span>
+    </div>
+    {% endif %}
+
+    {% if not sections %}
+    <div class="alert alert-light border mt-3">No hay programas que coincidan con el filtro.</div>
+    {% endif %}
+
+    {% for section_title, programs in sections %}
+    <section class="ap-section" id="{{ section_title | replace(' ', '-') | lower }}">
+      <h2>{{ section_title }}</h2>
+      <div class="ap-grid">
+        {% for p in programs %}
+        {% set card_img = p.image_url %}
+        <article class="ap-card">
+          {% if card_img %}
+          <img class="ap-card-img" src="{{ card_img }}" alt="{{ p.name }}">
+          {% else %}
+          <div class="ap-card-img ap-card-img--missing" role="alert">Falta image_url (catálogo)</div>
+          {% endif %}
+          <div class="ap-card-body">
+            <div class="ap-card-type">{{ p.display_type_label() }}</div>
+            <h3 class="ap-card-title">{{ p.name }}</h3>
+            {% if p.start_date_display() %}
+            <p class="ap-card-date"><i class="far fa-calendar-alt" aria-hidden="true"></i>{{ p.start_date_display() }}</p>
+            {% endif %}
+            {% if p.short_description %}
+            <p class="ap-card-desc">{{ p.short_description[:220] }}{% if p.short_description|length > 220 %}…{% endif %}</p>
+            {% endif %}
+            {% if p.price_from and p.price_from > 0 %}
+            <p class="ap-card-price">Desde {{ p.currency or 'USD' }} {{ '%.0f'|format(p.price_from) }}</p>
+            {% endif %}
+            <div class="ap-card-actions">
+              <a class="ap-card-cta" href="{{ url_for('payments.diplomado_landing', slug=p.slug) }}">Ver más e inscribirme</a>
+              {% if catalog_can_manage and has_view_endpoint('academic_enrollment_admin.program_edit') %}
+              <a class="ap-card-edit" href="{{ url_for('academic_enrollment_admin.program_edit', program_id=p.id) }}" title="Editar programa, imagen y planes">
+                <i class="fas fa-edit me-1"></i>Editar programa
+              </a>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

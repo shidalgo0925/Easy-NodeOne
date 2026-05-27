@@ -141,6 +141,7 @@
                             {{ event.end_date.strftime('%d %b %Y %H:%M') if event.end_date else '—' }}
                         </p>
                         <div class="d-flex flex-wrap align-items-center gap-1 small mb-2">
+                            <span class="badge bg-secondary-subtle text-secondary border" title="Orden en catálogo">#{{ event.catalog_sort_order|default(0) }}</span>
                             <span class="text-nowrap"><strong class="text-body">{{ '%.2f'|format(event.base_price) }}</strong> {{ event.currency or 'USD' }}</span>
                             {% if event.category %}
                             <span class="badge bg-light text-dark border text-truncate" style="max-width:7rem" title="{{ event.category }}">{{ event.category }}</span>
@@ -175,6 +176,7 @@
                     <thead class="table-light">
                         <tr>
                             <th class="text-nowrap">ID</th>
+                            <th class="text-nowrap">Orden</th>
                             <th>Título</th>
                             <th class="text-nowrap">Categoría</th>
                             <th class="text-nowrap">Inicio</th>
@@ -188,6 +190,7 @@
                         {% for event in events %}
                         <tr>
                             <td>{{ event.id }}</td>
+                            <td class="text-muted">{{ event.catalog_sort_order|default(0) }}</td>
                             <td>
                                 <strong>{{ event.title }}</strong>
                                 {% if event.featured %}

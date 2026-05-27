@@ -67,17 +67,56 @@ def diplomado_landing(slug):
         )
         no_active = not bool(pricing_plans)
         current_app.logger.warning('[academic_enrollment] plans_count=%s', len(pricing_plans))
+        nav_prev = nav_next = None
+        oid = int(program.organization_id)
+        from nodeone.modules.academic_enrollment.catalog_public import adjacent_published_programs
+
+        nav_prev, nav_next = adjacent_published_programs(oid, slug)
+        from nodeone.modules.academic_enrollment.plan_display import plan_card_display
+        from nodeone.modules.academic_enrollment.program_display_media import (
+            enrollment_media_is_pdf,
+            enrollment_media_path,
+        )
+
+        media_src = enrollment_media_path(program) or ''
         return render_template(
             'public/program_enrollment.html',
             program=program,
             pricing_plans=pricing_plans,
+            plan_card_display=plan_card_display,
             diplomado_slug=slug,
             no_active_plans=no_active,
+            nav_prev=nav_prev,
+            nav_next=nav_next,
+            media_src=media_src,
+            media_is_pdf=enrollment_media_is_pdf(media_src),
         )
+    from nodeone.modules.events.inscripcion_bridge import (
+        find_event_for_inscripcion,
+        is_event_inscripcion_slug,
+        render_event_inscripcion_landing,
+    )
+
+    event = find_event_for_inscripcion(slug)
+    if event is not None:
+        current_app.logger.warning('[academic_enrollment] event_inscripcion slug=%s id=%s', slug, event.id)
+        return render_event_inscripcion_landing(event)
+    if is_event_inscripcion_slug(slug):
+        from app import Event
+
+        hidden = Event.query.filter_by(slug=slug).first()
+        if hidden is not None:
+            return render_template(
+                'public/program_inscripcion_not_found.html',
+                slug=slug,
+                event_draft=(hidden.publish_status or '') != 'published',
+            ), 404
+    # Sin programa publicado en BD: no usar plantillas HTML legacy (un solo patrón program_enrollment).
     if slug in svc.DIPLOMADOS_IIUS:
-        tpl = DIPLOMADO_LANDING_TEMPLATES.get(slug)
-        if tpl:
-            return render_template(tpl, diplomado_slug=slug)
+        current_app.logger.warning(
+            '[academic_enrollment] diplomado slug=%s sin AcademicProgram published; 404',
+            slug,
+        )
     return render_template('public/program_inscripcion_not_found.html', slug=slug), 404
 
 

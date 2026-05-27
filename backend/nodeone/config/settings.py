@@ -22,6 +22,12 @@ class Settings:
     LEGACY_SAAS_ORG_NAMES = tuple(
         x.strip().lower() for x in (os.getenv('LEGACY_SAAS_ORG_NAMES') or '').split(',') if x.strip()
     )
+    REQUIRE_PAID_ACCESS = (os.getenv('REQUIRE_PAID_ACCESS') or '1').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+        'on',
+    )
 
 
 settings = Settings()

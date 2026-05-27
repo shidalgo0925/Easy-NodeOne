@@ -672,6 +672,19 @@ def register_member_pages_blueprint(app):
         print(f'Warning: No se pudo registrar member_pages_bp: {e}')
 
 
+def register_academic_enrollment_public_routes(app):
+    """GET /api/public/academic-programs y vitrina GET /programas."""
+    _vfs = getattr(app, 'view_functions', {})
+    if 'public_academic_programs_api' in _vfs and 'public_academic_programs_catalog' in _vfs:
+        return
+    try:
+        from nodeone.modules.academic_enrollment.public_routes import register_academic_enrollment_public_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas catálogo inscripción público: {e}')
+
+
 def register_academic_enrollment_admin_blueprint(app):
     if os.environ.get('NODEONE_SKIP_ACADEMIC_ENROLLMENT_ADMIN', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -910,7 +923,7 @@ def register_accounting_core_blueprint(app):
         from nodeone.modules.accounting_core.routes import accounting_core_bp
 
         if 'accounting_core' not in app.blueprints:
-            # Guard por cadena módulo (accounting_core → sales): ver before_request en routes.
+            # Guard SaaS: accounting_core (sin fallback a sales); ver before_request en routes.
             app.register_blueprint(accounting_core_bp)
     except ImportError as e:
         print(f'Warning: No se pudo registrar accounting_core_bp: {e}')
@@ -956,6 +969,7 @@ def register_modules(app):
     register_public_auth_legacy_routes(app)
     register_cv_application_routes(app)
     register_public_program_routes(app)
+    register_academic_enrollment_public_routes(app)
     register_public_api_blueprint(app)
     register_ai_api_blueprint(app)
     register_admin_email_api_blueprint(app)

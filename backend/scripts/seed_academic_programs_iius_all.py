@@ -49,9 +49,9 @@ _CATALOG = {
 }
 
 _PLAN_LABELS = {
-    'full': ('Pago completo', '20% dto. incluido · un solo cargo'),
-    '6': ('Plan 6 cuotas', 'Total programa · un cargo por el total hoy'),
-    '10': ('Plan 10 cuotas', 'Total programa · un cargo por el total hoy'),
+    'full': ('Pago completo', '20% dto. incluido'),
+    '6': ('Plan 6 cuotas', ''),
+    '10': ('Plan 10 cuotas', ''),
 }
 
 

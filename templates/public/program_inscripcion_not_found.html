@@ -2,11 +2,15 @@
 {% block title %}Inscripción no disponible — {{ get_nav_brand_name() }}{% endblock %}
 {% block page_content %}
 <div class="container py-5" style="max-width: 640px;">
-  <h1 class="h3 mb-3">No hay un programa publicado con este enlace</h1>
+  <h1 class="h3 mb-3">{% if event_draft %}Evento en preparación{% else %}No hay un programa publicado con este enlace{% endif %}</h1>
   <p class="text-muted">
+    {% if event_draft %}
+    Este evento (<code>{{ slug }}</code>) existe pero aún no está <strong>publicado</strong>. Los administradores pueden ver la vista previa iniciando sesión.
+    {% else %}
     Aún <strong>no hay un curso o programa publicado</strong> bajo este enlace. Si recién activaron la inscripción, puede
     estar pendiente de carga; si el problema continúa, contactá a Relatic Panamá o revisá con el administrador de la
     plataforma que el programa y sus planes estén creados y con estado <em>publicado</em>.
+    {% endif %}
   </p>
   <div class="mt-4">
     <a href="{{ url_for('services.list') }}" class="btn btn-primary">Ver catálogo de servicios</a>

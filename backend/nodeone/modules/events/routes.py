@@ -43,6 +43,20 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+def _parse_catalog_sort_order(raw: str) -> tuple[int | None, str | None]:
+    s = (raw or '').strip()
+    if not s:
+        return 0, None
+    try:
+        n = int(s)
+        if n < 0:
+            return None, 'Orden en catálogo: use un número entero ≥ 0.'
+        return n, None
+    except ValueError:
+        return None, 'Orden en catálogo: número entero.'
+
+
 # Inicializar referencias a modelos dinámicamente para evitar importaciones
 # circulares con app.py
 db = None
@@ -280,24 +294,37 @@ def list_events():
 
     membership = current_user.get_active_membership() if current_user.is_authenticated else None
     membership_type = membership.membership_type if membership else 'basic'
-    status = request.args.get('status', 'published')
-    if not (current_user.is_authenticated and getattr(current_user, 'is_admin', False)):
+    is_admin = bool(
+        current_user.is_authenticated and getattr(current_user, 'is_admin', False)
+    )
+    status = (request.args.get('status') or ('all' if is_admin else 'published')).strip()
+    if not is_admin:
         status = 'published'
     category = request.args.get('category', '').strip()
     search = request.args.get('q', '').strip()
 
     query = _scoped_events_query()
-    query = _filter_events_upcoming_published(query)
     query = _filter_events_portal_visibility(query)
     if status != 'all':
         query = query.filter(Event.publish_status == status)
+    # Catálogo público: solo publicados vigentes. Admin: borradores/todos sin recorte de fecha.
+    if status == 'published' or not is_admin:
+        query = _filter_events_upcoming_published(query)
     if category:
         query = query.filter(Event.category == category)
     if search:
         like = f"%{search}%"
         query = query.filter(or_(Event.title.ilike(like), Event.summary.ilike(like), Event.tags.ilike(like)))
 
-    events = query.order_by(Event.start_date.asc()).all()
+    events = (
+        query.order_by(
+            Event.catalog_sort_order.asc(),
+            Event.featured.desc().nulls_last(),
+            Event.start_date.asc(),
+            Event.title.asc(),
+        )
+        .all()
+    )
     categories = sorted({evt.category for evt in events if evt.category})
 
     return render_template(
@@ -308,7 +335,8 @@ def list_events():
         search=search,
         status=status,
         membership=membership,
-        membership_type=membership_type
+        membership_type=membership_type,
+        is_events_admin=is_admin,
     )
 
 
@@ -818,7 +846,11 @@ def admin_events_index():
         page = total_pages
 
     events = (
-        query.order_by(Event.start_date.desc())
+        query.order_by(
+            Event.catalog_sort_order.asc(),
+            Event.featured.desc().nulls_last(),
+            Event.start_date.desc(),
+        )
         .offset((page - 1) * per_page)
         .limit(per_page)
         .all()
@@ -932,6 +964,11 @@ def create_event():
             flash('La capacidad no puede ser negativa.', 'error')
             return redirect(request.url)
 
+        sort_order, sort_err = _parse_catalog_sort_order(request.form.get('catalog_sort_order') or '')
+        if sort_err:
+            flash(sort_err, 'error')
+            return redirect(request.url)
+
         format_val = request.form.get('format', 'virtual').strip() or 'virtual'
         is_virtual = _is_virtual_from_event_format(format_val)
         has_cert = bool(request.form.get('has_certificate'))
@@ -973,6 +1010,7 @@ def create_event():
             capacity=capacity,
             visibility=request.form.get('visibility', 'members'),
             publish_status=request.form.get('publish_status', 'draft'),
+            catalog_sort_order=sort_order,
             featured=bool(request.form.get('featured')),
             start_date=start_date,
             end_date=end_date,
@@ -1099,6 +1137,11 @@ def edit_event(event_id):
             flash('La capacidad no puede ser negativa.', 'error')
             return redirect(request.url)
 
+        sort_order, sort_err = _parse_catalog_sort_order(request.form.get('catalog_sort_order') or '')
+        if sort_err:
+            flash(sort_err, 'error')
+            return redirect(request.url)
+
         format_val = request.form.get('format', 'virtual').strip() or 'virtual'
         is_virtual = _is_virtual_from_event_format(format_val)
         has_cert = bool(request.form.get('has_certificate'))
@@ -1138,6 +1181,7 @@ def edit_event(event_id):
         event.capacity = capacity
         event.visibility = request.form.get('visibility', 'members')
         event.publish_status = request.form.get('publish_status', 'draft')
+        event.catalog_sort_order = sort_order
         event.featured = bool(request.form.get('featured'))
         event.start_date = start_date
         event.end_date = end_date
@@ -1299,6 +1343,7 @@ def duplicate_event(event_id):
             generates_book=original.generates_book,
             capacity=original.capacity,
             visibility=getattr(original, 'visibility', None) or 'members',
+            catalog_sort_order=int(getattr(original, 'catalog_sort_order', 0) or 0),
             publish_status='draft',
             featured=False,
             start_date=original.start_date,

@@ -3,6 +3,11 @@
 {% block title %}{{ event.title }} - Eventos Easy NodeOne{% endblock %}
 
 {% block page_content %}
+{% if inscripcion_landing and event.publish_status != 'published' %}
+<div class="container pt-3">
+  <div class="alert alert-warning py-2 mb-0 small">Vista previa (borrador). Solo visible para administradores en <code>/inscripcion/{{ event.slug }}</code>.</div>
+</div>
+{% endif %}
 {% set cover = event.cover_url() %}
 <section class="pt-4 pb-2" style="background: #f8fafc;">
     <div class="container">

@@ -1,0 +1,29 @@
+{
+  "_comment": "URLs alineadas a imágenes visibles en cursos-detalle y diplomados WP (mayo 2026). No usar archivos sueltos de biblioteca si no están en el catálogo.",
+  "default_media_position": "left",
+  "programs": {
+    "curso-en-liderazgo-y-gestion-de-equipos": "https://internationalinstitute.us/wp-content/uploads/2026/05/liderasgo-de-gestion-de-equipo.png",
+    "cursos-en-emprendimiento-y-desarrollo-de-negocios": "https://internationalinstitute.us/wp-content/uploads/2026/05/desarrollo-de-negocio.png",
+    "curso-en-coaching-ejecutivo-y-liderazgo-organizacional": "https://internationalinstitute.us/wp-content/uploads/2026/05/liderasgo-organizacional.png",
+    "curso-en-finanzas-personales-y-empresariales": "https://internationalinstitute.us/wp-content/uploads/2026/05/finanzas-personales.png",
+    "curso-en-coaching-profesional-integral": "https://internationalinstitute.us/wp-content/uploads/2026/05/COACHING-PROF.png",
+    "curso-tecnicas-anclaje-pnl": "https://internationalinstitute.us/wp-content/uploads/2026/05/ANCALJE.png",
+    "curso-en-inteligencia-emocional-y-bienestar": "https://internationalinstitute.us/wp-content/uploads/2026/05/IEYB.png",
+    "curso-en-neuroeducacion-y-programacion-neurolinguistica-pnl": "https://internationalinstitute.us/wp-content/uploads/2026/05/PNL.png",
+    "curso-de-neuroeducacion-y-neuroplasticidad": "https://internationalinstitute.us/wp-content/uploads/2026/05/reencuadresPNL.png",
+    "curso-en-mindfulness-y-reduccion-del-estres": "https://internationalinstitute.us/wp-content/uploads/2026/05/mindfulness.png",
+    "curso-en-espiritualidad-y-crecimiento-personal": "https://internationalinstitute.us/wp-content/uploads/2026/05/espiritualidad-crecimiento.png",
+    "renovacion-de-la-mente": "https://internationalinstitute.us/wp-content/uploads/2026/05/renovacion-de-mente.png",
+    "la-mujer-virtuosa-de-prov-31": "https://internationalinstitute.us/wp-content/uploads/2026/05/mujer-virtuosa.png",
+    "curso-en-aprendizaje-practico": "https://internationalinstitute.us/wp-content/uploads/2026/05/CollageMapas.png",
+    "curso-en-aprendizaje-practico-inscripcion": "https://internationalinstitute.us/wp-content/uploads/2026/05/ChatGPT-Image-19-may-2026-21_51_22.png",
+    "curso-en-liderazgo-y-comunicacion": "https://internationalinstitute.us/wp-content/uploads/2026/05/ChatGPT-Image-19-may-2026-22_01_31.png",
+    "curso-en-creatividad-y-expresion-artistica-aplicada": "https://internationalinstitute.us/wp-content/uploads/2026/05/CreatividadVak.png",
+    "curso-en-desarrollo-humano": "https://internationalinstitute.us/wp-content/uploads/2026/05/ElDr.jpeg",
+    "neuro-liderazgo-intercultural": "https://internationalinstitute.us/wp-content/uploads/2026/05/neuro-liderazgo-intercultural2.png",
+    "neuro-descodificacion-psicogenealogia-pnl": "https://internationalinstitute.us/wp-content/uploads/2026/05/Neuro-Decodificacion.png",
+    "neuro-teologia-coaching-cristiano-transgeneracional": "https://internationalinstitute.us/wp-content/uploads/2026/04/Diplomado_Internacional_de_Neuro-Teología__y_Coaching_Espiritual4.png",
+    "neuro-heuristica-coaching-vida": "https://internationalinstitute.us/wp-content/uploads/2026/04/Diplomado-Internacional-en-Neuro-Heuristica%E2%84%A2-y-Coaching-de-Vida1.png",
+    "taller-fundamentos-coaching-ejecutivo": "https://internationalinstitute.us/wp-content/uploads/2026/05/CoachingEjecutivo.png"
+  }
+}

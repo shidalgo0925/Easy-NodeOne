@@ -9,6 +9,28 @@ from datetime import datetime
 
 from nodeone.core.db import db
 
+_MONTHS_ES: tuple[str, ...] = (
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+)
+
+
+def format_start_date_es(dt: datetime | None) -> str | None:
+    """Ej.: 25 de septiembre de 2026 (mismo criterio que WP / inscripción)."""
+    if not dt:
+        return None
+    return f'{dt.day} de {_MONTHS_ES[dt.month - 1]} de {dt.year}'
+
 
 class AcademicProgram(db.Model):
     __tablename__ = 'academic_program'
@@ -23,14 +45,28 @@ class AcademicProgram(db.Model):
         db.String(32), nullable=False, default='diplomado'
     )  # curso, diplomado, taller, certificacion, servicio, programa
     category = db.Column(db.String(120), nullable=True)
+    # Landing ①–⑦ (WP / inscripción); ver glosario en docs PLAN_MODULO_ACADEMIC_ENROLLMENT.
+    marketing_tag = db.Column(db.String(120), nullable=True)  # ① área (ej. Neurociencia)
+    key_focuses = db.Column(db.Text, nullable=True)  # ⑤a enfoques clave
+    ideal_for = db.Column(db.Text, nullable=True)  # ⑤b ideal para
+    cta_label = db.Column(db.String(200), nullable=True)  # ⑥ texto botón
+    cta_action = db.Column(db.String(32), nullable=False, default='scroll_pricing')  # ⑥ destino
+    catalog_sort_order = db.Column(db.Integer, nullable=False, default=0, index=True)  # orden en listados
     short_description = db.Column(db.Text, nullable=True)
-    long_description = db.Column(db.Text, nullable=True)
+    long_description = db.Column(db.Text, nullable=True)  # ④ descripción larga
     modality = db.Column(db.String(120), nullable=True)
     duration_text = db.Column(db.String(200), nullable=True)
     hours = db.Column(db.String(64), nullable=True)
     language = db.Column(db.String(64), nullable=True)
-    image_url = db.Column(db.String(500), nullable=True)
-    flyer_url = db.Column(db.String(500), nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)  # ② catálogo /programas
+    flyer_url = db.Column(db.String(500), nullable=True)  # ③ inscripción /inscripcion/
+    academic_program_pdf_url = db.Column(db.String(500), nullable=True)  # PDF comercial (landing externo)
+    academic_program_pdf_title = db.Column(db.String(200), nullable=True)  # título botón (referencia admin)
+    show_academic_program_pdf = db.Column(db.Boolean, default=False, nullable=False)
+    academic_program_pdf_filename = db.Column(db.String(255), nullable=True)
+    academic_program_pdf_uploaded_at = db.Column(db.DateTime, nullable=True)
+    image_wp_landing = db.Column(db.String(500), nullable=True)  # ① WordPress /diplomados/
+    media_position = db.Column(db.String(8), nullable=False, default='left')  # left | right (columna imagen 62%)
     price_from = db.Column(db.Float, nullable=True)  # display "desde"
     currency = db.Column(db.String(8), nullable=False, default='USD')
     start_date = db.Column(db.DateTime, nullable=True)
@@ -61,6 +97,13 @@ class AcademicProgram(db.Model):
             'programa': 'Programa',
         }
         return m.get((self.program_type or '').lower(), (self.program_type or 'Programa').title())
+
+    def start_date_display(self) -> str | None:
+        """Texto público: Próximo inicio: 25 de septiembre de 2026."""
+        label = format_start_date_es(self.start_date)
+        if not label:
+            return None
+        return f'Próximo inicio: {label}'
 
 
 class AcademicProgramPricingPlan(db.Model):

@@ -9,6 +9,7 @@
         <a href="{{ url_for('admin_saas_catalog_new') }}" class="btn btn-sm btn-primary text-nowrap align-self-stretch align-self-sm-auto"><i class="fas fa-plus"></i> Nuevo módulo</a>
     </div>
     <p class="text-muted small">Códigos usados en código y API (<code>has_saas_module_enabled</code>). Los core no se eliminan.</p>
+    <p class="text-muted small mb-3">Guía Ventas / Contabilidad ERP / menú: <code>backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md</code>.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for cat, msg in messages %}

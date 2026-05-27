@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Leads PDF — Programas Académicos — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+  <div class="container py-4" style="max-width: 1100px;">
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a href="{{ url_for('academic_enrollment_admin.list_programs') }}">Programas inscripción</a></li>
+        <li class="breadcrumb-item active">Leads PDF programa académico</li>
+      </ol>
+    </nav>
+
+    <h1 class="h4 mb-2">Leads PDF — Programas Académicos</h1>
+    <p class="text-muted small mb-4">
+      Capturas del formulario «Descargar Programa Académico». Al confirmar el correo se crea o actualiza un lead en
+      <a href="{{ url_for('admin_crm_leads') }}">CRM → Leads</a>. Exporta CSV si lo necesitas.
+    </p>
+
+    <form method="get" class="row g-2 align-items-end mb-3">
+      <div class="col-md-4">
+        <label class="form-label small" for="program_slug">Programa (slug)</label>
+        <input class="form-control form-control-sm" id="program_slug" name="program_slug" value="{{ program_slug or '' }}" placeholder="neuro-liderazgo-intercultural">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small" for="status">Status</label>
+        <input class="form-control form-control-sm" id="status" name="status" value="{{ status or '' }}" placeholder="pending / confirmed">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small" for="source">Source</label>
+        <input class="form-control form-control-sm" id="source" name="source" value="{{ source or '' }}" placeholder="wp_landing_pdf">
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label small" for="from_date">Desde</label>
+        <input class="form-control form-control-sm" type="date" id="from_date" name="from_date" value="{{ from_date or '' }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small" for="to_date">Hasta</label>
+        <input class="form-control form-control-sm" type="date" id="to_date" name="to_date" value="{{ to_date or '' }}">
+      </div>
+
+      <div class="col-md-12 d-flex gap-2 mt-1">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for(request.endpoint, **request.args, format='csv') }}">Exportar CSV</a>
+      </div>
+    </form>
+
+    {% if rows %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle table-striped">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Programa</th>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Teléfono</th>
+              <th>País</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th>CRM</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lead, program in rows %}
+              <tr>
+                <td>{{ lead.created_at.strftime('%Y-%m-%d %H:%M') if lead.created_at else '' }} UTC</td>
+                <td><code>{{ program.slug if program else (lead.program_slug or '') }}</code></td>
+                <td>{{ lead.name }}</td>
+                <td><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></td>
+                <td>{{ lead.phone }}</td>
+                <td>{{ lead.country or '' }}</td>
+                <td>{{ lead.source or '' }}</td>
+                <td>{{ lead.status or '' }}</td>
+                <td>
+                  {% if lead.crm_lead_id %}
+                    <a href="{{ url_for('admin_crm_leads') }}?q={{ lead.email|urlencode }}">#{{ lead.crm_lead_id }}</a>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-secondary py-3 mb-0">No hay leads con esos filtros.</div>
+    {% endif %}
+  </div>
+{% endblock %}
+

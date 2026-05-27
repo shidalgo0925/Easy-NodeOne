@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Descargar programa — {{ program.name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/academic-program-pdf-lead-form.css') }}?v=2" rel="stylesheet">
+</head>
+<body class="lc2-page{% if embed %} lc2-embed{% endif %}">
+  <div class="lc2-wrap">
+    <div class="lc2-card" id="lc2-root" data-program-slug="{{ program.slug }}">
+      <div class="lc2-card__head">
+        <h1>Descargar Programa Académico</h1>
+        <p>{{ program.name }}</p>
+      </div>
+      <div class="lc2-card__body">
+        <div id="lc2-error" class="lc2-alert lc2-alert--error" role="alert"></div>
+        <div id="lc2-success" class="lc2-alert lc2-alert--success" role="status">
+          <p id="lc2-success-msg"></p>
+        </div>
+
+        <form id="lc2-form" novalidate>
+          <div class="lc2-form-fields">
+            <input type="hidden" name="program_slug" value="{{ program.slug }}">
+            <input type="hidden" name="source" value="{{ source }}">
+            <input type="hidden" name="utm_source" id="lc2-utm_source" value="">
+            <input type="hidden" name="utm_medium" id="lc2-utm_medium" value="">
+            <input type="hidden" name="utm_campaign" id="lc2-utm_campaign" value="">
+
+            <div class="lc2-hp" aria-hidden="true">
+              <label for="lc2-website">No completar</label>
+              <input type="text" name="website" id="lc2-website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <div class="lc2-field">
+              <label for="lc2-name">Nombre completo <span class="lc2-req">*</span></label>
+              <input type="text" id="lc2-name" name="name" required autocomplete="name" maxlength="200">
+            </div>
+            <div class="lc2-field">
+              <label for="lc2-email">Correo electrónico <span class="lc2-req">*</span></label>
+              <input type="email" id="lc2-email" name="email" required autocomplete="email" maxlength="255">
+            </div>
+            <div class="lc2-field">
+              <label for="lc2-phone">Teléfono <span class="lc2-req">*</span></label>
+              <input type="tel" id="lc2-phone" name="phone" required autocomplete="tel" maxlength="80">
+            </div>
+            <div class="lc2-field">
+              <label for="lc2-country">País</label>
+              <input type="text" id="lc2-country" name="country" autocomplete="country-name" maxlength="120" placeholder="Panamá">
+            </div>
+            <div class="lc2-field">
+              <label for="lc2-company">Empresa</label>
+              <input type="text" id="lc2-company" name="company" maxlength="255">
+            </div>
+            <div class="lc2-field">
+              <label for="lc2-message">Mensaje</label>
+              <textarea id="lc2-message" name="message" rows="2" maxlength="2000" placeholder="Opcional"></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="lc2-btn lc2-btn--submit" id="lc2-submit">
+            <span class="lc2-btn__label--idle">Descargar Programa Académico</span>
+          </button>
+        </form>
+
+        <p class="lc2-foot">Te enviaremos un correo para confirmar tu dirección. Después podrás descargar el PDF. Sin registro ni compra.</p>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/academic-program-pdf-lead-form.js') }}?v=2"></script>
+</body>
+</html>

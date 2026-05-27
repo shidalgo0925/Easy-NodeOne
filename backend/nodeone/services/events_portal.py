@@ -54,7 +54,11 @@ def get_portal_featured_events(*, organization_id: int, user: Any | None, limit:
     q = apply_portal_list_filters(q, user=user)
     return (
         q.options(joinedload(Event.images))
-        .order_by(Event.featured.desc().nulls_last(), Event.start_date.asc())
+        .order_by(
+            Event.featured.desc().nulls_last(),
+            Event.catalog_sort_order.asc(),
+            Event.start_date.asc(),
+        )
         .limit(int(limit))
         .all()
     )

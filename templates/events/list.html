@@ -37,12 +37,14 @@
                 </select>
             </div>
             <div class="col-12 col-md-3">
-                <label class="form-label text-muted">Estado (admin)</label>
-                <select class="form-select" name="status">
+                <label class="form-label text-muted">Estado{% if is_events_admin %} (admin){% endif %}</label>
+                <select class="form-select" name="status" {% if not is_events_admin %}disabled{% endif %}>
                     <option value="published" {% if status == 'published' %}selected{% endif %}>Publicado</option>
+                    {% if is_events_admin %}
                     <option value="draft" {% if status == 'draft' %}selected{% endif %}>Borrador</option>
                     <option value="archived" {% if status == 'archived' %}selected{% endif %}>Archivado</option>
-                    <option value="all" {% if status == 'all' %}selected{% endif %}>Todos</option>
+                    <option value="all" {% if status == 'all' %}selected{% endif %}>Todos (admin)</option>
+                    {% endif %}
                 </select>
             </div>
             <div class="col-12 col-md-2 d-grid">
@@ -101,10 +103,20 @@
             </div>
         {% else %}
             <div class="alert alert-light border shadow-sm">
-                <p class="mb-2"><strong>No hay eventos disponibles en este momento.</strong></p>
+                <p class="mb-2"><strong>No hay eventos publicados visibles en este momento.</strong></p>
                 <p class="text-muted mb-0">Volvé pronto o revisá nuestros <a href="{{ url_for('services.list') }}">servicios disponibles</a>.</p>
             </div>
-            {% if current_user.is_authenticated and current_user.is_admin %}
+            {% if is_events_admin %}
+            <div class="alert alert-info border-0 shadow-sm mt-3">
+                <p class="mb-2"><strong>Administrador:</strong> hay eventos en borrador que no aparecen aquí con filtro «Publicado».</p>
+                <p class="mb-2">
+                  <a class="btn btn-sm btn-primary" href="{{ url_for('events.list_events', status='all') }}">Ver todos (incl. borradores)</a>
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_events.admin_events_index', status='draft') }}">Gestión eventos → borradores</a>
+                  {% if has_view_endpoint('academic_enrollment_admin.list_enrollments') %}
+                  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('academic_enrollment_admin.list_enrollments', view='eventos') }}">Inscripciones → Eventos</a>
+                  {% endif %}
+                </p>
+            </div>
             <div class="card border-0 bg-white shadow-sm mt-3">
                 <div class="card-body small text-muted">
                     <p class="fw-semibold text-dark mb-2">Checklist (admin)</p>

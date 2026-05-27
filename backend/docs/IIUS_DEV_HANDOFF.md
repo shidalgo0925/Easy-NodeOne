@@ -1,5 +1,9 @@
 # Handoff IIUS → DEV (estado 2026-05-22)
 
+## Módulos SaaS (Ventas / Contabilidad)
+
+Corrección de menú vs flags en Módulos: ver **`backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md`** (incluye bootstrap `ensure_saas_catalog_full` y archivos a mergear en `develop`).
+
 ## Bloqueo scp (alternativa Git — preferida si el tar no llega)
 
 Rama publicada desde IIUS: **`release/iius-go-20260522`** (commit `6b0da66`).

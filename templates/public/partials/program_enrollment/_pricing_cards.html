@@ -1,0 +1,22 @@
+<div class="pe-plan-grid">
+  {% if no_active_plans %}
+  <p class="pe-pricing__foot">Este programa aún no tiene planes activos. Contactá al administrador.</p>
+  {% endif %}
+  {% for plan in pricing_plans %}
+  {% set pd = plan_card_display(plan, program) if plan_card_display is defined else {} %}
+  <article class="pe-plan-card pe-plan-card--{{ plan.code|lower }}">
+    {% if pd.badge %}<span class="pe-plan-badge">{{ pd.badge }}</span>{% endif %}
+    <h3 class="pe-plan-name">{{ plan.name }}</h3>
+    <p class="pe-plan-amount">
+      {{ plan.currency or program.currency or 'USD' }} {{ (plan.total_amount_cents / 100) | round(0) | int }}
+    </p>
+    {% if pd.primary %}
+    <p class="pe-plan-detail">{{ pd.primary }}</p>
+    {% if pd.secondary %}<p class="pe-plan-detail pe-plan-detail--muted">{{ pd.secondary }}</p>{% endif %}
+    {% elif plan.discount_label %}
+    <p class="pe-plan-detail">{{ plan.discount_label }}</p>
+    {% endif %}
+    <a class="pe-plan-cta" href="{{ url_for('payments.checkout_programa_shortcut', slug=slug, plan_code=plan.code) }}">Continuar al checkout</a>
+  </article>
+  {% endfor %}
+</div>

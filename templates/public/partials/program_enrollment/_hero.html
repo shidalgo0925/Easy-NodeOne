@@ -1,0 +1,41 @@
+<section class="pe-hero" aria-labelledby="pe-hero-title">
+  <div class="pe-hero__grid{% if (program.media_position|default('left')) == 'right' %} pe-hero--media-right{% endif %}">
+    <div class="pe-hero__media">
+      {% if media_src %}
+      <div class="pe-hero__frame">
+        {% if media_is_pdf %}
+        <iframe class="pe-hero__pdf" src="{{ media_src }}#view=FitH" title="Flyer {{ program.name }}"></iframe>
+        {% else %}
+        <img src="{{ media_src }}" alt="{{ program.name }}" width="800" height="1000" loading="eager" decoding="async">
+        {% endif %}
+      </div>
+      <a class="pe-hero__zoom" href="{{ media_src }}" target="_blank" rel="noopener">
+        {% if media_is_pdf %}Abrir flyer{% else %}Ver imagen ampliada{% endif %}
+      </a>
+      {% else %}
+      <div class="pe-hero__media-missing" role="alert">Falta imagen de inscripción (flyer_url). Configure el slot ③ en admin.</div>
+      {% endif %}
+    </div>
+
+    <div class="pe-hero__panel">
+      <span class="pe-hero__brand">{{ get_nav_brand_name() }}</span>
+      <p class="pe-hero__category">{{ program.display_type_label() }}</p>
+      <h1 class="pe-hero__title" id="pe-hero-title">{{ program.name }}</h1>
+      <p class="pe-hero__price">
+        <span class="pe-hero__price-label">Inversión</span>
+        {% if program.price_from and program.price_from > 0 %}
+        Desde {{ program.currency or 'USD' }} {{ '%.0f'|format(program.price_from) }}
+        {% else %}
+        Consultar planes
+        {% endif %}
+      </p>
+      {% if program.start_date_display() %}
+      <p class="pe-hero__start"><i class="far fa-calendar-alt" aria-hidden="true"></i> {{ program.start_date_display() }}</p>
+      {% endif %}
+      {% include 'public/partials/program_enrollment/_program_meta.html' %}
+      {% if program.short_description %}
+      <p class="pe-hero__desc">{{ program.short_description }}</p>
+      {% endif %}
+    </div>
+  </div>
+</section>

@@ -157,8 +157,12 @@ Comportamiento:
 ## 6) Permisos y modularidad
 
 - Menú Contabilidad separado de Ventas.
-- Feature gating por módulo SaaS:
-  - `accounting_core` (con fallback de compatibilidad acordado).
+- Feature gating por módulo SaaS (desde mayo 2026, sin fallback a `sales`):
+  - **`sales`** → menú Ventas (cotizaciones, facturas admin).
+  - **`accounting_core`** → menú Contabilidad ERP (`/admin/accounting-core/*`).
+  - **`accounting_adjustments`** → submenú Ajustes (depende de `accounting_core`).
+  - **`accounting`** (legacy) → alias sincronizado con `accounting_core` en Admin → Módulos.
+- Documentación completa: [`backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md`](../backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md).
 - No acoplar lógica contable a facturación en esta fase.
 
 ---

@@ -1,0 +1,58 @@
+{# Bloque de confianza en flujo de compra / checkout (reutilizable). #}
+<div class="en1-purchase-trust" role="complementary" aria-label="Garantía de compra segura">
+  <p class="en1-purchase-trust__title">Compra 100% segura garantizada</p>
+  <ul class="en1-purchase-trust__list">
+    <li>
+      <span class="en1-purchase-trust__icon" aria-hidden="true"><i class="fas fa-check"></i></span>
+      <span>Plataforma de pago verificada con cifrado</span>
+    </li>
+    <li>
+      <span class="en1-purchase-trust__icon" aria-hidden="true"><i class="fas fa-check"></i></span>
+      <span>14 días para solicitar cambios o reembolsos</span>
+    </li>
+    <li>
+      <span class="en1-purchase-trust__icon" aria-hidden="true"><i class="fas fa-check"></i></span>
+      <span>Soporte al cliente totalmente personalizado</span>
+    </li>
+  </ul>
+</div>
+<style>
+  .en1-purchase-trust {
+    background: #ebebeb;
+    border-radius: 8px;
+    padding: 1.15rem 1.25rem 1.1rem;
+    margin: 0;
+  }
+  .en1-purchase-trust__title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 0.85rem;
+    line-height: 1.35;
+  }
+  .en1-purchase-trust__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .en1-purchase-trust__list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: #888;
+    margin: 0;
+  }
+  .en1-purchase-trust__icon {
+    flex-shrink: 0;
+    color: #00c853;
+    font-size: 1rem;
+    line-height: 1.35;
+    width: 1.1rem;
+    text-align: center;
+  }
+</style>

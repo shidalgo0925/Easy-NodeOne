@@ -34,6 +34,23 @@ def main() -> int:
             if AcademicProgram.query.filter_by(organization_id=1, slug=opt, status='published').first():
                 slugs.append(opt)
         with app.test_client() as c:
+            r_cat = c.get('/programas', headers=HOST)
+            if r_cat.status_code != 200 or b'ap-catalog' not in r_cat.data:
+                print('FAIL /programas', r_cat.status_code)
+                fails += 1
+            else:
+                print('OK /programas', 200)
+            r_api = c.get('/api/public/academic-programs', headers=HOST)
+            if r_api.status_code != 200:
+                print('FAIL /api/public/academic-programs', r_api.status_code)
+                fails += 1
+            else:
+                data = r_api.get_json() or {}
+                if not data.get('ok') or int(data.get('count') or 0) < len(DIPLOMADO_SLUGS):
+                    print('FAIL API count', data.get('count'))
+                    fails += 1
+                else:
+                    print('OK API academic-programs count=', data.get('count'))
             for slug in slugs:
                 r = c.get(f'/inscripcion/{slug}', headers=HOST)
                 if r.status_code != 200:

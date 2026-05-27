@@ -1,0 +1,18 @@
+<nav class="pe-program-nav" aria-label="Programas anterior y siguiente">
+  {% if nav_prev %}
+  <a class="pe-nav-btn pe-nav-prev" href="{{ url_for('payments.diplomado_landing', slug=nav_prev.slug) }}" rel="prev">
+    <span aria-hidden="true">‹</span>
+    <span>{{ nav_prev.name }}</span>
+  </a>
+  {% else %}
+  <span class="pe-nav-spacer" aria-hidden="true"></span>
+  {% endif %}
+  {% if nav_next %}
+  <a class="pe-nav-btn pe-nav-next" href="{{ url_for('payments.diplomado_landing', slug=nav_next.slug) }}" rel="next">
+    <span>{{ nav_next.name }}</span>
+    <span aria-hidden="true">›</span>
+  </a>
+  {% else %}
+  <span class="pe-nav-spacer" aria-hidden="true"></span>
+  {% endif %}
+</nav>

@@ -35,6 +35,16 @@ PAYPAL_CANCEL_URL=https://apps.internationalinstitute.us/payment/paypal/cancel
 
 Y en Admin → Pagos marcar **«Usar variables de entorno»** + reiniciar `nodeone.service`.
 
+## Verificación automática
+
+```bash
+cd backend && source ../.venv/bin/activate
+export NODEONE_BRAND_PRESET=iius
+python3 scripts/check_paypal_readiness_iius.py   # exit 0 = listo para live
+```
+
+Checklist completo Fase 3: `IIUS_FASE3_PAYPAL_Y_QA.md`.
+
 ## Checklist ítem 8
 
 | Resultado | Cuándo |

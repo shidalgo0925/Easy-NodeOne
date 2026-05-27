@@ -1,0 +1,36 @@
+{
+  "_comment": "PASO 2 WP — enlace «Ver más» por tarjeta → checkout apps (plan full). Generado desde BD org 1.",
+  "apps_base": "https://apps.internationalinstitute.us",
+  "pattern": "/checkout/programa/{slug}/full",
+  "wordpress_pages_updated": [2006, 2233, 214, 212],
+  "programs": {
+    "curso-en-liderazgo-y-gestion-de-equipos": "https://apps.internationalinstitute.us/checkout/programa/curso-en-liderazgo-y-gestion-de-equipos/full",
+    "cursos-en-emprendimiento-y-desarrollo-de-negocios": "https://apps.internationalinstitute.us/checkout/programa/cursos-en-emprendimiento-y-desarrollo-de-negocios/full",
+    "curso-en-coaching-ejecutivo-y-liderazgo-organizacional": "https://apps.internationalinstitute.us/checkout/programa/curso-en-coaching-ejecutivo-y-liderazgo-organizacional/full",
+    "curso-en-finanzas-personales-y-empresariales": "https://apps.internationalinstitute.us/checkout/programa/curso-en-finanzas-personales-y-empresariales/full",
+    "curso-en-coaching-profesional-integral": "https://apps.internationalinstitute.us/checkout/programa/curso-en-coaching-profesional-integral/full",
+    "curso-tecnicas-anclaje-pnl": "https://apps.internationalinstitute.us/checkout/programa/curso-tecnicas-anclaje-pnl/full",
+    "curso-en-inteligencia-emocional-y-bienestar": "https://apps.internationalinstitute.us/checkout/programa/curso-en-inteligencia-emocional-y-bienestar/full",
+    "curso-en-neuroeducacion-y-programacion-neurolinguistica-pnl": "https://apps.internationalinstitute.us/checkout/programa/curso-en-neuroeducacion-y-programacion-neurolinguistica-pnl/full",
+    "curso-de-neuroeducacion-y-neuroplasticidad": "https://apps.internationalinstitute.us/checkout/programa/curso-de-neuroeducacion-y-neuroplasticidad/full",
+    "curso-en-mindfulness-y-reduccion-del-estres": "https://apps.internationalinstitute.us/checkout/programa/curso-en-mindfulness-y-reduccion-del-estres/full",
+    "curso-en-espiritualidad-y-crecimiento-personal": "https://apps.internationalinstitute.us/checkout/programa/curso-en-espiritualidad-y-crecimiento-personal/full",
+    "renovacion-de-la-mente": "https://apps.internationalinstitute.us/checkout/programa/renovacion-de-la-mente/full",
+    "la-mujer-virtuosa-de-prov-31": "https://apps.internationalinstitute.us/checkout/programa/la-mujer-virtuosa-de-prov-31/full",
+    "taller-aprendizaje-practico": "https://apps.internationalinstitute.us/checkout/programa/taller-aprendizaje-practico/full",
+    "taller-liderazgo-y-comunicacion": "https://apps.internationalinstitute.us/checkout/programa/taller-liderazgo-y-comunicacion/full",
+    "taller-desarrollo-humano": "https://apps.internationalinstitute.us/checkout/programa/taller-desarrollo-humano/full",
+    "diplomado-en-creatividad-y-expresion-artistica-aplicada": "https://apps.internationalinstitute.us/checkout/programa/diplomado-en-creatividad-y-expresion-artistica-aplicada/full",
+    "neuro-liderazgo-intercultural": "https://apps.internationalinstitute.us/checkout/programa/neuro-liderazgo-intercultural/full",
+    "neuro-descodificacion-psicogenealogia-pnl": "https://apps.internationalinstitute.us/checkout/programa/neuro-descodificacion-psicogenealogia-pnl/full",
+    "neuro-teologia-coaching-cristiano-transgeneracional": "https://apps.internationalinstitute.us/checkout/programa/neuro-teologia-coaching-cristiano-transgeneracional/full",
+    "neuro-heuristica-coaching-vida": "https://apps.internationalinstitute.us/checkout/programa/neuro-heuristica-coaching-vida/full"
+  },
+  "diplomados_extra_plans": {
+    "_note": "WP con un solo botón usa full; planes 6 y 10: /checkout/programa/<slug>/6 o /10",
+    "neuro-liderazgo-intercultural": ["full", "6", "10"],
+    "neuro-descodificacion-psicogenealogia-pnl": ["full", "6", "10"],
+    "neuro-teologia-coaching-cristiano-transgeneracional": ["full", "6", "10"],
+    "neuro-heuristica-coaching-vida": ["full", "6", "10"]
+  }
+}

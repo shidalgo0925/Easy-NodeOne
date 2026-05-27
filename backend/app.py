@@ -3070,6 +3070,20 @@ def bootstrap_nodeone_schema():
             ensure_course_program_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_course_program_schema: {e}')
+        try:
+            from nodeone.services.academic_program_schema import ensure_academic_program_schema
+
+            ensure_academic_program_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_academic_program_schema: {e}')
+        try:
+            from nodeone.services.academic_program_pdf_lead_schema import (
+                ensure_academic_program_pdf_lead_schema,
+            )
+
+            ensure_academic_program_pdf_lead_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_academic_program_pdf_lead_schema: {e}')
         ensure_canonical_saas_organization_usable()
         ensure_benefit_organization_id_column()
         ensure_membership_plan_organization_id_column()
@@ -3171,6 +3185,12 @@ def bootstrap_nodeone_schema():
             ensure_events_participants_certificates_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_events_participants_certificates_schema: {e}')
+        try:
+            from nodeone.services.events_schema import ensure_event_schema
+
+            ensure_event_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_event_schema: {e}')
         try:
             from nodeone.modules.security_matrix_manager import service as _sm_schema
 

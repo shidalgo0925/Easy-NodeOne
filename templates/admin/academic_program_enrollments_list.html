@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Inscripciones{% endblock %}
+{% block page_content %}
+<div class="container py-4">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h1 class="h3 mb-0">Inscripciones <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('academic_enrollment_admin.list_programs') }}">← Programas</a>
+  </div>
+
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <a class="nav-link {% if view == 'programas' %}active{% endif %}" href="{{ url_for('academic_enrollment_admin.list_enrollments', view='programas') }}">Matrículas programas</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if view == 'eventos' %}active{% endif %}" href="{{ url_for('academic_enrollment_admin.list_enrollments', view='eventos') }}">Eventos <span class="badge bg-secondary">{{ events_for_inscripcion|length }}</span></a>
+    </li>
+  </ul>
+
+  {% if view == 'eventos' %}
+  <form method="get" class="card card-body py-2 px-3 mb-3">
+    <input type="hidden" name="view" value="eventos">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+        <label class="form-label small mb-0">Buscar evento</label>
+        <input type="search" name="event_q" class="form-control form-control-sm" placeholder="Título, slug, categoría…" value="{{ filter_event_q or '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Estado</label>
+        <select name="event_status" class="form-select form-select-sm">
+          <option value="all" {% if filter_event_status == 'all' %}selected{% endif %}>Todos</option>
+          {% for s in event_statuses %}
+          <option value="{{ s }}" {% if filter_event_status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('academic_enrollment_admin.list_enrollments', view='eventos') }}">Limpiar</a>
+      </div>
+    </div>
+  </form>
+
+  {% if not events_for_inscripcion %}
+  <div class="alert alert-light border">No hay eventos con slug <code>evento-profesional-*</code> / <code>evento-personal-*</code>.</div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered bg-white">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Slug</th>
+          <th>Título</th>
+          <th>Categoría</th>
+          <th>Estado</th>
+          <th>Inicio</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ev in events_for_inscripcion %}
+        <tr>
+          <td>{{ ev.id }}</td>
+          <td><code>{{ ev.slug }}</code></td>
+          <td>{{ ev.title }}</td>
+          <td>{{ ev.category or '—' }}</td>
+          <td><span class="badge bg-light text-dark border">{{ ev.publish_status }}</span></td>
+          <td class="small text-muted">{{ ev.start_date.strftime('%Y-%m-%d') if ev.start_date else '—' }}</td>
+          <td class="text-nowrap">
+            {% if has_view_endpoint('admin_events.edit_event') %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_events.edit_event', event_id=ev.id) }}">Editar</a>
+            {% endif %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('payments.diplomado_landing', slug=ev.slug) }}" target="_blank" rel="noopener">/inscripcion/</a>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('events.event_detail', slug=ev.slug) }}" target="_blank" rel="noopener">/events/</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <form method="get" class="card card-body py-2 px-3 mb-3">
+    <input type="hidden" name="view" value="programas">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Buscar</label>
+        <input type="search" name="q" class="form-control form-control-sm" placeholder="Email, nombre, programa…" value="{{ filter_q or '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Programa</label>
+        <select name="program_id" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          {% for p in programs_for_filter %}
+          <option value="{{ p.id }}" {% if filter_program_id == p.id %}selected{% endif %}>{{ p.name[:50] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Estado</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="all" {% if filter_status == 'all' %}selected{% endif %}>Todos</option>
+          {% for s in enrollment_statuses %}
+          <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+            <div class="col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('academic_enrollment_admin.list_enrollments', view='programas') }}">Limpiar</a>
+      </div>
+    </div>
+    <p class="small text-muted mb-0 mt-2">{{ total_filtered }} mostradas{% if total_filtered != total_all %} (máx. 500) · {{ total_all }} total{% endif %}</p>
+  </form>
+
+  {% if not enrollments %}
+  <div class="alert alert-light border">{% if total_all %}Ninguna matrícula coincide con el filtro.{% else %}Sin matrículas a programas.{% endif %}</div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered bg-white">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha</th>
+          <th>Usuario</th>
+          <th>Programa</th>
+          <th>Estado</th>
+          <th>Pago</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for en in enrollments %}
+        <tr>
+          <td>{{ en.id }}</td>
+          <td class="small text-muted">{{ en.created_at.strftime('%Y-%m-%d %H:%M') if en.created_at else '—' }}</td>
+          <td class="small">
+            {% if en.user %}
+            {{ en.user.email }}<br>
+            <span class="text-muted">{{ en.user.first_name or '' }} {{ en.user.last_name or '' }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="small">
+            {% if en.program %}
+            {{ en.program.name }}<br>
+            <code class="text-muted">{{ en.program.slug }}</code>
+            {% else %}—{% endif %}
+          </td>
+          <td><span class="badge bg-light text-dark border">{{ en.status }}</span></td>
+          <td class="small">{{ en.payment_status or '—' }}{% if en.payment_id %} · #{{ en.payment_id }}{% endif %}</td>
+          <td>
+            {% if en.program and en.program.status == 'published' %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('payments.program_enrollment_thanks', enrollment_id=en.id) }}" target="_blank" rel="noopener">Ver</a>
+            {% endif %}
+            {% if en.program %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('academic_enrollment_admin.program_edit', program_id=en.program_id) }}">Programa</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

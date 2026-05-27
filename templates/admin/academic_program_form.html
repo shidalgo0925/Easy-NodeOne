@@ -1,164 +1,523 @@
 {% extends "base.html" %}
 {% block title %}{% if program %}Editar{% else %}Nuevo{% endif %} programa académico{% endblock %}
+{% block head_extra %}
+<style>
+  .ap-form-page { max-width: 960px; }
+  .ap-form-section { border: 1px solid #e2e8f0; border-radius: .5rem; padding: 1rem 1.15rem; margin-bottom: 1.25rem; background: #fff; }
+  .ap-form-section > .ap-section-title { font-size: 1rem; font-weight: 700; margin: 0 0 .75rem; color: #1e293b; }
+  .ap-form-section > .ap-section-lead { font-size: .8rem; color: #64748b; margin: -.35rem 0 .85rem; }
+  .ap-media-slot { border: 1px solid #e2e8f0; border-radius: .5rem; padding: .85rem; height: 100%; background: #f8fafc; }
+  .ap-media-slot .ap-media-status { float: right; }
+  .ap-plans-table th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: #64748b; }
+  .ap-plans-table td { vertical-align: middle; font-size: .875rem; }
+  .ap-plans-table .form-control-sm { min-width: 5rem; }
+  .ap-program-nav { display: flex; align-items: stretch; justify-content: space-between; gap: .75rem; margin-bottom: 1.25rem; }
+  .ap-nav-btn { flex: 1; max-width: 48%; display: inline-flex; align-items: center; gap: .55rem; padding: .65rem .9rem; border-radius: 999px; font-size: .85rem; font-weight: 600; text-decoration: none; border: 1px solid #dee2e6; background: #fff; color: #1e293b; box-shadow: 0 2px 8px rgba(15,23,42,.06); }
+  .ap-nav-btn:hover { border-color: #94a3b8; color: #0f172a; }
+  .ap-nav-btn .ap-nav-chevron { flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%); color: #fff; }
+  .ap-nav-btn.ap-nav-next { flex-direction: row-reverse; text-align: right; }
+  .ap-nav-spacer { flex: 1; max-width: 48%; visibility: hidden; }
+</style>
+{% if program %}
+<style>
+  .ap-nav-btn .ap-nav-text { display: flex; flex-direction: column; min-width: 0; }
+  .ap-nav-label { font-size: .65rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+  .ap-nav-name { font-size: .78rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 14rem; }
+</style>
+{% endif %}
+{% endblock %}
 {% block page_content %}
 {% macro fv(name, default='') -%}
 {%- if form is defined and form is not none -%}{{ form.get(name, default) }}{%- else -%}{{ default }}{%- endif -%}
 {%- endmacro %}
-<div class="container py-4" style="max-width: 720px;">
+{% macro media_badge(has_value, file_ok) -%}
+  {% if has_value and file_ok is not false %}
+  <span class="badge text-bg-success ap-media-status">OK</span>
+  {% elif has_value %}
+  <span class="badge text-bg-warning ap-media-status">URL rota</span>
+  {% else %}
+  <span class="badge text-bg-danger ap-media-status">Falta</span>
+  {% endif %}
+{%- endmacro %}
+
+<div class="container py-4 ap-form-page">
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb small">
       <li class="breadcrumb-item"><a href="{{ url_for('academic_enrollment_admin.list_programs') }}">Programas inscripción</a></li>
       <li class="breadcrumb-item active">{% if program %}Editar{% else %}Nuevo{% endif %}</li>
     </ol>
   </nav>
-  <h1 class="h3 mb-3">{% if program %}Editar programa{% else %}Nuevo programa{% endif %}</h1>
-  <p class="text-muted small">Org {{ organization_id }} · URL pública: <code>/inscripcion/&lt;slug&gt;</code> (solo si estado = <strong>published</strong>).</p>
-
-  <form method="post" class="card card-body border shadow-sm mb-4">
-    <input type="hidden" name="action" value="save_program">
-    <div class="mb-3">
-      <label class="form-label" for="name">Nombre</label>
-      <input class="form-control" id="name" name="name" required value="{% if program %}{{ program.name }}{% else %}{{ fv('name') }}{% endif %}">
-    </div>
-    <div class="mb-3">
-      <label class="form-label" for="slug">Slug</label>
-      <input class="form-control" id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="{% if program %}{{ program.slug }}{% else %}{{ fv('slug') }}{% endif %}" {% if program %}readonly class="form-control bg-light"{% endif %}>
-      {% if program %}<div class="form-text">El slug no se cambia tras crear (enlaces y QR).</div>{% endif %}
-    </div>
-    <div class="row g-2">
-      <div class="col-md-6 mb-3">
-        <label class="form-label" for="program_type">Tipo</label>
-        <select class="form-select" id="program_type" name="program_type">
-          {% set pt = (program.program_type if program else fv('program_type', 'diplomado')) %}
-          {% for t in program_types %}
-          <option value="{{ t }}" {% if pt == t %}selected{% endif %}>{{ t }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-6 mb-3">
-        <label class="form-label" for="status">Estado</label>
-        <select class="form-select" id="status" name="status">
-          {% set st = (program.status if program else fv('status', 'draft')) %}
-          {% for s in statuses %}
-          <option value="{{ s }}" {% if st == s %}selected{% endif %}>{{ s }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-    <div class="row g-2">
-      <div class="col-md-6 mb-3">
-        <label class="form-label" for="modality">Modalidad</label>
-        <input class="form-control" id="modality" name="modality" value="{% if program %}{{ program.modality or '' }}{% else %}{{ fv('modality') }}{% endif %}" placeholder="100% online">
-      </div>
-      <div class="col-md-6 mb-3">
-        <label class="form-label" for="duration_text">Duración (texto)</label>
-        <input class="form-control" id="duration_text" name="duration_text" value="{% if program %}{{ program.duration_text or '' }}{% else %}{{ fv('duration_text') }}{% endif %}">
-      </div>
-    </div>
-    <div class="row g-2">
-      <div class="col-md-4 mb-3">
-        <label class="form-label" for="price_from">Precio desde (display)</label>
-        <input class="form-control" id="price_from" name="price_from" value="{% if program and program.price_from %}{{ program.price_from }}{% else %}{{ fv('price_from') }}{% endif %}">
-      </div>
-      <div class="col-md-4 mb-3">
-        <label class="form-label" for="currency">Moneda</label>
-        <input class="form-control" id="currency" name="currency" maxlength="8" value="{% if program %}{{ program.currency }}{% else %}{{ fv('currency', 'USD') }}{% endif %}">
-      </div>
-      <div class="col-md-4 mb-3">
-        <label class="form-label" for="language">Idioma</label>
-        <input class="form-control" id="language" name="language" value="{% if program %}{{ program.language or '' }}{% else %}{{ fv('language') }}{% endif %}">
-      </div>
-    </div>
-    <div class="mb-3">
-      <label class="form-label" for="short_description">Descripción corta</label>
-      <textarea class="form-control" id="short_description" name="short_description" rows="2">{% if program %}{{ program.short_description or '' }}{% else %}{{ fv('short_description') }}{% endif %}</textarea>
-    </div>
-    <div class="d-flex gap-2">
-      <button type="submit" class="btn btn-primary">Guardar programa</button>
-      <a class="btn btn-outline-secondary" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Volver al listado</a>
-      {% if program and program.status == 'published' %}
-      <a class="btn btn-outline-primary ms-auto" href="{{ url_for('payments.diplomado_landing', slug=program.slug) }}" target="_blank" rel="noopener">Vista pública</a>
-      {% endif %}
-    </div>
-  </form>
+  <h1 class="h3 mb-2">{% if program %}Editar programa{% else %}Nuevo programa{% endif %}</h1>
+  <p class="text-muted small mb-3">Org {{ organization_id }} · Inscripción: <code>/inscripcion/&lt;slug&gt;</code></p>
 
   {% if program %}
-  <h2 class="h5">Planes de pago</h2>
-  {% if plans %}
-  <div class="mb-4">
-    {% for pl in plans %}
-    <form method="post" class="card card-body border mb-2 small">
-      <input type="hidden" name="action" value="update_plan">
-      <input type="hidden" name="plan_id" value="{{ pl.id }}">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-        <strong><code>{{ pl.code }}</code></strong>
-        <span class="badge {% if pl.is_active %}text-bg-success{% else %}text-bg-secondary{% endif %}">{% if pl.is_active %}Activo{% else %}Inactivo{% endif %}</span>
+  <nav class="ap-program-nav" aria-label="Programa anterior y siguiente">
+    {% if nav_prev %}
+    <a class="ap-nav-btn ap-nav-prev" href="{{ url_for('academic_enrollment_admin.program_edit', program_id=nav_prev.id) }}">
+      <span class="ap-nav-chevron" aria-hidden="true">‹</span>
+      <span class="ap-nav-text"><span class="ap-nav-label">Anterior</span><span class="ap-nav-name">{{ nav_prev.name }}</span></span>
+    </a>
+    {% else %}<span class="ap-nav-spacer" aria-hidden="true"></span>{% endif %}
+    {% if nav_next %}
+    <a class="ap-nav-btn ap-nav-next" href="{{ url_for('academic_enrollment_admin.program_edit', program_id=nav_next.id) }}">
+      <span class="ap-nav-chevron" aria-hidden="true">›</span>
+      <span class="ap-nav-text"><span class="ap-nav-label">Siguiente</span><span class="ap-nav-name">{{ nav_next.name }}</span></span>
+    </a>
+    {% else %}<span class="ap-nav-spacer" aria-hidden="true"></span>{% endif %}
+  </nav>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="mb-4">
+    <input type="hidden" name="action" value="save_program">
+
+    {# 1. Datos básicos #}
+    <section class="ap-form-section" aria-labelledby="sec-basic">
+      <h2 class="ap-section-title" id="sec-basic">1. Datos básicos</h2>
+      <div class="mb-3">
+        <label class="form-label" for="name">Nombre</label>
+        <input class="form-control" id="name" name="name" required value="{% if program %}{{ program.name }}{% else %}{{ fv('name') }}{% endif %}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="slug">Slug</label>
+        <input class="form-control {% if program %}bg-light{% endif %}" id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="{% if program %}{{ program.slug }}{% else %}{{ fv('slug') }}{% endif %}" {% if program %}readonly{% endif %}>
+        {% if program %}<div class="form-text">No se modifica tras crear (enlaces y QR).</div>{% endif %}
       </div>
       <div class="row g-2">
         <div class="col-md-6">
-          <label class="form-label">Nombre</label>
-          <input class="form-control form-control-sm" name="plan_name" value="{{ pl.name }}" required>
+          <label class="form-label" for="program_type">Tipo</label>
+          <select class="form-select" id="program_type" name="program_type">
+            {% set pt = (program.program_type if program else fv('program_type', 'diplomado')) %}
+            {% for t in program_types %}
+            <option value="{{ t }}" {% if pt == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Total USD</label>
-          <input class="form-control form-control-sm" name="plan_total_usd" value="{{ '%.2f'|format(pl.total_amount_cents / 100) }}" required>
+        <div class="col-md-6">
+          <label class="form-label" for="category">Categoría (catálogo)</label>
+          <input class="form-control" id="category" name="category" value="{% if program %}{{ program.category or '' }}{% else %}{{ fv('category') }}{% endif %}" placeholder="Cursos de Negocios, Cursos de Arte…">
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Cuotas (info)</label>
-          <input class="form-control form-control-sm" name="plan_installment_count" value="{{ pl.installment_count or '' }}">
-        </div>
-        <div class="col-md-2">
-          <label class="form-label">Orden</label>
-          <input class="form-control form-control-sm" name="plan_sort_order" value="{{ pl.sort_order }}">
-        </div>
-        <div class="col-md-10">
-          <label class="form-label">Etiqueta dto.</label>
-          <input class="form-control form-control-sm" name="plan_discount_label" value="{{ pl.discount_label or '' }}">
-        </div>
-        <div class="col-md-12 form-check mt-1">
-          <input class="form-check-input" type="checkbox" name="plan_is_active" value="1" id="plan_active_{{ pl.id }}" {% if pl.is_active %}checked{% endif %}>
-          <label class="form-check-label" for="plan_active_{{ pl.id }}">Visible en inscripción</label>
+        <div class="col-md-4">
+          <label class="form-label" for="catalog_sort_order">Orden en catálogo</label>
+          <input class="form-control" type="number" id="catalog_sort_order" name="catalog_sort_order" min="0" step="1"
+            value="{% if program %}{{ program.catalog_sort_order }}{% else %}{{ fv('catalog_sort_order', '0') }}{% endif %}">
         </div>
       </div>
-      <button type="submit" class="btn btn-sm btn-primary mt-2">Guardar plan</button>
+    </section>
+
+    {# 2. Estado y validación #}
+    <section class="ap-form-section" aria-labelledby="sec-status">
+      <h2 class="ap-section-title" id="sec-status">2. Estado y validación</h2>
+      <p class="ap-section-lead">Publicar exige <strong>image_url</strong> (catálogo) y <strong>flyer_url</strong> (inscripción), ambos accesibles.</p>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label" for="status">Estado</label>
+          <select class="form-select" id="status" name="status">
+            {% set st = (program.status if program else fv('status', 'draft')) %}
+            <option value="draft" {% if st == 'draft' %}selected{% endif %}>Borrador</option>
+            <option value="published" {% if st == 'published' %}selected{% endif %}>Publicado</option>
+            <option value="archived" {% if st == 'archived' %}selected{% endif %}>Archivado</option>
+          </select>
+        </div>
+        {% if program and media_audit %}
+        <div class="col-md-7">
+          <div class="small border rounded p-2 bg-light">
+            <div class="d-flex justify-content-between"><span>Catálogo (<code>image_url</code>)</span>{{ media_badge(media_audit.image_url, media_audit.catalog_file_exists) }}</div>
+            <div class="d-flex justify-content-between mt-1"><span>Inscripción (<code>flyer_url</code>)</span>{{ media_badge(media_audit.flyer_url, media_audit.enrollment_file_exists) }}</div>
+            {% if program.status == 'published' and media_audit.audit_status != 'ok' %}
+            <p class="text-danger mb-0 mt-2 small">No cumple requisitos de publicación. Corregí imágenes en §4 antes de guardar como Publicado.</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% if program and program.status == 'published' %}
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('public_academic_programs_catalog') }}" target="_blank" rel="noopener">Ver catálogo</a>
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments.diplomado_landing', slug=program.slug) }}" target="_blank" rel="noopener">Ver inscripción</a>
+      </div>
+      {% endif %}
+    </section>
+
+    {# 3. Contenido de inscripción #}
+    <section class="ap-form-section" aria-labelledby="sec-content">
+      <h2 class="ap-section-title" id="sec-content">3. Contenido de inscripción</h2>
+      <p class="ap-section-lead">Textos y layout de <code>/inscripcion/&lt;slug&gt;</code>.</p>
+      <div class="row g-2">
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="marketing_tag">Área / disciplina</label>
+          <input class="form-control" id="marketing_tag" name="marketing_tag" value="{% if program %}{{ program.marketing_tag or '' }}{% else %}{{ fv('marketing_tag') }}{% endif %}">
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="start_date">Próximo inicio</label>
+          <input class="form-control" type="date" id="start_date" name="start_date"
+            value="{% if program and program.start_date %}{{ program.start_date.strftime('%Y-%m-%d') }}{% else %}{{ fv('start_date') }}{% endif %}">
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label" for="short_description">Descripción corta (tarjeta catálogo)</label>
+        <textarea class="form-control" id="short_description" name="short_description" rows="2">{% if program %}{{ program.short_description or '' }}{% else %}{{ fv('short_description') }}{% endif %}</textarea>
+      </div>
+      <div class="mb-2">
+        <label class="form-label" for="long_description">Descripción larga (landing)</label>
+        <textarea class="form-control" id="long_description" name="long_description" rows="4">{% if program %}{{ program.long_description or '' }}{% else %}{{ fv('long_description') }}{% endif %}</textarea>
+      </div>
+      <div class="row g-2">
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="key_focuses">Enfoques clave</label>
+          <textarea class="form-control" id="key_focuses" name="key_focuses" rows="2">{% if program %}{{ program.key_focuses or '' }}{% else %}{{ fv('key_focuses') }}{% endif %}</textarea>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="ideal_for">Ideal para</label>
+          <textarea class="form-control" id="ideal_for" name="ideal_for" rows="2">{% if program %}{{ program.ideal_for or '' }}{% else %}{{ fv('ideal_for') }}{% endif %}</textarea>
+        </div>
+      </div>
+      <div class="row g-2">
+        <div class="col-md-8 mb-2">
+          <label class="form-label" for="cta_label">Texto del botón</label>
+          <input class="form-control" id="cta_label" name="cta_label" value="{% if program %}{{ program.cta_label or '' }}{% else %}{{ fv('cta_label') }}{% endif %}">
+        </div>
+        <div class="col-md-4 mb-2">
+          <label class="form-label" for="cta_action">Acción del botón</label>
+          <select class="form-select" id="cta_action" name="cta_action">
+            {% set ca = (program.cta_action if program else fv('cta_action', 'scroll_pricing')) %}
+            <option value="scroll_pricing" {% if ca == 'scroll_pricing' %}selected{% endif %}>Ir a planes</option>
+            <option value="plan_full" {% if ca == 'plan_full' %}selected{% endif %}>Checkout plan full</option>
+          </select>
+        </div>
+      </div>
+      <div class="mb-0">
+        <label class="form-label d-block">Posición de la imagen en la landing</label>
+        {% set mp = (program.media_position if program else fv('media_position', 'left')) %}
+        <div class="btn-group btn-group-sm" role="group">
+          <input type="radio" class="btn-check" name="media_position" id="media_left" value="left" {% if mp != 'right' %}checked{% endif %}>
+          <label class="btn btn-outline-primary" for="media_left">Izquierda</label>
+          <input type="radio" class="btn-check" name="media_position" id="media_right" value="right" {% if mp == 'right' %}checked{% endif %}>
+          <label class="btn btn-outline-primary" for="media_right">Derecha</label>
+        </div>
+      </div>
+    </section>
+
+    {# 4. Imágenes públicas (Apps) #}
+    <section class="ap-form-section" aria-labelledby="sec-media">
+      <h2 class="ap-section-title" id="sec-media">4. Imágenes públicas (Apps)</h2>
+      <p class="ap-section-lead">Obligatorias para publicar. Sin cruce entre slots.</p>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="ap-media-slot">
+            <h3 class="h6 mb-2">Catálogo <code>/programas</code> → <code>image_url</code>
+              {% if program %}{{ media_badge(program.image_url, media_audit.catalog_file_exists if media_audit else none) }}{% endif %}
+            </h3>
+            <input class="form-control form-control-sm mb-2" type="file" id="image_file" name="image_file" accept="image/png,image/jpeg,image/webp,image/gif">
+            {% if program and program.image_url %}
+            <img src="{{ absolute_site_url(program.image_url) }}" alt="" class="img-fluid rounded border mb-2" style="max-height:120px">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="clear_image" value="1" id="clear_image">
+              <label class="form-check-label" for="clear_image">Quitar imagen</label>
+            </div>
+            {% endif %}
+            <details class="small">
+              <summary class="text-muted">URL manual (opcional)</summary>
+              <input class="form-control form-control-sm mt-1" id="image_url" name="image_url" value="{% if program %}{{ program.image_url or '' }}{% else %}{{ fv('image_url') }}{% endif %}">
+            </details>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="ap-media-slot">
+            <h3 class="h6 mb-2">Inscripción <code>/inscripcion/</code> → <code>flyer_url</code>
+              {% if program %}{{ media_badge(program.flyer_url, media_audit.enrollment_file_exists if media_audit else none) }}{% endif %}
+            </h3>
+            <input class="form-control form-control-sm mb-2" type="file" id="flyer_file" name="flyer_file" accept="image/png,image/jpeg,image/webp,application/pdf">
+            {% if program and program.flyer_url %}
+            <img src="{{ absolute_site_url(program.flyer_url) }}" alt="" class="img-fluid rounded border mb-2" style="max-height:120px">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="clear_flyer" value="1" id="clear_flyer">
+              <label class="form-check-label" for="clear_flyer">Quitar imagen</label>
+            </div>
+            {% endif %}
+            <details class="small">
+              <summary class="text-muted">URL manual (opcional)</summary>
+              <input class="form-control form-control-sm mt-1" id="flyer_url" name="flyer_url" value="{% if program %}{{ program.flyer_url or '' }}{% else %}{{ fv('flyer_url') }}{% endif %}">
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% if program and (program.program_type or '')|lower == 'diplomado' or (program.category or '')|lower in ['diplomado', 'diplomados'] or ((program.category or '')|lower).startswith('diplomado') %}
+    <section class="ap-form-section" aria-labelledby="sec-academic-pdf">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <h2 class="ap-section-title mb-0" id="sec-academic-pdf">PDF programa académico (landing externo)</h2>
+        {% if academic_program_pdf_status %}
+        <span class="badge text-bg-{{ academic_program_pdf_status.badge }}">{{ academic_program_pdf_status.label }}</span>
+        {% endif %}
+      </div>
+      <p class="ap-section-lead">
+        Subí el PDF, guardá con <strong>Guardar en Apps</strong> y copiá la URL en WordPress.
+        Público, sin login. Al subir un archivo se marca automáticamente <strong>PDF activo</strong>.
+      </p>
+      <div class="mb-3 p-3 border rounded bg-light">
+        <label class="form-label small fw-semibold mb-1">URL para el landing (siempre la misma)</label>
+        <div class="input-group input-group-sm mb-2">
+          <input class="form-control font-monospace" type="text" readonly id="academic_program_pdf_public_url"
+            value="{{ academic_program_pdf_public_url or '' }}">
+          <button class="btn btn-outline-secondary" type="button" id="copy_academic_program_pdf_url"
+            {% if not academic_program_pdf_public_url %}disabled{% endif %}>Copiar</button>
+          <a class="btn btn-outline-primary {% if not academic_program_pdf_status or not academic_program_pdf_status.ready %}disabled{% endif %}"
+            href="{{ academic_program_pdf_public_url or '#' }}"
+            target="_blank" rel="noopener"
+            {% if not academic_program_pdf_status or not academic_program_pdf_status.ready %}aria-disabled="true" tabindex="-1"{% endif %}>Probar</a>
+        </div>
+        <p class="form-text mb-0">
+          <code>/programa-academico/{{ program.slug }}/pdf</code>
+          {% if academic_program_pdf_status and not academic_program_pdf_status.ready %}
+          — <span class="text-warning">«Probar» funciona cuando hay PDF cargado y activo.</span>
+          {% endif %}
+        </p>
+      </div>
+      {% if program.academic_program_pdf_url %}
+      <div class="mb-3 p-2 border rounded">
+        <p class="small fw-semibold mb-2 mb-md-1">Archivo en EN1</p>
+        <p class="small text-muted mb-2">
+          {% if program.academic_program_pdf_filename %}<code>{{ program.academic_program_pdf_filename }}</code>{% else %}programa-academico.pdf{% endif %}
+          {% if program.academic_program_pdf_uploaded_at %}
+          · subido {{ program.academic_program_pdf_uploaded_at.strftime('%Y-%m-%d %H:%M') }} UTC
+          {% endif %}
+        </p>
+        {% if academic_program_pdf_status and academic_program_pdf_status.ready %}
+        <a class="btn btn-sm btn-success" href="{{ academic_program_pdf_public_url }}" target="_blank" rel="noopener">Ver PDF</a>
+        {% elif academic_program_pdf_status and academic_program_pdf_status.state == 'inactive' %}
+        <span class="small text-warning">Marcá «PDF activo» y guardá para habilitar el enlace.</span>
+        {% elif academic_program_pdf_status and academic_program_pdf_status.state == 'broken' %}
+        <span class="small text-danger">Ruta en BD pero el archivo no está en disco — volvé a subir el PDF.</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="alert alert-secondary py-2 small mb-3" role="status">
+        Aún no hay PDF guardado. Elegí un archivo abajo y pulsá <strong>Guardar en Apps</strong>.
+      </div>
+      {% endif %}
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="show_academic_program_pdf" value="1" id="show_academic_program_pdf"
+          {% if program.show_academic_program_pdf %}checked{% endif %}>
+        <label class="form-check-label" for="show_academic_program_pdf">PDF activo (la URL pública abre el archivo)</label>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="academic_program_pdf_title">Título del botón (referencia)</label>
+        <input class="form-control" id="academic_program_pdf_title" name="academic_program_pdf_title"
+          value="{{ program.academic_program_pdf_title or '' }}" placeholder="Descargar Programa Académico">
+        <div class="form-text">El texto del botón lo definís en el landing; este campo es solo referencia en admin.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="academic_program_pdf_file">Subir o reemplazar PDF</label>
+        <input class="form-control" type="file" id="academic_program_pdf_file" name="academic_program_pdf_file" accept="application/pdf">
+        <div class="form-text">Solo PDF, máx. 25 MB. Tras elegir archivo debés guardar el formulario.</div>
+        {% if program.academic_program_pdf_url %}
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" name="clear_academic_program_pdf" value="1" id="clear_academic_program_pdf">
+          <label class="form-check-label" for="clear_academic_program_pdf">Quitar PDF</label>
+        </div>
+        {% endif %}
+      </div>
+      <details class="small">
+        <summary class="text-muted">URL manual del archivo (opcional)</summary>
+        <input class="form-control form-control-sm mt-1" id="academic_program_pdf_url" name="academic_program_pdf_url"
+          value="{{ program.academic_program_pdf_url or '' }}">
+      </details>
+    </section>
+    <script>
+    (function () {
+      var btn = document.getElementById('copy_academic_program_pdf_url');
+      var inp = document.getElementById('academic_program_pdf_public_url');
+      if (!btn || !inp) return;
+      btn.addEventListener('click', function () {
+        inp.select();
+        inp.setSelectionRange(0, 99999);
+        try {
+          navigator.clipboard.writeText(inp.value);
+          btn.textContent = 'Copiado';
+          setTimeout(function () { btn.textContent = 'Copiar'; }, 2000);
+        } catch (e) {
+          document.execCommand('copy');
+          btn.textContent = 'Copiado';
+          setTimeout(function () { btn.textContent = 'Copiar'; }, 2000);
+        }
+      });
+    })();
+    </script>
+    {% elif program %}
+    <section class="ap-form-section" aria-labelledby="sec-academic-pdf">
+      <h2 class="ap-section-title" id="sec-academic-pdf">PDF programa académico</h2>
+      <p class="ap-section-lead mb-0 text-muted">Solo aplica a programas con tipo <strong>diplomado</strong>.</p>
+    </section>
+    {% endif %}
+
+    {# 5. Datos comerciales #}
+    <section class="ap-form-section" aria-labelledby="sec-commercial">
+      <h2 class="ap-section-title" id="sec-commercial">5. Datos comerciales</h2>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label" for="price_from">Precio desde (display)</label>
+          <input class="form-control" id="price_from" name="price_from" value="{% if program and program.price_from %}{{ program.price_from }}{% else %}{{ fv('price_from') }}{% endif %}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="currency">Moneda</label>
+          <input class="form-control" id="currency" name="currency" maxlength="8" value="{% if program %}{{ program.currency }}{% else %}{{ fv('currency', 'USD') }}{% endif %}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="language">Idioma</label>
+          <input class="form-control" id="language" name="language" value="{% if program %}{{ program.language or '' }}{% else %}{{ fv('language') }}{% endif %}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="modality">Modalidad</label>
+          <input class="form-control" id="modality" name="modality" value="{% if program %}{{ program.modality or '' }}{% else %}{{ fv('modality') }}{% endif %}" placeholder="100% online">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="duration_text">Duración (texto)</label>
+          <input class="form-control" id="duration_text" name="duration_text" value="{% if program %}{{ program.duration_text or '' }}{% else %}{{ fv('duration_text') }}{% endif %}">
+        </div>
+      </div>
+    </section>
+
+    {# 7. Avanzado / WordPress (dentro del form principal) #}
+    <section class="ap-form-section" aria-labelledby="sec-advanced">
+      <h2 class="ap-section-title" id="sec-advanced">7. Avanzado / WordPress</h2>
+      <p class="ap-section-lead">Solo sincronización con WP. No afecta catálogo ni inscripción en Apps.</p>
+      <details>
+        <summary class="mb-2">Imagen landing WordPress (<code>image_wp_landing</code>)</summary>
+        <label class="form-label" for="wp_landing_file">Archivo</label>
+        <input class="form-control form-control-sm mb-2" type="file" id="wp_landing_file" name="wp_landing_file" accept="image/png,image/jpeg,image/webp,application/pdf">
+        {% if program and program.image_wp_landing %}
+        <img src="{{ absolute_site_url(program.image_wp_landing) }}" alt="" class="img-fluid rounded border mb-2" style="max-height:100px">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="clear_wp_landing" value="1" id="clear_wp_landing">
+          <label class="form-check-label" for="clear_wp_landing">Quitar</label>
+        </div>
+        {% endif %}
+        <details class="small">
+          <summary class="text-muted">URL manual WP</summary>
+          <input class="form-control form-control-sm mt-1" id="image_wp_landing" name="image_wp_landing" value="{% if program %}{{ program.image_wp_landing or '' }}{% else %}{{ fv('image_wp_landing') }}{% endif %}">
+        </details>
+      </details>
+    </section>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center border-top pt-3">
+      <button type="submit" class="btn btn-primary">Guardar en Apps</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Volver al listado</a>
+      {% if program and (wp_sync_eligible|default(false)) %}
+      <button type="submit" class="btn btn-outline-warning"
+        formaction="{{ url_for('academic_enrollment_admin.program_push_wp', program_id=program.id) }}"
+        formmethod="post"
+        formnovalidate
+        title="Solo esta tarjeta en /cursos-detalle/"
+        onclick="return confirm('¿Actualizar en WordPress SOLO la tarjeta de este programa?\n\n{{ program.slug }}\n\nNo se modifican las otras tarjetas del mismo bloque.');">
+        Actualizar WP (solo este curso)
+      </button>
+      {% elif program and program.category == 'Cursos de Arte' %}
+      <span class="small text-muted align-self-center">Actualizar WP: slugs canónicos arte (curso-en-arte-…).</span>
+      {% elif program and program.category == 'Talleres' %}
+      <span class="small text-muted align-self-center">Actualizar WP: slugs canónicos talleres (taller-de-…).</span>
+      {% endif %}
+    </div>
+    <p class="form-text mt-2 mb-0"><strong>Guardar en Apps</strong> persiste NodeOne. <strong>Actualizar WP (solo este curso)</strong> es opcional: una tarjeta en Elementor por clic.</p>
+  </form>
+
+  {% if program %}
+  {# 6. Planes de pago #}
+  <section class="ap-form-section" aria-labelledby="sec-plans">
+    <h2 class="ap-section-title" id="sec-plans">6. Planes de pago</h2>
+    {% if plans %}
+    {% for pl in plans %}
+    <form method="post" id="plan-form-{{ pl.id }}" class="d-none" aria-hidden="true">
+      <input type="hidden" name="action" value="update_plan">
+      <input type="hidden" name="plan_id" value="{{ pl.id }}">
     </form>
     {% endfor %}
-  </div>
-  {% else %}
-  <p class="text-muted small">Sin planes: el checkout no podrá cobrar este programa.</p>
-  {% endif %}
+    <div class="table-responsive mb-3">
+      <table class="table table-sm table-bordered ap-plans-table mb-0">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Total USD</th>
+            <th>Cuotas</th>
+            <th>Ord.</th>
+            <th>Dto.</th>
+            <th>On</th>
+            <th class="text-end">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pl in plans %}
+          <tr>
+            <td><code>{{ pl.code }}</code></td>
+            <td><input class="form-control form-control-sm" form="plan-form-{{ pl.id }}" name="plan_name" value="{{ pl.name }}" required></td>
+            <td><input class="form-control form-control-sm" form="plan-form-{{ pl.id }}" name="plan_total_usd" value="{{ '%.2f'|format(pl.total_amount_cents / 100) }}" required></td>
+            <td><input class="form-control form-control-sm" form="plan-form-{{ pl.id }}" name="plan_installment_count" value="{{ pl.installment_count or '' }}"></td>
+            <td><input class="form-control form-control-sm" form="plan-form-{{ pl.id }}" name="plan_sort_order" value="{{ pl.sort_order }}"></td>
+            <td><input class="form-control form-control-sm" form="plan-form-{{ pl.id }}" name="plan_discount_label" value="{{ pl.discount_label or '' }}"></td>
+            <td class="text-center"><input class="form-check-input" type="checkbox" form="plan-form-{{ pl.id }}" name="plan_is_active" value="1" {% if pl.is_active %}checked{% endif %}></td>
+            <td class="text-end text-nowrap">
+              <button type="submit" class="btn btn-sm btn-primary" form="plan-form-{{ pl.id }}">Guardar</button>
+              <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar «{{ pl.code }}»?');">
+                <input type="hidden" name="action" value="delete_plan">
+                <input type="hidden" name="plan_id" value="{{ pl.id }}">
+                <button type="submit" class="btn btn-sm btn-link text-danger">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Sin planes: el checkout no podrá cobrar este programa.</p>
+    {% endif %}
 
-  <form method="post" class="card card-body border">
-    <input type="hidden" name="action" value="add_plan">
-    <p class="small text-muted mb-3">Un cargo en pasarela = <code>total_amount_cents</code> (USD × 100). Código estable para URLs (<code>full</code>, <code>6</code>, …).</p>
-    <div class="row g-2">
-      <div class="col-md-6 mb-2">
-        <label class="form-label" for="plan_name">Nombre del plan</label>
-        <input class="form-control" id="plan_name" name="plan_name" required placeholder="Pago completo">
+    <form method="post" class="border rounded p-3 bg-light">
+      <input type="hidden" name="action" value="add_plan">
+      <p class="small fw-semibold mb-2">Añadir plan</p>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <input class="form-control form-control-sm" id="plan_name" name="plan_name" required placeholder="Nombre del plan">
+        </div>
+        <div class="col-md-2">
+          <input class="form-control form-control-sm" id="plan_code" name="plan_code" required placeholder="código">
+        </div>
+        <div class="col-md-2">
+          <input class="form-control form-control-sm" id="plan_total_usd" name="plan_total_usd" required placeholder="USD">
+        </div>
+        <div class="col-md-2">
+          <input class="form-control form-control-sm" type="number" min="0" id="plan_installment_count" name="plan_installment_count" placeholder="Cuotas">
+        </div>
+        <div class="col-md-1">
+          <input class="form-control form-control-sm" type="number" id="plan_sort_order" name="plan_sort_order" value="{{ plans|length }}" placeholder="#">
+        </div>
+        <div class="col-md-1 d-flex align-items-center">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="plan_is_active" name="plan_is_active" value="1" checked>
+            <label class="form-check-label small" for="plan_is_active">Activo</label>
+          </div>
+        </div>
       </div>
-      <div class="col-md-6 mb-2">
-        <label class="form-label" for="plan_code">Código</label>
-        <input class="form-control" id="plan_code" name="plan_code" required placeholder="full">
-      </div>
-      <div class="col-md-4 mb-2">
-        <label class="form-label" for="plan_total_usd">Total (USD)</label>
-        <input class="form-control" id="plan_total_usd" name="plan_total_usd" required placeholder="1949.00">
-      </div>
-      <div class="col-md-4 mb-2">
-        <label class="form-label" for="plan_installment_count">Cuotas (info)</label>
-        <input class="form-control" type="number" min="0" id="plan_installment_count" name="plan_installment_count" placeholder="vacío = pago único">
-      </div>
-      <div class="col-md-4 mb-2">
-        <label class="form-label" for="plan_sort_order">Orden</label>
-        <input class="form-control" type="number" id="plan_sort_order" name="plan_sort_order" value="{{ plans|length }}">
-      </div>
+      <button type="submit" class="btn btn-sm btn-outline-primary mt-2">Añadir plan</button>
+    </form>
+  </section>
+
+  <section class="ap-form-section border-warning">
+    <h2 class="h6 text-muted mb-2">Zona de riesgo</h2>
+    <div class="d-flex flex-wrap gap-2">
+      {% if program.status != 'archived' %}
+      <form method="post" class="d-inline" onsubmit="return confirm('¿Archivar este programa?');">
+        <input type="hidden" name="action" value="archive_program">
+        <button type="submit" class="btn btn-sm btn-outline-warning">Archivar</button>
+      </form>
+      {% endif %}
+      <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar definitivamente?');">
+        <input type="hidden" name="action" value="delete_program">
+        <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar programa</button>
+      </form>
     </div>
-    <div class="form-check mb-2">
-      <input class="form-check-input" type="checkbox" id="plan_is_active" name="plan_is_active" value="1" checked>
-      <label class="form-check-label" for="plan_is_active">Plan activo</label>
-    </div>
-    <button type="submit" class="btn btn-sm btn-outline-primary">Añadir plan</button>
-  </form>
+  </section>
   {% endif %}
 </div>
 {% endblock %}

@@ -1,6 +1,8 @@
-"""Acceso campus académico (política ``academic_closed`` por tenant)."""
+"""Acceso privado por compra válida (single-tenant / policy global)."""
 
 from __future__ import annotations
+
+import os
 
 from flask import request, session, url_for
 from flask_login import current_user
@@ -11,6 +13,8 @@ from nodeone.services.registration_policy import (
 )
 
 ACTIVE_ENROLLMENT_STATUSES = ('paid', 'confirmed', 'active')
+ACTIVE_PAYMENT_STATUSES = ('paid', 'succeeded', 'completed', 'confirmed', 'active')
+ACTIVE_EVENT_REGISTRATION_STATUSES = ('confirmed', 'paid', 'approved', 'active')
 
 
 def _user_org_id(user) -> int | None:
@@ -37,6 +41,65 @@ def has_active_enrollment(user_id: int, organization_id: int | None = None) -> b
     if organization_id is not None:
         q = q.filter_by(organization_id=int(organization_id))
     return q.first() is not None
+
+
+def has_paid_payment(user_id: int, organization_id: int | None = None) -> bool:
+    """Pago confirmado (NO incluye pending/manual sin aprobar)."""
+    from models.payments import Payment
+
+    uid = int(user_id)
+    q = Payment.query.filter(
+        Payment.user_id == uid,
+        Payment.status.in_(ACTIVE_PAYMENT_STATUSES),
+    )
+    if organization_id is not None and hasattr(Payment, 'organization_id'):
+        q = q.filter(Payment.organization_id == int(organization_id))
+    return q.first() is not None
+
+
+def has_approved_event_access(user_id: int, organization_id: int | None = None) -> bool:
+    """Registro de evento en estado aprobado/confirmado/pagado."""
+    from models.events import EventRegistration
+
+    uid = int(user_id)
+    q = EventRegistration.query.filter(
+        EventRegistration.user_id == uid,
+        EventRegistration.registration_status.in_(ACTIVE_EVENT_REGISTRATION_STATUSES),
+    )
+    if organization_id is not None and hasattr(EventRegistration, 'organization_id'):
+        q = q.filter(EventRegistration.organization_id == int(organization_id))
+    return q.first() is not None
+
+
+def has_active_membership_access(user) -> bool:
+    try:
+        return bool(user and user.get_active_membership())
+    except Exception:
+        return False
+
+
+def user_has_paid_access(user, organization_id: int | None = None) -> bool:
+    """
+    Acceso privado cuando existe una compra/activación válida.
+    Orden: membresía -> matrícula -> pago -> evento aprobado.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if user_bypasses_academic_gate(user):
+        return True
+    oid = organization_id if organization_id is not None else _user_org_id(user)
+    uid = int(getattr(user, 'id', 0) or 0)
+    if uid <= 0:
+        return False
+    if has_active_membership_access(user):
+        return True
+    if has_active_enrollment(uid, oid):
+        return True
+    if has_paid_payment(uid, oid):
+        return True
+    if has_approved_event_access(uid, oid):
+        return True
+    return False
 
 
 def list_member_enrollments(user_id: int, organization_id: int | None = None) -> list:
@@ -133,6 +196,23 @@ def member_needs_academic_enrollment(user, organization_id: int | None = None) -
     return not has_active_enrollment(int(user.id), oid)
 
 
+def require_paid_access_enabled() -> bool:
+    """
+    Política global del despliegue (single-tenant): exigir compra válida.
+    """
+    raw = (os.environ.get('REQUIRE_PAID_ACCESS') or '').strip().lower()
+    if raw in ('1', 'true', 'yes', 'on'):
+        return True
+    if raw in ('0', 'false', 'no', 'off'):
+        return False
+    try:
+        from nodeone.config.settings import settings as _settings
+
+        return bool(getattr(_settings, 'REQUIRE_PAID_ACCESS', True))
+    except Exception:
+        return True
+
+
 _ACADEMIC_GATE_ALLOW_PREFIXES = (
     '/static/',
     '/login',
@@ -146,6 +226,8 @@ _ACADEMIC_GATE_ALLOW_PREFIXES = (
     '/select-organization',
     '/set-organization',
     '/inscripcion',
+    '/programas',
+    '/events',
     '/checkout',
     '/cart',
     '/payment/',
@@ -155,6 +237,10 @@ _ACADEMIC_GATE_ALLOW_PREFIXES = (
     '/member-payments',
     '/membership',
     '/member/plan',
+    '/member-payments',
+    '/payments-history',
+    '/programs/',
+    '/public/',
     '/service-worker',
     '/manifest',
 )
@@ -227,6 +313,8 @@ def maybe_redirect_academic_gate():
     """
     from flask import redirect
 
+    if not require_paid_access_enabled():
+        return None
     if not getattr(current_user, 'is_authenticated', False):
         return None
     if session.get('require_org_selection'):
@@ -242,17 +330,15 @@ def maybe_redirect_academic_gate():
             oid = int(sid)
     except Exception:
         pass
-    if oid is None or not is_academic_closed_org(oid):
-        return None
-    if has_active_enrollment(int(current_user.id), oid):
+    if user_has_paid_access(current_user, oid):
         return None
     if _path_allowed_without_enrollment():
         return None
     from flask import flash
 
     flash(
-        'Tu campus se activa al confirmar la matrícula de un programa. '
-        'Completá la inscripción o el pago pendiente.',
+        'Tu acceso privado se activa al confirmar una compra válida '
+        '(membresía, matrícula, pago aprobado o evento confirmado).',
         'info',
     )
     return redirect(academic_gate_redirect_url())

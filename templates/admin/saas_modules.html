@@ -8,6 +8,12 @@
     <div class="{% if show_onboarding_rail %}col-12 col-lg-8{% else %}col-12{% endif %}">
     <h1 class="h4 mb-3"><i class="fas fa-puzzle-piece"></i> Módulos por organización</h1>
     <p class="text-muted small">Asignación tenant ↔ módulo. Los administradores de plataforma no quedan bloqueados por estos flags.</p>
+    <div class="alert alert-info small py-2 mb-3" role="note">
+      <strong>Ventas vs Contabilidad:</strong> el menú <em>Ventas</em> (cotizaciones/facturas) usa el código <code>sales</code>.
+      El menú <em>Contabilidad ERP</em> usa <code>accounting_core</code> (el código <code>accounting</code> legacy se sincroniza con él).
+      <em>Analítica → Ventas</em> depende de <code>analytics</code>, no de <code>sales</code>.
+      Ver <code>backend/docs/MODULOS_SAAS_VENTAS_Y_CONTABILIDAD.md</code>.
+    </div>
     {% if not saas_organizations %}
     <div class="alert alert-warning">No hay empresas registradas. Cree una en <a href="{{ url_for('admin_organization_new') }}">Empresas</a>.</div>
     {% endif %}
@@ -104,8 +110,11 @@
             body: JSON.stringify({ organization_id: oid })
         });
         const j = await r.json();
-        if (!j.success) { showMsg(j.error || 'Error', false); return; }
-        showMsg('Actualizado: ' + code, true);
+        if (!j.success) {
+            showMsg(j.error || 'No se pudo cambiar el módulo.', false);
+            return;
+        }
+        showMsg((enable ? 'Activado: ' : 'Desactivado: ') + code, true);
         load();
     }
     document.getElementById('btnReload').addEventListener('click', load);

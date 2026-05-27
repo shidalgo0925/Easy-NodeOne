@@ -800,6 +800,8 @@ def api_event_detail(slug):
     from flask_login import current_user
 
     event = _scoped_events_query().filter(Event.slug == slug).first_or_404()
+    if (event.publish_status or 'draft').lower() != 'published':
+        abort(404)
     vis = (getattr(event, 'visibility', None) or 'members').strip().lower()
     if vis == 'members' and not current_user.is_authenticated:
         abort(401)

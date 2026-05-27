@@ -109,6 +109,22 @@ def register_public_program_api_routes(app):
             if err == 'organization_unknown':
                 return _cors(jsonify({'error': 'organization_unknown'})), 400
             if err == 'program_not_found':
+                from utils.organization import resolve_current_organization
+                from nodeone.modules.academic_enrollment.catalog_public import (
+                    canonical_catalog_program_slug,
+                )
+
+                oid = resolve_current_organization()
+                canonical = canonical_catalog_program_slug(program_slug)
+                if oid and canonical and canonical != (program_slug or '').strip().lower():
+                    return _cors(
+                        jsonify(
+                            {
+                                'error': 'program_not_found',
+                                'redirect_inscripcion_slug': canonical,
+                            }
+                        )
+                    ), 404
                 return _cors(jsonify({'error': 'program_not_found'})), 404
             return _cors(jsonify(payload))
 
@@ -116,9 +132,31 @@ def register_public_program_api_routes(app):
 
         @app.route('/programs/<program_slug>', methods=['GET'])
         def public_program_landing(program_slug):
+            from utils.organization import resolve_current_organization
+            from nodeone.modules.academic_enrollment.catalog_public import (
+                canonical_catalog_program_slug,
+                inscripcion_redirect_for_legacy_slug,
+            )
+
+            oid = resolve_current_organization()
+            if oid is not None:
+                raw = (program_slug or '').strip().lower()
+                canonical = canonical_catalog_program_slug(program_slug) or raw
+                if canonical != raw:
+                    redir = inscripcion_redirect_for_legacy_slug(program_slug, int(oid))
+                    if redir is not None:
+                        return redir
+
             payload, err = _build_public_program_payload(M, program_slug)
             if err == 'invalid_slug':
                 abort(400)
-            if err in ('organization_unknown', 'program_not_found'):
+            if err == 'organization_unknown':
+                abort(404)
+            if err == 'program_not_found':
+                oid = resolve_current_organization()
+                if oid is not None:
+                    redir = inscripcion_redirect_for_legacy_slug(program_slug, int(oid))
+                    if redir is not None:
+                        return redir
                 abort(404)
             return render_template('public/program_cohorts_landing.html', payload=payload)

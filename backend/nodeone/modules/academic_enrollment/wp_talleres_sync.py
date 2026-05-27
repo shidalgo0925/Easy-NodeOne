@@ -100,6 +100,13 @@ _IMAGE_STEM_TO_SLUG: dict[str, str] = {
 }
 
 _FORMAL_NAMES: dict[str, str] = {
+    'curso-en-arte-tecnicas-anclaje-pnl': (
+        'Técnicas de Anclaje PNL para Desarrollo Personal y Profesional en el Arte'
+    ),
+    'curso-en-creatividad-visualizacion-vak': 'Creatividad con Visualización VAK',
+    'curso-en-arte-herramientas-reencuadre-pnl': 'Arte con Herramientas de Reencuadre PNL',
+    'curso-en-arte-collage-mapas-mentales': 'Arte Collage con Mapas Mentales',
+    # Legacy (solo referencia en mapeos viejos)
     'curso-en-aprendizaje-practico': 'Curso en Aprendizaje Práctico',
     'curso-en-liderazgo-y-comunicacion': 'Curso en Liderazgo y Comunicación',
     'curso-en-creatividad-y-expresion-artistica-aplicada': (

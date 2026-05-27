@@ -14,13 +14,13 @@ CATEGORY_DISPLAY_ORDER: tuple[str, ...] = (
     'Talleres',
 )
 
-# Categoría en Apps y slug canónico (mismo patrón que Cursos en Espiritualidad: curso-en-…).
+# Categoría en Apps y slugs canónicos publicados (orden vitrina Cursos de Arte).
 ARTE_CATEGORY = 'Cursos de Arte'
 ARTE_SLUGS: tuple[str, ...] = (
-    'curso-en-aprendizaje-practico',
-    'curso-en-liderazgo-y-comunicacion',
-    'curso-en-creatividad-y-expresion-artistica-aplicada',
-    'curso-en-desarrollo-humano',
+    'curso-en-arte-tecnicas-anclaje-pnl',
+    'curso-en-creatividad-visualizacion-vak',
+    'curso-en-arte-herramientas-reencuadre-pnl',
+    'curso-en-arte-collage-mapas-mentales',
 )
 # Títulos posibles en Elementor (WP) → se normalizan a ARTE_CATEGORY en pull/push.
 ARTE_WP_SECTION_TITLES: frozenset[str] = frozenset(('Cursos de Arte', 'Cursos en Arte'))
@@ -379,3 +379,40 @@ def adjacent_programs_by_id(organization_id: int, program_id: int) -> tuple[obje
     prev_p = rows[idx - 1] if idx > 0 else None
     next_p = rows[idx + 1] if idx < len(rows) - 1 else None
     return prev_p, next_p
+
+
+def canonical_catalog_program_slug(slug: str | None) -> str | None:
+    """Normaliza slugs legacy (WP /programs, botones viejos) al slug publicado en academic_program."""
+    from nodeone.modules.academic_enrollment.wp_talleres_catalog_sync import canonical_talleres_slug
+    from nodeone.modules.academic_enrollment.wp_talleres_sync import canonical_arte_slug
+
+    s = (slug or '').strip().lower()
+    if not s:
+        return None
+    for fn in (canonical_talleres_slug, canonical_arte_slug):
+        mapped = fn(s)
+        if mapped:
+            s = mapped
+    return s
+
+
+def inscripcion_redirect_for_legacy_slug(slug: str, organization_id: int):
+    """
+    Si el slug legacy ya vive en academic_program publicado, redirige a /inscripcion/<slug>.
+    Retorna Response redirect o None.
+    """
+    from flask import redirect, url_for
+
+    from models.academic_program import AcademicProgram
+
+    canonical = canonical_catalog_program_slug(slug) or (slug or '').strip().lower()
+    if not canonical:
+        return None
+    prog = AcademicProgram.query.filter_by(
+        organization_id=int(organization_id),
+        slug=canonical,
+        status='published',
+    ).first()
+    if prog is None:
+        return None
+    return redirect(url_for('payments.diplomado_landing', slug=canonical), code=301)

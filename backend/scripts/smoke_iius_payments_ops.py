@@ -55,7 +55,7 @@ def main() -> int:
             .order_by(Payment.id.desc())
             .first()
         )
-        if yappy:
+        if yappy and yappy.status in ADMIN_YAPPY_OPEN_STATUSES:
             if is_member_pending_payment(yappy.status, yappy.payment_method):
                 ok(f'yappy id={yappy.id} status={yappy.status} cuenta como pendiente miembro')
             else:
@@ -89,8 +89,15 @@ def main() -> int:
                 ok('UserStatusChecker lista pago yappy pendiente')
             else:
                 fail('UserStatusChecker no lista yappy pendiente')
+        elif yappy:
+            ok(f'yappy id={yappy.id} status={yappy.status} (cola cerrada, ej. cancelado)')
         else:
             ok('sin pagos yappy_manual en BD (skip flujo)')
+
+        open_n = Payment.query.filter(
+            Payment.payment_method == 'yappy_manual',
+            Payment.status.in_(tuple(ADMIN_YAPPY_OPEN_STATUSES)),
+        ).count()
 
         admin = User.query.filter_by(is_admin=True, is_active=True).first()
         if admin:
@@ -116,13 +123,11 @@ def main() -> int:
                     ok('validate bloquea paid directo en pending_receipt')
                 else:
                     fail(f'validate pending_receipt status={r2.status_code} err={body.get("error")}')
+            elif open_n == 0:
+                ok('cola Yappy vacía (sin pendientes operativos)')
         else:
             fail('sin usuario admin para smoke')
 
-        open_n = Payment.query.filter(
-            Payment.payment_method == 'yappy_manual',
-            Payment.status.in_(tuple(ADMIN_YAPPY_OPEN_STATUSES)),
-        ).count()
         ok(f'cola Yappy abierta en BD: {open_n}')
 
     print(f'\nResumen: {len(oks)} OK, {len(fails)} FAIL')

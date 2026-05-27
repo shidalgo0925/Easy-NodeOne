@@ -259,7 +259,6 @@ _ACADEMIC_GATE_ALLOW_ENDPOINTS = frozenset({
     'register',
     'login',
     'logout',
-    'dashboard',
     'resend_verification',
     'verify_email',
     'set_organization',
@@ -341,6 +340,16 @@ def maybe_redirect_academic_gate():
         return None
     if _path_allowed_without_enrollment():
         return None
+    path = (request.path or '').lower()
+    if path.startswith('/api/'):
+        from flask import jsonify
+
+        return jsonify(
+            {
+                'success': False,
+                'message': 'forbidden_paid_access_required',
+            }
+        ), 403
     from flask import flash
 
     flash(

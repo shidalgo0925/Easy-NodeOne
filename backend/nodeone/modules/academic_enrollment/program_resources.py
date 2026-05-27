@@ -139,11 +139,20 @@ def user_has_active_program_enrollment(user, program_id: int, organization_id: i
     return q.first() is not None
 
 
-def can_access_program_resource(user, resource, program) -> bool:
+def can_access_program_resource(user, resource, program, *, lead_token: str | None = None) -> bool:
     if resource is None or not getattr(resource, 'is_active', False):
         return False
     if program is None:
         return False
+    if getattr(resource, 'requires_lead_capture', False):
+        from nodeone.modules.academic_enrollment.program_resource_lead import (
+            lead_token_grants_resource_access,
+        )
+
+        if lead_token_grants_resource_access(resource, lead_token):
+            return True
+        if resource.is_public:
+            return False
     if getattr(resource, 'is_public', False):
         return True
     if getattr(resource, 'requires_purchase', False):
@@ -157,22 +166,31 @@ def resource_download_url(resource_id: int, *, external: bool = False) -> str:
     return url_for('program_resource_download', resource_id=int(resource_id), _external=external)
 
 
+def resource_lead_form_url(resource_id: int, *, external: bool = False) -> str:
+    return url_for('program_resource_lead_form', resource_id=int(resource_id), _external=external)
+
+
 def landing_resource_items(resources, program, user=None) -> list[dict]:
     """Contexto para la plantilla pública de inscripción."""
     if user is None:
         user = current_user
     items: list[dict] = []
     for resource in resources:
-        can_access = can_access_program_resource(user, resource, program)
+        needs_lead = bool(getattr(resource, 'requires_lead_capture', False))
         btn = (resource.button_text or '').strip() or default_button_text(resource.resource_type)
         dl_url = resource_download_url(resource.id)
+        lead_url = resource_lead_form_url(resource.id) if needs_lead else None
+        can_access = can_access_program_resource(user, resource, program)
         locked_login = (
             not resource.is_public
             and resource.requires_login
             and not resource.requires_purchase
             and not can_access
+            and not needs_lead
         )
-        locked_purchase = not resource.is_public and resource.requires_purchase and not can_access
+        locked_purchase = (
+            not resource.is_public and resource.requires_purchase and not can_access and not needs_lead
+        )
         login_url = None
         if locked_login:
             login_url = url_for('auth.login', next=dl_url)
@@ -182,10 +200,12 @@ def landing_resource_items(resources, program, user=None) -> list[dict]:
                 'title': resource.title,
                 'description': (resource.description or '').strip() or None,
                 'button_text': btn,
-                'can_access': can_access,
+                'can_access': can_access and not needs_lead,
+                'needs_lead': needs_lead,
+                'lead_url': lead_url,
                 'locked_login': locked_login,
                 'locked_purchase': locked_purchase,
-                'download_url': dl_url if can_access else None,
+                'download_url': dl_url if can_access and not needs_lead else None,
                 'login_url': login_url,
             }
         )
@@ -206,7 +226,10 @@ def find_resource_for_download(resource_id: int):
 
 def serve_program_resource(resource, program):
     """Sirve archivo local, redirige URL externa o devuelve None si no hay destino."""
-    if not can_access_program_resource(current_user, resource, program):
+    from flask import request
+
+    lead_token = (request.args.get('token') or '').strip() or None
+    if not can_access_program_resource(current_user, resource, program, lead_token=lead_token):
         return None, 'forbidden'
 
     external = (resource.external_url or '').strip()

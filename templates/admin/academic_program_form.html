@@ -558,6 +558,10 @@
                 <input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_requires_purchase" value="1" id="res_buy_{{ res.id }}" {% if res.requires_purchase and not res.is_public %}checked{% endif %} {% if res.is_public %}disabled{% endif %}>
                 <label class="form-check-label small" for="res_buy_{{ res.id }}">Requiere matrícula</label>
               </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_requires_lead_capture" value="1" id="res_lead_{{ res.id }}" {% if res.requires_lead_capture %}checked{% endif %} {% if not res.is_public %}disabled{% endif %}>
+                <label class="form-check-label small" for="res_lead_{{ res.id }}">Captura lead (email)</label>
+              </div>
             </td>
             <td><input class="form-control form-control-sm" form="resource-form-{{ res.id }}" name="resource_sort_order" value="{{ res.sort_order }}" style="width:4rem;"></td>
             <td class="text-center"><input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_is_active" value="1" {% if res.is_active %}checked{% endif %}></td>
@@ -650,6 +654,10 @@
           <div class="form-check">
             <input class="form-check-input" type="checkbox" name="resource_requires_purchase" value="1" id="new_res_buy">
             <label class="form-check-label small" for="new_res_buy">Requiere matrícula</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="resource_requires_lead_capture" value="1" id="new_res_lead">
+            <label class="form-check-label small" for="new_res_lead">Captura lead (email)</label>
           </div>
         </div>
       </div>

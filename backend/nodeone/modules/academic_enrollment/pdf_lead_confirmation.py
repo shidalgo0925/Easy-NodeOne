@@ -18,6 +18,16 @@ def confirmation_url_for_lead(*, base_url: str, program_slug: str, token: str) -
     return f"{base_url.rstrip('/')}/programa-academico/{slug}/confirmar-pdf?token={tok}"
 
 
+def resource_lead_confirmation_url(*, base_url: str, resource_id: int, token: str) -> str:
+    tok = (token or '').strip()
+    return f"{base_url.rstrip('/')}/program-resources/{int(resource_id)}/confirmar?token={tok}"
+
+
+def resource_download_url_with_token(*, base_url: str, resource_id: int, token: str) -> str:
+    tok = (token or '').strip()
+    return f"{base_url.rstrip('/')}/program-resources/{int(resource_id)}/download?token={tok}"
+
+
 def pdf_download_url(*, base_url: str, program_slug: str) -> str:
     slug = (program_slug or '').strip().lower()
     return f"{base_url.rstrip('/')}/programa-academico/{slug}/pdf"
@@ -64,7 +74,7 @@ def _email_html(*, recipient_name: str, program_name: str, confirm_url: str) -> 
 </html>"""
 
 
-def send_confirmation_email(lead, program, *, base_url: str) -> tuple[bool, str | None]:
+def send_confirmation_email(lead, program, *, base_url: str, resource=None) -> tuple[bool, str | None]:
     """Envía correo de confirmación. Retorna (ok, mensaje_error)."""
     try:
         import app as ap
@@ -92,20 +102,30 @@ def send_confirmation_email(lead, program, *, base_url: str) -> tuple[bool, str 
         return False, 'smtp_credentials_missing'
 
     program_name = getattr(program, 'name', None) or lead.program_slug or 'Programa'
-    confirm_url = confirmation_url_for_lead(
-        base_url=base_url,
-        program_slug=lead.program_slug or '',
-        token=lead.confirmation_token or '',
-    )
+    resource_title = (getattr(resource, 'title', None) or '').strip() if resource else ''
+    if resource is not None and getattr(lead, 'resource_id', None):
+        confirm_url = resource_lead_confirmation_url(
+            base_url=base_url,
+            resource_id=int(lead.resource_id),
+            token=lead.confirmation_token or '',
+        )
+        subject_label = resource_title or program_name
+    else:
+        confirm_url = confirmation_url_for_lead(
+            base_url=base_url,
+            program_slug=lead.program_slug or '',
+            token=lead.confirmation_token or '',
+        )
+        subject_label = program_name
     html = _email_html(
         recipient_name=lead.name,
-        program_name=program_name,
+        program_name=subject_label,
         confirm_url=confirm_url,
     )
-    subject = f'Confirmá tu correo — {program_name}'
+    subject = f'Confirmá tu correo — {subject_label}'
     text = (
         f'Hola {lead.name},\n\n'
-        f'Confirmá tu correo para descargar el programa académico ({program_name}):\n'
+        f'Confirmá tu correo para acceder al material ({subject_label}):\n'
         f'{confirm_url}\n\n'
         'El enlace vence en 48 horas.\n'
     )
@@ -131,7 +151,7 @@ def assign_confirmation_token(lead) -> None:
     lead.status = 'pending'
 
 
-def confirm_lead_by_token(*, program_slug: str, token: str):
+def confirm_lead_by_token(*, program_slug: str, token: str, resource_id: int | None = None):
     """Marca lead como confirmado. Retorna (lead, program, error_code)."""
     from models.academic_program import AcademicProgram
     from models.academic_program_pdf_lead import AcademicProgramPdfLead
@@ -139,12 +159,11 @@ def confirm_lead_by_token(*, program_slug: str, token: str):
 
     slug = (program_slug or '').strip().lower()
     tok = (token or '').strip()
-    if not slug or not tok:
+    if not tok:
         return None, None, 'invalid_request'
 
     lead = (
         AcademicProgramPdfLead.query.filter_by(
-            program_slug=slug,
             confirmation_token=tok,
         )
         .order_by(AcademicProgramPdfLead.id.desc())
@@ -153,12 +172,20 @@ def confirm_lead_by_token(*, program_slug: str, token: str):
     if lead is None:
         return None, None, 'token_not_found'
 
+    if resource_id is not None and int(getattr(lead, 'resource_id', 0) or 0) != int(resource_id):
+        return lead, None, 'program_mismatch'
+
+    if slug and (lead.program_slug or '').strip().lower() != slug:
+        return lead, None, 'program_mismatch'
+
     expires = lead.confirmation_token_expires
     if expires and expires < datetime.utcnow():
         return lead, None, 'token_expired'
 
     program = AcademicProgram.query.get(lead.program_id) if lead.program_id else None
-    if program is None or (program.slug or '').strip().lower() != slug:
+    if program is None and slug:
+        program = AcademicProgram.query.filter_by(slug=slug).first()
+    if program is not None and slug and (program.slug or '').strip().lower() != slug:
         return lead, None, 'program_mismatch'
 
     if (lead.status or '').lower() == 'confirmed' and lead.email_confirmed_at:

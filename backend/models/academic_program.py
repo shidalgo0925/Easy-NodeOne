@@ -174,6 +174,7 @@ class AcademicProgramResource(db.Model):
     is_public = db.Column(db.Boolean, default=False, nullable=False)
     requires_login = db.Column(db.Boolean, default=False, nullable=False)
     requires_purchase = db.Column(db.Boolean, default=False, nullable=False)
+    requires_lead_capture = db.Column(db.Boolean, default=False, nullable=False)
     sort_order = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

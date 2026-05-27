@@ -892,13 +892,14 @@ def _delete_plan(program, plan_id: int | None) -> str | None:
     return None
 
 
-def _parse_resource_access_from_form() -> tuple[bool, bool, bool]:
+def _parse_resource_access_from_form() -> tuple[bool, bool, bool, bool]:
     is_public = request.form.get('resource_is_public') == '1'
+    requires_lead = request.form.get('resource_requires_lead_capture') == '1'
     if is_public:
-        return True, False, False
+        return True, False, False, bool(requires_lead)
     requires_purchase = request.form.get('resource_requires_purchase') == '1'
     requires_login = requires_purchase or request.form.get('resource_requires_login') == '1'
-    return False, requires_login, requires_purchase
+    return False, requires_login, requires_purchase, False
 
 
 def _resource_for_program(program, resource_id: int | None):
@@ -969,7 +970,9 @@ def _add_resource_from_form(program, organization_id: int) -> str | None:
     if not file_url and not external_url:
         return 'Subí un archivo o indicá una URL externa.'
 
-    is_public, requires_login, requires_purchase = _parse_resource_access_from_form()
+    is_public, requires_login, requires_purchase, requires_lead = _parse_resource_access_from_form()
+    if requires_lead and not is_public:
+        return 'Captura de lead solo aplica a recursos públicos en landing.'
     try:
         sort_order = int(request.form.get('resource_sort_order') or 0)
     except ValueError:
@@ -988,6 +991,7 @@ def _add_resource_from_form(program, organization_id: int) -> str | None:
         is_public=is_public,
         requires_login=requires_login,
         requires_purchase=requires_purchase,
+        requires_lead_capture=requires_lead,
         sort_order=sort_order,
     )
     db.session.add(row)
@@ -1032,10 +1036,13 @@ def _update_resource_from_form(program, organization_id: int, resource_id: int |
     if not (row.file_url or '').strip() and not (row.external_url or '').strip():
         return 'El recurso debe tener archivo o URL externa.'
 
-    is_public, requires_login, requires_purchase = _parse_resource_access_from_form()
+    is_public, requires_login, requires_purchase, requires_lead = _parse_resource_access_from_form()
+    if requires_lead and not is_public:
+        return 'Captura de lead solo aplica a recursos públicos en landing.'
     row.is_public = is_public
     row.requires_login = requires_login
     row.requires_purchase = requires_purchase
+    row.requires_lead_capture = requires_lead
     row.is_active = request.form.get('resource_is_active') == '1'
     row.description = (request.form.get('resource_description') or '').strip() or None
     button_raw = (request.form.get('resource_button_text') or '').strip()

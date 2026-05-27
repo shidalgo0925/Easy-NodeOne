@@ -14,7 +14,11 @@
         {% endif %}
       </div>
       <div class="pe-resource-card__action">
-        {% if item.can_access %}
+        {% if item.needs_lead and item.lead_url %}
+        <a class="pe-resource-card__btn" href="{{ item.lead_url }}">
+          {{ item.button_text }}
+        </a>
+        {% elif item.can_access %}
         <a class="pe-resource-card__btn" href="{{ item.download_url }}" target="_blank" rel="noopener">
           {{ item.button_text }}
         </a>

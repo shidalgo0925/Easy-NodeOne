@@ -219,3 +219,112 @@ def register_academic_enrollment_public_routes(app):
             if resp is None:
                 abort(404)
             return resp
+
+    if 'program_resource_lead_form' not in _vfs:
+
+        @app.route('/program-resources/<int:resource_id>/solicitar', methods=['GET'])
+        def program_resource_lead_form(resource_id):
+            from flask import abort, render_template
+
+            from nodeone.modules.academic_enrollment.program_resource_lead import find_resource_for_lead
+
+            resource, program = find_resource_for_lead(resource_id)
+            if resource is None or program is None:
+                abort(404)
+            source = (request.args.get('source') or 'landing_resource').strip()[:120] or 'landing_resource'
+            embed = (request.args.get('embed') or '').strip().lower() in ('1', 'true', 'yes')
+            return render_template(
+                'public/program_resource_lead_form.html',
+                program=program,
+                resource=resource,
+                source=source,
+                embed=embed,
+            )
+
+    if 'program_resource_lead_confirm' not in _vfs:
+
+        @app.route('/program-resources/<int:resource_id>/confirmar', methods=['GET'])
+        def program_resource_lead_confirm(resource_id):
+            from flask import abort, redirect, render_template
+
+            from nodeone.modules.academic_enrollment.pdf_lead_confirmation import (
+                confirm_lead_by_token,
+                resource_download_url_with_token,
+            )
+            from nodeone.modules.academic_enrollment.program_resources import find_resource_for_download
+
+            token = (request.args.get('token') or '').strip()
+            if not token:
+                abort(400)
+
+            resource, program = find_resource_for_download(resource_id)
+            if resource is None:
+                abort(404)
+
+            lead, prog, err = confirm_lead_by_token(
+                program_slug=(program.slug or '').strip().lower(),
+                token=token,
+                resource_id=int(resource_id),
+            )
+            if err == 'token_not_found':
+                abort(404)
+            if err == 'token_expired':
+                return render_template(
+                    'public/program_resource_lead_confirm.html',
+                    state='expired',
+                    resource=resource,
+                    program=program,
+                ), 410
+            if err in ('program_mismatch', 'invalid_status', 'invalid_request'):
+                abort(400)
+
+            base = request.host_url.rstrip('/')
+            dl_url = resource_download_url_with_token(
+                base_url=base,
+                resource_id=int(resource_id),
+                token=token,
+            )
+
+            if request.args.get('preview') == '1':
+                return render_template(
+                    'public/program_resource_lead_confirm.html',
+                    state='success',
+                    resource=resource,
+                    program=prog or program,
+                    download_url=dl_url,
+                )
+
+            return redirect(dl_url, code=302)
+
+    if 'public_program_resource_lead_api' not in _vfs:
+
+        @app.route('/api/public/program-resources/<int:resource_id>/lead', methods=['POST', 'OPTIONS'])
+        def public_program_resource_lead_api(resource_id):
+            from flask import jsonify, make_response
+
+            from nodeone.modules.academic_enrollment.catalog_public import resolve_catalog_organization_id
+            from nodeone.modules.academic_enrollment.program_resource_lead import (
+                find_resource_for_lead,
+                submit_resource_lead,
+            )
+
+            def _cors(resp):
+                resp.headers['Access-Control-Allow-Origin'] = '*'
+                resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+                resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+                return resp
+
+            if request.method == 'OPTIONS':
+                return _cors(make_response('', 204))
+
+            oid = resolve_catalog_organization_id()
+            if oid is None:
+                return _cors(jsonify({'success': False, 'message': 'organization_unknown'})), 503
+
+            resource, program = find_resource_for_lead(resource_id)
+            if resource is None or program is None:
+                return _cors(jsonify({'success': False, 'message': 'resource_not_found'})), 404
+
+            payload = request.get_json(silent=True) or {}
+            body, status = submit_resource_lead(resource, program, payload, organization_id=int(oid))
+            return _cors(jsonify(body)), status

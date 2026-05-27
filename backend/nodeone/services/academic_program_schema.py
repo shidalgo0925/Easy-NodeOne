@@ -34,6 +34,23 @@ def ensure_academic_program_schema(db, engine, printfn=None) -> None:
     AcademicProgramResource.__table__.create(engine, checkfirst=True)
 
     insp = inspect(engine)
+    if 'academic_program_resource' in insp.get_table_names():
+        res_cols = {c['name'] for c in insp.get_columns('academic_program_resource')}
+        resource_alters = (('requires_lead_capture', 'BOOLEAN NOT NULL DEFAULT 0'),)
+        for col_name, col_def in resource_alters:
+            if col_name in res_cols:
+                continue
+            try:
+                db.session.execute(
+                    text(f'ALTER TABLE academic_program_resource ADD COLUMN {col_name} {col_def}')
+                )
+                db.session.commit()
+                if printfn:
+                    printfn(f'+ academic_program_resource.{col_name}')
+            except Exception:
+                db.session.rollback()
+                raise
+
     if 'academic_program' not in insp.get_table_names():
         return
     cols = {c['name'] for c in insp.get_columns('academic_program')}

@@ -27,6 +27,12 @@ class AcademicProgramPdfLead(db.Model):
         nullable=True,
         index=True,
     )
+    resource_id = db.Column(
+        db.Integer,
+        db.ForeignKey('academic_program_resource.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
     program_slug = db.Column(db.String(200), nullable=True, index=True)
     crm_lead_id = db.Column(db.Integer, nullable=True, index=True)
 

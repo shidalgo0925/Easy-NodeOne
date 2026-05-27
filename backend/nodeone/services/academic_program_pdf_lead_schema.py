@@ -11,6 +11,7 @@ _ALTER_COLUMNS: tuple[tuple[str, str], ...] = (
     ('confirmation_token_expires', 'DATETIME'),
     ('confirmation_sent_at', 'DATETIME'),
     ('email_confirmed_at', 'DATETIME'),
+    ('resource_id', 'INTEGER'),
 )
 
 

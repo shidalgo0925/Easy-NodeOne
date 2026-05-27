@@ -198,3 +198,24 @@ def register_academic_enrollment_public_routes(app):
                 )
 
             return redirect(pdf_url, code=302)
+
+    if 'program_resource_download' not in _vfs:
+
+        @app.route('/program-resources/<int:resource_id>/download', methods=['GET'])
+        def program_resource_download(resource_id):
+            from flask import abort
+
+            from nodeone.modules.academic_enrollment.program_resources import (
+                find_resource_for_download,
+                serve_program_resource,
+            )
+
+            resource, program = find_resource_for_download(resource_id)
+            if resource is None:
+                abort(404)
+            resp, err = serve_program_resource(resource, program)
+            if err == 'forbidden':
+                abort(403)
+            if resp is None:
+                abort(404)
+            return resp

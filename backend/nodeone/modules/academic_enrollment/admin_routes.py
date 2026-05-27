@@ -78,6 +78,16 @@ def _program_form_context(program, organization_id: int, *, form=None, plans=Non
         nav_prev, nav_next = adjacent_programs_by_id(organization_id, int(program.id))
     if plans is None and program is not None:
         plans = program.pricing_plans.order_by('sort_order', 'id').all()
+    program_resources = []
+    resource_types = ()
+    if program is not None:
+        from nodeone.modules.academic_enrollment.program_resources import (
+            RESOURCE_TYPES,
+            list_resources_for_admin,
+        )
+
+        program_resources = list_resources_for_admin(program.id)
+        resource_types = RESOURCE_TYPES
     wp_target = None
     if program is not None:
         if is_wp_diplomado_slug(program.slug):
@@ -117,6 +127,8 @@ def _program_form_context(program, organization_id: int, *, form=None, plans=Non
         media_audit=media_audit,
         academic_program_pdf_public_url=academic_program_pdf_public_url,
         academic_program_pdf_status=academic_program_pdf_status,
+        program_resources=program_resources,
+        resource_types=resource_types,
     )
 
 
@@ -505,6 +517,22 @@ def program_edit(program_id):
             err = _delete_plan(program, request.form.get('plan_id', type=int))
             flash(err or 'Plan eliminado.', 'error' if err else 'success')
             return redirect(url_for('academic_enrollment_admin.program_edit', program_id=program.id))
+        if action == 'add_resource':
+            err = _add_resource_from_form(program, oid)
+            flash(err or 'Recurso añadido.', 'error' if err else 'success')
+            return redirect(url_for('academic_enrollment_admin.program_edit', program_id=program.id))
+        if action == 'update_resource':
+            err = _update_resource_from_form(program, oid, request.form.get('resource_id', type=int))
+            flash(err or 'Recurso actualizado.', 'error' if err else 'success')
+            return redirect(url_for('academic_enrollment_admin.program_edit', program_id=program.id))
+        if action == 'toggle_resource':
+            err = _toggle_resource_active(program, request.form.get('resource_id', type=int))
+            flash(err or 'Estado del recurso actualizado.', 'error' if err else 'success')
+            return redirect(url_for('academic_enrollment_admin.program_edit', program_id=program.id))
+        if action == 'delete_resource':
+            err = _delete_resource(program, request.form.get('resource_id', type=int))
+            flash(err or 'Recurso eliminado.', 'error' if err else 'success')
+            return redirect(url_for('academic_enrollment_admin.program_edit', program_id=program.id))
         if action == 'archive_program':
             err = _archive_program(program)
             flash(err or 'Programa archivado.', 'error' if err else 'success')
@@ -855,6 +883,197 @@ def _delete_plan(program, plan_id: int | None) -> str | None:
     used = AcademicProgramEnrollment.query.filter_by(pricing_plan_id=row.id).count()
     if used:
         return f'No se puede eliminar: {used} inscripción(es) usan este plan. Desactívelo en su lugar.'
+    db.session.delete(row)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return str(e)
+    return None
+
+
+def _parse_resource_access_from_form() -> tuple[bool, bool, bool]:
+    is_public = request.form.get('resource_is_public') == '1'
+    if is_public:
+        return True, False, False
+    requires_purchase = request.form.get('resource_requires_purchase') == '1'
+    requires_login = requires_purchase or request.form.get('resource_requires_login') == '1'
+    return False, requires_login, requires_purchase
+
+
+def _resource_for_program(program, resource_id: int | None):
+    from models.academic_program import AcademicProgramResource
+
+    if not resource_id:
+        return None, 'Recurso no indicado.'
+    row = AcademicProgramResource.query.filter_by(id=int(resource_id), program_id=program.id).first()
+    if row is None:
+        return None, 'Recurso no encontrado.'
+    return row, None
+
+
+def _apply_resource_file_upload(program, organization_id: int, *, existing_file: str | None = None) -> tuple[str | None, str | None]:
+    from nodeone.modules.academic_enrollment.uploads import _remove_stored_if_local, save_program_media_upload
+
+    clear_file = request.form.get('resource_clear_file') == '1'
+    storage = request.files.get('resource_file')
+    manual_url = (request.form.get('resource_file_url') or '').strip()
+
+    if clear_file and existing_file:
+        _remove_stored_if_local(existing_file)
+        return None, None
+
+    if storage and getattr(storage, 'filename', None) and (storage.filename or '').strip():
+        if existing_file:
+            _remove_stored_if_local(existing_file)
+        path, err = save_program_media_upload(
+            organization_id,
+            storage,
+            kind='resource',
+            slug=program.slug,
+        )
+        return path, err
+
+    if manual_url:
+        from nodeone.modules.academic_enrollment.program_resources import normalize_resource_file_url
+
+        validated, path_err = normalize_resource_file_url(manual_url)
+        if path_err:
+            return None, path_err
+        return validated, None
+
+    return existing_file, None
+
+
+def _add_resource_from_form(program, organization_id: int) -> str | None:
+    from models.academic_program import AcademicProgramResource
+    from nodeone.modules.academic_enrollment.program_resources import RESOURCE_TYPE_KEYS, default_button_text
+
+    title = (request.form.get('resource_title') or '').strip()
+    if not title:
+        return 'Título del recurso es obligatorio.'
+    resource_type = (request.form.get('resource_type') or 'other').strip().lower()
+    if resource_type not in RESOURCE_TYPE_KEYS:
+        return 'Tipo de recurso no válido.'
+
+    file_url, file_err = _apply_resource_file_upload(program, organization_id)
+    if file_err:
+        return file_err
+    external_url = (request.form.get('resource_external_url') or '').strip() or None
+    if external_url:
+        from nodeone.modules.academic_enrollment.program_resources import validate_external_url
+
+        ok, ext_err = validate_external_url(external_url)
+        if not ok:
+            return ext_err
+    if not file_url and not external_url:
+        return 'Subí un archivo o indicá una URL externa.'
+
+    is_public, requires_login, requires_purchase = _parse_resource_access_from_form()
+    try:
+        sort_order = int(request.form.get('resource_sort_order') or 0)
+    except ValueError:
+        sort_order = 0
+
+    button_text = (request.form.get('resource_button_text') or '').strip() or default_button_text(resource_type)
+    row = AcademicProgramResource(
+        program_id=program.id,
+        title=title,
+        description=(request.form.get('resource_description') or '').strip() or None,
+        resource_type=resource_type,
+        button_text=button_text,
+        file_url=file_url,
+        external_url=external_url,
+        is_active=request.form.get('resource_is_active') != '0',
+        is_public=is_public,
+        requires_login=requires_login,
+        requires_purchase=requires_purchase,
+        sort_order=sort_order,
+    )
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return str(e)
+    return None
+
+
+def _update_resource_from_form(program, organization_id: int, resource_id: int | None) -> str | None:
+    from nodeone.modules.academic_enrollment.program_resources import RESOURCE_TYPE_KEYS, default_button_text
+
+    row, err = _resource_for_program(program, resource_id)
+    if err:
+        return err
+
+    title = (request.form.get('resource_title') or '').strip()
+    if title:
+        row.title = title
+    resource_type = (request.form.get('resource_type') or row.resource_type or 'other').strip().lower()
+    if resource_type not in RESOURCE_TYPE_KEYS:
+        return 'Tipo de recurso no válido.'
+    row.resource_type = resource_type
+
+    file_url, file_err = _apply_resource_file_upload(program, organization_id, existing_file=row.file_url)
+    if file_err:
+        return file_err
+    row.file_url = file_url
+    external_raw = request.form.get('resource_external_url')
+    if external_raw is not None:
+        ext_val = (external_raw or '').strip() or None
+        if ext_val:
+            from nodeone.modules.academic_enrollment.program_resources import validate_external_url
+
+            ok, ext_err = validate_external_url(ext_val)
+            if not ok:
+                return ext_err
+        row.external_url = ext_val
+
+    if not (row.file_url or '').strip() and not (row.external_url or '').strip():
+        return 'El recurso debe tener archivo o URL externa.'
+
+    is_public, requires_login, requires_purchase = _parse_resource_access_from_form()
+    row.is_public = is_public
+    row.requires_login = requires_login
+    row.requires_purchase = requires_purchase
+    row.is_active = request.form.get('resource_is_active') == '1'
+    row.description = (request.form.get('resource_description') or '').strip() or None
+    button_raw = (request.form.get('resource_button_text') or '').strip()
+    row.button_text = button_raw or default_button_text(resource_type)
+    try:
+        row.sort_order = int(request.form.get('resource_sort_order') or row.sort_order or 0)
+    except ValueError:
+        pass
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return str(e)
+    return None
+
+
+def _toggle_resource_active(program, resource_id: int | None) -> str | None:
+    row, err = _resource_for_program(program, resource_id)
+    if err:
+        return err
+    row.is_active = not bool(row.is_active)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return str(e)
+    return None
+
+
+def _delete_resource(program, resource_id: int | None) -> str | None:
+    from nodeone.modules.academic_enrollment.uploads import _remove_stored_if_local
+
+    row, err = _resource_for_program(program, resource_id)
+    if err:
+        return err
+    if row.file_url:
+        _remove_stored_if_local(row.file_url)
     db.session.delete(row)
     try:
         db.session.commit()

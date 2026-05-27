@@ -79,6 +79,13 @@ def diplomado_landing(slug):
         )
 
         media_src = enrollment_media_path(program) or ''
+        from nodeone.modules.academic_enrollment.program_resources import (
+            landing_resource_items,
+            list_active_resources_for_program,
+        )
+
+        downloadable_resources = list_active_resources_for_program(program.id)
+        resource_items = landing_resource_items(downloadable_resources, program)
         return render_template(
             'public/program_enrollment.html',
             program=program,
@@ -90,6 +97,8 @@ def diplomado_landing(slug):
             nav_next=nav_next,
             media_src=media_src,
             media_is_pdf=enrollment_media_is_pdf(media_src),
+            downloadable_resources=downloadable_resources,
+            resource_items=resource_items,
         )
     from nodeone.modules.events.inscripcion_bridge import (
         find_event_for_inscripcion,

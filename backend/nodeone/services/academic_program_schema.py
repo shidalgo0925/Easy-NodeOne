@@ -23,10 +23,15 @@ _ACADEMIC_PROGRAM_ALTER_COLUMNS: tuple[tuple[str, str], ...] = (
 
 
 def ensure_academic_program_schema(db, engine, printfn=None) -> None:
-    from models.academic_program import AcademicProgram, AcademicProgramPricingPlan
+    from models.academic_program import (
+        AcademicProgram,
+        AcademicProgramPricingPlan,
+        AcademicProgramResource,
+    )
 
     AcademicProgram.__table__.create(engine, checkfirst=True)
     AcademicProgramPricingPlan.__table__.create(engine, checkfirst=True)
+    AcademicProgramResource.__table__.create(engine, checkfirst=True)
 
     insp = inspect(engine)
     if 'academic_program' not in insp.get_table_names():

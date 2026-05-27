@@ -1,0 +1,37 @@
+{% if resource_items %}
+<section class="pe-resources" aria-labelledby="pe-resources-title">
+  <div class="pe-resources__head">
+    <h2 id="pe-resources-title">Material descargable</h2>
+    <p>Documentos e información del programa. Algunos recursos pueden requerir cuenta o matrícula confirmada.</p>
+  </div>
+  <ul class="pe-resources__list">
+    {% for item in resource_items %}
+    <li class="pe-resource-card">
+      <div class="pe-resource-card__body">
+        <strong class="pe-resource-card__title">{{ item.title }}</strong>
+        {% if item.description %}
+        <p class="pe-resource-card__desc">{{ item.description }}</p>
+        {% endif %}
+      </div>
+      <div class="pe-resource-card__action">
+        {% if item.can_access %}
+        <a class="pe-resource-card__btn" href="{{ item.download_url }}" target="_blank" rel="noopener">
+          {{ item.button_text }}
+        </a>
+        {% elif item.locked_login and item.login_url %}
+        <a class="pe-resource-card__btn pe-resource-card__btn--muted" href="{{ item.login_url }}">
+          Iniciá sesión para {{ item.button_text|lower }}
+        </a>
+        {% elif item.locked_purchase %}
+        <span class="pe-resource-card__locked" title="Disponible tras matrícula confirmada">
+          <i class="fas fa-lock" aria-hidden="true"></i> {{ item.button_text }} — requiere matrícula
+        </span>
+        {% else %}
+        <span class="pe-resource-card__locked">{{ item.button_text }} — no disponible</span>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}

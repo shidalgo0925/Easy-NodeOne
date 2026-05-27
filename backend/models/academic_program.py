@@ -84,6 +84,12 @@ class AcademicProgram(db.Model):
         cascade='all, delete-orphan',
     )
     enrollments = db.relationship('AcademicProgramEnrollment', back_populates='program', lazy='dynamic')
+    resources = db.relationship(
+        'AcademicProgramResource',
+        back_populates='program',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+    )
 
     __table_args__ = (db.UniqueConstraint('organization_id', 'slug', name='uq_academic_program_org_slug'),)
 
@@ -149,3 +155,27 @@ class AcademicProgramEnrollment(db.Model):
     program = db.relationship('AcademicProgram', back_populates='enrollments', foreign_keys=[program_id])
     user = db.relationship('User', backref=db.backref('academic_program_enrollments', lazy='dynamic'))
     pricing_plan = db.relationship('AcademicProgramPricingPlan', backref=db.backref('enrollments', lazy='dynamic'))
+
+
+class AcademicProgramResource(db.Model):
+    __tablename__ = 'academic_program_resource'
+
+    id = db.Column(db.Integer, primary_key=True)
+    program_id = db.Column(
+        db.Integer, db.ForeignKey('academic_program.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    title = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    resource_type = db.Column(db.String(32), nullable=False, default='other', index=True)
+    button_text = db.Column(db.String(200), nullable=True)
+    file_url = db.Column(db.String(500), nullable=True)
+    external_url = db.Column(db.String(500), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_public = db.Column(db.Boolean, default=False, nullable=False)
+    requires_login = db.Column(db.Boolean, default=False, nullable=False)
+    requires_purchase = db.Column(db.Boolean, default=False, nullable=False)
+    sort_order = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    program = db.relationship('AcademicProgram', back_populates='resources', foreign_keys=[program_id])

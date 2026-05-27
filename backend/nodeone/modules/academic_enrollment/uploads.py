@@ -13,6 +13,10 @@ PDF_ONLY_EXTENSIONS = frozenset({'pdf'})
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_FLYER_BYTES = 10 * 1024 * 1024
 MAX_ACADEMIC_PROGRAM_PDF_BYTES = 25 * 1024 * 1024
+RESOURCE_EXTENSIONS = frozenset(
+    {'pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'}
+)
+MAX_RESOURCE_BYTES = 25 * 1024 * 1024
 
 
 def _uploads_dir(organization_id: int) -> str:
@@ -79,6 +83,11 @@ def save_program_media_upload(
             return None, 'Programa académico: solo PDF.'
         max_bytes = MAX_ACADEMIC_PROGRAM_PDF_BYTES
         prefix = 'program_pdf'
+    elif kind == 'resource':
+        if not _ext_allowed(filename, RESOURCE_EXTENSIONS):
+            return None, 'Recurso: use PDF, imagen u Office (doc, ppt, xls).'
+        max_bytes = MAX_RESOURCE_BYTES
+        prefix = 'resource'
     else:
         return None, 'Tipo de archivo no válido.'
 

@@ -11,6 +11,8 @@
   .ap-plans-table th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: #64748b; }
   .ap-plans-table td { vertical-align: middle; font-size: .875rem; }
   .ap-plans-table .form-control-sm { min-width: 5rem; }
+  .ap-resources-table th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: #64748b; }
+  .ap-resources-table td { vertical-align: middle; font-size: .875rem; }
   .ap-program-nav { display: flex; align-items: stretch; justify-content: space-between; gap: .75rem; margin-bottom: 1.25rem; }
   .ap-nav-btn { flex: 1; max-width: 48%; display: inline-flex; align-items: center; gap: .55rem; padding: .65rem .9rem; border-radius: 999px; font-size: .85rem; font-weight: 600; text-decoration: none; border: 1px solid #dee2e6; background: #fff; color: #1e293b; box-shadow: 0 2px 8px rgba(15,23,42,.06); }
   .ap-nav-btn:hover { border-color: #94a3b8; color: #0f172a; }
@@ -500,6 +502,158 @@
         </div>
       </div>
       <button type="submit" class="btn btn-sm btn-outline-primary mt-2">Añadir plan</button>
+    </form>
+  </section>
+
+  <section class="ap-form-section" aria-labelledby="sec-resources">
+    <h2 class="ap-section-title" id="sec-resources">7. Recursos del programa</h2>
+    <p class="ap-section-lead">
+      Brochures, calendarios, PDFs y enlaces en la landing <code>/inscripcion/{{ program.slug }}</code>.
+      Público = sin login ni compra. Si no es público, podés exigir sesión o matrícula pagada.
+    </p>
+    {% if program_resources %}
+    {% for res in program_resources %}
+    <form method="post" enctype="multipart/form-data" id="resource-form-{{ res.id }}" class="d-none" aria-hidden="true">
+      <input type="hidden" name="action" value="update_resource">
+      <input type="hidden" name="resource_id" value="{{ res.id }}">
+    </form>
+    {% endfor %}
+    <div class="table-responsive mb-3">
+      <table class="table table-sm table-bordered ap-resources-table mb-0">
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>Tipo</th>
+            <th>Acceso</th>
+            <th>Orden</th>
+            <th>Activo</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for res in program_resources %}
+          <tr>
+            <td>
+              <input class="form-control form-control-sm" form="resource-form-{{ res.id }}" name="resource_title" value="{{ res.title }}" required>
+              <textarea class="form-control form-control-sm mt-1" form="resource-form-{{ res.id }}" name="resource_description" rows="2" placeholder="Descripción opcional">{{ res.description or '' }}</textarea>
+            </td>
+            <td>
+              <select class="form-select form-select-sm" form="resource-form-{{ res.id }}" name="resource_type">
+                {% for rk, rl in resource_types %}
+                <option value="{{ rk }}" {% if res.resource_type == rk %}selected{% endif %}>{{ rl }}</option>
+                {% endfor %}
+              </select>
+              <input class="form-control form-control-sm mt-1" form="resource-form-{{ res.id }}" name="resource_button_text" value="{{ res.button_text or '' }}" placeholder="Texto botón">
+            </td>
+            <td style="min-width: 9rem;">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_is_public" value="1" id="res_pub_{{ res.id }}" {% if res.is_public %}checked{% endif %}>
+                <label class="form-check-label small" for="res_pub_{{ res.id }}">Público</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_requires_login" value="1" id="res_login_{{ res.id }}" {% if res.requires_login and not res.is_public %}checked{% endif %} {% if res.is_public %}disabled{% endif %}>
+                <label class="form-check-label small" for="res_login_{{ res.id }}">Requiere login</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_requires_purchase" value="1" id="res_buy_{{ res.id }}" {% if res.requires_purchase and not res.is_public %}checked{% endif %} {% if res.is_public %}disabled{% endif %}>
+                <label class="form-check-label small" for="res_buy_{{ res.id }}">Requiere matrícula</label>
+              </div>
+            </td>
+            <td><input class="form-control form-control-sm" form="resource-form-{{ res.id }}" name="resource_sort_order" value="{{ res.sort_order }}" style="width:4rem;"></td>
+            <td class="text-center"><input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_is_active" value="1" {% if res.is_active %}checked{% endif %}></td>
+            <td class="text-nowrap">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#res-edit-{{ res.id }}">Archivo</button>
+              <button type="submit" class="btn btn-sm btn-primary" form="resource-form-{{ res.id }}">Guardar</button>
+              <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar recurso?');">
+                <input type="hidden" name="action" value="delete_resource">
+                <input type="hidden" name="resource_id" value="{{ res.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">×</button>
+              </form>
+            </td>
+          </tr>
+          <tr class="collapse" id="res-edit-{{ res.id }}">
+            <td colspan="6" class="bg-light">
+              <div class="row g-2 small">
+                <div class="col-md-4">
+                  <label class="form-label mb-0">Archivo actual</label>
+                  {% if res.file_url %}
+                  <div><code class="small">{{ res.file_url }}</code></div>
+                  {% else %}
+                  <div class="text-muted">Sin archivo</div>
+                  {% endif %}
+                  <input class="form-control form-control-sm mt-1" type="file" form="resource-form-{{ res.id }}" name="resource_file">
+                  {% if res.file_url %}
+                  <div class="form-check mt-1">
+                    <input class="form-check-input" type="checkbox" form="resource-form-{{ res.id }}" name="resource_clear_file" value="1" id="res_clear_{{ res.id }}">
+                    <label class="form-check-label" for="res_clear_{{ res.id }}">Quitar archivo</label>
+                  </div>
+                  {% endif %}
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label mb-0">URL externa</label>
+                  <input class="form-control form-control-sm" form="resource-form-{{ res.id }}" name="resource_external_url" value="{{ res.external_url or '' }}" placeholder="https://…">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label mb-0">Ruta manual (opcional)</label>
+                  <input class="form-control form-control-sm font-monospace" form="resource-form-{{ res.id }}" name="resource_file_url" value="{{ res.file_url or '' }}">
+                  <div class="form-text">Descarga: <code>/program-resources/{{ res.id }}/download</code></div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Sin recursos configurados. El bloque «Material descargable» no aparecerá en la landing.</p>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="border rounded p-3 bg-light">
+      <input type="hidden" name="action" value="add_resource">
+      <p class="small fw-semibold mb-2">Añadir recurso</p>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <input class="form-control form-control-sm" name="resource_title" required placeholder="Título *">
+        </div>
+        <div class="col-md-3">
+          <select class="form-select form-select-sm" name="resource_type">
+            {% for rk, rl in resource_types %}
+            <option value="{{ rk }}">{{ rl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <input class="form-control form-control-sm" type="number" name="resource_sort_order" value="{{ program_resources|length }}" placeholder="Orden">
+        </div>
+        <div class="col-md-3">
+          <input class="form-control form-control-sm" type="file" name="resource_file">
+        </div>
+        <div class="col-md-6">
+          <input class="form-control form-control-sm" name="resource_external_url" placeholder="URL externa (opcional)">
+        </div>
+        <div class="col-md-6">
+          <input class="form-control form-control-sm" name="resource_button_text" placeholder="Texto del botón (opcional)">
+        </div>
+        <div class="col-12">
+          <textarea class="form-control form-control-sm" name="resource_description" rows="2" placeholder="Descripción corta (opcional)"></textarea>
+        </div>
+        <div class="col-md-4 d-flex flex-wrap gap-3 align-items-center">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="resource_is_public" value="1" id="new_res_public">
+            <label class="form-check-label small" for="new_res_public">Público (sin login)</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="resource_requires_login" value="1" id="new_res_login">
+            <label class="form-check-label small" for="new_res_login">Requiere login</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="resource_requires_purchase" value="1" id="new_res_buy">
+            <label class="form-check-label small" for="new_res_buy">Requiere matrícula</label>
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-sm btn-outline-primary mt-2">Añadir recurso</button>
     </form>
   </section>
 

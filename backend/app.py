@@ -3179,6 +3179,12 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ security_matrix_manager bootstrap: {e}')
         try:
+            from nodeone.services.efactura_schema import ensure_efactura_schema
+
+            ensure_efactura_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_efactura_schema: {e}')
+        try:
             from nodeone.services.payment_config_provision import bootstrap_tenant_payment_setup
 
             bootstrap_tenant_payment_setup()

@@ -43,6 +43,8 @@ import os
 # NODEONE_SKIP_ACADEMIC_MODULE=1 — no registrar Educación/LMS (estudiantes, cursos, matrículas, API Moodle).
 # NODEONE_ACADEMIC_MODULE_ENABLED=0 — apaga el módulo en todo el despliegue (además del toggle SaaS `academic` por tenant).
 # NODEONE_SKIP_CONTADOR_MODULE=1 — no registrar Contador (también inactiva toggles; el flag SaaS `contador` vive en saas_module).
+# NODEONE_SKIP_EFACTURA_MODULE=1 — no registrar Facturación electrónica (/admin/efactura, /api/admin/efactura).
+# NODEONE_EFACTURA_MODULE_ENABLED=0 — apaga el módulo FE en todo el despliegue (además del toggle SaaS `efactura` por tenant).
 # NODEONE_SKIP_QR_GENERATOR_MODULE=1 — no registrar Generador QR (/admin/tools/qr, /api/qr/*).
 # NODEONE_SKIP_QR_TOOLS_MODULE=1 — no registrar QR mínimo (/api/tools/qr/generate, /tools/qr/simple).
 
@@ -902,6 +904,18 @@ def register_contador_blueprints(app):
         print(f'Warning: No se pudo registrar Contador: {e}')
 
 
+def register_efactura_blueprints(app):
+    """Facturación electrónica Panamá (/admin/efactura, /api/admin/efactura)."""
+    if os.environ.get('NODEONE_SKIP_EFACTURA_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.efactura.register import register_efactura_blueprints as _reg
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar efactura: {e}')
+
+
 def register_accounting_core_blueprint(app):
     """Núcleo contable ERP Fase 1 (/admin/accounting-core/*)."""
     if os.environ.get('NODEONE_SKIP_ACCOUNTING_CORE_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
@@ -989,6 +1003,7 @@ def register_modules(app):
     register_workshop_blueprints(app)
     register_academic_module(app)
     register_contador_blueprints(app)
+    register_efactura_blueprints(app)
     register_security_matrix_blueprints(app)
     register_qr_generator_routes(app)
     register_qr_tools_routes(app)

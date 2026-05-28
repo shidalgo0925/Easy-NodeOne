@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}FE — Emisiones{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h1 class="h3 mb-3">Facturación electrónica — Emisiones</h1>
+  <ul class="nav nav-tabs mb-4">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('efactura_admin.efactura_config') }}">Configuración</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('efactura_admin.efactura_emissions') }}">Emisiones</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('efactura_admin.efactura_test_invoice') }}">Emitir prueba</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('efactura_admin.efactura_logs') }}">Logs</a></li>
+  </ul>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+      <select name="status" class="form-select form-select-sm">
+        <option value="">Todos los estados</option>
+        {% for s in ['draft','pending','sent','accepted','rejected','error','cancelled','credited'] %}
+        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto"><button class="btn btn-sm btn-secondary" type="submit">Filtrar</button></div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-hover">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Referencia</th>
+          <th>Cliente</th>
+          <th>Total</th>
+          <th>Estado</th>
+          <th>CUFE</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in documents %}
+        <tr>
+          <td>{{ d.created_at.strftime('%Y-%m-%d %H:%M') if d.created_at else '—' }}</td>
+          <td>{{ d.document_type }}</td>
+          <td><a href="{{ url_for('efactura_admin.efactura_emission_detail', doc_id=d.id) }}">{{ d.internal_reference or d.id }}</a></td>
+          <td>{{ d.customer_name or '—' }}</td>
+          <td>{{ d.currency }} {{ '%.2f'|format(d.total|float) }}</td>
+          <td><span class="badge bg-secondary">{{ d.status }}</span></td>
+          <td class="small text-truncate" style="max-width:12rem">{{ d.cufe or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-muted">Sin emisiones.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if pagination.pages > 1 %}
+  <nav>
+    <ul class="pagination pagination-sm">
+      {% for p in range(1, pagination.pages + 1) %}
+      <li class="page-item {% if p == pagination.page %}active{% endif %}">
+        <a class="page-link" href="?page={{ p }}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ p }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

@@ -67,6 +67,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         False,
     ),
     (
+        'efactura',
+        'Facturación electrónica',
+        'Emisión FE Panamá (PAC efacturapty y futuros proveedores).',
+        False,
+    ),
+    (
         'qr_generator',
         'Generador QR',
         'Generación de códigos QR estáticos (PNG, SVG, PDF) e historial por organización.',

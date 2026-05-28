@@ -605,6 +605,29 @@
                             </ul>
                         </li>
                         {% endif %}
+                        {% if show_tenant_admin_menu and saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config') %}
+                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--efactura {% if request.blueprint in ['efactura_admin', 'efactura_api'] or (request.path or '').startswith('/admin/efactura') or (request.path or '').startswith('/api/admin/efactura') %}show{% endif %}" data-nav-group-key="efactura">
+                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Facturación electrónica Panamá">
+                                <i class="menu-icon fas fa-receipt"></i>
+                                <span class="menu-title-text">Fact. electrónica</span>
+                                <i class="menu-arrow fas fa-chevron-down"></i>
+                            </a>
+                            <ul class="nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'efactura_admin.efactura_config' %}active{% endif %}" href="{{ url_for('efactura_admin.efactura_config') }}">Configuración</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'efactura_admin.efactura_emissions' %}active{% endif %}" href="{{ url_for('efactura_admin.efactura_emissions') }}">Emisiones</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'efactura_admin.efactura_test_invoice' %}active{% endif %}" href="{{ url_for('efactura_admin.efactura_test_invoice') }}">Emitir prueba</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint == 'efactura_admin.efactura_logs' %}active{% endif %}" href="{{ url_for('efactura_admin.efactura_logs') }}">Logs</a>
+                                </li>
+                            </ul>
+                        </li>
+                        {% endif %}
                         {% if show_tenant_admin_menu and nav_can('payments.view') and _nav_contabilidad %}
                         <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--accounting {% if request.endpoint in ['accounting_core.accounts_list', 'accounting_core.journals_list', 'accounting_core.entries_list', 'accounting_core.entries_new', 'accounting_core.entry_detail', 'accounting_core.receivables_list', 'accounting_core.receivables_customers_list', 'accounting_core.adjustments_list'] %}show{% endif %}" data-nav-group-key="accounting_contabilidad">
                             <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Contabilidad">

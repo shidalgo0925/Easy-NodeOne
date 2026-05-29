@@ -3185,12 +3185,33 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_efactura_schema: {e}')
         try:
+            from nodeone.services.contacts_schema import ensure_contacts_schema
+
+            ensure_contacts_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_contacts_schema: {e}')
+        # WIP comercial (tenant_crm_contact): solo si se pide explícitamente; evita abortar la sesión en Fase 1 Contactos.
+        if os.environ.get('NODEONE_COMMERCIAL_PARTNERS_SCHEMA', '').strip().lower() in ('1', 'true', 'yes'):
+            try:
+                from nodeone.services.commercial_partner_schema import ensure_commercial_partner_schema
+
+                ensure_commercial_partner_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+            except Exception as e:
+                db.session.rollback()
+                print(f'⚠️ ensure_commercial_partner_schema: {e}')
+        try:
             from nodeone.services.payment_config_provision import bootstrap_tenant_payment_setup
 
             bootstrap_tenant_payment_setup()
             print('📋 organization_payment_methods + PaymentConfig por tenant: listo')
         except Exception as e:
+            db.session.rollback()
             print(f'⚠️ tenant payment bootstrap: {e}')
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         apply_email_config_from_db()
 
 

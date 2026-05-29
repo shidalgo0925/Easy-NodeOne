@@ -11,11 +11,13 @@
   }
   const qid = Number(root.dataset.quotationId);
   const Q_BASE = String(root.dataset.salesApiBase || '/api/sales/quotations').replace(/\/$/, '');
+  const CONTACTS_API_BASE = '/api/admin/contacts';
   const WORKSHOP_API_BASE = String(root.dataset.workshopApiBase || '/api/workshop').replace(/\/$/, '');
   const err = document.getElementById('formError');
   const lineItems = document.getElementById('lineItems');
   if (!lineItems) return;
   const customerId = document.getElementById('customerId');
+  const customerContactId = document.getElementById('quoteCustomerContactId');
   const customerSearch = document.getElementById('customerSearch');
   const customerMenu = document.getElementById('customerMenu');
   const salespersonSearch = document.getElementById('salespersonSearch');
@@ -631,7 +633,7 @@
           u.email && String(u.email) !== String(u.name || '')
             ? `<span class="odoo-m2o-item-meta">${escHtml(u.email)}</span>`
             : '';
-        return `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
+        return `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-m2o-opt" data-contact-id="${u.id}" data-user-id="${u.linked_user_id != null ? u.linked_user_id : ''}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
       })
       .join('');
     let mid = '';
@@ -642,7 +644,7 @@
     }
     const footer =
       '<div class="odoo-m2o-footer border-top">' +
-      '<a href="/admin/users" target="_blank" rel="noopener" class="odoo-m2o-more">Buscar más…</a>' +
+      '<a href="/admin/contacts" target="_blank" rel="noopener" class="odoo-m2o-more">Administrar contactos…</a>' +
       '</div>';
     const hint = '<div class="odoo-m2o-hint">Empiece a escribir…</div>';
     return `${head}${mid}${footer}${hint}`;
@@ -650,7 +652,7 @@
 
   async function fetchCustomers(q, limit) {
     return fetchJsonAbsolute(
-      `${WORKSHOP_API_BASE}/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+      `${CONTACTS_API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     );
   }
 
@@ -674,12 +676,14 @@
       if (fid !== root._custFetch) return;
       customerMenu.innerHTML =
         `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>` +
-        '<div class="odoo-m2o-hint small px-3 pb-2">Si el módulo Taller está desactivado, no hay API de clientes.</div>';
+        '<div class="odoo-m2o-hint small px-3 pb-2">Active Contactos (Comercial) y cree clientes en Admin → Comercial → Contactos.</div>';
     }
   }
 
   function applyCustomerPick(u) {
-    customerId.value = String(u.id);
+    if (customerContactId) customerContactId.value = String(u.id);
+    if (u.linked_user_id) customerId.value = String(u.linked_user_id);
+    else customerId.value = '';
     const disp = u.email && u.name ? `${u.name} (${u.email})` : (u.name || u.email || '');
     customerSearch.value = disp;
     customerSearch.dataset.lockedLabel = disp;
@@ -691,13 +695,17 @@
     if (!t) return;
     clearError();
     try {
-      let res;
-      if (t.includes('@')) {
-        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { email: t.toLowerCase() });
-      } else {
-        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { quick_create_name: t });
-      }
-      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      const body = t.includes('@')
+        ? { name: t, fiscal_email: t.toLowerCase(), person_type: 'natural' }
+        : { name: t, person_type: 'final_consumer' };
+      const res = await fetchJsonAbsolute(`${CONTACTS_API_BASE}`, 'POST', body);
+      const c = res.contact || res;
+      applyCustomerPick({
+        id: c.id,
+        linked_user_id: c.linked_user_id,
+        name: c.name,
+        email: c.email,
+      });
       closeCustomerMenu();
     } catch (e) {
       showError(e.message);
@@ -740,15 +748,22 @@
     const ln = document.getElementById('quoteNewCustLast');
     const ph = document.getElementById('quoteNewCustPhone');
     const er = document.getElementById('quoteNewCustErr');
+    const name = [(fn && fn.value.trim()) || '', (ln && ln.value.trim()) || ''].join(' ').trim();
     const payload = {
-      email: (em && em.value.trim()) || '',
-      first_name: (fn && fn.value.trim()) || '',
-      last_name: (ln && ln.value.trim()) || '',
-      phone: (ph && ph.value.trim()) || '',
+      name: name || (em && em.value.trim()) || 'Contacto',
+      fiscal_email: (em && em.value.trim()) || '',
+      fiscal_phone: (ph && ph.value.trim()) || '',
+      person_type: 'natural',
     };
     try {
-      const res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', payload);
-      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      const res = await fetchJsonAbsolute(`${CONTACTS_API_BASE}`, 'POST', payload);
+      const c = res.contact || res;
+      applyCustomerPick({
+        id: c.id,
+        linked_user_id: c.linked_user_id,
+        name: c.name,
+        email: c.email,
+      });
       const modalEl = document.getElementById('quoteNewCustomerModal');
       if (window.bootstrap && modalEl) window.bootstrap.Modal.getInstance(modalEl)?.hide();
       if (er) {
@@ -1087,6 +1102,9 @@
     root.dataset.status = q.status;
     document.getElementById('qNumber').textContent = q.number;
     customerId.value = q.customer_id || '';
+    if (customerContactId) {
+      customerContactId.value = q.contact_id || q.customer_contact_id || '';
+    }
     if (customerSearch) {
       const disp = q.customer_email
         ? `${(q.customer_name || q.customer_email).trim()} (${q.customer_email})`
@@ -1174,8 +1192,15 @@
     const lines = wasEditable
       ? window.QuotationLinesComponent.collect(lineItems)
       : linesFromApiQuote(quote);
+    const ccid = Number(customerContactId && customerContactId.value) || 0;
+    if (ccid < 1) {
+      showError('Seleccione un contacto cliente.');
+      return;
+    }
+    const cid = Number(customerId.value) || 0;
     const payload = {
-      customer_id: Number(customerId.value) || null,
+      contact_id: ccid,
+      customer_id: cid > 0 ? cid : undefined,
       validity_date: validityDate.value ? new Date(validityDate.value).toISOString() : null,
       payment_terms: paymentTerms ? String(paymentTerms.value || '').trim() : '',
       lines,
@@ -1290,6 +1315,7 @@
       if (!canEditContent()) return;
       if (customerSearch.dataset.lockedLabel && customerSearch.value !== customerSearch.dataset.lockedLabel) {
         customerId.value = '';
+        if (customerContactId) customerContactId.value = '';
         delete customerSearch.dataset.lockedLabel;
       }
       const q = (customerSearch.value || '').trim();
@@ -1347,10 +1373,11 @@
         return;
       }
       const btn = e.target.closest && e.target.closest('.quote-cust-m2o-opt');
-      if (btn && btn.dataset.id) {
+      if (btn && btn.dataset.contactId) {
         e.preventDefault();
         applyCustomerPick({
-          id: btn.dataset.id,
+          id: btn.dataset.contactId,
+          linked_user_id: btn.dataset.userId || null,
           name: btn.dataset.name,
           email: btn.dataset.email,
         });

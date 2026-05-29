@@ -1,8 +1,11 @@
 # Fase C — Integración con pagos y ventas
 
-**Dependencias:** Fases A y B.
+> **⚠️ Obsoleto (2026-05-28):** sustituido por [`PLAN_MAESTRO_CONTACTOS_FACTURACION_FE_EN1.md`](../PLAN_MAESTRO_CONTACTOS_FACTURACION_FE_EN1.md) **Fase 9**.  
+> No emitir FE directamente desde `payment_id`. Flujo correcto: **pago confirmado → factura comercial → FE** (o FE al confirmar factura en crédito).
 
-## Objetivo
+**Dependencias:** Fases A, B, factura comercial con `contact_id`, Fase 8 (emitir FE manual desde factura).
+
+## Objetivo (histórico — no implementar tal cual)
 
 Emitir FE automáticamente tras **pago confirmado**, con idempotencia y reglas Yappy manual.
 

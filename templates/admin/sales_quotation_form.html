@@ -43,13 +43,14 @@
                         <span class="quote-odoo-label">Cliente</span>
                         <div class="odoo-m2o quote-customer-m2o" id="quoteCustomerM2o">
                             <div class="d-flex align-items-stretch odoo-m2o-input-wrap quote-odoo-input border rounded px-1 bg-white">
-                                <input type="text" id="customerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Contacto…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Misma búsqueda y alta que en Taller">
+                                <input type="text" id="customerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Contacto cliente…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Maestro Contactos (Comercial)">
                                 <button type="button" class="btn btn-sm btn-link odoo-m2o-toggle quote-cust-toggle px-2" tabindex="-1" title="Mostrar contactos">🔍</button>
                             </div>
                             <input type="hidden" id="customerId" value="">
+                            <input type="hidden" id="quoteCustomerContactId" value="">
                             <div id="customerMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                         </div>
-                        <p class="small text-muted mb-0 mt-1">Escriba para filtrar, elija un contacto o use <strong>Crear «…»</strong> / <strong>Crear y editar…</strong> (igual que en recepción de taller).</p>
+                        <p class="small text-muted mb-0 mt-1">Contactos del maestro EN1 (Comercial → Contactos). Escriba para filtrar o cree uno nuevo.</p>
                     </label>
                     <label class="quote-odoo-field quote-odoo-field-salesperson flex-grow-1" style="min-width:14rem;max-width:22rem">
                         <span class="quote-odoo-label">Vendedor</span>
@@ -258,5 +259,5 @@
 {# Tras bootstrap.bundle (defer) en base.html — si no, Modal.show() no existe y el diálogo no abre. #}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=11"></script>
-<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=28"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=29"></script>
 {% endblock %}

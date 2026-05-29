@@ -7,6 +7,7 @@
 <div class="container-fluid py-3 quote-odoo-page" id="odooInvoiceForm" data-invoice-id="{{ invoice_id }}" data-is-new="{{ 1 if invoice_id == 0 else 0 }}" data-initial-status="{{ invoice_status or '' }}" data-inv-api-base="/invoices" data-workshop-api-base="/api/workshop" data-invoice-org-name="{{ (invoice_org_name|default('', true))|e }}">
     <div id="invFormError" class="alert alert-danger d-none"></div>
     <div id="invLedgerReadiness" class="alert d-none mb-3 py-2" role="status" aria-live="polite"></div>
+    <div id="invFeStatus" class="alert alert-info d-none mb-3 py-2 small" role="status"></div>
     <div id="invReadonlyBanner" class="alert alert-light border mb-3 py-2 small d-none" role="status">
         <strong>Solo lectura.</strong> Fuera de borrador no puede editar líneas ni cliente. Use <strong>Cancelar factura</strong> si aplica (no disponible si está pagada).
     </div>
@@ -19,6 +20,7 @@
             <button type="button" id="invBtnPost" class="btn btn-outline-primary btn-sm">Contabilizar</button>
             <button type="button" id="invBtnPay" class="btn btn-outline-success btn-sm">Registrar pago</button>
             <button type="button" id="invBtnCancel" class="btn btn-light border btn-sm">Cancelar factura</button>
+            <button type="button" id="invBtnEmitFe" class="btn btn-outline-info btn-sm d-none">Emitir FE</button>
             <button type="button" id="invBtnDelete" class="btn btn-danger btn-sm">Eliminar</button>
         </div>
         <div class="ms-auto d-flex align-items-center gap-2 quote-odoo-status flex-wrap justify-content-end">
@@ -46,6 +48,7 @@
                                 <button type="button" class="btn btn-sm btn-link odoo-m2o-toggle quote-cust-toggle px-2" tabindex="-1" title="Mostrar contactos">🔍</button>
                             </div>
                             <input type="hidden" id="invCustomerId" value="">
+                            <input type="hidden" id="invCustomerContactId" value="">
                             <div id="invCustomerMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                         </div>
                         <p class="small text-muted mb-0 mt-1">Escriba para filtrar, elija un contacto o use <strong>Crear «…»</strong> / <strong>Crear y editar…</strong> (igual que en cotizaciones).</p>
@@ -188,5 +191,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=11"></script>
-<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=7"></script>
 {% endblock %}

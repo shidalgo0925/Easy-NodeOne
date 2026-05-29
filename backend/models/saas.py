@@ -144,7 +144,7 @@ class SaasOrgModule(db.Model):
 
 
 class TenantCrmContact(db.Model):
-    """Contactos CRM por organización (sidebar Clientes → Contactos)."""
+    """Contacto / tercero fiscal y comercial por organización (CRM + facturación)."""
     __tablename__ = 'tenant_crm_contact'
     id = db.Column(db.Integer, primary_key=True)
     organization_id = db.Column(
@@ -161,6 +161,24 @@ class TenantCrmContact(db.Model):
     sales_commission_rate = db.Column(db.Float, nullable=True)
     linked_user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True, index=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    is_customer = db.Column(db.Boolean, nullable=False, default=True)
+    is_supplier = db.Column(db.Boolean, nullable=False, default=False)
+    external_id = db.Column(db.String(120), nullable=True)
+    legal_name = db.Column(db.String(300), nullable=True)
+    trade_name = db.Column(db.String(300), nullable=True)
+    person_type = db.Column(db.String(30), nullable=False, default='natural')  # natural|juridica|final_consumer
+    id_type = db.Column(db.String(30), nullable=True)
+    tax_id = db.Column(db.String(80), nullable=True)
+    tax_dv = db.Column(db.String(10), nullable=True)
+    id_number = db.Column(db.String(80), nullable=True)
+    fiscal_email = db.Column(db.String(255), nullable=True)
+    fiscal_phone = db.Column(db.String(50), nullable=True)
+    fiscal_address = db.Column(db.Text, nullable=True)
+    country_code = db.Column(db.String(8), nullable=False, default='PA')
+    province = db.Column(db.String(120), nullable=True)
+    district = db.Column(db.String(120), nullable=True)
+    corregimiento = db.Column(db.String(120), nullable=True)
+    itbms_exempt = db.Column(db.Boolean, nullable=False, default=False)
 
 
 class SaasModuleDependency(db.Model):

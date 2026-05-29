@@ -122,6 +122,24 @@ def api_emissions_list():
     )
 
 
+@efactura_api_bp.route('/issue-from-invoice/<int:invoice_id>', methods=['POST'])
+@login_required
+def api_issue_from_invoice(invoice_id: int):
+    try:
+        doc = issue_svc.issue_from_commercial_invoice(invoice_id, _org_id())
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+    return jsonify(
+        {
+            'ok': doc.status == 'accepted',
+            'document_id': doc.id,
+            'cufe': doc.cufe,
+            'status': doc.status,
+            'message': doc.authorization_message or doc.error_message,
+        }
+    )
+
+
 @efactura_api_bp.route('/emissions/<int:doc_id>')
 @login_required
 def api_emission_detail(doc_id: int):

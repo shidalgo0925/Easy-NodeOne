@@ -16,14 +16,19 @@
   const INV_BASE = String(root.dataset.invApiBase || '/invoices').replace(/\/$/, '');
   const SALES_Q_BASE = '/api/sales/quotations';
   const WORKSHOP_API_BASE = String(root.dataset.workshopApiBase || '/api/workshop').replace(/\/$/, '');
+  const PARTNERS_API_BASE = '/api/admin/contacts';
+  const EFACTURA_API_BASE = '/api/admin/efactura';
 
   const err = document.getElementById('invFormError');
   const lineItems = document.getElementById('invLineItems');
   if (!lineItems) return;
 
   const customerId = document.getElementById('invCustomerId');
+  const customerContactId = document.getElementById('invCustomerContactId');
   const customerSearch = document.getElementById('invCustomerSearch');
   const customerMenu = document.getElementById('invCustomerMenu');
+  const invFeStatus = document.getElementById('invFeStatus');
+  const btnEmitFe = document.getElementById('invBtnEmitFe');
   const salespersonSearch = document.getElementById('invSalespersonSearch');
   const salespersonMenu = document.getElementById('invSalespersonMenu');
   const salespersonUserId = document.getElementById('invSalespersonUserId');
@@ -484,7 +489,8 @@
           u.email && String(u.email) !== String(u.name || '')
             ? `<span class="odoo-m2o-item-meta">${escHtml(u.email)}</span>`
             : '';
-        return `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-m2o-opt" data-id="${u.id}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
+        const uid = u.linked_user_id != null ? u.linked_user_id : '';
+        return `<button type="button" class="odoo-m2o-item quote-cust-kbd-opt quote-cust-m2o-opt" data-contact-id="${u.id}" data-user-id="${uid}" data-name="${escAttr(u.name || '')}" data-email="${escAttr(u.email || '')}"><span class="odoo-m2o-item-title">${title}</span>${em}</button>`;
       })
       .join('');
     let mid = '';
@@ -501,9 +507,9 @@
     return `${head}${mid}${footer}${hint}`;
   }
 
-  async function fetchWorkshopCustomers(q, limit) {
+  async function fetchPartners(q, limit) {
     return fetchJsonAbsolute(
-      `${WORKSHOP_API_BASE}/customers/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+      `${PARTNERS_API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     );
   }
 
@@ -516,7 +522,7 @@
     customerMenu.classList.add('show');
     customerSearch.setAttribute('aria-expanded', 'true');
     try {
-      const users = await fetchWorkshopCustomers(q, limit);
+      const users = await fetchPartners(q, limit);
       if (fid !== root._custFetch) return;
       const list = Array.isArray(users) ? users : [];
       customerMenu.innerHTML = buildCustomerDropdownHtml(list, q);
@@ -527,7 +533,7 @@
       if (fid !== root._custFetch) return;
       customerMenu.innerHTML =
         `<div class="px-3 py-2 small text-danger">${escAttr(e.message)}</div>` +
-        '<div class="odoo-m2o-hint small px-3 pb-2">Si el módulo Taller está desactivado, puede no haber API de clientes.</div>';
+        '<div class="odoo-m2o-hint small px-3 pb-2">Active Contactos (Comercial) y cree terceros en Admin → Comercial → Contactos.</div>';
     }
   }
 
@@ -537,12 +543,17 @@
     clearError();
     try {
       let res;
-      if (t.includes('@')) {
-        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { email: t.toLowerCase() });
-      } else {
-        res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', { quick_create_name: t });
-      }
-      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      const body = t.includes('@')
+        ? { name: t, fiscal_email: t.toLowerCase(), person_type: 'natural' }
+        : { name: t, person_type: 'final_consumer' };
+      res = await fetchJsonAbsolute(`${PARTNERS_API_BASE}`, 'POST', body);
+      const c = res.contact || res;
+      applyCustomerPick({
+        id: c.id,
+        linked_user_id: c.linked_user_id,
+        name: c.name,
+        email: c.email,
+      });
       closeCustomerMenu();
     } catch (e) {
       showError(e.message);
@@ -587,15 +598,23 @@
     const ln = document.getElementById('invNewCustLast');
     const ph = document.getElementById('invNewCustPhone');
     const er = document.getElementById('invNewCustErr');
+    const name = [(fn && fn.value.trim()) || '', (ln && ln.value.trim()) || ''].join(' ').trim();
     const payload = {
-      email: (em && em.value.trim()) || '',
-      first_name: (fn && fn.value.trim()) || '',
-      last_name: (ln && ln.value.trim()) || '',
-      phone: (ph && ph.value.trim()) || '',
+      name: name || (em && em.value.trim()) || 'Contacto',
+      legal_name: name || undefined,
+      fiscal_email: (em && em.value.trim()) || '',
+      fiscal_phone: (ph && ph.value.trim()) || '',
+      person_type: 'natural',
     };
     try {
-      const res = await fetchJsonAbsolute(`${WORKSHOP_API_BASE}/customers`, 'POST', payload);
-      applyCustomerPick({ id: res.id, name: res.name, email: res.email });
+      const res = await fetchJsonAbsolute(`${PARTNERS_API_BASE}`, 'POST', payload);
+      const c = res.contact || res;
+      applyCustomerPick({
+        id: c.id,
+        linked_user_id: c.linked_user_id,
+        name: c.name,
+        email: c.email,
+      });
       const modalEl = document.getElementById('invNewCustomerModal');
       if (window.bootstrap && modalEl) window.bootstrap.Modal.getInstance(modalEl)?.hide();
       if (er) {
@@ -611,11 +630,36 @@
   }
 
   function applyCustomerPick(u) {
-    customerId.value = String(u.id);
+    if (customerContactId) customerContactId.value = String(u.id);
+    const uid = u.linked_user_id != null && u.linked_user_id !== '' ? u.linked_user_id : '';
+    customerId.value = uid ? String(uid) : '';
     const disp = u.email && u.name ? `${u.name} (${u.email})` : u.name || u.email || '';
     customerSearch.value = disp;
     customerSearch.dataset.lockedLabel = disp;
     closeCustomerMenu();
+  }
+
+  function updateFeUi(row) {
+    if (!invFeStatus || !btnEmitFe) return;
+    const fe = row && row.fe_document;
+    const st = row && row.status;
+    const canEmit = st && st !== 'draft' && st !== 'cancelled' && (!fe || !fe.cufe);
+    if (canEmit && iid > 0) {
+      btnEmitFe.classList.remove('d-none');
+    } else {
+      btnEmitFe.classList.add('d-none');
+    }
+    if (fe && fe.cufe) {
+      invFeStatus.classList.remove('d-none', 'alert-warning');
+      invFeStatus.classList.add('alert-info');
+      invFeStatus.textContent = `FE ${fe.status}: CUFE ${fe.cufe}`;
+    } else if (fe && fe.status) {
+      invFeStatus.classList.remove('d-none');
+      invFeStatus.classList.add('alert-warning');
+      invFeStatus.textContent = `FE ${fe.status}${fe.authorization_message ? ': ' + fe.authorization_message : ''}`;
+    } else {
+      invFeStatus.classList.add('d-none');
+    }
   }
 
   function closeAllServiceMenus(exceptTr = null) {
@@ -775,6 +819,7 @@
     root.dataset.status = 'draft';
     document.getElementById('invNumber').textContent = 'Nueva factura';
     customerId.value = '';
+    if (customerContactId) customerContactId.value = '';
     if (customerSearch) {
       customerSearch.value = '';
       delete customerSearch.dataset.lockedLabel;
@@ -819,6 +864,7 @@
     root.dataset.status = row.status;
     document.getElementById('invNumber').textContent = row.number;
     customerId.value = row.customer_id || '';
+    if (customerContactId) customerContactId.value = row.contact_id || row.customer_contact_id || '';
     if (customerSearch) {
       const disp = row.customer_email
         ? `${(row.customer_name || row.customer_email).trim()} (${row.customer_email})`
@@ -887,6 +933,7 @@
     });
     applyEditMode();
     recalcUiTotals();
+    updateFeUi(row);
   }
 
   async function saveInvoice(opts = {}) {
@@ -902,13 +949,15 @@
       const spPayloadNew =
         spRawNew && !Number.isNaN(spRawNew) && spRawNew > 0 ? spRawNew : null;
       const linesNew = window.QuotationLinesComponent.collect(lineItems);
-      const cidNew = Number(customerId.value) || 0;
-      if (cidNew < 1) {
-        showError('Seleccione un cliente.');
+      const ccidNew = Number(customerContactId && customerContactId.value) || 0;
+      if (ccidNew < 1) {
+        showError('Seleccione un contacto cliente.');
         return;
       }
+      const cidNew = Number(customerId.value) || 0;
       const payloadNew = {
-        customer_id: cidNew,
+        contact_id: ccidNew,
+        customer_id: cidNew > 0 ? cidNew : undefined,
         due_date:
           invDueDate && invDueDate.value
             ? new Date(`${invDueDate.value}T12:00:00`).toISOString()
@@ -946,13 +995,15 @@
     }
 
     const lines = window.QuotationLinesComponent.collect(lineItems);
-    const cid = Number(customerId.value) || 0;
-    if (cid < 1) {
-      showError('Seleccione un cliente.');
+    const ccid = Number(customerContactId && customerContactId.value) || 0;
+    if (ccid < 1) {
+      showError('Seleccione un contacto cliente.');
       return;
     }
+    const cid = Number(customerId.value) || 0;
     const payload = {
-      customer_id: cid,
+      contact_id: ccid,
+      customer_id: cid > 0 ? cid : undefined,
       due_date:
         invDueDate && invDueDate.value
           ? new Date(`${invDueDate.value}T12:00:00`).toISOString()
@@ -1092,10 +1143,11 @@
         return;
       }
       const btn = e.target.closest && e.target.closest('.quote-cust-m2o-opt');
-      if (btn && btn.dataset.id) {
+      if (btn && btn.dataset.contactId) {
         e.preventDefault();
         applyCustomerPick({
-          id: btn.dataset.id,
+          id: btn.dataset.contactId,
+          linked_user_id: btn.dataset.userId,
           name: btn.dataset.name,
           email: btn.dataset.email,
         });
@@ -1334,8 +1386,30 @@
     try {
       clearError();
       if (canEditContent()) await saveInvoice({ silent: true });
-      await invApi(`/${iid}/post`, 'POST', {});
+      const postRes = await invApi(`/${iid}/post`, 'POST', {});
       await loadInvoice();
+      if (postRes && postRes.fe_document && postRes.fe_document.cufe && invFeStatus) {
+        invFeStatus.classList.remove('d-none');
+        invFeStatus.textContent = `FE emitida al contabilizar. CUFE: ${postRes.fe_document.cufe}`;
+      }
+    } catch (e) {
+      showError(e.message);
+    }
+  });
+
+  btnEmitFe?.addEventListener('click', async () => {
+    try {
+      clearError();
+      const res = await fetchJsonAbsolute(`${EFACTURA_API_BASE}/issue-from-invoice/${iid}`, 'POST', {});
+      await loadInvoice();
+      if (res.ok && res.cufe) {
+        if (invFeStatus) {
+          invFeStatus.classList.remove('d-none');
+          invFeStatus.textContent = `FE autorizada. CUFE: ${res.cufe}`;
+        }
+      } else {
+        showError(res.message || res.error || 'FE no autorizada');
+      }
     } catch (e) {
       showError(e.message);
     }

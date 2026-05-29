@@ -36,6 +36,11 @@
 {% set _analytics_ep = ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}
 {% set _analytics_zone = request.endpoint is defined and request.endpoint in _analytics_ep %}
 
+{% set _nav_contacts = saas_module_enabled('contacts') and has_view_endpoint('contacts_admin.contacts_index') %}
+{% set _contacts_zone = (request.blueprint == 'contacts_admin') or ((request.path or '')|string).startswith('/admin/contacts') %}
+{% set _nav_events = saas_module_enabled('events') and nav_can('reports.view') %}
+{% set _nav_events_pay = saas_module_enabled('events') and nav_can('payments.view') %}
+
 {% if show_platform_admin_nav and current_user.is_admin and _platform_zone %}
 <nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="platform" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
@@ -76,6 +81,31 @@
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_crm' %}is-active{% endif %}" href="{{ url_for('admin_analytics_crm') }}">CRM</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_members' %}is-active{% endif %}" href="{{ url_for('admin_analytics_members') }}">Miembros</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_registrations' %}is-active{% endif %}" href="{{ url_for('admin_analytics_registrations') }}">Registros</a></li>
+        </ul>
+    </div>
+</nav>
+
+{% elif show_tenant_admin_menu and _nav_events and (request.blueprint in ['events', 'admin_events']) %}
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="events" aria-label="Submenú del módulo">
+    <div class="erp-app-subnav__inner container-fluid">
+        <span class="erp-app-subnav__module">Eventos</span>
+        <ul class="erp-app-subnav__list">
+            <li><a class="erp-app-subnav__link {% if request.blueprint == 'events' %}is-active{% endif %}" href="{{ url_for('events.list_events') }}">Ver eventos</a></li>
+            <li><a class="erp-app-subnav__link {% if request.blueprint == 'admin_events' and request.endpoint != 'admin_events.discounts_index' %}is-active{% endif %}" href="{{ url_for('admin_events.admin_events_index') }}">Gestión</a></li>
+            {% if _nav_events_pay %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_events.discounts_index' %}is-active{% endif %}" href="{{ url_for('admin_events.discounts_index') }}">Descuentos</a></li>
+            {% endif %}
+        </ul>
+    </div>
+</nav>
+
+{% elif show_tenant_admin_menu and _nav_contacts and _contacts_zone %}
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="contacts" aria-label="Submenú del módulo">
+    <div class="erp-app-subnav__inner container-fluid">
+        <span class="erp-app-subnav__module">Comercial · Contactos</span>
+        <ul class="erp-app-subnav__list">
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contacts_admin.contacts_index' %}is-active{% endif %}" href="{{ url_for('contacts_admin.contacts_index') }}">Listado</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contacts_admin.contacts_new' %}is-active{% endif %}" href="{{ url_for('contacts_admin.contacts_new') }}">Nuevo contacto</a></li>
         </ul>
     </div>
 </nav>

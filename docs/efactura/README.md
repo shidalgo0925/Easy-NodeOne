@@ -1,8 +1,18 @@
 # Módulo FE EN1 — Instrucciones por fase (programador)
 
-Plan maestro: [`../PLAN_MODULO_EFACTURA_EN1.md`](../PLAN_MODULO_EFACTURA_EN1.md)
+**Plan de negocio (Contactos + Factura comercial + FE):** [`../PLAN_MAESTRO_CONTACTOS_FACTURACION_FE_EN1.md`](../PLAN_MAESTRO_CONTACTOS_FACTURACION_FE_EN1.md)  
+**Detalle técnico FE/PAC:** [`../PLAN_MODULO_EFACTURA_EN1.md`](../PLAN_MODULO_EFACTURA_EN1.md)
+
+> **Importante:** la emisión fiscal debe enlazarse a `invoice_id` (Fase 8+).  
+> `FASE_C_PAGOS.md` (emitir desde pago directo) queda **obsoleta**; ver Fase 9 del plan maestro (pago → factura → FE).
 
 Ejecutar **en orden**. No iniciar fase siguiente sin checklist de la anterior en staging/dev.
+
+| Estado | Fase doc | Nota |
+|--------|----------|------|
+| ✅ Hecho | A (código `917d139`) | Motor FE, config, prueba manual |
+| ⏳ Reorientar | C | Sustituir por plan maestro Fase 9 |
+| Pendiente | B, D–F | Según plan maestro fases 1–12 |
 
 | Fase | Archivo | Objetivo |
 |------|---------|----------|

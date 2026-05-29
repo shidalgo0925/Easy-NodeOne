@@ -22,6 +22,9 @@ class ElectronicInvoiceProviderConfig(db.Model):
     default_pos = db.Column(db.String(40), nullable=False, default='001')
     default_currency = db.Column(db.String(8), nullable=False, default='USD')
     enabled = db.Column(db.Boolean, nullable=False, default=False)
+    emission_mode = db.Column(db.String(20), nullable=False, default='manual')
+    emit_on_invoice_confirm = db.Column(db.Boolean, nullable=False, default=False)
+    emit_on_payment_confirmed = db.Column(db.Boolean, nullable=False, default=False)
     last_test_status = db.Column(db.String(20), nullable=True)
     last_test_message = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -39,6 +42,7 @@ class ElectronicInvoiceDocument(db.Model):
     organization_id = db.Column(
         db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
     )
+    invoice_id = db.Column(db.Integer, nullable=True, index=True)
     provider = db.Column(db.String(40), nullable=False, default='efacturapty')
     environment = db.Column(db.String(20), nullable=False, default='sandbox')
 

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4 col-xl-10">
+  <h1 class="h4 mb-3">{{ title }}</h1>
+  <p class="mb-3">
+    <a href="{{ url_for('contacts_admin.contacts_index') }}">&larr; Listado</a>
+    {% if contact %} · <a href="{{ url_for('contacts_admin.contacts_detail', contact_id=contact.id) }}">Ver detalle</a>{% endif %}
+  </p>
+  <form method="post" class="card">
+    <div class="card-body">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Tipo contacto</label>
+          <select class="form-select" name="contact_type" required>
+            <option value="person" {% if contact and contact.contact_type == 'person' %}selected{% endif %}>Persona</option>
+            <option value="company" {% if contact and contact.contact_type == 'company' %}selected{% endif %}>Empresa</option>
+            <option value="consumer_final" {% if contact and contact.contact_type == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Nombre para mostrar *</label>
+          <input class="form-control" name="display_name" required value="{{ contact.display_name if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nombre</label>
+          <input class="form-control" name="first_name" value="{{ contact.first_name if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Apellido</label>
+          <input class="form-control" name="last_name" value="{{ contact.last_name if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nombre comercial</label>
+          <input class="form-control" name="commercial_name" value="{{ contact.commercial_name if contact else '' }}" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Razón social (empresa) *</label>
+          <input class="form-control" name="company_name" value="{{ contact.company_name if contact else '' }}" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Email</label>
+          <input class="form-control" type="email" name="email" value="{{ contact.email if contact else '' }}" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control" name="phone" value="{{ contact.phone if contact else '' }}" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Móvil</label>
+          <input class="form-control" name="mobile" value="{{ contact.mobile if contact else '' }}" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">País</label>
+          <input class="form-control" name="country" maxlength="8" value="{{ contact.country if contact else 'PA' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Tipo identificación</label>
+          <select class="form-select" name="identification_type">
+            <option value="consumer_final" {% if not contact or contact.identification_type == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+            <option value="ruc" {% if contact and contact.identification_type == 'ruc' %}selected{% endif %}>RUC</option>
+            <option value="cedula" {% if contact and contact.identification_type == 'cedula' %}selected{% endif %}>Cédula</option>
+            <option value="passport" {% if contact and contact.identification_type == 'passport' %}selected{% endif %}>Pasaporte</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">RUC / Nº identificación</label>
+          <input class="form-control" name="tax_id" value="{{ contact.tax_id if contact else '' }}" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">DV</label>
+          <input class="form-control" name="dv" maxlength="10" value="{{ contact.dv if contact else '' }}" />
+        </div>
+        <div class="col-12">
+          <label class="form-label">Dirección fiscal</label>
+          <textarea class="form-control" name="fiscal_address" rows="2">{{ contact.fiscal_address if contact else '' }}</textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Provincia</label>
+          <input class="form-control" name="province" value="{{ contact.province if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Distrito</label>
+          <input class="form-control" name="district" value="{{ contact.district if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Corregimiento</label>
+          <input class="form-control" name="township" value="{{ contact.township if contact else '' }}" />
+        </div>
+      </div>
+      <hr />
+      <p class="small text-muted mb-2">Roles (puede marcar varios)</p>
+      <div class="row">
+        {% for field, label in [
+          ('is_customer', 'Cliente'), ('is_supplier', 'Proveedor'), ('is_member', 'Miembro'),
+          ('is_student', 'Estudiante'), ('is_participant', 'Participante'), ('is_instructor', 'Instructor'),
+          ('is_donor', 'Donante'), ('is_employee', 'Empleado'), ('is_tax_exempt', 'Exento ITBMS')
+        ] %}
+        <div class="col-md-3 form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="{{ field }}" value="1" id="{{ field }}"
+            {% if contact and getattr(contact, field) %}checked{% elif not contact and field == 'is_customer' %}checked{% endif %} />
+          <label class="form-check-label" for="{{ field }}">{{ label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+      {% if contact %}
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" name="active" value="1" id="active" {% if contact.active %}checked{% endif %} />
+        <label class="form-check-label" for="active">Activo</label>
+      </div>
+      {% endif %}
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

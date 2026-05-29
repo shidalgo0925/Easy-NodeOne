@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Contacto {{ contact.display_name }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4 col-lg-8">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <h1 class="h3 mb-0">{{ contact.display_name }}</h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('contacts_admin.contacts_edit', contact_id=contact.id) }}">Editar</a>
+      {% if contact.active %}
+      <form method="post" action="{{ url_for('contacts_admin.contacts_deactivate', contact_id=contact.id) }}" class="d-inline" onsubmit="return confirm('¿Desactivar este contacto?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+        <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  <p class="mb-3"><a href="{{ url_for('contacts_admin.contacts_index') }}">&larr; Listado</a></p>
+
+  <div class="card">
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-4">ID</dt><dd class="col-sm-8">{{ contact.id }}</dd>
+        <dt class="col-sm-4">Tipo</dt><dd class="col-sm-8">{{ contact.contact_type }}</dd>
+        <dt class="col-sm-4">Estado</dt><dd class="col-sm-8">{% if contact.active %}Activo{% else %}Inactivo{% endif %}</dd>
+        <dt class="col-sm-4">Roles</dt><dd class="col-sm-8">{{ contact.role_labels()|join(', ') or '—' }}</dd>
+        <dt class="col-sm-4">Email</dt><dd class="col-sm-8">{{ contact.email or '—' }}</dd>
+        <dt class="col-sm-4">Teléfono / móvil</dt><dd class="col-sm-8">{{ contact.phone or '—' }} / {{ contact.mobile or '—' }}</dd>
+        <dt class="col-sm-4">Identificación</dt>
+        <dd class="col-sm-8">
+          {% if contact.tax_id %}{{ contact.identification_type }} — {{ contact.tax_id }}{% if contact.dv %} DV {{ contact.dv }}{% endif %}
+          {% else %}Consumidor final{% endif %}
+        </dd>
+        <dt class="col-sm-4">Dirección fiscal</dt><dd class="col-sm-8">{{ contact.fiscal_address or '—' }}</dd>
+        <dt class="col-sm-4">Ubicación</dt>
+        <dd class="col-sm-8">{{ [contact.province, contact.district, contact.township, contact.country]|select|join(', ') or '—' }}</dd>
+        <dt class="col-sm-4">Creado</dt><dd class="col-sm-8">{{ contact.created_at }}</dd>
+        <dt class="col-sm-4">Actualizado</dt><dd class="col-sm-8">{{ contact.updated_at }}</dd>
+      </dl>
+    </div>
+  </div>
+  <p class="small text-muted mt-3">Este registro es independiente de usuarios del sistema (login). Las facturas y la FE futuras usarán <code>contact_id</code>.</p>
+</div>
+{% endblock %}

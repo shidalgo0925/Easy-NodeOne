@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Contactos{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0"><i class="fas fa-address-book me-2"></i>Contactos</h1>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('contacts_admin.contacts_new') }}">Nuevo contacto</a>
+  </div>
+  <p class="text-muted small mb-3">Maestro de clientes, proveedores y roles operativos. No confundir con usuarios del sistema (login).</p>
+
+  <form method="get" class="card card-body mb-3 py-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Buscar</label>
+        <input class="form-control form-control-sm" name="q" value="{{ q }}" placeholder="Nombre, email, RUC, teléfono…" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Rol</label>
+        <select class="form-select form-select-sm" name="role">
+          <option value="">Todos</option>
+          <option value="customer" {% if role == 'customer' %}selected{% endif %}>Clientes</option>
+          <option value="supplier" {% if role == 'supplier' %}selected{% endif %}>Proveedores</option>
+          <option value="member" {% if role == 'member' %}selected{% endif %}>Miembros</option>
+          <option value="student" {% if role == 'student' %}selected{% endif %}>Estudiantes</option>
+          <option value="participant" {% if role == 'participant' %}selected{% endif %}>Participantes</option>
+          <option value="consumer_final" {% if role == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Tipo</label>
+        <select class="form-select form-select-sm" name="contact_type">
+          <option value="">Todos</option>
+          <option value="person" {% if contact_type == 'person' %}selected{% endif %}>Persona</option>
+          <option value="company" {% if contact_type == 'company' %}selected{% endif %}>Empresa</option>
+          <option value="consumer_final" {% if contact_type == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Estado</label>
+        <select class="form-select form-select-sm" name="active">
+          <option value="1" {% if active == '1' %}selected{% endif %}>Activos</option>
+          <option value="0" {% if active == '0' %}selected{% endif %}>Inactivos</option>
+          <option value="" {% if active == '' %}selected{% endif %}>Todos</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-secondary">Filtrar</button>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contacts_admin.contacts_index') }}">Limpiar</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Email</th>
+          <th>Teléfono</th>
+          <th>Identificación</th>
+          <th>Roles</th>
+          <th>Activo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contacts %}
+        <tr>
+          <td>{{ c.id }}</td>
+          <td><a href="{{ url_for('contacts_admin.contacts_detail', contact_id=c.id) }}">{{ c.display_name }}</a></td>
+          <td>{{ c.contact_type }}</td>
+          <td>{{ c.email or '—' }}</td>
+          <td>{{ c.phone or c.mobile or '—' }}</td>
+          <td class="small">
+            {% if c.tax_id %}{{ c.identification_type }}: {{ c.tax_id }}{% if c.dv %}-{{ c.dv }}{% endif %}{% else %}CF{% endif %}
+          </td>
+          <td class="small">{{ c.role_labels()|join(', ') or '—' }}</td>
+          <td>{% if c.active %}<span class="badge text-bg-success">Sí</span>{% else %}<span class="badge text-bg-secondary">No</span>{% endif %}</td>
+          <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('contacts_admin.contacts_edit', contact_id=c.id) }}">Editar</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-muted">Sin contactos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if total > per_page %}
+  <p class="small text-muted">Mostrando página {{ page }} — total {{ total }} contactos.</p>
+  {% endif %}
+</div>
+{% endblock %}

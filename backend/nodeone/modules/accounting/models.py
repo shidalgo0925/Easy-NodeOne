@@ -39,6 +39,27 @@ class Invoice(db.Model):
     )
     number = db.Column(db.String(50), nullable=False, index=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False, index=True)
+    # Maestro fiscal en1_contact (canónico). customer_contact_id legacy → tenant_crm_contact (deprecado).
+    contact_id = db.Column(
+        db.Integer,
+        db.ForeignKey('en1_contact.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+    customer_contact_id = db.Column(
+        db.Integer,
+        db.ForeignKey('tenant_crm_contact.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+    billing_contact_id = db.Column(
+        db.Integer,
+        db.ForeignKey('tenant_crm_contact.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+    currency = db.Column(db.String(8), nullable=False, default='USD')
+    notes = db.Column(db.Text, nullable=True)
     date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     status = db.Column(db.String(20), nullable=False, default='draft')  # draft|posted|partial|paid|cancelled
     origin_quotation_id = db.Column(db.Integer, db.ForeignKey('quotations.id', ondelete='SET NULL'), index=True)

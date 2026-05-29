@@ -59,6 +59,8 @@ class User(UserMixin, db.Model):
     last_selected_organization_id = db.Column(
         db.Integer, db.ForeignKey('saas_organization.id', ondelete='SET NULL'), nullable=True
     )
+    # Fase futura: vínculo opcional User → Contact (en1_contact). No usar en Fase 1 Contactos.
+    # linked_contact_id se añadirá vía DDL cuando se implemente el enlace explícito.
 
     # Relación con membresías
     memberships = db.relationship('Membership', backref='user', lazy=True)

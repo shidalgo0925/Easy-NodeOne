@@ -1,8 +1,12 @@
 # Plan maestro — Módulo Facturación Electrónica (EN1 + efacturapty)
 
-**Versión:** 1.0 · **Fecha:** 2026-05-28  
+**Versión:** 1.1 · **Fecha:** 2026-05-28  
 **Repo:** `/opt/easynodeone/dev/app` (rama `develop`)  
 **Prueba API aislada (hecha):** `backend/nodeone/devtools/efacturapty_test/`
+
+> **Plan de negocio canónico (Contactos + Factura comercial + FE):**  
+> [`PLAN_MAESTRO_CONTACTOS_FACTURACION_FE_EN1.md`](PLAN_MAESTRO_CONTACTOS_FACTURACION_FE_EN1.md)  
+> La FE sale de la **factura comercial EN1**, no directamente del pago. Este documento detalla solo la capa técnica FE/PAC.
 
 ---
 
@@ -11,10 +15,10 @@
 Crear en **Easy NodeOne (EN1)** un módulo de **Facturación Electrónica Panamá**, usando **efacturapty** como primer proveedor PAC, con arquitectura preparada para otros proveedores (HKA, Edicom, etc.).
 
 ```
-EN1 → Módulo FE → Adapter PAC → API → CUFE / PDF / XML / estado fiscal
+Factura comercial (invoice) → Módulo FE → Adapter PAC → CUFE / PDF / XML
 ```
 
-**Principio:** la FE **no** vive dentro de checkout, pagos ni eventos. Vive en `nodeone/modules/efactura/`; el resto del sistema la invoca cuando corresponda.
+**Principio:** la FE vive en `nodeone/modules/efactura/`; checkout y pagos **generan o liquidan factura**, y la factura (o su confirmación, según config) dispara la FE.
 
 ---
 

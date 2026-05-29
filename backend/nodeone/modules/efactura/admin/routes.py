@@ -91,6 +91,19 @@ def efactura_config():
         config.default_pos = (request.form.get('default_pos') or '001').strip() or '001'
         config.default_currency = (request.form.get('default_currency') or 'USD').strip() or 'USD'
         config.enabled = request.form.get('enabled') in ('1', 'on', 'true', 'yes')
+        config.emission_mode = (request.form.get('emission_mode') or 'manual').strip()[:20]
+        config.emit_on_invoice_confirm = request.form.get('emit_on_invoice_confirm') in (
+            '1',
+            'on',
+            'true',
+            'yes',
+        )
+        config.emit_on_payment_confirmed = request.form.get('emit_on_payment_confirmed') in (
+            '1',
+            'on',
+            'true',
+            'yes',
+        )
         new_token = (request.form.get('api_token') or '').strip()
         if new_token:
             config.api_token_encrypted = new_token

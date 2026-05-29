@@ -22,6 +22,21 @@
             <label class="form-check-label" for="enabled">Proveedor activo para esta organización</label>
           </div>
           <div class="mb-3">
+            <label class="form-label">Modo emisión</label>
+            <select class="form-select" name="emission_mode">
+              <option value="manual" {% if config.emission_mode == 'manual' %}selected{% endif %}>Manual (botón en factura)</option>
+              <option value="automatic" {% if config.emission_mode == 'automatic' %}selected{% endif %}>Automática (según reglas abajo)</option>
+            </select>
+          </div>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="emit_on_invoice_confirm" id="emit_on_invoice_confirm" value="1" {% if config.emit_on_invoice_confirm %}checked{% endif %} />
+            <label class="form-check-label" for="emit_on_invoice_confirm">Emitir al contabilizar factura (crédito)</label>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="emit_on_payment_confirmed" id="emit_on_payment_confirmed" value="1" {% if config.emit_on_payment_confirmed %}checked{% endif %} />
+            <label class="form-check-label" for="emit_on_payment_confirmed">Emitir al confirmar pago (contado)</label>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Ambiente</label>
             <select class="form-select" name="environment">
               <option value="sandbox" {% if config.environment == 'sandbox' %}selected{% endif %}>Pruebas (sandbox)</option>

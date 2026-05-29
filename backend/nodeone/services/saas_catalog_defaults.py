@@ -67,6 +67,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         False,
     ),
     (
+        'contacts',
+        'Contactos',
+        'Maestro de contactos/terceros (clientes, proveedores, roles fiscales).',
+        False,
+    ),
+    (
         'efactura',
         'Facturación electrónica',
         'Emisión FE Panamá (PAC efacturapty y futuros proveedores).',
@@ -190,6 +196,7 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'academic',
     'workshop',
     'contador',
+    'contacts',
     'qr_generator',
     'security_matrix',
 )

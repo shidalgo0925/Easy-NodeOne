@@ -52,6 +52,12 @@ def _ensure_tables():
         ensure_contacts_schema(db, db.engine)
     except Exception:
         db.session.rollback()
+    try:
+        from nodeone.services.invoices_schema import ensure_invoices_model_columns
+
+        ensure_invoices_model_columns(db, db.engine)
+    except Exception:
+        db.session.rollback()
     Tax.__table__.create(db.engine, checkfirst=True)
     Quotation.__table__.create(db.engine, checkfirst=True)
     QuotationLine.__table__.create(db.engine, checkfirst=True)

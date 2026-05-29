@@ -20,6 +20,21 @@ from models.payments import Payment
 from models.users import User, UserOrganization
 
 
+def ensure_analytics_schema() -> None:
+    """Alinea tablas usadas por KPIs (facturas/cotizaciones) antes de consultar ORM."""
+    try:
+        from nodeone.services.contacts_schema import ensure_contacts_schema
+        from nodeone.services.invoices_schema import ensure_invoices_model_columns
+
+        ensure_contacts_schema(db, db.engine)
+        ensure_invoices_model_columns(db, db.engine)
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
 def _parse_day(s: str | None) -> datetime | None:
     if not s or not str(s).strip():
         return None
@@ -71,6 +86,7 @@ def build_executive_snapshot(org_id: int, start: datetime, end: datetime) -> dic
     KPIs y series para el tablero ejecutivo.
     Todas las consultas filtran por organization_id o usuarios de la org.
     """
+    ensure_analytics_schema()
     uid_scope = _user_ids_in_org(org_id)
 
     # —— Cotizaciones ——

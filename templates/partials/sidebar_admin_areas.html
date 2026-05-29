@@ -1,0 +1,11 @@
+{# Admin tenant: app launcher por áreas (detalle en subnav horizontal). #}
+{% if nav_app_areas %}
+{% for area in nav_app_areas %}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--area sidebar-nav-app--{{ area.id }}">
+    <a class="nav-link {% if nav_active_area_id == area.id %}active{% endif %}" href="{{ area.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ area.label }}">
+        <i class="menu-icon {{ area.icon }}"></i>
+        <span class="menu-title-text">{{ area.label }}</span>
+    </a>
+</li>
+{% endfor %}
+{% endif %}

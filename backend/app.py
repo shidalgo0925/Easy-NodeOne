@@ -1735,6 +1735,43 @@ def inject_admin_nav_context():
     except Exception:
         pass
     out['nav_can'] = _nav_can_permission
+    out.setdefault('nav_app_areas', [])
+    out.setdefault('nav_active_area_id', None)
+    out.setdefault('nav_active_area_label', None)
+    out.setdefault('nav_area_children', [])
+    out.setdefault('nav_single_area_mode', False)
+    try:
+        if has_request_context() and getattr(current_user, 'is_authenticated', False):
+            from flask import current_app
+
+            from nodeone.core.nav_menu import nav_launcher_payload
+            from nodeone.services.academic_module import is_academic_module_enabled_for_org
+            from nodeone.services.office365_module import is_office365_module_enabled_for_org
+
+            show_academic_nav = False
+            if (
+                'academic_admin' in current_app.blueprints
+                and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+            ):
+                show_academic_nav = True
+            out.update(
+                nav_launcher_payload(
+                    nav_can=_nav_can_permission,
+                    saas_module_enabled=saas_module_enabled,
+                    saas_module_enabled_chain=saas_module_enabled_chain,
+                    has_view_endpoint=has_view_endpoint,
+                    show_academic_admin_nav=show_academic_nav,
+                    office365_module_enabled=is_office365_module_enabled_for_org(
+                        _org_id_for_module_visibility()
+                    ),
+                    show_platform_admin_nav=bool(out.get('show_platform_admin_nav')),
+                    is_platform_admin=bool(getattr(current_user, 'is_admin', False)),
+                    is_advisor=bool(getattr(current_user, 'is_advisor', False)),
+                    show_tenant_admin_menu=bool(out.get('show_tenant_admin_menu')),
+                )
+            )
+    except Exception:
+        pass
     return out
 
 

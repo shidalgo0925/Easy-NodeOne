@@ -44,6 +44,12 @@ def _ensure_tables():
         ensure_crm_salesperson_and_quotation_columns(db, db.engine)
     except Exception:
         current_app.logger.exception('ensure_crm_salesperson_and_quotation_columns en sales._ensure_tables')
+    try:
+        from nodeone.services.contacts_schema import ensure_contacts_schema
+
+        ensure_contacts_schema(db, db.engine)
+    except Exception:
+        current_app.logger.exception('ensure_contacts_schema en sales._ensure_tables')
 
 
 def _safe_float(v):

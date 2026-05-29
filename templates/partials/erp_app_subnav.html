@@ -11,20 +11,23 @@
 {% set _platform_ep = ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page', 'admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}
 {% set _platform_zone = request.endpoint is defined and request.endpoint in _platform_ep %}
 
-{% set _contador_zone = (request.blueprint in ['contador', 'contador_api']) or ((request.path or '')|string).startswith('/admin/contador') or ((request.path or '')|string).startswith('/api/contador') %}
+{% set _contador_zone = ((request.blueprint in ['contador', 'contador_api']) or ((request.path or '')|string).startswith('/admin/contador') or ((request.path or '')|string).startswith('/api/contador')) and request.endpoint != 'contador.contador_config' %}
 
 {% set _accounting_ep = ['accounting_core.accounts_list', 'accounting_core.journals_list', 'accounting_core.entries_list', 'accounting_core.entries_new', 'accounting_core.entry_detail', 'accounting_core.receivables_list', 'accounting_core.receivables_customers_list', 'accounting_core.adjustments_list'] %}
 {% set _accounting_zone = request.endpoint is defined and request.endpoint in _accounting_ep %}
 
 {% set _sales_zone = request.endpoint is defined and request.endpoint in ['admin_sales_quotations', 'admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}
 
-{% set _workshop_zone = request.endpoint is defined and request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail', 'admin_workshop_process_config'] %}
+{% set _workshop_zone = request.endpoint is defined and request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}
+
+{% set _config_eps = ['efactura_admin.efactura_config', 'contador.contador_config', 'admin_workshop_process_config', 'admin_crm_settings', 'admin_communications.admin_communications_settings', 'admin_configuration_taxes', 'admin_identity', 'admin_email', 'media_admin.admin_media', 'admin_ai', 'admin_product_guide', 'admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type', 'admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability'] %}
+{% set _config_zone = request.endpoint is defined and request.endpoint in _config_eps %}
 
 {% set _edu_zone = request.blueprint == 'academic_admin' %}
 
 {% set _agenda_zone = (request.blueprint == 'appointments') or (request.blueprint == 'admin_appointments') or (request.endpoint == 'appointments.advisor_queue') %}
 
-{% set _comm_zone = ((office365_module_enabled and request.blueprint == 'integrations') or (request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'admin_communications.admin_communications_settings', 'office365_admin.admin_office365_requests'])) %}
+{% set _comm_zone = ((office365_module_enabled and request.blueprint == 'integrations') or (request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'office365_admin.admin_office365_requests'])) %}
 
 {% set _products_zone = (request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories']) or (request.blueprint in ['events', 'admin_events']) %}
 
@@ -53,6 +56,46 @@
     </div>
 </nav>
 
+{% elif show_tenant_admin_menu and _config_zone %}
+<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="config" aria-label="Submenú de configuración">
+    <div class="erp-app-subnav__inner container-fluid">
+        <span class="erp-app-subnav__module">Configuración</span>
+        <ul class="erp-app-subnav__list">
+            {% if nav_can('system.settings.view') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_identity' %}is-active{% endif %}" href="{{ url_for('admin_identity') }}">Branding</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_email' %}is-active{% endif %}" href="{{ url_for('admin_email') }}">Email / SMTP</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'media_admin.admin_media' %}is-active{% endif %}" href="{{ url_for('media_admin.admin_media') }}">Multimedia</a></li>
+            {% if saas_module_enabled('chatbot') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_ai' %}is-active{% endif %}" href="{{ url_for('admin_ai') }}">IA</a></li>
+            {% endif %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_product_guide' %}is-active{% endif %}" href="{{ url_for('admin_product_guide') }}">Guía de productos</a></li>
+            {% endif %}
+            {% if has_view_endpoint('admin_configuration_taxes') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_configuration_taxes' %}is-active{% endif %}" href="{{ url_for('admin_configuration_taxes') }}">Impuestos</a></li>
+            {% endif %}
+            {% if saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'efactura_admin.efactura_config' %}is-active{% endif %}" href="{{ url_for('efactura_admin.efactura_config') }}">Fact. electrónica</a></li>
+            {% endif %}
+            {% if saas_module_enabled('workshop') and has_view_endpoint('admin_workshop_process_config') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_workshop_process_config' %}is-active{% endif %}" href="{{ url_for('admin_workshop_process_config') }}">Taller · SLA</a></li>
+            {% endif %}
+            {% if saas_module_enabled('contador') and nav_can('contador.admin') and has_view_endpoint('contador.contador_config') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contador.contador_config' %}is-active{% endif %}" href="{{ url_for('contador.contador_config') }}">Contador</a></li>
+            {% endif %}
+            {% if (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and has_view_endpoint('admin_crm_settings') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_crm_settings' %}is-active{% endif %}" href="{{ url_for('admin_crm_settings') }}">CRM</a></li>
+            {% endif %}
+            {% if saas_module_enabled('appointments') and nav_can('services.view') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type'] %}is-active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Agenda · Tipos</a></li>
+            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability'] %}is-active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}">Agenda · Disponibilidad</a></li>
+            {% endif %}
+            {% if has_view_endpoint('admin_communications.admin_communications_settings') %}
+            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_communications.admin_communications_settings' %}is-active{% endif %}" href="{{ url_for('admin_communications.admin_communications_settings') }}">Comunicación · Reglas</a></li>
+            {% endif %}
+        </ul>
+    </div>
+</nav>
+
 {% elif saas_module_enabled('contador') and has_view_endpoint('contador.contador_index') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) and _contador_zone %}
 <nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="contador" aria-label="Submenú del módulo">
     <div class="erp-app-subnav__inner container-fluid">
@@ -64,9 +107,6 @@
             {% endif %}
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'contador.contador_catalogo' %}is-active{% endif %}" href="{{ url_for('contador.contador_catalogo') }}">Catálogo</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint in ['contador.contador_sesiones', 'contador.contador_sesion_new', 'contador.contador_sesion_detail', 'contador.contador_sesion_captura', 'contador.contador_sesion_revision', 'contador.contador_sesion_exportar', 'contador.contador_line_historial'] %}is-active{% endif %}" href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a></li>
-            {% if nav_can('contador.admin') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contador.contador_config' %}is-active{% endif %}" href="{{ url_for('contador.contador_config') }}">Configuración</a></li>
-            {% endif %}
         </ul>
     </div>
 </nav>
@@ -143,8 +183,7 @@
     <div class="erp-app-subnav__inner container-fluid">
         <span class="erp-app-subnav__module">Taller</span>
         <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}is-active{% endif %}" href="{{ url_for('admin_workshop_orders') }}">Órdenes / monitor</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_workshop_process_config' %}is-active{% endif %}" href="{{ url_for('admin_workshop_process_config') }}">Procesos SLA</a></li>
+            <li><a class="erp-app-subnav__link is-active" href="{{ url_for('admin_workshop_orders') }}">Órdenes / monitor</a></li>
         </ul>
     </div>
 </nav>
@@ -182,10 +221,6 @@
             {% if current_user.is_advisor %}
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'appointments.advisor_queue' %}is-active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}">Solicitudes pendientes</a></li>
             {% endif %}
-            {% if show_tenant_admin_menu and nav_can('services.view') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type'] %}is-active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Tipos de cita</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability'] %}is-active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}">Disponibilidad</a></li>
-            {% endif %}
         </ul>
     </div>
 </nav>
@@ -204,7 +239,6 @@
             {% if saas_module_enabled('chatbot') %}
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_chatbots' %}is-active{% endif %}" href="{{ url_for('admin_chatbots') }}">Chatbots</a></li>
             {% endif %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_communications.admin_communications_settings' %}is-active{% endif %}" href="{{ url_for('admin_communications.admin_communications_settings') }}">Reglas de comunicación</a></li>
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_notifications' %}is-active{% endif %}" href="{{ url_for('admin_notifications') }}">Notificaciones</a></li>
             {% if saas_module_enabled('communications') and office365_module_enabled %}
             <li><a class="erp-app-subnav__link {% if request.endpoint == 'office365_admin.admin_office365_requests' %}is-active{% endif %}" href="{{ url_for('office365_admin.admin_office365_requests') }}">Solicitudes correo</a></li>

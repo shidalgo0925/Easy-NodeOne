@@ -9,7 +9,8 @@ Organización del sidebar **tenant admin** por dominios funcionales (estilo ERP 
 | **General** | Dashboard, Analítica |
 | **Comercial** | CRM, **Contactos**, Servicios, Ventas |
 | **Finanzas** | Contabilidad, Pagos, Fact. electrónica |
-| **Operaciones** | Taller, Contador |
+| **Operaciones** | Taller (órdenes), Contador (inventario y sesiones) |
+| **Configuración** | Sitio, impuestos, FE, taller SLA, contador, CRM, agenda, comunicación |
 | **Educación** | Programas, Estudiantes, Cursos, Matrículas, Moodle |
 | **Eventos** | Ver eventos, Gestión, Descuentos |
 | **Membresías** | Beneficios, Gestionar beneficios, Planes / Miembros |

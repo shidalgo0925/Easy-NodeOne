@@ -530,6 +530,15 @@
                         {% set _nav_oper_taller = saas_module_enabled('workshop') %}
                         {% set _nav_oper_contador = saas_module_enabled('contador') and has_view_endpoint('contador.contador_index') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) %}
                         {% set _nav_operaciones_any = _nav_oper_taller or _nav_oper_contador %}
+                        {% set _nav_cfg_fe = saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config') %}
+                        {% set _nav_cfg_contador = _nav_oper_contador and nav_can('contador.admin') and has_view_endpoint('contador.contador_config') %}
+                        {% set _nav_cfg_taller = _nav_oper_taller and has_view_endpoint('admin_workshop_process_config') %}
+                        {% set _nav_cfg_crm = _nav_clientes_crm and has_view_endpoint('admin_crm_settings') %}
+                        {% set _nav_cfg_agenda = show_tenant_admin_menu and _nav_agenda_admin and nav_can('services.view') %}
+                        {% set _nav_cfg_comm = show_tenant_admin_menu and _nav_comm_admin and has_view_endpoint('admin_communications.admin_communications_settings') %}
+                        {% set _nav_cfg_taxes = (show_tenant_admin_menu and nav_can('system.settings.view')) or current_user.is_admin %}
+                        {% set _nav_cfg_site = show_tenant_admin_menu and nav_can('system.settings.view') %}
+                        {% set _nav_config_any = _nav_cfg_fe or _nav_cfg_contador or _nav_cfg_taller or _nav_cfg_crm or _nav_cfg_agenda or _nav_cfg_comm or (_nav_cfg_taxes and has_view_endpoint('admin_configuration_taxes')) or _nav_cfg_site %}
                         {% endif %}
 
                         {% if show_tenant_admin_menu and _nav_comercial_any %}
@@ -629,9 +638,6 @@
                             </a>
                             <ul class="nav-group-items">
                                 <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'efactura_admin.efactura_config' %}active{% endif %}" href="{{ url_for('efactura_admin.efactura_config') }}">Configuración</a>
-                                </li>
-                                <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'efactura_admin.efactura_emissions' %}active{% endif %}" href="{{ url_for('efactura_admin.efactura_emissions') }}">Emisiones</a>
                                 </li>
                                 <li class="nav-item">
@@ -649,20 +655,11 @@
                         <li class="sidebar-menu-divider"><hr class="border-secondary"></li>
                         <li class="sidebar-section-title">Operaciones</li>
                         {% if _nav_oper_taller %}
-                        <li class="nav-item nav-group sidebar-nav-app sidebar-nav-app--workshop {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail', 'admin_workshop_process_config'] %}show{% endif %}" data-nav-group-key="workshop_taller">
-                            <a class="nav-link nav-group-toggle" href="#" onclick="return false;" data-bs-toggle="tooltip" data-bs-placement="right" title="Recepción y tiempos por etapa">
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--workshop">
+                            <a class="nav-link {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}active{% endif %}" href="{{ url_for('admin_workshop_orders') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Órdenes de taller y monitor de tiempos">
                                 <i class="menu-icon fas fa-car-side"></i>
                                 <span class="menu-title-text">Taller</span>
-                                <i class="menu-arrow fas fa-chevron-down"></i>
                             </a>
-                            <ul class="nav-group-items">
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail'] %}active{% endif %}" href="{{ url_for('admin_workshop_orders') }}">Órdenes / monitor</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_workshop_process_config' %}active{% endif %}" href="{{ url_for('admin_workshop_process_config') }}">Procesos SLA</a>
-                                </li>
-                            </ul>
                         </li>
                         {% endif %}
                         {% if _nav_oper_contador %}
@@ -687,12 +684,108 @@
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint in ['contador.contador_sesiones', 'contador.contador_sesion_new', 'contador.contador_sesion_detail', 'contador.contador_sesion_captura', 'contador.contador_sesion_revision', 'contador.contador_sesion_exportar', 'contador.contador_line_historial'] %}active{% endif %}" href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a>
                                 </li>
-                                {% if nav_can('contador.admin') %}
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'contador.contador_config' %}active{% endif %}" href="{{ url_for('contador.contador_config') }}">Configuración</a>
-                                </li>
-                                {% endif %}
                             </ul>
+                        </li>
+                        {% endif %}
+                        {% endif %}
+
+                        {% if show_tenant_admin_menu and _nav_config_any %}
+                        <li class="sidebar-menu-divider"><hr class="border-secondary"></li>
+                        <li class="sidebar-section-title">Configuración</li>
+                        {% if _nav_cfg_site %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-site">
+                            <a class="nav-link {% if request.endpoint == 'admin_identity' %}active{% endif %}" href="{{ url_for('admin_identity') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Marca y apariencia del sitio">
+                                <i class="menu-icon fas fa-palette"></i>
+                                <span class="menu-title-text">Branding</span>
+                            </a>
+                        </li>
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-email">
+                            <a class="nav-link {% if request.endpoint == 'admin_email' %}active{% endif %}" href="{{ url_for('admin_email') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Correo saliente / SMTP">
+                                <i class="menu-icon fas fa-envelope"></i>
+                                <span class="menu-title-text">Email / SMTP</span>
+                            </a>
+                        </li>
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-media">
+                            <a class="nav-link {% if request.endpoint == 'media_admin.admin_media' %}active{% endif %}" href="{{ url_for('media_admin.admin_media') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Biblioteca multimedia">
+                                <i class="menu-icon fas fa-photo-video"></i>
+                                <span class="menu-title-text">Multimedia</span>
+                            </a>
+                        </li>
+                        {% if saas_module_enabled('chatbot') %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-ai">
+                            <a class="nav-link {% if request.endpoint == 'admin_ai' %}active{% endif %}" href="{{ url_for('admin_ai') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Asistente e IA">
+                                <i class="menu-icon fas fa-robot"></i>
+                                <span class="menu-title-text">IA</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-guide">
+                            <a class="nav-link {% if request.endpoint == 'admin_product_guide' %}active{% endif %}" href="{{ url_for('admin_product_guide') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Guía de productos del catálogo">
+                                <i class="menu-icon fas fa-book-open"></i>
+                                <span class="menu-title-text">Guía de productos</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if _nav_cfg_taxes and has_view_endpoint('admin_configuration_taxes') %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-taxes">
+                            <a class="nav-link {% if request.endpoint == 'admin_configuration_taxes' %}active{% endif %}" href="{{ url_for('admin_configuration_taxes') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Impuestos para facturación y cotizaciones">
+                                <i class="menu-icon fas fa-percent"></i>
+                                <span class="menu-title-text">Impuestos</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if _nav_cfg_fe %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-fe">
+                            <a class="nav-link {% if request.endpoint == 'efactura_admin.efactura_config' %}active{% endif %}" href="{{ url_for('efactura_admin.efactura_config') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Proveedor y parámetros de factura electrónica">
+                                <i class="menu-icon fas fa-receipt"></i>
+                                <span class="menu-title-text">Fact. electrónica</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if _nav_cfg_taller %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-workshop">
+                            <a class="nav-link {% if request.endpoint == 'admin_workshop_process_config' %}active{% endif %}" href="{{ url_for('admin_workshop_process_config') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Etapas y SLA del taller">
+                                <i class="menu-icon fas fa-stopwatch"></i>
+                                <span class="menu-title-text">Taller · Procesos SLA</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if _nav_cfg_contador %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-contador">
+                            <a class="nav-link {% if request.endpoint == 'contador.contador_config' %}active{% endif %}" href="{{ url_for('contador.contador_config') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Ajustes del módulo contador">
+                                <i class="menu-icon fas fa-cog"></i>
+                                <span class="menu-title-text">Contador</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if _nav_cfg_crm %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-crm">
+                            <a class="nav-link {% if request.endpoint == 'admin_crm_settings' %}active{% endif %}" href="{{ url_for('admin_crm_settings') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Pipeline y campos del CRM">
+                                <i class="menu-icon fas fa-sliders-h"></i>
+                                <span class="menu-title-text">CRM</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if _nav_cfg_agenda %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-agenda-types">
+                            <a class="nav-link {% if request.endpoint in ['admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type'] %}active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Tipos de cita y duración">
+                                <i class="menu-icon fas fa-list-alt"></i>
+                                <span class="menu-title-text">Agenda · Tipos de cita</span>
+                            </a>
+                        </li>
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-agenda-avail">
+                            <a class="nav-link {% if request.endpoint in ['admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability'] %}active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Calendario y disponibilidad por servicio">
+                                <i class="menu-icon fas fa-calendar-week"></i>
+                                <span class="menu-title-text">Agenda · Disponibilidad</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if _nav_cfg_comm %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--config-comm">
+                            <a class="nav-link {% if request.endpoint == 'admin_communications.admin_communications_settings' %}active{% endif %}" href="{{ url_for('admin_communications.admin_communications_settings') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Reglas automáticas de comunicación">
+                                <i class="menu-icon fas fa-bell"></i>
+                                <span class="menu-title-text">Comunicación · Reglas</span>
+                            </a>
                         </li>
                         {% endif %}
                         {% endif %}
@@ -802,14 +895,6 @@
                                     <a class="nav-link {% if request.endpoint == 'appointments.advisor_queue' %}active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}">Solicitudes pendientes</a>
                                 </li>
                                 {% endif %}
-                                {% if show_tenant_admin_menu and nav_can('services.view') %}
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type'] %}active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Tipos de cita</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint in ['admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability'] %}active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}">Disponibilidad</a>
-                                </li>
-                                {% endif %}
                             </ul>
                         </li>
                         {% endif %}
@@ -859,9 +944,6 @@
                                     <a class="nav-link {% if request.endpoint == 'admin_chatbots' %}active{% endif %}" href="{{ url_for('admin_chatbots') }}">Chatbots</a>
                                 </li>
                                 {% endif %}
-                                <li class="nav-item">
-                                    <a class="nav-link {% if request.endpoint == 'admin_communications.admin_communications_settings' %}active{% endif %}" href="{{ url_for('admin_communications.admin_communications_settings') }}">Reglas de comunicación</a>
-                                </li>
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint == 'admin_notifications' %}active{% endif %}" href="{{ url_for('admin_notifications') }}">Notificaciones</a>
                                 </li>
@@ -991,7 +1073,7 @@
                         {% endif %}
 
                         {% if show_tenant_admin_menu %}
-                        {# ⚙️ Configuración (Impuestos, Branding, Email, Multimedia, IA, Guía): solo menú engranaje superior #}
+                        {# Ajustes de sitio también en engranaje superior; aquí el bloque Configuración del sidebar. #}
                         {% set _nav_admin_any = (saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and (current_user.is_admin or nav_can('security_matrix.admin'))) or nav_can('users.view') or nav_can('roles.view') %}
                         {% if _nav_admin_any %}
                         <li class="sidebar-menu-divider"><hr class="border-secondary"></li>

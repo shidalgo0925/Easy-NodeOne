@@ -817,10 +817,8 @@ def inject_theme():
 # Context processor: planes de membresía configurables (para dropdowns y listas)
 @app.context_processor
 def inject_membership_plans():
-    try:
-        return {'membership_plans': MembershipPlan.get_active_ordered()}
-    except Exception:
-        return {'membership_plans': []}
+    # Sin uso global en plantillas; admin/users pasa membership_plans_for_assign en la vista.
+    return {'membership_plans': []}
 
 
 # Context processor: apariencia del usuario (tema y tamaño de fuente) para aplicar en <html>
@@ -1574,27 +1572,38 @@ def inject_saas_module_template_helper():
     from flask import current_app, has_request_context
     from flask_login import current_user
 
+    from nodeone.core.template_context_gates import (
+        should_count_events_portal_badge,
+        should_load_academic_member_context,
+        user_can_see_tenant_admin_menu,
+    )
     from nodeone.services.academic_module import is_academic_module_enabled_for_org
     from nodeone.services.office365_module import is_office365_module_enabled_for_org
 
-    # Menú solo si el blueprint existe y el módulo SaaS `academic` está ON para la org (incl. is_admin).
+    oid = _org_id_for_module_visibility()
+    academic_module_enabled = is_academic_module_enabled_for_org(oid)
+    office365_module_enabled = is_office365_module_enabled_for_org(oid)
+    events_module_enabled = has_saas_module_enabled(oid, 'events')
+
     show_academic_nav = False
     if (
         has_request_context()
-        and getattr(current_user, 'is_authenticated', False)
+        and user_can_see_tenant_admin_menu(current_user)
         and 'academic_admin' in current_app.blueprints
-        and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+        and academic_module_enabled
     ):
         show_academic_nav = True
 
     events_portal_count = None
     try:
-        if has_request_context() and has_saas_module_enabled(_org_id_for_module_visibility(), 'events'):
+        if has_request_context() and should_count_events_portal_badge(
+            user=current_user,
+            events_module_enabled=events_module_enabled,
+        ):
             from nodeone.services.events_portal import count_portal_visible_events
 
-            u = current_user if getattr(current_user, 'is_authenticated', False) else None
             events_portal_count = count_portal_visible_events(
-                organization_id=_org_id_for_module_visibility(), user=u
+                organization_id=oid, user=current_user
             )
     except Exception:
         events_portal_count = None
@@ -1607,7 +1616,10 @@ def inject_saas_module_template_helper():
     academic_enrollments_grouped = {}
     academic_pending_continue_url = None
     try:
-        if has_request_context() and getattr(current_user, 'is_authenticated', False):
+        if has_request_context() and should_load_academic_member_context(
+            user=current_user,
+            academic_module_enabled=academic_module_enabled,
+        ):
             from nodeone.services.academic_access import (
                 continuar_url_for_enrollment,
                 default_inscripcion_url_for_org,
@@ -1620,7 +1632,6 @@ def inject_saas_module_template_helper():
                 user_bypasses_academic_gate,
             )
 
-            oid = _org_id_for_module_visibility()
             academic_closed_mode = bool(oid is not None and is_academic_closed_org(oid))
             if oid is not None:
                 academic_inscripcion_url = default_inscripcion_url_for_org(int(oid))
@@ -1639,8 +1650,8 @@ def inject_saas_module_template_helper():
         saas_module_enabled=saas_module_enabled,
         saas_module_enabled_fallback=saas_module_enabled_fallback,
         saas_module_enabled_chain=saas_module_enabled_chain,
-        office365_module_enabled=is_office365_module_enabled_for_org(_org_id_for_module_visibility()),
-        academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
+        office365_module_enabled=office365_module_enabled,
+        academic_module_enabled=academic_module_enabled,
         show_academic_admin_nav=show_academic_nav,
         events_portal_count=events_portal_count,
         academic_closed_mode=academic_closed_mode,
@@ -1728,10 +1739,9 @@ def inject_admin_nav_context():
                         rows = [o for o in rows if int(o.id) in allow]
                     out['saas_organizations_nav'] = rows
                 else:
-                    # Admin RBAC (tenant): mismas empresas que puede usar el usuario (no forzar solo default en single-tenant).
-                    from nodeone.services.post_login_organization import organizations_for_session_after_login
+                    from nodeone.core.template_context_gates import cached_orgs_for_session_after_login
 
-                    out['saas_organizations_nav'] = organizations_for_session_after_login(current_user)
+                    out['saas_organizations_nav'] = cached_orgs_for_session_after_login(current_user)
             except Exception:
                 out['saas_organizations_nav'] = []
         try:
@@ -1752,9 +1762,9 @@ def inject_admin_nav_context():
             except Exception:
                 pass
         try:
-            from nodeone.services.post_login_organization import organizations_for_session_after_login
+            from nodeone.core.template_context_gates import cached_orgs_for_session_after_login
 
-            _picker_orgs = organizations_for_session_after_login(current_user)
+            _picker_orgs = cached_orgs_for_session_after_login(current_user)
             if len(_picker_orgs) > 1:
                 out['show_org_switcher_link'] = True
                 has_admin_org_sidebar = bool(

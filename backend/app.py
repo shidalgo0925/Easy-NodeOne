@@ -556,6 +556,20 @@ def initialize_email_config():
 
 
 @app.before_request
+def preload_saas_module_flags():
+    """Precarga flags SaaS por org (2 SQL) antes de plantillas y context processors."""
+    try:
+        if not _enable_multi_tenant_catalog():
+            return
+        from nodeone.services.org_scope import org_id_for_module_visibility
+        from nodeone.services.saas_module_cache import preload_saas_modules_for_org
+
+        preload_saas_modules_for_org(org_id_for_module_visibility())
+    except Exception:
+        pass
+
+
+@app.before_request
 def check_license():
     """Verificar licencia de la aplicación"""
     global _license_checked

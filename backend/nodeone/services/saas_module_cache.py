@@ -81,8 +81,48 @@ def saas_cache_stats() -> dict[str, int]:
     from flask import g, has_request_context
 
     if not has_request_context():
-        return {'enabled_keys': 0, 'catalog_keys': 0}
+        return {'enabled_keys': 0, 'catalog_keys': 0, 'preloaded_oid': None}
     return {
         'enabled_keys': len(getattr(g, '_saas_module_enabled_cache', {}) or {}),
         'catalog_keys': len(getattr(g, '_saas_module_catalog_cache', {}) or {}),
+        'preloaded_oid': getattr(g, '_saas_modules_preloaded_oid', None),
     }
+
+
+def preload_saas_modules_for_org(organization_id) -> None:
+    """Precarga catálogo + flags enabled para la org (2 queries vs 2×N)."""
+    import app as M
+
+    if not M._enable_multi_tenant_catalog():
+        return
+    try:
+        oid = int(organization_id)
+    except (TypeError, ValueError):
+        return
+
+    from flask import g, has_request_context
+
+    if has_request_context() and getattr(g, '_saas_modules_preloaded_oid', None) == oid:
+        return
+
+    enabled_cache = _enabled_cache()
+    catalog_cache = _catalog_cache()
+
+    modules = M.SaasModule.query.order_by(M.SaasModule.id.asc()).all()
+    links = {
+        int(link.module_id): link
+        for link in M.SaasOrgModule.query.filter_by(organization_id=oid).all()
+    }
+    for mod in modules:
+        code = (mod.code or '').strip()
+        if not code:
+            continue
+        catalog_cache[code] = mod
+        link = links.get(int(mod.id))
+        if link is not None:
+            enabled_cache[(oid, code)] = bool(link.enabled)
+        else:
+            enabled_cache[(oid, code)] = bool(mod.is_core)
+
+    if has_request_context():
+        g._saas_modules_preloaded_oid = oid

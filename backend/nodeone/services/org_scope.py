@@ -13,26 +13,9 @@ def org_id_for_module_visibility():
 
 
 def has_saas_module_enabled(organization_id, module_code):
-    import app as M
+    from nodeone.services.saas_module_cache import has_saas_module_enabled_cached
 
-    if not module_code:
-        return True
-    if not M._enable_multi_tenant_catalog():
-        return True
-    if organization_id is None:
-        return False
-    try:
-        oid = int(organization_id)
-    except (TypeError, ValueError):
-        return False
-    mod = M.SaasModule.query.filter_by(code=module_code).first()
-    if mod is None:
-        # Sin fila en catálogo: no se puede evaluar permiso → denegar (multi-tenant SaaS).
-        return False
-    link = M.SaasOrgModule.query.filter_by(organization_id=oid, module_id=mod.id).first()
-    if link is not None:
-        return bool(link.enabled)
-    return bool(mod.is_core)
+    return has_saas_module_enabled_cached(organization_id, module_code)
 
 
 def apply_session_organization_after_login(user, req):

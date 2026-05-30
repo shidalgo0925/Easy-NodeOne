@@ -217,11 +217,16 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 mail = Mail(app) if Mail else None
 
+# Última config SMTP aplicada en este worker (evita reinicializar Mail en cada hit).
+_last_smtp_applied_key: tuple | None = None
+
 # Aplicar configuración de email desde BD si existe (después de crear las tablas)
 def apply_email_config_from_db():
     """Aplicar configuración de email desde la base de datos (por org en sesión si hay usuario)."""
-    global mail, email_service
+    global mail, email_service, _last_smtp_applied_key
     try:
+        from flask import g
+
         from utils.organization import default_organization_id, get_current_organization_id
 
         oid = None
@@ -233,13 +238,37 @@ def apply_email_config_from_db():
         except RuntimeError:
             oid = None
 
-        if oid is not None:
-            email_config = EmailConfig.get_active_config(
-                organization_id=int(oid),
-                allow_fallback_to_default_org=True,
-            )
+        scope_oid = int(oid) if oid is not None else None
+
+        if has_request_context() and getattr(g, '_email_config_resolved_for_oid', object()) == scope_oid:
+            fingerprint = getattr(g, '_email_config_fingerprint', None)
         else:
-            email_config = EmailConfig.get_active_config()
+            if scope_oid is not None:
+                email_config = EmailConfig.get_active_config(
+                    organization_id=scope_oid,
+                    allow_fallback_to_default_org=True,
+                )
+            else:
+                email_config = EmailConfig.get_active_config()
+            fingerprint = email_config.smtp_fingerprint() if email_config else ('none', scope_oid)
+            if has_request_context():
+                g._email_config_resolved_for_oid = scope_oid
+                g._email_config_fingerprint = fingerprint
+                g._email_config_row = email_config
+
+        apply_key = (scope_oid, fingerprint)
+        if _last_smtp_applied_key == apply_key:
+            return
+
+        email_config = getattr(g, '_email_config_row', None) if has_request_context() else None
+        if email_config is None:
+            if scope_oid is not None:
+                email_config = EmailConfig.get_active_config(
+                    organization_id=scope_oid,
+                    allow_fallback_to_default_org=True,
+                )
+            else:
+                email_config = EmailConfig.get_active_config()
 
         if email_config:
             email_config.apply_to_app(app)
@@ -262,6 +291,7 @@ def apply_email_config_from_db():
             if EmailService and mail:
                 if not email_service:
                     email_service = EmailService(mail)
+        _last_smtp_applied_key = apply_key
     except Exception as e:
         print(f"⚠️ No se pudo cargar configuración de email desde BD: {e}")
         print("   Usando configuración por defecto o variables de entorno")
@@ -1516,12 +1546,13 @@ def saas_module_enabled_fallback(module_code, fallback_module_code=''):
     Evalúa módulo SaaS con fallback si el módulo principal no existe en catálogo.
     Útil para migrar flags nuevos sin romper tenants antiguos.
     """
+    from nodeone.services.saas_module_cache import get_catalog_module
+
     code = (module_code or '').strip()
     fallback = (fallback_module_code or '').strip()
     if not code:
         return True
-    mod = SaasModule.query.filter_by(code=code).first()
-    if mod is not None:
+    if get_catalog_module(code) is not None:
         return has_saas_module_enabled(_org_id_for_module_visibility(), code)
     if fallback:
         return has_saas_module_enabled(_org_id_for_module_visibility(), fallback)
@@ -1534,12 +1565,14 @@ def saas_module_enabled_chain(*module_codes: str) -> bool:
     (encendido/apagado por org). Si ninguno existe en catálogo, evalúa el último código
     (despliegues sin fila aún, compat. heredada).
     """
+    from nodeone.services.saas_module_cache import get_catalog_module
+
     codes = [str(c or '').strip() for c in module_codes if str(c or '').strip()]
     if not codes:
         return True
     oid = _org_id_for_module_visibility()
     for code in codes:
-        if SaasModule.query.filter_by(code=code).first() is not None:
+        if get_catalog_module(code) is not None:
             return has_saas_module_enabled(oid, code)
     return has_saas_module_enabled(oid, codes[-1])
 
@@ -1793,7 +1826,7 @@ def inject_admin_nav_context():
                     show_platform_admin_nav=bool(out.get('show_platform_admin_nav')),
                     is_platform_admin=bool(getattr(current_user, 'is_admin', False)),
                     is_advisor=bool(getattr(current_user, 'is_advisor', False)),
-                    show_tenant_admin_menu=bool(out.get('show_tenant_admin_menu')),
+                    show_tenant_admin_menu=True,
                 )
             )
     except Exception:
@@ -2608,6 +2641,13 @@ try:
     register_modules(app)
 except Exception as e:
     print(f"Warning: register_modules: {e}")
+
+try:
+    from nodeone.core.request_perf import register_request_perf
+
+    register_request_perf(app)
+except Exception as e:
+    print(f'Warning: register_request_perf: {e}')
 
 # Funciones de utilidad
 def create_sample_data():

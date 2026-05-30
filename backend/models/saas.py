@@ -4,7 +4,7 @@ import json
 import os
 import re
 import secrets
-from flask import has_request_context, url_for
+from flask import g, has_request_context, url_for
 from flask_login import UserMixin, current_user
 from sqlalchemy import text as sql_text
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -54,12 +54,25 @@ class OrganizationSettings(db.Model):
                     oid = int(gco)
         except Exception:
             pass
+        if has_request_context():
+            cache_key = f'_org_settings_for_session_{oid}'
+            cached = getattr(g, cache_key, None)
+            if cached is not None:
+                return cached
+        else:
+            cache_key = None
+
+        def _cache_settings(settings_row):
+            if has_request_context() and cache_key is not None and settings_row is not None:
+                setattr(g, cache_key, settings_row)
+            return settings_row
+
         row = OrganizationSettings.query.filter_by(organization_id=oid).first()
         if row is not None:
-            return row
+            return _cache_settings(row)
         legacy = OrganizationSettings.query.filter(OrganizationSettings.organization_id.is_(None)).first()
         if legacy is not None and int(oid) == int(default_organization_id()):
-            return legacy
+            return _cache_settings(legacy)
         base = legacy or OrganizationSettings.query.first()
         src = base.to_dict() if base else {}
         n = OrganizationSettings(
@@ -77,6 +90,8 @@ class OrganizationSettings(db.Model):
         except Exception:
             db.session.rollback()
             return OrganizationSettings.get_settings()
+        if has_request_context():
+            setattr(g, cache_key, n)
         return n
 
     def to_dict(self):

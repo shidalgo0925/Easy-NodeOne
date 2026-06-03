@@ -541,7 +541,7 @@ def _admin_payments_page_inner(M):
 
 
 @payments_admin_bp.route('/api/admin/payments/org-methods', methods=['GET', 'PUT'])
-@require_permission('payments.manage')
+@_admin_required_lazy
 def api_organization_payment_methods():
     """Matriz de métodos de pago por organización (habilitar, orden, instrucciones)."""
     import app as M
@@ -585,7 +585,7 @@ def api_organization_payment_methods():
 
 
 @payments_admin_bp.route('/api/admin/payments/org-methods/apply-profile', methods=['POST'])
-@require_permission('payments.manage')
+@_admin_required_lazy
 def api_apply_organization_payment_profile():
     """Aplica perfil Panamá / Internacional a la matriz de la org activa."""
     import app as M
@@ -763,11 +763,21 @@ def api_payment_config():
         if _ym_row and _ym_row.enabled:
             from nodeone.services.yappy_manual import validate_yappy_manual_admin_emails_when_enabled
 
-            norm_emails, em_err = validate_yappy_manual_admin_emails_when_enabled(
-                data.get('yappy_manual_admin_emails', '')
-            )
+            emails_raw = (data.get('yappy_manual_admin_emails') or '').strip()
+            if not emails_raw:
+                _existing_cfg = _payment_config_for_scope(M, scope_oid)
+                if _existing_cfg:
+                    emails_raw = (getattr(_existing_cfg, 'yappy_manual_admin_emails', None) or '').strip()
+            norm_emails, em_err = validate_yappy_manual_admin_emails_when_enabled(emails_raw)
             if em_err:
-                return jsonify({'success': False, 'error': em_err}), 400
+                return jsonify(
+                    {
+                        'success': False,
+                        'error': em_err,
+                        'message': em_err,
+                        'field': 'yappy_manual_admin_emails',
+                    }
+                ), 400
             data['yappy_manual_admin_emails'] = ','.join(norm_emails)
 
         try:
@@ -816,6 +826,10 @@ def api_payment_config():
                     intl_wire_account_type=data.get('intl_wire_account_type', '') or '',
                     intl_wire_country=data.get('intl_wire_country', '') or '',
                     intl_wire_instructions=data.get('intl_wire_instructions', '') or '',
+                    banco_general_beneficiary_name=data.get('banco_general_beneficiary_name', '') or '',
+                    banco_general_bank_name=data.get('banco_general_bank_name', '') or '',
+                    banco_general_account_number=data.get('banco_general_account_number', '') or '',
+                    banco_general_account_type=data.get('banco_general_account_type', '') or '',
                     use_environment_variables=bool(data.get('use_environment_variables', True)),
                     is_active=True,
                 )
@@ -871,12 +885,22 @@ def api_payment_config():
                 config.intl_wire_account_type = data.get('intl_wire_account_type', config.intl_wire_account_type)
                 config.intl_wire_country = data.get('intl_wire_country', config.intl_wire_country)
                 config.intl_wire_instructions = data.get('intl_wire_instructions', config.intl_wire_instructions)
+                config.banco_general_beneficiary_name = data.get(
+                    'banco_general_beneficiary_name', config.banco_general_beneficiary_name
+                )
+                config.banco_general_bank_name = data.get('banco_general_bank_name', config.banco_general_bank_name)
+                config.banco_general_account_number = data.get(
+                    'banco_general_account_number', config.banco_general_account_number
+                )
+                config.banco_general_account_type = data.get(
+                    'banco_general_account_type', config.banco_general_account_type
+                )
                 config.use_environment_variables = bool(data.get('use_environment_variables', config.use_environment_variables))
                 config.is_active = True
                 config.updated_at = datetime.utcnow()
 
             M.db.session.commit()
-            opm.sync_legacy_payment_config_flags(scope_oid)
+            opm.sync_legacy_payment_config_flags(scope_oid, sync_wire_instructions=False)
             try:
                 cfg_out = config.to_dict()
             except Exception:

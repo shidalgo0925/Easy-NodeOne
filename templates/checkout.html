@@ -325,6 +325,7 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
     const INTL_WIRE_DISPLAY = {{ intl_wire_display | default({}) | tojson }};
+    const BANCO_GENERAL_DISPLAY = {{ banco_general_display | default({}) | tojson }};
     const EN1_YAPPY_RECEIPT_REQUIRES = {{ (yappy_checkout.requires_receipt if yappy_checkout else True)|tojson }};
     const EN1_CHECKOUT_IS_ADMIN = {{ (current_user.is_authenticated and current_user.is_admin)|tojson }};
     const firstCheckedMethod = document.querySelector('input[name="payment_method"]:checked');
@@ -646,11 +647,15 @@
         let html = '';
         
         if (method === 'banco_general') {
+            const b = BANCO_GENERAL_DISPLAY || {};
             html = `
-                <h6>Banco General</h6>
-                <p><strong>Cuenta Corriente:</strong> 03-78-01-089981-8</p>
-                <p><strong>Nombre:</strong> Multi Servicios TK</p>
-                <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
+                <h6>Transferencia — Banco General</h6>
+                <p><strong>Banco:</strong> ${b.bank_name || ''}</p>
+                <p><strong>Nombre:</strong> ${b.beneficiary_name || ''}</p>
+                <p><strong>Cuenta:</strong> ${b.account_number || ''}</p>
+                <p><strong>Tipo:</strong> ${b.account_type || ''}</p>
+                ${b.instructions_html ? '<div class="mt-2 border rounded p-2 small">' + b.instructions_html + '</div>' : ''}
+                <p class="mb-0 small text-muted mt-2">Realiza la transferencia y adjunta el comprobante.</p>
             `;
         } else if (method === 'wire_international') {
             const w = INTL_WIRE_DISPLAY || {};

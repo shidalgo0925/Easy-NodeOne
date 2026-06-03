@@ -274,6 +274,54 @@
                                 </div>
                             </div>
                             {% endif %}
+
+                            {% if payment.payment_method == 'banco_general' %}
+                            <div class="card border-success mb-4 text-start">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0"><i class="fas fa-university"></i> Transferencia — Banco General</h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if banco_general_transfer %}
+                                    <p class="mb-2"><strong>Banco:</strong> {{ banco_general_transfer.bank or banco_general_transfer.bank_name }}</p>
+                                    <p class="mb-2"><strong>Nombre:</strong> {{ banco_general_transfer.beneficiary_name or banco_general_transfer.account_name }}</p>
+                                    <p class="mb-2"><strong>Cuenta:</strong> <code>{{ banco_general_transfer.account_number }}</code></p>
+                                    <p class="mb-2"><strong>Tipo:</strong> {{ banco_general_transfer.account_type }}</p>
+                                    {% else %}
+                                    <p class="text-muted">Contacta soporte con la referencia <code>{{ payment.payment_reference }}</code>.</p>
+                                    {% endif %}
+                                    <hr>
+                                    <p class="mb-0"><strong>Referencia:</strong> <code>{{ payment.payment_reference }}</code></p>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if manual_validation_payment and manual_can_upload_receipt %}
+                            <div class="card border-success mb-4 text-start">
+                                <div class="card-header bg-success text-white py-2">
+                                    <h6 class="mb-0"><i class="fas fa-paperclip me-2"></i> Adjuntar comprobante de pago</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted">Tu pedido <strong>#{{ payment.id }}</strong> quedará en revisión cuando envíes el comprobante.</p>
+                                    <form id="en1-manual-receipt-form" enctype="multipart/form-data" data-payment-id="{{ payment.id }}">
+                                        <div class="mb-2">
+                                            <label class="form-label small" for="en1-manual-receipt-file">Comprobante{% if manual_receipt_requires %} <span class="text-danger">*</span>{% endif %}</label>
+                                            <input type="file" class="form-control form-control-sm" name="receipt" id="en1-manual-receipt-file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" {% if manual_receipt_requires %}required{% endif %}>
+                                            <small class="text-muted">JPG, PNG, WEBP o PDF. Máx. 5 MB.</small>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100" id="en1-manual-receipt-submit">
+                                            <i class="fas fa-paper-plane"></i> Enviar comprobante
+                                        </button>
+                                    </form>
+                                    <div id="en1-manual-receipt-msg" class="mt-2 small"></div>
+                                </div>
+                            </div>
+                            {% elif manual_validation_payment and manual_pending_review %}
+                            <div class="alert alert-info text-start mb-4">
+                                <i class="fas fa-hourglass-half"></i>
+                                Comprobante recibido. Estado: <strong>{{ manual_status_label or 'Pendiente de validación' }}</strong>.
+                                Te notificaremos por correo cuando el equipo apruebe tu pago.
+                            </div>
+                            {% endif %}
                             
                             <!-- Opciones de Pago Yappy -->
                             {% if payment.payment_method == 'yappy' %}

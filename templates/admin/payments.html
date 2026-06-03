@@ -409,36 +409,43 @@
                         <div class="col-12">
                             <label class="form-label" for="intl_wire_beneficiary_name">Nombre del beneficiario</label>
                             <input type="text" class="form-control" id="intl_wire_beneficiary_name" name="intl_wire_beneficiary_name"
-                                   value="{% if payment_config and payment_config.get('intl_wire_beneficiary_name') %}{{ payment_config.intl_wire_beneficiary_name }}{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_beneficiary_name', '') }}{% endif %}"
+                                   placeholder="Ej. RED LATINOAMERICANA DE INVESTIVACIONES CUALITATIVAS">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="intl_wire_bank_name">Banco</label>
                             <input type="text" class="form-control" id="intl_wire_bank_name" name="intl_wire_bank_name"
-                                   value="{% if payment_config and payment_config.get('intl_wire_bank_name') %}{{ payment_config.intl_wire_bank_name }}{% else %}Banco General, S.A.{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_bank_name', '') }}{% endif %}"
+                                   placeholder="Banco General, S.A.">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="intl_wire_swift">SWIFT / BIC</label>
                             <input type="text" class="form-control" id="intl_wire_swift" name="intl_wire_swift"
-                                   value="{% if payment_config and payment_config.get('intl_wire_swift') %}{{ payment_config.intl_wire_swift }}{% else %}BAGEPAPA{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_swift', '') }}{% endif %}"
+                                   placeholder="BAGEPAPA">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="intl_wire_account">Número de cuenta</label>
                             <input type="text" class="form-control" id="intl_wire_account" name="intl_wire_account"
-                                   value="{% if payment_config and payment_config.get('intl_wire_account') %}{{ payment_config.intl_wire_account }}{% else %}04-18-00-004229-1{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_account', '') }}{% endif %}"
+                                   placeholder="04-18-00-004229-1">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label" for="intl_wire_account_type">Tipo</label>
                             <input type="text" class="form-control" id="intl_wire_account_type" name="intl_wire_account_type"
-                                   value="{% if payment_config and payment_config.get('intl_wire_account_type') %}{{ payment_config.intl_wire_account_type }}{% else %}Ahorros{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_account_type', '') }}{% endif %}"
+                                   placeholder="Cuenta de Ahorros">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label" for="intl_wire_country">País</label>
                             <input type="text" class="form-control" id="intl_wire_country" name="intl_wire_country"
-                                   value="{% if payment_config and payment_config.get('intl_wire_country') %}{{ payment_config.intl_wire_country }}{% else %}Panamá{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_country', '') }}{% endif %}"
+                                   placeholder="Panamá">
                         </div>
                         <div class="col-12">
                             <label class="form-label" for="intl_wire_instructions">Notas al cliente (HTML opcional)</label>
-                            <textarea class="form-control" id="intl_wire_instructions" name="intl_wire_instructions" rows="2">{% if payment_config and payment_config.get('intl_wire_instructions') %}{{ payment_config.intl_wire_instructions }}{% endif %}</textarea>
+                            <textarea class="form-control" id="intl_wire_instructions" name="intl_wire_instructions" rows="2"
+                                      placeholder="Instrucciones adicionales para transferencia internacional">{% if payment_config %}{{ payment_config.get('intl_wire_instructions', '') }}{% endif %}</textarea>
                         </div>
                     </div>
                 </div>
@@ -460,6 +467,33 @@
                     </button>
                 </div>
                 <div id="payment-body-banco" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="banco">
+                    <p class="small text-muted mb-2">Datos que ve el cliente al pagar por transferencia nacional (sin API CyberSource).</p>
+                    <div class="row mb-3">
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_beneficiary_name" class="form-label">Nombre del beneficiario</label>
+                            <input type="text" class="form-control" id="banco_general_beneficiary_name" name="banco_general_beneficiary_name"
+                                   value="{% if payment_config and payment_config.get('banco_general_beneficiary_name') %}{{ payment_config.banco_general_beneficiary_name }}{% else %}RED LATINOAMERICANA DE INVESTIVACIONES CUALITATIVAS{% endif %}">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_bank_name" class="form-label">Banco</label>
+                            <input type="text" class="form-control" id="banco_general_bank_name" name="banco_general_bank_name"
+                                   value="{% if payment_config and payment_config.get('banco_general_bank_name') %}{{ payment_config.banco_general_bank_name }}{% else %}Banco General{% endif %}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_account_number" class="form-label">Número de cuenta</label>
+                            <input type="text" class="form-control" id="banco_general_account_number" name="banco_general_account_number"
+                                   value="{% if payment_config and payment_config.get('banco_general_account_number') %}{{ payment_config.banco_general_account_number }}{% else %}04-18-00-004229-1{% endif %}">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_account_type" class="form-label">Tipo de cuenta</label>
+                            <input type="text" class="form-control" id="banco_general_account_type" name="banco_general_account_type"
+                                   value="{% if payment_config and payment_config.get('banco_general_account_type') %}{{ payment_config.banco_general_account_type }}{% else %}Cuenta de Ahorros{% endif %}">
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <p class="small text-muted mb-2">API CyberSource (opcional; si está vacío se usa transferencia manual arriba).</p>
                     <div class="row mb-3">
                         <div class="col-12 col-md-6">
                             <label for="banco_general_merchant_id" class="form-label">Merchant ID</label>
@@ -774,8 +808,13 @@ function updatePaymentSectionStatuses(config) {
         setPaymentStatusBadge('intl', 'Inactivo', 'dark');
     }
 
+    var bancoTransfer = !!(
+        (config.banco_general_account_number || '').toString().trim() ||
+        (config.banco_general_beneficiary_name || '').toString().trim()
+    );
     var bancoId = (config.banco_general_merchant_id || '').toString().trim();
-    var hasBanco = bancoId.length > 0 && !isEnvPlaceholder(config.banco_general_merchant_id);
+    var hasBancoApi = bancoId.length > 0 && !isEnvPlaceholder(config.banco_general_merchant_id);
+    var hasBanco = bancoTransfer || hasBancoApi;
     if (!active) {
         setPaymentStatusBadge('banco', hasBanco ? 'Configurado' : 'Inactivo', hasBanco ? 'info' : 'dark');
     } else if (hasBanco) {
@@ -821,7 +860,9 @@ function clearPaymentConfigFormFields() {
         'yappy_manual_admin_emails', 'yappy_display_name', 'yappy_phone_or_identifier',
         'yappy_instructions', 'intl_wire_beneficiary_name', 'intl_wire_bank_name',
         'intl_wire_swift', 'intl_wire_account', 'intl_wire_account_type', 'intl_wire_country',
-        'intl_wire_instructions'
+        'intl_wire_instructions',
+        'banco_general_beneficiary_name', 'banco_general_bank_name',
+        'banco_general_account_number', 'banco_general_account_type'
     ];
     textIds.forEach(function (id) {
         var el = document.getElementById(id);
@@ -837,7 +878,10 @@ function clearPaymentConfigFormFields() {
 
 function applyPaymentConfigToForm(config) {
     if (!config) return;
-    clearPaymentConfigFormFields();
+    // Sin fila en BD: no vaciar el formulario (evita perder correos Yappy y bloquear guardado SWIFT).
+    if (config.id) {
+        clearPaymentConfigFormFields();
+    }
     var useEnv = document.getElementById('use_environment_variables');
     if (useEnv) useEnv.checked = config.use_environment_variables !== false;
 
@@ -884,6 +928,10 @@ function applyPaymentConfigToForm(config) {
     setVal('intl_wire_account_type', config.intl_wire_account_type);
     setVal('intl_wire_country', config.intl_wire_country);
     setVal('intl_wire_instructions', config.intl_wire_instructions);
+    setVal('banco_general_beneficiary_name', config.banco_general_beneficiary_name);
+    setVal('banco_general_bank_name', config.banco_general_bank_name);
+    setVal('banco_general_account_number', config.banco_general_account_number);
+    setVal('banco_general_account_type', config.banco_general_account_type);
 }
 
 function loadPaymentsConfigFromApi() {
@@ -965,7 +1013,11 @@ function savePaymentConfig() {
         intl_wire_account: _gv('intl_wire_account'),
         intl_wire_account_type: _gv('intl_wire_account_type'),
         intl_wire_country: _gv('intl_wire_country'),
-        intl_wire_instructions: _gv('intl_wire_instructions')
+        intl_wire_instructions: _gv('intl_wire_instructions'),
+        banco_general_beneficiary_name: _gv('banco_general_beneficiary_name'),
+        banco_general_bank_name: _gv('banco_general_bank_name'),
+        banco_general_account_number: _gv('banco_general_account_number'),
+        banco_general_account_type: _gv('banco_general_account_type')
     };
 
     if (config.yappy_phone_or_identifier && String(config.yappy_phone_or_identifier).length > 120) {
@@ -999,6 +1051,9 @@ function savePaymentConfig() {
                 if (response.status === 503 && data && data.schema_migration_required) {
                     msg = (data.error || msg) + ' Tras migrar, guardá de nuevo.';
                 }
+                if (data && data.field === 'yappy_manual_admin_emails') {
+                    msg += ' Completá «Correos para alertas» en la sección Yappy (arriba en el panel).';
+                }
                 throw new Error(msg);
             });
         }
@@ -1007,6 +1062,11 @@ function savePaymentConfig() {
     .then(data => {
         if (data.success) {
             updatePaymentsScopeBanner(data);
+            if (data.config) {
+                applyPaymentConfigToForm(data.config);
+                window.__paymentsLastConfig = data.config;
+                updatePaymentSectionStatuses(data.config);
+            }
             showAlert(
                 (data.message || 'Configuración guardada correctamente') +
                 (data.organization_name ? ' (' + data.organization_name + ')' : ''),
@@ -1022,7 +1082,13 @@ function savePaymentConfig() {
     .catch(error => {
         expandAllPaymentSections();
         console.error('Error guardando configuración de pagos:', error);
-        showAlert('Error: ' + error.message, 'danger');
+        var msg = error.message || 'No se pudo guardar';
+        if (msg.indexOf('Yappy manual') !== -1 || msg.indexOf('correo') !== -1) {
+            msg += ' Revisá la sección <strong>Yappy</strong> → «Correos para alertas» (obligatorio si Yappy manual está activo en la matriz).';
+        }
+        showAlert('Error: ' + msg, 'danger');
+        var alertBox = document.getElementById('alert-container');
+        if (alertBox) alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 }
 
@@ -1078,6 +1144,10 @@ function normalizeLegacyPaymentConfigResponse(data) {
                 intl_wire_account_type: '',
                 intl_wire_country: '',
                 intl_wire_instructions: '',
+                banco_general_beneficiary_name: '',
+                banco_general_bank_name: '',
+                banco_general_account_number: '',
+                banco_general_account_type: '',
                 use_environment_variables: true,
                 is_active: false,
                 updated_at: null
@@ -1136,14 +1206,18 @@ function renderOrgMethodsTable(methods) {
 }
 
 function collectOrgMethodsPayload() {
+    var tbody = document.getElementById('org-methods-tbody');
     return __orgMethodsData.map(function (m) {
         var key = m.method_key;
-        var tr = document.querySelector('#org-methods-tbody tr[data-method-key="' + key + '"]');
+        var tr = tbody ? tbody.querySelector('tr[data-method-key="' + key + '"]') : null;
         var instr = m.instructions_html || '';
         if (key === __orgMethodsSelectedKey && document.getElementById('org-methods-instructions')) {
             instr = document.getElementById('org-methods-instructions').value;
         }
-        if (!tr) return m;
+        if (!tr) {
+            console.warn('Pagos: fila de matriz no encontrada para', key);
+            return m;
+        }
         return {
             method_key: key,
             label: tr.querySelector('.org-m-label').value,
@@ -1217,7 +1291,18 @@ function saveOrgPaymentMethods() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (data) {
+                if (!r.ok) {
+                    var msg = (data && (data.message || data.error)) || ('Error HTTP ' + r.status);
+                    if (r.status === 403) {
+                        msg = 'Sin permiso para guardar la matriz (payments.manage). Contactá al administrador de la plataforma.';
+                    }
+                    throw new Error(msg);
+                }
+                return data;
+            });
+        })
         .then(function (data) {
             if (data.success) {
                 renderOrgMethodsTable(data.methods);
@@ -1225,12 +1310,14 @@ function saveOrgPaymentMethods() {
                     updatePaymentSectionStatuses(window.__paymentsLastConfig);
                 }
                 showOrgMethodsAlert('Matriz guardada. Checkout usa estos métodos para la organización activa.', 'success');
+                showAlert('Matriz de métodos guardada (incluye Activo en SWIFT si lo marcaste).', 'success');
             } else {
-                showOrgMethodsAlert(data.error || 'Error al guardar', 'danger');
+                showOrgMethodsAlert(data.error || data.message || 'Error al guardar', 'danger');
             }
         })
         .catch(function (e) {
             showOrgMethodsAlert('Error: ' + e, 'danger');
+            showAlert('Error al guardar matriz: ' + e, 'danger');
         });
 }
 

@@ -245,7 +245,11 @@ def apply_payment_profile(organization_id: int, profile_key: str) -> tuple[list[
     return saved, str(prof['label'])
 
 
-def sync_legacy_payment_config_flags(organization_id: int) -> None:
+def sync_legacy_payment_config_flags(
+    organization_id: int,
+    *,
+    sync_wire_instructions: bool = True,
+) -> None:
     """Espejo legacy en PaymentConfig (solo compat); el checkout usa la matriz."""
     oid = int(organization_id)
     pcfg = PaymentConfig.query.filter_by(organization_id=oid, is_active=True).order_by(
@@ -263,7 +267,8 @@ def sync_legacy_payment_config_flags(organization_id: int) -> None:
         pcfg.yappy_admin_validation_required = bool(ym.requires_admin_approval)
     if iw is not None:
         pcfg.intl_wire_enabled = bool(iw.enabled)
-        if (iw.instructions_html or '').strip():
+        # Solo al guardar la matriz: no pisar «Notas SWIFT» del panel al guardar credenciales.
+        if sync_wire_instructions and (iw.instructions_html or '').strip():
             pcfg.intl_wire_instructions = iw.instructions_html
     db.session.add(pcfg)
     db.session.commit()
@@ -308,7 +313,7 @@ def build_checkout_payment_context(
     Visibilidad: únicamente organization_payment_methods.enabled=True.
     PaymentConfig aporta credenciales, cuentas e instrucciones técnicas.
     """
-    from payment_processors import INTL_WIRE_DEFAULTS
+    from payment_processors import BANCO_GENERAL_DISPLAY_DEFAULTS, INTL_WIRE_DEFAULTS
     from nodeone.services.yappy_manual import (
         effective_yappy_display_name,
         effective_yappy_instructions_html,
@@ -356,6 +361,18 @@ def build_checkout_payment_context(
         if iw_row and (iw_row.instructions_html or '').strip():
             intl_wire_display['instructions_html'] = iw_row.instructions_html
 
+    banco_general_display: dict[str, Any] = {}
+    if 'banco_general' in payment_methods:
+        try:
+            from payment_processors import BancoGeneralProcessor
+
+            banco_general_display = BancoGeneralProcessor(pcfg)._display()
+        except Exception:
+            banco_general_display = dict(BANCO_GENERAL_DISPLAY_DEFAULTS)
+        bg_row = get_method_row(oid, 'banco_general')
+        if bg_row and (bg_row.instructions_html or '').strip():
+            banco_general_display['instructions_html'] = bg_row.instructions_html
+
     yappy_checkout = None
     if 'yappy_manual' in payment_methods and pcfg:
         ym_row = get_method_row(oid, 'yappy_manual')
@@ -386,6 +403,7 @@ def build_checkout_payment_context(
         'checkout_has_manual_validation': checkout_has_manual_validation,
         'checkout_other_method_keys': checkout_other_method_keys,
         'intl_wire_display': intl_wire_display,
+        'banco_general_display': banco_general_display,
         'yappy_checkout': yappy_checkout,
     }
 

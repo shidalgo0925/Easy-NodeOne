@@ -40,6 +40,10 @@ _COPY_ATTRS = (
     'intl_wire_account_type',
     'intl_wire_country',
     'intl_wire_instructions',
+    'banco_general_beneficiary_name',
+    'banco_general_bank_name',
+    'banco_general_account_number',
+    'banco_general_account_type',
     'use_environment_variables',
 )
 

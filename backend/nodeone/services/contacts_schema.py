@@ -13,6 +13,19 @@ def ensure_contacts_schema(db, engine, printfn=None) -> None:
         printfn('en1_contact: tabla lista')
 
     insp = inspect(engine)
+    if 'en1_contact' in insp.get_table_names():
+        cols = {c['name'] for c in insp.get_columns('en1_contact')}
+        if 'image_url' not in cols:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text('ALTER TABLE en1_contact ADD COLUMN image_url VARCHAR(500)'))
+                if printfn:
+                    printfn('+ en1_contact.image_url')
+            except Exception as ex:
+                if printfn:
+                    printfn(f'! en1_contact.image_url: {ex}')
+
+    insp = inspect(engine)
     if 'en1_contact' not in insp.get_table_names():
         return
     dialect = engine.dialect.name

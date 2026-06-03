@@ -153,6 +153,19 @@ class User(UserMixin, db.Model):
         """
         if not perm_code:
             return False
+        cache = None
+        try:
+            from flask import g, has_request_context
+
+            if has_request_context():
+                cache = getattr(g, '_permission_cache', None)
+                if cache is None:
+                    cache = {}
+                    g._permission_cache = cache
+                if perm_code in cache:
+                    return bool(cache[perm_code])
+        except Exception:
+            cache = None
         # Compatibilidad: si tiene is_admin y aún no tiene roles RBAC, se considera con acceso admin (como AD)
         if getattr(self, 'is_admin', False):
             ur = db.session.execute(
@@ -160,7 +173,10 @@ class User(UserMixin, db.Model):
                 {'uid': self.id}
             ).fetchone()
             if not ur:
-                return True  # is_admin sin roles RBAC → tratar como todo permitido
+                allowed = True
+                if cache is not None:
+                    cache[perm_code] = allowed
+                return allowed
         # RBAC: permisos vía roles del usuario
         r = db.session.execute(
             sql_text('''
@@ -171,7 +187,10 @@ class User(UserMixin, db.Model):
             '''),
             {'uid': self.id, 'code': perm_code}
         ).fetchone()
-        return r is not None
+        allowed = r is not None
+        if cache is not None:
+            cache[perm_code] = allowed
+        return allowed
 
     # RBAC: roles asignados (véase asignación después de class Role)
 

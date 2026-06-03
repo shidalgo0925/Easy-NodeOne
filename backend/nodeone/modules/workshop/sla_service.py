@@ -7,6 +7,11 @@ from typing import Any, Optional
 
 from sqlalchemy import func
 
+CLOSED_ORDER_STATUSES = frozenset({'delivered', 'cancelled'})
+ACTIVE_ORDER_STATUSES = frozenset(
+    {'draft', 'inspected', 'quoted', 'approved', 'in_progress', 'qc', 'done'}
+)
+
 from nodeone.core.db import db
 from nodeone.modules.workshop.models import (
     WorkshopLine,
@@ -217,6 +222,18 @@ def _state_label(state: str, elapsed: float, expected: int) -> str:
     return f'{em} min / {expected} min · Retrasado'
 
 
+def _close_open_log(open_log: WorkshopOrderProcessLog, order: WorkshopOrder, now: datetime) -> None:
+    started = _naive_utc(open_log.started_at) or now
+    dur = max(0.0, (now - started).total_seconds() / 60.0)
+    exp = float(open_log.expected_minutes or 0) or float(
+        expected_minutes_for_order(order, open_log.stage_key)[0]
+    )
+    open_log.ended_at = now
+    open_log.duration_minutes = dur
+    open_log.is_delayed = dur > exp + 1e-6
+    open_log.delay_minutes = max(0.0, dur - exp) if open_log.is_delayed else 0.0
+
+
 def bootstrap_new_order(order: WorkshopOrder) -> None:
     """Al crear orden: inicia primera etapa y log."""
     ensure_default_process_stages(order.organization_id)
@@ -237,35 +254,25 @@ def bootstrap_new_order(order: WorkshopOrder) -> None:
     )
 
 
-def on_status_changed(order: WorkshopOrder, old_status: str, new_status: str) -> None:
-    """Cierra log anterior, abre uno nuevo, reinicia reloj SLA."""
+def on_status_changed(order: WorkshopOrder, new_status: str) -> None:
+    """Cierra logs abiertos, abre etapa nueva y reinicia reloj SLA (commit en capa de ruta)."""
     ensure_default_process_stages(order.organization_id)
     now = datetime.utcnow()
+    new = (new_status or 'draft').strip()
 
-    # Cerrar log abierto de old_status
-    open_log = (
-        WorkshopOrderProcessLog.query.filter_by(order_id=order.id, ended_at=None)
-        .order_by(WorkshopOrderProcessLog.id.desc())
-        .first()
-    )
-    if open_log:
-        started = _naive_utc(open_log.started_at) or now
-        dur = max(0.0, (now - started).total_seconds() / 60.0)
-        exp = float(open_log.expected_minutes or 0) or float(
-            expected_minutes_for_order(order, open_log.stage_key)[0]
-        )
-        open_log.ended_at = now
-        open_log.duration_minutes = dur
-        open_log.is_delayed = dur > exp + 1e-6
-        open_log.delay_minutes = max(0.0, dur - exp) if open_log.is_delayed else 0.0
+    open_logs = WorkshopOrderProcessLog.query.filter_by(order_id=order.id, ended_at=None).all()
+    for open_log in open_logs:
+        _close_open_log(open_log, order, now)
 
-    if new_status in ('cancelled',):
+    if new in CLOSED_ORDER_STATUSES:
         order.sla_stage_started_at = None
         order.sla_expected_minutes = None
+        order.sla_paused = False
+        order.sla_paused_at = None
         db.session.flush()
         return
 
-    exp_new, _ = expected_minutes_for_order(order, new_status)
+    exp_new, _ = expected_minutes_for_order(order, new)
     order.sla_stage_started_at = now
     order.sla_expected_minutes = exp_new
     order.sla_paused = False
@@ -273,12 +280,13 @@ def on_status_changed(order: WorkshopOrder, old_status: str, new_status: str) ->
     db.session.add(
         WorkshopOrderProcessLog(
             order_id=order.id,
-            stage_key=new_status,
+            stage_key=new,
             started_at=now,
             ended_at=None,
             expected_minutes=float(exp_new),
         )
     )
+    db.session.flush()
 
 
 def apply_sla_pause(order: WorkshopOrder, paused: bool) -> None:

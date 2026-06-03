@@ -2,62 +2,61 @@
 {% block title %}Taller — Orden | {{ get_nav_brand_name() }}{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=5">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=29">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=31">
 {% endblock %}
 {% block content %}
-<div class="container-fluid py-3 workshop-order-page" id="workshopOrderPage" data-order-id="{{ order_id }}"
+<div class="container-fluid px-2 px-sm-3 py-2 workshop-order-page erp-compact-page" id="workshopOrderPage" data-order-id="{{ order_id }}"
      data-wo-brand="{{ get_nav_brand_name()|e }}"
      data-wo-logo-url="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}"
      data-wo-org-name="{{ (workshop_org_name|default('', true))|e }}">
-    <div id="woErr" class="alert alert-danger d-none"></div>
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-        <a class="btn btn-light btn-sm border" href="{{ url_for('admin_workshop_orders') }}">← Órdenes</a>
-        <h1 class="h4 mb-0">Orden <span id="woCode">…</span></h1>
+    <div id="woErr" class="alert alert-danger py-2 px-2 mb-2 d-none" role="alert"></div>
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_workshop_orders') }}" title="Volver al monitor">← Monitor</a>
+        <h1 class="h5 mb-0 text-nowrap">Orden <span id="woCode">…</span></h1>
         <span class="badge text-bg-secondary" id="woStatus">—</span>
-        <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnWoMapToggle" aria-expanded="true" title="Ocultar el mapa de la derecha y ampliar líneas">
-                <span class="wo-map-toggle-label">Ocultar mapa</span>
-            </button>
-            <button type="button" class="btn btn-light border btn-sm" id="btnWoPreview" title="Documento imprimible como la cotización">Vista previa</button>
-            <button type="button" class="btn btn-primary btn-sm" id="btnWoSave">Guardar</button>
-            <a class="btn btn-outline-primary btn-sm d-none" id="woQuotationLink" href="#" target="_blank">Abrir cotización</a>
-            {% if saas_module_enabled('sales') %}
-            <button type="button" class="btn btn-success btn-sm" id="btnWoQuote">Generar cotización</button>
-            {% endif %}
-        </div>
+        <span class="d-none d-md-inline vr align-self-stretch mx-1" aria-hidden="true"></span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnWoMapToggle" aria-expanded="true" title="Ocultar el mapa de la derecha y ampliar líneas">
+            <span class="wo-map-toggle-label">Ocultar mapa</span>
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnWoPreview" title="Documento imprimible">Vista previa</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btnWoSave">Guardar</button>
+        <a class="btn btn-outline-primary btn-sm d-none" id="woQuotationLink" href="#" target="_blank">Cotización</a>
+        {% if saas_module_enabled('sales') %}
+        <button type="button" class="btn btn-success btn-sm" id="btnWoQuote">Generar cotización</button>
+        {% endif %}
     </div>
 
-    <div class="row g-3 wo-order-row">
+    <div class="row g-2 wo-order-row">
         <div class="col-lg-7" id="woMainColumn">
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card border shadow-sm">
                 <div class="card-header bg-white fw-semibold">Cliente y vehículo</div>
                 <div class="card-body">
                     <div class="mb-2">
-                        <label class="form-label small mb-1">Cliente</label>
+                        <label class="form-label small mb-0">Cliente</label>
                         <div class="odoo-m2o" id="woCustomerM2o">
                             <div class="d-flex align-items-stretch odoo-m2o-input-wrap">
-                                <input type="text" id="custSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-2 px-2" placeholder="Contacto…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Clientes de la organización">
+                                <input type="text" id="custSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent py-1 px-2" placeholder="Contacto…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Escriba para filtrar; Crear / Crear y editar en el desplegable">
                                 <button type="button" class="btn btn-sm btn-link odoo-m2o-toggle wo-cust-toggle px-2" tabindex="-1" title="Mostrar contactos">🔍</button>
                             </div>
                             <input type="hidden" id="custId" value="">
                             <div id="custMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                         </div>
-                        <p class="small text-muted mb-0 mt-1 wo-cust-field-hint">Escriba para filtrar, elija un contacto o use <strong>Crear</strong> / <strong>Crear y editar</strong> en el desplegable.</p>
+                        <p class="erp-footnote text-muted mb-0 mt-1 wo-cust-field-hint d-none d-xl-block">Crear o Crear y editar en el desplegable.</p>
                     </div>
-                    <div class="row g-2">
-                        <div class="col-md-3"><label class="form-label small">Placa</label><input class="form-control form-control-sm" id="vehPlate"></div>
-                        <div class="col-md-3"><label class="form-label small">Marca</label><input class="form-control form-control-sm" id="vehBrand"></div>
-                        <div class="col-md-3"><label class="form-label small">Modelo</label><input class="form-control form-control-sm" id="vehModel"></div>
-                        <div class="col-md-3"><label class="form-label small">Año</label><input type="number" class="form-control form-control-sm" id="vehYear"></div>
-                        <div class="col-md-3"><label class="form-label small">Color</label><input class="form-control form-control-sm" id="vehColor"></div>
-                        <div class="col-md-3"><label class="form-label small">VIN</label><input class="form-control form-control-sm" id="vehVin"></div>
-                        <div class="col-md-3"><label class="form-label small">Kilometraje</label><input type="number" step="0.1" class="form-control form-control-sm" id="vehMileage"></div>
-                        <div class="col-md-3"><label class="form-label small">Apodo</label><input class="form-control form-control-sm" id="vehNick" placeholder="Opcional"></div>
+                    <div class="row g-1 g-md-2 wo-vehicle-fields">
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">Placa</label><input class="form-control form-control-sm" id="vehPlate"></div>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">Marca</label><input class="form-control form-control-sm" id="vehBrand"></div>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">Modelo</label><input class="form-control form-control-sm" id="vehModel"></div>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">Año</label><input type="number" class="form-control form-control-sm" id="vehYear"></div>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">Color</label><input class="form-control form-control-sm" id="vehColor"></div>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">VIN</label><input class="form-control form-control-sm" id="vehVin"></div>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">Km</label><input type="number" step="0.1" class="form-control form-control-sm" id="vehMileage"></div>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2"><label class="form-label small mb-0">Apodo</label><input class="form-control form-control-sm" id="vehNick" placeholder="Opc."></div>
                     </div>
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm mb-3 wo-checklist-section">
+            <div class="card border shadow-sm wo-checklist-section">
                 <div class="card-header wo-checklist-header p-0 border-bottom">
                     <button type="button" class="btn w-100 text-start d-flex align-items-center fw-semibold border-0 rounded-0 py-2 px-3 wo-checklist-toggle"
                             data-bs-toggle="collapse" data-bs-target="#woChecklistCollapse"
@@ -82,7 +81,7 @@
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card border shadow-sm">
                 <div class="card-header bg-white d-flex align-items-center flex-wrap gap-2">
                     <span class="fw-semibold">Líneas de servicio (detailing)</span>
                     <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btnWoAddLine">+ Línea</button>
@@ -96,7 +95,7 @@
                 <div class="card-footer text-end small">Total estimado: <strong id="woGrand">B/. 0.00</strong></div>
             </div>
 
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card border shadow-sm">
                 <div class="card-header bg-white fw-semibold">Notas y estados</div>
                 <div class="card-body">
                     <label class="form-label small">Notas internas</label>
@@ -133,8 +132,8 @@
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white fw-semibold">Fotos orden (entrada / proceso / salida)</div>
+            <div class="card border shadow-sm">
+                <div class="card-header bg-white fw-semibold">Fotos orden</div>
                 <div class="card-body">
                     <div class="row g-2 align-items-end mb-2">
                         <div class="col-sm-6">
@@ -156,10 +155,10 @@
         </div>
 
         <div class="col-lg-5" id="woInspectionColumn">
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white fw-semibold">Mapa de inspección (exterior / interior)</div>
+            <div class="card border shadow-sm">
+                <div class="card-header bg-white fw-semibold">Mapa de inspección</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-2">Pulse una zona para registrar daño, severidad, <strong>notas</strong> y foto. Las notas aparecen en la lista debajo; use <strong>Editar</strong> para cambiarlas. Para <strong>otro</strong> daño en la misma zona, pulse otra vez esa zona en el mapa.</p>
+                    <p class="erp-footnote text-muted mb-2">Pulse una zona para daño, severidad y foto. <strong>Editar</strong> en la lista; repita la zona para otro punto.</p>
                     <div class="btn-group btn-group-sm mb-2" id="woMapViewTabs" role="group" aria-label="Vista del mapa">
                         <button type="button" class="btn btn-outline-secondary active" data-map-view="exterior">Exterior</button>
                         <button type="button" class="btn btn-outline-secondary" data-map-view="interior">Interior</button>

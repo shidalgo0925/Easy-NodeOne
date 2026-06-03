@@ -352,57 +352,103 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
     opacity: 1 !important;
 }
 
-/* --- Submenú horizontal tipo Odoo (sólo área de trabajo; partial erp_app_subnav.html) --- */
-.erp-app-subnav {
+/* --- Header de módulo horizontal (Odoo-style; partial erp_app_subnav.html) --- */
+:root {
+    --erp-module-bar-height: 48px;
+}
+
+.erp-app-subnav.erp-module-header {
     position: fixed;
     top: 56px;
     left: 240px;
     right: 0;
     z-index: 1019;
-    background: #ffffff;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     border-bottom: 1px solid #e2e8f0;
-    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.05);
-    min-height: 42px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    min-height: var(--erp-module-bar-height);
+    overflow: visible;
 }
 
 .erp-app-subnav__inner {
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    align-items: stretch;
+    gap: 0.75rem;
     flex-wrap: nowrap;
+    overflow: visible;
+    padding: 0 1rem;
+    min-height: var(--erp-module-bar-height);
+}
+
+.erp-app-subnav__list-wrap {
+    flex: 1;
+    min-width: 0;
     overflow-x: auto;
-    padding: 0.4rem 1rem;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
+    display: flex;
+    align-items: center;
+}
+
+.erp-module-header__title {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    padding: 0.35rem 0.5rem 0.35rem 0;
+    border-right: 1px solid #e2e8f0;
+    margin-right: 0.25rem;
+    max-width: min(220px, 28vw);
 }
 
 .erp-app-subnav__module {
     flex-shrink: 0;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #0f172a;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+}
+
+.erp-module-header__sep {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.erp-module-header__crumb {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .erp-app-subnav__list {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 0.15rem;
+    gap: 0.2rem;
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0.25rem 0;
+    flex: 1;
+    min-width: 0;
 }
 
 .erp-app-subnav__link {
     display: block;
-    padding: 0.38rem 0.7rem;
-    border-radius: 6px;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
     font-size: 0.8125rem;
+    font-weight: 500;
     color: #334155;
     text-decoration: none;
     white-space: nowrap;
+    border: 1px solid transparent;
 }
 
 .erp-app-subnav__link:hover {
@@ -411,14 +457,120 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
 }
 
 .erp-app-subnav__link.is-active {
-    color: #0f172a;
-    font-weight: 600;
+    color: #0369a1;
+    font-weight: 700;
     background: #e0f2fe;
-    box-shadow: inset 0 -2px 0 0 #38bdf8;
+    border-color: #bae6fd;
+    box-shadow: inset 0 -3px 0 0 #0ea5e9;
 }
 
-html[data-theme="dark"] .erp-app-subnav,
-html[data-theme="auto"] .erp-app-subnav {
+/* Ítems con submenú: estilo menú (▾), no pestaña azul como Monitor/Cotizaciones */
+.erp-app-subnav__link--menu {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    font-weight: 500;
+}
+
+.erp-app-subnav__link--menu:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.erp-app-subnav__link--menu.is-menu-active {
+    color: #0369a1;
+    font-weight: 600;
+    border-color: #7dd3fc;
+    background: #f0f9ff;
+    box-shadow: none;
+}
+
+.erp-app-subnav__item--dropdown .dropdown-toggle::after {
+    margin-left: 0.35em;
+    vertical-align: 0.15em;
+}
+
+.erp-app-subnav__item--dropdown {
+    position: static;
+}
+
+.erp-app-subnav__item--dropdown .dropdown {
+    position: static;
+}
+
+.erp-app-subnav__item--dropdown .erp-app-subnav__link.dropdown-toggle {
+    cursor: pointer;
+}
+
+button.erp-app-subnav__link--menu.dropdown-toggle {
+    font-family: inherit;
+    line-height: 1.25;
+}
+
+.erp-app-subnav__dropdown-menu {
+    font-size: 0.8125rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    min-width: 11rem;
+    margin-top: 0;
+    padding: 0.25rem 0;
+    z-index: 1060;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.erp-app-subnav__dropdown-menu.show {
+    display: block;
+}
+
+/* Anula .dropdown-item global de custom.css (navbar oscura) */
+#erpAppSubnav .erp-app-subnav__dropdown-item,
+.erp-app-subnav__dropdown-menu .dropdown-item {
+    padding: 0.45rem 0.85rem;
+    color: #334155 !important;
+    background-color: transparent !important;
+}
+
+#erpAppSubnav .erp-app-subnav__dropdown-item i,
+.erp-app-subnav__dropdown-menu .dropdown-item i {
+    color: #64748b !important;
+}
+
+#erpAppSubnav .erp-app-subnav__dropdown-item:hover,
+#erpAppSubnav .erp-app-subnav__dropdown-item:focus,
+.erp-app-subnav__dropdown-menu .dropdown-item:hover,
+.erp-app-subnav__dropdown-menu .dropdown-item:focus {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+
+#erpAppSubnav .erp-app-subnav__dropdown-item:hover i,
+.erp-app-subnav__dropdown-menu .dropdown-item:hover i {
+    color: #475569 !important;
+}
+
+#erpAppSubnav .erp-app-subnav__dropdown-item.active,
+#erpAppSubnav .erp-app-subnav__dropdown-item.active:hover,
+#erpAppSubnav .erp-app-subnav__dropdown-item.active:focus,
+.erp-app-subnav__dropdown-menu .dropdown-item.active,
+.erp-app-subnav__dropdown-menu .dropdown-item.active:hover {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+    font-weight: 600;
+}
+
+#erpAppSubnav .erp-app-subnav__dropdown-item.active i,
+.erp-app-subnav__dropdown-menu .dropdown-item.active i {
+    color: #0284c7 !important;
+}
+
+#erpAppSubnav .erp-app-subnav__dropdown-item:active,
+.erp-app-subnav__dropdown-menu .dropdown-item:active {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+
+html[data-theme="dark"] .erp-app-subnav.erp-module-header,
+html[data-theme="auto"] .erp-app-subnav.erp-module-header {
     background: #1e293b;
     border-bottom-color: #334155;
 }
@@ -446,6 +598,30 @@ html[data-theme="auto"] .erp-app-subnav__link.is-active {
     color: #f8fafc;
 }
 
+html[data-theme="dark"] #erpAppSubnav .erp-app-subnav__dropdown-menu,
+html[data-theme="auto"] #erpAppSubnav .erp-app-subnav__dropdown-menu {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] #erpAppSubnav .erp-app-subnav__dropdown-item,
+html[data-theme="auto"] #erpAppSubnav .erp-app-subnav__dropdown-item {
+    color: #e2e8f0 !important;
+    background-color: transparent !important;
+}
+
+html[data-theme="dark"] #erpAppSubnav .erp-app-subnav__dropdown-item:hover,
+html[data-theme="auto"] #erpAppSubnav .erp-app-subnav__dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    color: #f8fafc !important;
+}
+
+html[data-theme="dark"] #erpAppSubnav .erp-app-subnav__dropdown-item.active,
+html[data-theme="auto"] #erpAppSubnav .erp-app-subnav__dropdown-item.active {
+    background-color: rgba(56, 189, 248, 0.25) !important;
+    color: #7dd3fc !important;
+}
+
 body.sidebar-collapsed .erp-app-subnav {
     left: 80px;
 }
@@ -460,13 +636,67 @@ body.open .erp-app-subnav {
     }
 }
 
-/* Desplazar contenido cuando hay subnav Odoo */
+/* Desplazar contenido cuando hay header de módulo */
 body:has(#erpAppSubnav) #right-panel {
-    margin-top: calc(56px + 42px);
+    margin-top: calc(56px + var(--erp-module-bar-height, 48px));
 }
 
 body:has(#erpAppSubnav) #right-panel .content {
-    min-height: calc(100vh - 56px - 42px);
+    min-height: calc(100vh - 56px - var(--erp-module-bar-height, 48px));
+}
+
+/* Pantallas compactas (contactos, facturas, taller, ventas, …) */
+body:has(#erpAppSubnav) #right-panel .content:has(.erp-compact-page) {
+    padding: 0.5rem 0.75rem;
+}
+
+.erp-compact-page .erp-toolbar {
+    gap: 0.35rem;
+}
+.erp-compact-page .erp-toolbar .form-control,
+.erp-compact-page .erp-toolbar .form-select {
+    min-height: 1.85rem;
+    font-size: 0.8125rem;
+}
+.erp-compact-page .erp-toolbar .btn {
+    min-height: 1.85rem;
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+}
+.erp-compact-page .erp-toolbar .form-check-label {
+    font-size: 0.8125rem;
+}
+.erp-compact-page .erp-search {
+    width: min(14rem, 42vw);
+}
+.erp-compact-page .erp-filter-select {
+    width: min(13rem, 36vw);
+}
+.erp-compact-page .erp-footnote {
+    font-size: 0.75rem;
+}
+.erp-compact-page .table > :not(caption) > * > * {
+    padding: 0.3rem 0.45rem;
+    font-size: 0.8125rem;
+}
+.erp-compact-page .table thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.erp-compact-page .card {
+    margin-bottom: 0.5rem;
+}
+.erp-compact-page .card-header {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8125rem;
+}
+.erp-compact-page .card-body {
+    padding: 0.5rem 0.65rem;
+}
+.erp-compact-page .card-footer {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8125rem;
 }
 
 /*
@@ -488,8 +718,8 @@ body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-gro
     pointer-events: none;
 }
 
-/* Analítica: pestañas internas duplican la barra Odoo */
-body:has(#erpAppSubnav[data-erp-zone="analytics"]) .analytics-dashboard-page .analytics-board-nav {
+/* Pestañas internas que duplican la barra de módulo */
+body:has(#erpAppSubnav[data-erp-zone="analitica"]) .analytics-dashboard-page .analytics-board-nav {
     display: none !important;
 }
 

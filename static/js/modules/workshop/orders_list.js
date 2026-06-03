@@ -5,10 +5,19 @@
   const grid = document.getElementById('woCardGrid');
   const err = document.getElementById('woListErr');
   const filterEl = document.getElementById('woFilterStatus');
+  const includeClosedEl = document.getElementById('woIncludeClosed');
   const kpiStrip = document.getElementById('woKpiStrip');
   const alertsBody = document.getElementById('woAlertsBody');
   const heatmapHint = document.getElementById('woHeatmapHint');
+  const loadMoreWrap = document.getElementById('woLoadMoreWrap');
+  const loadMoreBtn = document.getElementById('woLoadMoreBtn');
+  const listCountEl = document.getElementById('woListCount');
   if (!grid) return;
+
+  const PER_PAGE = 48;
+  let ordersPage = 1;
+  let ordersTotal = 0;
+  let ordersRows = [];
 
   const STATUS = {
     draft: 'Recepción',
@@ -278,19 +287,79 @@
     });
   }
 
+  function monitorQuery(extra) {
+    const p = new URLSearchParams();
+    if (filterEl && filterEl.value) p.set('status', filterEl.value);
+    if (includeClosedEl && includeClosedEl.checked) p.set('include_closed', '1');
+    if (extra) {
+      Object.keys(extra).forEach((k) => {
+        if (extra[k] != null && extra[k] !== '') p.set(k, String(extra[k]));
+      });
+    }
+    const qs = p.toString();
+    return qs ? '?' + qs : '';
+  }
+
+  function parseOrdersPayload(data) {
+    return {
+      items: data.items || [],
+      total: data.total != null ? data.total : 0,
+      page: data.page || 1,
+      per_page: data.per_page || PER_PAGE,
+    };
+  }
+
+  function updateLoadMoreUi() {
+    if (!loadMoreWrap || !loadMoreBtn) return;
+    const shown = ordersRows.length;
+    const more = shown < ordersTotal;
+    loadMoreWrap.classList.toggle('d-none', ordersTotal === 0 || (!more && shown >= ordersTotal));
+    loadMoreBtn.disabled = !more;
+    loadMoreBtn.textContent = more ? 'Cargar más órdenes' : 'No hay más órdenes';
+    if (listCountEl) {
+      listCountEl.textContent =
+        ordersTotal > 0 ? `${shown} de ${ordersTotal} órdenes` : '';
+    }
+  }
+
+  function fetchOrdersPage(page, append) {
+    const q = monitorQuery({ page, per_page: PER_PAGE });
+    return api('/api/workshop/orders' + q).then((data) => {
+      const pack = parseOrdersPayload(data);
+      ordersPage = pack.page;
+      ordersTotal = pack.total;
+      ordersRows = append ? ordersRows.concat(pack.items) : pack.items.slice();
+      renderCards(ordersRows);
+      updateLoadMoreUi();
+    });
+  }
+
   function loadAll() {
-    const st = filterEl && filterEl.value ? '?status=' + encodeURIComponent(filterEl.value) : '';
+    const q = monitorQuery();
     err.classList.add('d-none');
-    Promise.all([api('/api/workshop/orders' + st), api('/api/workshop/sla/monitor')])
-      .then(([rows, monitor]) => {
+    ordersPage = 1;
+    ordersRows = [];
+    grid.innerHTML = '<div class="col-12 text-muted small py-4">Cargando…</div>';
+    api('/api/workshop/sla/monitor' + q)
+      .then((monitor) => {
         renderKpis(monitor);
         renderAlerts(monitor);
-        renderCards(rows);
+        return fetchOrdersPage(1, false);
       })
       .catch((e) => {
         showErr(e.message || String(e));
         grid.innerHTML = '';
       });
+  }
+
+  function syncUrlFromFilters() {
+    const u = new URL(window.location.href);
+    if (filterEl && filterEl.value) u.searchParams.set('status', filterEl.value);
+    else u.searchParams.delete('status');
+    if (includeClosedEl && includeClosedEl.checked) u.searchParams.set('include_closed', '1');
+    else u.searchParams.delete('include_closed');
+    const qs = u.searchParams.toString();
+    history.replaceState({}, '', u.pathname + (qs ? '?' + qs : ''));
   }
 
   const params = new URLSearchParams(window.location.search);
@@ -299,14 +368,19 @@
     const has = [...filterEl.options].some((o) => o.value === urlStatus);
     if (has) filterEl.value = urlStatus;
   }
-  if (filterEl) {
-    filterEl.addEventListener('change', () => {
-      const u = new URL(window.location.href);
-      if (filterEl.value) u.searchParams.set('status', filterEl.value);
-      else u.searchParams.delete('status');
-      const qs = u.searchParams.toString();
-      history.replaceState({}, '', u.pathname + (qs ? '?' + qs : ''));
-      loadAll();
+  if (includeClosedEl) {
+    includeClosedEl.checked = ['1', 'true', 'yes'].includes(
+      (params.get('include_closed') || '').toLowerCase()
+    );
+  }
+  if (filterEl) filterEl.addEventListener('change', () => { syncUrlFromFilters(); loadAll(); });
+  if (includeClosedEl) includeClosedEl.addEventListener('change', () => { syncUrlFromFilters(); loadAll(); });
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', () => {
+      loadMoreBtn.disabled = true;
+      fetchOrdersPage(ordersPage + 1, true)
+        .catch((e) => showErr(e.message || String(e)))
+        .finally(() => updateLoadMoreUi());
     });
   }
   loadAll();

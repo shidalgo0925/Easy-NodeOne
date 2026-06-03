@@ -19,8 +19,13 @@ from nodeone.services.user_organization import user_in_org_clause
 
 sales_bp = Blueprint('sales', __name__, url_prefix='/api/sales/quotations')
 
+_TABLES_ENSURED = False
+
 
 def _ensure_tables():
+    global _TABLES_ENSURED
+    if _TABLES_ENSURED:
+        return
     Tax.__table__.create(db.engine, checkfirst=True)
     Quotation.__table__.create(db.engine, checkfirst=True)
     QuotationLine.__table__.create(db.engine, checkfirst=True)
@@ -50,6 +55,49 @@ def _ensure_tables():
         ensure_contacts_schema(db, db.engine)
     except Exception:
         current_app.logger.exception('ensure_contacts_schema en sales._ensure_tables')
+    _TABLES_ENSURED = True
+
+
+def _normalize_line_row(row: dict) -> dict:
+    is_note = bool(row.get('is_note'))
+    desc = str(row.get('description') or '').strip() or 'Item'
+    if is_note and not desc.startswith('__NOTE__ '):
+        desc = f'__NOTE__ {desc}'
+    return {
+        'product_id': (int(row.get('product_id')) if row.get('product_id') else None),
+        'description': desc,
+        'quantity': (0.0 if is_note else float(row.get('quantity') or 0)),
+        'price_unit': (0.0 if is_note else float(row.get('price_unit') or 0)),
+        'tax_id': ((int(row.get('tax_id')) if row.get('tax_id') else None) if not is_note else None),
+    }
+
+
+def _sync_quotation_lines(quotation_id: int, rows: list) -> None:
+    """Actualiza líneas in-place (evita DELETE masivo + reinsert en cada guardado)."""
+    existing = {ln.id: ln for ln in QuotationLine.query.filter_by(quotation_id=quotation_id).all()}
+    keep_ids: set[int] = set()
+    for row in rows or []:
+        norm = _normalize_line_row(row)
+        lid = None
+        raw_id = row.get('id')
+        if raw_id is not None and raw_id != '':
+            try:
+                lid = int(raw_id)
+            except (TypeError, ValueError):
+                lid = None
+        ln = existing.get(lid) if lid else None
+        if ln is not None:
+            keep_ids.add(lid)
+            ln.product_id = norm['product_id']
+            ln.description = norm['description']
+            ln.quantity = norm['quantity']
+            ln.price_unit = norm['price_unit']
+            ln.tax_id = norm['tax_id']
+        else:
+            db.session.add(QuotationLine(quotation_id=quotation_id, **norm))
+    for lid, ln in existing.items():
+        if lid not in keep_ids:
+            db.session.delete(ln)
 
 
 def _safe_float(v):
@@ -493,6 +541,22 @@ def quotation_get(qid):
 @sales_bp.route('/<int:qid>', methods=['PUT'])
 @login_required
 def quotation_put(qid):
+    try:
+        return _quotation_put_impl(qid)
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception('quotation_put failed id=%s', qid)
+        detail = str(e) if current_app.debug else None
+        return jsonify(
+            {
+                'error': 'quotation_save_failed',
+                'user_message': 'No se pudo guardar la cotización.',
+                'detail': detail,
+            }
+        ), 500
+
+
+def _quotation_put_impl(qid: int):
     _ensure_tables()
     if not _can_sales():
         return jsonify({'error': 'forbidden'}), 403
@@ -569,30 +633,19 @@ def quotation_put(qid):
     if 'crm_lead_id' in data:
         q.crm_lead_id = int(data.get('crm_lead_id') or 0) or None
     if 'validity_date' in data:
-        q.validity_date = (
-            datetime.fromisoformat(str(data.get('validity_date')).replace('Z', '+00:00')).replace(tzinfo=None)
-            if data.get('validity_date')
-            else None
-        )
+        raw_vd = data.get('validity_date')
+        if raw_vd:
+            try:
+                q.validity_date = datetime.fromisoformat(str(raw_vd).replace('Z', '+00:00')).replace(tzinfo=None)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'invalid_validity_date', 'user_message': 'Fecha de vencimiento no válida.'}), 400
+        else:
+            q.validity_date = None
     if 'payment_terms' in data:
         q.payment_terms = str(data.get('payment_terms') or '').strip() or None
 
     if 'lines' in data:
-        QuotationLine.query.filter_by(quotation_id=q.id).delete()
-        for row in (data.get('lines') or []):
-            is_note = bool(row.get('is_note'))
-            desc = str(row.get('description') or '').strip() or 'Item'
-            if is_note and not desc.startswith('__NOTE__ '):
-                desc = f'__NOTE__ {desc}'
-            ln = QuotationLine(
-                quotation_id=q.id,
-                product_id=(int(row.get('product_id')) if row.get('product_id') else None),
-                description=desc,
-                quantity=(0.0 if is_note else float(row.get('quantity') or 0)),
-                price_unit=(0.0 if is_note else float(row.get('price_unit') or 0)),
-                tax_id=((int(row.get('tax_id')) if row.get('tax_id') else None) if not is_note else None),
-            )
-            db.session.add(ln)
+        _sync_quotation_lines(q.id, data.get('lines') or [])
     _recompute_quote_totals(q)
     db.session.commit()
     return jsonify(_serialize_quotation(q))

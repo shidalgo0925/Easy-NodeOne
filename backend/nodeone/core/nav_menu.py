@@ -1,7 +1,4 @@
-"""Menú admin tenant — áreas (app launcher) + ítems por área.
-
-La app activa se infiere de URL/endpoint; sin sesión ni BD.
-"""
+"""Menú admin tenant — app launcher SaaS + subnav horizontal por app."""
 
 from __future__ import annotations
 
@@ -9,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from flask import has_request_context, request, url_for
+from werkzeug.routing import BuildError
 
 
 @dataclass
@@ -37,6 +35,7 @@ class NavAreaItem:
     active_endpoints: tuple[str, ...] = ()
     active_blueprints: tuple[str, ...] = ()
     active_path_prefixes: tuple[str, ...] = ()
+    dropdown_items: tuple['NavAreaItem', ...] = ()
 
 
 @dataclass
@@ -63,6 +62,14 @@ _CRM_EPS = (
     'admin_crm_reports',
 )
 
+_ANALYTICS_EPS = (
+    'admin_analytics',
+    'admin_analytics_sales',
+    'admin_analytics_crm',
+    'admin_analytics_members',
+    'admin_analytics_registrations',
+)
+
 _CONFIG_EPS = (
     'efactura_admin.efactura_config',
     'admin_crm_settings',
@@ -77,9 +84,15 @@ _CONFIG_EPS = (
     'admin_appointments.create_appointment_type',
     'admin_appointments.edit_appointment_type',
     'admin_users',
-    'admin_organizations_list',
-    'admin_organization_new',
-    'admin_organization_edit',
+)
+
+_RBAC_EPS = (
+    'admin_roles_matrix',
+    'admin_roles_matrix_cell',
+    'admin_roles_list',
+    'admin_roles_detail',
+    'admin_roles_users',
+    'admin_permissions_list',
 )
 
 _PLATFORM_EPS = (
@@ -90,6 +103,10 @@ _PLATFORM_EPS = (
     'admin_saas_catalog_list',
     'admin_saas_catalog_new',
     'admin_saas_catalog_edit',
+    'admin_platform_setup',
+    'admin_messaging',
+    'admin_messaging_detail',
+    'admin_backup.admin_backup',
 )
 
 _ACCOUNTING_EPS = (
@@ -103,6 +120,47 @@ _ACCOUNTING_EPS = (
     'accounting_core.adjustments_list',
 )
 
+_WORKSHOP_OPS_EPS = (
+    'admin_workshop_orders',
+    'admin_workshop_order_new',
+    'admin_workshop_order_detail',
+)
+
+_WORKSHOP_CONFIG_EPS = (
+    'admin_workshop_settings',
+    'admin_workshop_process_config',
+)
+
+_VENTAS_OPS_EPS = (
+    'admin_sales_quotations',
+    'admin_sales_quotation_form',
+    'admin_sales_commercial_contacts',
+    'admin_sales_commercial_contact_edit',
+    'admin_analytics_sales',
+)
+
+_VENTAS_CATALOG_EPS = (
+    'admin_sales_catalog',
+    'admin_services_catalog.admin_services',
+    'admin_services_catalog.admin_service_categories',
+    'admin_plans',
+    'academic_enrollment_admin.list_programs',
+    'admin_events.admin_events_index',
+)
+
+_VENTAS_CATALOG_PATH_PREFIXES = (
+    '/admin/sales/catalog',
+    '/admin/services',
+    '/admin/service-categories',
+    '/admin/plans',
+    '/admin/academic-enrollment/programs',
+    '/admin/events',
+)
+
+
+def _ep(endpoint: str) -> Callable[[NavContext], bool]:
+    return lambda ctx: ctx.has_view_endpoint(endpoint)
+
 
 def _v_contacts(ctx: NavContext) -> bool:
     return ctx.saas_module_enabled('contacts') and ctx.has_view_endpoint('contacts_admin.contacts_index')
@@ -112,16 +170,444 @@ def _v_crm(ctx: NavContext) -> bool:
     return (ctx.saas_module_enabled('crm_contacts') or ctx.saas_module_enabled('crm')) and ctx.nav_can('users.view')
 
 
-def _v_servicios(ctx: NavContext) -> bool:
-    return ctx.saas_module_enabled('appointments')
-
-
 def _v_ventas(ctx: NavContext) -> bool:
     return ctx.nav_can('payments.view') and ctx.saas_module_enabled('sales')
 
 
-def _v_comercial(ctx: NavContext) -> bool:
-    return _v_contacts(ctx) or _v_crm(ctx) or _v_servicios(ctx) or _v_ventas(ctx)
+def _v_catalog_productos(ctx: NavContext) -> bool:
+    return _v_ventas(ctx) and ctx.has_view_endpoint('admin_services_catalog.admin_services')
+
+
+def _v_catalog_servicios(ctx: NavContext) -> bool:
+    return _v_ventas(ctx) and ctx.has_view_endpoint('admin_services_catalog.admin_service_categories')
+
+
+def _v_catalog_membresias(ctx: NavContext) -> bool:
+    return _v_membresias(ctx) and ctx.has_view_endpoint('admin_plans')
+
+
+def _v_catalog_programas(ctx: NavContext) -> bool:
+    return _v_educacion(ctx) and ctx.has_view_endpoint('academic_enrollment_admin.list_programs')
+
+
+def _v_catalog_eventos(ctx: NavContext) -> bool:
+    return _v_eventos(ctx) and ctx.has_view_endpoint('admin_events.admin_events_index')
+
+
+def _v_catalog_hub(ctx: NavContext) -> bool:
+    return any(
+        (
+            _v_catalog_productos(ctx),
+            _v_catalog_servicios(ctx),
+            _v_catalog_membresias(ctx),
+            _v_catalog_programas(ctx),
+            _v_catalog_eventos(ctx),
+        )
+    )
+
+
+def _first_visible_dropdown_url_from(items: tuple[NavAreaItem, ...], ctx: NavContext) -> str:
+    for sub in items:
+        if _item_visible(sub, ctx):
+            return item_url(sub, ctx)
+    return '#'
+
+
+_CATALOG_DROPDOWN_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'productos',
+        'Productos',
+        'fas fa-box',
+        'admin_services_catalog.admin_services',
+        visible=_v_catalog_productos,
+        active_endpoints=('admin_services_catalog.admin_services',),
+    ),
+    NavAreaItem(
+        'servicios',
+        'Servicios',
+        'fas fa-concierge-bell',
+        'admin_services_catalog.admin_service_categories',
+        visible=_v_catalog_servicios,
+        active_endpoints=('admin_services_catalog.admin_service_categories',),
+    ),
+    NavAreaItem(
+        'membresias',
+        'Membresías',
+        'fas fa-id-card',
+        'admin_plans',
+        visible=_v_catalog_membresias,
+        active_endpoints=('admin_plans',),
+    ),
+    NavAreaItem(
+        'programas',
+        'Programas',
+        'fas fa-graduation-cap',
+        'academic_enrollment_admin.list_programs',
+        visible=_v_catalog_programas,
+        active_blueprints=('academic_enrollment_admin',),
+        active_path_prefixes=('/admin/academic-enrollment/programs',),
+    ),
+    NavAreaItem(
+        'eventos',
+        'Eventos',
+        'fas fa-calendar-check',
+        'admin_events.admin_events_index',
+        visible=_v_catalog_eventos,
+        active_blueprints=('admin_events',),
+        active_path_prefixes=('/admin/events',),
+    ),
+)
+
+_WORKSHOP_CONFIG_DROPDOWN_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'inicio',
+        'Inicio',
+        'fas fa-home',
+        'admin_workshop_settings',
+        active_endpoints=('admin_workshop_settings',),
+    ),
+    NavAreaItem(
+        'sla',
+        'SLA',
+        'fas fa-stopwatch',
+        'admin_workshop_process_config',
+        visible=_ep('admin_workshop_process_config'),
+        active_endpoints=('admin_workshop_process_config',),
+    ),
+)
+
+
+def _nav_menu_dropdown(
+    item_id: str,
+    label: str,
+    icon: str,
+    children: tuple[NavAreaItem, ...],
+    *,
+    visible: Callable[[NavContext], bool] | None = None,
+) -> NavAreaItem:
+    def _default_visible(c: NavContext) -> bool:
+        return any(_item_visible(ch, c) for ch in children)
+
+    vis = visible if visible is not None else _default_visible
+    first_ep = children[0].endpoint if children else 'dashboard'
+    return NavAreaItem(
+        item_id,
+        label,
+        icon,
+        first_ep,
+        visible=vis,
+        url_resolver=lambda ctx, ch=children: _first_visible_dropdown_url_from(ch, ctx),
+        dropdown_items=children,
+    )
+
+
+_ANALYTICS_TABLEROS_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'ventas_kpi',
+        'Ventas',
+        'fas fa-chart-bar',
+        'admin_analytics_sales',
+        active_endpoints=('admin_analytics_sales',),
+    ),
+    NavAreaItem(
+        'crm_kpi',
+        'CRM',
+        'fas fa-handshake',
+        'admin_analytics_crm',
+        active_endpoints=('admin_analytics_crm',),
+    ),
+    NavAreaItem(
+        'miembros_kpi',
+        'Miembros',
+        'fas fa-users',
+        'admin_analytics_members',
+        active_endpoints=('admin_analytics_members',),
+    ),
+    NavAreaItem(
+        'registros_kpi',
+        'Registros',
+        'fas fa-user-plus',
+        'admin_analytics_registrations',
+        active_endpoints=('admin_analytics_registrations',),
+    ),
+)
+
+_CRM_PIPELINE_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem('leads', 'Leads', 'fas fa-user-plus', 'admin_crm_leads', active_endpoints=('admin_crm_leads',)),
+    NavAreaItem(
+        'pipeline',
+        'Pipeline',
+        'fas fa-filter',
+        'admin_crm_table',
+        visible=_ep('admin_crm_table'),
+        active_endpoints=('admin_crm_table',),
+    ),
+    NavAreaItem(
+        'oportunidades',
+        'Oportunidades',
+        'fas fa-bullseye',
+        'admin_crm_dashboard',
+        active_endpoints=('admin_crm_dashboard',),
+    ),
+    NavAreaItem(
+        'actividades',
+        'Actividades',
+        'fas fa-tasks',
+        'admin_crm_activities',
+        active_endpoints=('admin_crm_activities',),
+    ),
+    NavAreaItem('kanban', 'Kanban', 'fas fa-columns', 'admin_crm_kanban', active_endpoints=('admin_crm_kanban',)),
+)
+
+_CONTADOR_DATOS_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'importar',
+        'Importar XLS',
+        'fas fa-file-upload',
+        'contador.contador_importar',
+        visible=lambda c: c.nav_can('contador.admin'),
+        active_endpoints=(
+            'contador.contador_importar',
+            'contador.contador_importar_mapear',
+            'contador.contador_importar_subir',
+            'contador.contador_importar_automatico',
+        ),
+    ),
+    NavAreaItem(
+        'catalogo',
+        'Catálogo',
+        'fas fa-boxes',
+        'contador.contador_catalogo',
+        active_endpoints=('contador.contador_catalogo', 'contador.contador_catalogo_nuevo'),
+    ),
+)
+
+_AGENDA_PLANIFICACION_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'calendario',
+        'Calendario',
+        'fas fa-calendar',
+        'admin_appointments.calendar_view',
+        visible=lambda c: c.nav_can('services.view') and c.has_view_endpoint('admin_appointments.calendar_view'),
+        active_endpoints=('admin_appointments.calendar_view',),
+    ),
+    NavAreaItem(
+        'disponibilidad',
+        'Disponibilidad',
+        'fas fa-clock',
+        'admin_appointments.list_service_availability',
+        visible=lambda c: c.nav_can('services.view') and c.has_view_endpoint('admin_appointments.list_service_availability'),
+        active_endpoints=(
+            'admin_appointments.configure_daily_availability',
+            'admin_appointments.list_service_availability',
+            'admin_appointments.manage_service_availability',
+        ),
+    ),
+)
+
+_MEMBRESIAS_OPERACION_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem('miembros', 'Miembros', 'fas fa-users', 'admin_memberships', active_endpoints=('admin_memberships',)),
+    NavAreaItem('beneficios', 'Beneficios', 'fas fa-gift', 'admin_benefits', active_endpoints=('admin_benefits', 'benefits')),
+)
+
+_EVENTOS_GESTION_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'gestion',
+        'Gestión de Eventos',
+        'fas fa-calendar-alt',
+        'admin_events.admin_events_index',
+        active_blueprints=('admin_events',),
+        active_endpoints=('admin_events.discounts_index',),
+    ),
+    NavAreaItem(
+        'participantes',
+        'Participantes',
+        'fas fa-users',
+        'events.list_events',
+        active_blueprints=('events',),
+    ),
+    NavAreaItem(
+        'inscripciones',
+        'Inscripciones',
+        'fas fa-user-plus',
+        'events.list_events',
+        active_blueprints=('events',),
+    ),
+    NavAreaItem(
+        'descuentos',
+        'Descuentos',
+        'fas fa-percent',
+        'admin_events.discounts_index',
+        visible=lambda c: c.nav_can('payments.view'),
+        active_endpoints=('admin_events.discounts_index',),
+    ),
+)
+
+_EDUCACION_ACADEMICO_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'programas',
+        'Programas',
+        'fas fa-book-open',
+        'academic_enrollment_admin.list_programs',
+        active_blueprints=('academic_enrollment_admin',),
+    ),
+    NavAreaItem(
+        'estudiantes',
+        'Estudiantes',
+        'fas fa-user-graduate',
+        'academic_admin.admin_academic_students',
+        active_endpoints=('academic_admin.admin_academic_students',),
+    ),
+    NavAreaItem(
+        'inscripciones',
+        'Inscripciones',
+        'fas fa-file-signature',
+        'academic_admin.admin_academic_enrollments',
+        active_endpoints=('academic_admin.admin_academic_enrollments',),
+    ),
+    NavAreaItem(
+        'planes_pago',
+        'Planes de pago',
+        'fas fa-credit-card',
+        'academic_enrollment_admin.list_programs',
+        active_blueprints=('academic_enrollment_admin',),
+    ),
+)
+
+_PLATAFORMA_SAAS_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'empresas',
+        'Organizaciones',
+        'fas fa-building',
+        'admin_organizations_list',
+        active_endpoints=('admin_organizations_list', 'admin_organization_new', 'admin_organization_edit'),
+    ),
+    NavAreaItem(
+        'modulos',
+        'Módulos SaaS',
+        'fas fa-puzzle-piece',
+        'admin_saas_modules_page',
+        active_endpoints=('admin_saas_modules_page',),
+    ),
+    NavAreaItem(
+        'catalogo',
+        'Catálogo',
+        'fas fa-list',
+        'admin_saas_catalog_list',
+        active_endpoints=('admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'),
+    ),
+)
+
+_PLATAFORMA_SISTEMA_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'usuarios',
+        'Usuarios',
+        'fas fa-users-cog',
+        'admin_users',
+        visible=lambda c: c.nav_can('users.view'),
+        active_endpoints=('admin_users',),
+    ),
+    NavAreaItem(
+        'logs',
+        'Logs',
+        'fas fa-stream',
+        'admin_messaging',
+        visible=lambda c: c.nav_can('reports.view') and c.has_view_endpoint('admin_messaging'),
+        active_endpoints=('admin_messaging', 'admin_messaging_detail'),
+    ),
+    NavAreaItem(
+        'respaldos',
+        'Respaldos',
+        'fas fa-database',
+        'admin_backup.admin_backup',
+        visible=lambda c: c.nav_can('system.settings.view') and c.has_view_endpoint('admin_backup.admin_backup'),
+        active_endpoints=('admin_backup.admin_backup',),
+    ),
+)
+
+_PERMISOS_ADMIN_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'matriz',
+        'Matriz',
+        'fas fa-th',
+        'admin_roles_matrix',
+        active_endpoints=('admin_roles_matrix', 'admin_roles_matrix_cell'),
+    ),
+    NavAreaItem(
+        'roles',
+        'Roles',
+        'fas fa-user-tag',
+        'admin_roles_list',
+        visible=_ep('admin_roles_list'),
+        active_endpoints=('admin_roles_list', 'admin_roles_detail', 'admin_roles_users'),
+    ),
+    NavAreaItem(
+        'permisos_list',
+        'Permisos',
+        'fas fa-key',
+        'admin_permissions_list',
+        visible=_ep('admin_permissions_list'),
+        active_endpoints=('admin_permissions_list',),
+    ),
+)
+
+_MATRIZ_ODOO_NAV_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'inicio',
+        'Inicio',
+        'fas fa-home',
+        'security_matrix.security_matrix_index',
+        active_endpoints=('security_matrix.security_matrix_index',),
+    ),
+    NavAreaItem(
+        'matriz_modulo',
+        'Matriz por módulo',
+        'fas fa-table',
+        'security_matrix.security_matrix_matriz_view',
+        active_endpoints=('security_matrix.security_matrix_matriz_view',),
+    ),
+    NavAreaItem(
+        'catalogo',
+        'Catálogo',
+        'fas fa-list',
+        'security_matrix.security_matrix_catalog_view',
+        active_endpoints=('security_matrix.security_matrix_catalog_view',),
+    ),
+)
+
+_COMUNICACION_CANALES_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'correo',
+        'Correo',
+        'fas fa-envelope-open',
+        'integrations.office365_page',
+        visible=lambda c: c.saas_module_enabled('communications') and c.office365_module_enabled,
+        active_blueprints=('integrations',),
+    ),
+    NavAreaItem(
+        'marketing',
+        'Email marketing',
+        'fas fa-bullhorn',
+        'admin_marketing',
+        visible=lambda c: c.saas_module_enabled('marketing_email'),
+        active_endpoints=('admin_marketing',),
+    ),
+    NavAreaItem(
+        'chatbots',
+        'Chatbots',
+        'fas fa-robot',
+        'admin_chatbots',
+        visible=lambda c: c.saas_module_enabled('chatbot'),
+        active_endpoints=('admin_chatbots',),
+    ),
+    NavAreaItem(
+        'notificaciones',
+        'Notificaciones',
+        'fas fa-bell',
+        'admin_notifications',
+        active_endpoints=('admin_notifications',),
+    ),
+)
 
 
 def _v_analitica(ctx: NavContext) -> bool:
@@ -133,7 +619,7 @@ def _v_educacion(ctx: NavContext) -> bool:
 
 
 def _v_membresias(ctx: NavContext) -> bool:
-    return ctx.nav_can('memberships.view')
+    return ctx.saas_module_enabled('memberships') and ctx.nav_can('memberships.view')
 
 
 def _v_eventos(ctx: NavContext) -> bool:
@@ -142,6 +628,10 @@ def _v_eventos(ctx: NavContext) -> bool:
 
 def _v_taller(ctx: NavContext) -> bool:
     return ctx.saas_module_enabled('workshop')
+
+
+def _v_workshop_config(ctx: NavContext) -> bool:
+    return _v_taller(ctx)
 
 
 def _v_contador(ctx: NavContext) -> bool:
@@ -158,10 +648,6 @@ def _v_agenda(ctx: NavContext) -> bool:
 
 def _v_comunicacion(ctx: NavContext) -> bool:
     return ctx.nav_can('integrations.view')
-
-
-def _v_operaciones(ctx: NavContext) -> bool:
-    return _v_taller(ctx) or _v_contador(ctx) or _v_agenda(ctx) or _v_comunicacion(ctx)
 
 
 def _v_facturas(ctx: NavContext) -> bool:
@@ -184,36 +670,24 @@ def _v_fe(ctx: NavContext) -> bool:
     return ctx.saas_module_enabled('efactura') and ctx.has_view_endpoint('efactura_admin.efactura_emissions')
 
 
+def _v_cxc(ctx: NavContext) -> bool:
+    return _v_contabilidad(ctx) and ctx.has_view_endpoint('accounting_core.receivables_list')
+
+
 def _v_finanzas(ctx: NavContext) -> bool:
-    return _v_facturas(ctx) or _v_pagos(ctx) or _v_contabilidad(ctx) or _v_fe(ctx)
+    return _v_facturas(ctx) or _v_contabilidad(ctx) or _v_fe(ctx)
 
 
 def _v_config(ctx: NavContext) -> bool:
     return ctx.nav_can('system.settings.view')
 
 
+def _v_configuracion(ctx: NavContext) -> bool:
+    return _v_config(ctx) or _v_pagos(ctx)
+
+
 def _v_plataforma(ctx: NavContext) -> bool:
     return ctx.show_platform_admin_nav and ctx.is_platform_admin
-
-
-def _comunicacion_url(ctx: NavContext) -> str:
-    if ctx.saas_module_enabled('communications') and ctx.office365_module_enabled:
-        return url_for('integrations.office365_page')
-    if ctx.saas_module_enabled('marketing_email'):
-        return url_for('admin_marketing')
-    return url_for('admin_notifications')
-
-
-def _v_logs(ctx: NavContext) -> bool:
-    return ctx.nav_can('reports.view')
-
-
-def _v_backup(ctx: NavContext) -> bool:
-    return ctx.nav_can('system.settings.view')
-
-
-def _v_sistema(ctx: NavContext) -> bool:
-    return _v_logs(ctx) or _v_backup(ctx)
 
 
 def _v_security_matrix(ctx: NavContext) -> bool:
@@ -225,11 +699,128 @@ def _v_security_matrix(ctx: NavContext) -> bool:
 
 
 def _v_en1_roles_matrix(ctx: NavContext) -> bool:
-    return ctx.nav_can('roles.view') and ctx.has_view_endpoint('admin_roles_matrix')
+    return (
+        ctx.saas_module_enabled('rbac_matrix')
+        and ctx.nav_can('roles.view')
+        and ctx.has_view_endpoint('admin_roles_matrix')
+    )
 
 
-def _v_administracion(ctx: NavContext) -> bool:
-    return _v_security_matrix(ctx) or _v_en1_roles_matrix(ctx)
+_FINANZAS_COBRO_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'facturas',
+        'Facturas',
+        'fas fa-file-invoice',
+        'admin_accounting_invoices',
+        url_path='/admin/accounting/invoices',
+        visible=_v_facturas,
+        active_endpoints=(
+            'admin_accounting_invoices',
+            'admin_accounting_invoice_new',
+            'admin_accounting_invoice_form',
+        ),
+    ),
+    NavAreaItem(
+        'cxc',
+        'Cuentas por cobrar',
+        'fas fa-hand-holding-usd',
+        'accounting_core.receivables_list',
+        visible=_v_cxc,
+        active_endpoints=('accounting_core.receivables_list', 'accounting_core.receivables_customers_list'),
+    ),
+)
+
+_CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'branding',
+        'Branding',
+        'fas fa-palette',
+        'admin_identity',
+        visible=_v_config,
+        active_endpoints=('admin_identity',),
+    ),
+    NavAreaItem(
+        'smtp',
+        'SMTP',
+        'fas fa-envelope',
+        'admin_email',
+        visible=_v_config,
+        active_endpoints=('admin_email',),
+    ),
+    NavAreaItem(
+        'media',
+        'Multimedia',
+        'fas fa-photo-video',
+        'media_admin.admin_media',
+        visible=lambda c: _v_config(c) and c.has_view_endpoint('media_admin.admin_media'),
+        active_endpoints=('media_admin.admin_media',),
+    ),
+)
+
+_CONFIG_FISCAL_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'impuestos',
+        'Impuestos',
+        'fas fa-percent',
+        'admin_configuration_taxes',
+        visible=_ep('admin_configuration_taxes'),
+        active_endpoints=('admin_configuration_taxes',),
+    ),
+    NavAreaItem(
+        'pagos',
+        'Pagos',
+        'fas fa-credit-card',
+        'payments_admin.admin_payments',
+        url_path='/admin/payments?context=config',
+        visible=_v_pagos,
+        active_endpoints=('payments_admin.admin_payments',),
+        active_path_prefixes=('/admin/payments',),
+    ),
+    NavAreaItem(
+        'fe_proveedor',
+        'Proveedor FE',
+        'fas fa-receipt',
+        'efactura_admin.efactura_config',
+        visible=lambda c: c.saas_module_enabled('efactura') and c.has_view_endpoint('efactura_admin.efactura_config'),
+        active_endpoints=('efactura_admin.efactura_config',),
+    ),
+)
+
+_CONFIG_ACCESO_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'usuarios',
+        'Usuarios',
+        'fas fa-users-cog',
+        'admin_users',
+        visible=lambda c: c.nav_can('users.view'),
+        active_endpoints=('admin_users',),
+    ),
+    NavAreaItem(
+        'comunicacion_cfg',
+        'Comunicación',
+        'fas fa-bell',
+        'admin_communications.admin_communications_settings',
+        visible=_ep('admin_communications.admin_communications_settings'),
+        active_endpoints=('admin_communications.admin_communications_settings',),
+    ),
+)
+
+
+# Orden del launcher lateral (apps principales del tenant).
+_SIDEBAR_LAUNCHER_ORDER: tuple[str, ...] = (
+    'contactos',
+    'taller',
+    'ventas',
+    'finanzas',
+    'crm',
+    'agenda',
+    'membresias',
+    'eventos',
+    'educacion',
+    'contador',
+    'analitica',
+    'plataforma',
+)
 
 
 APP_AREAS: tuple[NavArea, ...] = (
@@ -238,13 +829,7 @@ APP_AREAS: tuple[NavArea, ...] = (
         label='Analítica',
         icon='fas fa-chart-line',
         visible=_v_analitica,
-        zone_endpoints=(
-            'admin_analytics',
-            'admin_analytics_sales',
-            'admin_analytics_crm',
-            'admin_analytics_members',
-            'admin_analytics_registrations',
-        ),
+        zone_endpoints=_ANALYTICS_EPS,
         items=(
             NavAreaItem(
                 'ejecutivo',
@@ -253,79 +838,221 @@ APP_AREAS: tuple[NavArea, ...] = (
                 'admin_analytics',
                 active_endpoints=('admin_analytics',),
             ),
+            _nav_menu_dropdown('tableros', 'Tableros', 'fas fa-chart-bar', _ANALYTICS_TABLEROS_ITEMS),
+        ),
+    ),
+    NavArea(
+        id='crm',
+        label='CRM',
+        icon='fas fa-handshake',
+        visible=_v_crm,
+        zone_endpoints=_CRM_EPS,
+        items=(
+            _nav_menu_dropdown('pipeline', 'CRM', 'fas fa-handshake', _CRM_PIPELINE_ITEMS),
             NavAreaItem(
-                'ventas_kpi',
-                'Ventas',
+                'reportes',
+                'Reportes',
                 'fas fa-chart-bar',
-                'admin_analytics_sales',
-                active_endpoints=('admin_analytics_sales',),
+                'admin_crm_reports',
+                active_endpoints=('admin_crm_reports',),
+            ),
+        ),
+    ),
+    # Taller antes que Ventas: el flujo operativo arranca en la orden de taller → cotización → factura.
+    NavArea(
+        id='taller',
+        label='Taller',
+        icon='fas fa-car-side',
+        visible=_v_taller,
+        zone_path_prefixes=('/admin/workshop',),
+        zone_endpoints=_WORKSHOP_OPS_EPS,
+        items=(
+            NavAreaItem(
+                'ordenes',
+                'Monitor',
+                'fas fa-clipboard-list',
+                'admin_workshop_orders',
+                active_endpoints=_WORKSHOP_OPS_EPS,
             ),
             NavAreaItem(
-                'crm_kpi',
-                'CRM',
-                'fas fa-handshake',
-                'admin_analytics_crm',
-                active_endpoints=('admin_analytics_crm',),
+                'recepcion',
+                'Recepción',
+                'fas fa-door-open',
+                'admin_workshop_order_new',
+                active_endpoints=('admin_workshop_order_new',),
             ),
             NavAreaItem(
-                'miembros_kpi',
-                'Miembros',
-                'fas fa-users',
-                'admin_analytics_members',
-                active_endpoints=('admin_analytics_members',),
+                'reportes',
+                'Reportes',
+                'fas fa-chart-bar',
+                'admin_workshop_orders',
+                url_path='/admin/workshop/orders',
+                active_endpoints=(),
             ),
-            NavAreaItem(
-                'registros_kpi',
-                'Registros',
-                'fas fa-user-plus',
-                'admin_analytics_registrations',
-                active_endpoints=('admin_analytics_registrations',),
+            _nav_menu_dropdown(
+                'configuracion',
+                'Configuración',
+                'fas fa-cog',
+                _WORKSHOP_CONFIG_DROPDOWN_ITEMS,
+                visible=_v_workshop_config,
             ),
         ),
     ),
     NavArea(
-        id='comercial',
-        label='Comercial',
-        icon='fas fa-briefcase',
-        visible=_v_comercial,
-        zone_endpoints=_CRM_EPS
-        + ('admin_sales_quotations', 'contacts_admin.contacts_index', 'contacts_admin.contacts_new'),
-        zone_blueprints=('contacts_admin', 'services'),
-        zone_path_prefixes=('/admin/contacts', '/admin/sales'),
+        id='ventas',
+        label='Ventas',
+        icon='fas fa-file-invoice-dollar',
+        visible=_v_ventas,
+        zone_endpoints=_VENTAS_OPS_EPS + _VENTAS_CATALOG_EPS,
+        zone_path_prefixes=(
+            '/admin/sales/quotations',
+            '/admin/sales/commercial-contacts',
+        )
+        + _VENTAS_CATALOG_PATH_PREFIXES,
         items=(
             NavAreaItem(
-                'contactos',
-                'Contactos',
-                'fas fa-address-book',
-                'contacts_admin.contacts_index',
-                visible=_v_contacts,
-                active_blueprints=('contacts_admin',),
-                active_path_prefixes=('/admin/contacts',),
-            ),
-            NavAreaItem(
-                'crm',
-                'CRM',
-                'fas fa-handshake',
-                'admin_crm_dashboard',
-                visible=_v_crm,
-                active_endpoints=_CRM_EPS,
-            ),
-            NavAreaItem(
-                'servicios',
-                'Servicios',
-                'fas fa-th-large',
-                'services.list',
-                visible=_v_servicios,
-                active_blueprints=('services',),
-            ),
-            NavAreaItem(
-                'ventas',
-                'Ventas',
-                'fas fa-file-invoice-dollar',
+                'cotizaciones',
+                'Cotizaciones',
+                'fas fa-file-alt',
                 'admin_sales_quotations',
                 url_path='/admin/sales/quotations',
-                visible=_v_ventas,
-                active_endpoints=('admin_sales_quotations',),
+                active_endpoints=(
+                    'admin_sales_quotations',
+                    'admin_sales_quotation_form',
+                    'admin_sales_commercial_contacts',
+                    'admin_sales_commercial_contact_edit',
+                ),
+            ),
+            _nav_menu_dropdown(
+                'catalogo',
+                'Catálogo',
+                'fas fa-store',
+                _CATALOG_DROPDOWN_ITEMS,
+                visible=_v_catalog_hub,
+            ),
+            NavAreaItem(
+                'reportes',
+                'Reportes',
+                'fas fa-chart-bar',
+                'admin_analytics_sales',
+                url_path='/admin/analytics/sales?source=ventas',
+                visible=lambda c: _v_ventas(c) and _v_analitica(c),
+                active_endpoints=('admin_analytics_sales',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='contador',
+        label='Contador',
+        icon='fas fa-clipboard-list',
+        visible=_v_contador,
+        zone_blueprints=('contador', 'contador_api'),
+        zone_path_prefixes=('/admin/contador', '/api/contador'),
+        items=(
+            NavAreaItem(
+                'inicio',
+                'Inicio',
+                'fas fa-home',
+                'contador.contador_index',
+                active_endpoints=('contador.contador_index',),
+            ),
+            _nav_menu_dropdown('datos', 'Datos', 'fas fa-database', _CONTADOR_DATOS_ITEMS),
+            NavAreaItem(
+                'sesiones',
+                'Sesiones',
+                'fas fa-list-ol',
+                'contador.contador_sesiones',
+                active_endpoints=(
+                    'contador.contador_sesiones',
+                    'contador.contador_sesion_new',
+                    'contador.contador_sesion_detail',
+                    'contador.contador_sesion_captura',
+                    'contador.contador_sesion_revision',
+                    'contador.contador_sesion_exportar',
+                    'contador.contador_line_historial',
+                ),
+            ),
+        ),
+    ),
+    NavArea(
+        id='contactos',
+        label='Contactos',
+        icon='fas fa-address-book',
+        visible=_v_contacts,
+        zone_blueprints=('contacts_admin',),
+        zone_path_prefixes=('/admin/contacts',),
+        items=(
+            NavAreaItem(
+                'listado',
+                'Contactos',
+                'fas fa-list',
+                'contacts_admin.contacts_index',
+                active_endpoints=(
+                    'contacts_admin.contacts_index',
+                    'contacts_admin.contacts_new',
+                    'contacts_admin.contacts_detail',
+                    'contacts_admin.contacts_edit',
+                ),
+                active_blueprints=('contacts_admin',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='agenda',
+        label='Agenda',
+        icon='fas fa-calendar-alt',
+        visible=_v_agenda,
+        zone_blueprints=('appointments', 'admin_appointments'),
+        zone_endpoints=(
+            'appointments.advisor_queue',
+            'admin_appointments.calendar_view',
+            'admin_appointments.configure_daily_availability',
+            'admin_appointments.list_service_availability',
+            'admin_appointments.manage_service_availability',
+        ),
+        items=(
+            NavAreaItem(
+                'citas',
+                'Citas',
+                'fas fa-calendar-check',
+                'appointments.appointments_home',
+                active_blueprints=('appointments',),
+            ),
+            _nav_menu_dropdown('planificacion', 'Planificación', 'fas fa-calendar', _AGENDA_PLANIFICACION_ITEMS),
+        ),
+    ),
+    NavArea(
+        id='membresias',
+        label='Membresías',
+        icon='fas fa-crown',
+        visible=_v_membresias,
+        zone_endpoints=('admin_plans', 'admin_memberships', 'admin_benefits', 'benefits'),
+        items=(
+            _nav_menu_dropdown('operacion', 'Operación', 'fas fa-users', _MEMBRESIAS_OPERACION_ITEMS),
+            NavAreaItem(
+                'planes',
+                'Planes',
+                'fas fa-layer-group',
+                'admin_plans',
+                visible=lambda c: _v_membresias(c) and not _v_catalog_membresias(c),
+                active_endpoints=('admin_plans',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='eventos',
+        label='Eventos',
+        icon='fas fa-calendar-check',
+        visible=_v_eventos,
+        zone_blueprints=('events', 'admin_events'),
+        items=(
+            _nav_menu_dropdown('gestion', 'Gestión', 'fas fa-calendar-alt', _EVENTOS_GESTION_ITEMS),
+            NavAreaItem(
+                'reportes',
+                'Reportes',
+                'fas fa-chart-bar',
+                'admin_events.admin_events_index',
+                active_blueprints=('admin_events',),
             ),
         ),
     ),
@@ -341,27 +1068,7 @@ APP_AREAS: tuple[NavArea, ...] = (
             'admin_certificate_template_editor',
         ),
         items=(
-            NavAreaItem(
-                'programas',
-                'Programas',
-                'fas fa-book-open',
-                'academic_enrollment_admin.list_programs',
-                active_blueprints=('academic_enrollment_admin',),
-            ),
-            NavAreaItem(
-                'estudiantes',
-                'Estudiantes',
-                'fas fa-user-graduate',
-                'academic_admin.admin_academic_students',
-                active_endpoints=('academic_admin.admin_academic_students',),
-            ),
-            NavAreaItem(
-                'inscripciones',
-                'Inscripciones',
-                'fas fa-file-signature',
-                'academic_admin.admin_academic_enrollments',
-                active_endpoints=('academic_admin.admin_academic_enrollments',),
-            ),
+            _nav_menu_dropdown('academico', 'Académico', 'fas fa-book-open', _EDUCACION_ACADEMICO_ITEMS),
             NavAreaItem(
                 'certificados',
                 'Certificados',
@@ -377,133 +1084,16 @@ APP_AREAS: tuple[NavArea, ...] = (
         ),
     ),
     NavArea(
-        id='membresias',
-        label='Membresías',
-        icon='fas fa-crown',
-        visible=_v_membresias,
-        zone_endpoints=('admin_plans', 'admin_memberships', 'admin_benefits', 'benefits'),
-        items=(
-            NavAreaItem(
-                'miembros',
-                'Miembros',
-                'fas fa-users',
-                'admin_memberships',
-                active_endpoints=('admin_memberships',),
-            ),
-            NavAreaItem(
-                'beneficios',
-                'Beneficios',
-                'fas fa-gift',
-                'admin_benefits',
-                active_endpoints=('admin_benefits', 'benefits'),
-            ),
-            NavAreaItem(
-                'planes',
-                'Planes',
-                'fas fa-layer-group',
-                'admin_plans',
-                active_endpoints=('admin_plans',),
-            ),
-        ),
-    ),
-    NavArea(
-        id='eventos',
-        label='Eventos',
-        icon='fas fa-calendar-check',
-        visible=_v_eventos,
-        zone_blueprints=('events', 'admin_events'),
-        items=(
-            NavAreaItem(
-                'gestion_eventos',
-                'Gestión',
-                'fas fa-calendar-alt',
-                'admin_events.admin_events_index',
-                active_blueprints=('admin_events',),
-                active_endpoints=('admin_events.discounts_index',),
-            ),
-            NavAreaItem(
-                'participantes',
-                'Participantes',
-                'fas fa-users',
-                'events.list_events',
-                active_blueprints=('events',),
-            ),
-        ),
-    ),
-    NavArea(
-        id='operaciones',
-        label='Operaciones',
-        icon='fas fa-cogs',
-        visible=_v_operaciones,
-        zone_blueprints=('contador', 'contador_api', 'appointments', 'admin_appointments', 'integrations'),
-        zone_path_prefixes=('/admin/contador', '/api/contador', '/admin/workshop'),
-        zone_endpoints=(
-            'admin_workshop_orders',
-            'admin_workshop_order_new',
-            'admin_workshop_order_detail',
-            'admin_workshop_process_config',
-            'admin_marketing',
-            'admin_chatbots',
-            'admin_notifications',
-            'office365_admin.admin_office365_requests',
-            'appointments.advisor_queue',
-        ),
-        items=(
-            NavAreaItem(
-                'taller',
-                'Taller',
-                'fas fa-car-side',
-                'admin_workshop_orders',
-                visible=_v_taller,
-                active_endpoints=(
-                    'admin_workshop_orders',
-                    'admin_workshop_order_new',
-                    'admin_workshop_order_detail',
-                    'admin_workshop_process_config',
-                ),
-            ),
-            NavAreaItem(
-                'contador',
-                'Contador',
-                'fas fa-clipboard-list',
-                'contador.contador_index',
-                visible=_v_contador,
-                active_blueprints=('contador', 'contador_api'),
-                active_path_prefixes=('/admin/contador', '/api/contador'),
-            ),
-            NavAreaItem(
-                'agenda',
-                'Agenda',
-                'fas fa-calendar-alt',
-                'appointments.appointments_home',
-                visible=_v_agenda,
-                active_blueprints=('appointments', 'admin_appointments'),
-                active_endpoints=('appointments.advisor_queue',),
-            ),
-            NavAreaItem(
-                'comunicacion',
-                'Comunicación',
-                'fas fa-comments',
-                'admin_notifications',
-                url_resolver=_comunicacion_url,
-                visible=_v_comunicacion,
-                active_endpoints=(
-                    'admin_marketing',
-                    'admin_chatbots',
-                    'admin_notifications',
-                    'office365_admin.admin_office365_requests',
-                ),
-                active_blueprints=('integrations',),
-            ),
-        ),
-    ),
-    NavArea(
         id='finanzas',
         label='Finanzas',
         icon='fas fa-coins',
         visible=_v_finanzas,
-        zone_blueprints=('payments_admin', 'efactura_admin', 'efactura_api', 'accounting_core'),
-        zone_path_prefixes=('/admin/payments', '/admin/accounting/invoices', '/admin/efactura', '/api/admin/efactura'),
+        zone_blueprints=('efactura_admin', 'efactura_api', 'accounting_core'),
+        zone_path_prefixes=(
+            '/admin/accounting',
+            '/admin/efactura',
+            '/api/admin/efactura',
+        ),
         zone_endpoints=_ACCOUNTING_EPS
         + (
             'admin_accounting_invoices',
@@ -514,28 +1104,7 @@ APP_AREAS: tuple[NavArea, ...] = (
             'efactura_admin.efactura_logs',
         ),
         items=(
-            NavAreaItem(
-                'facturas',
-                'Facturas',
-                'fas fa-file-invoice',
-                'admin_accounting_invoices',
-                url_path='/admin/accounting/invoices',
-                visible=_v_facturas,
-                active_endpoints=(
-                    'admin_accounting_invoices',
-                    'admin_accounting_invoice_new',
-                    'admin_accounting_invoice_form',
-                ),
-            ),
-            NavAreaItem(
-                'pagos',
-                'Pagos',
-                'fas fa-credit-card',
-                'payments_admin.admin_payments',
-                visible=_v_pagos,
-                active_blueprints=('payments_admin',),
-                active_path_prefixes=('/admin/payments',),
-            ),
+            _nav_menu_dropdown('cobro', 'Cobro', 'fas fa-hand-holding-usd', _FINANZAS_COBRO_ITEMS),
             NavAreaItem(
                 'contabilidad',
                 'Contabilidad',
@@ -546,73 +1115,12 @@ APP_AREAS: tuple[NavArea, ...] = (
             ),
             NavAreaItem(
                 'fe',
-                'Facturación Electrónica',
+                'Fact. electrónica',
                 'fas fa-receipt',
                 'efactura_admin.efactura_emissions',
                 visible=_v_fe,
                 active_blueprints=('efactura_admin', 'efactura_api'),
                 active_path_prefixes=('/admin/efactura', '/api/admin/efactura'),
-            ),
-        ),
-    ),
-    NavArea(
-        id='administracion',
-        label='Administración',
-        icon='fas fa-shield-alt',
-        visible=_v_administracion,
-        zone_blueprints=('security_matrix',),
-        zone_path_prefixes=('/admin/security-matrix',),
-        zone_endpoints=('admin_roles_matrix', 'admin_roles_matrix_cell'),
-        items=(
-            NavAreaItem(
-                'matriz_odoo',
-                'Matriz Odoo',
-                'fas fa-table',
-                'security_matrix.security_matrix_index',
-                visible=_v_security_matrix,
-                active_blueprints=('security_matrix',),
-                active_path_prefixes=('/admin/security-matrix',),
-            ),
-            NavAreaItem(
-                'permisologia_en1',
-                'Permisología EN1',
-                'fas fa-th',
-                'admin_roles_matrix',
-                visible=_v_en1_roles_matrix,
-                active_endpoints=('admin_roles_matrix', 'admin_roles_matrix_cell'),
-                active_path_prefixes=('/admin/roles/matrix',),
-            ),
-        ),
-    ),
-    NavArea(
-        id='configuracion',
-        label='Configuración',
-        icon='fas fa-cog',
-        visible=_v_config,
-        show_in_sidebar=False,
-        zone_endpoints=_CONFIG_EPS,
-        items=(
-            NavAreaItem(
-                'branding',
-                'Branding',
-                'fas fa-palette',
-                'admin_identity',
-                active_endpoints=('admin_identity',),
-            ),
-            NavAreaItem(
-                'email',
-                'Email / SMTP',
-                'fas fa-envelope',
-                'admin_email',
-                active_endpoints=('admin_email',),
-            ),
-            NavAreaItem(
-                'usuarios',
-                'Usuarios',
-                'fas fa-users-cog',
-                'admin_users',
-                visible=lambda c: c.nav_can('users.view'),
-                active_endpoints=('admin_users',),
             ),
         ),
     ),
@@ -623,52 +1131,70 @@ APP_AREAS: tuple[NavArea, ...] = (
         visible=_v_plataforma,
         zone_endpoints=_PLATFORM_EPS,
         items=(
+            _nav_menu_dropdown('saas', 'SaaS', 'fas fa-cloud', _PLATAFORMA_SAAS_ITEMS),
+            _nav_menu_dropdown('administracion', 'Administración', 'fas fa-cogs', _PLATAFORMA_SISTEMA_ITEMS),
             NavAreaItem(
-                'empresas',
-                'Empresas',
-                'fas fa-building',
-                'admin_organizations_list',
-                active_endpoints=('admin_organizations_list', 'admin_organization_new', 'admin_organization_edit'),
-            ),
-            NavAreaItem(
-                'modulos',
-                'Módulos',
-                'fas fa-puzzle-piece',
-                'admin_saas_modules_page',
-                active_endpoints=('admin_saas_modules_page',),
-            ),
-            NavAreaItem(
-                'catalogo',
-                'Catálogo',
-                'fas fa-list',
-                'admin_saas_catalog_list',
-                active_endpoints=('admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'),
+                'guia',
+                'Guía',
+                'fas fa-route',
+                'admin_platform_setup',
+                visible=_ep('admin_platform_setup'),
+                active_endpoints=('admin_platform_setup',),
             ),
         ),
     ),
     NavArea(
-        id='sistema',
-        label='Sistema',
-        icon='fas fa-server',
-        visible=_v_sistema,
-        zone_endpoints=('admin_messaging', 'admin_messaging_detail', 'admin_backup.admin_backup'),
+        id='permisos',
+        label='Permisos',
+        icon='fas fa-th',
+        visible=_v_en1_roles_matrix,
+        show_in_sidebar=False,
+        zone_endpoints=_RBAC_EPS,
+        zone_path_prefixes=('/admin/roles',),
         items=(
-            NavAreaItem(
-                'logs',
-                'Logs',
-                'fas fa-stream',
-                'admin_messaging',
-                visible=_v_logs,
-                active_endpoints=('admin_messaging', 'admin_messaging_detail'),
-            ),
-            NavAreaItem(
-                'respaldos',
-                'Respaldos',
-                'fas fa-database',
-                'admin_backup.admin_backup',
-                visible=_v_backup,
-                active_endpoints=('admin_backup.admin_backup',),
-            ),
+            _nav_menu_dropdown('admin', 'Administración', 'fas fa-th', _PERMISOS_ADMIN_ITEMS),
+        ),
+    ),
+    NavArea(
+        id='matriz_odoo',
+        label='Matriz Odoo',
+        icon='fas fa-shield-alt',
+        visible=_v_security_matrix,
+        show_in_sidebar=False,
+        zone_blueprints=('security_matrix',),
+        zone_path_prefixes=('/admin/security-matrix',),
+        items=(
+            _nav_menu_dropdown('nav', 'Navegación', 'fas fa-compass', _MATRIZ_ODOO_NAV_ITEMS),
+        ),
+    ),
+    NavArea(
+        id='config',
+        label='Configuración',
+        icon='fas fa-cog',
+        visible=lambda c: c.show_tenant_admin_menu and _v_configuracion(c),
+        show_in_sidebar=False,
+        zone_endpoints=_CONFIG_EPS,
+        items=(
+            _nav_menu_dropdown('organizacion', 'Organización', 'fas fa-building', _CONFIG_ORG_ITEMS),
+            _nav_menu_dropdown('fiscal', 'Fiscal', 'fas fa-percent', _CONFIG_FISCAL_ITEMS),
+            _nav_menu_dropdown('acceso', 'Acceso', 'fas fa-users-cog', _CONFIG_ACCESO_ITEMS),
+        ),
+    ),
+    NavArea(
+        id='comunicacion',
+        label='Comunicación',
+        icon='fas fa-comments',
+        visible=_v_comunicacion,
+        show_in_sidebar=False,
+        zone_blueprints=('integrations',),
+        zone_endpoints=(
+            'admin_marketing',
+            'admin_chatbots',
+            'admin_notifications',
+            'office365_admin.admin_office365_requests',
+        ),
+        items=(
+            _nav_menu_dropdown('canales', 'Canales', 'fas fa-comments', _COMUNICACION_CANALES_ITEMS),
         ),
     ),
 )
@@ -677,16 +1203,20 @@ APP_AREAS: tuple[NavArea, ...] = (
 def _item_visible(item: NavAreaItem, ctx: NavContext) -> bool:
     if item.visible is not None and not item.visible(ctx):
         return False
+    if item.dropdown_items:
+        return any(_item_visible(sub, ctx) for sub in item.dropdown_items)
     if item.url_path:
         return True
     return ctx.has_view_endpoint(item.endpoint)
 
 
 def _area_visible(area: NavArea, ctx: NavContext) -> bool:
-    if area.id != 'plataforma' and not ctx.show_tenant_admin_menu:
+    if area.id != 'plataforma' and not ctx.show_tenant_admin_menu and area.show_in_sidebar:
         return False
     if area.visible is not None and not area.visible(ctx):
         return False
+    if not area.show_in_sidebar:
+        return True
     return any(_item_visible(it, ctx) for it in area.items)
 
 
@@ -695,32 +1225,43 @@ def item_url(item: NavAreaItem, ctx: NavContext | None = None) -> str:
         return item.url_resolver(ctx)
     if item.url_path:
         return item.url_path
-    return url_for(item.endpoint)
+    try:
+        return url_for(item.endpoint)
+    except (BuildError, RuntimeError):
+        return '#'
 
 
 def area_default_url(area: NavArea, ctx: NavContext) -> str:
     for it in area.items:
         if _item_visible(it, ctx):
-            return item_url(it, ctx)
-    return url_for('dashboard')
+            try:
+                return item_url(it, ctx)
+            except (BuildError, RuntimeError):
+                continue
+    try:
+        return url_for('dashboard')
+    except (BuildError, RuntimeError):
+        return '/dashboard'
 
 
-def _endpoint_active(item: NavAreaItem) -> bool:
+def _endpoint_active(item: NavAreaItem, ctx: NavContext | None = None) -> bool:
     if not has_request_context():
         return False
+    if item.dropdown_items and ctx is not None:
+        return any(_item_visible(sub, ctx) and _endpoint_active(sub, ctx) for sub in item.dropdown_items)
     ep = getattr(request, 'endpoint', None) or ''
     bp = getattr(request, 'blueprint', None) or ''
     path = (request.path or '') if request else ''
     if item.active_endpoints and ep in item.active_endpoints:
         return True
     if item.active_blueprints and bp in item.active_blueprints:
-        if item.id == 'gestion_eventos' and ep == 'admin_events.discounts_index':
+        if item.id == 'gestion' and ep == 'admin_events.discounts_index':
             return False
         return True
     for prefix in item.active_path_prefixes:
         if path.startswith(prefix):
             return True
-    if ep == item.endpoint:
+    if not item.url_path and ep == item.endpoint:
         return True
     return False
 
@@ -744,6 +1285,44 @@ def _area_matches_request(area: NavArea) -> bool:
     return False
 
 
+def _serialize_bar_child(item: NavAreaItem, ctx: NavContext) -> dict[str, Any]:
+    dropdown: list[dict[str, Any]] = []
+    for sub in item.dropdown_items:
+        if not _item_visible(sub, ctx):
+            continue
+        dropdown.append(
+            {
+                'id': sub.id,
+                'label': sub.label,
+                'icon': sub.icon,
+                'url': item_url(sub, ctx),
+                'active': _endpoint_active(sub, ctx),
+            }
+        )
+    row: dict[str, Any] = {
+        'id': item.id,
+        'label': item.label,
+        'icon': item.icon,
+        'url': item_url(item, ctx),
+        'active': _endpoint_active(item, ctx),
+    }
+    if dropdown:
+        row['dropdown'] = dropdown
+        row['dropdown_active'] = any(d['active'] for d in dropdown)
+        row['active'] = False
+    return row
+
+
+def _active_child_label(children: list[dict[str, Any]]) -> str | None:
+    for child in children:
+        for sub in child.get('dropdown') or []:
+            if sub.get('active'):
+                return sub.get('label')
+        if child.get('active') and not child.get('dropdown'):
+            return child.get('label')
+    return None
+
+
 _ORG_PLATFORM_EPS = (
     'admin_organizations_list',
     'admin_organization_new',
@@ -751,18 +1330,156 @@ _ORG_PLATFORM_EPS = (
 )
 
 
+def _in_rbac_zone() -> bool:
+    if not has_request_context():
+        return False
+    ep = getattr(request, 'endpoint', None) or ''
+    return ep in _RBAC_EPS
+
+
+def _in_security_matrix_zone() -> bool:
+    if not has_request_context():
+        return False
+    return (getattr(request, 'blueprint', None) or '') == 'security_matrix'
+
+
+def _payments_nav_area_id(ctx: NavContext) -> str | None:
+    """Matriz y panel de pagos: solo zona Configuración (engranaje), no Finanzas."""
+    if not has_request_context():
+        return None
+    path = request.path or ''
+    if not path.startswith('/admin/payments'):
+        return None
+    if _v_configuracion(ctx):
+        return 'config'
+    return None
+
+
+def _analytics_sales_nav_area_id(ctx: NavContext) -> str | None:
+    """KPI ventas: barra Ventas (operación) vs Analítica (módulo BI)."""
+    if not has_request_context():
+        return None
+    ep = getattr(request, 'endpoint', None) or ''
+    if ep != 'admin_analytics_sales':
+        return None
+    if request.args.get('source') == 'ventas' and _v_ventas(ctx):
+        return 'ventas'
+    if _v_analitica(ctx):
+        return 'analitica'
+    if _v_ventas(ctx):
+        return 'ventas'
+    return None
+
+
+def _in_config_zone() -> bool:
+    if not has_request_context():
+        return False
+    ep = getattr(request, 'endpoint', None) or ''
+    if ep in _CONFIG_EPS:
+        return True
+    if ep == 'payments_admin.admin_payments':
+        return True
+    path = request.path or ''
+    return path.startswith('/admin/payments')
+
+
+def _in_contador_zone() -> bool:
+    if not has_request_context():
+        return False
+    ep = getattr(request, 'endpoint', None) or ''
+    if ep == 'contador.contador_config':
+        return False
+    bp = getattr(request, 'blueprint', None) or ''
+    path = request.path or ''
+    return bp in ('contador', 'contador_api') or path.startswith('/admin/contador') or path.startswith('/api/contador')
+
+
+def _in_ventas_catalog_zone() -> bool:
+    if not has_request_context():
+        return False
+    ep = getattr(request, 'endpoint', None) or ''
+    if ep in _VENTAS_CATALOG_EPS:
+        return True
+    path = request.path or ''
+    for prefix in _VENTAS_CATALOG_PATH_PREFIXES:
+        if path.startswith(prefix):
+            return True
+    return False
+
+
+def _in_workshop_config_zone() -> bool:
+    if not has_request_context():
+        return False
+    ep = getattr(request, 'endpoint', None) or ''
+    if ep in _WORKSHOP_CONFIG_EPS:
+        return True
+    path = request.path or ''
+    return path.startswith('/admin/workshop/settings') or path.startswith('/admin/workshop/process-config')
+
+
+def _in_comunicacion_zone() -> bool:
+    if not has_request_context():
+        return False
+    ep = getattr(request, 'endpoint', None) or ''
+    bp = getattr(request, 'blueprint', None) or ''
+    if bp == 'integrations':
+        return True
+    return ep in (
+        'admin_marketing',
+        'admin_chatbots',
+        'admin_notifications',
+        'office365_admin.admin_office365_requests',
+    )
+
+
+def resolve_module_bar_area_id(ctx: NavContext) -> str | None:
+    """Zona de la barra horizontal (prioridad sobre sidebar para pantallas sin app en launcher)."""
+    if not has_request_context():
+        return None
+    ep = getattr(request, 'endpoint', None) or ''
+    if ep in _ORG_PLATFORM_EPS and ctx.is_platform_admin and ctx.show_platform_admin_nav:
+        return 'plataforma'
+    if not ctx.show_tenant_admin_menu:
+        return None
+    if _in_rbac_zone() and _v_en1_roles_matrix(ctx):
+        return 'permisos'
+    if _in_security_matrix_zone() and _v_security_matrix(ctx):
+        return 'matriz_odoo'
+    if _in_config_zone():
+        return 'config'
+    if _in_contador_zone() and _v_contador(ctx):
+        return 'contador'
+    if _in_comunicacion_zone() and _v_comunicacion(ctx):
+        return 'comunicacion'
+    pay_area = _payments_nav_area_id(ctx)
+    if pay_area:
+        return pay_area
+    sales_area = _analytics_sales_nav_area_id(ctx)
+    if sales_area:
+        return sales_area
+    return resolve_active_area_id(ctx)
+
+
 def resolve_active_area_id(ctx: NavContext) -> str | None:
     if not has_request_context():
         return None
     ep = getattr(request, 'endpoint', None) or ''
-    if ep == 'dashboard':
+    if ep == 'dashboard' and not ctx.show_tenant_admin_menu:
         return None
     if ep in _ORG_PLATFORM_EPS and ctx.is_platform_admin and ctx.show_platform_admin_nav:
         plataforma = next((a for a in APP_AREAS if a.id == 'plataforma'), None)
         if plataforma is not None and _area_visible(plataforma, ctx):
             return 'plataforma'
+    pay_area = _payments_nav_area_id(ctx)
+    if pay_area:
+        return pay_area
+    sales_area = _analytics_sales_nav_area_id(ctx)
+    if sales_area:
+        return sales_area
     for area in APP_AREAS:
-        if not _area_visible(area, ctx):
+        if area.show_in_sidebar and not _area_visible(area, ctx):
+            continue
+        if not area.show_in_sidebar and area.visible is not None and not area.visible(ctx):
             continue
         if _area_matches_request(area):
             return area.id
@@ -784,6 +1501,8 @@ def visible_areas(ctx: NavContext) -> list[dict[str, Any]]:
                 'url': area_default_url(area, ctx),
             }
         )
+    order = {aid: idx for idx, aid in enumerate(_SIDEBAR_LAUNCHER_ORDER)}
+    out.sort(key=lambda row: order.get(row['id'], len(order)))
     return out
 
 
@@ -791,21 +1510,20 @@ def visible_area_children(area_id: str | None, ctx: NavContext) -> list[dict[str
     if not area_id:
         return []
     area = next((a for a in APP_AREAS if a.id == area_id), None)
-    if area is None or not _area_visible(area, ctx):
+    if area is None:
         return []
+    if area.visible is not None and not area.visible(ctx):
+        return []
+    if area.show_in_sidebar:
+        if area.id != 'plataforma' and not ctx.show_tenant_admin_menu:
+            return []
+        if not any(_item_visible(it, ctx) for it in area.items):
+            return []
     children: list[dict[str, Any]] = []
     for item in area.items:
         if not _item_visible(item, ctx):
             continue
-        children.append(
-            {
-                'id': item.id,
-                'label': item.label,
-                'icon': item.icon,
-                'url': item_url(item, ctx),
-                'active': _endpoint_active(item),
-            }
-        )
+        children.append(_serialize_bar_child(item, ctx))
     return children
 
 
@@ -836,6 +1554,15 @@ def build_nav_context(
     )
 
 
+def sidebar_highlight_area_id(area_id: str | None) -> str | None:
+    """Sub-áreas (sin icono en sidebar) resaltan el módulo padre en el launcher."""
+    if area_id == 'taller_config':
+        return 'taller'
+    if area_id == 'ventas_catalog':
+        return 'ventas'
+    return area_id
+
+
 def active_area_label(area_id: str | None) -> str | None:
     if not area_id:
         return None
@@ -844,16 +1571,46 @@ def active_area_label(area_id: str | None) -> str | None:
 
 
 def nav_launcher_payload(**kwargs) -> dict[str, Any]:
+    try:
+        from flask import g, has_request_context
+
+        if has_request_context() and getattr(g, '_nav_launcher_payload_built', False):
+            cached = getattr(g, '_nav_launcher_payload_result', None)
+            if isinstance(cached, dict):
+                return cached
+    except Exception:
+        pass
+
     ctx = build_nav_context(**kwargs)
     areas = visible_areas(ctx)
-    active_id = resolve_active_area_id(ctx)
-    if len(areas) == 1 and active_id is None:
-        active_id = areas[0]['id']
+    bar_area_id = resolve_module_bar_area_id(ctx)
+    if bar_area_id is None and len(areas) == 1:
+        bar_area_id = areas[0]['id']
+    active_id = bar_area_id or resolve_active_area_id(ctx)
     children = visible_area_children(active_id, ctx)
-    return {
+    active_child_label = _active_child_label(children)
+    show_bar = bool(children) and (
+        len(children) > 1 or any(c.get('dropdown') for c in children)
+    ) and (
+        ctx.show_tenant_admin_menu
+        or (active_id == 'plataforma' and ctx.show_platform_admin_nav and ctx.is_platform_admin)
+    )
+    result = {
         'nav_app_areas': areas,
         'nav_active_area_id': active_id,
+        'nav_sidebar_area_id': sidebar_highlight_area_id(active_id),
         'nav_active_area_label': active_area_label(active_id),
         'nav_area_children': children,
         'nav_single_area_mode': len(areas) == 1,
+        'nav_show_module_bar': show_bar,
+        'nav_active_child_label': active_child_label,
     }
+    try:
+        from flask import g, has_request_context
+
+        if has_request_context():
+            g._nav_launcher_payload_built = True
+            g._nav_launcher_payload_result = result
+    except Exception:
+        pass
+    return result

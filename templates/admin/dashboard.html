@@ -41,9 +41,11 @@
         {% endif %}
         <a href="{{ url_for('admin_users') }}" class="btn btn-outline-primary"><i class="fas fa-user-plus me-1"></i> Gestionar usuarios</a>
         <a href="{{ url_for('admin_certificate_events') }}" class="btn btn-outline-primary"><i class="fas fa-calendar-plus me-1"></i> Crear evento</a>
+        {% if saas_module_enabled('memberships') %}
         <a href="{{ url_for('admin_benefits') }}" class="btn btn-outline-primary"><i class="fas fa-book me-1"></i> Explorar recursos</a>
+        {% endif %}
         <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-primary"><i class="fas fa-bullhorn me-1"></i> Campañas</a>
-        <a href="{{ url_for('payments_admin.admin_payments') }}" class="btn btn-outline-primary"><i class="fas fa-credit-card me-1"></i> Ver pagos</a>
+        <a href="/admin/payments?context=config" class="btn btn-outline-primary"><i class="fas fa-credit-card me-1"></i> Pagos (config)</a>
     </div>
 
     <!-- Grid de módulos (portal visual) — SaaS primero -->
@@ -84,11 +86,13 @@
             <h3>Comunidad</h3>
             <p>Interactúa con miembros y grupos de investigación.</p>
         </a>
+        {% if saas_module_enabled('memberships') %}
         <a href="{{ url_for('admin_benefits') }}" class="module-card">
             <div class="module-icon"><i class="fas fa-book-open"></i></div>
             <h3>Contenido</h3>
             <p>Cursos, revistas y biblioteca digital.</p>
         </a>
+        {% endif %}
         <a href="{{ url_for('admin_certificate_events') }}" class="module-card">
             <div class="module-icon"><i class="fas fa-calendar-alt"></i></div>
             <h3>Eventos</h3>
@@ -105,10 +109,10 @@
             <h3>Taller</h3>
             <p>Recepción de vehículos, inspección (body map) y órdenes de detailing.</p>
         </a>
-        <a href="{{ url_for('admin_workshop_process_config') }}" class="module-card" style="border-left:4px solid #6610f2;">
-            <div class="module-icon"><i class="fas fa-stopwatch"></i></div>
-            <h3>Procesos SLA</h3>
-            <p>Tiempos objetivo por etapa, overrides por servicio y seguimiento operativo.</p>
+        <a href="{{ url_for('admin_workshop_settings') }}" class="module-card" style="border-left:4px solid #6610f2;">
+            <div class="module-icon"><i class="fas fa-cog"></i></div>
+            <h3>Config. Taller</h3>
+            <p>SLA, etapas del proceso y parametrización del módulo.</p>
         </a>
         {% endif %}
         <a href="{{ url_for('admin_certificate_templates') }}" class="module-card">
@@ -121,16 +125,18 @@
             <h3>Comunicación</h3>
             <p>Correo institucional y marketing.</p>
         </a>
-        <a href="{{ url_for('payments_admin.admin_payments') }}" class="module-card">
+        <a href="/admin/payments?context=config" class="module-card">
             <div class="module-icon"><i class="fas fa-credit-card"></i></div>
             <h3>Pagos {% if pending_payments_count and pending_payments_count > 0 %}<span class="badge bg-warning text-dark ms-1">{{ pending_payments_count }}</span>{% endif %}</h3>
             <p>Pagos, descuentos y API.</p>
         </a>
+        {% if saas_module_enabled('rbac_matrix') and nav_can('roles.view') %}
         <a href="{{ url_for('admin_roles_list') }}" class="module-card">
             <div class="module-icon"><i class="fas fa-shield-alt"></i></div>
             <h3>Administración</h3>
             <p>Usuarios, roles y permisos.</p>
         </a>
+        {% endif %}
         <a href="{{ url_for('admin_backup.admin_backup') }}" class="module-card">
             <div class="module-icon"><i class="fas fa-cog"></i></div>
             <h3>Sistema</h3>
@@ -148,6 +154,7 @@
                 </div>
             </div>
         </div>
+        {% if saas_module_enabled('memberships') %}
         <div class="col-12 col-sm-6 col-md-3">
             <div class="card border-0 shadow-sm py-2">
                 <div class="card-body py-2 text-center">
@@ -156,6 +163,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
         <div class="col-12 col-sm-6 col-md-3">
             <div class="card border-0 shadow-sm py-2">
                 <div class="card-body py-2 text-center">
@@ -208,6 +216,7 @@
                 </div>
             </div>
         </div>
+        {% if saas_module_enabled('memberships') %}
         <div class="col-12 col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header py-2 d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2">
@@ -240,6 +249,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

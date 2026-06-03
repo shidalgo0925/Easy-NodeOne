@@ -1,30 +1,88 @@
 {% extends "base.html" %}
 {% block title %}Facturas | {{ get_nav_brand_name() }}{% endblock %}
+{% block head_extra %}
+<style>
+.invoices-list-page {
+    --inv-row-pad-y: 0.3rem;
+    --inv-row-pad-x: 0.45rem;
+}
+.invoices-list-page .invoices-toolbar {
+    gap: 0.35rem;
+}
+.invoices-list-page .invoices-toolbar .btn {
+    min-height: 1.85rem;
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+}
+.invoices-list-page .table > :not(caption) > * > * {
+    padding: var(--inv-row-pad-y) var(--inv-row-pad-x);
+    font-size: 0.8125rem;
+}
+.invoices-list-page .table thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.invoices-list-page .invoices-footnote {
+    font-size: 0.75rem;
+    max-width: 22rem;
+}
+.invoices-list-page tr.invoices-row-click:hover {
+    background-color: rgba(13, 110, 253, 0.06);
+}
+.invoices-list-page .invoices-actions .btn {
+    padding: 0.1rem 0.35rem;
+    font-size: 0.7rem;
+    line-height: 1.25;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('tbodyInvoices')?.addEventListener('click', function (ev) {
+    var row = ev.target.closest('tr.invoices-row-click');
+    if (!row || ev.target.closest('a, button')) return;
+    var href = row.getAttribute('data-href');
+    if (href) window.location.href = href;
+  });
+  document.getElementById('tbodyInvoices')?.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    var row = ev.target.closest('tr.invoices-row-click');
+    if (!row) return;
+    ev.preventDefault();
+    var href = row.getAttribute('data-href');
+    if (href) window.location.href = href;
+  });
+});
+</script>
+{% endblock %}
 {% block content %}
-<div class="container py-4">
-    <div id="accError" class="alert alert-danger d-none"></div>
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="mb-0">Facturas</h3>
-        <div class="d-flex gap-2">
-            <a class="btn btn-primary" href="{{ url_for('admin_accounting_invoice_new') }}">Nueva factura</a>
-            <a class="btn btn-outline-primary" href="{{ url_for('admin_sales_quotations') }}">Ir a cotizaciones</a>
-        </div>
+<div class="container-fluid px-2 px-sm-3 py-2 invoices-list-page erp-compact-page">
+    <div id="accError" class="alert alert-danger py-2 px-2 mb-2 d-none" role="alert"></div>
+
+    <div class="invoices-toolbar erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <h1 class="h5 mb-0 text-nowrap me-1" title="Facturas de venta; mismo formulario que cotizaciones (cliente, líneas, impuestos)">
+            <i class="fas fa-file-invoice me-1 text-muted" aria-hidden="true"></i>Facturas
+        </h1>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('admin_accounting_invoice_new') }}">Nueva factura</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_sales_quotations') }}">Cotizaciones</a>
+        <span class="ms-md-auto invoices-footnote text-muted d-none d-xl-inline text-truncate"
+              title="Use Nueva factura para un borrador sin cotización previa.">
+            Mismo formulario que cotizaciones.
+        </span>
     </div>
 
-    <p class="text-muted small mb-3">Las facturas se crean con el mismo formulario que las cotizaciones (cliente, líneas, impuestos). Use <strong>Nueva factura</strong> para un borrador independiente de cotización.</p>
-
-    <div class="table-responsive">
-        <table class="table table-sm table-striped">
-            <thead>
+    <div class="table-responsive border rounded bg-white">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
                 <tr>
-                    <th>#</th>
+                    <th class="text-nowrap">#</th>
                     <th>Cliente</th>
-                    <th>Estado</th>
-                    <th>Total</th>
-                    <th class="text-end">Pendiente</th>
-                    <th>Origen</th>
-                    <th>Asientos</th>
-                    <th>Acciones</th>
+                    <th class="text-nowrap">Estado</th>
+                    <th class="text-end text-nowrap">Total</th>
+                    <th class="text-end text-nowrap">Pendiente</th>
+                    <th class="text-nowrap">Origen</th>
+                    <th class="text-nowrap">Asientos</th>
+                    <th class="text-nowrap" style="min-width:11rem">Acciones</th>
                 </tr>
             </thead>
             <tbody id="tbodyInvoices"></tbody>
@@ -49,11 +107,28 @@ async function api(url, method='GET', body=null){
   if(!res.ok) throw new Error(data.user_message || data.detail || data.error || 'request_failed');
   return data;
 }
+function statusBadge(status) {
+  const s = String(status || '').toLowerCase();
+  const map = {
+    draft: 'secondary',
+    posted: 'primary',
+    paid: 'success',
+    cancel: 'danger',
+    cancelled: 'danger',
+    canceled: 'danger',
+  };
+  const cls = map[s] || 'secondary';
+  return `<span class="badge text-bg-${cls}">${status || '—'}</span>`;
+}
 async function loadInvoices(){
   clearError();
   const rows = await api('/invoices');
   const tb = document.getElementById('tbodyInvoices');
   tb.innerHTML = '';
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="text-muted py-3">Sin facturas.</td></tr>';
+    return;
+  }
   rows.forEach(r=>{
     const jv = r.journal_entry_id != null && r.journal_entry_id !== '' ? Number(r.journal_entry_id) : null;
     const jp = r.payment_journal_entry_id != null && r.payment_journal_entry_id !== '' ? Number(r.payment_journal_entry_id) : null;
@@ -62,22 +137,37 @@ async function loadInvoices(){
     if (jp) led.push(`<a class="small" href="/admin/accounting-core/entries/${jp}" title="Cobro">C#${jp}</a>`);
     const ledHtml = led.length ? led.join(' ') : '—';
     const pend = Number(r.amount_due != null ? r.amount_due : Math.max((Number(r.grand_total)||0)-(Number(r.amount_paid)||0),0));
+    const editUrl = `/admin/accounting/invoices/${r.id}`;
     const tr = document.createElement('tr');
+    tr.className = 'invoices-row-click';
+    tr.setAttribute('role', 'button');
+    tr.setAttribute('tabindex', '0');
+    tr.setAttribute('data-href', editUrl);
+    tr.style.cursor = 'pointer';
     tr.innerHTML = `
-      <td><a class="fw-semibold" href="/admin/accounting/invoices/${r.id}">${r.number}</a></td>
+      <td class="text-nowrap"><a class="fw-semibold text-decoration-none" href="${editUrl}">${r.number}</a></td>
       <td>${r.customer_id}</td>
-      <td>${r.status}</td>
-      <td>$${(r.grand_total||0).toFixed(2)}</td>
-      <td class="text-end small">${pend > 0.004 ? ('$'+pend.toFixed(2)) : '—'}</td>
-      <td>${r.origin_quotation_id || '-'}</td>
-      <td class="small">${ledHtml}</td>
-      <td>
-        <a class="btn btn-sm btn-primary me-1" href="/admin/accounting/invoices/${r.id}">Editar</a>
-        <button class="btn btn-sm btn-outline-primary me-1" onclick="postInvoice(${r.id})">Post</button>
-        <button class="btn btn-sm btn-outline-success me-1" onclick="payInvoice(${r.id})">Pagar</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="cancelInvoice(${r.id})">Cancelar</button>
+      <td>${statusBadge(r.status)}</td>
+      <td class="text-end text-nowrap">$${(r.grand_total||0).toFixed(2)}</td>
+      <td class="text-end text-nowrap small">${pend > 0.004 ? ('$'+pend.toFixed(2)) : '—'}</td>
+      <td class="text-nowrap">${r.origin_quotation_id || '—'}</td>
+      <td class="small text-nowrap">${ledHtml}</td>
+      <td class="invoices-actions text-nowrap" onclick="event.stopPropagation()">
+        <a class="btn btn-sm btn-primary" href="${editUrl}">Editar</a>
+        <button type="button" class="btn btn-sm btn-outline-primary" data-act="post" data-id="${r.id}">Post</button>
+        <button type="button" class="btn btn-sm btn-outline-success" data-act="pay" data-id="${r.id}">Pagar</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-act="cancel" data-id="${r.id}">Cancelar</button>
       </td>`;
     tb.appendChild(tr);
+  });
+  tb.querySelectorAll('[data-act]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const id = Number(btn.getAttribute('data-id'));
+      const act = btn.getAttribute('data-act');
+      if (act === 'post') postInvoice(id);
+      else if (act === 'pay') payInvoice(id);
+      else if (act === 'cancel') cancelInvoice(id);
+    });
   });
 }
 async function postInvoice(id){ try { await api(`/invoices/${id}/post`,'POST'); await loadInvoices(); } catch(e){ showError(e.message); } }
@@ -86,4 +176,3 @@ async function cancelInvoice(id){ try { await api(`/invoices/${id}/cancel`,'POST
 loadInvoices().catch(e => showError(e.message));
 </script>
 {% endblock %}
-

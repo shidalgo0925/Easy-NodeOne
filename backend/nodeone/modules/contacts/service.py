@@ -72,7 +72,7 @@ def validate_contact_payload(data: dict[str, Any], *, organization_id: int, excl
                 f'Ya existe un contacto con la misma identificación fiscal (#{dup.id} — {dup.display_name}).'
             )
 
-    return {
+    payload = {
         'contact_type': contact_type,
         'display_name': display_name[:300],
         'first_name': first_name[:120] or None,
@@ -101,6 +101,21 @@ def validate_contact_payload(data: dict[str, Any], *, organization_id: int, excl
         'is_tax_exempt': bool(data.get('is_tax_exempt')),
         'active': bool(data.get('active', True)),
     }
+    # Foto: solo vía subida en rutas admin (_apply_contact_photo), no borrar en updates de texto.
+    if 'image_url' in data:
+        payload['image_url'] = _norm_image_url(data.get('image_url'))
+    return payload
+
+
+def _norm_image_url(value: Any) -> str | None:
+    url = _norm(str(value) if value is not None else None)
+    if not url:
+        return None
+    if len(url) > 500:
+        url = url[:500]
+    if url.startswith('/static/') or url.startswith('http://') or url.startswith('https://'):
+        return url
+    raise ContactValidationError('URL de imagen no válida.')
 
 
 def find_fiscal_duplicate(

@@ -102,6 +102,38 @@ def _org_id():
         return int(default_organization_id())
 
 
+def _include_closed_orders() -> bool:
+    return (request.args.get('include_closed') or '').strip().lower() in ('1', 'true', 'yes')
+
+
+_SLA_MONITOR_ORDER_CAP = 120
+
+
+def _workshop_pagination_args() -> tuple[int, int]:
+    try:
+        page = int(request.args.get('page') or 1)
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        per_page = int(request.args.get('per_page') or 48)
+    except (TypeError, ValueError):
+        per_page = 48
+    page = max(1, min(page, 500))
+    per_page = max(1, min(per_page, 100))
+    return page, per_page
+
+
+def _workshop_monitor_orders_query(organization_id: int):
+    """Listado monitor: por defecto excluye entregadas y canceladas."""
+    status = (request.args.get('status') or '').strip().lower()
+    q = WorkshopOrder.query.filter_by(organization_id=organization_id)
+    if status and status in workshop_svc.ORDER_STATUSES:
+        q = q.filter(WorkshopOrder.status == status)
+    elif not _include_closed_orders():
+        q = q.filter(~WorkshopOrder.status.in_(list(workshop_sla.CLOSED_ORDER_STATUSES)))
+    return q.order_by(WorkshopOrder.id.desc())
+
+
 _WORKSHOP_BODY_MAP_ZONES = (
     ('hood', 'Capó'),
     ('roof', 'Techo'),
@@ -301,6 +333,15 @@ def _allowed_next_safe(o: WorkshopOrder) -> list:
         return workshop_svc.allowed_next_statuses(o)
     except Exception:
         return []
+
+
+def _serialize_workshop_orders_batch(orders: list[WorkshopOrder]) -> list[dict]:
+    cids = list({q.customer_id for q in orders if q.customer_id})
+    user_by_id: dict = {}
+    if cids:
+        for u in User.query.filter(User.id.in_(cids)).all():
+            user_by_id[u.id] = u
+    return [_serialize_order_loose(q, user_by_id=user_by_id) for q in orders]
 
 
 def _serialize_order_loose(o: WorkshopOrder, **kwargs) -> dict:
@@ -563,17 +604,18 @@ def api_orders_list():
         workshop_sla.ensure_default_process_stages(oid)
     except Exception:
         pass
-    status = (request.args.get('status') or '').strip().lower()
-    q = WorkshopOrder.query.filter_by(organization_id=oid)
-    if status and status in workshop_svc.ORDER_STATUSES:
-        q = q.filter(WorkshopOrder.status == status)
-    qs = q.order_by(WorkshopOrder.id.desc()).limit(200).all()
-    cids = list({q.customer_id for q in qs if q.customer_id})
-    user_by_id: dict = {}
-    if cids:
-        for u in User.query.filter(User.id.in_(cids)).all():
-            user_by_id[u.id] = u
-    return jsonify([_serialize_order_loose(q, user_by_id=user_by_id) for q in qs])
+    base_q = _workshop_monitor_orders_query(oid)
+    page, per_page = _workshop_pagination_args()
+    total = base_q.count()
+    qs = base_q.offset((page - 1) * per_page).limit(per_page).all()
+    return jsonify(
+        {
+            'items': _serialize_workshop_orders_batch(qs),
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+        }
+    )
 
 
 @workshop_api_bp.route('/orders/<int:order_id>', methods=['GET'])
@@ -788,7 +830,11 @@ def api_order_patch(order_id: int):
         workshop_svc.recompute_workshop_order_totals(o)
 
     if 'status' in data and data.get('status'):
-        err = workshop_svc.apply_transition(o, str(data['status']).strip())
+        try:
+            err = workshop_svc.apply_transition(o, str(data['status']).strip())
+        except Exception:
+            current_app.logger.exception('workshop order %s status transition failed', order_id)
+            return jsonify({'error': 'sla_transition_failed', 'detail': 'No se pudo actualizar el SLA.'}), 500
         if err:
             um = _workshop_transition_user_message(err)
             return jsonify({'error': err, 'detail': um, 'user_message': um}), 400
@@ -1135,10 +1181,13 @@ def api_sla_monitor():
     _ensure_tables()
     oid = _org_id()
     workshop_sla.ensure_default_process_stages(oid)
-    orders = (
-        WorkshopOrder.query.filter_by(organization_id=oid).order_by(WorkshopOrder.id.desc()).limit(400).all()
-    )
-    return jsonify(workshop_sla.sla_monitor_bundle(oid, orders))
+    orders = _workshop_monitor_orders_query(oid).limit(_SLA_MONITOR_ORDER_CAP).all()
+    payload = workshop_sla.sla_monitor_bundle(oid, orders)
+    payload['meta'] = {
+        'orders_scanned': len(orders),
+        'scan_cap': _SLA_MONITOR_ORDER_CAP,
+    }
+    return jsonify(payload)
 
 
 @workshop_api_bp.route('/process-stages', methods=['GET'])
@@ -1354,6 +1403,15 @@ def register_admin_workshop_routes(app):
             flash('El módulo Taller no está habilitado para esta organización.', 'error')
             return redirect(url_for('dashboard'))
         return render_template('admin/workshop_orders_list.html')
+
+    @app.route('/admin/workshop/settings')
+    @admin_required
+    def admin_workshop_settings():
+        oid = admin_data_scope_organization_id()
+        if not has_saas_module_enabled(oid, 'workshop'):
+            flash('El módulo Taller no está habilitado para esta organización.', 'error')
+            return redirect(url_for('dashboard'))
+        return render_template('admin/workshop_settings.html')
 
     @app.route('/admin/workshop/process-config')
     @admin_required

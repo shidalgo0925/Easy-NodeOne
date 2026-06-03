@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Catálogo comercial | {{ get_nav_brand_name() }}{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page sales-catalog-page">
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <h1 class="h5 mb-0 text-nowrap me-1">
+            <i class="fas fa-store me-1 text-muted" aria-hidden="true"></i>Catálogo
+        </h1>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_sales_quotations') }}">Cotizaciones</a>
+        <span class="ms-md-auto erp-footnote text-muted d-none d-md-inline">Productos, servicios y ítems habilitados</span>
+    </div>
+
+    <div class="row g-2">
+        {% if has_view_endpoint('admin_services_catalog.admin_services') and saas_module_enabled('sales') and nav_can('payments.view') %}
+        <div class="col-sm-6 col-lg-4">
+            <a href="{{ url_for('admin_services_catalog.admin_services') }}" class="card border-0 shadow-sm h-100 text-decoration-none catalog-hub-card">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center" style="width:2rem;height:2rem;font-size:0.85rem">
+                            <i class="fas fa-box"></i>
+                        </span>
+                        <h2 class="h6 mb-0 text-dark">Productos</h2>
+                    </div>
+                    <p class="small text-muted mb-0">Servicios y artículos del catálogo con precio e impuestos.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
+        {% if has_view_endpoint('admin_services_catalog.admin_service_categories') and saas_module_enabled('sales') and nav_can('payments.view') %}
+        <div class="col-sm-6 col-lg-4">
+            <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}" class="card border-0 shadow-sm h-100 text-decoration-none catalog-hub-card">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle bg-info bg-opacity-10 text-info d-inline-flex align-items-center justify-content-center" style="width:2rem;height:2rem;font-size:0.85rem">
+                            <i class="fas fa-concierge-bell"></i>
+                        </span>
+                        <h2 class="h6 mb-0 text-dark">Servicios</h2>
+                    </div>
+                    <p class="small text-muted mb-0">Categorías y agrupación del catálogo comercial.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
+        {% if saas_module_enabled('memberships') and nav_can('memberships.view') and has_view_endpoint('admin_plans') %}
+        <div class="col-sm-6 col-lg-4">
+            <a href="{{ url_for('admin_plans') }}" class="card border-0 shadow-sm h-100 text-decoration-none catalog-hub-card">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle bg-warning bg-opacity-10 text-warning d-inline-flex align-items-center justify-content-center" style="width:2rem;height:2rem;font-size:0.85rem">
+                            <i class="fas fa-id-card"></i>
+                        </span>
+                        <h2 class="h6 mb-0 text-dark">Membresías</h2>
+                    </div>
+                    <p class="small text-muted mb-0">Planes de membresía vendibles y niveles.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
+        {% if show_academic_admin_nav and has_view_endpoint('academic_enrollment_admin.list_programs') %}
+        <div class="col-sm-6 col-lg-4">
+            <a href="{{ url_for('academic_enrollment_admin.list_programs') }}" class="card border-0 shadow-sm h-100 text-decoration-none catalog-hub-card">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle bg-success bg-opacity-10 text-success d-inline-flex align-items-center justify-content-center" style="width:2rem;height:2rem;font-size:0.85rem">
+                            <i class="fas fa-graduation-cap"></i>
+                        </span>
+                        <h2 class="h6 mb-0 text-dark">Programas</h2>
+                    </div>
+                    <p class="small text-muted mb-0">Programas académicos e inscripciones publicadas.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
+        {% if saas_module_enabled('events') and nav_can('reports.view') and has_view_endpoint('admin_events.admin_events_index') %}
+        <div class="col-sm-6 col-lg-4">
+            <a href="{{ url_for('admin_events.admin_events_index') }}" class="card border-0 shadow-sm h-100 text-decoration-none catalog-hub-card">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle bg-danger bg-opacity-10 text-danger d-inline-flex align-items-center justify-content-center" style="width:2rem;height:2rem;font-size:0.85rem">
+                            <i class="fas fa-calendar-check"></i>
+                        </span>
+                        <h2 class="h6 mb-0 text-dark">Eventos</h2>
+                    </div>
+                    <p class="small text-muted mb-0">Eventos, inscripciones y entradas.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not (
+        (has_view_endpoint('admin_services_catalog.admin_services') and saas_module_enabled('sales') and nav_can('payments.view'))
+        or (has_view_endpoint('admin_services_catalog.admin_service_categories') and saas_module_enabled('sales') and nav_can('payments.view'))
+        or (saas_module_enabled('memberships') and nav_can('memberships.view') and has_view_endpoint('admin_plans'))
+        or (show_academic_admin_nav and has_view_endpoint('academic_enrollment_admin.list_programs'))
+        or (saas_module_enabled('events') and nav_can('reports.view') and has_view_endpoint('admin_events.admin_events_index'))
+    ) %}
+    <p class="text-muted small mt-3 mb-0">No hay secciones de catálogo habilitadas para esta organización.</p>
+    {% endif %}
+</div>
+<style>
+a.catalog-hub-card:hover { box-shadow: 0 0.25rem 0.75rem rgba(15, 23, 42, 0.12) !important; }
+</style>
+{% endblock %}

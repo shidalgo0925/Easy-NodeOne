@@ -24,7 +24,16 @@ MODULE_LABELS: dict[str, str] = {
     'security_matrix': 'Matriz Odoo',
     'contador': 'Contador',
     'academic': 'Académico',
+    'workshop': 'Taller',
+    'taller': 'Taller',
     'general': 'General',
+}
+
+# Prefijo RBAC → código(s) SaaS. Si el primero existe en catálogo, gobierna ON/OFF por org.
+PERMISSION_MODULE_SAAS_ALIASES: dict[str, tuple[str, ...]] = {
+    'services': ('appointments',),
+    'taller': ('workshop',),
+    'workshop': ('workshop',),
 }
 
 CRITICAL_PERMISSION_CODES = frozenset({
@@ -42,6 +51,33 @@ def permission_module(code: str) -> str:
 
 def module_label(module_id: str) -> str:
     return MODULE_LABELS.get(module_id, module_id.replace('_', ' ').title())
+
+
+def saas_codes_for_permission_module(module_id: str) -> tuple[str, ...] | None:
+    """Códigos SaaS que filtran la pestaña; None = siempre visible (core RBAC)."""
+    from nodeone.services.saas_module_cache import get_catalog_module
+
+    mid = (module_id or '').strip()
+    if not mid or mid == 'general':
+        return None
+    if mid in PERMISSION_MODULE_SAAS_ALIASES:
+        return PERMISSION_MODULE_SAAS_ALIASES[mid]
+    if get_catalog_module(mid) is not None:
+        return (mid,)
+    return None
+
+
+def permission_module_visible_for_org(module_id: str, organization_id: int | None) -> bool:
+    """Oculta módulos cuyo SaaS está apagado para la org activa."""
+    codes = saas_codes_for_permission_module(module_id)
+    if codes is None:
+        return True
+    from nodeone.services.saas_module_cache import get_catalog_module, has_saas_module_enabled_cached
+
+    for code in codes:
+        if get_catalog_module(code) is not None:
+            return has_saas_module_enabled_cached(organization_id, code)
+    return has_saas_module_enabled_cached(organization_id, codes[-1])
 
 
 def permission_screen_label(code: str, name: str) -> str:
@@ -68,7 +104,10 @@ def permission_screen_label(code: str, name: str) -> str:
     return name or code
 
 
-def build_rbac_matrix_view(active_module: str | None = None) -> dict[str, Any]:
+def build_rbac_matrix_view(
+    active_module: str | None = None,
+    organization_id: int | None = None,
+) -> dict[str, Any]:
     """Construye pestañas por módulo y grilla permiso × rol."""
     roles_all = Role.query.order_by(Role.code).all()
     sa_role = next((r for r in roles_all if r.code == 'SA'), None)
@@ -102,6 +141,8 @@ def build_rbac_matrix_view(active_module: str | None = None) -> dict[str, Any]:
     perms_by_module: dict[str, list[Permission]] = {}
     for p in perms:
         mid = permission_module(p.code)
+        if not permission_module_visible_for_org(mid, organization_id):
+            continue
         modules_set.add(mid)
         perms_by_module.setdefault(mid, []).append(p)
 

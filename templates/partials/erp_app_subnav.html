@@ -1,349 +1,73 @@
-{# Submenú horizontal estilo Odoo: aparece solo sobre el área de contenido cuando hay rutas hijas. #}
-{% set _nav_clientes_crm = (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and nav_can('users.view') %}
-{% set _nav_sales = saas_module_enabled('sales') %}
-{% set _nav_contabilidad = saas_module_enabled_chain('accounting_core', 'sales') %}
-{% set _nav_ajustes = saas_module_enabled_chain('accounting_adjustments', 'accounting_core', 'sales') %}
-{% set _nav_prod_evt = saas_module_enabled('events') and nav_can('reports.view') %}
-{% set _nav_prod_pay = nav_can('payments.view') %}
-
-{% set _membership_zone = request.endpoint is defined and request.endpoint in ['admin_plans', 'admin_memberships', 'admin_benefits', 'benefits'] %}
-
-{% set _platform_ep = ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit', 'admin_saas_modules_page', 'admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}
-{% set _platform_zone = request.endpoint is defined and request.endpoint in _platform_ep %}
-
-{% set _contador_zone = ((request.blueprint in ['contador', 'contador_api']) or ((request.path or '')|string).startswith('/admin/contador') or ((request.path or '')|string).startswith('/api/contador')) and request.endpoint != 'contador.contador_config' %}
-
-{% set _accounting_ep = ['accounting_core.accounts_list', 'accounting_core.journals_list', 'accounting_core.entries_list', 'accounting_core.entries_new', 'accounting_core.entry_detail', 'accounting_core.receivables_list', 'accounting_core.receivables_customers_list', 'accounting_core.adjustments_list'] %}
-{% set _accounting_zone = request.endpoint is defined and request.endpoint in _accounting_ep %}
-
-{% set _sales_zone = request.endpoint is defined and request.endpoint == 'admin_sales_quotations' %}
-
-{% set _invoices_zone = request.endpoint is defined and request.endpoint in ['admin_accounting_invoices', 'admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}
-
-{% set _workshop_zone = request.endpoint is defined and request.endpoint in ['admin_workshop_orders', 'admin_workshop_order_new', 'admin_workshop_order_detail', 'admin_workshop_process_config'] %}
-
-{% set _config_eps = ['efactura_admin.efactura_config', 'admin_crm_settings', 'admin_communications.admin_communications_settings', 'admin_configuration_taxes', 'admin_identity', 'admin_email', 'media_admin.admin_media', 'admin_ai', 'admin_product_guide', 'admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type', 'admin_users', 'admin_organizations_list', 'admin_organization_new', 'admin_organization_edit'] %}
-{% set _config_zone = request.endpoint is defined and request.endpoint in _config_eps %}
-
-{% set _crm_oper_eps = ['admin_tenant_contacts', 'admin_crm_dashboard', 'admin_crm_kanban', 'admin_crm_leads', 'admin_crm_calendar', 'admin_crm_table', 'admin_crm_activities', 'admin_crm_reports'] %}
-{% set _crm_zone = request.endpoint is defined and request.endpoint in _crm_oper_eps %}
-
-{% set _edu_zone = request.blueprint in ['academic_admin', 'academic_enrollment_admin'] or request.endpoint in ['admin_certificate_events', 'admin_certificate_templates', 'admin_certificate_template_editor'] %}
-
-{% set _agenda_zone = (request.blueprint == 'appointments') or (request.endpoint == 'appointments.advisor_queue') or (request.endpoint in ['admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability']) %}
-
-{% set _comm_zone = ((office365_module_enabled and request.blueprint == 'integrations') or (request.endpoint in ['admin_marketing', 'admin_chatbots', 'admin_notifications', 'office365_admin.admin_office365_requests'])) %}
-
-{% set _products_zone = (request.endpoint in ['benefits', 'admin_benefits', 'admin_discount_codes.admin_discount_codes', 'admin_services_catalog.admin_services', 'admin_services_catalog.admin_service_categories']) or (request.blueprint in ['events', 'admin_events']) %}
-
-{% set _documents_zone = (request.endpoint in ['certificates_page.certificates_page', 'admin_certificate_events', 'admin_certificate_templates', 'admin_certificate_template_editor']) or (request.blueprint == 'policies') or (request.endpoint == 'admin_policies') %}
-
-{% set _org_zone = (request.endpoint == 'admin_users') or (request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users', 'admin_permissions_list']) %}
-{% set _org_subnav = nav_can('users.view') and nav_can('roles.view') %}
-
-{% set _analytics_ep = ['admin_analytics', 'admin_analytics_sales', 'admin_analytics_crm', 'admin_analytics_members', 'admin_analytics_registrations'] %}
-{% set _analytics_zone = request.endpoint is defined and request.endpoint in _analytics_ep %}
-
-{% set _nav_contacts = saas_module_enabled('contacts') and has_view_endpoint('contacts_admin.contacts_index') %}
-{% set _contacts_zone = (request.blueprint == 'contacts_admin') or ((request.path or '')|string).startswith('/admin/contacts') %}
-{% set _nav_events = saas_module_enabled('events') and nav_can('reports.view') %}
-{% set _nav_events_pay = saas_module_enabled('events') and nav_can('payments.view') %}
-
-{% if show_platform_admin_nav and current_user.is_admin and _platform_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="platform" aria-label="Submenú del módulo">
+{# Barra horizontal de módulo (Odoo-style). Fuente única: nav_menu.py → nav_area_children #}
+{% if nav_show_module_bar and nav_area_children %}
+<nav id="erpAppSubnav" class="erp-app-subnav erp-module-header" data-erp-zone="{{ nav_active_area_id or '' }}" aria-label="Navegación del módulo {{ nav_active_area_label or '' }}">
     <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Plataforma</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit'] %}is-active{% endif %}" href="{{ url_for('admin_organizations_list') }}">Empresas</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_saas_modules_page' %}is-active{% endif %}" href="{{ url_for('admin_saas_modules_page') }}">Módulos</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'] %}is-active{% endif %}" href="{{ url_for('admin_saas_catalog_list') }}">Catálogo</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and _config_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="config" aria-label="Submenú de configuración">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Configuración</span>
-        <ul class="erp-app-subnav__list">
-            {% if nav_can('system.settings.view') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_identity' %}is-active{% endif %}" href="{{ url_for('admin_identity') }}">Branding</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_email' %}is-active{% endif %}" href="{{ url_for('admin_email') }}">Email / SMTP</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'media_admin.admin_media' %}is-active{% endif %}" href="{{ url_for('media_admin.admin_media') }}">Multimedia</a></li>
-            {% if saas_module_enabled('chatbot') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_ai' %}is-active{% endif %}" href="{{ url_for('admin_ai') }}">IA</a></li>
+        <div class="erp-module-header__title" aria-hidden="false">
+            <span class="erp-app-subnav__module">{{ nav_active_area_label or nav_active_area_id }}</span>
+            {% if nav_active_child_label %}
+            <span class="erp-module-header__sep" aria-hidden="true">›</span>
+            <span class="erp-module-header__crumb">{{ nav_active_child_label }}</span>
             {% endif %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_product_guide' %}is-active{% endif %}" href="{{ url_for('admin_product_guide') }}">Guía de productos</a></li>
-            {% endif %}
-            {% if has_view_endpoint('admin_configuration_taxes') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_configuration_taxes' %}is-active{% endif %}" href="{{ url_for('admin_configuration_taxes') }}">Impuestos</a></li>
-            {% endif %}
-            {% if saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'efactura_admin.efactura_config' %}is-active{% endif %}" href="{{ url_for('efactura_admin.efactura_config') }}">Proveedor FE</a></li>
-            {% endif %}
-            {% if saas_module_enabled('appointments') and nav_can('services.view') and has_view_endpoint('admin_appointments.admin_appointments_dashboard') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_appointments.admin_appointments_dashboard', 'admin_appointments.create_appointment_type', 'admin_appointments.edit_appointment_type'] %}is-active{% endif %}" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Tipos de cita</a></li>
-            {% endif %}
-            {% if has_view_endpoint('admin_communications.admin_communications_settings') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_communications.admin_communications_settings' %}is-active{% endif %}" href="{{ url_for('admin_communications.admin_communications_settings') }}">Reglas comunicación</a></li>
-            {% endif %}
-            {% if nav_can('users.view') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_users' %}is-active{% endif %}" href="{{ url_for('admin_users') }}">Usuarios</a></li>
-            {% endif %}
-            {% if show_platform_admin_nav and current_user.is_admin and has_view_endpoint('admin_organizations_list') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_organizations_list', 'admin_organization_new', 'admin_organization_edit'] %}is-active{% endif %}" href="{{ url_for('admin_organizations_list') }}">Organizaciones</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif saas_module_enabled('contador') and has_view_endpoint('contador.contador_index') and (nav_can('contador.admin') or nav_can('contador.review') or nav_can('contador.capture')) and _contador_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="contador" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Contador</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contador.contador_index' %}is-active{% endif %}" href="{{ url_for('contador.contador_index') }}">Inicio</a></li>
-            {% if nav_can('contador.admin') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['contador.contador_importar', 'contador.contador_importar_mapear', 'contador.contador_importar_subir', 'contador.contador_importar_automatico'] %}is-active{% endif %}" href="{{ url_for('contador.contador_importar') }}">Importar XLS</a></li>
-            {% endif %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contador.contador_catalogo' %}is-active{% endif %}" href="{{ url_for('contador.contador_catalogo') }}">Catálogo</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['contador.contador_sesiones', 'contador.contador_sesion_new', 'contador.contador_sesion_detail', 'contador.contador_sesion_captura', 'contador.contador_sesion_revision', 'contador.contador_sesion_exportar', 'contador.contador_line_historial'] %}is-active{% endif %}" href="{{ url_for('contador.contador_sesiones') }}">Sesiones</a></li>
-            {% if nav_can('contador.admin') and has_view_endpoint('contador.contador_config') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contador.contador_config' %}is-active{% endif %}" href="{{ url_for('contador.contador_config') }}">Parámetros</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and saas_module_enabled('analytics') and nav_can('analytics.view') and _analytics_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="analytics" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Analítica</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics' %}is-active{% endif %}" href="{{ url_for('admin_analytics') }}">Ejecutivo</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_sales' %}is-active{% endif %}" href="{{ url_for('admin_analytics_sales') }}">Ventas</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_crm' %}is-active{% endif %}" href="{{ url_for('admin_analytics_crm') }}">CRM</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_members' %}is-active{% endif %}" href="{{ url_for('admin_analytics_members') }}">Miembros</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_analytics_registrations' %}is-active{% endif %}" href="{{ url_for('admin_analytics_registrations') }}">Registros</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and _nav_events and (request.blueprint in ['events', 'admin_events']) %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="events" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Eventos</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.blueprint == 'events' %}is-active{% endif %}" href="{{ url_for('events.list_events') }}">Ver eventos</a></li>
-            <li><a class="erp-app-subnav__link {% if request.blueprint == 'admin_events' and request.endpoint != 'admin_events.discounts_index' %}is-active{% endif %}" href="{{ url_for('admin_events.admin_events_index') }}">Gestión</a></li>
-            {% if _nav_events_pay %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_events.discounts_index' %}is-active{% endif %}" href="{{ url_for('admin_events.discounts_index') }}">Descuentos</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and _nav_clientes_crm and _crm_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="crm" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Operaciones · CRM</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_crm_dashboard' %}is-active{% endif %}" href="{{ url_for('admin_crm_dashboard') }}">Panel</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_crm_kanban' %}is-active{% endif %}" href="{{ url_for('admin_crm_kanban') }}">Kanban</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_crm_leads' %}is-active{% endif %}" href="{{ url_for('admin_crm_leads') }}">Leads</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_crm_activities' %}is-active{% endif %}" href="{{ url_for('admin_crm_activities') }}">Actividades</a></li>
-            {% if has_view_endpoint('admin_crm_settings') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_crm_settings' %}is-active{% endif %}" href="{{ url_for('admin_crm_settings') }}">Parámetros</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and _nav_contacts and _contacts_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="contacts" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Comercial · Contactos</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contacts_admin.contacts_index' %}is-active{% endif %}" href="{{ url_for('contacts_admin.contacts_index') }}">Listado</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'contacts_admin.contacts_new' %}is-active{% endif %}" href="{{ url_for('contacts_admin.contacts_new') }}">Nuevo contacto</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and nav_can('payments.view') and _nav_contabilidad and _accounting_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="accounting" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Contabilidad</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'accounting_core.accounts_list' %}is-active{% endif %}" href="{{ url_for('accounting_core.accounts_list') }}">Plan de cuentas</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'accounting_core.journals_list' %}is-active{% endif %}" href="{{ url_for('accounting_core.journals_list') }}">Diarios</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['accounting_core.entries_list', 'accounting_core.entries_new', 'accounting_core.entry_detail'] %}is-active{% endif %}" href="{{ url_for('accounting_core.entries_list') }}">Asientos</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'accounting_core.receivables_list' %}is-active{% endif %}" href="{{ url_for('accounting_core.receivables_list') }}">CxC facturas</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'accounting_core.receivables_customers_list' %}is-active{% endif %}" href="{{ url_for('accounting_core.receivables_customers_list') }}">CxC clientes</a></li>
-            {% if _nav_ajustes %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'accounting_core.adjustments_list' %}is-active{% endif %}" href="{{ url_for('accounting_core.adjustments_list') }}">Ajustes</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and nav_can('payments.view') and _nav_sales and _invoices_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="invoices" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Finanzas · Facturas</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_accounting_invoices' %}is-active{% endif %}" href="/admin/accounting/invoices">Listado</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_accounting_invoice_new', 'admin_accounting_invoice_form'] %}is-active{% endif %}" href="/admin/accounting/invoices/new">Nueva factura</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and nav_can('payments.view') and _nav_sales and _sales_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="sales" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Comercial · Ventas</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_sales_quotations' %}is-active{% endif %}" href="/admin/sales/quotations">Cotizaciones</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and saas_module_enabled('workshop') and _workshop_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="workshop" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Taller</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link is-active" href="{{ url_for('admin_workshop_orders') }}">Órdenes / monitor</a></li>
-            {% if has_view_endpoint('admin_workshop_process_config') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_workshop_process_config' %}is-active{% endif %}" href="{{ url_for('admin_workshop_process_config') }}">Procesos SLA</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and nav_can('memberships.view') and _membership_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="membership" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Membresía</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_memberships' %}is-active{% endif %}" href="{{ url_for('admin_memberships') }}">Miembros</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_benefits', 'benefits'] %}is-active{% endif %}" href="{{ url_for('admin_benefits') }}">Beneficios</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_plans' %}is-active{% endif %}" href="{{ url_for('admin_plans') }}">Planes</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and show_academic_admin_nav and _edu_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="education" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Educación</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.blueprint == 'academic_enrollment_admin' %}is-active{% endif %}" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Programas</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'academic_admin.admin_academic_students' %}is-active{% endif %}" href="{{ url_for('academic_admin.admin_academic_students') }}">Estudiantes</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'academic_admin.admin_academic_courses' %}is-active{% endif %}" href="{{ url_for('academic_admin.admin_academic_courses') }}">Cursos</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'academic_admin.admin_academic_enrollments' %}is-active{% endif %}" href="{{ url_for('academic_admin.admin_academic_enrollments') }}">Inscripciones</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'academic_admin.admin_academic_moodle' %}is-active{% endif %}" href="{{ url_for('academic_admin.admin_academic_moodle') }}">Moodle</a></li>
-            {% if saas_module_enabled('certificates') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_certificate_events', 'admin_certificate_templates', 'admin_certificate_template_editor'] %}is-active{% endif %}" href="{{ url_for('admin_certificate_events') }}">Certificados</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif saas_module_enabled('appointments') and show_tenant_admin_menu and _agenda_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="agenda" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Agenda</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.blueprint == 'appointments' %}is-active{% endif %}" href="{{ url_for('appointments.appointments_home') }}">Citas</a></li>
-            {% if current_user.is_advisor %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'appointments.advisor_queue' %}is-active{% endif %}" href="{{ url_for('appointments.advisor_queue') }}">Solicitudes pendientes</a></li>
-            {% endif %}
-            {% if nav_can('services.view') and has_view_endpoint('admin_appointments.calendar_view') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_appointments.calendar_view', 'admin_appointments.configure_daily_availability', 'admin_appointments.list_service_availability', 'admin_appointments.manage_service_availability'] %}is-active{% endif %}" href="{{ url_for('admin_appointments.calendar_view') }}">Disponibilidad</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and nav_can('integrations.view') and _comm_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="communications" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Comunicación</span>
-        <ul class="erp-app-subnav__list">
-            {% if saas_module_enabled('communications') and office365_module_enabled %}
-            <li><a class="erp-app-subnav__link {% if request.blueprint == 'integrations' %}is-active{% endif %}" href="{{ url_for('integrations.office365_page') }}">Correo</a></li>
-            {% endif %}
-            {% if saas_module_enabled('marketing_email') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_marketing' %}is-active{% endif %}" href="{{ url_for('admin_marketing') }}">Email marketing</a></li>
-            {% endif %}
-            {% if saas_module_enabled('chatbot') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_chatbots' %}is-active{% endif %}" href="{{ url_for('admin_chatbots') }}">Chatbots</a></li>
-            {% endif %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_notifications' %}is-active{% endif %}" href="{{ url_for('admin_notifications') }}">Notificaciones</a></li>
-            {% if saas_module_enabled('communications') and office365_module_enabled %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'office365_admin.admin_office365_requests' %}is-active{% endif %}" href="{{ url_for('office365_admin.admin_office365_requests') }}">Solicitudes correo</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and saas_module_enabled('security_matrix') and nav_can('security_matrix.admin') and request.blueprint == 'security_matrix' %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="security-matrix" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Matriz Odoo</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'security_matrix.security_matrix_index' %}is-active{% endif %}" href="{{ url_for('security_matrix.security_matrix_index') }}">Inicio</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'security_matrix.security_matrix_matriz_view' %}is-active{% endif %}" href="{{ url_for('security_matrix.security_matrix_matriz_view') }}">Matriz por módulo</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'security_matrix.security_matrix_catalog_view' %}is-active{% endif %}" href="{{ url_for('security_matrix.security_matrix_catalog_view') }}">Catálogo Odoo</a></li>
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and nav_can('roles.view') and request.endpoint in ['admin_roles_matrix', 'admin_roles_matrix_cell'] %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="en1-rbac" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Permisología EN1</span>
-        <ul class="erp-app-subnav__list">
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_roles_matrix' %}is-active{% endif %}" href="{{ url_for('admin_roles_matrix') }}">Matriz roles × permisos</a></li>
-            {% if nav_can('roles.view') and has_view_endpoint('admin_roles_list') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_roles_list', 'admin_roles_detail', 'admin_roles_users'] %}is-active{% endif %}" href="{{ url_for('admin_roles_list') }}">Roles</a></li>
-            {% endif %}
-            {% if nav_can('roles.view') and has_view_endpoint('admin_permissions_list') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_permissions_list' %}is-active{% endif %}" href="{{ url_for('admin_permissions_list') }}">Permisos</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and (saas_module_enabled('certificates') or saas_module_enabled('policies')) and _documents_zone %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="documents" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">Documentos</span>
-        <ul class="erp-app-subnav__list">
-            {% if saas_module_enabled('certificates') %}
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'certificates_page.certificates_page' %}is-active{% endif %}" href="{{ url_for('certificates_page.certificates_page') }}">Ver certificados</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_certificate_events' %}is-active{% endif %}" href="{{ url_for('admin_certificate_events') }}">Gestionar certificados</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint in ['admin_certificate_templates', 'admin_certificate_template_editor'] %}is-active{% endif %}" href="{{ url_for('admin_certificate_templates') }}">Plantillas certificados</a></li>
-            {% endif %}
-            {% if saas_module_enabled('policies') %}
-            <li><a class="erp-app-subnav__link {% if request.blueprint == 'policies' %}is-active{% endif %}" href="{{ url_for('policies.index') }}">Ver normativas</a></li>
-            <li><a class="erp-app-subnav__link {% if request.endpoint == 'admin_policies' %}is-active{% endif %}" href="{{ url_for('admin_policies') }}">Gestionar normativas</a></li>
-            {% endif %}
-        </ul>
-    </div>
-</nav>
-
-{% elif show_tenant_admin_menu and nav_active_area_id and nav_area_children %}
-<nav id="erpAppSubnav" class="erp-app-subnav" data-erp-zone="{{ nav_active_area_id }}" aria-label="Submenú del módulo">
-    <div class="erp-app-subnav__inner container-fluid">
-        <span class="erp-app-subnav__module">{{ nav_active_area_label or nav_active_area_id }}</span>
-        <ul class="erp-app-subnav__list">
+        </div>
+        <div class="erp-app-subnav__list-wrap">
+        <ul class="erp-app-subnav__list" role="menubar">
             {% for child in nav_area_children %}
-            <li><a class="erp-app-subnav__link {% if child.active %}is-active{% endif %}" href="{{ child.url }}">{{ child.label }}</a></li>
+            <li class="erp-app-subnav__item{% if child.dropdown %} erp-app-subnav__item--dropdown{% endif %}" role="none">
+                {% if child.dropdown %}
+                <div class="dropdown">
+                    <button type="button"
+                            class="erp-app-subnav__link erp-app-subnav__link--menu dropdown-toggle{% if child.dropdown_active %} is-menu-active{% endif %}"
+                            data-bs-toggle="dropdown"
+                            data-bs-auto-close="outside"
+                            aria-expanded="false"
+                            id="erpSubnavDrop{{ child.id }}">{{ child.label }}</button>
+                    <ul class="dropdown-menu erp-app-subnav__dropdown-menu shadow-sm" role="menu" aria-labelledby="erpSubnavDrop{{ child.id }}">
+                        {% for sub in child.dropdown %}
+                        <li role="none">
+                            <a class="dropdown-item erp-app-subnav__dropdown-item{% if sub.active %} active{% endif %}"
+                               href="{{ sub.url }}" role="menuitem" {% if sub.active %}aria-current="page"{% endif %}>
+                                {% if sub.icon %}<i class="{{ sub.icon }} me-2 text-muted" aria-hidden="true"></i>{% endif %}{{ sub.label }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <a class="erp-app-subnav__link{% if child.active %} is-active{% endif %}" href="{{ child.url }}" role="menuitem" {% if child.active %}aria-current="page"{% endif %}>{{ child.label }}</a>
+                {% endif %}
+            </li>
             {% endfor %}
         </ul>
+        </div>
     </div>
 </nav>
-
+<script>
+(function () {
+    function initErpSubnavDropdowns() {
+        var root = document.getElementById('erpAppSubnav');
+        if (!root || typeof bootstrap === 'undefined' || !bootstrap.Dropdown) return;
+        root.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (el) {
+            if (el.dataset.erpDropdownInit === '1') return;
+            el.dataset.erpDropdownInit = '1';
+            try {
+                new bootstrap.Dropdown(el, {
+                    popperConfig: function (cfg) {
+                        cfg.strategy = 'fixed';
+                        cfg.modifiers = (cfg.modifiers || []).concat([
+                            { name: 'offset', options: { offset: [0, 4] } },
+                            { name: 'preventOverflow', options: { boundary: 'viewport', padding: 8 } }
+                        ]);
+                        return cfg;
+                    }
+                });
+            } catch (e) { /* noop */ }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initErpSubnavDropdowns);
+    } else {
+        initErpSubnavDropdowns();
+    }
+})();
+</script>
 {% endif %}

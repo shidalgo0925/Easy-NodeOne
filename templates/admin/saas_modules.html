@@ -3,11 +3,13 @@
 {% block title %}Módulos SaaS - EasyNodeOne{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3 px-3">
-  <div class="row g-4 align-items-start">
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page">
+  <div class="row g-2 align-items-start">
     <div class="{% if show_onboarding_rail %}col-12 col-lg-8{% else %}col-12{% endif %}">
-    <h1 class="h4 mb-3"><i class="fas fa-puzzle-piece"></i> Módulos por organización</h1>
-    <p class="text-muted small">Asignación tenant ↔ módulo. Los administradores de plataforma no quedan bloqueados por estos flags.</p>
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+      <h1 class="h5 mb-0 text-nowrap me-1"><i class="fas fa-puzzle-piece me-1 text-muted" aria-hidden="true"></i>Módulos SaaS</h1>
+      <span class="erp-footnote text-muted d-none d-md-inline">Por organización</span>
+    </div>
     {% if not saas_organizations %}
     <div class="alert alert-warning">No hay empresas registradas. Cree una en <a href="{{ url_for('admin_organization_new') }}">Empresas</a>.</div>
     {% endif %}

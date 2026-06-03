@@ -18,9 +18,8 @@
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-8-iius" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=14-iius" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=25-platform-nav-chrome" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
@@ -199,7 +198,7 @@
         html[data-theme="auto"] .sidebar-section-label { color: #9ca3af; }
     </style>
 </head>
-<body{% if current_user.is_authenticated and show_tenant_admin_menu and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}>
+<body{% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}>
     <a href="#main-content" class="skip-link visually-hidden-focusable">Saltar al contenido</a>
     <!-- Topbar única: logo + nombre + menú + usuario -->
     <nav class="navbar navbar-expand-lg navbar-landing fixed-top">
@@ -240,6 +239,7 @@
                         <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'dashboard' %}active fw-semibold{% endif %}" href="{{ url_for('dashboard') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-espacio.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Mi espacio</span></a>
                         {% endif %}
                     </li>
+                    {% if saas_module_enabled('memberships') %}
                     <li class="nav-item">
                         {% if show_tenant_admin_menu %}
                         <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-plan.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Planes</span></a>
@@ -247,6 +247,7 @@
                         <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'membership' %}active fw-semibold{% endif %}" href="{{ url_for('membership') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-plan.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Mi membresía</span></a>
                         {% endif %}
                     </li>
+                    {% endif %}
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav navbar-nav-right">
@@ -289,27 +290,35 @@
                             {% endif %}
                             {% if show_tenant_admin_menu %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><h6 class="dropdown-header text-muted mb-0 small">Configuración</h6></li>
+                            <li><h6 class="dropdown-header text-muted mb-0 small">Configuración tenant</h6></li>
+                            {% if has_view_endpoint('admin_configuration_taxes') and ((nav_can('system.settings.view')) or current_user.is_admin) %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_configuration_taxes') }}"><i class="fas fa-percent me-2"></i> Impuestos</a></li>
+                            {% endif %}
                             {% if nav_can('system.settings.view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('admin_identity') }}"><i class="fas fa-palette me-2"></i> Branding</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_email') }}"><i class="fas fa-envelope me-2"></i> Email / SMTP</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_identity') }}"><i class="fas fa-palette me-2"></i> Branding</a></li>
+                            {% endif %}
+                            {% if saas_module_enabled('payments') and nav_can('payments.manage') and has_view_endpoint('payments_admin.admin_payments') %}
+                            <li><a class="dropdown-item" href="/admin/payments?context=config"><i class="fas fa-credit-card me-2"></i> Pagos (config)</a></li>
+                            {% endif %}
+                            {% if saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config') %}
+                            <li><a class="dropdown-item" href="{{ url_for('efactura_admin.efactura_config') }}"><i class="fas fa-receipt me-2"></i> Proveedor FE</a></li>
+                            {% endif %}
+                            {% if nav_can('system.settings.view') %}
                             <li><a class="dropdown-item" href="{{ url_for('media_admin.admin_media') }}"><i class="fas fa-photo-video me-2"></i> Multimedia</a></li>
                             {% if saas_module_enabled('chatbot') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_ai') }}"><i class="fas fa-robot me-2"></i> IA</a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
                             {% endif %}
-                            {% if has_view_endpoint('admin_configuration_taxes') and ((nav_can('system.settings.view')) or current_user.is_admin) %}
-                            <li><a class="dropdown-item" href="{{ url_for('admin_configuration_taxes') }}"><i class="fas fa-percent me-2"></i> Impuestos</a></li>
+                            {% if saas_module_enabled('rbac_matrix') and nav_can('roles.view') and has_view_endpoint('admin_roles_matrix') %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_roles_matrix') }}"><i class="fas fa-th me-2"></i> Permisos</a></li>
                             {% endif %}
-                            {% if saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config') %}
-                            <li><a class="dropdown-item" href="{{ url_for('efactura_admin.efactura_config') }}"><i class="fas fa-receipt me-2"></i> Proveedor FE</a></li>
+                            {% if saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and nav_can('security_matrix.admin') %}
+                            <li><a class="dropdown-item" href="{{ url_for('security_matrix.security_matrix_index') }}"><i class="fas fa-shield-alt me-2"></i> Matriz Odoo</a></li>
                             {% endif %}
                             {% if nav_can('users.view') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_users') }}"><i class="fas fa-users me-2"></i> Usuarios</a></li>
-                            {% endif %}
-                            {% if show_platform_admin_nav and current_user.is_admin and has_view_endpoint('admin_organizations_list') %}
-                            <li><a class="dropdown-item" href="{{ url_for('admin_organizations_list') }}"><i class="fas fa-building me-2"></i> Organizaciones</a></li>
                             {% endif %}
                             {% if saas_module_enabled('appointments') and nav_can('services.view') and has_view_endpoint('admin_appointments.admin_appointments_dashboard') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}"><i class="fas fa-list-alt me-2"></i> Tipos de cita</a></li>
@@ -319,17 +328,6 @@
                             {% endif %}
                             {% if (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and has_view_endpoint('admin_crm_settings') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_crm_settings') }}"><i class="fas fa-sliders-h me-2"></i> CRM Config</a></li>
-                            {% endif %}
-                            {% set _gear_admin_nav = (saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and nav_can('security_matrix.admin')) or (nav_can('roles.view') and has_view_endpoint('admin_roles_matrix')) %}
-                            {% if _gear_admin_nav %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><h6 class="dropdown-header text-muted mb-0 small">Administración</h6></li>
-                            {% if saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and nav_can('security_matrix.admin') %}
-                            <li><a class="dropdown-item" href="{{ url_for('security_matrix.security_matrix_index') }}"><i class="fas fa-shield-alt me-2"></i> Matriz Odoo</a></li>
-                            {% endif %}
-                            {% if nav_can('roles.view') and has_view_endpoint('admin_roles_matrix') %}
-                            <li><a class="dropdown-item" href="{{ url_for('admin_roles_matrix') }}"><i class="fas fa-th me-2"></i> Permisología EN1</a></li>
-                            {% endif %}
                             {% endif %}
                             {% endif %}
                         </ul>
@@ -351,7 +349,9 @@
                             {% if show_org_switcher_link or show_member_organization_switcher %}
                             <li><a class="dropdown-item" href="{{ url_for('auth.select_organization', next=request.path) }}"><i class="fas fa-building me-2"></i>Cambiar empresa</a></li>
                             {% endif %}
+                            {% if saas_module_enabled('memberships') %}
                             <li><a class="dropdown-item" href="{{ url_for('membership') }}"><i class="fas fa-crown me-2"></i>{% if show_tenant_admin_menu %}Membresía / planes{% else %}Mi membresía{% endif %}</a></li>
+                            {% endif %}
                             {# <li><a class="dropdown-item" href="{{ url_for('wallet') }}"><i class="fas fa-wallet"></i> Wallet</a></li> #}
                             {% if saas_module_enabled('payments') %}
                             <li><a class="dropdown-item" href="{{ url_for('payments_checkout.payments_history') }}"><i class="fas fa-history"></i> Historial de Pagos</a></li>
@@ -368,7 +368,7 @@
         </div>
     </nav>
 
-    {% if current_user.is_authenticated and show_tenant_admin_menu and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
+    {% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
     {% include 'partials/erp_app_subnav.html' %}
     {% endif %}
 
@@ -410,7 +410,7 @@
                     <ul class="nav navbar-nav">
                         {# 🏠 Dashboard #}
                         {# Menú lateral: usuario final = consumo (Inicio / Eventos / Mi membresía / Mis servicios); admin = gestión sin cambiar rutas. #}
-                        {% if not show_tenant_admin_menu %}
+                        {% if not show_tenant_admin_menu and not (show_platform_admin_nav and current_user.is_admin) %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--inicio">
                             <a class="nav-link sidebar-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Resumen y accesos rápidos">
                                 <i class="menu-icon fas fa-home"></i>
@@ -431,12 +431,14 @@
                             </a>
                         </li>
                         {% endif %}
+                        {% if saas_module_enabled('memberships') %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--membership">
                             <a class="nav-link sidebar-link {% if request.endpoint in ['membership', 'member_plan'] %}active{% endif %}" href="{{ url_for('member_plan') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Membresía, renovación y lo incluido en tu plan">
                                 <i class="menu-icon fas fa-crown"></i>
                                 <span class="menu-title-text">Mi membresía</span>
                             </a>
                         </li>
+                        {% endif %}
                         {% if academic_closed_mode %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--campus">
                             <a class="nav-link sidebar-link {% if request.endpoint in ['dashboard', 'member_campus'] %}active{% endif %}" href="{{ url_for('member_campus') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Tus programas y matrículas">
@@ -491,15 +493,15 @@
                         </li>
                         {% endif %}
                         {% endif %}
-                        {% else %}
+                        {% elif show_tenant_admin_menu or (show_platform_admin_nav and current_user.is_admin) %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--dashboard">
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
                                 <i class="menu-icon fas fa-tachometer-alt"></i>
                                 <span class="menu-title-text">Dashboard</span>
                             </a>
                         </li>
-                        {% endif %}
                         {% include 'partials/sidebar_admin_areas.html' %}
+                        {% endif %}
 
                         {% if not show_tenant_admin_menu and saas_module_enabled('payments') %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--payments">
@@ -620,8 +622,9 @@
     </main>
 
     <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
     {% if current_user.is_authenticated %}
+        <link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
+        <script defer src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
         {% if current_user.is_admin %}
             <script defer src="{{ url_for('static', filename='js/tour-admin.js') }}"></script>
         {% else %}
@@ -1171,19 +1174,20 @@
 <script>
 function refreshNavbarBadges() {
     {% if current_user.is_authenticated and saas_module_enabled('payments') %}
-    fetch('/cart/count')
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            var cartBadge = document.getElementById('cart-count-badge');
-            if (!cartBadge) return;
-            if (data.count > 0) {
-                cartBadge.textContent = data.count;
-                cartBadge.style.display = 'block';
-            } else {
-                cartBadge.style.display = 'none';
-            }
-        })
-        .catch(function (e) { console.error('cart count', e); });
+    var cartBadge = document.getElementById('cart-count-badge');
+    if (cartBadge) {
+        fetch('/cart/count')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.count > 0) {
+                    cartBadge.textContent = data.count;
+                    cartBadge.style.display = 'block';
+                } else {
+                    cartBadge.style.display = 'none';
+                }
+            })
+            .catch(function (e) { console.error('cart count', e); });
+    }
     {% endif %}
     {% if current_user.is_authenticated and saas_module_enabled('communications') %}
     var notificationBadge = document.querySelector('.notification-badge');
@@ -1207,7 +1211,18 @@ function refreshNavbarBadges() {
     }
     {% endif %}
 }
-document.addEventListener('DOMContentLoaded', refreshNavbarBadges);
+function scheduleNavbarBadges() {
+    if (!document.getElementById('cart-count-badge') && !document.querySelector('.notification-badge')) {
+        return;
+    }
+    var run = function () { refreshNavbarBadges(); };
+    if (window.requestIdleCallback) {
+        requestIdleCallback(run, { timeout: 2500 });
+    } else {
+        setTimeout(run, 1500);
+    }
+}
+document.addEventListener('DOMContentLoaded', scheduleNavbarBadges);
 </script>
 {% if current_user.is_authenticated and show_platform_admin_nav and saas_organizations_nav and (saas_organizations_nav|length > 1 or not single_tenant_default_only() or current_user.is_admin) %}
 <script>

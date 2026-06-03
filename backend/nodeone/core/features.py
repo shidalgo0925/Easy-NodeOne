@@ -290,11 +290,13 @@ def register_admin_sales_accounting_routes(app):
     try:
         from nodeone.modules.admin_sales_accounting.routes import (
             register_admin_accounting_invoice_new_route as _reg_inv_new,
+            register_admin_sales_catalog_route as _reg_catalog,
             register_admin_sales_commercial_contacts_routes as _reg_cc,
             register_admin_sales_quotations_invoices_routes as _reg_qi,
         )
 
         _reg_qi(app)
+        _reg_catalog(app)
         _reg_cc(app)
         # Rutas añadidas tras el bloque idempotente de cotizaciones (despliegues parciales sin reinicio limpio).
         _reg_inv_new(app)
@@ -630,6 +632,9 @@ def register_admin_membership_discounts_blueprint(app):
         from nodeone.modules.admin_membership_discounts.routes import admin_membership_discounts_bp
 
         if 'admin_membership_discounts' not in app.blueprints:
+            from saas_features import register_simple_saas_guard
+
+            register_simple_saas_guard(admin_membership_discounts_bp, 'memberships')
             app.register_blueprint(admin_membership_discounts_bp)
     except ImportError as e:
         print(f'Warning: No se pudo registrar admin_membership_discounts_bp: {e}')

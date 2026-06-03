@@ -7,16 +7,14 @@
 {% set can_pa = can_filter_users_by_org|default(false) %}
 
 {% block page_content %}
-<div class="container py-4">
-  <div class="row g-4 align-items-start">
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page">
+  <div class="row g-3 align-items-start">
     <div class="{% if show_onboarding_rail %}col-12 col-lg-8{% else %}col-12{% endif %}">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center flex-wrap gap-2">
-                <h1 class="h5 mb-2 mb-md-0">
-                    <i class="fas fa-users"></i> Gestión de Usuarios
+    <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h1 class="h5 mb-0 text-nowrap me-1">
+                    <i class="fas fa-users me-1 text-muted" aria-hidden="true"></i>Usuarios
                 </h1>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="d-flex flex-wrap gap-1 align-items-center ms-md-auto">
                     {% if current_user.has_permission('reports.export') %}
                     <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status={{ status_filter }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if admin_filter != 'all' %}&admin={{ admin_filter }}{% endif %}{% if advisor_filter != 'all' %}&advisor={{ advisor_filter }}{% endif %}{% if group_filter and group_filter != 'all' %}&group={{ group_filter|urlencode }}{% endif %}{% if tag_filter %}&tag={{ tag_filter|urlencode }}{% endif %}{% if users_organization_filter is not none %}&organization_id={{ users_organization_filter }}{% endif %}" id="exportXls" class="btn btn-success btn-sm" title="Exportar lista visible a Excel">
                         <i class="fas fa-file-excel"></i> XLS
@@ -25,17 +23,15 @@
                         <i class="fas fa-file-pdf"></i> PDF
                     </a>
                     {% endif %}
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">
                         <i class="fas fa-plus"></i> Crear Usuario
                     </button>
                     {% if current_user.has_permission('users.update') %}
-                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#inviteUserModal">
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#inviteUserModal">
                         <i class="fas fa-envelope"></i> Invitar por correo
                     </button>
                     {% endif %}
                 </div>
-            </div>
-        </div>
     </div>
 
     {% set users_filters_open = (search or '')|trim|length > 0 or (request.args.get('tag')) or (request.args.get('organization_id')) or (status_filter|default('all') not in ('all', '', none)) or (admin_filter|default('all') != 'all') or (advisor_filter|default('all') != 'all') or (group_filter|default('all') != 'all' and group_filter) %}

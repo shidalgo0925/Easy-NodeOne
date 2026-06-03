@@ -19,6 +19,9 @@ def register_public_membership_routes(app):
         UserService,
         tenant_data_organization_id,
     )
+    from saas_features import require_saas_module
+
+    _require_memberships = require_saas_module('memberships')
 
     STATUS_META = {
         'active': {'label': 'Activo', 'badge': 'success'},
@@ -195,6 +198,7 @@ def register_public_membership_routes(app):
 
     @app.route('/membership')
     @login_required
+    @_require_memberships
     def membership():
         """Página de membresía"""
         active_membership = current_user.get_active_membership()
@@ -336,6 +340,7 @@ def register_public_membership_routes(app):
 
     @app.route('/member/plan')
     @login_required
+    @_require_memberships
     def member_plan():
         """Alias semántico para la vista de plan del cliente."""
         return redirect(url_for('membership'))
@@ -470,6 +475,7 @@ def register_public_membership_routes(app):
 
     @app.route('/benefits')
     @login_required
+    @_require_memberships
     def benefits():
         """Página de beneficios: muestra los de tu plan y planes inferiores (según jerarquía)."""
         active_membership = current_user.get_active_membership()

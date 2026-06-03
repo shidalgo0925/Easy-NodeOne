@@ -24,6 +24,7 @@ class Student(db.Model):
     campus = db.Column(db.String(120))
     cohort_year = db.Column(db.Integer)
     institutional_email = db.Column(db.String(255))
+    contact_id = db.Column(db.Integer, nullable=True, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -79,6 +80,8 @@ class Enrollment(db.Model):
     status = db.Column(db.String(24), nullable=False, default='pending_payment')
     # Sin FK ORM a invoices (orden de importación / CREATE); coherencia en academic_service.
     invoice_id = db.Column(db.Integer, nullable=True, index=True)
+    contact_id = db.Column(db.Integer, nullable=True, index=True)
+    billing_contact_id = db.Column(db.Integer, nullable=True, index=True)
     activated_at = db.Column(db.DateTime, nullable=True)
     moodle_enrol_synced_at = db.Column(db.DateTime, nullable=True)
     moodle_sync_status = db.Column(db.String(20), nullable=True)

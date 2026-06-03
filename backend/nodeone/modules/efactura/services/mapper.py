@@ -9,7 +9,7 @@ from typing import Any
 from models.contact import Contact
 from models.efactura import ElectronicInvoiceProviderConfig
 from models.saas import TenantCrmContact
-from nodeone.modules.accounting.models import Invoice, InvoiceLine
+from nodeone.modules.accounting.models import Invoice, InvoiceLine, Tax
 from nodeone.modules.contacts.invoice_integration import (
     contact_itbms_exempt,
     contact_receptor_block,
@@ -120,16 +120,59 @@ def _receptor_block(contact: Contact | TenantCrmContact) -> dict[str, Any]:
     return block
 
 
-def _itbms_code_for_line(line: InvoiceLine, contact: Contact | TenantCrmContact) -> str:
+def _contact_fiscal_exempt(contact: Contact | TenantCrmContact) -> bool:
     if isinstance(contact, Contact):
-        if contact_itbms_exempt(contact):
-            return '00'
-    elif getattr(contact, 'itbms_exempt', False):
+        return contact_itbms_exempt(contact)
+    return bool(getattr(contact, 'itbms_exempt', False))
+
+
+def _itbms_code_for_line(
+    line: InvoiceLine,
+    contact: Contact | TenantCrmContact,
+    *,
+    tax: Tax | None = None,
+) -> str:
+    if _contact_fiscal_exempt(contact):
         return '00'
     tax_amt = float(line.total or 0) - float(line.subtotal or 0)
     if tax_amt <= 0.001:
         return '00'
+    rate = float(getattr(tax, 'percentage', 0) or 0) if tax is not None else 0.0
+    if rate <= 0 and float(line.subtotal or 0) > 0:
+        rate = round(tax_amt / float(line.subtotal) * 100.0)
+    if rate >= 14:
+        return '03'
+    if rate >= 9:
+        return '02'
     return '01'
+
+
+def _line_fe_pricing(
+    ln: InvoiceLine,
+    contact: Contact | TenantCrmContact,
+    *,
+    tax: Tax | None = None,
+) -> tuple[float, float, float, str, float]:
+    """
+    Retorna (qty, unit, line_amount, itbms_code, itbms_amt) para efacturapty.
+
+    El PAC efacturapty rechaza líneas con ITBMS desglosado (cód. 2056/2152).
+    Las líneas gravadas se envían con precio bruto (total EN1) y tasa 00.
+    """
+    qty = float(ln.quantity or 0)
+    unit = float(ln.price_unit or 0)
+    line_sub = float(ln.subtotal or qty * unit)
+    line_total = float(ln.total or line_sub)
+    itbms_amt = max(line_total - line_sub, 0.0)
+    code = _itbms_code_for_line(ln, contact, tax=tax)
+    if _contact_fiscal_exempt(contact) or itbms_amt > 0.001:
+        code = '00'
+        itbms_amt = 0.0
+        line_amount = line_total
+        unit = line_amount / qty if qty else unit
+    else:
+        line_amount = line_sub
+    return qty, unit, line_amount, code, itbms_amt
 
 
 def build_invoice_payload(
@@ -145,20 +188,22 @@ def build_invoice_payload(
     seq = 0
     total_neto = 0.0
     total_itbms = 0.0
+    tax_ids = {int(ln.tax_id) for ln in lines if ln.tax_id}
+    tax_by_id: dict[int, Tax] = {}
+    if tax_ids:
+        for row in Tax.query.filter(Tax.id.in_(tax_ids)).all():
+            tax_by_id[int(row.id)] = row
     for ln in lines:
         raw = str(ln.description or '')
         if raw.startswith('__NOTE__ '):
             continue
         seq += 1
-        qty = float(ln.quantity or 0)
+        tax = tax_by_id.get(int(ln.tax_id)) if ln.tax_id else None
+        qty, unit, line_amount, code, itbms_amt = _line_fe_pricing(ln, contact, tax=tax)
         if qty <= 0:
             continue
-        unit = float(ln.price_unit or 0)
-        line_sub = float(ln.subtotal or qty * unit)
-        line_total = float(ln.total or line_sub)
-        itbms_amt = max(line_total - line_sub, 0.0)
-        code = _itbms_code_for_line(ln, contact)
-        total_neto += line_sub
+        unit_price = round(line_amount / qty if qty else unit, 4)
+        total_neto += line_amount
         total_itbms += itbms_amt
         items.append(
             {
@@ -168,9 +213,9 @@ def build_invoice_payload(
                 'unidadMedidaCodigoInterno': 'und',
                 'cantidadProductoServicio': qty,
                 'grupoPrecios': {
-                    'precioUnitarioTransferencia': round(unit, 4),
-                    'precioItem': round(line_sub / qty if qty else unit, 4),
-                    'sumaPrecioItem': round(line_sub, 2),
+                    'precioUnitarioTransferencia': unit_price,
+                    'precioItem': unit_price,
+                    'sumaPrecioItem': round(line_amount, 2),
                 },
                 'grupoITBMS': {
                     'tasaITBMSAplicable': code,
@@ -181,6 +226,10 @@ def build_invoice_payload(
     if not items:
         raise ValueError('La factura no tiene líneas facturables para FE.')
     grand = round(total_neto + total_itbms, 2)
+    inv_grand = round(float(invoice.grand_total or 0), 2)
+    if inv_grand > 0 and abs(grand - inv_grand) > 0.02:
+        grand = inv_grand
+        total_neto = inv_grand if total_itbms <= 0.001 else round(inv_grand - total_itbms, 2)
     return {
         'datosGenerales': {
             'tipoEmision': '01',

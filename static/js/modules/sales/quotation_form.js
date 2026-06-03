@@ -937,8 +937,15 @@
   /**
    * fetch JSON desde una ruta absoluta del sitio (desde /). No usar con rutas del API de cotizaciones.
    */
+  function resolveFetchUrl(path) {
+    const raw = String(path || '').trim();
+    if (!raw) return '/';
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return raw.startsWith('/') ? raw : `/${raw}`;
+  }
+
   async function fetchJsonAbsolute(absolutePath, method = 'GET', body = null) {
-    const url = absolutePath.startsWith('/') ? absolutePath : `/${absolutePath}`;
+    const url = resolveFetchUrl(absolutePath);
     const headers = { Accept: 'application/json' };
     if (body != null || (method !== 'GET' && method !== 'HEAD')) {
       headers['Content-Type'] = 'application/json';
@@ -1774,8 +1781,8 @@
   const btnPreview = document.getElementById('btnPreview');
   if (btnPreview) {
     btnPreview.addEventListener('click', async () => {
+      clearError();
       try {
-        if (canEditContent()) await saveQuotation({}, { silent: true });
         syncQuotePreviewWorkshopWrap();
         await refreshQuotePreviewInner();
         if (window.bootstrap && window.bootstrap.Modal) {
@@ -1785,6 +1792,12 @@
         }
       } catch (e) {
         showError(e.message);
+        return;
+      }
+      if (canEditContent()) {
+        void saveQuotation({}, { silent: true }).catch((saveErr) => {
+          console.warn('Vista previa: autosave en segundo plano falló', saveErr);
+        });
       }
     });
   }

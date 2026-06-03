@@ -1,93 +1,161 @@
 {% extends "base.html" %}
 {% block title %}Contactos{% endblock %}
+{% block head_extra %}
+<style>
+.contacts-list-page {
+    --contacts-row-pad-y: 0.3rem;
+    --contacts-row-pad-x: 0.45rem;
+}
+.contacts-list-page .contacts-toolbar {
+    gap: 0.35rem;
+}
+.contacts-list-page .contacts-toolbar .form-control,
+.contacts-list-page .contacts-toolbar .form-select {
+    min-height: 1.85rem;
+    font-size: 0.8125rem;
+}
+.contacts-list-page .contacts-toolbar .btn {
+    min-height: 1.85rem;
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+}
+.contacts-list-page .contacts-search {
+    width: min(14rem, 42vw);
+}
+.contacts-list-page .contacts-filter-select {
+    width: min(7.5rem, 22vw);
+}
+.contacts-list-page .table > :not(caption) > * > * {
+    padding: var(--contacts-row-pad-y) var(--contacts-row-pad-x);
+    font-size: 0.8125rem;
+}
+.contacts-list-page .table thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.contacts-list-page .contacts-footnote {
+    font-size: 0.75rem;
+}
+.contacts-list-page .contact-list-thumb {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.25rem;
+    object-fit: cover;
+    background: #f1f5f9;
+    flex-shrink: 0;
+}
+.contacts-list-page .contact-list-thumb--placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: #94a3b8;
+}
+.contacts-list-page tr.contacts-row-click:hover {
+    background-color: rgba(13, 110, 253, 0.06);
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.contacts-list-page tr.contacts-row-click').forEach(function (row) {
+    row.addEventListener('click', function (ev) {
+      if (ev.target.closest('a')) return;
+      var href = row.getAttribute('data-href');
+      if (href) window.location.href = href;
+    });
+    row.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        var href = row.getAttribute('data-href');
+        if (href) window.location.href = href;
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
 {% block content %}
-<div class="container-fluid py-4">
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h3 mb-0"><i class="fas fa-address-book me-2"></i>Contactos</h1>
-    <a class="btn btn-primary btn-sm" href="{{ url_for('contacts_admin.contacts_new') }}">Nuevo contacto</a>
-  </div>
-  <p class="text-muted small mb-3">Maestro de clientes, proveedores y roles operativos. No confundir con usuarios del sistema (login).</p>
-
-  <form method="get" class="card card-body mb-3 py-3">
-    <div class="row g-2 align-items-end">
-      <div class="col-md-3">
-        <label class="form-label small mb-0">Buscar</label>
-        <input class="form-control form-control-sm" name="q" value="{{ q }}" placeholder="Nombre, email, RUC, teléfono…" />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label small mb-0">Rol</label>
-        <select class="form-select form-select-sm" name="role">
-          <option value="">Todos</option>
-          <option value="customer" {% if role == 'customer' %}selected{% endif %}>Clientes</option>
-          <option value="supplier" {% if role == 'supplier' %}selected{% endif %}>Proveedores</option>
-          <option value="member" {% if role == 'member' %}selected{% endif %}>Miembros</option>
-          <option value="student" {% if role == 'student' %}selected{% endif %}>Estudiantes</option>
-          <option value="participant" {% if role == 'participant' %}selected{% endif %}>Participantes</option>
-          <option value="consumer_final" {% if role == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label small mb-0">Tipo</label>
-        <select class="form-select form-select-sm" name="contact_type">
-          <option value="">Todos</option>
-          <option value="person" {% if contact_type == 'person' %}selected{% endif %}>Persona</option>
-          <option value="company" {% if contact_type == 'company' %}selected{% endif %}>Empresa</option>
-          <option value="consumer_final" {% if contact_type == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label small mb-0">Estado</label>
-        <select class="form-select form-select-sm" name="active">
-          <option value="1" {% if active == '1' %}selected{% endif %}>Activos</option>
-          <option value="0" {% if active == '0' %}selected{% endif %}>Inactivos</option>
-          <option value="" {% if active == '' %}selected{% endif %}>Todos</option>
-        </select>
-      </div>
-      <div class="col-auto">
-        <button type="submit" class="btn btn-sm btn-secondary">Filtrar</button>
-        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contacts_admin.contacts_index') }}">Limpiar</a>
-      </div>
-    </div>
+<div class="container-fluid px-2 px-sm-3 py-2 contacts-list-page erp-compact-page">
+  <form method="get" class="contacts-toolbar erp-toolbar d-flex flex-wrap align-items-center mb-2" role="search" aria-label="Filtros de contactos">
+    <h1 class="h5 mb-0 text-nowrap me-1" title="Maestro de clientes, proveedores y roles operativos (no es login de usuarios)">
+      <i class="fas fa-address-book me-1 text-muted" aria-hidden="true"></i>Contactos
+    </h1>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('contacts_admin.contacts_new') }}">Nuevo</a>
+    <span class="d-none d-md-inline vr align-self-stretch mx-1" aria-hidden="true"></span>
+    <input class="form-control form-control-sm contacts-search" name="q" value="{{ q }}" placeholder="Buscar nombre, email, RUC…" aria-label="Buscar" />
+    <select class="form-select form-select-sm contacts-filter-select" name="role" aria-label="Rol">
+      <option value="">Rol: todos</option>
+      <option value="customer" {% if role == 'customer' %}selected{% endif %}>Clientes</option>
+      <option value="supplier" {% if role == 'supplier' %}selected{% endif %}>Proveedores</option>
+      <option value="member" {% if role == 'member' %}selected{% endif %}>Miembros</option>
+      <option value="student" {% if role == 'student' %}selected{% endif %}>Estudiantes</option>
+      <option value="participant" {% if role == 'participant' %}selected{% endif %}>Participantes</option>
+      <option value="consumer_final" {% if role == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+    </select>
+    <select class="form-select form-select-sm contacts-filter-select" name="contact_type" aria-label="Tipo">
+      <option value="">Tipo: todos</option>
+      <option value="person" {% if contact_type == 'person' %}selected{% endif %}>Persona</option>
+      <option value="company" {% if contact_type == 'company' %}selected{% endif %}>Empresa</option>
+      <option value="consumer_final" {% if contact_type == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+    </select>
+    <select class="form-select form-select-sm contacts-filter-select" name="active" aria-label="Estado">
+      <option value="1" {% if active == '1' %}selected{% endif %}>Activos</option>
+      <option value="0" {% if active == '0' %}selected{% endif %}>Inactivos</option>
+      <option value="" {% if active == '' %}selected{% endif %}>Estado: todos</option>
+    </select>
+    <button type="submit" class="btn btn-sm btn-secondary">Filtrar</button>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contacts_admin.contacts_index') }}">Limpiar</a>
+    {% if total is defined %}
+    <span class="ms-md-auto contacts-footnote text-muted text-nowrap">{{ total }} contacto{% if total != 1 %}s{% endif %}</span>
+    {% endif %}
   </form>
 
-  <div class="table-responsive">
-    <table class="table table-sm table-hover align-middle">
+  <div class="table-responsive border rounded bg-white">
+    <table class="table table-sm table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>ID</th>
+          <th class="text-nowrap" style="width:3rem">ID</th>
           <th>Nombre</th>
-          <th>Tipo</th>
+          <th class="text-nowrap">Tipo</th>
           <th>Email</th>
-          <th>Teléfono</th>
-          <th>Identificación</th>
+          <th class="text-nowrap">Teléfono</th>
+          <th class="text-nowrap">Identificación</th>
           <th>Roles</th>
-          <th>Activo</th>
-          <th></th>
+          <th class="text-center text-nowrap" style="width:4rem">Activo</th>
         </tr>
       </thead>
       <tbody>
         {% for c in contacts %}
-        <tr>
-          <td>{{ c.id }}</td>
-          <td><a href="{{ url_for('contacts_admin.contacts_detail', contact_id=c.id) }}">{{ c.display_name }}</a></td>
+        <tr class="contacts-row-click" role="button" tabindex="0" data-href="{{ url_for('contacts_admin.contacts_edit', contact_id=c.id) }}" style="cursor:pointer">
+          <td class="text-muted">{{ c.id }}</td>
+          <td class="fw-medium">
+            <div class="d-flex align-items-center gap-2">
+              {% if c.image_url %}
+              <img src="{{ c.image_url }}" alt="" class="contact-list-thumb" loading="lazy" decoding="async" />
+              {% else %}
+              <span class="contact-list-thumb contact-list-thumb--placeholder" aria-hidden="true"><i class="fas {% if c.contact_type == 'company' %}fa-building{% else %}fa-user{% endif %}"></i></span>
+              {% endif %}
+              <a href="{{ url_for('contacts_admin.contacts_edit', contact_id=c.id) }}" class="text-decoration-none" title="Editar contacto">{{ c.display_name }}</a>
+            </div>
+          </td>
           <td>{{ c.contact_type }}</td>
-          <td>{{ c.email or '—' }}</td>
-          <td>{{ c.phone or c.mobile or '—' }}</td>
-          <td class="small">
+          <td class="text-truncate" style="max-width:10rem" title="{{ c.email or '' }}">{{ c.email or '—' }}</td>
+          <td class="text-nowrap">{{ c.phone or c.mobile or '—' }}</td>
+          <td class="text-nowrap">
             {% if c.tax_id %}{{ c.identification_type }}: {{ c.tax_id }}{% if c.dv %}-{{ c.dv }}{% endif %}{% else %}CF{% endif %}
           </td>
-          <td class="small">{{ c.role_labels()|join(', ') or '—' }}</td>
-          <td>{% if c.active %}<span class="badge text-bg-success">Sí</span>{% else %}<span class="badge text-bg-secondary">No</span>{% endif %}</td>
-          <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('contacts_admin.contacts_edit', contact_id=c.id) }}">Editar</a></td>
+          <td class="text-truncate" style="max-width:9rem" title="{{ c.role_labels()|join(', ') }}">{{ c.role_labels()|join(', ') or '—' }}</td>
+          <td class="text-center">{% if c.active %}<span class="badge text-bg-success">Sí</span>{% else %}<span class="badge text-bg-secondary">No</span>{% endif %}</td>
         </tr>
         {% else %}
-        <tr><td colspan="9" class="text-muted">Sin contactos.</td></tr>
+        <tr><td colspan="8" class="text-muted py-3">Sin contactos con estos filtros.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   {% if total > per_page %}
-  <p class="small text-muted">Mostrando página {{ page }} — total {{ total }} contactos.</p>
+  <p class="contacts-footnote text-muted mb-0 mt-1">Página {{ page }} de {{ ((total - 1) // per_page) + 1 }}</p>
   {% endif %}
 </div>
 {% endblock %}

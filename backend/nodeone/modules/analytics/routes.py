@@ -33,6 +33,18 @@ def register_admin_analytics_routes(app):
 
         return wrapped
 
+    def require_saas_memberships_module(f):
+        """Módulo SaaS `memberships` encendido para el tenant."""
+
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            resp = enforce_saas_module_or_response('memberships')
+            if resp is not None:
+                return resp
+            return f(*args, **kwargs)
+
+        return wrapped
+
     @app.route('/admin/analytics')
     @admin_required
     @require_saas_analytics_module
@@ -96,6 +108,7 @@ def register_admin_analytics_routes(app):
     @app.route('/admin/analytics/members')
     @admin_required
     @require_saas_analytics_module
+    @require_saas_memberships_module
     def admin_analytics_members():
         oid = admin_data_scope_organization_id()
         start, end = analytics_svc.resolve_date_range(

@@ -1,46 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Taller — Órdenes | {{ get_nav_brand_name() }}{% endblock %}
+{% block title %}Taller — Monitor | {{ get_nav_brand_name() }}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=31">
+{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=30">
-<div class="container-fluid py-3 workshop-orders-monitor">
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-        <h1 class="h4 mb-0">Taller · Monitor</h1>
-        <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
-            <label class="small text-muted mb-0">Estado</label>
-            <select class="form-select form-select-sm" id="woFilterStatus" style="width:auto;min-width:11rem">
-                <option value="">Todos</option>
-                <option value="draft">Borrador</option>
-                <option value="inspected">Inspeccionado</option>
-                <option value="quoted">Cotizado</option>
-                <option value="approved">Aprobado</option>
-                <option value="in_progress">En proceso</option>
-                <option value="qc">Control calidad</option>
-                <option value="done">Terminado</option>
-                <option value="delivered">Entregado</option>
-                <option value="cancelled">Cancelado</option>
-            </select>
-            <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_workshop_process_config') }}">Config. procesos SLA</a>
-            <a class="btn btn-primary btn-sm" href="{{ url_for('admin_workshop_order_new') }}">+ Nueva orden</a>
+<div class="container-fluid px-2 px-sm-3 py-2 workshop-orders-monitor erp-compact-page">
+    <div id="woListErr" class="alert alert-danger py-2 px-2 mb-2 d-none" role="alert"></div>
+
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <h1 class="h5 mb-0 text-nowrap me-1" title="Monitor de órdenes de taller con SLA">
+            <i class="fas fa-clipboard-list me-1 text-muted" aria-hidden="true"></i>Monitor
+        </h1>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('admin_workshop_order_new') }}">Nueva orden</a>
+        <span class="d-none d-md-inline vr align-self-stretch mx-1" aria-hidden="true"></span>
+        <div class="form-check form-check-inline mb-0">
+            <input class="form-check-input" type="checkbox" id="woIncludeClosed">
+            <label class="form-check-label text-nowrap" for="woIncludeClosed">Cerradas</label>
         </div>
+        <select class="form-select form-select-sm erp-filter-select" id="woFilterStatus" aria-label="Estado">
+            <option value="">Activas</option>
+            <option value="draft">Borrador</option>
+            <option value="inspected">Inspeccionado</option>
+            <option value="quoted">Cotizado</option>
+            <option value="approved">Aprobado</option>
+            <option value="in_progress">En proceso</option>
+            <option value="qc">Control calidad</option>
+            <option value="done">Terminado</option>
+            <option value="delivered">Entregado</option>
+            <option value="cancelled">Cancelado</option>
+        </select>
     </div>
-    <div id="woListErr" class="alert alert-danger d-none"></div>
 
-    <div id="woKpiStrip" class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-2 mb-3 d-none"></div>
+    <div id="woKpiStrip" class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-2 mb-2 d-none wo-kpi-strip"></div>
 
-    <div class="row g-3">
+    <div class="row g-2">
         <div class="col-lg-9 order-2 order-lg-1">
-            <div id="woCardGrid" class="row g-2"><div class="col-12 text-muted small py-4">Cargando…</div></div>
+            <div id="woCardGrid" class="row g-2"><div class="col-12 text-muted small py-3">Cargando…</div></div>
+            <div class="text-center py-2 d-none" id="woLoadMoreWrap">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="woLoadMoreBtn">Cargar más</button>
+                <span class="erp-footnote text-muted ms-2" id="woListCount"></span>
+            </div>
         </div>
         <div class="col-lg-3 order-1 order-lg-2">
-            <div class="card border-0 shadow-sm sticky-top wo-alerts-panel" style="top:1rem;z-index:1">
+            <div class="card border shadow-sm sticky-top wo-alerts-panel mb-0" style="top:0.5rem;z-index:1">
                 <div class="card-header py-2 small fw-semibold">Alertas SLA</div>
                 <div class="card-body p-2 small" id="woAlertsBody">
                     <p class="text-muted mb-0 small">Cargando…</p>
                 </div>
-                <div class="card-footer py-2 small text-muted border-0" id="woHeatmapHint"></div>
+                <div class="card-footer py-1 small text-muted border-0" id="woHeatmapHint"></div>
             </div>
         </div>
     </div>
 </div>
-<script src="{{ url_for('static', filename='js/modules/workshop/orders_list.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/modules/workshop/orders_list.js') }}?v=8"></script>
 {% endblock %}

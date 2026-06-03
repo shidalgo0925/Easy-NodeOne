@@ -54,6 +54,8 @@ class Contact(db.Model):
     is_employee = db.Column(db.Boolean, nullable=False, default=False)
     is_tax_exempt = db.Column(db.Boolean, nullable=False, default=False)
 
+    image_url = db.Column(db.String(500), nullable=True)
+
     active = db.Column(db.Boolean, nullable=False, default=True, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

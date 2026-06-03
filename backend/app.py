@@ -1710,6 +1710,7 @@ def inject_admin_nav_context():
         'show_org_switcher_link': False,
         'show_member_organization_switcher': False,
         'member_organizations_nav': [],
+        'show_erp_admin_chrome': False,
     }
     if not has_request_context():
         out['nav_can'] = _nav_can_permission
@@ -1794,15 +1795,23 @@ def inject_admin_nav_context():
     out['nav_can'] = _nav_can_permission
     out.setdefault('nav_app_areas', [])
     out.setdefault('nav_active_area_id', None)
+    out.setdefault('nav_sidebar_area_id', None)
     out.setdefault('nav_active_area_label', None)
     out.setdefault('nav_area_children', [])
     out.setdefault('nav_single_area_mode', False)
+    out.setdefault('nav_show_module_bar', False)
+    out.setdefault('nav_active_child_label', None)
+    out.setdefault('show_erp_admin_chrome', False)
     try:
-        if (
-            has_request_context()
-            and getattr(current_user, 'is_authenticated', False)
-            and bool(out.get('show_tenant_admin_menu'))
-        ):
+        is_authenticated = (
+            has_request_context() and getattr(current_user, 'is_authenticated', False)
+        )
+        is_platform_admin_user = bool(getattr(current_user, 'is_admin', False))
+        show_erp_chrome = bool(out.get('show_tenant_admin_menu')) or (
+            bool(out.get('show_platform_admin_nav')) and is_platform_admin_user
+        )
+        out['show_erp_admin_chrome'] = show_erp_chrome if is_authenticated else False
+        if is_authenticated and show_erp_chrome:
             from flask import current_app
 
             from nodeone.core.nav_menu import nav_launcher_payload
@@ -1828,11 +1837,16 @@ def inject_admin_nav_context():
                     show_platform_admin_nav=bool(out.get('show_platform_admin_nav')),
                     is_platform_admin=bool(getattr(current_user, 'is_admin', False)),
                     is_advisor=bool(getattr(current_user, 'is_advisor', False)),
-                    show_tenant_admin_menu=True,
+                    show_tenant_admin_menu=bool(out.get('show_tenant_admin_menu')),
                 )
             )
     except Exception:
-        pass
+        try:
+            from flask import current_app
+
+            current_app.logger.exception('inject_admin_nav_context: nav_launcher_payload falló')
+        except Exception:
+            pass
     return out
 
 

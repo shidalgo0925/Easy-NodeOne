@@ -43,13 +43,17 @@ def _shadow_user_for_contact(organization_id: int, contact: Contact, customer_id
             return int(u.id)
     email = fiscal_email(contact)
     if email:
-        u = User.query.filter_by(email=email, organization_id=int(organization_id)).first()
+        u = User.query.filter_by(email=email).first()
         if u:
             return int(u.id)
+    shadow_email = email or f'contacto.{contact.id}.org{int(organization_id)}@sin-correo.invalid'
+    u = User.query.filter_by(email=shadow_email).first()
+    if u:
+        return int(u.id)
     first = (contact.first_name or contact.display_name or 'Cliente')[:50]
     last = (contact.last_name or '.')[:50]
     u = User(
-        email=email or f'contacto.{contact.id}@sin-correo.invalid',
+        email=shadow_email,
         first_name=first,
         last_name=last,
         organization_id=int(organization_id),
@@ -127,7 +131,8 @@ def get_invoice_fiscal_contact(invoice) -> Contact | None:
 
 
 def contact_itbms_exempt(c: Contact) -> bool:
-    return bool(c.is_tax_exempt or c.identification_type == 'consumer_final' or c.contact_type == 'consumer_final')
+    """Exento fiscal explícito (gobierno, diplomático, etc.). Consumidor final sigue con ITBMS."""
+    return bool(c.is_tax_exempt)
 
 
 def contact_receptor_block(c: Contact) -> dict[str, Any]:

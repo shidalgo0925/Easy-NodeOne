@@ -8,6 +8,7 @@ from flask_login import current_user, login_required
 from models.saas import SaasOrganization
 from nodeone.core.db import db
 from nodeone.modules.contacts import service as contact_svc
+from nodeone.modules.contacts.photo_upload import save_contact_photo
 from nodeone.services.contacts_module import is_contacts_enabled_for_org, is_contacts_globally_allowed
 contacts_admin_bp = Blueprint('contacts_admin', __name__, url_prefix='/admin/contacts')
 
@@ -97,6 +98,16 @@ def _form_to_dict() -> dict:
     }
 
 
+def _apply_contact_photo(organization_id: int, contact) -> None:
+    if _form_bool('remove_photo'):
+        contact.image_url = None
+        return
+    file_storage = request.files.get('photo')
+    if not file_storage or not (file_storage.filename or '').strip():
+        return
+    contact.image_url = save_contact_photo(organization_id, file_storage)
+
+
 @contacts_admin_bp.route('/')
 @login_required
 def contacts_index():
@@ -137,9 +148,13 @@ def contacts_new():
     if request.method == 'POST':
         try:
             row = contact_svc.create_contact(oid, _form_to_dict())
+            try:
+                _apply_contact_photo(oid, row)
+            except ValueError as exc:
+                flash(str(exc), 'warning')
             db.session.commit()
             flash('Contacto creado.', 'success')
-            return redirect(url_for('contacts_admin.contacts_detail', contact_id=row.id))
+            return redirect(url_for('contacts_admin.contacts_edit', contact_id=row.id))
         except contact_svc.ContactValidationError as exc:
             db.session.rollback()
             flash(str(exc), 'error')
@@ -171,9 +186,13 @@ def contacts_edit(contact_id: int):
     if request.method == 'POST':
         try:
             contact_svc.update_contact(oid, contact_id, _form_to_dict())
+            try:
+                _apply_contact_photo(oid, row)
+            except ValueError as exc:
+                flash(str(exc), 'warning')
             db.session.commit()
             flash('Contacto actualizado.', 'success')
-            return redirect(url_for('contacts_admin.contacts_detail', contact_id=row.id))
+            return redirect(url_for('contacts_admin.contacts_edit', contact_id=row.id))
         except contact_svc.ContactValidationError as exc:
             db.session.rollback()
             flash(str(exc), 'error')

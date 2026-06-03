@@ -15,6 +15,9 @@ def register_admin_benefits_plans_policies_routes(app):
         Policy,
         require_permission,
     )
+    from saas_features import require_saas_module
+
+    _require_memberships = require_saas_module('memberships')
 
     def _policies_module_guard():
         """Admin de empresa: requiere módulo policies. is_admin plataforma: sin bloqueo."""
@@ -33,6 +36,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/admin/benefits')
     @admin_required
+    @_require_memberships
     def admin_benefits():
         """Panel de administración de beneficios por membresía"""
         status = request.args.get('status', 'all')
@@ -49,6 +53,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/benefits', methods=['GET'])
     @admin_required
+    @_require_memberships
     def admin_benefits_list():
         """Listar beneficios (API)"""
         benefits = Benefit.query.filter_by(organization_id=admin_data_scope_organization_id()).order_by(
@@ -58,6 +63,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/benefits/create', methods=['POST'])
     @admin_required
+    @_require_memberships
     def admin_benefits_create():
         """Crear beneficio"""
         try:
@@ -84,6 +90,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/benefits/update/<int:benefit_id>', methods=['PUT'])
     @admin_required
+    @_require_memberships
     def admin_benefits_update(benefit_id):
         """Actualizar beneficio"""
         try:
@@ -107,6 +114,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/benefits/<int:benefit_id>', methods=['GET'])
     @admin_required
+    @_require_memberships
     def admin_benefits_get(benefit_id):
         """Obtener un beneficio"""
         oid = admin_data_scope_organization_id()
@@ -115,6 +123,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/benefits/delete/<int:benefit_id>', methods=['DELETE'])
     @admin_required
+    @_require_memberships
     def admin_benefits_delete(benefit_id):
         """Eliminar beneficio"""
         try:
@@ -131,6 +140,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/admin/plans')
     @require_permission('memberships.view')
+    @_require_memberships
     def admin_plans():
         """Panel de administración de planes de membresía"""
         oid = admin_data_scope_organization_id()
@@ -141,6 +151,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/plans/create', methods=['POST'])
     @require_permission('memberships.view')
+    @_require_memberships
     def admin_plans_create():
         """Crear plan"""
         try:
@@ -173,6 +184,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/plans/update/<int:plan_id>', methods=['PUT'])
     @require_permission('memberships.view')
+    @_require_memberships
     def admin_plans_update(plan_id):
         """Actualizar plan"""
         try:
@@ -196,6 +208,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/plans/<int:plan_id>', methods=['GET'])
     @require_permission('memberships.view')
+    @_require_memberships
     def admin_plans_get(plan_id):
         """Obtener un plan"""
         oid = admin_data_scope_organization_id()
@@ -204,6 +217,7 @@ def register_admin_benefits_plans_policies_routes(app):
 
     @app.route('/api/admin/plans/delete/<int:plan_id>', methods=['DELETE'])
     @require_permission('memberships.view')
+    @_require_memberships
     def admin_plans_delete(plan_id):
         """Eliminar plan (cuidado: suscripciones/beneficios pueden seguir referenciando el slug)"""
         try:

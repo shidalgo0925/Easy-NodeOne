@@ -27,6 +27,51 @@ def register_admin_tax_configuration_routes(app):
         return redirect(url_for('admin_configuration_taxes'), code=302)
 
 
+def register_admin_sales_catalog_route(app):
+    """Hub Catálogo comercial (Ventas): enlaces a rutas existentes según módulos SaaS."""
+    if 'admin_sales_catalog' in getattr(app, 'view_functions', {}):
+        return
+    from flask import flash, redirect, render_template, url_for
+
+    from app import admin_required
+    from nodeone.core.nav_menu import _v_catalog_hub, build_nav_context
+    from nodeone.services.academic_module import is_academic_module_enabled_for_org
+    from nodeone.services.office365_module import is_office365_module_enabled_for_org
+
+    @app.route('/admin/sales/catalog')
+    @admin_required
+    def admin_sales_catalog():
+        from app import (
+            _nav_can_permission,
+            _org_id_for_module_visibility,
+            has_view_endpoint,
+            saas_module_enabled,
+            saas_module_enabled_chain,
+        )
+
+        ctx = build_nav_context(
+            nav_can=_nav_can_permission,
+            saas_module_enabled=saas_module_enabled,
+            saas_module_enabled_chain=saas_module_enabled_chain,
+            has_view_endpoint=has_view_endpoint,
+            show_academic_admin_nav=(
+                'academic_admin' in app.blueprints
+                and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+            ),
+            office365_module_enabled=is_office365_module_enabled_for_org(
+                _org_id_for_module_visibility()
+            ),
+            show_platform_admin_nav=False,
+            is_platform_admin=False,
+            is_advisor=False,
+            show_tenant_admin_menu=True,
+        )
+        if not _v_catalog_hub(ctx):
+            flash('No hay secciones de catálogo habilitadas para esta organización.', 'error')
+            return redirect(url_for('dashboard'))
+        return render_template('admin/sales_catalog.html')
+
+
 def register_admin_sales_quotations_invoices_routes(app):
     """Cotizaciones e facturas (respeta NODEONE_SKIP en features). Idempotente."""
     if 'admin_sales_quotations' in getattr(app, 'view_functions', {}):

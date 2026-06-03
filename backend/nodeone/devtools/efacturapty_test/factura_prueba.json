@@ -1,0 +1,59 @@
+{
+  "datosGenerales": {
+    "tipoEmision": "01",
+    "tipoDocumento": "01",
+    "puntoFacturacion": "001",
+    "fechaEmision": "REEMPLAZAR_ISO8601_UTC",
+    "naturalezaOperacion": "01",
+    "tipoOperacion": 1,
+    "destinoOperacion": 1,
+    "formatoGeneracionCafe": 1,
+    "maneraEntregaCafe": 1,
+    "envioContenedorReceptor": 1,
+    "procesoGeneracionFe": 1,
+    "tipoTransaccionVenta": 1,
+    "tipoSucursal": 1,
+    "informacionInteresEmisor": "Prueba API EN1 - devtools (ambiente pruebas DGI)",
+    "informacionReceptor": {
+      "tipoReceptorFe": "02",
+      "nombreRazonReceptor": "CONSUMIDOR FINAL",
+      "direccionReceptor": "Ciudad de Panama",
+      "correoElectronicoReceptor": "consumidor@example.com",
+      "paisReceptor": "PA",
+      "telefonoContactoReceptor": "6000-0000"
+    }
+  },
+  "listaItems": [
+    {
+      "numeroSecuenciaItem": 1,
+      "descripcionProductoServicio": "Servicio de prueba EN1",
+      "codigoInternoItem": "PRUEBA-001",
+      "unidadMedidaCodigoInterno": "und",
+      "cantidadProductoServicio": 1,
+      "grupoPrecios": {
+        "precioUnitarioTransferencia": 1.0,
+        "precioItem": 1.0,
+        "sumaPrecioItem": 1.0
+      },
+      "grupoITBMS": {
+        "tasaITBMSAplicable": "00",
+        "montoITBMS": 0.0
+      }
+    }
+  ],
+  "totales": {
+    "tiempoPago": 1,
+    "grupoFormasPago": [
+      {
+        "formaPago": "02",
+        "valorCuotaPagada": 1.0
+      }
+    ],
+    "totalNeto": 1.0,
+    "totalITBMS": 0.0,
+    "valorTotalFactura": 1.0,
+    "sumaValoresRecibidos": 1.0,
+    "numeroTotalItems": 1,
+    "totalTodosItems": 1.0
+  }
+}

@@ -10,7 +10,7 @@
             <p class="text-muted mb-0">Incluidos con tu registro (plan básico) y servicios que compraste; cada uno con su acción.</p>
         </div>
         <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus me-1"></i>Explorar más
+            <i class="fas fa-store me-1"></i>Ir a la tienda
         </a>
     </div>
 
@@ -40,7 +40,7 @@
                 </div>
                 <div class="d-flex align-items-center justify-content-between gap-2">
                     <a href="{{ card.action_url }}" class="btn btn-sm btn-outline-primary">{{ card.action_label }}</a>
-                    <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-link text-decoration-none px-0">Ver catálogo</a>
+                    <a href="{{ url_for('services.list') }}" class="btn btn-sm btn-link text-decoration-none px-0">Ver tienda</a>
                 </div>
             </div>
         </article>
@@ -53,7 +53,7 @@
             <h2 class="h5">No hay servicios que mostrar</h2>
             <p class="text-muted mb-3">Si el catálogo incluye servicios de plan básico, deberían listarse aquí. También verás lo que compres, con su estado y acciones.</p>
             <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-sm">
-                <i class="fas fa-th-large me-1"></i>Ir a Explorar
+                <i class="fas fa-store me-1"></i>Ir a la tienda
             </a>
         </div>
     </div>

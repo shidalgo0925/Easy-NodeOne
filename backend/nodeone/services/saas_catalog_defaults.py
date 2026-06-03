@@ -67,9 +67,39 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         False,
     ),
     (
+        'contacts',
+        'Contactos',
+        'Maestro de contactos/terceros (clientes, proveedores, roles fiscales).',
+        False,
+    ),
+    (
+        'efactura',
+        'Facturación electrónica',
+        'Emisión FE Panamá (PAC efacturapty y futuros proveedores).',
+        False,
+    ),
+    (
         'qr_generator',
         'Generador QR',
         'Generación de códigos QR estáticos (PNG, SVG, PDF) e historial por organización.',
+        False,
+    ),
+    (
+        'security_matrix',
+        'Matriz de permisos Odoo',
+        'Importación y validación de permisos Odoo (catálogo, matriz visual, sin ejecutar en Odoo).',
+        False,
+    ),
+    (
+        'rbac_matrix',
+        'Permisología EN1',
+        'Matriz roles × permisos, listado de roles y permisos del tenant.',
+        False,
+    ),
+    (
+        'memberships',
+        'Membresías',
+        'Planes, miembros, beneficios y portal Mi membresía / Planes.',
         False,
     ),
 )
@@ -178,7 +208,11 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'academic',
     'workshop',
     'contador',
+    'contacts',
     'qr_generator',
+    'security_matrix',
+    'rbac_matrix',
+    'memberships',
 )
 
 
@@ -211,9 +245,11 @@ def ensure_toggleable_tenant_module_links(printfn=None, organization_id: int | N
             link = SaasOrgModule.query.filter_by(organization_id=oid, module_id=mod.id).first()
             if link is not None:
                 continue
-            db.session.add(SaasOrgModule(organization_id=oid, module_id=mod.id, enabled=True))
+            # Permisología EN1: opt-in (tenants operativos como Taller no la necesitan por defecto).
+            enabled = mod.code != 'rbac_matrix'
+            db.session.add(SaasOrgModule(organization_id=oid, module_id=mod.id, enabled=enabled))
             created += 1
-            _log(printfn, f'+ saas_org_module: org={oid} {mod.code}=on (default toggleable)')
+            _log(printfn, f'+ saas_org_module: org={oid} {mod.code}={"on" if enabled else "off"} (default toggleable)')
     if created:
         db.session.commit()
 

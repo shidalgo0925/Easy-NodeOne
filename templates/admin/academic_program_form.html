@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}{% if program %}Editar{% else %}Nuevo{% endif %} programa académico{% endblock %}
+{% block page_content %}
+{% macro fv(name, default='') -%}
+{%- if form is defined and form is not none -%}{{ form.get(name, default) }}{%- else -%}{{ default }}{%- endif -%}
+{%- endmacro %}
+<div class="container py-4" style="max-width: 720px;">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small">
+      <li class="breadcrumb-item"><a href="{{ url_for('academic_enrollment_admin.list_programs') }}">Programas inscripción</a></li>
+      <li class="breadcrumb-item active">{% if program %}Editar{% else %}Nuevo{% endif %}</li>
+    </ol>
+  </nav>
+  <h1 class="h3 mb-3">{% if program %}Editar programa{% else %}Nuevo programa{% endif %}</h1>
+  <p class="text-muted small">Org {{ organization_id }} · URL pública: <code>/inscripcion/&lt;slug&gt;</code> (solo si estado = <strong>published</strong>).</p>
+
+  <form method="post" class="card card-body border shadow-sm mb-4">
+    <input type="hidden" name="action" value="save_program">
+    <div class="mb-3">
+      <label class="form-label" for="name">Nombre</label>
+      <input class="form-control" id="name" name="name" required value="{% if program %}{{ program.name }}{% else %}{{ fv('name') }}{% endif %}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="slug">Slug</label>
+      <input class="form-control" id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="{% if program %}{{ program.slug }}{% else %}{{ fv('slug') }}{% endif %}" {% if program %}readonly class="form-control bg-light"{% endif %}>
+      {% if program %}<div class="form-text">El slug no se cambia tras crear (enlaces y QR).</div>{% endif %}
+    </div>
+    <div class="row g-2">
+      <div class="col-md-6 mb-3">
+        <label class="form-label" for="program_type">Tipo</label>
+        <select class="form-select" id="program_type" name="program_type">
+          {% set pt = (program.program_type if program else fv('program_type', 'diplomado')) %}
+          {% for t in program_types %}
+          <option value="{{ t }}" {% if pt == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label" for="status">Estado</label>
+        <select class="form-select" id="status" name="status">
+          {% set st = (program.status if program else fv('status', 'draft')) %}
+          {% for s in statuses %}
+          <option value="{{ s }}" {% if st == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-6 mb-3">
+        <label class="form-label" for="modality">Modalidad</label>
+        <input class="form-control" id="modality" name="modality" value="{% if program %}{{ program.modality or '' }}{% else %}{{ fv('modality') }}{% endif %}" placeholder="100% online">
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label" for="duration_text">Duración (texto)</label>
+        <input class="form-control" id="duration_text" name="duration_text" value="{% if program %}{{ program.duration_text or '' }}{% else %}{{ fv('duration_text') }}{% endif %}">
+      </div>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="price_from">Precio desde (display)</label>
+        <input class="form-control" id="price_from" name="price_from" value="{% if program and program.price_from %}{{ program.price_from }}{% else %}{{ fv('price_from') }}{% endif %}">
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="currency">Moneda</label>
+        <input class="form-control" id="currency" name="currency" maxlength="8" value="{% if program %}{{ program.currency }}{% else %}{{ fv('currency', 'USD') }}{% endif %}">
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="language">Idioma</label>
+        <input class="form-control" id="language" name="language" value="{% if program %}{{ program.language or '' }}{% else %}{{ fv('language') }}{% endif %}">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="short_description">Descripción corta</label>
+      <textarea class="form-control" id="short_description" name="short_description" rows="2">{% if program %}{{ program.short_description or '' }}{% else %}{{ fv('short_description') }}{% endif %}</textarea>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">Guardar programa</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('academic_enrollment_admin.list_programs') }}">Volver al listado</a>
+      {% if program and program.status == 'published' %}
+      <a class="btn btn-outline-primary ms-auto" href="{{ url_for('payments.diplomado_landing', slug=program.slug) }}" target="_blank" rel="noopener">Vista pública</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if program %}
+  <h2 class="h5">Planes de pago</h2>
+  {% if plans %}
+  <div class="mb-4">
+    {% for pl in plans %}
+    <form method="post" class="card card-body border mb-2 small">
+      <input type="hidden" name="action" value="update_plan">
+      <input type="hidden" name="plan_id" value="{{ pl.id }}">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <strong><code>{{ pl.code }}</code></strong>
+        <span class="badge {% if pl.is_active %}text-bg-success{% else %}text-bg-secondary{% endif %}">{% if pl.is_active %}Activo{% else %}Inactivo{% endif %}</span>
+      </div>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label">Nombre</label>
+          <input class="form-control form-control-sm" name="plan_name" value="{{ pl.name }}" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Total USD</label>
+          <input class="form-control form-control-sm" name="plan_total_usd" value="{{ '%.2f'|format(pl.total_amount_cents / 100) }}" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cuotas (info)</label>
+          <input class="form-control form-control-sm" name="plan_installment_count" value="{{ pl.installment_count or '' }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Orden</label>
+          <input class="form-control form-control-sm" name="plan_sort_order" value="{{ pl.sort_order }}">
+        </div>
+        <div class="col-md-10">
+          <label class="form-label">Etiqueta dto.</label>
+          <input class="form-control form-control-sm" name="plan_discount_label" value="{{ pl.discount_label or '' }}">
+        </div>
+        <div class="col-md-12 form-check mt-1">
+          <input class="form-check-input" type="checkbox" name="plan_is_active" value="1" id="plan_active_{{ pl.id }}" {% if pl.is_active %}checked{% endif %}>
+          <label class="form-check-label" for="plan_active_{{ pl.id }}">Visible en inscripción</label>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary mt-2">Guardar plan</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-muted small">Sin planes: el checkout no podrá cobrar este programa.</p>
+  {% endif %}
+
+  <form method="post" class="card card-body border">
+    <input type="hidden" name="action" value="add_plan">
+    <p class="small text-muted mb-3">Un cargo en pasarela = <code>total_amount_cents</code> (USD × 100). Código estable para URLs (<code>full</code>, <code>6</code>, …).</p>
+    <div class="row g-2">
+      <div class="col-md-6 mb-2">
+        <label class="form-label" for="plan_name">Nombre del plan</label>
+        <input class="form-control" id="plan_name" name="plan_name" required placeholder="Pago completo">
+      </div>
+      <div class="col-md-6 mb-2">
+        <label class="form-label" for="plan_code">Código</label>
+        <input class="form-control" id="plan_code" name="plan_code" required placeholder="full">
+      </div>
+      <div class="col-md-4 mb-2">
+        <label class="form-label" for="plan_total_usd">Total (USD)</label>
+        <input class="form-control" id="plan_total_usd" name="plan_total_usd" required placeholder="1949.00">
+      </div>
+      <div class="col-md-4 mb-2">
+        <label class="form-label" for="plan_installment_count">Cuotas (info)</label>
+        <input class="form-control" type="number" min="0" id="plan_installment_count" name="plan_installment_count" placeholder="vacío = pago único">
+      </div>
+      <div class="col-md-4 mb-2">
+        <label class="form-label" for="plan_sort_order">Orden</label>
+        <input class="form-control" type="number" id="plan_sort_order" name="plan_sort_order" value="{{ plans|length }}">
+      </div>
+    </div>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="plan_is_active" name="plan_is_active" value="1" checked>
+      <label class="form-check-label" for="plan_is_active">Plan activo</label>
+    </div>
+    <button type="submit" class="btn btn-sm btn-outline-primary">Añadir plan</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

@@ -169,6 +169,23 @@ class EmailConfig(db.Model):
             'use_for_marketing': getattr(self, 'use_for_marketing', False),
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+
+    def smtp_fingerprint(self):
+        """Huella estable para evitar reaplicar SMTP idéntico en cada request."""
+        return (
+            int(self.id or 0),
+            self.organization_id,
+            self.updated_at.isoformat() if self.updated_at else None,
+            self.mail_server,
+            int(self.mail_port or 0),
+            bool(self.mail_use_tls),
+            bool(self.mail_use_ssl),
+            self.mail_username or '',
+            self.mail_password or '',
+            self.mail_default_sender or '',
+            bool(self.use_environment_variables),
+            bool(self.is_active),
+        )
     
     def apply_to_app(self, app_instance):
         """Aplicar esta configuración a la instancia de Flask"""

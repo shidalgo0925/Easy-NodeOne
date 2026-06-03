@@ -17,20 +17,74 @@
 {% endblock %}
 
 {% block page_content %}
-<div class="container py-4" id="payments-config-root"{% if request.args.get('payments_expand') == '1' %} data-payments-expand-all="1"{% endif %}>
-    <div class="row mb-4">
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page" id="payments-config-root"{% if request.args.get('payments_expand') == '1' %} data-payments-expand-all="1"{% endif %}>
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <h1 class="h5 mb-0 text-nowrap me-1" title="Credenciales y métodos de pago del checkout">
+            <i class="fas fa-credit-card me-1 text-muted" aria-hidden="true"></i>Pagos
+        </h1>
+        <a href="/admin/payments/verify" class="btn btn-sm btn-primary">Verificar pendientes</a>
+        {% if has_view_endpoint('payments_admin.admin_yappy_manual_list') and nav_can('payments.manage') %}
+        <a href="/admin/payments/yappy-manual" class="btn btn-sm btn-outline-success">Validar pagos manuales</a>
+        {% endif %}
+        {% if has_view_endpoint('payments.cart') %}{{ qr_link(absolute_site_url(url_for('payments.cart')), 'QR carrito') }}{% endif %}
+    </div>
+    {% if payments_scope_org_id %}
+    <div id="payments-scope-org-banner" class="alert alert-secondary py-2 px-2 erp-footnote mb-2" role="status">
+        Empresa: <strong id="payments-scope-org-label">{{ payments_scope_org_name or ('Org #' ~ payments_scope_org_id) }}</strong>
+        <span class="text-muted">(id {{ payments_scope_org_id }})</span>
+    </div>
+    {% endif %}
+
+    <!-- Métodos por organización (checkout dinámico) -->
+    <div class="row mb-2" id="org-payment-methods-section">
         <div class="col-12">
-            <h1 class="h5 mb-2">
-                <i class="fas fa-credit-card"></i> Configuración de Métodos de Pago
-            </h1>
-            <p class="text-muted">Configura las credenciales de los métodos de pago disponibles</p>
-            <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
-                <a href="/admin/payments/verify" class="btn btn-sm btn-primary"><i class="fas fa-sync-alt"></i> Verificar Pagos Pendientes</a>
-                {% if has_view_endpoint('payments_admin.admin_yappy_manual_list') and nav_can('payments.manage') %}
-                {# Ruta fija: evita BuildError si url_for falla por endpoint alias no registrado en algún worker. #}
-                <a href="/admin/payments/yappy-manual" class="btn btn-sm btn-success"><i class="fas fa-mobile-alt"></i> Validaciones Yappy</a>
-                {% endif %}
-                {% if has_view_endpoint('payments.cart') %}{{ qr_link(absolute_site_url(url_for('payments.cart')), 'QR carrito') }}{% endif %}
+            <div class="card border-primary shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0"><i class="fas fa-th-list me-2"></i>Métodos de pago por organización</h5>
+                    <button type="button" class="btn btn-sm btn-light" id="btn-save-org-methods">Guardar matriz</button>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        Define qué métodos ve el checkout de la <strong>organización activa</strong> en el selector de empresa.
+                        La columna <strong>Activo</strong> es la única que controla visibilidad (no los flags legacy de abajo).
+                        Las credenciales (PayPal, SWIFT, Yappy) siguen en las secciones de abajo.
+                    </p>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <label class="small mb-0 text-muted" for="payment-profile-select">Perfil rápido:</label>
+                        <select class="form-select form-select-sm" id="payment-profile-select" style="max-width: 14rem">
+                            <option value="">— Elegir —</option>
+                            <option value="panama">Panamá (Yappy + Banco General)</option>
+                            <option value="international">Internacional (PayPal + SWIFT)</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btn-apply-payment-profile">Aplicar perfil</button>
+                    </div>
+                    <div id="org-methods-alert"></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0" id="org-methods-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:3rem">Ord.</th>
+                                    <th>Método</th>
+                                    <th>Etiqueta</th>
+                                    <th class="text-center">Activo</th>
+                                    <th class="text-center">Comprobante</th>
+                                    <th class="text-center">Aprob. admin</th>
+                                    <th class="text-center">Auto</th>
+                                    <th class="text-center">Intl.</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="org-methods-tbody">
+                                <tr><td colspan="9" class="text-muted">Cargando…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3" id="org-methods-instructions-panel" style="display:none">
+                        <label class="form-label small fw-semibold">Instrucciones HTML — <span id="org-methods-instr-label"></span></label>
+                        <textarea class="form-control form-control-sm font-monospace" id="org-methods-instructions" rows="4"></textarea>
+                        <p class="small text-muted mb-0 mt-1">Visible en checkout para el método seleccionado.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -40,7 +94,7 @@
         <div class="col-12">
             <div class="card border-success shadow-sm">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-hourglass-half"></i> Yappy manual — pendientes</h5>
+                    <h5 class="mb-0"><i class="fas fa-hourglass-half"></i> Pagos manuales — pendientes</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -119,6 +173,11 @@
                     </button>
                 </div>
                 <div id="payment-body-paypal" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="paypal">
+                    <div class="alert alert-warning small py-2 mb-3" role="note">
+                        <strong>Live (cuenta real):</strong> el Client ID y Secret deben ser los de la pestaña
+                        <em>Live</em> en <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" rel="noopener">PayPal Developer</a>
+                        (no sirven las de Sandbox). Guardá y reiniciá el servicio si cambiás credenciales.
+                    </div>
                     <div class="row mb-3">
                         <div class="col-12 col-md-6">
                             <label for="paypal_client_id" class="form-label">Client ID</label>
@@ -205,15 +264,14 @@
                     </button>
                 </div>
                 <div id="payment-body-yappy" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="yappy">
-                    <p class="small text-muted mb-3">Para que <strong>Yappy manual</strong> funcione en checkout hace falta el interruptor de abajo y al menos uno de: <strong>Nombre visible</strong> o <strong>Teléfono o identificador Yappy</strong> (este bloque), o <strong>Nombre del negocio</strong> / <strong>Nombre en directorio</strong> / <strong>Ruta imagen QR</strong> (tarjeta siguiente). El <strong>Teléfono del comercio</strong> de la tarjeta siguiente también se guarda y cuenta si no rellenaste «Teléfono o identificador» aquí. La <strong>integración API</strong> va en el bloque colapsado de abajo.</p>
+                    <p class="small text-muted mb-3">Activá <strong>Yappy manual</strong> en la matriz (arriba). Para el checkout hace falta al menos uno de: <strong>Nombre visible</strong> o <strong>Teléfono o identificador Yappy</strong> (este bloque), o <strong>Nombre del negocio</strong> / <strong>Nombre en directorio</strong> / <strong>Ruta imagen QR</strong> (tarjeta siguiente). La <strong>integración API</strong> va en el bloque colapsado de abajo.</p>
 
                     <h6 class="mb-2"><i class="fas fa-hand-paper"></i> Yappy manual (validación administrativa)</h6>
                     <p class="small text-muted mb-3">Los pagos se confirman tras revisión administrativa.</p>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="yappy_manual_enabled" name="yappy_manual_enabled"
-                               {% if payment_config and payment_config.yappy_manual_enabled %}checked{% endif %}>
-                        <label class="form-check-label" for="yappy_manual_enabled">Habilitar Yappy (pago manual con validación admin) — equivale a <code>yappy_enabled</code> en requisitos</label>
-                    </div>
+                    <p class="small alert alert-info py-2 mb-3">
+                        Para mostrar u ocultar <strong>Yappy manual</strong> en el checkout, usa la columna <strong>Activo</strong> en la
+                        <a href="#org-payment-methods-section">matriz de métodos por organización</a> (arriba).
+                    </p>
                     <div class="mb-3">
                         <label for="yappy_manual_instructions" class="form-label">Instrucciones al cliente (HTML permitido)</label>
                         <textarea class="form-control" id="yappy_manual_instructions" name="yappy_manual_instructions" rows="4" placeholder="Ej: Incluya la referencia ORD-…">{{ payment_config.yappy_manual_instructions if payment_config and payment_config.yappy_manual_instructions }}</textarea>
@@ -335,45 +393,52 @@
                     </button>
                 </div>
                 <div id="payment-body-intl" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="intl">
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="intl_wire_enabled" name="intl_wire_enabled"
-                               {% if not payment_config or payment_config.get('intl_wire_enabled', True) %}checked{% endif %}>
-                        <label class="form-check-label" for="intl_wire_enabled">Mostrar método en checkout</label>
-                    </div>
+                    <p class="small alert alert-info py-2 mb-3">
+                        La visibilidad de <strong>SWIFT / transferencia internacional</strong> en checkout se controla solo en la
+                        <a href="#org-payment-methods-section">matriz de métodos</a> (<code>wire_international</code> → Activo).
+                        Aquí solo configures beneficiario, banco, SWIFT y datos de cuenta.
+                    </p>
                     <div class="row g-2 mb-0">
                         <div class="col-12">
                             <label class="form-label" for="intl_wire_beneficiary_name">Nombre del beneficiario</label>
                             <input type="text" class="form-control" id="intl_wire_beneficiary_name" name="intl_wire_beneficiary_name"
-                                   value="{% if payment_config and payment_config.get('intl_wire_beneficiary_name') %}{{ payment_config.intl_wire_beneficiary_name }}{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_beneficiary_name', '') }}{% endif %}"
+                                   placeholder="Ej. RED LATINOAMERICANA DE INVESTIVACIONES CUALITATIVAS">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="intl_wire_bank_name">Banco</label>
                             <input type="text" class="form-control" id="intl_wire_bank_name" name="intl_wire_bank_name"
-                                   value="{% if payment_config and payment_config.get('intl_wire_bank_name') %}{{ payment_config.intl_wire_bank_name }}{% else %}Banco General, S.A.{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_bank_name', '') }}{% endif %}"
+                                   placeholder="Banco General, S.A.">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="intl_wire_swift">SWIFT / BIC</label>
                             <input type="text" class="form-control" id="intl_wire_swift" name="intl_wire_swift"
-                                   value="{% if payment_config and payment_config.get('intl_wire_swift') %}{{ payment_config.intl_wire_swift }}{% else %}BAGEPAPA{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_swift', '') }}{% endif %}"
+                                   placeholder="BAGEPAPA">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="intl_wire_account">Número de cuenta</label>
                             <input type="text" class="form-control" id="intl_wire_account" name="intl_wire_account"
-                                   value="{% if payment_config and payment_config.get('intl_wire_account') %}{{ payment_config.intl_wire_account }}{% else %}04-18-00-004229-1{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_account', '') }}{% endif %}"
+                                   placeholder="04-18-00-004229-1">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label" for="intl_wire_account_type">Tipo</label>
                             <input type="text" class="form-control" id="intl_wire_account_type" name="intl_wire_account_type"
-                                   value="{% if payment_config and payment_config.get('intl_wire_account_type') %}{{ payment_config.intl_wire_account_type }}{% else %}Ahorros{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_account_type', '') }}{% endif %}"
+                                   placeholder="Cuenta de Ahorros">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label" for="intl_wire_country">País</label>
                             <input type="text" class="form-control" id="intl_wire_country" name="intl_wire_country"
-                                   value="{% if payment_config and payment_config.get('intl_wire_country') %}{{ payment_config.intl_wire_country }}{% else %}Panamá{% endif %}">
+                                   value="{% if payment_config %}{{ payment_config.get('intl_wire_country', '') }}{% endif %}"
+                                   placeholder="Panamá">
                         </div>
                         <div class="col-12">
                             <label class="form-label" for="intl_wire_instructions">Notas al cliente (HTML opcional)</label>
-                            <textarea class="form-control" id="intl_wire_instructions" name="intl_wire_instructions" rows="2">{% if payment_config and payment_config.get('intl_wire_instructions') %}{{ payment_config.intl_wire_instructions }}{% endif %}</textarea>
+                            <textarea class="form-control" id="intl_wire_instructions" name="intl_wire_instructions" rows="2"
+                                      placeholder="Instrucciones adicionales para transferencia internacional">{% if payment_config %}{{ payment_config.get('intl_wire_instructions', '') }}{% endif %}</textarea>
                         </div>
                     </div>
                 </div>
@@ -395,6 +460,33 @@
                     </button>
                 </div>
                 <div id="payment-body-banco" class="card-body pt-3 {% if not pay_expand_all %}d-none{% endif %}" data-payment-section="banco">
+                    <p class="small text-muted mb-2">Datos que ve el cliente al pagar por transferencia nacional (sin API CyberSource).</p>
+                    <div class="row mb-3">
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_beneficiary_name" class="form-label">Nombre del beneficiario</label>
+                            <input type="text" class="form-control" id="banco_general_beneficiary_name" name="banco_general_beneficiary_name"
+                                   value="{% if payment_config and payment_config.get('banco_general_beneficiary_name') %}{{ payment_config.banco_general_beneficiary_name }}{% else %}RED LATINOAMERICANA DE INVESTIVACIONES CUALITATIVAS{% endif %}">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_bank_name" class="form-label">Banco</label>
+                            <input type="text" class="form-control" id="banco_general_bank_name" name="banco_general_bank_name"
+                                   value="{% if payment_config and payment_config.get('banco_general_bank_name') %}{{ payment_config.banco_general_bank_name }}{% else %}Banco General{% endif %}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_account_number" class="form-label">Número de cuenta</label>
+                            <input type="text" class="form-control" id="banco_general_account_number" name="banco_general_account_number"
+                                   value="{% if payment_config and payment_config.get('banco_general_account_number') %}{{ payment_config.banco_general_account_number }}{% else %}04-18-00-004229-1{% endif %}">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="banco_general_account_type" class="form-label">Tipo de cuenta</label>
+                            <input type="text" class="form-control" id="banco_general_account_type" name="banco_general_account_type"
+                                   value="{% if payment_config and payment_config.get('banco_general_account_type') %}{{ payment_config.banco_general_account_type }}{% else %}Cuenta de Ahorros{% endif %}">
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <p class="small text-muted mb-2">API CyberSource (opcional; si está vacío se usa transferencia manual arriba).</p>
                     <div class="row mb-3">
                         <div class="col-12 col-md-6">
                             <label for="banco_general_merchant_id" class="form-label">Merchant ID</label>
@@ -441,12 +533,11 @@
                 <div class="card-header bg-primary text-white">
                     <h4 class="h6 mb-0">
                         <i class="fas fa-history"></i> Historial de transacciones de pagos
-                        <span class="badge bg-light text-dark ms-2">{{ payment_transactions|length if payment_transactions else 0 }}</span>
+                        <span class="badge bg-light text-dark ms-2">{{ payment_transactions|default([], true)|length }}</span>
                     </h4>
                 </div>
                 <div class="card-body">
-                    {% if payment_transactions %}
-                        {% if payment_transactions|length > 0 %}
+                    {% if payment_transactions is defined and payment_transactions|length > 0 %}
                         <div class="table-responsive">
                             <table class="table table-hover table-striped">
                                 <thead>
@@ -542,14 +633,13 @@
                                 </tbody>
                             </table>
                         </div>
-                        {% else %}
-                        <div class="alert alert-info">
+                    {% elif payment_transactions is defined %}
+                        <div class="alert alert-info mb-0">
                             <i class="fas fa-info-circle"></i> No hay transacciones de pago registradas aún.
                         </div>
-                        {% endif %}
                     {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> payment_transactions no está definido o está vacío.
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> No se pudo cargar el historial (variable no enviada desde el servidor). Revisá el log del servicio.
                     </div>
                     {% endif %}
                 </div>
@@ -671,7 +761,7 @@ function updatePaymentSectionStatuses(config) {
 
     var ymid = (config.yappy_merchant_id || '').toString().trim();
     var hasYappy = (ymid.length > 0 && !isEnvPlaceholder(config.yappy_merchant_id)) ||
-        (config.yappy_manual_enabled === true);
+        _orgMethodEnabled('yappy_manual');
     if (!active) {
         setPaymentStatusBadge('yappy', hasYappy ? 'Configurado' : 'Inactivo', hasYappy ? 'info' : 'dark');
     } else if (hasYappy) {
@@ -695,7 +785,7 @@ function updatePaymentSectionStatuses(config) {
         setPaymentStatusBadge('yappy_checkout_display', 'Opcional', 'secondary');
     }
 
-    var wireOn = config.intl_wire_enabled !== false;
+    var wireOn = _orgMethodEnabled('wire_international');
     var wireData = !!(
         (config.intl_wire_swift || '').toString().trim() ||
         (config.intl_wire_account || '').toString().trim() ||
@@ -711,8 +801,13 @@ function updatePaymentSectionStatuses(config) {
         setPaymentStatusBadge('intl', 'Inactivo', 'dark');
     }
 
+    var bancoTransfer = !!(
+        (config.banco_general_account_number || '').toString().trim() ||
+        (config.banco_general_beneficiary_name || '').toString().trim()
+    );
     var bancoId = (config.banco_general_merchant_id || '').toString().trim();
-    var hasBanco = bancoId.length > 0 && !isEnvPlaceholder(config.banco_general_merchant_id);
+    var hasBancoApi = bancoId.length > 0 && !isEnvPlaceholder(config.banco_general_merchant_id);
+    var hasBanco = bancoTransfer || hasBancoApi;
     if (!active) {
         setPaymentStatusBadge('banco', hasBanco ? 'Configurado' : 'Inactivo', hasBanco ? 'info' : 'dark');
     } else if (hasBanco) {
@@ -732,6 +827,135 @@ function _formChecked(id, defaultVal) {
     var el = document.getElementById(id);
     if (!el) return defaultVal !== undefined ? !!defaultVal : false;
     return !!el.checked;
+}
+
+function updatePaymentsScopeBanner(data) {
+    var banner = document.getElementById('payments-scope-org-banner');
+    var label = document.getElementById('payments-scope-org-label');
+    if (!banner || !data) return;
+    var oid = data.organization_id;
+    var name = data.organization_name || (oid ? ('Org #' + oid) : '');
+    if (label && name) label.textContent = name;
+    if (oid) {
+        banner.classList.remove('d-none');
+        banner.innerHTML = 'Empresa activa en este panel: <strong id="payments-scope-org-label">' + name + '</strong> ' +
+            '<span class="text-muted">(id ' + oid + ')</span>. Si cambiás de compañía en el menú lateral, pulsá <strong>Aplicar</strong> y esperá a que recargue la página.';
+    }
+}
+
+function clearPaymentConfigFormFields() {
+    var textIds = [
+        'paypal_client_id', 'paypal_client_secret', 'paypal_return_url', 'paypal_cancel_url',
+        'stripe_publishable_key', 'stripe_secret_key', 'stripe_webhook_secret',
+        'banco_general_merchant_id', 'banco_general_api_key', 'banco_general_shared_secret',
+        'yappy_api_key', 'yappy_merchant_id', 'yappy_directory_name', 'yappy_qr_image_path',
+        'yappy_business_name', 'yappy_merchant_phone', 'yappy_manual_instructions',
+        'yappy_manual_admin_emails', 'yappy_display_name', 'yappy_phone_or_identifier',
+        'yappy_instructions', 'intl_wire_beneficiary_name', 'intl_wire_bank_name',
+        'intl_wire_swift', 'intl_wire_account', 'intl_wire_account_type', 'intl_wire_country',
+        'intl_wire_instructions',
+        'banco_general_beneficiary_name', 'banco_general_bank_name',
+        'banco_general_account_number', 'banco_general_account_type'
+    ];
+    textIds.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    var paypalMode = document.getElementById('paypal_mode');
+    if (paypalMode) paypalMode.value = 'sandbox';
+    var bancoUrl = document.getElementById('banco_general_api_url');
+    if (bancoUrl) bancoUrl.value = 'https://api.cybersource.com';
+    var yappyUrl = document.getElementById('yappy_api_url');
+    if (yappyUrl) yappyUrl.value = 'https://api.yappy.im';
+}
+
+function applyPaymentConfigToForm(config) {
+    if (!config) return;
+    // Sin fila en BD: no vaciar el formulario (evita perder correos Yappy y bloquear guardado SWIFT).
+    if (config.id) {
+        clearPaymentConfigFormFields();
+    }
+    var useEnv = document.getElementById('use_environment_variables');
+    if (useEnv) useEnv.checked = config.use_environment_variables !== false;
+
+    function setVal(id, val, skipPlaceholder) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var v = val == null ? '' : String(val);
+        if (skipPlaceholder && v && isEnvPlaceholder(v)) return;
+        el.value = v;
+    }
+
+    setVal('paypal_client_id', config.paypal_client_id, true);
+    setVal('paypal_client_secret', config.paypal_client_secret, true);
+    setVal('paypal_mode', config.paypal_mode || 'sandbox');
+    setVal('paypal_return_url', config.paypal_return_url);
+    setVal('paypal_cancel_url', config.paypal_cancel_url);
+    setVal('stripe_publishable_key', config.stripe_publishable_key, true);
+    setVal('stripe_secret_key', config.stripe_secret_key, true);
+    setVal('stripe_webhook_secret', config.stripe_webhook_secret, true);
+    setVal('banco_general_merchant_id', config.banco_general_merchant_id, true);
+    setVal('banco_general_api_key', config.banco_general_api_key, true);
+    setVal('banco_general_shared_secret', config.banco_general_shared_secret, true);
+    setVal('banco_general_api_url', config.banco_general_api_url || 'https://api.cybersource.com');
+    setVal('yappy_api_key', config.yappy_api_key, true);
+    setVal('yappy_merchant_id', config.yappy_merchant_id, true);
+    setVal('yappy_api_url', config.yappy_api_url || 'https://api.yappy.im');
+    setVal('yappy_directory_name', config.yappy_directory_name);
+    setVal('yappy_qr_image_path', config.yappy_qr_image_path);
+    setVal('yappy_business_name', config.yappy_business_name);
+    setVal('yappy_merchant_phone', config.yappy_merchant_phone);
+    setVal('yappy_manual_instructions', config.yappy_manual_instructions);
+    setVal('yappy_manual_admin_emails', config.yappy_manual_admin_emails);
+    setVal('yappy_display_name', config.yappy_display_name);
+    setVal('yappy_phone_or_identifier', config.yappy_phone_or_identifier);
+    setVal('yappy_instructions', config.yappy_instructions);
+    var yrr = document.getElementById('yappy_requires_receipt');
+    if (yrr) yrr.checked = config.yappy_requires_receipt !== false;
+    var yar = document.getElementById('yappy_admin_validation_required');
+    if (yar) yar.checked = config.yappy_admin_validation_required !== false;
+    setVal('intl_wire_beneficiary_name', config.intl_wire_beneficiary_name);
+    setVal('intl_wire_bank_name', config.intl_wire_bank_name);
+    setVal('intl_wire_swift', config.intl_wire_swift);
+    setVal('intl_wire_account', config.intl_wire_account);
+    setVal('intl_wire_account_type', config.intl_wire_account_type);
+    setVal('intl_wire_country', config.intl_wire_country);
+    setVal('intl_wire_instructions', config.intl_wire_instructions);
+    setVal('banco_general_beneficiary_name', config.banco_general_beneficiary_name);
+    setVal('banco_general_bank_name', config.banco_general_bank_name);
+    setVal('banco_general_account_number', config.banco_general_account_number);
+    setVal('banco_general_account_type', config.banco_general_account_type);
+}
+
+function loadPaymentsConfigFromApi() {
+    return fetch('/api/admin/payments/config?_=' + Date.now(), { credentials: 'same-origin' })
+        .then(function (response) {
+            if (response.status === 302 || response.redirected) {
+                window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                return null;
+            }
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        })
+        .then(function (data) {
+            if (!data) return;
+            data = normalizeLegacyPaymentConfigResponse(data);
+            updatePaymentsScopeBanner(data);
+            window.__paymentsNoActiveRow = !!data.no_active_row;
+            if (data.success && data.config) {
+                if (data.config.organization_id && data.organization_id &&
+                    parseInt(data.config.organization_id, 10) !== parseInt(data.organization_id, 10)) {
+                    console.warn('Pagos: organization_id API vs config difieren', data.organization_id, data.config.organization_id);
+                }
+                applyPaymentConfigToForm(data.config);
+                window.__paymentsLastConfig = data.config;
+                updatePaymentSectionStatuses(data.config);
+            } else {
+                clearPaymentConfigFormFields();
+                window.__paymentsLastConfig = { is_active: false };
+                updatePaymentSectionStatuses(window.__paymentsLastConfig);
+            }
+        });
 }
 
 function savePaymentConfig() {
@@ -769,7 +993,6 @@ function savePaymentConfig() {
         yappy_qr_image_path: _gv('yappy_qr_image_path'),
         yappy_business_name: _gv('yappy_business_name'),
         yappy_merchant_phone: _gv('yappy_merchant_phone'),
-        yappy_manual_enabled: _gc('yappy_manual_enabled'),
         yappy_manual_instructions: _gv('yappy_manual_instructions'),
         yappy_manual_admin_emails: _formVal('yappy_manual_admin_emails'),
         yappy_display_name: _formVal('yappy_display_name'),
@@ -777,14 +1000,17 @@ function savePaymentConfig() {
         yappy_instructions: _formVal('yappy_instructions'),
         yappy_requires_receipt: _formChecked('yappy_requires_receipt', true),
         yappy_admin_validation_required: _formChecked('yappy_admin_validation_required', true),
-        intl_wire_enabled: _gc('intl_wire_enabled'),
         intl_wire_beneficiary_name: _gv('intl_wire_beneficiary_name'),
         intl_wire_bank_name: _gv('intl_wire_bank_name'),
         intl_wire_swift: _gv('intl_wire_swift'),
         intl_wire_account: _gv('intl_wire_account'),
         intl_wire_account_type: _gv('intl_wire_account_type'),
         intl_wire_country: _gv('intl_wire_country'),
-        intl_wire_instructions: _gv('intl_wire_instructions')
+        intl_wire_instructions: _gv('intl_wire_instructions'),
+        banco_general_beneficiary_name: _gv('banco_general_beneficiary_name'),
+        banco_general_bank_name: _gv('banco_general_bank_name'),
+        banco_general_account_number: _gv('banco_general_account_number'),
+        banco_general_account_type: _gv('banco_general_account_type')
     };
 
     if (config.yappy_phone_or_identifier && String(config.yappy_phone_or_identifier).length > 120) {
@@ -818,6 +1044,9 @@ function savePaymentConfig() {
                 if (response.status === 503 && data && data.schema_migration_required) {
                     msg = (data.error || msg) + ' Tras migrar, guardá de nuevo.';
                 }
+                if (data && data.field === 'yappy_manual_admin_emails') {
+                    msg += ' Completá «Correos para alertas» en la sección Yappy (arriba en el panel).';
+                }
                 throw new Error(msg);
             });
         }
@@ -825,10 +1054,19 @@ function savePaymentConfig() {
     })
     .then(data => {
         if (data.success) {
-            showAlert(data.message || 'Configuración guardada correctamente', 'success');
-            setTimeout(function () {
-                window.location.reload();
-            }, 1000);
+            updatePaymentsScopeBanner(data);
+            if (data.config) {
+                applyPaymentConfigToForm(data.config);
+                window.__paymentsLastConfig = data.config;
+                updatePaymentSectionStatuses(data.config);
+            }
+            showAlert(
+                (data.message || 'Configuración guardada correctamente') +
+                (data.organization_name ? ' (' + data.organization_name + ')' : ''),
+                'success'
+            );
+            loadPaymentsConfigFromApi().catch(function () {});
+            loadOrgPaymentMethods();
         } else {
             expandAllPaymentSections();
             showAlert('Error: ' + (data.error || data.message || 'No se pudo guardar la configuración'), 'danger');
@@ -837,7 +1075,13 @@ function savePaymentConfig() {
     .catch(error => {
         expandAllPaymentSections();
         console.error('Error guardando configuración de pagos:', error);
-        showAlert('Error: ' + error.message, 'danger');
+        var msg = error.message || 'No se pudo guardar';
+        if (msg.indexOf('Yappy manual') !== -1 || msg.indexOf('correo') !== -1) {
+            msg += ' Revisá la sección <strong>Yappy</strong> → «Correos para alertas» (obligatorio si Yappy manual está activo en la matriz).';
+        }
+        showAlert('Error: ' + msg, 'danger');
+        var alertBox = document.getElementById('alert-container');
+        if (alertBox) alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 }
 
@@ -893,6 +1137,10 @@ function normalizeLegacyPaymentConfigResponse(data) {
                 intl_wire_account_type: '',
                 intl_wire_country: '',
                 intl_wire_instructions: '',
+                banco_general_beneficiary_name: '',
+                banco_general_bank_name: '',
+                banco_general_account_number: '',
+                banco_general_account_type: '',
                 use_environment_variables: true,
                 is_active: false,
                 updated_at: null
@@ -902,122 +1150,188 @@ function normalizeLegacyPaymentConfigResponse(data) {
     return data;
 }
 
+var __orgMethodsData = [];
+var __orgMethodsSelectedKey = null;
+
+function _orgMethodEnabled(methodKey) {
+    var row = __orgMethodsData.find(function (x) { return x.method_key === methodKey; });
+    return !!(row && row.enabled);
+}
+
+function showOrgMethodsAlert(msg, type) {
+    var el = document.getElementById('org-methods-alert');
+    if (!el) return;
+    el.innerHTML = '<div class="alert alert-' + (type || 'info') + ' alert-dismissible fade show">' + msg +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+}
+
+function renderOrgMethodsTable(methods) {
+    __orgMethodsData = methods || [];
+    var tbody = document.getElementById('org-methods-tbody');
+    if (!tbody) return;
+    if (!__orgMethodsData.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-muted">Sin métodos. Ejecutá migrate_organization_payment_methods.py</td></tr>';
+        return;
+    }
+    tbody.innerHTML = __orgMethodsData.map(function (m) {
+        return '<tr data-method-key="' + m.method_key + '">' +
+            '<td><input type="number" class="form-control form-control-sm org-m-order" data-key="' + m.method_key + '" value="' + (m.display_order || 0) + '" style="width:4rem"></td>' +
+            '<td><code>' + m.method_key + '</code></td>' +
+            '<td><input type="text" class="form-control form-control-sm org-m-label" data-key="' + m.method_key + '" value="' + (m.label || '').replace(/"/g, '&quot;') + '"></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input org-m-enabled" data-key="' + m.method_key + '"' + (m.enabled ? ' checked' : '') + '></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input org-m-receipt" data-key="' + m.method_key + '"' + (m.requires_receipt ? ' checked' : '') + '></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input org-m-approval" data-key="' + m.method_key + '"' + (m.requires_admin_approval ? ' checked' : '') + '></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input org-m-auto" data-key="' + m.method_key + '"' + (m.auto_confirm ? ' checked' : '') + '></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input org-m-intl" data-key="' + m.method_key + '"' + (m.is_international ? ' checked' : '') + '></td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-secondary org-m-edit-instr" data-key="' + m.method_key + '">Instr.</button></td>' +
+            '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.org-m-edit-instr').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var key = btn.getAttribute('data-key');
+            __orgMethodsSelectedKey = key;
+            var row = __orgMethodsData.find(function (x) { return x.method_key === key; });
+            document.getElementById('org-methods-instr-label').textContent = key;
+            document.getElementById('org-methods-instructions').value = (row && row.instructions_html) || '';
+            document.getElementById('org-methods-instructions-panel').style.display = 'block';
+        });
+    });
+}
+
+function collectOrgMethodsPayload() {
+    var tbody = document.getElementById('org-methods-tbody');
+    return __orgMethodsData.map(function (m) {
+        var key = m.method_key;
+        var tr = tbody ? tbody.querySelector('tr[data-method-key="' + key + '"]') : null;
+        var instr = m.instructions_html || '';
+        if (key === __orgMethodsSelectedKey && document.getElementById('org-methods-instructions')) {
+            instr = document.getElementById('org-methods-instructions').value;
+        }
+        if (!tr) {
+            console.warn('Pagos: fila de matriz no encontrada para', key);
+            return m;
+        }
+        return {
+            method_key: key,
+            label: tr.querySelector('.org-m-label').value,
+            enabled: tr.querySelector('.org-m-enabled').checked,
+            display_order: parseInt(tr.querySelector('.org-m-order').value, 10) || 0,
+            requires_receipt: tr.querySelector('.org-m-receipt').checked,
+            requires_admin_approval: tr.querySelector('.org-m-approval').checked,
+            auto_confirm: tr.querySelector('.org-m-auto').checked,
+            is_international: tr.querySelector('.org-m-intl').checked,
+            instructions_html: instr
+        };
+    });
+}
+
+function loadOrgPaymentMethods() {
+    fetch('/api/admin/payments/org-methods?_=' + Date.now(), { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                renderOrgMethodsTable(data.methods);
+                if (window.__paymentsLastConfig) {
+                    updatePaymentSectionStatuses(window.__paymentsLastConfig);
+                }
+            } else {
+                showOrgMethodsAlert(data.error || 'Error al cargar métodos', 'danger');
+            }
+        })
+        .catch(function (e) {
+            showOrgMethodsAlert('No se pudo cargar la matriz: ' + e, 'warning');
+        });
+}
+
+function applyOrgPaymentProfile() {
+    var sel = document.getElementById('payment-profile-select');
+    var key = sel ? sel.value : '';
+    if (!key) {
+        showOrgMethodsAlert('Elegí un perfil (Panamá o Internacional).', 'warning');
+        return;
+    }
+    if (!confirm('¿Aplicar este perfil a la organización activa? Se actualizarán los métodos Activos.')) {
+        return;
+    }
+    fetch('/api/admin/payments/org-methods/apply-profile', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: key })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                renderOrgMethodsTable(data.methods);
+                if (window.__paymentsLastConfig) {
+                    updatePaymentSectionStatuses(window.__paymentsLastConfig);
+                }
+                showOrgMethodsAlert(data.message || 'Perfil aplicado.', 'success');
+            } else {
+                showOrgMethodsAlert(data.error || 'Error al aplicar perfil', 'danger');
+            }
+        })
+        .catch(function (e) {
+            showOrgMethodsAlert('Error: ' + e, 'danger');
+        });
+}
+
+function saveOrgPaymentMethods() {
+    var payload = { methods: collectOrgMethodsPayload() };
+    fetch('/api/admin/payments/org-methods', {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+        .then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (data) {
+                if (!r.ok) {
+                    var msg = (data && (data.message || data.error)) || ('Error HTTP ' + r.status);
+                    if (r.status === 403) {
+                        msg = 'Sin permiso para guardar la matriz (payments.manage). Contactá al administrador de la plataforma.';
+                    }
+                    throw new Error(msg);
+                }
+                return data;
+            });
+        })
+        .then(function (data) {
+            if (data.success) {
+                renderOrgMethodsTable(data.methods);
+                if (window.__paymentsLastConfig) {
+                    updatePaymentSectionStatuses(window.__paymentsLastConfig);
+                }
+                showOrgMethodsAlert('Matriz guardada. Checkout usa estos métodos para la organización activa.', 'success');
+                showAlert('Matriz de métodos guardada (incluye Activo en SWIFT si lo marcaste).', 'success');
+            } else {
+                showOrgMethodsAlert(data.error || data.message || 'Error al guardar', 'danger');
+            }
+        })
+        .catch(function (e) {
+            showOrgMethodsAlert('Error: ' + e, 'danger');
+            showAlert('Error al guardar matriz: ' + e, 'danger');
+        });
+}
+
 // Cargar configuración al iniciar
 document.addEventListener('DOMContentLoaded', function () {
     initPaymentCollapseToggles();
+    loadOrgPaymentMethods();
+    var btnSaveOrg = document.getElementById('btn-save-org-methods');
+    if (btnSaveOrg) btnSaveOrg.addEventListener('click', saveOrgPaymentMethods);
+    var btnProfile = document.getElementById('btn-apply-payment-profile');
+    if (btnProfile) btnProfile.addEventListener('click', applyOrgPaymentProfile);
 
     if (document.getElementById('payments-config-root') && document.getElementById('payments-config-root').getAttribute('data-payments-expand-all') === '1') {
         expandAllPaymentSections();
     }
 
-    fetch('/api/admin/payments/config', {
-        credentials: 'same-origin'
-    })
-        .then(function (response) {
-            if (response.status === 302 || response.redirected) {
-                window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
-                return null;
-            }
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
-            return response.json();
-        })
-        .then(function (data) {
-            if (!data) return;
-            data = normalizeLegacyPaymentConfigResponse(data);
-            window.__paymentsNoActiveRow = !!data.no_active_row;
-
-            if (data.success && data.config) {
-                var config = data.config;
-                if ((data.schema_degraded || data.read_error_degraded) && data.message) {
-                    console.warn('Pagos (API):', data.message);
-                } else if (data.no_active_row) {
-                    console.info('Pagos:', data.message || 'Sin fila activa; rellena y guarda para crear payment_config.');
-                }
-
-                if (config.use_environment_variables !== undefined) {
-                    document.getElementById('use_environment_variables').checked = config.use_environment_variables;
-                }
-
-                if (config.paypal_client_id && !isEnvPlaceholder(config.paypal_client_id)) {
-                    document.getElementById('paypal_client_id').value = config.paypal_client_id;
-                }
-                if (config.paypal_client_secret && !isEnvPlaceholder(config.paypal_client_secret)) {
-                    document.getElementById('paypal_client_secret').value = config.paypal_client_secret;
-                }
-                if (config.paypal_mode) document.getElementById('paypal_mode').value = config.paypal_mode;
-                if (config.paypal_return_url) document.getElementById('paypal_return_url').value = config.paypal_return_url;
-                if (config.paypal_cancel_url) document.getElementById('paypal_cancel_url').value = config.paypal_cancel_url;
-
-                var stripePk = document.getElementById('stripe_publishable_key');
-                if (stripePk && config.stripe_publishable_key && !isEnvPlaceholder(config.stripe_publishable_key)) {
-                    stripePk.value = config.stripe_publishable_key;
-                }
-
-                if (config.banco_general_merchant_id && !isEnvPlaceholder(config.banco_general_merchant_id)) {
-                    document.getElementById('banco_general_merchant_id').value = config.banco_general_merchant_id;
-                }
-                if (config.banco_general_api_key && !isEnvPlaceholder(config.banco_general_api_key)) {
-                    document.getElementById('banco_general_api_key').value = config.banco_general_api_key;
-                }
-                if (config.banco_general_shared_secret && !isEnvPlaceholder(config.banco_general_shared_secret)) {
-                    document.getElementById('banco_general_shared_secret').value = config.banco_general_shared_secret;
-                }
-                if (config.banco_general_api_url) document.getElementById('banco_general_api_url').value = config.banco_general_api_url;
-
-                if (config.yappy_api_key && !isEnvPlaceholder(config.yappy_api_key)) {
-                    document.getElementById('yappy_api_key').value = config.yappy_api_key;
-                }
-                if (config.yappy_merchant_id && !isEnvPlaceholder(config.yappy_merchant_id)) {
-                    document.getElementById('yappy_merchant_id').value = config.yappy_merchant_id;
-                }
-                if (config.yappy_api_url) document.getElementById('yappy_api_url').value = config.yappy_api_url;
-                if (config.yappy_directory_name) document.getElementById('yappy_directory_name').value = config.yappy_directory_name;
-                if (config.yappy_qr_image_path) document.getElementById('yappy_qr_image_path').value = config.yappy_qr_image_path;
-                if (config.yappy_business_name) document.getElementById('yappy_business_name').value = config.yappy_business_name;
-                if (document.getElementById('yappy_merchant_phone') && config.yappy_merchant_phone !== undefined) {
-                    document.getElementById('yappy_merchant_phone').value = config.yappy_merchant_phone || '';
-                }
-                if (config.yappy_manual_enabled !== undefined) {
-                    document.getElementById('yappy_manual_enabled').checked = !!config.yappy_manual_enabled;
-                }
-                if (config.yappy_manual_instructions) document.getElementById('yappy_manual_instructions').value = config.yappy_manual_instructions;
-                if (config.yappy_manual_admin_emails) document.getElementById('yappy_manual_admin_emails').value = config.yappy_manual_admin_emails;
-                if (document.getElementById('yappy_display_name') && config.yappy_display_name !== undefined) {
-                    document.getElementById('yappy_display_name').value = config.yappy_display_name || '';
-                }
-                if (document.getElementById('yappy_phone_or_identifier') && config.yappy_phone_or_identifier !== undefined) {
-                    document.getElementById('yappy_phone_or_identifier').value = config.yappy_phone_or_identifier || '';
-                }
-                if (document.getElementById('yappy_instructions') && config.yappy_instructions !== undefined) {
-                    document.getElementById('yappy_instructions').value = config.yappy_instructions || '';
-                }
-                if (document.getElementById('yappy_requires_receipt') && config.yappy_requires_receipt !== undefined) {
-                    document.getElementById('yappy_requires_receipt').checked = !!config.yappy_requires_receipt;
-                }
-                if (document.getElementById('yappy_admin_validation_required') && config.yappy_admin_validation_required !== undefined) {
-                    document.getElementById('yappy_admin_validation_required').checked = !!config.yappy_admin_validation_required;
-                }
-                if (config.intl_wire_enabled !== undefined) document.getElementById('intl_wire_enabled').checked = !!config.intl_wire_enabled;
-                if (config.intl_wire_beneficiary_name) document.getElementById('intl_wire_beneficiary_name').value = config.intl_wire_beneficiary_name;
-                if (config.intl_wire_bank_name) document.getElementById('intl_wire_bank_name').value = config.intl_wire_bank_name;
-                if (config.intl_wire_swift) document.getElementById('intl_wire_swift').value = config.intl_wire_swift;
-                if (config.intl_wire_account) document.getElementById('intl_wire_account').value = config.intl_wire_account;
-                if (config.intl_wire_account_type) document.getElementById('intl_wire_account_type').value = config.intl_wire_account_type;
-                if (config.intl_wire_country) document.getElementById('intl_wire_country').value = config.intl_wire_country;
-                if (config.intl_wire_instructions) document.getElementById('intl_wire_instructions').value = config.intl_wire_instructions;
-
-                updatePaymentSectionStatuses(config);
-            } else {
-                window.__paymentsNoActiveRow = true;
-                updatePaymentSectionStatuses({ is_active: false, intl_wire_enabled: true });
-            }
-        })
+    loadPaymentsConfigFromApi()
         .catch(function (error) {
             console.error('Error cargando configuración de pagos:', error);
             window.__paymentsNoActiveRow = true;
-            updatePaymentSectionStatuses({ is_active: false, intl_wire_enabled: true });
+            updatePaymentSectionStatuses({ is_active: false });
             showAlert('No se pudo cargar la configuración desde la API. Los bloques siguen disponibles; verifica sesión de administrador.', 'warning');
         });
 });

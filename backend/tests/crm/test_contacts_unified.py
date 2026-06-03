@@ -1,4 +1,4 @@
-"""Compat: /admin/contacts sigue existiendo pero unificado a CRM."""
+"""Compat: /admin/contacts legacy CRM o módulo central Contactos."""
 import sys
 import unittest
 from pathlib import Path
@@ -8,18 +8,17 @@ sys.path.insert(0, str(backend_dir))
 
 
 class TestContactsUnifiedToCrm(unittest.TestCase):
-    def test_contacts_endpoint_registered(self):
+    def test_contacts_path_resolved(self):
         from app import app
-
-        endpoints = {r.endpoint for r in app.url_map.iter_rules()}
-        self.assertIn('admin_tenant_contacts', endpoints)
-        self.assertIn('admin_tenant_contact_delete', endpoints)
-
-    def test_contacts_path_kept(self):
-        from app import app
+        from nodeone.services.contacts_module import is_contacts_globally_allowed
 
         by_ep = {r.endpoint: str(r.rule) for r in app.url_map.iter_rules()}
-        self.assertEqual(by_ep.get('admin_tenant_contacts'), '/admin/contacts')
+        if is_contacts_globally_allowed():
+            self.assertIn('contacts_admin.contacts_index', by_ep)
+            self.assertEqual(by_ep.get('contacts_admin.contacts_index'), '/admin/contacts/')
+        else:
+            self.assertIn('admin_tenant_contacts', by_ep)
+            self.assertEqual(by_ep.get('admin_tenant_contacts'), '/admin/contacts')
 
 
 if __name__ == '__main__':

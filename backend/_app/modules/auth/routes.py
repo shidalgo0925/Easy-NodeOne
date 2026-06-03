@@ -75,6 +75,13 @@ def login():
             next_page = service.safe_next_path(request.form.get('next') or request.args.get('next'))
             if not next_page:
                 next_page = service.safe_next_path(session.pop('pending_return_url', None))
+            if not next_page:
+                try:
+                    from nodeone.modules.academic_enrollment.session_helpers import pending_continuar_url
+
+                    next_page = pending_continuar_url()
+                except Exception:
+                    pass
             return redirect(next_page) if next_page else redirect(url_for('dashboard'))
         flash(error or 'Credenciales inválidas.', 'error')
         return render_template('login.html', saas_organizations=[], login_email=email)

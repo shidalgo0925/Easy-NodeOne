@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Contactos / Terceros{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0"><i class="fas fa-address-book me-2"></i>Contactos / Terceros</h1>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('commercial_partners_admin.terceros_new') }}">Nuevo contacto</a>
+  </div>
+  <p class="text-muted small">Sujeto fiscal para facturas comerciales y FE. No confundir con usuario de acceso al sistema.</p>
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-auto"><input class="form-control form-control-sm" name="q" value="{{ q }}" placeholder="Buscar nombre, RUC, email…" /></div>
+    <div class="col-auto"><button class="btn btn-sm btn-secondary" type="submit">Buscar</button></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover">
+      <thead><tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>RUC</th><th>Email fiscal</th><th>Cliente</th><th></th></tr></thead>
+      <tbody>
+        {% for p in partners %}
+        <tr>
+          <td>{{ p.id }}</td>
+          <td>{{ p.legal_name or p.name }}</td>
+          <td>{{ p.person_type }}</td>
+          <td>{{ p.tax_id or '—' }}</td>
+          <td>{{ p.fiscal_email or p.email or '—' }}</td>
+          <td>{% if p.is_customer %}Sí{% else %}No{% endif %}</td>
+          <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('commercial_partners_admin.terceros_edit', contact_id=p.id) }}">Editar</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-muted">Sin contactos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@ import json
 import os
 import re
 import secrets
-from flask import has_request_context, url_for
+from flask import g, has_request_context, url_for
 from flask_login import UserMixin, current_user
 from sqlalchemy import text as sql_text
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -54,12 +54,25 @@ class OrganizationSettings(db.Model):
                     oid = int(gco)
         except Exception:
             pass
+        if has_request_context():
+            cache_key = f'_org_settings_for_session_{oid}'
+            cached = getattr(g, cache_key, None)
+            if cached is not None:
+                return cached
+        else:
+            cache_key = None
+
+        def _cache_settings(settings_row):
+            if has_request_context() and cache_key is not None and settings_row is not None:
+                setattr(g, cache_key, settings_row)
+            return settings_row
+
         row = OrganizationSettings.query.filter_by(organization_id=oid).first()
         if row is not None:
-            return row
+            return _cache_settings(row)
         legacy = OrganizationSettings.query.filter(OrganizationSettings.organization_id.is_(None)).first()
         if legacy is not None and int(oid) == int(default_organization_id()):
-            return legacy
+            return _cache_settings(legacy)
         base = legacy or OrganizationSettings.query.first()
         src = base.to_dict() if base else {}
         n = OrganizationSettings(
@@ -77,6 +90,8 @@ class OrganizationSettings(db.Model):
         except Exception:
             db.session.rollback()
             return OrganizationSettings.get_settings()
+        if has_request_context():
+            setattr(g, cache_key, n)
         return n
 
     def to_dict(self):
@@ -144,7 +159,7 @@ class SaasOrgModule(db.Model):
 
 
 class TenantCrmContact(db.Model):
-    """Contactos CRM por organización (sidebar Clientes → Contactos)."""
+    """Contacto / tercero fiscal y comercial por organización (CRM + facturación)."""
     __tablename__ = 'tenant_crm_contact'
     id = db.Column(db.Integer, primary_key=True)
     organization_id = db.Column(
@@ -161,6 +176,24 @@ class TenantCrmContact(db.Model):
     sales_commission_rate = db.Column(db.Float, nullable=True)
     linked_user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True, index=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    is_customer = db.Column(db.Boolean, nullable=False, default=True)
+    is_supplier = db.Column(db.Boolean, nullable=False, default=False)
+    external_id = db.Column(db.String(120), nullable=True)
+    legal_name = db.Column(db.String(300), nullable=True)
+    trade_name = db.Column(db.String(300), nullable=True)
+    person_type = db.Column(db.String(30), nullable=False, default='natural')  # natural|juridica|final_consumer
+    id_type = db.Column(db.String(30), nullable=True)
+    tax_id = db.Column(db.String(80), nullable=True)
+    tax_dv = db.Column(db.String(10), nullable=True)
+    id_number = db.Column(db.String(80), nullable=True)
+    fiscal_email = db.Column(db.String(255), nullable=True)
+    fiscal_phone = db.Column(db.String(50), nullable=True)
+    fiscal_address = db.Column(db.Text, nullable=True)
+    country_code = db.Column(db.String(8), nullable=False, default='PA')
+    province = db.Column(db.String(120), nullable=True)
+    district = db.Column(db.String(120), nullable=True)
+    corregimiento = db.Column(db.String(120), nullable=True)
+    itbms_exempt = db.Column(db.Boolean, nullable=False, default=False)
 
 
 class SaasModuleDependency(db.Model):

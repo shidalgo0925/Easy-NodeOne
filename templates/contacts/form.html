@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block head_extra %}
+<style>
+.contact-form-page .form-label { font-size: 0.8rem; margin-bottom: 0.15rem; }
+.contact-form-page .form-control,
+.contact-form-page .form-select { font-size: 0.875rem; }
+.contact-form-page .card-body { padding: 0.85rem 1rem; }
+.contact-form-page .section-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin: 0.5rem 0 0.35rem;
+    font-weight: 600;
+}
+.contact-form-page .contact-photo-preview {
+    width: 6.5rem;
+    height: 6.5rem;
+    border-radius: 0.5rem;
+    object-fit: cover;
+    background: #f1f5f9;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+}
+.contact-form-page .contact-photo-preview--company { border-radius: 0.65rem; }
+.contact-form-page .contact-photo-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 1.5rem;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-sm-3 py-2 contact-form-page">
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2 contact-form-toolbar">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contacts_admin.contacts_index') }}">&larr; Contactos</a>
+      <h1 class="h5 mb-0">{{ title }}</h1>
+      <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('contacts_admin.contacts_index') }}">Cancelar</a>
+      {% if contact %}
+      <a class="btn btn-sm btn-outline-secondary ms-md-auto" href="{{ url_for('contacts_admin.contacts_detail', contact_id=contact.id) }}">Vista ficha</a>
+      {% endif %}
+    </div>
+    <div class="card border shadow-sm">
+    <div class="card-body">
+      <div class="row g-2 align-items-start mb-2">
+        <div class="col-auto text-center">
+          {% set is_company = contact and contact.contact_type == 'company' %}
+          {% if contact and contact.image_url %}
+          <img src="{{ contact.image_url }}" alt="" class="contact-photo-preview{% if is_company %} contact-photo-preview--company{% endif %} mb-2" id="contactPhotoPreview" loading="lazy" decoding="async" />
+          {% else %}
+          <div class="contact-photo-preview contact-photo-placeholder{% if is_company %} contact-photo-preview--company{% endif %} mb-2" id="contactPhotoPreview" aria-hidden="true">
+            <i class="fas {% if is_company %}fa-building{% else %}fa-user{% endif %}"></i>
+          </div>
+          {% endif %}
+          <label class="form-label small d-block mb-1">Foto / logo</label>
+          <input class="form-control form-control-sm" type="file" name="photo" id="contactPhotoInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+          {% if contact and contact.image_url %}
+          <div class="form-check mt-1 text-start">
+            <input class="form-check-input" type="checkbox" name="remove_photo" value="1" id="remove_photo" />
+            <label class="form-check-label small" for="remove_photo">Quitar imagen</label>
+          </div>
+          {% endif %}
+        </div>
+        <div class="col">
+      <p class="section-title mb-0">Identidad</p>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label">Tipo contacto</label>
+          <select class="form-select form-select-sm" name="contact_type" required>
+            <option value="person" {% if contact and contact.contact_type == 'person' %}selected{% endif %}>Persona</option>
+            <option value="company" {% if contact and contact.contact_type == 'company' %}selected{% endif %}>Empresa</option>
+            <option value="consumer_final" {% if contact and contact.contact_type == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+          </select>
+        </div>
+        <div class="col-md-9">
+          <label class="form-label">Nombre para mostrar *</label>
+          <input class="form-control form-control-sm" name="display_name" required value="{{ contact.display_name if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nombre</label>
+          <input class="form-control form-control-sm" name="first_name" value="{{ contact.first_name if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Apellido</label>
+          <input class="form-control form-control-sm" name="last_name" value="{{ contact.last_name if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nombre comercial</label>
+          <input class="form-control form-control-sm" name="commercial_name" value="{{ contact.commercial_name if contact else '' }}" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Razón social (empresa)</label>
+          <input class="form-control form-control-sm" name="company_name" value="{{ contact.company_name if contact else '' }}" />
+        </div>
+      </div>
+        </div>
+      </div>
+      <p class="section-title">Comunicación e identificación fiscal</p>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label">Email</label>
+          <input class="form-control form-control-sm" type="email" name="email" value="{{ contact.email if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control form-control-sm" name="phone" value="{{ contact.phone if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Móvil</label>
+          <input class="form-control form-control-sm" name="mobile" value="{{ contact.mobile if contact else '' }}" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Tipo identificación</label>
+          <select class="form-select form-select-sm" name="identification_type">
+            <option value="consumer_final" {% if not contact or contact.identification_type == 'consumer_final' %}selected{% endif %}>Consumidor final</option>
+            <option value="ruc" {% if contact and contact.identification_type == 'ruc' %}selected{% endif %}>RUC</option>
+            <option value="cedula" {% if contact and contact.identification_type == 'cedula' %}selected{% endif %}>Cédula</option>
+            <option value="passport" {% if contact and contact.identification_type == 'passport' %}selected{% endif %}>Pasaporte</option>
+          </select>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">RUC / Nº identificación</label>
+          <input class="form-control form-control-sm" name="tax_id" value="{{ contact.tax_id if contact else '' }}" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">DV</label>
+          <input class="form-control form-control-sm" name="dv" maxlength="10" value="{{ contact.dv if contact else '' }}" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">País</label>
+          <input class="form-control form-control-sm" name="country" maxlength="8" value="{{ contact.country if contact else 'PA' }}" />
+        </div>
+      </div>
+      <p class="section-title">Ubicación</p>
+      <div class="row g-2">
+        <div class="col-12">
+          <label class="form-label">Dirección fiscal</label>
+          <textarea class="form-control form-control-sm" name="fiscal_address" rows="2">{{ contact.fiscal_address if contact else '' }}</textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Provincia</label>
+          <input class="form-control form-control-sm" name="province" value="{{ contact.province if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Distrito</label>
+          <input class="form-control form-control-sm" name="district" value="{{ contact.district if contact else '' }}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Corregimiento</label>
+          <input class="form-control form-control-sm" name="township" value="{{ contact.township if contact else '' }}" />
+        </div>
+      </div>
+      <p class="section-title">Roles</p>
+      <div class="row g-1">
+        {% for field, label in [
+          ('is_customer', 'Cliente'), ('is_supplier', 'Proveedor'), ('is_member', 'Miembro'),
+          ('is_student', 'Estudiante'), ('is_participant', 'Participante'), ('is_instructor', 'Instructor'),
+          ('is_donor', 'Donante'), ('is_employee', 'Empleado'), ('is_tax_exempt', 'Exento ITBMS')
+        ] %}
+        <div class="col-6 col-md-4 col-lg-3 form-check mb-0">
+          <input class="form-check-input" type="checkbox" name="{{ field }}" value="1" id="{{ field }}"
+            {% if contact and contact|attr(field) %}checked{% elif not contact and field == 'is_customer' %}checked{% endif %} />
+          <label class="form-check-label small" for="{{ field }}">{{ label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+      {% if contact %}
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" name="active" value="1" id="active" {% if contact.active %}checked{% endif %} />
+        <label class="form-check-label small" for="active">Activo</label>
+      </div>
+      {% endif %}
+    </div>
+    </div>
+  </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var input = document.getElementById('contactPhotoInput');
+  var preview = document.getElementById('contactPhotoPreview');
+  if (!input || !preview) return;
+  input.addEventListener('change', function () {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var url = URL.createObjectURL(file);
+    if (preview.tagName === 'IMG') {
+      preview.src = url;
+    } else {
+      var img = document.createElement('img');
+      img.id = 'contactPhotoPreview';
+      img.className = 'contact-photo-preview mb-2';
+      img.alt = '';
+      img.src = url;
+      preview.replaceWith(img);
+    }
+  });
+});
+</script>
+{% endblock %}

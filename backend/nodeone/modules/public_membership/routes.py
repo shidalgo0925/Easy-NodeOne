@@ -19,6 +19,9 @@ def register_public_membership_routes(app):
         UserService,
         tenant_data_organization_id,
     )
+    from saas_features import require_saas_module
+
+    _require_memberships = require_saas_module('memberships')
 
     STATUS_META = {
         'active': {'label': 'Activo', 'badge': 'success'},
@@ -54,6 +57,12 @@ def register_public_membership_routes(app):
         if status_key == 'completed':
             return ('Ver historial', url_for('appointments.appointments_home'))
         return ('Comprar nuevamente', url_for('services.list'))
+
+    @app.route('/mi-campus')
+    @login_required
+    def member_campus():
+        """Alias del dashboard — sección campus académico (IIUS / academic_closed)."""
+        return redirect(url_for('dashboard') + '#campus-academico')
 
     @app.route('/dashboard')
     @login_required
@@ -189,6 +198,7 @@ def register_public_membership_routes(app):
 
     @app.route('/membership')
     @login_required
+    @_require_memberships
     def membership():
         """Página de membresía"""
         active_membership = current_user.get_active_membership()
@@ -330,6 +340,7 @@ def register_public_membership_routes(app):
 
     @app.route('/member/plan')
     @login_required
+    @_require_memberships
     def member_plan():
         """Alias semántico para la vista de plan del cliente."""
         return redirect(url_for('membership'))
@@ -341,7 +352,7 @@ def register_public_membership_routes(app):
         if stype == 'CV_REGISTRATION':
             return 'Completar formulario', url_for('cv_registro', service=service.id)
         if stype == 'COURSE':
-            return 'Ver en catálogo', url_for('services.list')
+            return 'Ver en tienda', url_for('services.list')
         el = (service.external_link or '').strip()
         if el:
             if el.startswith(('http://', 'https://', '//')):
@@ -353,7 +364,7 @@ def register_public_membership_routes(app):
             if stype == 'CONSULTIVO':
                 return 'Solicitar reunión', url_for('appointments.request_appointment', service_id=service.id)
             return 'Solicitar cita', url_for('services.request_appointment', service_id=service.id)
-        return 'Ver en catálogo', url_for('services.list')
+        return 'Ver en tienda', url_for('services.list')
 
     @app.route('/member/services')
     @login_required
@@ -464,6 +475,7 @@ def register_public_membership_routes(app):
 
     @app.route('/benefits')
     @login_required
+    @_require_memberships
     def benefits():
         """Página de beneficios: muestra los de tu plan y planes inferiores (según jerarquía)."""
         active_membership = current_user.get_active_membership()

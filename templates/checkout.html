@@ -151,11 +151,6 @@
         </div>
     </nav>
 
-    {% if checkout_demo_hold %}
-    <div class="alert alert-secondary py-2 small mb-3" role="status">
-        <strong>Modo prueba:</strong> los pagos demo (Stripe/PayPal sin credenciales reales) quedan en <strong>pendiente</strong> y no se confirman solos. Para volver al auto-éxito legacy en demo, poné <code>NODEONE_CHECKOUT_DEMO_AUTO_SUCCESS=1</code> (o <code>NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS=0</code>) y reiniciá el servicio.
-    </div>
-    {% endif %}
     {% if current_user.is_authenticated and current_user.is_admin %}
     <p class="small text-muted mb-3 border-start border-3 border-primary ps-2">Admin: checkout wizard (<code>checkout.html</code> + <code>checkout_payment_methods.html</code>).</p>
     {% endif %}
@@ -334,8 +329,32 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
     const INTL_WIRE_DISPLAY = {{ intl_wire_display | default({}) | tojson }};
+    const BANCO_GENERAL_DISPLAY = {{ banco_general_display | default({}) | tojson }};
     const EN1_YAPPY_RECEIPT_REQUIRES = {{ (yappy_checkout.requires_receipt if yappy_checkout else True)|tojson }};
+    const EN1_METHOD_BY_KEY = {{ method_by_key | default({}) | tojson }};
+    const EN1_MANUAL_VALIDATION_METHODS = ['yappy_manual', 'wire_international', 'banco_general', 'manual_payment'];
+    const EN1_CHECKOUT_IS_ADMIN = {{ (current_user.is_authenticated and current_user.is_admin)|tojson }};
+
+    function en1IsManualValidation(method) {
+        return EN1_MANUAL_VALIDATION_METHODS.indexOf(method) >= 0;
+    }
+    function en1MethodRequiresReceipt(method) {
+        const row = EN1_METHOD_BY_KEY[method];
+        if (row && typeof row.requires_receipt === 'boolean') return row.requires_receipt;
+        return true;
+    }
     const firstCheckedMethod = document.querySelector('input[name="payment_method"]:checked');
+
+    /** Mensajes técnicos (modo prueba, Payment ID, demo): solo administradores. */
+    function en1CheckoutAdminOnlyHtml(title, adminBodyHtml, userMessage) {
+        if (!EN1_CHECKOUT_IS_ADMIN) {
+            return `<div class="alert alert-warning text-start mb-0"><p class="mb-0 small">${userMessage}</p></div>`;
+        }
+        return `<div class="alert alert-info text-start mb-0">
+            <p class="mb-2"><strong>${title}</strong> <span class="badge bg-secondary ms-1">Solo admin</span></p>
+            ${adminBodyHtml}
+        </div>`;
+    }
     let currentPaymentMethod = firstCheckedMethod ? firstCheckedMethod.value : 'paypal';
     let stripe = null;
     let stripeElements = null;
@@ -427,11 +446,15 @@
             initPayPal();
         } else if (currentPaymentMethod === 'yappy_manual') {
             document.getElementById('submit-button').classList.remove('d-none');
-        } else {
-            // Métodos manuales (solo banco_general ahora)
+        } else if (en1IsManualValidation(currentPaymentMethod) && currentPaymentMethod !== 'yappy_manual') {
             document.getElementById('manual-payment-section').classList.remove('d-none');
             document.getElementById('submit-button').classList.remove('d-none');
             showManualPaymentInfo(currentPaymentMethod);
+            const rcLbl = document.querySelector('label[for="receipt-upload"]');
+            const req = en1MethodRequiresReceipt(currentPaymentMethod);
+            if (rcLbl) {
+                rcLbl.innerHTML = 'Comprobante de pago' + (req ? ' <span class="text-danger">*</span>' : ' <span class="text-muted">(opcional)</span>');
+            }
         }
     }
     
@@ -459,13 +482,12 @@
             const data = result.data;
 
             if (data.demo_mode && data.status === 'pending') {
-                cardElement.innerHTML = `
-                    <div class="alert alert-info text-start">
-                        <p class="mb-2"><strong>Modo prueba (Stripe)</strong></p>
-                        <p class="small mb-0">El pago quedó en <strong>pendiente</strong>: el carrito <strong>no</strong> se vacía y no hay redirección automática a éxito.</p>
-                        <p class="small text-muted mt-2 mb-0">Payment ID: <code>${data.payment_id}</code></p>
-                    </div>
-                `;
+                cardElement.innerHTML = en1CheckoutAdminOnlyHtml(
+                    'Modo prueba (Stripe)',
+                    `<p class="small mb-0">El pago quedó en <strong>pendiente</strong>: el carrito <strong>no</strong> se vacía y no hay redirección automática a éxito.</p>
+                     <p class="small text-muted mt-2 mb-0">Payment ID: <code>${data.payment_id}</code></p>`,
+                    'El pago con tarjeta no está disponible en este momento. Probá PayPal, Yappy manual u otro método, o contactá a soporte.'
+                );
                 return;
             }
 
@@ -476,7 +498,7 @@
                     <div class="text-center">
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle"></i>
-                            <p class="mb-2"><strong>Pago procesado (Modo Demo)</strong></p>
+                            <p class="mb-2"><strong>${EN1_CHECKOUT_IS_ADMIN ? 'Pago procesado (Modo Demo)' : 'Pago confirmado'}</strong></p>
                             <p class="mb-0">Redirigiendo...</p>
                         </div>
                     </div>
@@ -492,14 +514,12 @@
             
             if (!stripePublishableKey || stripePublishableKey === '' || stripePublishableKey.includes('your_key')) {
                 // Modo demo - no hay clave publicable: no forzar redirección a éxito con un clic (solo QA manual si lo habilitás en servidor).
-                cardElement.innerHTML = `
-                    <div class="alert alert-info text-start">
-                        <i class="fas fa-info-circle"></i>
-                        <p class="mb-2"><strong>Modo prueba</strong></p>
-                        <p class="mb-0 small">Stripe no está configurado con clave publicable. El intent quedó registrado como <strong>pendiente</strong> (revisá el estado del pago en administración o con credenciales de prueba reales).</p>
-                        <p class="small text-muted mt-2 mb-0">Payment ID: <code>${data.payment_id || ''}</code></p>
-                    </div>
-                `;
+                cardElement.innerHTML = en1CheckoutAdminOnlyHtml(
+                    'Modo prueba (Stripe)',
+                    `<p class="mb-0 small">Stripe sin clave publicable. Intent en <strong>pendiente</strong> — revisá Administración → Pagos.</p>
+                     <p class="small text-muted mt-2 mb-0">Payment ID: <code>${data.payment_id || ''}</code></p>`,
+                    'El pago con tarjeta no está disponible en este momento. Probá otro método o contactá a soporte.'
+                );
                 return;
             }
             
@@ -646,11 +666,15 @@
         let html = '';
         
         if (method === 'banco_general') {
+            const b = BANCO_GENERAL_DISPLAY || {};
             html = `
-                <h6>Banco General</h6>
-                <p><strong>Cuenta Corriente:</strong> 03-78-01-089981-8</p>
-                <p><strong>Nombre:</strong> Multi Servicios TK</p>
-                <p class="mb-0">Realiza la transferencia y sube el comprobante.</p>
+                <h6>Transferencia — Banco General</h6>
+                <p><strong>Banco:</strong> ${b.bank_name || ''}</p>
+                <p><strong>Nombre:</strong> ${b.beneficiary_name || ''}</p>
+                <p><strong>Cuenta:</strong> ${b.account_number || ''}</p>
+                <p><strong>Tipo:</strong> ${b.account_type || ''}</p>
+                ${b.instructions_html ? '<div class="mt-2 border rounded p-2 small">' + b.instructions_html + '</div>' : ''}
+                <p class="mb-0 small text-muted mt-2">Realiza la transferencia y adjunta el comprobante.</p>
             `;
         } else if (method === 'wire_international') {
             const w = INTL_WIRE_DISPLAY || {};
@@ -664,6 +688,11 @@
                 <p><strong>País:</strong> ${w.country || ''}</p>
                 ${w.instructions_html ? '<div class="mt-2 border rounded p-2 small">' + w.instructions_html + '</div>' : ''}
                 <p class="mb-0 small text-muted">Tras confirmar verás la referencia de pago y podrás adjuntar el comprobante de la transferencia.</p>
+            `;
+        } else if (method === 'manual_payment') {
+            html = `
+                <h6>Pago manual / transferencia local</h6>
+                <p class="mb-0">Realiza la transferencia según las instrucciones del comercio y adjunta el comprobante. Tu compra se activará tras la validación del equipo.</p>
             `;
         }
         content.innerHTML = html;
@@ -722,6 +751,36 @@
                 return { success: true, data: data, yappyReceiptUploaded: yappyReceiptUploaded };
             } catch (error) {
                 console.error('Error creando pago yappy_manual:', error);
+                return { success: false, error: error.message || 'Error al crear el pago' };
+            }
+        }
+
+        if (en1IsManualValidation(paymentMethod) && paymentMethod !== 'yappy_manual') {
+            const rc = document.getElementById('receipt-upload');
+            const reqRc = en1MethodRequiresReceipt(paymentMethod);
+            if (reqRc && (!rc || !rc.files || !rc.files[0])) {
+                return { success: false, error: 'Debe adjuntar el comprobante de pago.' };
+            }
+            try {
+                const fd = new FormData();
+                fd.append('payment_method', paymentMethod);
+                fd.append('cart_id', String(requestData.cart_id));
+                fd.append('amount', String(requestData.amount));
+                if (rc && rc.files && rc.files[0]) fd.append('receipt', rc.files[0]);
+                const response = await fetch('/create-payment-intent', { method: 'POST', body: fd });
+                const contentType = response.headers.get('content-type') || '';
+                let data;
+                if (contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    throw new Error('Error del servidor: respuesta no JSON.');
+                }
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || ('Error ' + response.status));
+                }
+                const uploaded = data.status === 'pending_admin_review';
+                return { success: true, data: data, yappyReceiptUploaded: uploaded };
+            } catch (error) {
                 return { success: false, error: error.message || 'Error al crear el pago' };
             }
         }
@@ -785,13 +844,12 @@
             paypalDemoHold = true;
             paypalPaymentUrl = null;
             paypalPaymentId = data.payment_id;
-            container.innerHTML = `
-                <div class="alert alert-info text-start">
-                    <p class="mb-2"><strong>Modo prueba (PayPal)</strong></p>
-                    <p class="small mb-0">El pago quedó en <strong>pendiente</strong> (sin URL en demo). El carrito no se vacía solo.</p>
-                    <p class="small text-muted mt-2 mb-0">Payment ID: <code>${data.payment_id}</code></p>
-                </div>
-            `;
+            container.innerHTML = en1CheckoutAdminOnlyHtml(
+                'Modo prueba (PayPal)',
+                `<p class="small mb-0">El pago quedó en <strong>pendiente</strong> (sin URL en demo / OAuth falló). El carrito no se vacía solo.</p>
+                 <p class="small text-muted mt-2 mb-0">Payment ID: <code>${data.payment_id}</code></p>`,
+                'No pudimos conectar con PayPal en este momento. Probá otro método de pago o contactá a soporte.'
+            );
             return;
         }
 
@@ -926,10 +984,11 @@
                 } else {
                     throw new Error(data.error || 'No se pudo crear el pago con Yappy. Verifica la configuración.');
                 }
-            } else {
-                // Métodos manuales (solo banco_general) - mostrar mensaje y redirigir
-                alert('Pago iniciado. Por favor, sube el comprobante de pago cuando lo tengas.');
-                window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+            } else if (data.manual_validation && data.payment_id) {
+                const dest = data.redirect_url || ('/payment-success?payment_id=' + data.payment_id);
+                window.location.href = dest;
+            } else if (data.payment_id) {
+                window.location.href = '/payment-success?payment_id=' + data.payment_id;
             }
         } catch (err) {
             console.error('Error completo:', err);
@@ -996,7 +1055,7 @@
             if (sp) sp.classList.remove('d-none');
             if (msg) msg.innerHTML = '';
             try {
-                const r = await fetch('/api/payment/yappy-manual/' + pid + '/submit-receipt', { method: 'POST', body: fd });
+                const r = await fetch('/api/payment/' + pid + '/submit-receipt', { method: 'POST', body: fd });
                 const data = await r.json().catch(function () { return {}; });
                 if (!r.ok || !data.success) throw new Error(data.error || ('Error ' + r.status));
                 var okHtml = '<div class="alert alert-success py-2 mb-0">' + (data.message || 'Listo') + '</div>';

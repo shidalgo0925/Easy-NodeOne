@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Import #{{ imp.id }}{% endblock %}
+{% block content %}
+{% include 'admin/security_matrix/_styles.html' %}
+<div class="container-fluid py-4">
+  <p><a href="{{ url_for('security_matrix.security_matrix_index') }}">&larr; Matriz de permisos</a></p>
+  <h1 class="h3 mb-2">Import #{{ imp.id }} — {{ imp.filename }}</h1>
+  <p>
+    Estado: <span class="badge bg-secondary">{{ imp.status }}</span>
+    {% if imp.has_critical_errors %}<span class="badge bg-danger">errores críticos</span>{% endif %}
+  </p>
+
+  {% if stats and stats.total %}
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <div class="card sm-stat-card border-success">
+      <div class="card-body py-2 px-3 text-center">
+        <div class="h4 mb-0 text-success">{{ stats.add }}</div>
+        <div class="small text-muted">Agregar</div>
+      </div>
+    </div>
+    <div class="card sm-stat-card border-danger">
+      <div class="card-body py-2 px-3 text-center">
+        <div class="h4 mb-0 text-danger">{{ stats.remove }}</div>
+        <div class="small text-muted">Quitar</div>
+      </div>
+    </div>
+    {% if stats.critical %}
+    <div class="card sm-stat-card border-warning">
+      <div class="card-body py-2 px-3 text-center">
+        <div class="h4 mb-0 text-warning">{{ stats.critical }}</div>
+        <div class="small text-muted">Riesgo crítico</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="mb-3">
+    <span class="sm-perm-chip sm-perm-chip--current">Actual</span>
+    <span class="sm-perm-chip sm-perm-chip--add">+ Agregar</span>
+    <span class="sm-perm-chip sm-perm-chip--remove">− Quitar</span>
+    <span class="sm-perm-chip sm-perm-chip--current sm-perm-chip--critical">Grupo crítico</span>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 mb-2">
+    <a class="btn btn-sm btn-outline-dark"
+       href="{{ url_for('security_matrix.security_matrix_matriz_view', import_id=imp.id) }}">Matriz por módulo</a>
+    {% if catalog %}
+    <a class="btn btn-sm {% if visual_tab == 'changes' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="{{ url_for('security_matrix.security_matrix_import_detail', import_id=imp.id, tab='changes', q=search) }}">Solo cambios</a>
+    <a class="btn btn-sm {% if visual_tab == 'users' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="{{ url_for('security_matrix.security_matrix_import_detail', import_id=imp.id, tab='users', q=search) }}">Todos los usuarios</a>
+    <a class="btn btn-sm {% if visual_tab == 'groups' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="{{ url_for('security_matrix.security_matrix_import_detail', import_id=imp.id, tab='groups', q=search) }}">Por grupo</a>
+    <a class="btn btn-sm {% if visual_tab == 'table' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="{{ url_for('security_matrix.security_matrix_import_detail', import_id=imp.id, tab='table', q=search) }}">Tabla cambios</a>
+    {% if matriz_rows %}
+    <a class="btn btn-sm {% if visual_tab == 'matriz' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="{{ url_for('security_matrix.security_matrix_import_detail', import_id=imp.id, tab='matriz') }}">Diseño matriz</a>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% if catalog %}
+  <form class="row g-2 mb-3" method="get">
+    <input type="hidden" name="tab" value="{{ visual_tab }}" />
+    <div class="col-md-6">
+      <input type="search" name="q" class="form-control form-control-sm" placeholder="Buscar usuario o grupo…" value="{{ search }}" />
+    </div>
+    <div class="col-auto"><button type="submit" class="btn btn-sm btn-secondary">Filtrar</button></div>
+  </form>
+  {% else %}
+  <p class="alert alert-warning small">Sin snapshot de catálogo en este import — no hay vista visual por usuario. Revisá la tabla de cambios abajo.</p>
+  {% endif %}
+
+  {% if catalog and visual_tab in ('changes', 'users') %}
+  {% set rows = user_rows if visual_tab == 'changes' else user_rows_all %}
+  <div class="card mb-3">
+    <div class="card-header">
+      {% if visual_tab == 'changes' %}Usuarios con cambios propuestos{% else %}Usuarios y permisos{% endif %}
+      ({{ rows|length }})
+    </div>
+    <div class="card-body">
+      {% for row in rows %}
+      <div class="sm-user-row">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+          <strong>{{ row.name }}</strong>
+          <code class="small">{{ row.login }}</code>
+          {% if row.add_count %}<span class="badge bg-success">+{{ row.add_count }}</span>{% endif %}
+          {% if row.remove_count %}<span class="badge bg-danger">−{{ row.remove_count }}</span>{% endif %}
+        </div>
+        <div>{% with chips=row.chips %}{% include 'admin/security_matrix/_permission_chips.html' %}{% endwith %}</div>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">Sin usuarios con cambios en el filtro actual.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% elif catalog and visual_tab == 'groups' %}
+  <div class="card mb-3">
+    <div class="card-header">Grupos Odoo ({{ group_rows|length }})</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead><tr><th>Grupo</th><th>xml_id</th><th class="text-end">Usuarios</th></tr></thead>
+        <tbody>
+          {% for g in group_rows %}
+          <tr>
+            <td>{% if g.critical %}<i class="fas fa-exclamation-triangle text-danger me-1"></i>{% endif %}{{ g.name }}</td>
+            <td><code class="small">{{ g.xml_id }}</code></td>
+            <td class="text-end">{{ g.member_count }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">Sin resultados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% elif visual_tab == 'matriz' and matriz_rows %}
+  <div class="card mb-3">
+    <div class="card-header">MATRIZ_GENERAL (diseño)</div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Fila</th><th>Área</th><th>Módulo</th><th>Pantalla</th><th>Grupo Odoo</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for r in matriz_rows %}
+          <tr class="{% if r.status == 'error' %}table-danger{% endif %}">
+            <td>{{ r.row }}</td><td>{{ r.area }}</td><td>{{ r.module }}</td><td>{{ r.screen }}</td>
+            <td>{{ r.odoo_group }}</td><td>{{ r.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% elif visual_tab == 'table' or not catalog %}
+  <div class="card mb-3">
+    <div class="card-header">Preview de cambios ({{ previews|length }})</div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Usuario</th><th>Grupo</th><th>xml_id</th><th>Acción</th><th>Riesgo</th></tr></thead>
+        <tbody>
+          {% for p in previews %}
+          <tr class="{% if p.action == 'add' %}table-success{% elif p.action == 'remove' %}table-danger{% endif %}">
+            <td>{{ p.odoo_user }}</td>
+            <td>{{ p.odoo_group }}</td>
+            <td><code>{{ p.group_xml_id }}</code></td>
+            <td>
+              {% if p.action == 'add' %}<span class="badge bg-success">add</span>
+              {% elif p.action == 'remove' %}<span class="badge bg-danger">remove</span>
+              {% else %}{{ p.action }}{% endif %}
+            </td>
+            <td>{% if p.risk_level == 'critical' %}<span class="badge bg-warning text-dark">critical</span>{% else %}{{ p.risk_level }}{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted">Sin cambios propuestos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if validation %}
+  <details class="card mb-3">
+    <summary class="card-header" style="cursor:pointer">Validación (detalle)</summary>
+    <div class="card-body small">
+      <ul class="mb-0">
+        {% if validation.get('errors') %}<li class="text-danger">Errores: {{ validation.errors }}</li>{% endif %}
+        {% if validation.get('warnings') %}<li class="text-warning">Avisos: {{ validation.warnings }}</li>{% endif %}
+        {% if validation.get('row_count') is not none %}<li>Filas: {{ validation.row_count }}</li>{% endif %}
+      </ul>
+    </div>
+  </details>
+  {% endif %}
+
+  {% if error_rows %}
+  <div class="card mb-3 border-danger">
+    <div class="card-header text-danger">Filas con error ({{ error_rows|length }})</div>
+    <ul class="list-group list-group-flush">
+      {% for r in error_rows %}
+      <li class="list-group-item small">{{ r.sheet_name }} fila {{ r.row_number }}: {{ r.validation_errors_json }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if ai %}
+  <details class="card mb-3">
+    <summary class="card-header" style="cursor:pointer">Análisis IA</summary>
+    <div class="card-body small">
+      <p><strong>Resumen:</strong> {{ ai.executive_summary }}</p>
+      {% if ai.get('risks') %}
+      <ul>{% for risk in ai.risks %}<li>{{ risk }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
+
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <form method="post" action="{{ url_for('security_matrix.security_matrix_analyze_ai', import_id=imp.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <button type="submit" class="btn btn-outline-primary">Análisis IA</button>
+    </form>
+    {% if imp.status == 'validated' and not imp.has_critical_errors %}
+    <form method="post" action="{{ url_for('security_matrix.security_matrix_approve', import_id=imp.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <button type="submit" class="btn btn-success">Aprobar</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('security_matrix.security_matrix_reject', import_id=imp.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <button type="submit" class="btn btn-outline-danger">Rechazar</button>
+    </form>
+    <form method="post" action="{{ url_for('security_matrix.security_matrix_execute', import_id=imp.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <button type="submit" class="btn btn-secondary" title="Fase 1: responde bloqueado">Ejecutar en Odoo (Fase 2)</button>
+    </form>
+    <a class="btn btn-link" href="{{ url_for('security_matrix.security_matrix_report', import_id=imp.id) }}">Reporte</a>
+    <a class="btn btn-link" href="{{ url_for('security_matrix.security_matrix_report', import_id=imp.id, format='json') }}">JSON</a>
+  </div>
+</div>
+{% endblock %}

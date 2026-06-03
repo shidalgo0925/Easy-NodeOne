@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}FE — Emisión #{{ doc.id }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h1 class="h3 mb-3">Emisión #{{ doc.id }}</h1>
+  <p class="mb-3"><a href="{{ url_for('efactura_admin.efactura_emissions') }}">&larr; Volver al listado</a></p>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Estado</dt><dd class="col-sm-9"><span class="badge bg-secondary">{{ doc.status }}</span></dd>
+        <dt class="col-sm-3">CUFE</dt><dd class="col-sm-9"><code>{{ doc.cufe or '—' }}</code></dd>
+        <dt class="col-sm-3">Cliente</dt><dd class="col-sm-9">{{ doc.customer_name }} &lt;{{ doc.customer_email }}&gt;</dd>
+        <dt class="col-sm-3">Total</dt><dd class="col-sm-9">{{ doc.currency }} {{ '%.2f'|format(doc.total|float) }}</dd>
+        <dt class="col-sm-3">PAC / protocolo</dt><dd class="col-sm-9">{{ doc.pac_reference or '—' }}</dd>
+        <dt class="col-sm-3">Mensaje</dt><dd class="col-sm-9">{{ doc.authorization_message or doc.error_message or '—' }}</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <h2 class="h6">Request (EN1 / PAC)</h2>
+      <pre class="bg-light p-3 small" style="max-height:24rem;overflow:auto">{{ request_pretty }}</pre>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <h2 class="h6">Response PAC</h2>
+      <pre class="bg-light p-3 small" style="max-height:24rem;overflow:auto">{{ response_pretty }}</pre>
+    </div>
+  </div>
+
+  <h2 class="h6">Eventos</h2>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>HTTP</th><th>Mensaje</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '' }}</td>
+          <td>{{ log.event_type }}</td>
+          <td>{{ log.http_status or '—' }}</td>
+          <td class="small">{{ log.message or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

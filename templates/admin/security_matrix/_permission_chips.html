@@ -1,0 +1,8 @@
+{% for chip in chips %}
+<span class="sm-perm-chip sm-perm-chip--{{ chip.state }}{% if chip.critical %} sm-perm-chip--critical{% endif %}"
+      title="{{ chip.xml_id }}{% if chip.critical %} (crítico){% endif %}">
+  {% if chip.state == 'add' %}+ {% elif chip.state == 'remove' %}− {% endif %}{{ chip.name }}
+</span>
+{% else %}
+<span class="text-muted small">Sin grupos</span>
+{% endfor %}

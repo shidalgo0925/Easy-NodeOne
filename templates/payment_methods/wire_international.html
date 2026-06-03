@@ -1,0 +1,31 @@
+<div class="en1-pay-card">
+  <div class="en1-pay-card-head">
+    <span class="badge rounded-pill en1-badge-admin">Validación administrativa</span>
+  </div>
+  <div class="checkout-pay-method-block px-3 pb-3{% if checkout_first_method == 'wire_international' %} is-selected{% endif %}" data-checkout-method-block data-method-key="wire_international">
+    <label class="checkout-pay-method-row list-group-item list-group-item-action d-flex align-items-start gap-3 rounded mb-0 py-3 px-3" for="method_wire_international">
+      <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="payment_method" id="method_wire_international" value="wire_international"
+             {% if checkout_first_method == 'wire_international' %}checked{% endif %}>
+      <span class="flex-grow-1">
+        <span class="d-flex align-items-center gap-2 flex-wrap fw-semibold text-body">
+          <i class="fas fa-university text-primary" aria-hidden="true"></i>
+          {{ payment_methods.wire_international }}
+        </span>
+        <span class="d-block small text-muted mt-2 mb-0">Transferencia en USD; activación tras validar comprobante.</span>
+      </span>
+    </label>
+    <div class="checkout-pay-method-instructions border rounded p-3 mt-2 small bg-white text-body" data-method-instructions aria-live="polite">
+      <p class="mb-2 fw-semibold text-primary mb-1">Transferencia internacional (SWIFT)</p>
+      <ul class="mb-0 ps-3 small">
+        <li><strong>Beneficiario:</strong> {{ intl_wire_display.beneficiary_name | default('—', true) }}</li>
+        <li><strong>Banco:</strong> {{ intl_wire_display.bank_name | default('—', true) }}</li>
+        <li><strong>SWIFT:</strong> {{ intl_wire_display.swift | default('—', true) }}</li>
+        <li><strong>Cuenta:</strong> {{ intl_wire_display.account_number | default('—', true) }}</li>
+        <li><strong>Tipo / País:</strong> {{ intl_wire_display.account_type | default('—', true) }} / {{ intl_wire_display.country | default('—', true) }}</li>
+      </ul>
+      {% if intl_wire_display.get('instructions_html') %}
+      <div class="border rounded p-2 mt-2 small bg-white">{{ intl_wire_display.instructions_html | safe }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>

@@ -10,12 +10,13 @@ from flask import current_app
 
 # Constantes para métodos de pago
 PAYMENT_METHODS = {
-    'stripe': 'Stripe (Tarjeta de crédito / débito)',
+    # 'stripe': 'Stripe (Tarjeta de crédito / débito)',  # Reactivar: descomentar y checkout_payment_methods.html
     'paypal': 'PayPal',
     'banco_general': 'Banco General',
     'yappy': 'Yappy',
     'yappy_manual': 'Yappy manual',
     'wire_international': 'Transferencia internacional (SWIFT)',
+    'manual_payment': 'Pago manual',
 }
 
 # Estados de pago
@@ -373,11 +374,11 @@ class PayPalProcessor(PaymentProcessor):
 
 
 class BancoGeneralProcessor(PaymentProcessor):
-    """Procesador para pagos con Banco General (CyberSource)"""
-    
+    """Procesador para pagos con Banco General (CyberSource o transferencia nacional manual)."""
+
     def __init__(self, config=None):
         super().__init__('banco_general')
-        # Usar configuración de BD si está disponible, sino variables de entorno
+        self._config = config
         if config:
             self.merchant_id = config.get_banco_general_merchant_id()
             self.api_key = config.get_banco_general_api_key()
@@ -388,45 +389,67 @@ class BancoGeneralProcessor(PaymentProcessor):
             self.api_key = os.getenv('BANCO_GENERAL_API_KEY', '')
             self.shared_secret = os.getenv('BANCO_GENERAL_SHARED_SECRET', '')
             self.base_url = os.getenv('BANCO_GENERAL_API_URL', 'https://api.cybersource.com')
-    
+
+    def _display(self):
+        c = self._config
+        d = BANCO_GENERAL_DISPLAY_DEFAULTS
+        iw = INTL_WIRE_DEFAULTS
+        if not c:
+            return dict(d)
+
+        def _field(bg_attr, iw_attr, default_key, iw_key=None):
+            v = (getattr(c, bg_attr, None) or '').strip()
+            if v:
+                return v
+            v = (getattr(c, iw_attr, None) or '').strip()
+            if v:
+                return v
+            return d[default_key] if iw_key is None else iw.get(iw_key, d[default_key])
+
+        bank = _field('banco_general_bank_name', 'intl_wire_bank_name', 'bank_name', 'bank_name')
+        if 'banco general' in bank.lower() and bank.endswith(', S.A.'):
+            bank = 'Banco General'
+        return {
+            'beneficiary_name': _field(
+                'banco_general_beneficiary_name', 'intl_wire_beneficiary_name', 'beneficiary_name', 'beneficiary_name'
+            ),
+            'bank_name': bank,
+            'account_number': _field(
+                'banco_general_account_number', 'intl_wire_account', 'account_number', 'account_number'
+            ),
+            'account_type': _field(
+                'banco_general_account_type', 'intl_wire_account_type', 'account_type', 'account_type'
+            ),
+        }
+
+    def _bank_account_payload(self):
+        disp = self._display()
+        return {
+            'transfer_type': 'national',
+            'bank': disp['bank_name'],
+            'account_type': disp['account_type'],
+            'account_number': disp['account_number'],
+            'account_name': disp['beneficiary_name'],
+            'beneficiary_name': disp['beneficiary_name'],
+        }
+
     def create_payment(self, amount, currency='USD', metadata=None):
-        """
-        Crear enlace de pago con Banco General
-        Por ahora retorna estructura para método manual hasta que se configure la API
-        """
-        # Si no hay credenciales, usar método manual
+        import secrets
+
+        reference = f"BG-{secrets.token_hex(8).upper()}"
         if not self.merchant_id or not self.api_key:
-            # Generar número de referencia único
-            import secrets
-            reference = f"BG-{secrets.token_hex(8).upper()}"
-            
             return True, {
                 'payment_reference': reference,
-                'payment_url': None,  # Se mostrarán datos bancarios
+                'payment_url': None,
                 'manual': True,
-                'bank_account': {
-                    'bank': 'Banco General',
-                    'account_type': 'Cuenta Corriente',
-                    'account_number': '03-78-01-089981-8',
-                    'account_name': 'Multi Servicios TK'
-                }
+                'bank_account': self._bank_account_payload(),
             }, None
-        
-        # TODO: Implementar API de CyberSource cuando se tengan las credenciales
-        # Por ahora retorna método manual
-        import secrets
-        reference = f"BG-{secrets.token_hex(8).upper()}"
-        
+        # TODO: CyberSource API — mientras tanto, instrucciones de transferencia configurables
         return True, {
             'payment_reference': reference,
             'payment_url': None,
             'manual': True,
-            'bank_account': {
-                'bank': 'Banco General',
-                'account_type': 'Cuenta Corriente',
-                'account_number': '03-78-01-089981-8',
-                'account_name': 'Multi Servicios TK'
-            }
+            'bank_account': self._bank_account_payload(),
         }, None
     
     def verify_payment(self, payment_reference):
@@ -437,7 +460,15 @@ class BancoGeneralProcessor(PaymentProcessor):
         }
 
 
-# Valores por defecto (Panamá / Banco General) — editables en Administración → Pagos
+# Transferencia nacional Banco General (sin API CyberSource) — editables en Admin → Pagos
+BANCO_GENERAL_DISPLAY_DEFAULTS = {
+    'beneficiary_name': 'RED LATINOAMERICANA DE INVESTIVACIONES CUALITATIVAS',
+    'bank_name': 'Banco General',
+    'account_number': '04-18-00-004229-1',
+    'account_type': 'Cuenta de Ahorros',
+}
+
+# Valores por defecto (Panamá / SWIFT) — editables en Administración → Pagos
 INTL_WIRE_DEFAULTS = {
     'beneficiary_name': 'RED LATINOAMERICANA DE INVESTIVACIONES CUALITATIVAS',
     'bank_name': 'Banco General, S.A.',
@@ -446,6 +477,27 @@ INTL_WIRE_DEFAULTS = {
     'account_type': 'Ahorros',
     'country': 'Panamá',
 }
+
+
+class ManualPaymentProcessor(PaymentProcessor):
+    """Pago manual / transferencia local (sin integración API)."""
+
+    def __init__(self, config=None):
+        super().__init__('manual_payment')
+        self._config = config
+
+    def create_payment(self, amount, currency='USD', metadata=None):
+        import secrets
+
+        reference = f"MAN-{secrets.token_hex(6).upper()}"
+        return True, {
+            'payment_reference': reference,
+            'payment_url': None,
+            'manual': True,
+        }, None
+
+    def verify_payment(self, payment_reference):
+        return True, 'awaiting_confirmation', {'note': 'Pago manual — confirmación administrativa'}
 
 
 class WireInternationalProcessor(PaymentProcessor):
@@ -793,6 +845,7 @@ def get_payment_processor(payment_method, config=None):
         'banco_general': BancoGeneralProcessor,
         'yappy': YappyProcessor,
         'wire_international': WireInternationalProcessor,
+        'manual_payment': ManualPaymentProcessor,
     }
     
     processor_class = processors.get(payment_method)

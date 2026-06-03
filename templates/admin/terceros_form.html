@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{% if partner %}Editar{% else %}Nuevo{% endif %} contacto{% endblock %}
+{% block content %}
+<div class="container-fluid py-4 col-lg-8">
+  <h1 class="h4 mb-3">{% if partner %}Editar contacto #{{ partner.id }}{% else %}Nuevo contacto{% endif %}</h1>
+  <p class="mb-3"><a href="{{ url_for('commercial_partners_admin.terceros_index') }}">&larr; Listado</a></p>
+  <form method="post" class="card">
+    <div class="card-body">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <div class="mb-3">
+        <label class="form-label">Nombre visible</label>
+        <input class="form-control" name="name" required value="{{ partner.name if partner else '' }}" />
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Razón social</label>
+          <input class="form-control" name="legal_name" value="{{ partner.legal_name if partner else '' }}" />
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Nombre comercial</label>
+          <input class="form-control" name="trade_name" value="{{ partner.trade_name if partner else '' }}" />
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Tipo persona</label>
+        <select class="form-select" name="person_type">
+          <option value="natural" {% if partner and partner.person_type == 'natural' %}selected{% endif %}>Natural</option>
+          <option value="juridica" {% if partner and partner.person_type == 'juridica' %}selected{% endif %}>Jurídica</option>
+          <option value="final_consumer" {% if partner and partner.person_type == 'final_consumer' %}selected{% endif %}>Consumidor final</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="col-md-8 mb-3">
+          <label class="form-label">RUC</label>
+          <input class="form-control" name="tax_id" value="{{ partner.tax_id if partner else '' }}" />
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">DV</label>
+          <input class="form-control" name="tax_dv" value="{{ partner.tax_dv if partner else '' }}" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Email fiscal</label>
+          <input class="form-control" type="email" name="fiscal_email" value="{{ partner.fiscal_email if partner else '' }}" />
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Teléfono fiscal</label>
+          <input class="form-control" name="fiscal_phone" value="{{ partner.fiscal_phone if partner else '' }}" />
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Dirección fiscal</label>
+        <textarea class="form-control" name="fiscal_address" rows="2">{{ partner.fiscal_address if partner else '' }}</textarea>
+      </div>
+      <div class="row">
+        <div class="col-md-4 mb-3"><label class="form-label">Provincia</label><input class="form-control" name="province" value="{{ partner.province if partner else '' }}" /></div>
+        <div class="col-md-4 mb-3"><label class="form-label">Distrito</label><input class="form-control" name="district" value="{{ partner.district if partner else '' }}" /></div>
+        <div class="col-md-4 mb-3"><label class="form-label">Corregimiento</label><input class="form-control" name="corregimiento" value="{{ partner.corregimiento if partner else '' }}" /></div>
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="is_customer" value="1" id="is_customer" {% if not partner or partner.is_customer %}checked{% endif %} />
+        <label class="form-check-label" for="is_customer">Es cliente</label>
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="is_supplier" value="1" id="is_supplier" {% if partner and partner.is_supplier %}checked{% endif %} />
+        <label class="form-check-label" for="is_supplier">Es proveedor</label>
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="itbms_exempt" value="1" id="itbms_exempt" {% if partner and partner.itbms_exempt %}checked{% endif %} />
+        <label class="form-check-label" for="itbms_exempt">Exento ITBMS</label>
+      </div>
+      {% if partner %}
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="is_active" value="1" id="is_active" {% if partner.is_active %}checked{% endif %} />
+        <label class="form-check-label" for="is_active">Activo</label>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

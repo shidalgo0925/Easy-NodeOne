@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Configuración — Taller | {{ get_nav_brand_name() }}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=31">
+{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page workshop-settings-page">
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <h1 class="h5 mb-0 text-nowrap me-1">
+            <i class="fas fa-cog me-1 text-muted" aria-hidden="true"></i>Configuración
+        </h1>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_workshop_orders') }}">Monitor</a>
+    </div>
+
+    <div class="row g-2">
+        {% if has_view_endpoint('admin_workshop_process_config') %}
+        <div class="col-sm-6 col-lg-4">
+            <a href="{{ url_for('admin_workshop_process_config') }}" class="card border shadow-sm h-100 text-decoration-none workshop-settings-card">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center" style="width:2rem;height:2rem;font-size:0.85rem">
+                            <i class="fas fa-stopwatch"></i>
+                        </span>
+                        <h2 class="h6 mb-0 text-dark">SLA</h2>
+                    </div>
+                    <p class="erp-footnote text-muted mb-0">Etapas, tiempos objetivo y overrides.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="col-sm-6 col-lg-4">
+            <div class="card border h-100 bg-light workshop-settings-card workshop-settings-card--soon">
+                <div class="card-body py-2 px-3 opacity-75">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle bg-secondary bg-opacity-10 text-secondary d-inline-flex align-items-center justify-content-center" style="width:2rem;height:2rem;font-size:0.85rem">
+                            <i class="fas fa-user-cog"></i>
+                        </span>
+                        <h2 class="h6 mb-0 text-muted">Técnicos</h2>
+                        <span class="badge text-bg-secondary ms-auto erp-footnote">Próximo</span>
+                    </div>
+                    <p class="erp-footnote text-muted mb-0">Asignación y perfiles de técnicos.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+a.workshop-settings-card:hover { box-shadow: 0 0.25rem 0.75rem rgba(15, 23, 42, 0.12) !important; }
+</style>
+{% endblock %}

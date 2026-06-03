@@ -12,13 +12,20 @@ from models.users import User
 from nodeone.modules.accounting.models import Invoice, InvoiceLine, Tax
 from nodeone.modules.sales.mail import perform_quotation_send
 from nodeone.modules.sales.models import Quotation, QuotationLine
+from nodeone.modules.contacts import invoice_integration as inv_contact_svc
+from nodeone.modules.contacts.invoice_integration import fiscal_display_name, fiscal_email, get_invoice_fiscal_contact
 from nodeone.services.tax_calculation import compute_line_amounts
 from nodeone.services.user_organization import user_in_org_clause
 
 sales_bp = Blueprint('sales', __name__, url_prefix='/api/sales/quotations')
 
+_TABLES_ENSURED = False
+
 
 def _ensure_tables():
+    global _TABLES_ENSURED
+    if _TABLES_ENSURED:
+        return
     Tax.__table__.create(db.engine, checkfirst=True)
     Quotation.__table__.create(db.engine, checkfirst=True)
     QuotationLine.__table__.create(db.engine, checkfirst=True)
@@ -42,6 +49,55 @@ def _ensure_tables():
         ensure_crm_salesperson_and_quotation_columns(db, db.engine)
     except Exception:
         current_app.logger.exception('ensure_crm_salesperson_and_quotation_columns en sales._ensure_tables')
+    try:
+        from nodeone.services.contacts_schema import ensure_contacts_schema
+
+        ensure_contacts_schema(db, db.engine)
+    except Exception:
+        current_app.logger.exception('ensure_contacts_schema en sales._ensure_tables')
+    _TABLES_ENSURED = True
+
+
+def _normalize_line_row(row: dict) -> dict:
+    is_note = bool(row.get('is_note'))
+    desc = str(row.get('description') or '').strip() or 'Item'
+    if is_note and not desc.startswith('__NOTE__ '):
+        desc = f'__NOTE__ {desc}'
+    return {
+        'product_id': (int(row.get('product_id')) if row.get('product_id') else None),
+        'description': desc,
+        'quantity': (0.0 if is_note else float(row.get('quantity') or 0)),
+        'price_unit': (0.0 if is_note else float(row.get('price_unit') or 0)),
+        'tax_id': ((int(row.get('tax_id')) if row.get('tax_id') else None) if not is_note else None),
+    }
+
+
+def _sync_quotation_lines(quotation_id: int, rows: list) -> None:
+    """Actualiza líneas in-place (evita DELETE masivo + reinsert en cada guardado)."""
+    existing = {ln.id: ln for ln in QuotationLine.query.filter_by(quotation_id=quotation_id).all()}
+    keep_ids: set[int] = set()
+    for row in rows or []:
+        norm = _normalize_line_row(row)
+        lid = None
+        raw_id = row.get('id')
+        if raw_id is not None and raw_id != '':
+            try:
+                lid = int(raw_id)
+            except (TypeError, ValueError):
+                lid = None
+        ln = existing.get(lid) if lid else None
+        if ln is not None:
+            keep_ids.add(lid)
+            ln.product_id = norm['product_id']
+            ln.description = norm['description']
+            ln.quantity = norm['quantity']
+            ln.price_unit = norm['price_unit']
+            ln.tax_id = norm['tax_id']
+        else:
+            db.session.add(QuotationLine(quotation_id=quotation_id, **norm))
+    for lid, ln in existing.items():
+        if lid not in keep_ids:
+            db.session.delete(ln)
 
 
 def _safe_float(v):
@@ -176,21 +232,51 @@ def _default_salesperson_user_id(organization_id: int, user_id):
     return u.id if u else None
 
 
-def _serialize_quotation(q, user_by_id=None):
-    cust = None
+def _quotation_customer_display(q, cust, user_by_id=None):
+    """Nombre y email del cliente: prioridad en1_contact, luego user legacy."""
+    c = get_invoice_fiscal_contact(q)
+    if c:
+        return fiscal_display_name(c), fiscal_email(c) or ''
     if q.customer_id:
-        if user_by_id is not None:
-            cust = user_by_id.get(q.customer_id)
-        else:
-            try:
-                cust = db.session.get(User, int(q.customer_id))
-            except (TypeError, ValueError):
-                cust = None
-    name = ''
-    email = ''
-    if cust:
-        name = f'{getattr(cust, "first_name", "") or ""} {getattr(cust, "last_name", "") or ""}'.strip()
-        email = getattr(cust, 'email', '') or ''
+        if cust is None:
+            if user_by_id is not None:
+                cust = user_by_id.get(q.customer_id)
+            else:
+                try:
+                    cust = db.session.get(User, int(q.customer_id))
+                except (TypeError, ValueError):
+                    cust = None
+        if cust:
+            name = f'{getattr(cust, "first_name", "") or ""} {getattr(cust, "last_name", "") or ""}'.strip()
+            return name, getattr(cust, 'email', '') or ''
+    return '', ''
+
+
+def _apply_quotation_customer(q, oid: int, data: dict) -> tuple[bool, str | None]:
+    """Resuelve contact_id + customer_id desde payload API."""
+    if 'contact_id' not in data and 'customer_contact_id' not in data and 'customer_id' not in data:
+        return True, None
+    ccid = int(data.get('contact_id') or data.get('customer_contact_id') or 0) or None
+    cid = int(data.get('customer_id') or 0) or None
+    if not ccid and not cid:
+        return False, 'Indique un contacto cliente (contact_id).'
+    try:
+        contact, uid = inv_contact_svc.resolve_invoice_customer(
+            oid,
+            contact_id=ccid,
+            customer_contact_id=ccid,
+            customer_id=cid,
+        )
+    except ValueError as exc:
+        return False, str(exc)
+    q.contact_id = int(contact.id)
+    q.customer_contact_id = None
+    q.customer_id = int(uid)
+    return True, None
+
+
+def _serialize_quotation(q, user_by_id=None):
+    name, email = _quotation_customer_display(q, None, user_by_id)
     qlines = QuotationLine.query.filter_by(quotation_id=q.id).all()
     pnames = _product_names_for_lines(q.organization_id, qlines)
     inv = None
@@ -231,6 +317,8 @@ def _serialize_quotation(q, user_by_id=None):
         'number': q.number,
         'workshop_order_code': workshop_order_code,
         'customer_id': q.customer_id,
+        'contact_id': getattr(q, 'contact_id', None) or getattr(q, 'customer_contact_id', None),
+        'customer_contact_id': getattr(q, 'contact_id', None) or getattr(q, 'customer_contact_id', None),
         'customer_name': name,
         'customer_email': email,
         'salesperson_user_id': int(sp_uid) if sp_uid else None,
@@ -309,9 +397,21 @@ def quotations_post():
         return jsonify({'error': 'forbidden'}), 403
     oid = _org_id()
     data = request.get_json() or {}
+    ccid = int(data.get('contact_id') or data.get('customer_contact_id') or 0) or None
     customer_id = int(data.get('customer_id') or 0)
-    if customer_id < 1:
-        return jsonify({'error': 'customer_id_required'}), 400
+    if not ccid and customer_id < 1:
+        return jsonify({'error': 'contact_id_required', 'user_message': 'Indique un contacto cliente.'}), 400
+    try:
+        contact, resolved_uid = inv_contact_svc.resolve_invoice_customer(
+            oid,
+            contact_id=ccid,
+            customer_contact_id=ccid,
+            customer_id=customer_id if customer_id > 0 else None,
+        )
+    except ValueError as exc:
+        return jsonify({'error': 'customer_contact_required', 'user_message': str(exc)}), 400
+    customer_id = int(resolved_uid)
+    contact_pk = int(contact.id)
 
     from sqlalchemy.exc import IntegrityError
 
@@ -325,6 +425,8 @@ def quotations_post():
             organization_id=oid,
             number=number,
             customer_id=customer_id,
+            contact_id=contact_pk,
+            customer_contact_id=None,
             crm_lead_id=(int(data.get('crm_lead_id')) if data.get('crm_lead_id') else None),
             date=datetime.utcnow(),
             validity_date=(
@@ -439,6 +541,22 @@ def quotation_get(qid):
 @sales_bp.route('/<int:qid>', methods=['PUT'])
 @login_required
 def quotation_put(qid):
+    try:
+        return _quotation_put_impl(qid)
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception('quotation_put failed id=%s', qid)
+        detail = str(e) if current_app.debug else None
+        return jsonify(
+            {
+                'error': 'quotation_save_failed',
+                'user_message': 'No se pudo guardar la cotización.',
+                'detail': detail,
+            }
+        ), 500
+
+
+def _quotation_put_impl(qid: int):
     _ensure_tables()
     if not _can_sales():
         return jsonify({'error': 'forbidden'}), 403
@@ -482,7 +600,7 @@ def quotation_put(qid):
             return jsonify({'error': err, 'user_message': _salesperson_validation_message(err)}), 400
         q.salesperson_user_id = u_sp.id if u_sp else None
 
-    _draft_only_keys = ('customer_id', 'lines', 'crm_lead_id', 'validity_date', 'payment_terms')
+    _draft_only_keys = ('customer_id', 'contact_id', 'customer_contact_id', 'lines', 'crm_lead_id', 'validity_date', 'payment_terms')
     if q.status != 'draft':
         if any(k in data for k in _draft_only_keys):
             return jsonify(
@@ -495,35 +613,39 @@ def quotation_put(qid):
         db.session.commit()
         return jsonify(_serialize_quotation(q))
 
-    if 'customer_id' in data:
-        q.customer_id = int(data.get('customer_id') or q.customer_id)
+    if (
+        not getattr(q, 'contact_id', None)
+        and q.customer_id
+        and not (data.get('contact_id') or data.get('customer_contact_id'))
+    ):
+        try:
+            contact, uid = inv_contact_svc.resolve_invoice_customer(oid, customer_id=int(q.customer_id))
+            q.contact_id = int(contact.id)
+            q.customer_contact_id = None
+            q.customer_id = int(uid)
+        except ValueError:
+            pass
+
+    if 'contact_id' in data or 'customer_contact_id' in data or 'customer_id' in data:
+        ok, err = _apply_quotation_customer(q, oid, data)
+        if not ok:
+            return jsonify({'error': 'customer_contact_required', 'user_message': err}), 400
     if 'crm_lead_id' in data:
         q.crm_lead_id = int(data.get('crm_lead_id') or 0) or None
     if 'validity_date' in data:
-        q.validity_date = (
-            datetime.fromisoformat(str(data.get('validity_date')).replace('Z', '+00:00')).replace(tzinfo=None)
-            if data.get('validity_date')
-            else None
-        )
+        raw_vd = data.get('validity_date')
+        if raw_vd:
+            try:
+                q.validity_date = datetime.fromisoformat(str(raw_vd).replace('Z', '+00:00')).replace(tzinfo=None)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'invalid_validity_date', 'user_message': 'Fecha de vencimiento no válida.'}), 400
+        else:
+            q.validity_date = None
     if 'payment_terms' in data:
         q.payment_terms = str(data.get('payment_terms') or '').strip() or None
 
     if 'lines' in data:
-        QuotationLine.query.filter_by(quotation_id=q.id).delete()
-        for row in (data.get('lines') or []):
-            is_note = bool(row.get('is_note'))
-            desc = str(row.get('description') or '').strip() or 'Item'
-            if is_note and not desc.startswith('__NOTE__ '):
-                desc = f'__NOTE__ {desc}'
-            ln = QuotationLine(
-                quotation_id=q.id,
-                product_id=(int(row.get('product_id')) if row.get('product_id') else None),
-                description=desc,
-                quantity=(0.0 if is_note else float(row.get('quantity') or 0)),
-                price_unit=(0.0 if is_note else float(row.get('price_unit') or 0)),
-                tax_id=((int(row.get('tax_id')) if row.get('tax_id') else None) if not is_note else None),
-            )
-            db.session.add(ln)
+        _sync_quotation_lines(q.id, data.get('lines') or [])
     _recompute_quote_totals(q)
     db.session.commit()
     return jsonify(_serialize_quotation(q))
@@ -742,8 +864,14 @@ def quotations_send(qid):
             }
         ), 400
     customer = User.query.get(q.customer_id)
-    if not customer or not getattr(customer, 'email', None):
+    fiscal_c = get_invoice_fiscal_contact(q)
+    cust_email = (fiscal_email(fiscal_c) if fiscal_c else None) or (
+        getattr(customer, 'email', None) if customer else None
+    )
+    if not cust_email:
         return jsonify({'error': 'customer_email_missing'}), 400
+    if not customer:
+        customer = User.query.get(q.customer_id)
 
     payload = request.get_json(silent=True)
     data = payload if isinstance(payload, dict) else {}
@@ -835,10 +963,21 @@ def quotations_create_invoice(qid):
     if q.status != 'confirmed':
         return jsonify({'error': 'quotation_must_be_confirmed'}), 400
 
+    try:
+        contact, resolved_uid = inv_contact_svc.resolve_invoice_customer(
+            oid,
+            contact_id=getattr(q, 'contact_id', None) or getattr(q, 'customer_contact_id', None),
+            customer_id=int(q.customer_id),
+        )
+    except ValueError as exc:
+        return jsonify({'error': 'customer_contact_required', 'user_message': str(exc)}), 400
+
     inv = Invoice(
         organization_id=oid,
         number=_next_number('INV', Invoice, oid),
-        customer_id=q.customer_id,
+        customer_id=int(resolved_uid),
+        contact_id=int(contact.id),
+        customer_contact_id=None,
         status='draft',
         origin_quotation_id=q.id,
         salesperson_user_id=getattr(q, 'salesperson_user_id', None),

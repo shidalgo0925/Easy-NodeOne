@@ -3,7 +3,7 @@
 {% block title %}{% if campaign %}Editar campaña{% else %}Nueva campaña{% endif %} - Marketing{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page">
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start gap-3 mb-3">
         <div class="d-flex flex-wrap align-items-center gap-2 min-w-0">
             <a href="{{ url_for('admin_marketing') }}" class="btn btn-outline-secondary btn-sm text-nowrap"><i class="fas fa-arrow-left"></i> Volver</a>
@@ -44,15 +44,26 @@
         <input type="hidden" name="scheduled_at" id="scheduled_at" value="">
         <textarea name="body_html" id="body_html" class="d-none">{{ (campaign and campaign.body_html) or (default_template and default_template.html) or '' }}</textarea>
 
+        <ul class="nav nav-pills nav-fill small mb-3 flex-nowrap mobile-scroll-x pb-1" role="tablist">
+            <li class="nav-item"><span class="nav-link active disabled">1. Nombre y asunto</span></li>
+            <li class="nav-item"><span class="nav-link disabled">2. Audiencia</span></li>
+            <li class="nav-item"><span class="nav-link disabled">3. Plantilla</span></li>
+            <li class="nav-item"><span class="nav-link disabled">4. Contenido</span></li>
+            <li class="nav-item"><span class="nav-link disabled">5. Enviar</span></li>
+        </ul>
         <div class="row mb-3">
-            <div class="col-12 col-md-12">
+            <div class="col-12 col-md-6">
                 <label class="form-label">Nombre de la campaña</label>
                 <input type="text" name="name" class="form-control" required placeholder="Ej. Newsletter marzo" value="{{ campaign.name if campaign else '' }}">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Asunto del correo</label>
+                <input type="text" name="subject" class="form-control" required placeholder="Asunto del email" value="{{ campaign.subject if campaign else '' }}">
             </div>
         </div>
         <div class="row mb-3">
             <div class="col-12 col-md-4">
-                <label class="form-label">Segmento</label>
+                <label class="form-label">Segmento (audiencia)</label>
                 <select name="segment_id" id="segment_id" class="form-select" required>
                     <option value="">Seleccionar</option>
                     {% for s in segments %}
@@ -69,10 +80,6 @@
                         <option value="{{ t.id }}" {% if (campaign and campaign.template_id == t.id) or (default_template and default_template.id == t.id) %}selected{% endif %}>{{ t.name }}</option>
                     {% endfor %}
                 </select>
-            </div>
-            <div class="col-12 col-md-4">
-                <label class="form-label">Asunto del correo</label>
-                <input type="text" name="subject" class="form-control" required placeholder="Asunto del email" value="{{ campaign.subject if campaign else '' }}">
             </div>
         </div>
         <div class="row mb-3">

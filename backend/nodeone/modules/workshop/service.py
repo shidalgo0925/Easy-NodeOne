@@ -60,10 +60,10 @@ ORDER_STATUSES = (
 # origen -> destinos permitidos
 _TRANSITIONS: dict[str, tuple[str, ...]] = {
     'draft': ('inspected', 'cancelled'),
-    'inspected': ('quoted', 'draft', 'cancelled'),
+    'inspected': ('quoted', 'draft', 'cancelled', 'in_progress'),
     'quoted': ('approved', 'inspected', 'cancelled'),
-    'approved': ('in_progress', 'quoted', 'cancelled'),
-    'in_progress': ('qc', 'approved', 'cancelled'),
+    'approved': ('in_progress', 'quoted', 'cancelled', 'done'),
+    'in_progress': ('qc', 'approved', 'cancelled', 'done'),
     'qc': ('done', 'in_progress', 'cancelled'),
     'done': ('delivered', 'qc', 'cancelled'),
     'delivered': (),
@@ -149,6 +149,11 @@ def can_transition(order: WorkshopOrder, new_status: str) -> tuple[bool, str]:
 
 
 def apply_transition(order: WorkshopOrder, new_status: str) -> Optional[str]:
+    import logging
+
+    from nodeone.modules.workshop import sla_service
+
+    logger = logging.getLogger(__name__)
     ns = (new_status or '').strip()
     old = (order.status or 'draft').strip()
     if old == ns:
@@ -156,13 +161,16 @@ def apply_transition(order: WorkshopOrder, new_status: str) -> Optional[str]:
     ok, err = can_transition(order, new_status)
     if not ok:
         return err
-    order.status = ns
     try:
-        from nodeone.modules.workshop import sla_service
-
-        sla_service.on_status_changed(order, old, ns)
-    except Exception:
-        pass
+        sla_service.on_status_changed(order, ns)
+    except Exception as exc:
+        logger.exception(
+            'Error updating SLA transition for workshop order %s: %s',
+            order.id,
+            exc,
+        )
+        raise
+    order.status = ns
     return None
 
 

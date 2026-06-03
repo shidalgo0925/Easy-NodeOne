@@ -352,6 +352,21 @@
     color: #ffffff !important;
 }
 
+/* IIUS (internationalinstitute.us): Campus Virtual = marino; menú activo = morado */
+html[data-brand="iius"] .navbar-landing .nav-btn-login,
+html[data-brand="iius"] .nav-btn-login {
+    background-color: var(--color-primary-dark) !important;
+    border-radius: 999px;
+}
+html[data-brand="iius"] .navbar-landing .nav-btn-login:hover,
+html[data-brand="iius"] .nav-btn-login:hover {
+    background-color: color-mix(in srgb, var(--color-primary-dark) 85%, var(--color-primary) 15%) !important;
+}
+html[data-brand="iius"] .navbar-landing .nav-link.active {
+    color: var(--color-primary) !important;
+    font-weight: 600;
+}
+
 /* Fallback para nav-link / nav-icon-link sin .navbar-landing (por si se usa en otro contexto) */
 .nav-link {
     transition: color 0.3s ease;

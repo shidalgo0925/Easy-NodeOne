@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Procesos SLA — Taller | {{ get_nav_brand_name() }}{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=30">
-<div class="container-fluid py-3">
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-        <h1 class="h4 mb-0">Configuración de procesos de taller (SLA)</h1>
-        <a class="btn btn-outline-secondary btn-sm ms-auto" href="{{ url_for('admin_workshop_orders') }}">← Monitor</a>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workshop.css') }}?v=31">
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page">
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <h1 class="h5 mb-0 text-nowrap me-1" title="Tiempos objetivo por etapa; historial en order_process_log">
+            <i class="fas fa-stopwatch me-1 text-muted" aria-hidden="true"></i>SLA
+        </h1>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_workshop_settings') }}">Configuración</a>
+        <button type="button" class="btn btn-primary btn-sm ms-md-auto" id="woCfgSaveStages">Guardar</button>
     </div>
-    <p class="text-muted small">Tiempos objetivo por etapa del flujo. Las órdenes nuevas usan estos valores; el historial en <code>order_process_log</code> conserva lo ocurrido al cambiar de etapa.</p>
-    <div id="woCfgErr" class="alert alert-danger d-none"></div>
+    <div id="woCfgErr" class="alert alert-danger py-2 px-2 mb-2 d-none" role="alert"></div>
 
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border shadow-sm mb-2">
         <div class="card-header py-2 d-flex align-items-center gap-2">
-            <span class="fw-semibold">Etapas del flujo</span>
-            <button type="button" class="btn btn-primary btn-sm ms-auto" id="woCfgSaveStages">Guardar cambios</button>
+            <span class="fw-semibold small">Etapas del flujo</span>
         </div>
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0 align-middle">

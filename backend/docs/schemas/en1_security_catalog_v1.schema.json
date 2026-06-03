@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://easynodeone.local/schemas/en1_security_catalog_v1.schema.json",
+  "title": "EN1 Security Catalog v1",
+  "type": "object",
+  "required": ["meta", "users", "groups", "memberships", "critical_groups"],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "export_type",
+        "generated_at",
+        "database",
+        "odoo_version",
+        "exporter",
+        "exporter_version",
+        "record_counts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "export_type": { "const": "security_catalog" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "database": { "type": "string", "minLength": 1 },
+        "odoo_version": { "type": "string" },
+        "exporter": { "type": "string" },
+        "exporter_version": { "type": "string" },
+        "record_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "users": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/user" }
+    },
+    "groups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/group" }
+    },
+    "memberships": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/membership" }
+    },
+    "critical_groups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/critical_group" }
+    },
+    "model_access": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/model_access" }
+    },
+    "record_rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/record_rule" }
+    },
+    "modules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/module" }
+    },
+    "menus": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/menu" }
+    }
+  },
+  "$defs": {
+    "user": {
+      "type": "object",
+      "required": ["id", "login", "name", "active", "group_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer" },
+        "login": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "active": { "type": "boolean" },
+        "email": { "type": ["string", "null"] },
+        "share": { "type": "boolean" },
+        "department": { "type": ["string", "null"] },
+        "parent_login": { "type": ["string", "null"] },
+        "group_ids": {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["id", "name", "xml_id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "category": { "type": ["string", "null"] },
+        "xml_id": { "type": "string", "minLength": 3 },
+        "comment": { "type": ["string", "null"] },
+        "implied_group_ids": {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+      }
+    },
+    "membership": {
+      "type": "object",
+      "required": ["user_id", "group_id", "user_login", "group_xml_id"],
+      "additionalProperties": false,
+      "properties": {
+        "user_id": { "type": "integer" },
+        "group_id": { "type": "integer" },
+        "user_login": { "type": "string" },
+        "group_xml_id": { "type": "string" }
+      }
+    },
+    "critical_group": {
+      "type": "object",
+      "required": ["group_id", "xml_id", "name", "risk_level", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "group_id": { "type": "integer" },
+        "xml_id": { "type": "string" },
+        "name": { "type": "string" },
+        "risk_level": { "enum": ["low", "medium", "high", "critical"] },
+        "label": { "type": "string" }
+      }
+    },
+    "model_access": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "model",
+        "perm_read",
+        "perm_write",
+        "perm_create",
+        "perm_unlink"
+      ],
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "model": { "type": "string" },
+        "group_id": { "type": ["integer", "null"] },
+        "group_xml_id": { "type": ["string", "null"] },
+        "perm_read": { "type": "boolean" },
+        "perm_write": { "type": "boolean" },
+        "perm_create": { "type": "boolean" },
+        "perm_unlink": { "type": "boolean" }
+      }
+    },
+    "record_rule": {
+      "type": "object",
+      "required": ["id", "name", "model", "active"],
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "model": { "type": "string" },
+        "active": { "type": "boolean" },
+        "global": { "type": "boolean" },
+        "domain_force": { "type": "string" }
+      }
+    },
+    "module": {
+      "type": "object",
+      "required": ["id", "name", "state"],
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "shortdesc": { "type": "string" },
+        "state": { "type": "string" }
+      }
+    },
+    "menu": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "parent_id": { "type": ["integer", "null"] }
+      }
+    }
+  }
+}

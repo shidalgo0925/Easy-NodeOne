@@ -16,6 +16,9 @@ def register_admin_dashboard_memberships_routes(app):
         Subscription,
         User,
     )
+    from saas_features import require_saas_module
+
+    _require_memberships = require_saas_module('memberships')
 
     @app.route('/admin')
     @app.route('/admin/')
@@ -113,6 +116,7 @@ def register_admin_dashboard_memberships_routes(app):
 
     @app.route('/admin/memberships')
     @require_permission('memberships.view')
+    @_require_memberships
     def admin_memberships():
         """Gestión de membresías (incluye Membership y Subscription) con filtros y paginación"""
         from nodeone.services.user_organization import user_in_org_clause

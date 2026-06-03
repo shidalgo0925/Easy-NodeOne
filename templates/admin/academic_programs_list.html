@@ -3,14 +3,17 @@
 {% block title %}Programas académicos (inscripción){% endblock %}
 {% block page_content %}
 <div class="container py-4">
-  <h1 class="h3">Programas académicos <span class="text-muted small">org {{ organization_id }}</span></h1>
-  <p class="text-muted">Inscripción pública: <code>/inscripcion/&lt;slug&gt;</code>. Datos vía API/DB; el CRUD completo vendrá en una siguiente iteración.</p>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+    <h1 class="h3 mb-0">Programas académicos <span class="text-muted small">org {{ organization_id }}</span></h1>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('academic_enrollment_admin.program_new') }}"><i class="fas fa-plus me-1"></i> Nuevo programa</a>
+  </div>
+  <p class="text-muted">Inscripción pública: <code>/inscripcion/&lt;slug&gt;</code> (estado <strong>published</strong>).</p>
   {% if not programs %}
-  <div class="alert alert-light border">No hay programas. Insertar con script/migración o panel futuro.</div>
+  <div class="alert alert-light border">No hay programas. Crear con <strong>Nuevo programa</strong> o <code>python3 scripts/seed_academic_programs_iius_all.py {{ organization_id }}</code>.</div>
   {% else %}
   <div class="table-responsive">
     <table class="table table-sm table-bordered bg-white">
-      <thead><tr><th>Slug</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Enlace</th><th>QR</th></tr></thead>
+      <thead><tr><th>Slug</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th></th><th>Enlace</th><th>QR</th></tr></thead>
       <tbody>
         {% for p in programs %}
         <tr>
@@ -18,8 +21,9 @@
           <td>{{ p.name }}</td>
           <td>{{ p.program_type }}</td>
           <td>{{ p.status }}</td>
-          <td><a href="{{ url_for('payments.diplomado_landing', slug=p.slug) }}" target="_blank" rel="noopener">Vista pública</a></td>
-          <td>{{ qr_link(absolute_site_url(url_for('payments.diplomado_landing', slug=p.slug)), '') }}</td>
+          <td><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('academic_enrollment_admin.program_edit', program_id=p.id) }}">Editar</a></td>
+          <td>{% if p.status == 'published' %}<a href="{{ url_for('payments.diplomado_landing', slug=p.slug) }}" target="_blank" rel="noopener">Pública</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td>{% if p.status == 'published' %}{{ qr_link(absolute_site_url(url_for('payments.diplomado_landing', slug=p.slug)), '') }}{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

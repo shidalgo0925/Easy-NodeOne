@@ -57,6 +57,9 @@ def diplomado_landing(slug):
         getattr(program, 'id', None) if program else None,
     )
     if program is not None:
+        from nodeone.modules.academic_enrollment.session_helpers import capture_utm_from_request
+
+        capture_utm_from_request(request)
         pricing_plans = (
             AcademicProgramPricingPlan.query.filter_by(program_id=program.id, is_active=True)
             .order_by(AcademicProgramPricingPlan.sort_order.asc(), AcademicProgramPricingPlan.id.asc())
@@ -78,10 +81,51 @@ def diplomado_landing(slug):
     return render_template('public/program_inscripcion_not_found.html', slug=slug), 404
 
 
+@payments_bp.route('/inscripcion/<slug>/seleccionar-plan', methods=['POST'])
+def inscripcion_seleccionar_plan(slug):
+    """Guarda plan en sesión y envía a login/registro o al carrito si ya hay sesión."""
+    from nodeone.modules.academic_enrollment import service as academic_enrollment_svc
+    from nodeone.modules.academic_enrollment.session_helpers import set_pending_inscription
+
+    slug = (slug or '').strip().lower()
+    plan_code = (request.form.get('plan_code') or request.args.get('plan_code') or '').strip().lower()
+    if not plan_code:
+        flash('Elegí un plan de pago.', 'error')
+        return redirect(url_for('payments.diplomado_landing', slug=slug))
+
+    prog = academic_enrollment_svc.find_published_academic_program_for_inscripcion(slug)
+    if prog is None and slug not in svc.DIPLOMADOS_IIUS:
+        return render_template('public/program_inscripcion_not_found.html', slug=slug), 404
+
+    if prog is not None:
+        from app import AcademicProgramPricingPlan
+
+        plan_row = AcademicProgramPricingPlan.query.filter_by(
+            program_id=prog.id, code=plan_code, is_active=True
+        ).first()
+        if plan_row is None:
+            flash('Plan no disponible.', 'error')
+            return redirect(url_for('payments.diplomado_landing', slug=slug))
+        set_pending_inscription(slug, plan_code, int(prog.organization_id))
+    else:
+        set_pending_inscription(slug, plan_code)
+
+    if current_user.is_authenticated:
+        return redirect(url_for('payments.diplomado_continuar', slug=slug, plan=plan_code))
+
+    dest = url_for('payments.diplomado_continuar', slug=slug, plan=plan_code)
+    if request.form.get('flow') == 'register':
+        return redirect(url_for('register', next=dest))
+    return redirect(url_for('auth.login', next=dest))
+
+
 @payments_bp.route('/inscripcion/<slug>/continuar/<plan>')
 @login_required
 def diplomado_continuar(slug, plan):
     """Añade el diplomado al carrito y envía al checkout (requiere sesión y email verificado en /checkout)."""
+    from nodeone.modules.academic_enrollment.session_helpers import clear_pending_inscription
+
+    clear_pending_inscription()
     from nodeone.modules.academic_enrollment import service as academic_enrollment_svc
 
     slug = (slug or '').strip().lower()
@@ -107,11 +151,13 @@ def checkout_programa_shortcut(slug, plan_code):
     plan_code = (plan_code or '').strip().lower()
     prog = academic_enrollment_svc.find_published_academic_program_for_inscripcion(slug)
     if prog is not None:
-        session['pending_program_slug'] = slug
-        session['pending_plan_code'] = plan_code
-        session['pending_organization_id'] = int(prog.organization_id)
-        session['pending_return_url'] = url_for(
-            'payments.checkout_programa_shortcut', slug=slug, plan_code=plan_code
+        from nodeone.modules.academic_enrollment.session_helpers import set_pending_inscription
+
+        set_pending_inscription(
+            slug,
+            plan_code,
+            int(prog.organization_id),
+            return_url=url_for('payments.checkout_programa_shortcut', slug=slug, plan_code=plan_code),
         )
     if not current_user.is_authenticated:
         return redirect(
@@ -255,64 +301,22 @@ def checkout():
         return redirect(url_for(data[1]))
     cart, total_amount, discount_breakdown = data
     try:
-        from app import PAYMENT_METHODS, PAYMENT_PROCESSORS_AVAILABLE, STRIPE_PUBLISHABLE_KEY, PaymentConfig
-        from payment_processors import INTL_WIRE_DEFAULTS
-        # Misma org operativa que catálogo / host (evita usar solo default 1 y perder yappy_manual_enabled del tenant).
+        from app import PAYMENT_PROCESSORS_AVAILABLE, STRIPE_PUBLISHABLE_KEY, PaymentConfig
+        from nodeone.services import organization_payment_methods as opm
         from utils.organization import resolve_current_organization
 
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
-        payment_methods = dict(PAYMENT_METHODS or {})
-        # Solo Yappy manual en checkout (sin API `yappy` ni integración automática).
-        payment_methods.pop('yappy', None)
-        if not pcfg or not getattr(pcfg, 'yappy_manual_enabled', False):
-            payment_methods.pop('yappy_manual', None)
-        yappy_checkout = None
-        if pcfg and getattr(pcfg, 'yappy_manual_enabled', False):
-            from nodeone.services.yappy_manual import (
-                effective_yappy_display_name,
-                effective_yappy_instructions_html,
-                effective_yappy_phone_or_identifier,
-            )
-
-            yappy_checkout = {
-                'display_name': effective_yappy_display_name(pcfg),
-                'directory_name': (getattr(pcfg, 'yappy_directory_name', None) or '').strip(),
-                'phone': effective_yappy_phone_or_identifier(pcfg),
-                'instructions_html': effective_yappy_instructions_html(pcfg),
-                'requires_receipt': bool(getattr(pcfg, 'yappy_requires_receipt', True)),
-                'currency': 'USD',
-            }
-        if pcfg is not None and getattr(pcfg, 'intl_wire_enabled', True) is False:
-            payment_methods.pop('wire_international', None)
-        if not PAYMENT_PROCESSORS_AVAILABLE:
-            payment_methods = {
-                k: v
-                for k, v in payment_methods.items()
-                if k in ('yappy_manual', 'wire_international')
-            }
-            if not payment_methods:
-                payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}
-        if not payment_methods:
-            payment_methods = {'paypal': 'PayPal'}
+        ctx = opm.build_checkout_payment_context(pay_oid, payment_config=pcfg)
         stripe_pk = STRIPE_PUBLISHABLE_KEY
-        intl_wire_display = dict(INTL_WIRE_DEFAULTS)
-        if pcfg:
-            if (getattr(pcfg, 'intl_wire_beneficiary_name', None) or '').strip():
-                intl_wire_display['beneficiary_name'] = pcfg.intl_wire_beneficiary_name.strip()
-            if (getattr(pcfg, 'intl_wire_bank_name', None) or '').strip():
-                intl_wire_display['bank_name'] = pcfg.intl_wire_bank_name.strip()
-            if (getattr(pcfg, 'intl_wire_swift', None) or '').strip():
-                intl_wire_display['swift'] = pcfg.intl_wire_swift.strip()
-            if (getattr(pcfg, 'intl_wire_account', None) or '').strip():
-                intl_wire_display['account_number'] = pcfg.intl_wire_account.strip()
-            if (getattr(pcfg, 'intl_wire_account_type', None) or '').strip():
-                intl_wire_display['account_type'] = pcfg.intl_wire_account_type.strip()
-            if (getattr(pcfg, 'intl_wire_country', None) or '').strip():
-                intl_wire_display['country'] = pcfg.intl_wire_country.strip()
-            _iw_note = (getattr(pcfg, 'intl_wire_instructions', None) or '').strip()
-            if _iw_note:
-                intl_wire_display['instructions_html'] = _iw_note
+        if not PAYMENT_PROCESSORS_AVAILABLE:
+            pm = dict(ctx['payment_methods'])
+            ctx['payment_methods'] = pm
+            ctx['checkout_method_order'] = [k for k in ctx.get('checkout_method_order', []) if k in pm]
+            ctx['method_rows'] = [r for r in ctx.get('method_rows', []) if r.get('method_key') in pm]
+            ctx['checkout_first_method'] = ctx.get('checkout_first_method') or (
+                ctx['checkout_method_order'][0] if ctx.get('checkout_method_order') else None
+            )
     except Exception:
         from payment_processors import INTL_WIRE_DEFAULTS
 
@@ -322,17 +326,20 @@ def checkout():
             db.session.rollback()
         except Exception:
             pass
-        payment_methods = {'stripe': 'Stripe (Tarjeta de Crédito)'}
+        ctx = {
+            'payment_methods': {'paypal': 'PayPal'},
+            'method_rows': [],
+            'method_by_key': {},
+            'checkout_method_order': ['paypal'],
+            'checkout_first_method': 'paypal',
+            'checkout_has_immediate': True,
+            'checkout_has_manual_validation': False,
+            'checkout_other_method_keys': [],
+            'intl_wire_display': dict(INTL_WIRE_DEFAULTS),
+            'banco_general_display': {},
+            'yappy_checkout': None,
+        }
         stripe_pk = None
-        intl_wire_display = dict(INTL_WIRE_DEFAULTS)
-        yappy_checkout = None
-
-    _pm_keys = list(payment_methods.keys())
-    _pref_order = ('stripe', 'paypal', 'yappy_manual', 'wire_international', 'banco_general')
-    checkout_first_method = next((k for k in _pref_order if k in payment_methods), _pm_keys[0] if _pm_keys else 'stripe')
-    checkout_has_immediate = any(k in payment_methods for k in ('stripe', 'paypal'))
-    checkout_has_manual_validation = any(k in payment_methods for k in ('yappy_manual', 'wire_international'))
-    checkout_other_method_keys = [k for k in _pm_keys if k not in ('stripe', 'paypal', 'yappy_manual', 'wire_international')]
 
     return render_template(
         'checkout.html',
@@ -340,13 +347,16 @@ def checkout():
         total_amount=total_amount,
         discount_breakdown=discount_breakdown,
         stripe_publishable_key=stripe_pk,
-        payment_methods=payment_methods,
-        intl_wire_display=intl_wire_display,
-        yappy_checkout=yappy_checkout,
-        checkout_first_method=checkout_first_method,
-        checkout_has_immediate=checkout_has_immediate,
-        checkout_has_manual_validation=checkout_has_manual_validation,
-        checkout_other_method_keys=checkout_other_method_keys,
+        payment_methods=ctx['payment_methods'],
+        intl_wire_display=ctx['intl_wire_display'],
+        banco_general_display=ctx.get('banco_general_display', {}),
+        yappy_checkout=ctx['yappy_checkout'],
+        checkout_first_method=ctx['checkout_first_method'],
+        checkout_has_immediate=ctx['checkout_has_immediate'],
+        checkout_has_manual_validation=ctx['checkout_has_manual_validation'],
+        checkout_other_method_keys=ctx['checkout_other_method_keys'],
+        checkout_method_order=ctx.get('checkout_method_order', []),
+        method_by_key=ctx.get('method_by_key', {}),
         checkout_demo_hold=_checkout_demo_hold_for_ui(),
     )
 

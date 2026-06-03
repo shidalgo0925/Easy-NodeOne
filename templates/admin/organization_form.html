@@ -54,8 +54,9 @@
                         <option value="paid_only" {% if rp == 'paid_only' %}selected{% endif %}>Solo tras pago o invitación — no autoregistro gratis (IIUS, academias pagas)</option>
                         <option value="admin_only" {% if rp == 'admin_only' %}selected{% endif %}>Solo administrador — sin formulario público</option>
                         <option value="invitation_only" {% if rp == 'invitation_only' %}selected{% endif %}>Solo con enlace de invitación</option>
+                        <option value="academic_closed" {% if rp == 'academic_closed' %}selected{% endif %}>Campus académico cerrado — matrícula obligatoria (IIUS)</option>
                     </select>
-                    <div class="form-text">Afecta <code>/register</code> y alta nueva con Google; no bloquea alta desde panel admin.</div>
+                    <div class="form-text">Afecta <code>/register</code> y campus miembro; no bloquea alta desde panel admin.</div>
                 </div>
                 <hr>
                 <h6 class="mb-3">Perfil fiscal (emisor en cotizaciones y facturas)</h6>

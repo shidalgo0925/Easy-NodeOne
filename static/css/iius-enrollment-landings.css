@@ -1,0 +1,75 @@
+/**
+ * Landings inscripción IIUS — tokens :root (internationalinstitute.us).
+ * Marino bloques · Morado CTA · Dorado emblema · Cian destacados · Crema fondo suave
+ */
+.ii-checkout-landing,
+.pe-checkout-landing {
+  --ii-navy: var(--color-primary-dark);
+  --ii-gold: var(--color-accent-gold);
+  --ii-cyan: var(--color-accent-cyan);
+  --ii-primary: var(--color-primary);
+  --ii-bg: var(--color-background-cream, var(--color-background, #f4f6f9));
+  --pe-navy: var(--color-primary-dark);
+  --pe-gold: var(--color-accent-gold);
+  --pe-cyan: var(--color-accent-cyan);
+  --pe-bg: var(--color-background-cream, var(--color-background, #f4f6f9));
+}
+
+.ii-checkout-landing,
+.pe-checkout-landing {
+  background: var(--ii-bg);
+}
+
+.ii-checkout-summary,
+.pe-checkout-summary {
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-dark) 0%,
+    color-mix(in srgb, var(--color-primary-dark) 92%, var(--color-primary) 8%) 100%
+  ) !important;
+  color: #fff;
+}
+
+.ii-checkout-main h2,
+.ii-checkout-main h3,
+.pe-checkout-main h2 {
+  color: var(--color-primary-dark) !important;
+}
+
+.ii-checkout-summary .ii-lema,
+.pe-checkout-summary .pe-note {
+  border-left-color: var(--color-accent-cyan) !important;
+}
+
+.ii-plan-card strong,
+.ii-plan-card .ii-amt,
+.pe-plan-card strong,
+.pe-plan-card .pe-amt {
+  color: var(--color-primary-dark) !important;
+}
+
+.ii-plan-card a,
+.pe-plan-card a {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.ii-plan-card a:hover,
+.pe-plan-card a:hover {
+  background: color-mix(in srgb, var(--color-primary) 88%, #000) !important;
+  color: #fff !important;
+}
+
+.ii-plan-card:hover,
+.pe-plan-card:hover {
+  border-color: var(--color-accent-cyan) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent-cyan) 30%, transparent) !important;
+}
+
+/* Titular estilo marketing: «… para vos!» */
+.ii-headline-accent,
+.pe-headline-accent {
+  color: var(--color-accent-cyan) !important;
+  font-style: italic;
+  font-weight: 600;
+}

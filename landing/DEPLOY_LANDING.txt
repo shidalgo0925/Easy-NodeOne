@@ -10,6 +10,11 @@ Paso 1 — Confirmar qué sirve Nginx (en el servidor)
   Debe aparecer: root /var/www/easynodeone;
   Nginx NO apunta a .../NodeOne/landing/dist sino a /var/www/easynodeone.
 
+CORS (formulario demo desde easynodeone.com → appprd):
+  En el .env de la instancia EN1 (p. ej. prod), definir:
+    PUBLIC_LANDING_ALLOWED_ORIGINS=https://easynodeone.com,https://www.easynodeone.com
+  Sin esto, el navegador bloquea el POST cross-origin a /api/public/demo-request.
+
 ---
 
 Paso 2 — Verificar que dist tiene los cambios (en el servidor)
@@ -54,6 +59,6 @@ Paso 5 — Verificación rápida SEO / archivos públicos (cualquier máquina)
   curl -s https://easynodeone.com/sitemap.xml | head -15
 
   Debe existir Sitemap: https://easynodeone.com/sitemap.xml al final de robots (tras bloque opcional de Cloudflare).
-  El HTML de la home debe traer <link rel="canonical" href="https://easynodeone.com/" /> y meta description.
-  Bloque estático crawlable (tras #root en el HTML servido):
-  curl -s https://easynodeone.com/ | grep -q 'Acerca de EasyNodeOne' && echo OK
+  El HTML inicial debe traer <link rel="canonical" href="https://easynodeone.com/" /> y meta description (head).
+  El cuerpo mínimo es <div id="root"></div>; el contenido visible lo pinta la SPA (no hay bloque duplicado bajo el root).
+  curl -s https://easynodeone.com/ | grep -q 'rel="canonical"' && echo OK

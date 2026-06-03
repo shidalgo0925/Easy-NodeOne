@@ -12,9 +12,14 @@
                     <img src="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}" alt="{{ get_nav_brand_name() }}" height="28" class="flex-shrink-0 me-md-2" decoding="async" onerror="this.src='{{ url_for('static', filename=get_platform_logo()) }}?v={{ get_logo_cache_key() }}';">
                     <nav class="dashboard-nav dashboard-nav-compact flex-grow-1 min-w-0">
                         <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link active">Inicio</a>
-                        {% if saas_module_enabled('appointments') %}
+                        {% if academic_closed_mode %}
+                        <a href="{{ url_for('member_campus') }}" class="dashboard-nav-link">Mi campus</a>
+                        {% endif %}
+                        {% if saas_module_enabled('appointments') and not academic_member_gate_active %}
                         <a href="{{ url_for('member_services') }}" class="dashboard-nav-link">Mis servicios</a>
-                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Explorar</a>
+                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Tienda</a>
+                        {% elif saas_module_enabled('appointments') and has_academic_campus_access %}
+                        <a href="{{ url_for('member_services') }}" class="dashboard-nav-link">Mis servicios</a>
                         {% endif %}
                         <a href="{{ url_for('member_community.foros') }}" class="dashboard-nav-link">Comunidad</a>
                         <a href="{{ url_for('members.profile') }}" class="dashboard-nav-link">Perfil</a>
@@ -55,6 +60,79 @@
             </div>
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    {% if academic_closed_mode %}
+    <div id="campus-academico" class="row mb-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header py-2 {% if academic_member_gate_active %}bg-warning text-dark{% else %}bg-primary text-white{% endif %}">
+                    <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>Campus académico</h5>
+                </div>
+                <div class="card-body">
+                    {% if academic_member_gate_active %}
+                    <p class="mb-2">Tu acceso completo al campus se activa al confirmar la matrícula (pago acreditado).</p>
+                    {% if academic_pending_continue_url %}
+                    <div class="alert alert-warning py-2 small mb-2">
+                        Tenés una inscripción <strong>pendiente de pago</strong>.
+                        <a class="alert-link" href="{{ academic_pending_continue_url }}">Continuar al checkout</a>
+                    </div>
+                    {% endif %}
+                    {% if academic_published_programs %}
+                    <p class="small fw-semibold mb-1">Programas disponibles</p>
+                    <ul class="list-unstyled small mb-2">
+                        {% for prog in academic_published_programs %}
+                        <li class="mb-1">
+                            <a href="{{ url_for('payments.diplomado_landing', slug=prog.slug) }}">{{ prog.name }}</a>
+                            <span class="text-muted">({{ prog.display_type_label() if prog.display_type_label is defined else prog.program_type }})</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    <p class="mb-0">
+                        {% if academic_inscripcion_url %}
+                        <a class="btn btn-primary btn-sm" href="{{ academic_inscripcion_url }}">Inscribirme</a>
+                        {% endif %}
+                        {% if pending_payments_count and pending_payments_count > 0 %}
+                        <a class="btn btn-outline-secondary btn-sm ms-1" href="{{ url_for('member_payments') }}">Mis pagos</a>
+                        {% endif %}
+                    </p>
+                    {% elif academic_enrollments_grouped %}
+                    {% for group_label, group_items in academic_enrollments_grouped.items() %}
+                    <h6 class="small text-muted text-uppercase mt-2 mb-1">{{ group_label }}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-2">
+                            <thead><tr><th>Programa</th><th>Estado</th><th></th></tr></thead>
+                            <tbody>
+                                {% for en in group_items %}
+                                <tr>
+                                    <td>{{ en.program.name if en.program else 'Programa' }}</td>
+                                    <td>
+                                        {% if en.status == 'confirmed' %}<span class="badge bg-success">Confirmada</span>
+                                        {% elif en.status == 'paid' %}<span class="badge bg-primary">Pagada</span>
+                                        {% elif en.status == 'pending_payment' %}<span class="badge bg-warning text-dark">Pago pendiente</span>
+                                        {% else %}<span class="badge bg-secondary">{{ en.status }}</span>{% endif %}
+                                    </td>
+                                    <td class="text-nowrap">
+                                        {% if en.status == 'pending_payment' and en.program and en.program.slug %}
+                                        <a class="btn btn-sm btn-warning" href="{{ url_for('payments.diplomado_continuar', slug=en.program.slug, plan=en.pricing_plan.code if en.pricing_plan else 'full') }}">Pagar</a>
+                                        {% elif en.program and en.program.slug and en.status in ['paid', 'confirmed'] %}
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('payments.diplomado_landing', slug=en.program.slug) }}">Ver</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted mb-0 small">Sin matrículas académicas registradas aún.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
     {% endif %}
     
@@ -149,7 +227,7 @@
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('member_plan') }}"><i class="fas fa-crown me-1"></i>Mi plan</a>
                 {% if saas_module_enabled('appointments') %}
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('member_services') }}"><i class="fas fa-box-open me-1"></i>Mis servicios</a>
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.list') }}"><i class="fas fa-th-large me-1"></i>Explorar</a>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.list') }}"><i class="fas fa-store me-1"></i>Tienda</a>
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('appointments.appointments_home') }}"><i class="fas fa-calendar-alt me-1"></i>Mis citas</a>
                 {% endif %}
                 {% if saas_module_enabled('payments') %}
@@ -910,7 +988,7 @@
 .bg-indigo { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
 .bg-cyan { background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); }
 .bg-yellow { background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); }
-.bg-dark-blue { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); }
+.bg-dark-blue { background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); }
 .bg-secondary { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); }
 
 /* Footer del Dashboard */

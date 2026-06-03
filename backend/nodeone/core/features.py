@@ -43,6 +43,10 @@ import os
 # NODEONE_SKIP_ACADEMIC_MODULE=1 — no registrar Educación/LMS (estudiantes, cursos, matrículas, API Moodle).
 # NODEONE_ACADEMIC_MODULE_ENABLED=0 — apaga el módulo en todo el despliegue (además del toggle SaaS `academic` por tenant).
 # NODEONE_SKIP_CONTADOR_MODULE=1 — no registrar Contador (también inactiva toggles; el flag SaaS `contador` vive en saas_module).
+# NODEONE_SKIP_CONTACTS_MODULE=1 — no registrar Contactos (/admin/contacts).
+# NODEONE_CONTACTS_MODULE_ENABLED=0 — apaga el módulo Contactos en todo el despliegue (además del toggle SaaS `contacts` por tenant).
+# NODEONE_SKIP_EFACTURA_MODULE=1 — no registrar Facturación electrónica (/admin/efactura, /api/admin/efactura).
+# NODEONE_EFACTURA_MODULE_ENABLED=0 — apaga el módulo FE en todo el despliegue (además del toggle SaaS `efactura` por tenant).
 # NODEONE_SKIP_QR_GENERATOR_MODULE=1 — no registrar Generador QR (/admin/tools/qr, /api/qr/*).
 # NODEONE_SKIP_QR_TOOLS_MODULE=1 — no registrar QR mínimo (/api/tools/qr/generate, /tools/qr/simple).
 
@@ -120,9 +124,16 @@ def register_ai_api_blueprint(app):
 
 
 def register_admin_tenant_contacts_routes(app):
-    """Rutas /admin/contacts (endpoints en app, sin blueprint; compat. saas_features)."""
+    """Rutas /admin/contacts legacy → CRM (solo si el módulo central Contactos está apagado)."""
     if 'admin_tenant_contacts' in getattr(app, 'view_functions', {}):
         return
+    try:
+        from nodeone.services.contacts_module import is_contacts_globally_allowed
+
+        if is_contacts_globally_allowed():
+            return
+    except ImportError:
+        pass
     try:
         from nodeone.modules.admin_tenant_contacts.routes import register_admin_tenant_contacts_routes as _register
 
@@ -279,11 +290,13 @@ def register_admin_sales_accounting_routes(app):
     try:
         from nodeone.modules.admin_sales_accounting.routes import (
             register_admin_accounting_invoice_new_route as _reg_inv_new,
+            register_admin_sales_catalog_route as _reg_catalog,
             register_admin_sales_commercial_contacts_routes as _reg_cc,
             register_admin_sales_quotations_invoices_routes as _reg_qi,
         )
 
         _reg_qi(app)
+        _reg_catalog(app)
         _reg_cc(app)
         # Rutas añadidas tras el bloque idempotente de cotizaciones (despliegues parciales sin reinicio limpio).
         _reg_inv_new(app)
@@ -619,6 +632,9 @@ def register_admin_membership_discounts_blueprint(app):
         from nodeone.modules.admin_membership_discounts.routes import admin_membership_discounts_bp
 
         if 'admin_membership_discounts' not in app.blueprints:
+            from saas_features import register_simple_saas_guard
+
+            register_simple_saas_guard(admin_membership_discounts_bp, 'memberships')
             app.register_blueprint(admin_membership_discounts_bp)
     except ImportError as e:
         print(f'Warning: No se pudo registrar admin_membership_discounts_bp: {e}')
@@ -872,6 +888,24 @@ def register_qr_tools_routes(app):
         print(f'Warning: No se pudo registrar qr_tools: {e}')
 
 
+def register_security_matrix_blueprints(app):
+    """Matriz de permisos Odoo (/admin/security-matrix)."""
+    if os.environ.get('NODEONE_SKIP_SECURITY_MATRIX_MODULE', '').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+    ):
+        return
+    try:
+        from nodeone.modules.security_matrix_manager.routes import (
+            register_security_matrix_manager_blueprints as _reg,
+        )
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar security_matrix_manager: {e}')
+
+
 def register_contador_blueprints(app):
     """Conteos físicos por variante (/admin/contador, /api/contador)."""
     if os.environ.get('NODEONE_SKIP_CONTADOR_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
@@ -882,6 +916,30 @@ def register_contador_blueprints(app):
         _reg(app)
     except ImportError as e:
         print(f'Warning: No se pudo registrar Contador: {e}')
+
+
+def register_contacts_blueprints(app):
+    """Maestro Contactos (/admin/contacts)."""
+    if os.environ.get('NODEONE_SKIP_CONTACTS_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.contacts.register import register_contacts_blueprints as _reg
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar contacts: {e}')
+
+
+def register_efactura_blueprints(app):
+    """Facturación electrónica Panamá (/admin/efactura, /api/admin/efactura)."""
+    if os.environ.get('NODEONE_SKIP_EFACTURA_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.efactura.register import register_efactura_blueprints as _reg
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar efactura: {e}')
 
 
 def register_accounting_core_blueprint(app):
@@ -971,6 +1029,9 @@ def register_modules(app):
     register_workshop_blueprints(app)
     register_academic_module(app)
     register_contador_blueprints(app)
+    register_contacts_blueprints(app)
+    register_efactura_blueprints(app)
+    register_security_matrix_blueprints(app)
     register_qr_generator_routes(app)
     register_qr_tools_routes(app)
 

@@ -99,6 +99,22 @@
   max-height: 220px;
 }
 
+/* Monitor — KPI compactos */
+.workshop-orders-monitor.erp-compact-page .wo-kpi-strip .border.rounded {
+  padding: 0.35rem 0.5rem !important;
+}
+.workshop-orders-monitor.erp-compact-page .wo-kpi-strip .fw-semibold {
+  font-size: 0.9375rem;
+  line-height: 1.2;
+}
+.workshop-orders-monitor.erp-compact-page .wo-kpi-strip .small.text-muted {
+  font-size: 0.7rem;
+}
+
+.workshop-order-page.erp-compact-page .wo-vehicle-fields .form-label {
+  margin-bottom: 0.1rem;
+}
+
 /* Monitor listado taller — tarjetas SLA */
 .workshop-orders-monitor .wo-sla-card {
   cursor: pointer;

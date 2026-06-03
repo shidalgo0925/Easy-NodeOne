@@ -2,6 +2,8 @@
 """
 Yappy manual (EN1): columnas en payment y payment_config.
 Ejecutar desde backend: python migrate_yappy_manual_en1.py
+
+Alternativa PostgreSQL (PG 11+): backend/sql/postgresql_payment_yappy_manual_en1_v3.sql
 """
 import os
 import sys

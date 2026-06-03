@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}FE — Logs{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h1 class="h3 mb-3">Logs técnicos FE</h1>
+  <ul class="nav nav-tabs mb-4">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('efactura_admin.efactura_config') }}">Configuración</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('efactura_admin.efactura_emissions') }}">Emisiones</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('efactura_admin.efactura_test_invoice') }}">Emitir prueba</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('efactura_admin.efactura_logs') }}">Logs</a></li>
+  </ul>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead>
+        <tr><th>Fecha</th><th>Doc</th><th>Evento</th><th>HTTP</th><th>Mensaje</th></tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '' }}</td>
+          <td>{% if log.document_id %}<a href="{{ url_for('efactura_admin.efactura_emission_detail', doc_id=log.document_id) }}">#{{ log.document_id }}</a>{% else %}—{% endif %}</td>
+          <td>{{ log.event_type }}</td>
+          <td>{{ log.http_status or '—' }}</td>
+          <td class="small">{{ log.message or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted">Sin registros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

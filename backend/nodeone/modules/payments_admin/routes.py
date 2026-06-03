@@ -184,9 +184,14 @@ def api_approve_payment(payment_id):
         if not user:
             return jsonify({'success': False, 'error': 'No autorizado para aprobar este pago'}), 403
 
-        if getattr(payment, 'payment_method', None) == 'yappy_manual':
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+        if is_manual_validation_method(getattr(payment, 'payment_method', None)):
             return jsonify(
-                {'success': False, 'error': 'Los pagos Yappy manual se validan en Administración → Pagos Yappy manual.'}
+                {
+                    'success': False,
+                    'error': 'Los pagos con validación administrativa se aprueban en Administración → Validación de pagos manuales.',
+                }
             ), 400
 
         if payment.status == 'succeeded':
@@ -248,9 +253,14 @@ def api_reject_payment(payment_id):
         if not user:
             return jsonify({'success': False, 'error': 'No autorizado para rechazar este pago'}), 403
 
-        if getattr(payment, 'payment_method', None) == 'yappy_manual':
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+        if is_manual_validation_method(getattr(payment, 'payment_method', None)):
             return jsonify(
-                {'success': False, 'error': 'Los pagos Yappy manual se rechazan desde el panel Yappy manual.'}
+                {
+                    'success': False,
+                    'error': 'Los pagos con validación administrativa se rechazan desde el panel de validación manual.',
+                }
             ), 400
 
         payment.status = 'failed'
@@ -336,11 +346,27 @@ def admin_payments():
             )
 
 
+def _payments_scope_organization_id(M):
+    from nodeone.services.org_scope import admin_payments_scope_organization_id
+
+    return int(admin_payments_scope_organization_id())
+
+
+def _payment_config_for_scope(M, scope_oid: int):
+    from nodeone.services.payment_config_provision import dedicated_active_config
+
+    return dedicated_active_config(int(scope_oid))
+
+
 def _admin_payments_page_inner(M):
+    scope_oid = None
+    payments_scope_org_name = ''
 
     try:
-        scope_oid = M.admin_data_scope_organization_id()
-        payment_config = M.PaymentConfig.get_active_config(organization_id=scope_oid)
+        scope_oid = _payments_scope_organization_id(M)
+        org_row = M.SaasOrganization.query.get(int(scope_oid))
+        payments_scope_org_name = getattr(org_row, 'name', '') if org_row else ''
+        payment_config = _payment_config_for_scope(M, scope_oid)
 
         if payment_config:
             if not isinstance(payment_config, M.PaymentConfig):
@@ -406,8 +432,10 @@ def _admin_payments_page_inner(M):
             raise
 
     try:
+        from nodeone.services.organization_payment_methods import MANUAL_VALIDATION_METHOD_KEYS
+
         ymq = M.Payment.query.filter(
-            M.Payment.payment_method == 'yappy_manual',
+            M.Payment.payment_method.in_(tuple(MANUAL_VALIDATION_METHOD_KEYS)),
             M.Payment.status.in_(
                 [
                     'pending_receipt',
@@ -508,6 +536,8 @@ def _admin_payments_page_inner(M):
         'pending_payments': pending_payments,
         'yappy_manual_payments': yappy_manual_payments,
         'payment_transactions': enriched_transactions,
+        'payments_scope_org_id': scope_oid,
+        'payments_scope_org_name': payments_scope_org_name,
     }
     try:
         return render_template('admin/payments.html', **tmpl_ctx)
@@ -529,6 +559,93 @@ def _admin_payments_page_inner(M):
         )
 
 
+@payments_admin_bp.route('/api/admin/payments/org-methods', methods=['GET', 'PUT'])
+@_admin_required_lazy
+def api_organization_payment_methods():
+    """Matriz de métodos de pago por organización (habilitar, orden, instrucciones)."""
+    import app as M
+    from nodeone.services import organization_payment_methods as opm
+
+    try:
+        scope_oid = _payments_scope_organization_id(M)
+    except Exception:
+        from utils.organization import default_organization_id
+
+        scope_oid = int(default_organization_id())
+
+    if request.method == 'GET':
+        opm.ensure_organization_payment_methods_schema()
+        opm.seed_organization_payment_methods(scope_oid)
+        rows = opm.list_methods_for_org(scope_oid, enabled_only=False)
+        return jsonify({
+            'success': True,
+            'organization_id': scope_oid,
+            'methods': [r.to_dict() for r in rows],
+            'catalog_keys': list(opm.METHOD_CATALOG.keys()),
+        })
+
+    payload = request.get_json(silent=True) or {}
+    methods = payload.get('methods')
+    if not isinstance(methods, list):
+        return jsonify({'success': False, 'error': 'Se espera { "methods": [ ... ] }'}), 400
+    saved = opm.save_methods_payload(scope_oid, methods)
+    org_name = None
+    try:
+        org_row = M.SaasOrganization.query.get(int(scope_oid))
+        org_name = getattr(org_row, 'name', None) if org_row else None
+    except Exception:
+        pass
+    return jsonify({
+        'success': True,
+        'organization_id': scope_oid,
+        'organization_name': org_name,
+        'methods': saved,
+    })
+
+
+@payments_admin_bp.route('/api/admin/payments/org-methods/apply-profile', methods=['POST'])
+@_admin_required_lazy
+def api_apply_organization_payment_profile():
+    """Aplica perfil Panamá / Internacional a la matriz de la org activa."""
+    import app as M
+    from nodeone.services import organization_payment_methods as opm
+
+    try:
+        scope_oid = _payments_scope_organization_id(M)
+    except Exception:
+        from utils.organization import default_organization_id
+
+        scope_oid = int(default_organization_id())
+
+    payload = request.get_json(silent=True) or {}
+    profile_key = (payload.get('profile') or payload.get('profile_key') or '').strip().lower()
+    if not profile_key:
+        return jsonify({'success': False, 'error': 'Indique profile: panama | international'}), 400
+    try:
+        saved, label = opm.apply_payment_profile(scope_oid, profile_key)
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        M.db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    org_name = None
+    try:
+        org_row = M.SaasOrganization.query.get(int(scope_oid))
+        org_name = getattr(org_row, 'name', None) if org_row else None
+    except Exception:
+        pass
+    return jsonify({
+        'success': True,
+        'organization_id': scope_oid,
+        'organization_name': org_name,
+        'profile': profile_key,
+        'profile_label': label,
+        'methods': saved,
+        'message': f'Perfil aplicado: {label}',
+    })
+
+
 @payments_admin_bp.route('/api/admin/payments/config', methods=['GET', 'POST', 'PUT'])
 @_admin_required_lazy
 def api_payment_config():
@@ -538,9 +655,9 @@ def api_payment_config():
     if request.method == 'GET':
         scope_oid = None
         try:
-            scope_oid = M.admin_data_scope_organization_id()
+            scope_oid = _payments_scope_organization_id(M)
         except Exception:
-            current_app.logger.exception('api_payment_config GET: admin_data_scope_organization_id')
+            current_app.logger.exception('api_payment_config GET: admin_payments_scope_organization_id')
             try:
                 from utils.organization import default_organization_id as _def_org_id
 
@@ -549,7 +666,13 @@ def api_payment_config():
                 scope_oid = None
 
         try:
-            config = M.PaymentConfig.get_active_config(organization_id=scope_oid)
+            config = _payment_config_for_scope(M, scope_oid)
+            org_name = None
+            try:
+                org_row = M.SaasOrganization.query.get(int(scope_oid))
+                org_name = getattr(org_row, 'name', None) if org_row else None
+            except Exception:
+                pass
             if config:
                 try:
                     cfg_dict = config.to_dict()
@@ -558,6 +681,8 @@ def api_payment_config():
                     return jsonify(
                         {
                             'success': True,
+                            'organization_id': scope_oid,
+                            'organization_name': org_name,
                             'config': M.PaymentConfig.empty_config_api_dict(organization_id=scope_oid),
                             'no_active_row': True,
                             'schema_degraded': True,
@@ -567,11 +692,21 @@ def api_payment_config():
                             ),
                         }
                     )
-                return jsonify({'success': True, 'config': cfg_dict, 'no_active_row': False})
+                return jsonify(
+                    {
+                        'success': True,
+                        'organization_id': scope_oid,
+                        'organization_name': org_name,
+                        'config': cfg_dict,
+                        'no_active_row': False,
+                    }
+                )
             # Sin fila activa: respuesta exitosa con plantilla vacía (el formulario SSR ya puede mostrarse).
             return jsonify(
                 {
                     'success': True,
+                    'organization_id': scope_oid,
+                    'organization_name': org_name,
                     'config': M.PaymentConfig.empty_config_api_dict(organization_id=scope_oid),
                     'no_active_row': True,
                     'message': 'No hay fila de configuración activa para esta empresa. Rellena los campos y guarda para crearla.',
@@ -617,9 +752,9 @@ def api_payment_config():
         data = _sanitize_payment_config_api_payload(request.get_json(silent=True) or {})
         scope_oid = None
         try:
-            scope_oid = M.admin_data_scope_organization_id()
+            scope_oid = _payments_scope_organization_id(M)
         except Exception:
-            current_app.logger.exception('api_payment_config POST/PUT: admin_data_scope_organization_id')
+            current_app.logger.exception('api_payment_config POST/PUT: admin_payments_scope_organization_id')
             try:
                 from utils.organization import default_organization_id as _def_org_id
 
@@ -640,14 +775,28 @@ def api_payment_config():
             except Exception:
                 scope_oid = 1
 
-        if bool(data.get('yappy_manual_enabled', False)):
+        from nodeone.services import organization_payment_methods as opm
+
+        opm.seed_organization_payment_methods(scope_oid)
+        _ym_row = opm.get_method_row(scope_oid, 'yappy_manual')
+        if _ym_row and _ym_row.enabled:
             from nodeone.services.yappy_manual import validate_yappy_manual_admin_emails_when_enabled
 
-            norm_emails, em_err = validate_yappy_manual_admin_emails_when_enabled(
-                data.get('yappy_manual_admin_emails', '')
-            )
+            emails_raw = (data.get('yappy_manual_admin_emails') or '').strip()
+            if not emails_raw:
+                _existing_cfg = _payment_config_for_scope(M, scope_oid)
+                if _existing_cfg:
+                    emails_raw = (getattr(_existing_cfg, 'yappy_manual_admin_emails', None) or '').strip()
+            norm_emails, em_err = validate_yappy_manual_admin_emails_when_enabled(emails_raw)
             if em_err:
-                return jsonify({'success': False, 'error': em_err}), 400
+                return jsonify(
+                    {
+                        'success': False,
+                        'error': em_err,
+                        'message': em_err,
+                        'field': 'yappy_manual_admin_emails',
+                    }
+                ), 400
             data['yappy_manual_admin_emails'] = ','.join(norm_emails)
 
         try:
@@ -685,10 +834,10 @@ def api_payment_config():
                     yappy_instructions=(data.get('yappy_instructions') or '').strip() or None,
                     yappy_requires_receipt=bool(data.get('yappy_requires_receipt', True)),
                     yappy_admin_validation_required=bool(data.get('yappy_admin_validation_required', True)),
-                    yappy_manual_enabled=bool(data.get('yappy_manual_enabled', False)),
+                    yappy_manual_enabled=False,
                     yappy_manual_instructions=data.get('yappy_manual_instructions', '') or '',
                     yappy_manual_admin_emails=data.get('yappy_manual_admin_emails', '') or '',
-                    intl_wire_enabled=bool(data.get('intl_wire_enabled', True)),
+                    intl_wire_enabled=False,
                     intl_wire_beneficiary_name=data.get('intl_wire_beneficiary_name', '') or '',
                     intl_wire_bank_name=data.get('intl_wire_bank_name', '') or '',
                     intl_wire_swift=data.get('intl_wire_swift', '') or '',
@@ -696,6 +845,10 @@ def api_payment_config():
                     intl_wire_account_type=data.get('intl_wire_account_type', '') or '',
                     intl_wire_country=data.get('intl_wire_country', '') or '',
                     intl_wire_instructions=data.get('intl_wire_instructions', '') or '',
+                    banco_general_beneficiary_name=data.get('banco_general_beneficiary_name', '') or '',
+                    banco_general_bank_name=data.get('banco_general_bank_name', '') or '',
+                    banco_general_account_number=data.get('banco_general_account_number', '') or '',
+                    banco_general_account_type=data.get('banco_general_account_type', '') or '',
                     use_environment_variables=bool(data.get('use_environment_variables', True)),
                     is_active=True,
                 )
@@ -742,10 +895,8 @@ def api_payment_config():
                 config.yappy_admin_validation_required = bool(
                     data.get('yappy_admin_validation_required', config.yappy_admin_validation_required)
                 )
-                config.yappy_manual_enabled = bool(data.get('yappy_manual_enabled', config.yappy_manual_enabled))
                 config.yappy_manual_instructions = data.get('yappy_manual_instructions', config.yappy_manual_instructions)
                 config.yappy_manual_admin_emails = data.get('yappy_manual_admin_emails', config.yappy_manual_admin_emails)
-                config.intl_wire_enabled = bool(data.get('intl_wire_enabled', config.intl_wire_enabled))
                 config.intl_wire_beneficiary_name = data.get('intl_wire_beneficiary_name', config.intl_wire_beneficiary_name)
                 config.intl_wire_bank_name = data.get('intl_wire_bank_name', config.intl_wire_bank_name)
                 config.intl_wire_swift = data.get('intl_wire_swift', config.intl_wire_swift)
@@ -753,20 +904,39 @@ def api_payment_config():
                 config.intl_wire_account_type = data.get('intl_wire_account_type', config.intl_wire_account_type)
                 config.intl_wire_country = data.get('intl_wire_country', config.intl_wire_country)
                 config.intl_wire_instructions = data.get('intl_wire_instructions', config.intl_wire_instructions)
+                config.banco_general_beneficiary_name = data.get(
+                    'banco_general_beneficiary_name', config.banco_general_beneficiary_name
+                )
+                config.banco_general_bank_name = data.get('banco_general_bank_name', config.banco_general_bank_name)
+                config.banco_general_account_number = data.get(
+                    'banco_general_account_number', config.banco_general_account_number
+                )
+                config.banco_general_account_type = data.get(
+                    'banco_general_account_type', config.banco_general_account_type
+                )
                 config.use_environment_variables = bool(data.get('use_environment_variables', config.use_environment_variables))
                 config.is_active = True
                 config.updated_at = datetime.utcnow()
 
             M.db.session.commit()
+            opm.sync_legacy_payment_config_flags(scope_oid, sync_wire_instructions=False)
             try:
                 cfg_out = config.to_dict()
             except Exception:
                 current_app.logger.exception('api_payment_config POST/PUT: to_dict tras commit')
                 cfg_out = M.PaymentConfig.empty_config_api_dict(organization_id=scope_oid)
+            org_name = None
+            try:
+                org_row = M.SaasOrganization.query.get(int(scope_oid))
+                org_name = getattr(org_row, 'name', None) if org_row else None
+            except Exception:
+                pass
             return jsonify(
                 {
                     'success': True,
                     'message': 'Configuración guardada correctamente',
+                    'organization_id': scope_oid,
+                    'organization_name': org_name,
                     'config': cfg_out,
                 }
             )
@@ -865,8 +1035,10 @@ def admin_yappy_manual_list():
     from nodeone.services.yappy_manual_status import yappy_status_label
     uids_sq = _admin_scope_user_ids_only_safe(M)
 
+    from nodeone.services.organization_payment_methods import MANUAL_VALIDATION_METHOD_KEYS
+
     def _base_yappy_query():
-        q = M.Payment.query.filter(M.Payment.payment_method == 'yappy_manual')
+        q = M.Payment.query.filter(M.Payment.payment_method.in_(tuple(MANUAL_VALIDATION_METHOD_KEYS)))
         if uids_sq is not None:
             q = q.filter(M.Payment.user_id.in_(uids_sq))
         return q
@@ -928,6 +1100,8 @@ def admin_yappy_manual_detail(payment_id):
                 audit_events = []
         except Exception:
             audit_events = []
+    from nodeone.services.manual_payment_flow import method_display_label
+
     return render_template(
         'admin/yappy_manual_detail.html',
         payment=payment,
@@ -935,6 +1109,7 @@ def admin_yappy_manual_detail(payment_id):
         payment_config=cfg,
         audit_events=audit_events,
         yappy_status_label=yappy_status_label,
+        method_label=method_display_label(payment.payment_method),
     )
 
 
@@ -964,7 +1139,9 @@ def api_admin_yappy_manual_receipt(payment_id):
     payer = _payment_in_admin_scope_or_403(M, payment)
     if not payer:
         abort(403)
-    if payment.payment_method != 'yappy_manual':
+    from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+    if not is_manual_validation_method(payment.payment_method):
         abort(404)
     rel = getattr(payment, 'receipt_disk_path', None) or ''
     abs_path = absolute_path_for_disk_rel(current_app, rel) if rel else None
@@ -1000,8 +1177,10 @@ def api_yappy_manual_validate(payment_id):
         payer = _payment_in_admin_scope_or_403(M, payment)
         if not payer:
             return jsonify({'success': False, 'error': 'No autorizado'}), 403
-        if payment.payment_method != 'yappy_manual':
-            return jsonify({'success': False, 'error': 'No es un pago Yappy manual'}), 400
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+        if not is_manual_validation_method(payment.payment_method):
+            return jsonify({'success': False, 'error': 'No es un pago con validación administrativa'}), 400
         if payment.status not in ('pending_admin_review', 'pending_validation', 'manual_review'):
             return jsonify({'success': False, 'error': 'Solo se validan pagos en revisión (comprobante recibido).'}), 400
 

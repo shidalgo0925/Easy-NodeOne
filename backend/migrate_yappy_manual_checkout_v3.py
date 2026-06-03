@@ -3,6 +3,9 @@
 Yappy manual checkout v3: campos en payment_config y payment (instrucciones, comprobantes privados, org).
 
 Ejecutar desde backend: python migrate_yappy_manual_checkout_v3.py
+
+PostgreSQL sin migrador Python: aplicar también migrate_yappy_manual_en1.py antes (o el SQL
+backend/sql/postgresql_payment_yappy_manual_en1_v3.sql con psql; requiere PG 11+).
 """
 import os
 import sys

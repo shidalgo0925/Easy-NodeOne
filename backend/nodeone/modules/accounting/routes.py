@@ -10,8 +10,11 @@ from flask_login import current_user, login_required
 
 from nodeone.core.db import db
 from models.catalog import Service
-from models.saas import SaasOrganization
+from models.contact import Contact
+from models.saas import SaasOrganization, TenantCrmContact
 from models.users import User
+from nodeone.modules.contacts import invoice_integration as inv_contact_svc
+from nodeone.services.contacts_schema import ensure_contacts_schema
 from nodeone.modules.accounting.models import Invoice, InvoiceLine, Tax
 from nodeone.modules.sales.models import Quotation, QuotationLine
 from nodeone.services.tax_calculation import compute_line_amounts
@@ -45,6 +48,16 @@ def _taxes_sales_or_tenant_admin():
 
 
 def _ensure_tables():
+    try:
+        ensure_contacts_schema(db, db.engine)
+    except Exception:
+        db.session.rollback()
+    try:
+        from nodeone.services.invoices_schema import ensure_invoices_model_columns
+
+        ensure_invoices_model_columns(db, db.engine)
+    except Exception:
+        db.session.rollback()
     Tax.__table__.create(db.engine, checkfirst=True)
     Quotation.__table__.create(db.engine, checkfirst=True)
     QuotationLine.__table__.create(db.engine, checkfirst=True)
@@ -175,7 +188,32 @@ def _product_names_for_invoice_lines(organization_id, lines):
     return {s.id: (s.name or '') for s in rows}
 
 
-def _serialize_invoice(inv: Invoice, user_by_id=None):
+def _load_fiscal_contact(organization_id: int, contact_pk: int | None):
+    if not contact_pk:
+        return None
+    c = Contact.query.filter_by(id=int(contact_pk), organization_id=int(organization_id)).first()
+    if c:
+        return c
+    return TenantCrmContact.query.filter_by(id=int(contact_pk), organization_id=int(organization_id)).first()
+
+
+def _contact_display(contact) -> tuple[str, str]:
+    if contact is None:
+        return '', ''
+    if isinstance(contact, Contact):
+        return inv_contact_svc.fiscal_display_name(contact), inv_contact_svc.fiscal_email(contact) or (contact.email or '')
+    from nodeone.services import commercial_partner_service as cp_svc
+
+    return cp_svc.display_name(contact), cp_svc.fiscal_email(contact) or (getattr(contact, 'email', '') or '')
+
+
+def _serialize_invoice(inv: Invoice, user_by_id=None, contact_by_id=None):
+    contact = None
+    fid = getattr(inv, 'contact_id', None) or getattr(inv, 'customer_contact_id', None)
+    if fid and contact_by_id is not None:
+        contact = contact_by_id.get(int(fid))
+    elif fid:
+        contact = _load_fiscal_contact(inv.organization_id, int(fid))
     cust = None
     if inv.customer_id:
         if user_by_id is not None:
@@ -187,7 +225,9 @@ def _serialize_invoice(inv: Invoice, user_by_id=None):
                 cust = None
     name = ''
     email = ''
-    if cust:
+    if contact:
+        name, email = _contact_display(contact)
+    elif cust:
         name = f'{getattr(cust, "first_name", "") or ""} {getattr(cust, "last_name", "") or ""}'.strip()
         email = getattr(cust, 'email', '') or ''
     ilines = InvoiceLine.query.filter_by(invoice_id=inv.id).order_by(InvoiceLine.id).all()
@@ -213,8 +253,12 @@ def _serialize_invoice(inv: Invoice, user_by_id=None):
         'id': inv.id,
         'number': inv.number,
         'customer_id': inv.customer_id,
+        'contact_id': getattr(inv, 'contact_id', None) or getattr(inv, 'customer_contact_id', None),
+        'customer_contact_id': getattr(inv, 'contact_id', None) or getattr(inv, 'customer_contact_id', None),
+        'billing_contact_id': getattr(inv, 'billing_contact_id', None),
         'customer_name': name,
         'customer_email': email,
+        'currency': getattr(inv, 'currency', None) or 'USD',
         'salesperson_user_id': int(sp_uid) if sp_uid else None,
         'salesperson_name': sp_name,
         'salesperson_email': sp_email,
@@ -244,6 +288,17 @@ def _serialize_invoice(inv: Invoice, user_by_id=None):
         'created_by': inv.created_by,
         'lines': [_serialize_invoice_line(ln, product_name=pnames.get(ln.product_id, '')) for ln in ilines],
     }
+    try:
+        from nodeone.modules.efactura.services.issue import find_active_fe_for_invoice
+
+        fe = find_active_fe_for_invoice(inv.id, inv.organization_id)
+        out['fe_document'] = (
+            {'id': fe.id, 'status': fe.status, 'cufe': fe.cufe, 'authorization_message': fe.authorization_message}
+            if fe
+            else None
+        )
+    except Exception:
+        out['fe_document'] = None
     if inv.status == 'draft':
         from nodeone.services.invoice_ledger import posting_readiness_for_org
 
@@ -417,13 +472,19 @@ def invoices_post():
         return jsonify({'error': 'forbidden'}), 403
     oid = _org_id()
     data = request.get_json() or {}
+    customer_contact_id = int(data.get('contact_id') or data.get('customer_contact_id') or 0) or None
     customer_id = int(data.get('customer_id') or 0)
     origin_qid = int(data.get('origin_quotation_id') or 0) or None
 
-    if customer_id < 1 and origin_qid:
+    if customer_contact_id is None and customer_id < 1 and origin_qid:
         qrow = Quotation.query.filter_by(id=origin_qid, organization_id=oid).first()
         if qrow:
             customer_id = int(qrow.customer_id)
+            customer_contact_id = (
+                getattr(qrow, 'contact_id', None)
+                or getattr(qrow, 'customer_contact_id', None)
+                or customer_contact_id
+            )
         else:
             return jsonify(
                 {
@@ -432,13 +493,17 @@ def invoices_post():
                 }
             ), 404
 
-    if customer_id < 1:
-        return jsonify(
-            {
-                'error': 'customer_id_required',
-                'user_message': 'Indique el ID del cliente (miembro) o un número de cotización de origen válido para deducir el cliente.',
-            }
-        ), 400
+    try:
+        contact, resolved_uid = inv_contact_svc.resolve_invoice_customer(
+            oid,
+            contact_id=customer_contact_id,
+            customer_contact_id=customer_contact_id,
+            customer_id=customer_id if customer_id > 0 else None,
+        )
+    except ValueError as exc:
+        return jsonify({'error': 'customer_contact_required', 'user_message': str(exc)}), 400
+    customer_id = int(resolved_uid)
+    contact_pk = int(contact.id)
     enr_id = int(data.get('enrollment_id') or 0) or None
     due_raw = data.get('due_date')
     due_dt = None
@@ -451,6 +516,10 @@ def invoices_post():
         organization_id=oid,
         number=_next_number('INV', Invoice, oid),
         customer_id=customer_id,
+        contact_id=contact_pk,
+        customer_contact_id=None,
+        billing_contact_id=int(data.get('billing_contact_id') or 0) or None,
+        currency=(data.get('currency') or 'USD')[:8],
         status='draft',
         origin_quotation_id=origin_qid,
         enrollment_id=enr_id,
@@ -566,7 +635,22 @@ def invoice_get(iid):
     if ids:
         for u in User.query.filter(User.id.in_(list(ids))).all():
             user_by_id[u.id] = u
-    return jsonify(_serialize_invoice(inv, user_by_id))
+    contact_by_id = {}
+    cids = set()
+    if getattr(inv, 'contact_id', None):
+        cids.add(int(inv.contact_id))
+    elif getattr(inv, 'customer_contact_id', None):
+        cids.add(int(inv.customer_contact_id))
+    if getattr(inv, 'billing_contact_id', None):
+        cids.add(int(inv.billing_contact_id))
+    if cids:
+        for c in Contact.query.filter(Contact.id.in_(list(cids)), Contact.organization_id == oid).all():
+            contact_by_id[c.id] = c
+        missing = cids - set(contact_by_id.keys())
+        if missing:
+            for c in TenantCrmContact.query.filter(TenantCrmContact.id.in_(list(missing))).all():
+                contact_by_id[c.id] = c
+    return jsonify(_serialize_invoice(inv, user_by_id, contact_by_id))
 
 
 @accounting_bp.route('/<int:iid>', methods=['PUT'])
@@ -581,7 +665,7 @@ def invoice_put(iid):
         return jsonify({'error': 'not_found', 'user_message': 'Factura no encontrada.'}), 404
     data = request.get_json() or {}
 
-    _draft_only_keys = ('customer_id', 'lines', 'due_date', 'date')
+    _draft_only_keys = ('customer_id', 'contact_id', 'customer_contact_id', 'billing_contact_id', 'lines', 'due_date', 'date')
     if inv.status != 'draft':
         if any(k in data for k in _draft_only_keys):
             return jsonify(
@@ -598,28 +682,27 @@ def invoice_put(iid):
             db.session.commit()
         return jsonify(_serialize_invoice(inv))
 
-    if 'customer_id' in data:
-        cid = int(data.get('customer_id') or 0)
-        if cid < 1:
-            return jsonify(
-                {
-                    'error': 'customer_id_required',
-                    'user_message': 'Seleccione un cliente válido.',
-                }
-            ), 400
-        cust = User.query.filter(
-            user_in_org_clause(User, oid),
-            User.id == cid,
-            User.is_active.is_(True),
-        ).first()
-        if not cust:
-            return jsonify(
-                {
-                    'error': 'customer_not_in_organization',
-                    'user_message': 'El cliente no es un miembro activo de esta organización.',
-                }
-            ), 400
-        inv.customer_id = cid
+    if 'customer_contact_id' in data or 'contact_id' in data or 'customer_id' in data:
+        ccid = int(data.get('contact_id') or data.get('customer_contact_id') or 0) or None
+        cid = int(data.get('customer_id') or 0) or None
+        try:
+            contact, resolved_uid = inv_contact_svc.resolve_invoice_customer(
+                oid,
+                contact_id=ccid,
+                customer_contact_id=ccid,
+                customer_id=cid,
+            )
+        except ValueError as exc:
+            return jsonify({'error': 'customer_contact_required', 'user_message': str(exc)}), 400
+        inv.contact_id = int(contact.id)
+        inv.customer_contact_id = None
+        inv.customer_id = int(resolved_uid)
+    if 'billing_contact_id' in data:
+        bcid = int(data.get('billing_contact_id') or 0) or None
+        if bcid:
+            if not _load_fiscal_contact(oid, bcid):
+                return jsonify({'error': 'billing_contact_not_found', 'user_message': 'Pagador no encontrado.'}), 400
+        inv.billing_contact_id = bcid
 
     if 'date' in data:
         raw_d = data.get('date')
@@ -719,11 +802,21 @@ def invoice_post(iid):
         db.session.rollback()
         return jsonify({'error': 'ledger_post_failed', 'user_message': str(e)}), 400
     db.session.commit()
+    fe_doc = None
+    try:
+        from nodeone.modules.efactura.services.issue import maybe_auto_emit_for_invoice
+
+        fe_doc = maybe_auto_emit_for_invoice(inv.id, oid, trigger='invoice_confirm')
+    except Exception:
+        fe_doc = None
     return jsonify(
         {
             'ok': True,
             'status': inv.status,
             'journal_entry_id': getattr(inv, 'journal_entry_id', None),
+            'fe_document': (
+                {'id': fe_doc.id, 'status': fe_doc.status, 'cufe': fe_doc.cufe} if fe_doc else None
+            ),
         }
     )
 
@@ -796,6 +889,14 @@ def invoice_pay(iid):
             on_invoice_paid_hook(inv.id, oid)
         except Exception:
             pass
+    fe_doc = None
+    if inv.status == 'paid':
+        try:
+            from nodeone.modules.efactura.services.issue import maybe_auto_emit_for_invoice
+
+            fe_doc = maybe_auto_emit_for_invoice(inv.id, oid, trigger='payment_confirmed')
+        except Exception:
+            fe_doc = None
     return jsonify(
         {
             'ok': True,
@@ -803,6 +904,9 @@ def invoice_pay(iid):
             'amount_paid': _safe_float(inv.amount_paid),
             'amount_due': round(max(_safe_float(inv.grand_total) - _safe_float(inv.amount_paid), 0.0), 2),
             'payment_journal_entry_id': getattr(inv, 'payment_journal_entry_id', None),
+            'fe_document': (
+                {'id': fe_doc.id, 'status': fe_doc.status, 'cufe': fe_doc.cufe} if fe_doc else None
+            ),
         }
     )
 

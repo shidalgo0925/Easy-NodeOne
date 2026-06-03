@@ -13,26 +13,9 @@ def org_id_for_module_visibility():
 
 
 def has_saas_module_enabled(organization_id, module_code):
-    import app as M
+    from nodeone.services.saas_module_cache import has_saas_module_enabled_cached
 
-    if not module_code:
-        return True
-    if not M._enable_multi_tenant_catalog():
-        return True
-    if organization_id is None:
-        return False
-    try:
-        oid = int(organization_id)
-    except (TypeError, ValueError):
-        return False
-    mod = M.SaasModule.query.filter_by(code=module_code).first()
-    if mod is None:
-        # Sin fila en catálogo: no se puede evaluar permiso → denegar (multi-tenant SaaS).
-        return False
-    link = M.SaasOrgModule.query.filter_by(organization_id=oid, module_id=mod.id).first()
-    if link is not None:
-        return bool(link.enabled)
-    return bool(mod.is_core)
+    return has_saas_module_enabled_cached(organization_id, module_code)
 
 
 def apply_session_organization_after_login(user, req):
@@ -97,6 +80,39 @@ def admin_scope_user_ids_only():
     if not current_user_can_view_org_users():
         q = q.filter(M.User.id == int(getattr(M.current_user, 'id', 0) or 0))
     return q
+
+
+def admin_payments_scope_organization_id():
+    """
+    Scope para Admin → Pagos (config + matriz).
+    Prioriza session['organization_id'] del selector lateral (empresa activa),
+    sin usar fallback de PaymentConfig de otra org.
+    """
+    from flask import has_request_context, request, session
+    from flask_login import current_user
+
+    import app as M
+
+    if has_request_context() and getattr(current_user, 'is_authenticated', False):
+        raw = session.get('organization_id')
+        if raw not in (None, ''):
+            try:
+                oid = int(raw)
+                if getattr(current_user, 'is_admin', False) or M.user_has_access_to_organization(
+                    current_user, oid
+                ):
+                    return oid
+            except (TypeError, ValueError):
+                pass
+        q = (request.args.get('organization_id') or '').strip()
+        if q and getattr(current_user, 'is_admin', False):
+            try:
+                qoid = int(q)
+                if M.user_has_access_to_organization(current_user, qoid):
+                    return qoid
+            except (TypeError, ValueError):
+                pass
+    return admin_data_scope_organization_id()
 
 
 def admin_data_scope_organization_id():

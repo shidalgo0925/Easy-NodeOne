@@ -217,11 +217,16 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 mail = Mail(app) if Mail else None
 
+# Última config SMTP aplicada en este worker (evita reinicializar Mail en cada hit).
+_last_smtp_applied_key: tuple | None = None
+
 # Aplicar configuración de email desde BD si existe (después de crear las tablas)
 def apply_email_config_from_db():
     """Aplicar configuración de email desde la base de datos (por org en sesión si hay usuario)."""
-    global mail, email_service
+    global mail, email_service, _last_smtp_applied_key
     try:
+        from flask import g
+
         from utils.organization import default_organization_id, get_current_organization_id
 
         oid = None
@@ -233,13 +238,37 @@ def apply_email_config_from_db():
         except RuntimeError:
             oid = None
 
-        if oid is not None:
-            email_config = EmailConfig.get_active_config(
-                organization_id=int(oid),
-                allow_fallback_to_default_org=True,
-            )
+        scope_oid = int(oid) if oid is not None else None
+
+        if has_request_context() and getattr(g, '_email_config_resolved_for_oid', object()) == scope_oid:
+            fingerprint = getattr(g, '_email_config_fingerprint', None)
         else:
-            email_config = EmailConfig.get_active_config()
+            if scope_oid is not None:
+                email_config = EmailConfig.get_active_config(
+                    organization_id=scope_oid,
+                    allow_fallback_to_default_org=True,
+                )
+            else:
+                email_config = EmailConfig.get_active_config()
+            fingerprint = email_config.smtp_fingerprint() if email_config else ('none', scope_oid)
+            if has_request_context():
+                g._email_config_resolved_for_oid = scope_oid
+                g._email_config_fingerprint = fingerprint
+                g._email_config_row = email_config
+
+        apply_key = (scope_oid, fingerprint)
+        if _last_smtp_applied_key == apply_key:
+            return
+
+        email_config = getattr(g, '_email_config_row', None) if has_request_context() else None
+        if email_config is None:
+            if scope_oid is not None:
+                email_config = EmailConfig.get_active_config(
+                    organization_id=scope_oid,
+                    allow_fallback_to_default_org=True,
+                )
+            else:
+                email_config = EmailConfig.get_active_config()
 
         if email_config:
             email_config.apply_to_app(app)
@@ -262,6 +291,7 @@ def apply_email_config_from_db():
             if EmailService and mail:
                 if not email_service:
                     email_service = EmailService(mail)
+        _last_smtp_applied_key = apply_key
     except Exception as e:
         print(f"⚠️ No se pudo cargar configuración de email desde BD: {e}")
         print("   Usando configuración por defecto o variables de entorno")
@@ -526,6 +556,19 @@ def ensure_session_organization():
 
 
 @app.before_request
+def enforce_academic_closed_member_access():
+    """Campus académico cerrado: sin matrícula activa solo inscripción/checkout/cuenta."""
+    try:
+        from nodeone.services.academic_access import maybe_redirect_academic_gate
+
+        resp = maybe_redirect_academic_gate()
+        if resp is not None:
+            return resp
+    except Exception as e:
+        app.logger.warning('academic_gate: %s', e)
+
+
+@app.before_request
 def initialize_email_config():
     """Migraciones ligeras una vez; SMTP se reaplica por request según organización en sesión."""
     global _email_config_initialized
@@ -540,6 +583,20 @@ def initialize_email_config():
         print(f"⚠️ No se pudo inicializar configuración de email: {e}")
         import traceback
         traceback.print_exc()
+
+
+@app.before_request
+def preload_saas_module_flags():
+    """Precarga flags SaaS por org (2 SQL) antes de plantillas y context processors."""
+    try:
+        if not _enable_multi_tenant_catalog():
+            return
+        from nodeone.services.org_scope import org_id_for_module_visibility
+        from nodeone.services.saas_module_cache import preload_saas_modules_for_org
+
+        preload_saas_modules_for_org(org_id_for_module_visibility())
+    except Exception:
+        pass
 
 
 @app.before_request
@@ -674,26 +731,49 @@ def _env_brand_hex(key: str):
 _IIUS_BRAND_PRESET_KEYS = frozenset(
     ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
 )
+# IIUS (internationalinstitute.us): morado CTA · marino fondos · dorado emblema · cian copy destacada
+_IIUS_THEME = {
+    'theme_primary': '#8B60AA',
+    'theme_primary_dark': '#00042D',
+    'theme_accent': '#E6BF75',
+    'theme_accent_gold': '#E6BF75',
+    'theme_accent_cyan': '#00B8E0',
+    'theme_background_cream': '#F3E8C8',
+}
 
 
 def resolve_theme_tokens():
     """
     Design tokens: organization_settings (BD) + capa opcional de marca.
-    Orden: valores de sesión/org → preset NODEONE_BRAND_PRESET (IIUS) → overrides NODEONE_BRAND_*.
+    Orden: preset IIUS (si aplica) → BD → overrides NODEONE_BRAND_*.
     """
+    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
+    use_iius = preset in _IIUS_BRAND_PRESET_KEYS
+
     try:
         s = OrganizationSettings.get_settings_for_session()
         from nodeone.services.tenant_email_logo_storage import resolve_tenant_logo_static_relpath
 
-        out = {
-            'theme_primary': s.primary_color or '#2563EB',
-            'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
-            'theme_accent': s.accent_color or '#06B6D4',
-            'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
-            'theme_favicon_url': s.favicon_url or '',
-        }
+        if use_iius:
+            out = {
+                **_IIUS_THEME,
+                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
+                'theme_favicon_url': s.favicon_url or '',
+            }
+        else:
+            out = {
+                'theme_primary': s.primary_color or '#2563EB',
+                'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
+                'theme_accent': s.accent_color or '#06B6D4',
+                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
+                'theme_favicon_url': s.favicon_url or '',
+            }
     except Exception:
         out = {
+            **_IIUS_THEME,
+            'theme_logo_url': '',
+            'theme_favicon_url': '',
+        } if use_iius else {
             'theme_primary': '#2563EB',
             'theme_primary_dark': '#1E3A8A',
             'theme_accent': '#06B6D4',
@@ -701,23 +781,31 @@ def resolve_theme_tokens():
             'theme_favicon_url': '',
         }
 
-    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
-    if preset in _IIUS_BRAND_PRESET_KEYS:
-        # IIUS: morado = botones/CTA; azul marino = fondos y bloques (primary_dark en custom.css / .bg-dark-blue)
-        # Dorado suave = acentos secundarios (borde/highlight), alineado al sitio público
-        out['theme_primary'] = '#8B60AA'
-        out['theme_primary_dark'] = '#00042D'
-        out['theme_accent'] = '#E6BF75'
+    if use_iius:
+        out.update(_IIUS_THEME)
 
     ep = _env_brand_hex('NODEONE_BRAND_PRIMARY')
     ed = _env_brand_hex('NODEONE_BRAND_PRIMARY_DARK')
     ea = _env_brand_hex('NODEONE_BRAND_ACCENT')
+    eg = _env_brand_hex('NODEONE_BRAND_ACCENT_GOLD')
+    ec = _env_brand_hex('NODEONE_BRAND_ACCENT_CYAN')
     if ep:
         out['theme_primary'] = ep
     if ed:
         out['theme_primary_dark'] = ed
     if ea:
         out['theme_accent'] = ea
+        if use_iius:
+            out['theme_accent_gold'] = ea
+    if eg and use_iius:
+        out['theme_accent_gold'] = eg
+        out['theme_accent'] = eg
+    if ec and use_iius:
+        out['theme_accent_cyan'] = ec
+    out.setdefault('theme_accent_gold', out.get('theme_accent', '#06B6D4'))
+    out.setdefault('theme_accent_cyan', out.get('theme_accent', '#06B6D4'))
+    out.setdefault('theme_background_cream', '#F1F5F9')
+    out['brand_preset'] = preset if use_iius else ''
     return out
 
 
@@ -732,6 +820,10 @@ def inject_theme():
             'theme_primary': '#2563EB',
             'theme_primary_dark': '#1E3A8A',
             'theme_accent': '#06B6D4',
+            'theme_accent_gold': '#06B6D4',
+            'theme_accent_cyan': '#06B6D4',
+            'theme_background_cream': '#F1F5F9',
+            'brand_preset': '',
             'theme_logo_url': '',
             'theme_favicon_url': '',
         }
@@ -739,10 +831,8 @@ def inject_theme():
 # Context processor: planes de membresía configurables (para dropdowns y listas)
 @app.context_processor
 def inject_membership_plans():
-    try:
-        return {'membership_plans': MembershipPlan.get_active_ordered()}
-    except Exception:
-        return {'membership_plans': []}
+    # Sin uso global en plantillas; admin/users pasa membership_plans_for_assign en la vista.
+    return {'membership_plans': []}
 
 
 # Context processor: apariencia del usuario (tema y tamaño de fuente) para aplicar en <html>
@@ -1454,12 +1544,13 @@ def saas_module_enabled_fallback(module_code, fallback_module_code=''):
     Evalúa módulo SaaS con fallback si el módulo principal no existe en catálogo.
     Útil para migrar flags nuevos sin romper tenants antiguos.
     """
+    from nodeone.services.saas_module_cache import get_catalog_module
+
     code = (module_code or '').strip()
     fallback = (fallback_module_code or '').strip()
     if not code:
         return True
-    mod = SaasModule.query.filter_by(code=code).first()
-    if mod is not None:
+    if get_catalog_module(code) is not None:
         return has_saas_module_enabled(_org_id_for_module_visibility(), code)
     if fallback:
         return has_saas_module_enabled(_org_id_for_module_visibility(), fallback)
@@ -1472,12 +1563,14 @@ def saas_module_enabled_chain(*module_codes: str) -> bool:
     (encendido/apagado por org). Si ninguno existe en catálogo, evalúa el último código
     (despliegues sin fila aún, compat. heredada).
     """
+    from nodeone.services.saas_module_cache import get_catalog_module
+
     codes = [str(c or '').strip() for c in module_codes if str(c or '').strip()]
     if not codes:
         return True
     oid = _org_id_for_module_visibility()
     for code in codes:
-        if SaasModule.query.filter_by(code=code).first() is not None:
+        if get_catalog_module(code) is not None:
             return has_saas_module_enabled(oid, code)
     return has_saas_module_enabled(oid, codes[-1])
 
@@ -1493,39 +1586,96 @@ def inject_saas_module_template_helper():
     from flask import current_app, has_request_context
     from flask_login import current_user
 
+    from nodeone.core.template_context_gates import (
+        should_count_events_portal_badge,
+        should_load_academic_member_context,
+        user_can_see_tenant_admin_menu,
+    )
     from nodeone.services.academic_module import is_academic_module_enabled_for_org
     from nodeone.services.office365_module import is_office365_module_enabled_for_org
 
-    # Menú solo si el blueprint existe y el módulo SaaS `academic` está ON para la org (incl. is_admin).
+    oid = _org_id_for_module_visibility()
+    academic_module_enabled = is_academic_module_enabled_for_org(oid)
+    office365_module_enabled = is_office365_module_enabled_for_org(oid)
+    events_module_enabled = has_saas_module_enabled(oid, 'events')
+
     show_academic_nav = False
     if (
         has_request_context()
-        and getattr(current_user, 'is_authenticated', False)
+        and user_can_see_tenant_admin_menu(current_user)
         and 'academic_admin' in current_app.blueprints
-        and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+        and academic_module_enabled
     ):
         show_academic_nav = True
 
     events_portal_count = None
     try:
-        if has_request_context() and has_saas_module_enabled(_org_id_for_module_visibility(), 'events'):
+        if has_request_context() and should_count_events_portal_badge(
+            user=current_user,
+            events_module_enabled=events_module_enabled,
+        ):
             from nodeone.services.events_portal import count_portal_visible_events
 
-            u = current_user if getattr(current_user, 'is_authenticated', False) else None
             events_portal_count = count_portal_visible_events(
-                organization_id=_org_id_for_module_visibility(), user=u
+                organization_id=oid, user=current_user
             )
     except Exception:
         events_portal_count = None
+
+    academic_closed_mode = False
+    has_academic_campus_access = True
+    academic_member_enrollments = []
+    academic_inscripcion_url = None
+    academic_published_programs = []
+    academic_enrollments_grouped = {}
+    academic_pending_continue_url = None
+    try:
+        if has_request_context() and should_load_academic_member_context(
+            user=current_user,
+            academic_module_enabled=academic_module_enabled,
+        ):
+            from nodeone.services.academic_access import (
+                continuar_url_for_enrollment,
+                default_inscripcion_url_for_org,
+                group_enrollments_for_display,
+                has_active_enrollment,
+                is_academic_closed_org,
+                list_member_enrollments,
+                list_published_programs_for_org,
+                pending_enrollment_for_user,
+                user_bypasses_academic_gate,
+            )
+
+            academic_closed_mode = bool(oid is not None and is_academic_closed_org(oid))
+            if oid is not None:
+                academic_inscripcion_url = default_inscripcion_url_for_org(int(oid))
+                academic_published_programs = list_published_programs_for_org(int(oid))
+            if academic_closed_mode and not user_bypasses_academic_gate(current_user):
+                has_academic_campus_access = has_active_enrollment(int(current_user.id), oid)
+                academic_member_enrollments = list_member_enrollments(int(current_user.id), oid)
+                academic_enrollments_grouped = group_enrollments_for_display(academic_member_enrollments)
+                pending = pending_enrollment_for_user(int(current_user.id), oid)
+                if pending is not None:
+                    academic_pending_continue_url = continuar_url_for_enrollment(pending)
+    except Exception:
+        pass
 
     return dict(
         saas_module_enabled=saas_module_enabled,
         saas_module_enabled_fallback=saas_module_enabled_fallback,
         saas_module_enabled_chain=saas_module_enabled_chain,
-        office365_module_enabled=is_office365_module_enabled_for_org(_org_id_for_module_visibility()),
-        academic_module_enabled=is_academic_module_enabled_for_org(_org_id_for_module_visibility()),
+        office365_module_enabled=office365_module_enabled,
+        academic_module_enabled=academic_module_enabled,
         show_academic_admin_nav=show_academic_nav,
         events_portal_count=events_portal_count,
+        academic_closed_mode=academic_closed_mode,
+        has_academic_campus_access=has_academic_campus_access,
+        academic_member_gate_active=academic_closed_mode and not has_academic_campus_access,
+        academic_member_enrollments=academic_member_enrollments,
+        academic_inscripcion_url=academic_inscripcion_url,
+        academic_published_programs=academic_published_programs,
+        academic_enrollments_grouped=academic_enrollments_grouped,
+        academic_pending_continue_url=academic_pending_continue_url,
     )
 
 
@@ -1560,6 +1710,7 @@ def inject_admin_nav_context():
         'show_org_switcher_link': False,
         'show_member_organization_switcher': False,
         'member_organizations_nav': [],
+        'show_erp_admin_chrome': False,
     }
     if not has_request_context():
         out['nav_can'] = _nav_can_permission
@@ -1603,10 +1754,9 @@ def inject_admin_nav_context():
                         rows = [o for o in rows if int(o.id) in allow]
                     out['saas_organizations_nav'] = rows
                 else:
-                    # Admin RBAC (tenant): mismas empresas que puede usar el usuario (no forzar solo default en single-tenant).
-                    from nodeone.services.post_login_organization import organizations_for_session_after_login
+                    from nodeone.core.template_context_gates import cached_orgs_for_session_after_login
 
-                    out['saas_organizations_nav'] = organizations_for_session_after_login(current_user)
+                    out['saas_organizations_nav'] = cached_orgs_for_session_after_login(current_user)
             except Exception:
                 out['saas_organizations_nav'] = []
         try:
@@ -1627,9 +1777,9 @@ def inject_admin_nav_context():
             except Exception:
                 pass
         try:
-            from nodeone.services.post_login_organization import organizations_for_session_after_login
+            from nodeone.core.template_context_gates import cached_orgs_for_session_after_login
 
-            _picker_orgs = organizations_for_session_after_login(current_user)
+            _picker_orgs = cached_orgs_for_session_after_login(current_user)
             if len(_picker_orgs) > 1:
                 out['show_org_switcher_link'] = True
                 has_admin_org_sidebar = bool(
@@ -1643,6 +1793,62 @@ def inject_admin_nav_context():
     except Exception:
         pass
     out['nav_can'] = _nav_can_permission
+    out.setdefault('nav_app_areas', [])
+    out.setdefault('nav_sidebar_top_areas', [])
+    out.setdefault('nav_sidebar_groups', [])
+    out.setdefault('nav_active_area_id', None)
+    out.setdefault('nav_sidebar_area_id', None)
+    out.setdefault('nav_active_area_label', None)
+    out.setdefault('nav_area_children', [])
+    out.setdefault('nav_single_area_mode', False)
+    out.setdefault('nav_show_module_bar', False)
+    out.setdefault('nav_active_child_label', None)
+    out.setdefault('show_erp_admin_chrome', False)
+    try:
+        is_authenticated = (
+            has_request_context() and getattr(current_user, 'is_authenticated', False)
+        )
+        is_platform_admin_user = bool(getattr(current_user, 'is_admin', False))
+        show_erp_chrome = bool(out.get('show_tenant_admin_menu')) or (
+            bool(out.get('show_platform_admin_nav')) and is_platform_admin_user
+        )
+        out['show_erp_admin_chrome'] = show_erp_chrome if is_authenticated else False
+        if is_authenticated and show_erp_chrome:
+            from flask import current_app
+
+            from nodeone.core.nav_menu import nav_launcher_payload
+            from nodeone.services.academic_module import is_academic_module_enabled_for_org
+            from nodeone.services.office365_module import is_office365_module_enabled_for_org
+
+            show_academic_nav = False
+            if (
+                'academic_admin' in current_app.blueprints
+                and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+            ):
+                show_academic_nav = True
+            out.update(
+                nav_launcher_payload(
+                    nav_can=_nav_can_permission,
+                    saas_module_enabled=saas_module_enabled,
+                    saas_module_enabled_chain=saas_module_enabled_chain,
+                    has_view_endpoint=has_view_endpoint,
+                    show_academic_admin_nav=show_academic_nav,
+                    office365_module_enabled=is_office365_module_enabled_for_org(
+                        _org_id_for_module_visibility()
+                    ),
+                    show_platform_admin_nav=bool(out.get('show_platform_admin_nav')),
+                    is_platform_admin=bool(getattr(current_user, 'is_admin', False)),
+                    is_advisor=bool(getattr(current_user, 'is_advisor', False)),
+                    show_tenant_admin_menu=bool(out.get('show_tenant_admin_menu')),
+                )
+            )
+    except Exception:
+        try:
+            from flask import current_app
+
+            current_app.logger.exception('inject_admin_nav_context: nav_launcher_payload falló')
+        except Exception:
+            pass
     return out
 
 
@@ -2449,6 +2655,13 @@ try:
 except Exception as e:
     print(f"Warning: register_modules: {e}")
 
+try:
+    from nodeone.core.request_perf import register_request_perf
+
+    register_request_perf(app)
+except Exception as e:
+    print(f'Warning: register_request_perf: {e}')
+
 # Funciones de utilidad
 def create_sample_data():
     """Crear datos de ejemplo"""
@@ -3058,6 +3271,16 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_default_percent_taxes: {e}')
         try:
+            from nodeone.services.payment_config_schema import ensure_payment_config_yappy_columns
+
+            ensure_payment_config_yappy_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_payment_config_yappy_columns: {e}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        try:
             from nodeone.services.contador_schema import ensure_contador_qty_float_columns
 
             ensure_contador_qty_float_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
@@ -3069,6 +3292,47 @@ def bootstrap_nodeone_schema():
             ensure_events_participants_certificates_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_events_participants_certificates_schema: {e}')
+        try:
+            from nodeone.modules.security_matrix_manager import service as _sm_schema
+
+            _sm_schema.ensure_security_matrix_schema()
+            print('📋 security_matrix_manager: tablas y permiso security_matrix.admin')
+        except Exception as e:
+            print(f'⚠️ security_matrix_manager bootstrap: {e}')
+        try:
+            from nodeone.services.efactura_schema import ensure_efactura_schema
+
+            ensure_efactura_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_efactura_schema: {e}')
+        try:
+            from nodeone.services.contacts_schema import ensure_contacts_schema
+
+            ensure_contacts_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_contacts_schema: {e}')
+        # WIP comercial (tenant_crm_contact): solo si se pide explícitamente; evita abortar la sesión en Fase 1 Contactos.
+        if os.environ.get('NODEONE_COMMERCIAL_PARTNERS_SCHEMA', '').strip().lower() in ('1', 'true', 'yes'):
+            try:
+                from nodeone.services.commercial_partner_schema import ensure_commercial_partner_schema
+
+                ensure_commercial_partner_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+            except Exception as e:
+                db.session.rollback()
+                print(f'⚠️ ensure_commercial_partner_schema: {e}')
+        try:
+            from nodeone.services.payment_config_provision import bootstrap_tenant_payment_setup
+
+            bootstrap_tenant_payment_setup()
+            print('📋 organization_payment_methods + PaymentConfig por tenant: listo')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ tenant payment bootstrap: {e}')
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         apply_email_config_from_db()
 
 

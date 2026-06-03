@@ -7,6 +7,76 @@
   min-height: 100%;
 }
 
+.quote-odoo-page.erp-compact-page {
+  background: #f9fafb;
+}
+.quote-odoo-page.erp-compact-page .quote-odoo-number {
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+.quote-odoo-page.erp-compact-page .quote-odoo-header--compact {
+  border-bottom: 1px solid var(--quote-border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.quote-odoo-page.erp-compact-page .quote-odoo-field {
+  min-width: 0;
+  gap: 0.1rem;
+}
+.quote-odoo-page.erp-compact-page .quote-odoo-field-customer {
+  max-width: none;
+}
+.quote-odoo-page.erp-compact-page .quote-odoo-input,
+.quote-odoo-page.erp-compact-page .odoo-m2o-input-wrap {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  min-height: 1.85rem;
+  font-size: 0.8125rem;
+}
+.quote-odoo-page.erp-compact-page .quote-customer-m2o input,
+.quote-odoo-page.erp-compact-page .quote-salesperson-m2o input {
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+  font-size: 0.8125rem;
+}
+.quote-odoo-page.erp-compact-page .quote-odoo-tabs .nav-link {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+}
+.quote-odoo-page.erp-compact-page .quote-odoo-tab-content {
+  padding: 0.5rem 0.65rem !important;
+}
+.quote-odoo-page.erp-compact-page .quote-lines-table thead th {
+  padding: 0.35rem 0.4rem;
+}
+.quote-odoo-page.erp-compact-page .quote-lines-table tbody td {
+  padding: 0.25rem 0.4rem;
+}
+.quote-odoo-page.erp-compact-page .quote-totals-panel {
+  min-width: 0;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+}
+.quote-odoo-page.erp-compact-page .quote-totals-row {
+  padding: 0.2rem 0;
+  font-size: 0.8125rem;
+  gap: 1rem;
+}
+.quote-odoo-page.erp-compact-page .quote-totals-grand {
+  margin-top: 0.25rem;
+  padding-top: 0.35rem;
+  font-size: 0.9375rem;
+}
+.quote-odoo-page.erp-compact-page .quote-doc-body-row {
+  align-items: flex-start;
+}
+@media (min-width: 992px) {
+  .quote-odoo-page.erp-compact-page .quote-totals-col {
+    position: sticky;
+    top: 0.5rem;
+  }
+}
+
 .quote-odoo-toolbar .btn-light {
   background: #fff;
 }

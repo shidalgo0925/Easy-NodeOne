@@ -15,6 +15,18 @@ class Quotation(db.Model):
     )
     number = db.Column(db.String(50), nullable=False, index=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False, index=True)
+    contact_id = db.Column(
+        db.Integer,
+        db.ForeignKey('en1_contact.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+    customer_contact_id = db.Column(
+        db.Integer,
+        db.ForeignKey('tenant_crm_contact.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
     salesperson_contact_id = db.Column(
         db.Integer,
         db.ForeignKey('tenant_crm_contact.id', ondelete='SET NULL'),

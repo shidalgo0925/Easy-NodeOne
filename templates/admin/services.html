@@ -9,16 +9,14 @@
 {% endblock %}
 
 {% block page_content %}
-<div class="container-fluid px-0 services-catalog-page">
-    <div class="row mb-4 align-items-start">
-        <div class="col-12 col-lg-auto mb-3 mb-lg-0">
-            <h1 class="services-page-title mb-1">Servicios</h1>
-            <p class="text-muted small mb-0">Catálogo de tu organización. Buscá por nombre o descripción.</p>
-        </div>
-        <div class="col-12 col-lg ms-lg-auto">
-            <div class="d-flex flex-wrap gap-2 justify-content-lg-end align-items-center">
+<div class="container-fluid px-2 px-sm-3 py-2 services-catalog-page erp-compact-page">
+    <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
+        <h1 class="h5 mb-0 text-nowrap me-1 services-page-title">
+            <i class="fas fa-concierge-bell me-1 text-muted" aria-hidden="true"></i>Productos
+        </h1>
+            <div class="d-flex flex-wrap gap-1 align-items-center">
                     {% if has_view_endpoint('services.list') %}
-                    {{ qr_link(absolute_site_url(url_for('services.list')), 'QR catálogo') }}
+                    {{ qr_link(absolute_site_url(url_for('services.list')), 'QR tienda') }}
                     {% endif %}
                     {% if current_user.is_authenticated and current_user.has_permission('services.view') %}
                     <a href="/admin/cv-applications" class="btn btn-sm btn-outline-secondary" title="Postulaciones por servicios tipo CV"><i class="fas fa-file-alt me-1"></i>Hojas de vida</a>
@@ -36,13 +34,11 @@
                     <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>
                     <a href="/api/admin/export/pdf?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportPdf" class="btn btn-danger btn-sm" target="_blank" title="Exportar a PDF"><i class="fas fa-file-pdf"></i> PDF</a>
                     {% endif %}
-                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createServiceModal"><i class="fas fa-plus"></i> Crear Servicio</button>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createServiceModal"><i class="fas fa-plus"></i> Nuevo</button>
                 </div>
-            </div>
-        </div>
     </div>
 
-    <div class="mb-3">
+    <div class="mb-2">
         <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 w-100 w-md-auto" type="button"
                 data-bs-toggle="collapse" data-bs-target="#servicesCatalogExplain" aria-expanded="false" aria-controls="servicesCatalogExplain">
             <i class="fas fa-info-circle" aria-hidden="true"></i>

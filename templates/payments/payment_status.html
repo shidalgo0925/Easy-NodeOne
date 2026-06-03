@@ -9,7 +9,7 @@
             <!-- Breadcrumb -->
             <nav aria-label="breadcrumb" class="mb-4 mobile-scroll-x pb-1">
                 <ol class="breadcrumb flex-nowrap mb-0">
-                    <li class="breadcrumb-item"><a href="{% if saas_module_enabled('appointments') %}{{ url_for('services.list') }}{% else %}{{ url_for('dashboard') }}{% endif %}">{% if saas_module_enabled('appointments') %}Servicios{% else %}Inicio{% endif %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% if saas_module_enabled('appointments') %}{{ url_for('services.list') }}{% else %}{{ url_for('dashboard') }}{% endif %}">{% if saas_module_enabled('appointments') %}Tienda{% else %}Inicio{% endif %}</a></li>
                     <li class="breadcrumb-item active" aria-current="page">Estado de Pago</li>
                 </ol>
             </nav>
@@ -144,7 +144,7 @@
                     <!-- Botones de acción -->
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{% if saas_module_enabled('appointments') %}{{ url_for('services.list') }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left me-2"></i>{% if saas_module_enabled('appointments') %}Volver a Servicios{% else %}Volver al inicio{% endif %}
+                            <i class="fas fa-arrow-left me-2"></i>{% if saas_module_enabled('appointments') %}Volver a la tienda{% else %}Volver al inicio{% endif %}
                         </a>
                         {% if appointment %}
                         <a href="{{ url_for('appointments.appointments_home') }}" class="btn btn-primary">

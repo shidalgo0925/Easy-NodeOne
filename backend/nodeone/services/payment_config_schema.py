@@ -5,6 +5,24 @@ from __future__ import annotations
 from sqlalchemy import inspect, text
 
 # (column_name, sqlite_ddl, postgresql_ddl)
+_PAYMENT_CONFIG_BANCO_GENERAL_COLUMNS = (
+    ('banco_general_beneficiary_name', 'VARCHAR(400)', 'VARCHAR(400)'),
+    ('banco_general_bank_name', 'VARCHAR(200)', 'VARCHAR(200)'),
+    ('banco_general_account_number', 'VARCHAR(80)', 'VARCHAR(80)'),
+    ('banco_general_account_type', 'VARCHAR(80)', 'VARCHAR(80)'),
+)
+
+_PAYMENT_CONFIG_INTL_WIRE_COLUMNS = (
+    ('intl_wire_enabled', 'INTEGER DEFAULT 1', 'BOOLEAN DEFAULT TRUE'),
+    ('intl_wire_beneficiary_name', 'VARCHAR(400)', 'VARCHAR(400)'),
+    ('intl_wire_bank_name', 'VARCHAR(200)', 'VARCHAR(200)'),
+    ('intl_wire_swift', 'VARCHAR(32)', 'VARCHAR(32)'),
+    ('intl_wire_account', 'VARCHAR(80)', 'VARCHAR(80)'),
+    ('intl_wire_account_type', 'VARCHAR(80)', 'VARCHAR(80)'),
+    ('intl_wire_country', 'VARCHAR(120)', 'VARCHAR(120)'),
+    ('intl_wire_instructions', 'TEXT', 'TEXT'),
+)
+
 _PAYMENT_CONFIG_YAPPY_COLUMNS = (
     ('yappy_directory_name', 'VARCHAR(100)', 'VARCHAR(100)'),
     ('yappy_qr_image_path', 'VARCHAR(500)', 'VARCHAR(500)'),
@@ -30,7 +48,11 @@ def ensure_payment_config_yappy_columns(db, engine, printfn=None) -> None:
     dialect = engine.dialect.name
     use_pg = dialect == 'postgresql'
 
-    for name, sqlite_ddl, pg_ddl in _PAYMENT_CONFIG_YAPPY_COLUMNS:
+    for name, sqlite_ddl, pg_ddl in (
+        *_PAYMENT_CONFIG_BANCO_GENERAL_COLUMNS,
+        *_PAYMENT_CONFIG_INTL_WIRE_COLUMNS,
+        *_PAYMENT_CONFIG_YAPPY_COLUMNS,
+    ):
         if name in cols:
             continue
         ddl = pg_ddl if use_pg else sqlite_ddl

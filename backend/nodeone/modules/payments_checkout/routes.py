@@ -380,6 +380,8 @@ def create_payment_intent():
 
         if payment_method == 'wire_international' and payment_data.get('bank_account'):
             metadata['intl_wire'] = payment_data.get('bank_account')
+        if payment_method == 'banco_general' and payment_data.get('bank_account'):
+            metadata['banco_general_transfer'] = payment_data.get('bank_account')
         
         # Detectar si estamos en modo demo
         is_demo_mode = payment_data.get('demo_mode', False)
@@ -823,11 +825,15 @@ def payment_success():
 
             pcfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id)
             intl_wire = None
+            banco_general_transfer = None
             if payment.payment_metadata:
                 try:
-                    intl_wire = json.loads(payment.payment_metadata).get('intl_wire')
+                    meta = json.loads(payment.payment_metadata)
+                    intl_wire = meta.get('intl_wire')
+                    banco_general_transfer = meta.get('banco_general_transfer')
                 except Exception:
                     intl_wire = None
+                    banco_general_transfer = None
             from nodeone.services.manual_payment_flow import (
                 is_manual_validation_method,
                 method_requires_receipt,
@@ -845,6 +851,7 @@ def payment_success():
                 payment=payment,
                 payment_config=pcfg,
                 intl_wire=intl_wire,
+                banco_general_transfer=banco_general_transfer,
                 manual_validation_payment=mv,
                 manual_can_upload_receipt=mv
                 and (is_pending_receipt(payment.status) or (payment.status or '').strip() == 'rejected'),

@@ -336,6 +336,7 @@ def checkout():
             'checkout_has_manual_validation': False,
             'checkout_other_method_keys': [],
             'intl_wire_display': dict(INTL_WIRE_DEFAULTS),
+            'banco_general_display': {},
             'yappy_checkout': None,
         }
         stripe_pk = None
@@ -348,6 +349,7 @@ def checkout():
         stripe_publishable_key=stripe_pk,
         payment_methods=ctx['payment_methods'],
         intl_wire_display=ctx['intl_wire_display'],
+        banco_general_display=ctx.get('banco_general_display', {}),
         yappy_checkout=ctx['yappy_checkout'],
         checkout_first_method=ctx['checkout_first_method'],
         checkout_has_immediate=ctx['checkout_has_immediate'],

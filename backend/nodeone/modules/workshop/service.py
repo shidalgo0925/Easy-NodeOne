@@ -60,10 +60,10 @@ ORDER_STATUSES = (
 # origen -> destinos permitidos
 _TRANSITIONS: dict[str, tuple[str, ...]] = {
     'draft': ('inspected', 'cancelled'),
-    'inspected': ('quoted', 'draft', 'cancelled'),
+    'inspected': ('quoted', 'draft', 'cancelled', 'in_progress'),
     'quoted': ('approved', 'inspected', 'cancelled'),
-    'approved': ('in_progress', 'quoted', 'cancelled'),
-    'in_progress': ('qc', 'approved', 'cancelled'),
+    'approved': ('in_progress', 'quoted', 'cancelled', 'done'),
+    'in_progress': ('qc', 'approved', 'cancelled', 'done'),
     'qc': ('done', 'in_progress', 'cancelled'),
     'done': ('delivered', 'qc', 'cancelled'),
     'delivered': (),
@@ -164,7 +164,6 @@ def apply_transition(order: WorkshopOrder, new_status: str) -> Optional[str]:
     try:
         sla_service.on_status_changed(order, ns)
     except Exception as exc:
-        db.session.rollback()
         logger.exception(
             'Error updating SLA transition for workshop order %s: %s',
             order.id,

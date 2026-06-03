@@ -775,6 +775,19 @@ def api_order_patch(order_id: int):
     if not o:
         return jsonify({'error': 'not_found'}), 404
     data = request.get_json() or {}
+    new_status = str(data['status']).strip() if data.get('status') else None
+
+    if 'customer_id' in data:
+        cid = int(data.get('customer_id') or 0)
+        if cid < 1:
+            return jsonify({'error': 'customer_id_required'}), 400
+        cust = User.query.filter_by(id=cid).first()
+        if not cust or not user_has_active_membership(cust, org):
+            return jsonify({'error': 'customer_not_in_org', 'detail': 'El cliente no pertenece a esta organización.'}), 400
+        o.customer_id = cid
+        veh = WorkshopVehicle.query.filter_by(id=o.vehicle_id, organization_id=org).first()
+        if veh:
+            veh.customer_id = cid
 
     if 'notes' in data:
         o.notes = str(data.get('notes') or '').strip() or None
@@ -816,30 +829,71 @@ def api_order_patch(order_id: int):
                 veh.mileage = float(vd.get('mileage') or 0)
 
     if 'lines' in data:
-        WorkshopLine.query.filter_by(order_id=o.id).delete()
+        WorkshopLine.query.filter_by(order_id=o.id).delete(synchronize_session=False)
+        db.session.flush()
         for row in data.get('lines') or []:
+            pid = row.get('product_id')
             ln = WorkshopLine(
                 order_id=o.id,
-                product_id=int(row['product_id']) if row.get('product_id') else None,
+                product_id=int(pid) if pid not in (None, '', 0, '0') else None,
                 description=str(row.get('description') or 'Servicio').strip(),
                 quantity=float(row.get('quantity') or 1),
                 price_unit=float(row.get('price_unit') or 0),
-                tax_id=int(row['tax_id']) if row.get('tax_id') else None,
+                tax_id=int(row['tax_id']) if row.get('tax_id') not in (None, '', 0, '0') else None,
             )
             db.session.add(ln)
+        db.session.flush()
         workshop_svc.recompute_workshop_order_totals(o)
 
-    if 'status' in data and data.get('status'):
+    if 'checklist' in data:
+        items = data.get('checklist')
+        if isinstance(items, list):
+            WorkshopChecklistItem.query.filter_by(order_id=o.id).delete(synchronize_session=False)
+            for row in items:
+                if not isinstance(row, dict):
+                    continue
+                db.session.add(
+                    WorkshopChecklistItem(
+                        order_id=o.id,
+                        item=str(row.get('item') or '').strip() or 'Ítem',
+                        condition=str(row.get('condition') or 'ok').strip(),
+                        notes=str(row.get('notes') or '').strip() or None,
+                    )
+                )
+
+    if new_status:
         try:
-            err = workshop_svc.apply_transition(o, str(data['status']).strip())
+            err = workshop_svc.apply_transition(o, new_status)
         except Exception:
+            db.session.rollback()
             current_app.logger.exception('workshop order %s status transition failed', order_id)
-            return jsonify({'error': 'sla_transition_failed', 'detail': 'No se pudo actualizar el SLA.'}), 500
+            return jsonify(
+                {
+                    'error': 'sla_transition_failed',
+                    'detail': 'No se pudo actualizar el estado ni el SLA.',
+                    'user_message': 'No se pudo actualizar el estado. Recargue la página e intente de nuevo.',
+                }
+            ), 500
         if err:
+            db.session.rollback()
             um = _workshop_transition_user_message(err)
             return jsonify({'error': err, 'detail': um, 'user_message': um}), 400
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('workshop order %s commit failed', order_id)
+        return jsonify(
+            {
+                'error': 'save_failed',
+                'detail': 'No se pudieron guardar los cambios.',
+                'user_message': 'No se pudieron guardar los cambios. Intente de nuevo.',
+            }
+        ), 500
+    o = _order_query(org, order_id)
+    if not o:
+        return jsonify({'error': 'not_found'}), 404
     return jsonify(_serialize_order_loose(o, include_photos=True))
 
 

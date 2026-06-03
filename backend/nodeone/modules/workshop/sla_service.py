@@ -73,7 +73,7 @@ def ensure_default_process_stages(organization_id: int) -> None:
                 allow_skip=False,
             )
         )
-    db.session.commit()
+    db.session.flush()
 
 
 def _config_row(org_id: int, stage_key: str) -> Optional[WorkshopProcessStageConfig]:

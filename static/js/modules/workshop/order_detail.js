@@ -509,10 +509,16 @@
   function showErr(m) {
     if (!errEl) return;
     errEl.textContent = m || 'Error';
-    errEl.classList.remove('d-none');
+    errEl.classList.remove('d-none', 'alert-success');
+    errEl.classList.add('alert-danger');
   }
   function clearErr() {
-    if (errEl) errEl.classList.add('d-none');
+    if (!errEl) {
+      return;
+    }
+    errEl.classList.add('d-none');
+    errEl.classList.remove('alert-success');
+    errEl.classList.add('alert-danger');
   }
 
   async function api(url, method, body) {
@@ -537,7 +543,7 @@
         throw new Error(`HTTP ${r.status}: la API no devolvió JSON (${t.slice(0, 60)}…)`);
       }
     }
-    if (!r.ok) throw new Error((d && (d.detail || d.error)) || `HTTP ${r.status}`);
+    if (!r.ok) throw new Error((d && (d.user_message || d.detail || d.error)) || `HTTP ${r.status}`);
     return d;
   }
 
@@ -1219,7 +1225,8 @@
     clearModalExistingPhotos();
     document.getElementById('woModalDamage').value = 'scratch';
     document.getElementById('woModalSeverity').value = 'low';
-    document.getElementById('woModalNotes').value = '';
+    const dmgNotes = document.getElementById('woDamageNotes');
+    if (dmgNotes) dmgNotes.value = '';
     document.getElementById('woModalPhoto').value = '';
     if (window.bootstrap && modalEl) window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
@@ -1246,7 +1253,8 @@
     if (dmg) dmg.value = p.damage_type || 'scratch';
     const sev = document.getElementById('woModalSeverity');
     if (sev) sev.value = p.severity || 'low';
-    document.getElementById('woModalNotes').value = (p.notes && String(p.notes)) || '';
+    const dmgNotesEd = document.getElementById('woDamageNotes');
+    if (dmgNotesEd) dmgNotesEd.value = (p.notes && String(p.notes)) || '';
     document.getElementById('woModalPhoto').value = '';
     if (window.bootstrap && modalEl) window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
@@ -1271,7 +1279,7 @@
     const zone = zonePick ? zonePick.value : '';
     const damage = document.getElementById('woModalDamage').value;
     const sev = document.getElementById('woModalSeverity').value;
-    const notes = document.getElementById('woModalNotes').value.trim();
+    const notes = (document.getElementById('woDamageNotes') && document.getElementById('woDamageNotes').value.trim()) || '';
     const fileInp = document.getElementById('woModalPhoto');
     try {
       let pid = pointId;
@@ -1335,20 +1343,51 @@
       '</div>';
   }
 
-  function syncTransitionButtons(o) {
-    const allowed = o && Array.isArray(o.allowed_next_statuses) ? o.allowed_next_statuses : null;
+  /** Una sola rutina: toolbar + estados + cotización (evita parpadeos y lógica duplicada). */
+  function applyOrderUi(o) {
+    const ready = !!(o && o.id);
+    const wrap = document.getElementById('woTransWrap');
+    if (wrap) wrap.classList.toggle('d-none', !ready);
+
+    const allowed = ready && Array.isArray(o.allowed_next_statuses) ? o.allowed_next_statuses : [];
     document.querySelectorAll('.wo-trans').forEach((btn) => {
       const st = btn.dataset.status;
       if (!st) return;
-      if (allowed === null) {
-        btn.classList.remove('d-none');
-        btn.disabled = false;
-        return;
-      }
-      const ok = allowed.includes(st);
+      const ok = ready && allowed.includes(st);
       btn.classList.toggle('d-none', !ok);
       btn.disabled = !ok;
     });
+
+    const finBtn = document.getElementById('btnWoFinalize');
+    if (finBtn) {
+      const st = ready && o.status ? String(o.status) : '';
+      const closed = st === 'delivered' || st === 'cancelled';
+      const canAdvance =
+        !closed &&
+        (allowed.includes('done') ||
+          allowed.includes('delivered') ||
+          allowed.includes('qc') ||
+          allowed.includes('in_progress') ||
+          allowed.includes('inspected'));
+      finBtn.classList.toggle('d-none', !ready || closed);
+      finBtn.disabled = !canAdvance;
+    }
+
+    const qLink = document.getElementById('woQuotationLink');
+    const qGen = document.getElementById('btnWoQuote');
+    const hasQ = ready && !!o.quotation_id;
+    if (qLink) {
+      if (hasQ) {
+        qLink.href = `/admin/sales/quotations/${o.quotation_id}`;
+        qLink.classList.remove('d-none');
+      } else {
+        qLink.classList.add('d-none');
+      }
+    }
+    if (qGen) {
+      qGen.classList.toggle('d-none', !ready || hasQ);
+      qGen.disabled = hasQ;
+    }
   }
 
   function fillForm(o) {
@@ -1357,7 +1396,7 @@
       const stRaw = o.status ? String(o.status) : '';
       document.getElementById('woStatus').textContent = WO_STATUS_ES[stRaw] || stRaw || '—';
     }
-    syncTransitionButtons(o);
+    applyOrderUi(o);
     if (customerId) customerId.value = o.customer_id || '';
     if (customerSearch) {
       if (o.customer_name || o.customer_email) {
@@ -1383,13 +1422,6 @@
     document.getElementById('woNotes').value = o.notes || '';
     document.getElementById('woQcNotes').value = o.qc_notes || '';
     document.getElementById('woGrand').textContent = fmt(o.total_estimated);
-    const qLink = document.getElementById('woQuotationLink');
-    if (qLink) {
-      if (o.quotation_id) {
-        qLink.href = `/admin/sales/quotations/${o.quotation_id}`;
-        qLink.classList.remove('d-none');
-      } else qLink.classList.add('d-none');
-    }
     const wi = document.getElementById('woInvoiceId');
     if (wi) wi.value = o.invoice_id != null && o.invoice_id !== '' ? o.invoice_id : '';
     const hint = document.getElementById('woInvoiceHint');
@@ -1400,8 +1432,19 @@
     renderPhotosGallery(o.photos || []);
   }
 
+  function showSaveOk() {
+    if (!errEl) return;
+    errEl.textContent = 'Cambios guardados correctamente.';
+    errEl.classList.remove('d-none', 'alert-danger');
+    errEl.classList.add('alert-success');
+    window.setTimeout(() => {
+      if (errEl.classList.contains('alert-success')) errEl.classList.add('d-none');
+    }, 2500);
+  }
+
   async function saveOrder() {
     clearErr();
+    const saveBtn = document.getElementById('btnWoSave');
     const cust = Number((customerId && customerId.value) || 0);
     if (cust < 1) {
       showErr('Seleccione un cliente de la lista o cree uno nuevo.');
@@ -1423,8 +1466,10 @@
       lines: collectLines(),
       notes: document.getElementById('woNotes').value.trim() || null,
       qc_notes: document.getElementById('woQcNotes').value.trim() || null,
+      checklist: collectChecklist(),
     };
     const wi = document.getElementById('woInvoiceId');
+    if (saveBtn) saveBtn.disabled = true;
     try {
       if (order && order.id) {
         if (wi) {
@@ -1432,25 +1477,39 @@
           payload.invoice_id = v ? Number(v) : null;
         }
         order = await api(`/api/workshop/orders/${order.id}`, 'PATCH', payload);
-        await persistChecklist();
       } else {
-        order = await api('/api/workshop/orders', 'POST', {
-          ...payload,
-          checklist: collectChecklist(),
-        });
+        order = await api('/api/workshop/orders', 'POST', payload);
         location.href = `/admin/workshop/orders/${order.id}`;
         return;
       }
       fillForm(order);
       await loadChecklist();
-      clearErr();
+      showSaveOk();
     } catch (e) {
       showErr(e.message);
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
     }
   }
 
-  async function transition(st) {
+  function transitionConfirmMessage(st) {
+    if (st === 'cancelled') {
+      return '¿Cancelar esta orden de taller? El trabajo quedará cerrado como cancelado.';
+    }
+    if (st === 'delivered') {
+      return '¿Marcar la orden como entregada al cliente?';
+    }
+    if (st === 'done') {
+      return '¿Marcar el trabajo como terminado?';
+    }
+    return null;
+  }
+
+  async function transition(st, opts) {
     if (!order || !order.id) return;
+    const skipConfirm = opts && opts.skipConfirm;
+    const msg = skipConfirm ? null : transitionConfirmMessage(st);
+    if (msg && !window.confirm(msg)) return;
     try {
       order = await api(`/api/workshop/orders/${order.id}`, 'PATCH', { status: st });
       fillForm(order);
@@ -1460,11 +1519,68 @@
     }
   }
 
+  /** Avanza por estados permitidos hasta Entregado (fotos no requeridas). */
+  async function finalizeOperation() {
+    if (!order || !order.id) {
+      showErr('Guarde la orden antes de finalizar.');
+      return;
+    }
+    const st0 = (order.status || '').trim();
+    if (st0 === 'delivered') {
+      showErr('La orden ya está entregada.');
+      return;
+    }
+    if (st0 === 'cancelled') {
+      showErr('La orden está cancelada.');
+      return;
+    }
+    if (
+      !window.confirm(
+        '¿Finalizar la operación y marcar como entregada?\n\nLas fotos son opcionales; no hace falta subir ninguna imagen.',
+      )
+    ) {
+      return;
+    }
+    const priority = ['delivered', 'done', 'qc', 'in_progress', 'inspected', 'approved', 'quoted'];
+    const maxSteps = 10;
+    for (let i = 0; i < maxSteps; i++) {
+      const st = (order.status || '').trim();
+      if (st === 'delivered') break;
+      if (st === 'cancelled') break;
+      const allowed = Array.isArray(order.allowed_next_statuses) ? order.allowed_next_statuses : [];
+      let next = null;
+      for (const p of priority) {
+        if (!allowed.includes(p)) continue;
+        if (p === 'delivered' && st !== 'done') continue;
+        next = p;
+        break;
+      }
+      if (!next) break;
+      const prev = st;
+      await transition(next, { skipConfirm: true });
+      if ((order.status || '').trim() === prev) break;
+    }
+    if ((order.status || '').trim() === 'delivered') {
+      showSaveOk();
+    } else {
+      showErr(
+        'No se pudo marcar como Entregado desde el estado actual. Si falta cotización en sistema, genérela en Ventas o use Cancelar.',
+      );
+    }
+  }
+
   async function uploadOrderPhoto() {
     const inp = document.getElementById('woPhotoFile');
     const kindEl = document.getElementById('woPhotoKind');
     const kind = kindEl && kindEl.value ? kindEl.value : 'entrada';
-    if (!inp || !inp.files || !inp.files[0] || !order || !order.id) return;
+    if (!order || !order.id) {
+      showErr('Guarde la orden antes de subir fotos.');
+      return;
+    }
+    if (!inp || !inp.files || !inp.files[0]) {
+      showErr('Las fotos son opcionales. Si desea subir una, elija un archivo y pulse el botón de subida.');
+      return;
+    }
     const fd = new FormData();
     fd.append('file', inp.files[0]);
     fd.append('kind', kind);
@@ -1520,9 +1636,17 @@
   document.getElementById('btnWoSave')?.addEventListener('click', saveOrder);
   document.getElementById('btnWoQuote')?.addEventListener('click', async () => {
     if (!order || !order.id) return;
+    if (order.quotation_id) {
+      location.href = `/admin/sales/quotations/${order.quotation_id}`;
+      return;
+    }
     try {
       const res = await api(`/api/workshop/orders/${order.id}/create-quotation`, 'POST', {});
       clearErr();
+      if (res.quotation_id) {
+        order.quotation_id = res.quotation_id;
+        applyOrderUi(order);
+      }
       if (res.admin_url) location.href = res.admin_url;
     } catch (e) {
       showErr(e.message);
@@ -1531,8 +1655,15 @@
   document.getElementById('btnWoPhoto')?.addEventListener('click', () => uploadOrderPhoto());
 
   document.querySelectorAll('.wo-trans').forEach((btn) =>
-    btn.addEventListener('click', () => transition(btn.dataset.status)),
+    btn.addEventListener('click', () => {
+      const st = btn.dataset.status;
+      if (!st) return;
+      transition(st);
+    }),
   );
+  document.getElementById('btnWoFinalize')?.addEventListener('click', () => {
+    finalizeOperation().catch(() => {});
+  });
 
   document.querySelectorAll('.workshop-body-map-svg .car-zone').forEach((el) =>
     el.addEventListener('click', () => openZoneModal(el.id)),
@@ -1549,6 +1680,8 @@
     wireLineRow(row, [{}]);
   });
 
+  applyOrderUi(null);
+
   (async function boot() {
     try {
       await loadTaxes();
@@ -1560,6 +1693,8 @@
         await loadInspection();
       } else {
         document.getElementById('woCode').textContent = 'Nueva';
+        order = { id: null, allowed_next_statuses: ['inspected', 'cancelled'] };
+        applyOrderUi(order);
         renderChecklist([]);
         renderLines([]);
         renderPhotosGallery([]);

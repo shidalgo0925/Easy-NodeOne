@@ -100,20 +100,30 @@ def register_admin_marketing_routes(app):
         from nodeone.services.user_organization import user_in_org_clause
 
         scope_oid = admin_data_scope_organization_id()
-        campaigns = _scope_query_by_org(MarketingCampaign.query, MarketingCampaign, scope_oid).order_by(MarketingCampaign.created_at.desc()).limit(100).all()
+        cq = _scope_query_by_org(MarketingCampaign.query, MarketingCampaign, scope_oid)
+        campaigns = cq.order_by(MarketingCampaign.created_at.desc()).limit(100).all()
+        campaigns_sent_count = cq.filter(MarketingCampaign.status == 'sent').count()
+        campaigns_scheduled_count = cq.filter(MarketingCampaign.status == 'scheduled').count()
         campaign_list = []
         for c in campaigns:
             recs = CampaignRecipient.query.filter_by(campaign_id=c.id).all()
             sent = sum(1 for r in recs if r.sent_at)
             opened = sum(1 for r in recs if r.opened_at)
             clicked = sum(1 for r in recs if r.clicked_at)
+            seg = getattr(c, 'segment', None)
+            tpl = getattr(c, 'template', None)
+            disp_dt = getattr(c, 'scheduled_at', None) or c.created_at
             item = {
                 'id': c.id, 'name': c.name, 'subject': c.subject, 'status': c.status,
-                'created_at': c.created_at,
+                'created_at': c.created_at, 'scheduled_at': getattr(c, 'scheduled_at', None),
+                'display_at': disp_dt,
+                'segment_name': (seg.name if seg else '—'),
+                'template_name': (tpl.name if tpl else '—'),
                 'total': len(recs), 'sent': sent,
                 'open_rate': (opened / sent * 100) if sent else 0,
                 'click_rate': (clicked / sent * 100) if sent else 0,
-                'subject_b': getattr(c, 'subject_b', None) or None
+                'subject_b': getattr(c, 'subject_b', None) or None,
+                'can_edit': c.status in ('draft', 'scheduled'),
             }
             if item['subject_b']:
                 recs_a = [r for r in recs if r.variant == 'A']
@@ -131,8 +141,35 @@ def register_admin_marketing_routes(app):
                 item['sent_a'] = sent_a
                 item['sent_b'] = sent_b
             campaign_list.append(item)
+        from _app.modules.marketing.service import get_recipient_count
+
         segments = _scope_query_by_org(MarketingSegment.query, MarketingSegment, scope_oid).order_by(MarketingSegment.id).all()
         templates = _scope_query_by_org(MarketingTemplate.query, MarketingTemplate, scope_oid).order_by(MarketingTemplate.id).all()
+        segment_rows = []
+        for s in segments:
+            last_used = (
+                db.session.query(func.max(MarketingCampaign.created_at))
+                .filter(MarketingCampaign.segment_id == s.id)
+                .scalar()
+            )
+            try:
+                contact_count = get_recipient_count(s.id)
+            except Exception:
+                contact_count = 0
+            segment_rows.append(
+                {'id': s.id, 'name': s.name, 'contact_count': contact_count, 'last_used': last_used}
+            )
+        template_rows = []
+        for t in templates:
+            used_count = cq.filter(MarketingCampaign.template_id == t.id).count()
+            template_rows.append(
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'updated_at': getattr(t, 'updated_at', None) or t.created_at,
+                    'campaigns_used': used_count,
+                }
+            )
         total_sent = (
             db.session.query(func.count(CampaignRecipient.id))
             .join(User, CampaignRecipient.user_id == User.id)
@@ -172,16 +209,24 @@ def register_admin_marketing_routes(app):
             'click_rate': (total_clicked / total_sent * 100) if total_sent else 0,
             'unsubscribe_count': unsub_count,
             'subscribed_count': sub_count,
-            'segments_count': len(segments)
+            'segments_count': len(segments),
+            'campaigns_sent_count': campaigns_sent_count,
+            'campaigns_scheduled_count': campaigns_scheduled_count,
         }
-        from _app.modules.marketing.service import SEGMENT_FIELDS, SEGMENT_OPERATORS
-        return render_template('admin/marketing.html',
-                             campaigns=campaign_list,
-                             segments=segments,
-                             templates=templates,
-                             stats=stats,
-                             segment_fields=SEGMENT_FIELDS,
-                             segment_operators=SEGMENT_OPERATORS)
+        status_labels = {
+            'draft': 'Borrador',
+            'scheduled': 'Programada',
+            'sending': 'Enviando',
+            'sent': 'Enviada',
+        }
+        return render_template(
+            'admin/marketing.html',
+            campaigns=campaign_list,
+            segment_rows=segment_rows,
+            template_rows=template_rows,
+            stats=stats,
+            status_labels=status_labels,
+        )
 
 
     @app.route('/admin/marketing/campaign/new')
@@ -192,10 +237,10 @@ def register_admin_marketing_routes(app):
         segments = _scope_query_by_org(MarketingSegment.query, MarketingSegment, scope_oid).order_by(MarketingSegment.id).all()
         templates = _scope_query_by_org(MarketingTemplate.query, MarketingTemplate, scope_oid).order_by(MarketingTemplate.id).all()
         if not templates:
-            flash('Crea al menos una plantilla (abajo) antes de usar el editor.', 'warning')
+            flash('Crea al menos una plantilla en Contenido antes de la campaña.', 'warning')
             return redirect(url_for('admin_marketing'))
         if not segments:
-            flash('Crea al menos un segmento (abajo) antes de crear una campaña.', 'warning')
+            flash('Crea al menos un segmento en Audiencias antes de la campaña.', 'warning')
             return redirect(url_for('admin_marketing'))
         default_template = templates[0]
         return render_template('admin/marketing_editor.html',

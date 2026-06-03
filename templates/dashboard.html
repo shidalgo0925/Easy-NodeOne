@@ -17,7 +17,7 @@
                         {% endif %}
                         {% if saas_module_enabled('appointments') and not academic_member_gate_active %}
                         <a href="{{ url_for('member_services') }}" class="dashboard-nav-link">Mis servicios</a>
-                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Explorar</a>
+                        <a href="{{ url_for('services.list') }}" class="dashboard-nav-link">Tienda</a>
                         {% elif saas_module_enabled('appointments') and has_academic_campus_access %}
                         <a href="{{ url_for('member_services') }}" class="dashboard-nav-link">Mis servicios</a>
                         {% endif %}
@@ -227,7 +227,7 @@
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('member_plan') }}"><i class="fas fa-crown me-1"></i>Mi plan</a>
                 {% if saas_module_enabled('appointments') %}
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('member_services') }}"><i class="fas fa-box-open me-1"></i>Mis servicios</a>
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.list') }}"><i class="fas fa-th-large me-1"></i>Explorar</a>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.list') }}"><i class="fas fa-store me-1"></i>Tienda</a>
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('appointments.appointments_home') }}"><i class="fas fa-calendar-alt me-1"></i>Mis citas</a>
                 {% endif %}
                 {% if saas_module_enabled('payments') %}

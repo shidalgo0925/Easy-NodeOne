@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Validaciones Yappy — Easy NodeOne{% endblock %}
+{% block title %}Validación de pagos manuales — Easy NodeOne{% endblock %}
 {% block head %}
 <style>
     .en1-yappy-admin .nav-link { font-weight: 600; color: #495057; }
@@ -8,7 +8,8 @@
 {% endblock %}
 {% block page_content %}
 <div class="container py-4 en1-yappy-admin">
-    <h1 class="h4 mb-2"><i class="fas fa-mobile-alt text-success"></i> Validación de pagos Yappy manual</h1>
+    <h1 class="h4 mb-2"><i class="fas fa-clipboard-check text-primary"></i> Validación de pagos manuales</h1>
+    <p class="text-muted small">Yappy manual, transferencia internacional, Banco General y pago manual local.</p>
     <p class="text-muted mb-4"><a href="/admin/payments?context=config">← Configuración de pagos</a></p>
 
     <ul class="nav nav-tabs mb-3" role="tablist">
@@ -57,7 +58,7 @@
                                     {% endif %}
                                 </small>
                             </td>
-                            <td><small>{% if p.payment_method == 'yappy_manual' %}Yappy Manual{% else %}{{ p.payment_method }}{% endif %}</small></td>
+                            <td><small>{{ p.payment_method }}</small></td>
                             <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
                             <td>USD {{ "%.2f"|format(p.amount / 100) }}</td>
                             <td><span class="badge bg-warning text-dark">{{ yappy_status_label(p.status) }}</span></td>
@@ -105,7 +106,7 @@
                                     {% endif %}
                                 </small>
                             </td>
-                            <td><small>{% if p.payment_method == 'yappy_manual' %}Yappy Manual{% else %}{{ p.payment_method }}{% endif %}</small></td>
+                            <td><small>{{ p.payment_method }}</small></td>
                             <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
                             <td>USD {{ "%.2f"|format(p.amount / 100) }}</td>
                             <td><span class="badge bg-success">{{ yappy_status_label(p.status) }}</span></td>
@@ -153,7 +154,7 @@
                                     {% endif %}
                                 </small>
                             </td>
-                            <td><small>{% if p.payment_method == 'yappy_manual' %}Yappy Manual{% else %}{{ p.payment_method }}{% endif %}</small></td>
+                            <td><small>{{ p.payment_method }}</small></td>
                             <td><small>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}</small></td>
                             <td>USD {{ "%.2f"|format(p.amount / 100) }}</td>
                             <td><span class="badge bg-danger">{{ yappy_status_label(p.status) }}</span></td>

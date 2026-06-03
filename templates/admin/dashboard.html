@@ -41,6 +41,9 @@
         {% endif %}
         <a href="{{ url_for('admin_users') }}" class="btn btn-outline-primary"><i class="fas fa-user-plus me-1"></i> Gestionar usuarios</a>
         <a href="{{ url_for('admin_certificate_events') }}" class="btn btn-outline-primary"><i class="fas fa-calendar-plus me-1"></i> Crear evento</a>
+        {% if saas_module_enabled('appointments') and has_view_endpoint('services.list') %}
+        <a href="{{ url_for('services.list') }}" class="btn btn-outline-primary" target="_blank" rel="noopener"><i class="fas fa-store me-1"></i> Tienda</a>
+        {% endif %}
         {% if saas_module_enabled('memberships') %}
         <a href="{{ url_for('admin_benefits') }}" class="btn btn-outline-primary"><i class="fas fa-book me-1"></i> Explorar recursos</a>
         {% endif %}

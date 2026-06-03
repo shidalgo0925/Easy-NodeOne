@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Servicios - Easy NodeOne{% endblock %}
+{% block title %}Tienda - Easy NodeOne{% endblock %}
 
 {% block page_content %}
 {%- macro plan_filter_icon(slug) -%}
@@ -127,7 +127,7 @@
     {% if plans_info and (services_by_plan or featured_events|default([])) %}
     <div class="services-hero-toolbar row g-3 align-items-start mb-4">
         <div class="col-12 col-lg">
-            <h1 class="services-page-title mb-1">Servicios</h1>
+            <h1 class="services-page-title mb-1">Tienda</h1>
             <p class="text-muted small mb-0">Buscá por nombre o descripción. Filtrá por plan con los accesos de la derecha.</p>
         </div>
         <div class="col-12 col-lg-auto">
@@ -170,8 +170,8 @@
     {% else %}
     <div class="row mb-4 align-items-start">
         <div class="col-12 col-lg-8">
-            <h1 class="services-page-title mb-1">Servicios</h1>
-            <p class="text-muted small mb-0">Catálogo de tu organización.</p>
+            <h1 class="services-page-title mb-1">Tienda</h1>
+            <p class="text-muted small mb-0">Servicios y reservas de tu organización.</p>
         </div>
     </div>
     {% endif %}
@@ -181,7 +181,7 @@
     <div class="plan-section mb-5" data-plan="all">
         <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3 pb-2 border-bottom">
             <div>
-                <h2 class="plan-section-title mb-1">Catálogo</h2>
+                <h2 class="plan-section-title mb-1">Servicios</h2>
                 <small class="text-muted">Un servicio por tarjeta · Filtrá por plan con los accesos arriba</small>
             </div>
         </div>

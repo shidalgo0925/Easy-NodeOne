@@ -102,7 +102,7 @@
         {% else %}
             <div class="alert alert-light border shadow-sm">
                 <p class="mb-2"><strong>No hay eventos disponibles en este momento.</strong></p>
-                <p class="text-muted mb-0">Volvé pronto o revisá nuestros <a href="{{ url_for('services.list') }}">servicios disponibles</a>.</p>
+                <p class="text-muted mb-0">Volvé pronto o revisá nuestra <a href="{{ url_for('services.list') }}">tienda</a>.</p>
             </div>
             {% if current_user.is_authenticated and current_user.is_admin %}
             <div class="card border-0 bg-white shadow-sm mt-3">

@@ -16,7 +16,7 @@
         </h1>
             <div class="d-flex flex-wrap gap-1 align-items-center">
                     {% if has_view_endpoint('services.list') %}
-                    {{ qr_link(absolute_site_url(url_for('services.list')), 'QR catálogo') }}
+                    {{ qr_link(absolute_site_url(url_for('services.list')), 'QR tienda') }}
                     {% endif %}
                     {% if current_user.is_authenticated and current_user.has_permission('services.view') %}
                     <a href="/admin/cv-applications" class="btn btn-sm btn-outline-secondary" title="Postulaciones por servicios tipo CV"><i class="fas fa-file-alt me-1"></i>Hojas de vida</a>

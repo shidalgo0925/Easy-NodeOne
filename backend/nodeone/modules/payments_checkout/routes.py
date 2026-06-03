@@ -211,6 +211,16 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
     M.db.session.commit()
 
     try:
+        from nodeone.services.manual_payment_flow import notify_after_manual_payment_event
+
+        notify_after_manual_payment_event(
+            payment, current_user, payment_config, event='order_created'
+        )
+        M.db.session.commit()
+    except Exception as e:
+        print(f"⚠️ notificaciones yappy_manual (creación): {e}")
+
+    try:
         from history_module import HistoryLogger
 
         HistoryLogger.log_user_action(
@@ -265,43 +275,63 @@ def create_payment_intent():
         # if payment_method == 'stripe':
         #     return jsonify({'error': 'El método Stripe no está disponible temporalmente.'}), 400
 
-        # Manejar archivo de comprobante si existe (métodos manuales)
-        receipt_file = None
+        pay_oid = int(resolve_current_organization())
+
+        # Manejar archivo de comprobante si existe (métodos manuales / transferencia)
         receipt_filename = None
         receipt_url = None
+        receipt_disk_path = None
         ocr_data = None
         ocr_status = 'pending'
-        
+
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+        file_path = None
         if payment_method != 'yappy_manual' and 'receipt' in request.files:
             file = request.files['receipt']
-            if file and file.filename != '' and M.allowed_file(file.filename):
-                # Generar nombre único para el archivo
-                import secrets
-                file_ext = file.filename.rsplit('.', 1)[1].lower()
-                unique_filename = f"{current_user.id}_{secrets.token_hex(8)}.{file_ext}"
-                file_path = os.path.join(M.UPLOAD_FOLDER, unique_filename)
-                file.save(file_path)
-                receipt_filename = file.filename
-                receipt_url = f"/static/uploads/receipts/{unique_filename}"
-                print(f"✅ Comprobante guardado: {receipt_url}")
-                
-                # Procesar con OCR si está disponible
-                try:
-                    from ocr_processor import get_ocr_processor
-                    ocr_processor = get_ocr_processor()
-                    if ocr_processor:
-                        print(f"🔄 Procesando documento con OCR...")
-                        extracted_data, ocr_error = ocr_processor.extract_payment_data(file_path)
-                        if extracted_data:
-                            ocr_data = json.dumps(extracted_data)
-                            print(f"✅ OCR completado. Datos extraídos: {extracted_data}")
-                        elif ocr_error:
-                            print(f"⚠️ Error en OCR: {ocr_error}")
-                except Exception as e:
-                    print(f"⚠️ Error procesando OCR: {e}")
-                    import traceback
-                    traceback.print_exc()
-        
+            if file and file.filename != '':
+                if is_manual_validation_method(payment_method):
+                    from flask import current_app
+
+                    from nodeone.services.yappy_receipt_storage import save_yappy_receipt_file
+
+                    try:
+                        receipt_disk_path, receipt_filename = save_yappy_receipt_file(
+                            current_app, file, organization_id=pay_oid
+                        )
+                        print(f"✅ Comprobante guardado (validación admin): {receipt_disk_path}")
+                        from nodeone.services.yappy_receipt_storage import absolute_path_for_disk_rel
+
+                        file_path = absolute_path_for_disk_rel(current_app, receipt_disk_path)
+                    except ValueError as ve:
+                        return jsonify({'error': str(ve)}), 400
+                    except Exception as e:
+                        return jsonify({'error': f'No se pudo guardar el comprobante: {e}'}), 400
+                elif M.allowed_file(file.filename):
+                    import secrets
+
+                    file_ext = file.filename.rsplit('.', 1)[1].lower()
+                    unique_filename = f"{current_user.id}_{secrets.token_hex(8)}.{file_ext}"
+                    file_path = os.path.join(M.UPLOAD_FOLDER, unique_filename)
+                    file.save(file_path)
+                    receipt_filename = file.filename
+                    receipt_url = f"/static/uploads/receipts/{unique_filename}"
+                    print(f"✅ Comprobante guardado: {receipt_url}")
+
+                if file_path and os.path.isfile(file_path):
+                    try:
+                        from ocr_processor import get_ocr_processor
+
+                        ocr_processor = get_ocr_processor()
+                        if ocr_processor:
+                            extracted_data, ocr_error = ocr_processor.extract_payment_data(file_path)
+                            if extracted_data:
+                                ocr_data = json.dumps(extracted_data)
+                            elif ocr_error:
+                                print(f"⚠️ Error en OCR: {ocr_error}")
+                    except Exception as e:
+                        print(f"⚠️ Error procesando OCR: {e}")
+
         cart = M.get_or_create_cart(current_user.id)
         
         if cart.get_items_count() == 0:
@@ -311,7 +341,6 @@ def create_payment_intent():
         discount_breakdown = cart.get_discount_breakdown()
         total_amount = discount_breakdown['final_total']
         
-        pay_oid = int(resolve_current_organization())
         payment_config = M.PaymentConfig.get_active_config(organization_id=pay_oid)
 
         from nodeone.services import organization_payment_methods as opm
@@ -398,23 +427,37 @@ def create_payment_intent():
                 print(f"⚠️ Error validando OCR: {e}")
                 ocr_status = 'needs_review'
         
-        # Determinar estado inicial del pago
-        # Si es método manual con OCR verificado, aprobar automáticamente
-        # Si es modo demo sin OCR, aprobar automáticamente
-        # Si OCR necesita revisión, dejar en pending
-        if ocr_verified:
+        from nodeone.services.manual_payment_flow import (
+            append_payment_audit,
+            is_manual_validation_method,
+            notify_after_manual_payment_event,
+            resolve_initial_status,
+        )
+
+        has_receipt_upload = bool(receipt_disk_path or receipt_url)
+        manual_validation_checkout = (
+            is_manual_validation_method(payment_method) and payment_method != 'yappy_manual'
+        )
+
+        if manual_validation_checkout:
+            ocr_verified = False
+            initial_status = resolve_initial_status(
+                pay_oid, payment_method, has_receipt=has_receipt_upload
+            )
+            if has_receipt_upload:
+                ocr_status = 'needs_review'
+        elif ocr_verified:
             initial_status = 'succeeded'
         elif payment_method == 'wire_international':
             initial_status = 'pending'
-        elif is_demo_mode and not receipt_url:
-            # Demo sin comprobante: por defecto auto-aprobado; con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS queda pending para QA.
+        elif is_demo_mode and not receipt_url and not receipt_disk_path:
             initial_status = 'pending' if _checkout_no_demo_auto_success() else 'succeeded'
         else:
             initial_status = 'pending'
-        
-        # Guardar pago en la base de datos
+
         payment = M.Payment(
             user_id=current_user.id,
+            organization_id=pay_oid,
             payment_method=payment_method,
             payment_reference=payment_data.get('payment_reference', ''),
             amount=total_amount,
@@ -425,17 +468,44 @@ def create_payment_intent():
             payment_metadata=json.dumps(metadata),
             receipt_url=receipt_url,
             receipt_filename=receipt_filename,
+            receipt_disk_path=receipt_disk_path,
             ocr_data=ocr_data,
-            ocr_status=ocr_status
+            ocr_status=ocr_status,
         )
-        
+        if has_receipt_upload:
+            payment.receipt_uploaded_at = datetime.utcnow()
+
         if initial_status == 'succeeded':
             payment.paid_at = datetime.utcnow()
             if ocr_verified:
                 payment.ocr_verified_at = datetime.utcnow()
-        
+
         M.db.session.add(payment)
+        M.db.session.flush()
+
+        if manual_validation_checkout:
+            append_payment_audit(
+                payment,
+                {
+                    'event': 'receipt_submitted' if has_receipt_upload else 'order_created',
+                    'expected_amount_cents': total_amount,
+                    'reference': payment.payment_reference,
+                    'cart_id': cart.id,
+                    'payment_method': payment_method,
+                },
+            )
+
         M.db.session.commit()
+
+        if manual_validation_checkout:
+            try:
+                ev = 'receipt_submitted' if has_receipt_upload else 'order_created'
+                notify_after_manual_payment_event(
+                    payment, current_user, payment_config, event=ev
+                )
+                M.db.session.commit()
+            except Exception as e:
+                print(f"⚠️ notificaciones pago manual ({payment_method}): {e}")
         
         # Registrar creación de pago en historial
         try:
@@ -498,8 +568,8 @@ def create_payment_intent():
                 traceback.print_exc()
                 M.db.session.rollback()
         
-        # Si OCR necesita revisión, enviar notificaciones después del commit
-        if ocr_status == 'needs_review':
+        # Si OCR necesita revisión (flujos sin validación admin unificada)
+        if ocr_status == 'needs_review' and not manual_validation_checkout:
             try:
                 M.send_ocr_review_notifications(payment, current_user, json.loads(ocr_data) if ocr_data else None)
             except Exception as e:
@@ -524,14 +594,15 @@ def create_payment_intent():
         if payment_method == 'paypal':
             response_data['payment_url'] = payment_data.get('payment_url')
             response_data['order_id'] = payment_data.get('payment_reference')
-        elif payment_method == 'banco_general':
-            response_data['bank_account'] = payment_data.get('bank_account')
+        elif payment_method in ('banco_general', 'wire_international', 'manual_payment'):
+            if payment_method != 'manual_payment':
+                response_data['bank_account'] = payment_data.get('bank_account')
             response_data['payment_reference'] = payment_data.get('payment_reference')
             response_data['manual'] = True
-        elif payment_method == 'wire_international':
-            response_data['bank_account'] = payment_data.get('bank_account')
-            response_data['payment_reference'] = payment_data.get('payment_reference')
-            response_data['manual'] = True
+            response_data['manual_validation'] = True
+            response_data['redirect_url'] = url_for(
+                'payments_checkout.payment_success', payment_id=payment.id
+            )
         elif payment_method == 'yappy':
             response_data['yappy_info'] = payment_data.get('yappy_info')
             response_data['payment_reference'] = payment_data.get('payment_reference')
@@ -757,40 +828,65 @@ def payment_success():
                     intl_wire = json.loads(payment.payment_metadata).get('intl_wire')
                 except Exception:
                     intl_wire = None
+            from nodeone.services.manual_payment_flow import (
+                is_manual_validation_method,
+                method_requires_receipt,
+            )
+            from nodeone.services.yappy_manual_status import (
+                is_pending_admin_review,
+                is_pending_receipt,
+                yappy_status_label,
+            )
+
+            oid_pay = getattr(payment, 'organization_id', None) or int(resolve_current_organization())
+            mv = is_manual_validation_method(payment.payment_method)
             return render_template(
                 'payment_success.html',
                 payment=payment,
                 payment_config=pcfg,
                 intl_wire=intl_wire,
+                manual_validation_payment=mv,
+                manual_can_upload_receipt=mv
+                and (is_pending_receipt(payment.status) or (payment.status or '').strip() == 'rejected'),
+                manual_pending_review=mv and is_pending_admin_review(payment.status),
+                manual_receipt_requires=method_requires_receipt(int(oid_pay), payment.payment_method)
+                if mv
+                else False,
+                manual_status_label=yappy_status_label(payment.status) if mv else None,
             )
     
     flash('Información de pago no encontrada.', 'error')
     return redirect(url_for('membership'))
 
 
-def _yappy_manual_submit_receipt_core(payment_id: int):
-    """Lógica compartida: subir comprobante Yappy manual → pending_admin_review."""
+def _manual_validation_submit_receipt_core(payment_id: int):
+    """Subir comprobante → pending_admin_review (todos los métodos con validación admin)."""
     import app as M
 
     from flask import current_app
-    from nodeone.services.yappy_manual import (
-        YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE,
-        append_yappy_manual_audit,
-        effective_yappy_instructions_html,
-        notify_admin_new_receipt,
-        notify_client_receipt_received,
+    from nodeone.services.manual_payment_flow import (
+        MANUAL_PAYMENT_EMAIL_FAILURE_USER_MESSAGE,
+        append_payment_audit,
+        is_manual_validation_method,
+        method_requires_receipt,
+        notify_after_manual_payment_event,
     )
+    from nodeone.services.yappy_manual import effective_yappy_instructions_html
     from nodeone.services.yappy_manual_status import is_pending_receipt
     from nodeone.services.yappy_receipt_storage import save_yappy_receipt_file
 
     payment = M.Payment.query.get_or_404(payment_id)
     if payment.user_id != current_user.id:
         return jsonify({'success': False, 'error': 'No autorizado'}), 403
-    if payment.payment_method != 'yappy_manual':
-        return jsonify({'success': False, 'error': 'No es un pago Yappy manual'}), 400
+    if not is_manual_validation_method(payment.payment_method):
+        return jsonify({'success': False, 'error': 'Este pago no admite comprobante por este flujo.'}), 400
 
     cfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id) if payment.user_id else None
-    requires = True if not cfg else bool(getattr(cfg, 'yappy_requires_receipt', True))
+    oid = getattr(payment, 'organization_id', None) or int(resolve_current_organization())
+    if payment.payment_method == 'yappy_manual':
+        requires = True if not cfg else bool(getattr(cfg, 'yappy_requires_receipt', True))
+    else:
+        requires = method_requires_receipt(int(oid), payment.payment_method)
 
     st = (payment.status or '').strip()
     allow_resubmit = st == 'rejected'
@@ -809,7 +905,7 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
         payment.status = 'pending_admin_review'
         payment.ocr_status = 'needs_review'
         payment.receipt_uploaded_at = datetime.utcnow()
-        append_yappy_manual_audit(
+        append_payment_audit(
             payment,
             {
                 'event': 'receipt_optional_skipped',
@@ -819,12 +915,13 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
         )
         M.db.session.commit()
         payer = M.User.query.get(payment.user_id)
-        mail_flags = []
-        if payer:
-            mail_flags.append(bool(notify_client_receipt_received(payment, payer)))
+        mail_ok = True
         if payer and cfg:
-            mail_flags.append(bool(notify_admin_new_receipt(payment, payer, cfg)))
-        warn = YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE if mail_flags and not all(mail_flags) else None
+            mail_ok, _ = notify_after_manual_payment_event(
+                payment, payer, cfg, event='receipt_submitted'
+            )
+            M.db.session.commit()
+        warn = MANUAL_PAYMENT_EMAIL_FAILURE_USER_MESSAGE if not mail_ok else None
         return (
             jsonify(
                 {
@@ -862,26 +959,25 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
     payment.status = 'pending_admin_review'
     payment.receipt_uploaded_at = datetime.utcnow()
     payment.ocr_status = 'needs_review'
-    append_yappy_manual_audit(
-        payment,
-        {
-            'event': 'receipt_submitted',
-            'receipt_disk_path': rel_path,
-            'receipt_filename': orig_name,
-            'expected_amount_cents': payment.amount,
-            'user_reference': user_ref or None,
-            'instructions_preview': (effective_yappy_instructions_html(cfg) if cfg else '')[:200],
-        },
-    )
+    audit_extra = {
+        'event': 'receipt_submitted',
+        'receipt_disk_path': rel_path,
+        'receipt_filename': orig_name,
+        'expected_amount_cents': payment.amount,
+        'user_reference': user_ref or None,
+        'payment_method': payment.payment_method,
+    }
+    if payment.payment_method == 'yappy_manual' and cfg:
+        audit_extra['instructions_preview'] = (effective_yappy_instructions_html(cfg) or '')[:200]
+    append_payment_audit(payment, audit_extra)
     M.db.session.commit()
 
     payer = M.User.query.get(payment.user_id)
-    mail_flags = []
-    if payer:
-        mail_flags.append(bool(notify_client_receipt_received(payment, payer)))
+    mail_ok = True
     if payer and cfg:
-        mail_flags.append(bool(notify_admin_new_receipt(payment, payer, cfg)))
-    warn = YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE if mail_flags and not all(mail_flags) else None
+        mail_ok, _ = notify_after_manual_payment_event(payment, payer, cfg, event='receipt_submitted')
+        M.db.session.commit()
+    warn = MANUAL_PAYMENT_EMAIL_FAILURE_USER_MESSAGE if not mail_ok else None
 
     return (
         jsonify(
@@ -893,6 +989,10 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
         ),
         200,
     )
+
+
+def _yappy_manual_submit_receipt_core(payment_id: int):
+    return _manual_validation_submit_receipt_core(payment_id)
 
 
 @payments_checkout_bp.route('/payment/yappy-manual/<int:payment_id>')
@@ -958,10 +1058,16 @@ def payment_yappy_manual_order_status(payment_id):
     )
 
 
+@payments_checkout_bp.route('/api/payment/<int:payment_id>/submit-receipt', methods=['POST'])
+@login_required
+def api_manual_validation_submit_receipt(payment_id):
+    return _manual_validation_submit_receipt_core(payment_id)
+
+
 @payments_checkout_bp.route('/api/payment/yappy-manual/<int:payment_id>/submit-receipt', methods=['POST'])
 @login_required
 def api_yappy_manual_submit_receipt(payment_id):
-    return _yappy_manual_submit_receipt_core(payment_id)
+    return _manual_validation_submit_receipt_core(payment_id)
 
 
 @payments_checkout_bp.route('/checkout/yappy/submit', methods=['POST'])

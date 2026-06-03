@@ -449,6 +449,27 @@ INTL_WIRE_DEFAULTS = {
 }
 
 
+class ManualPaymentProcessor(PaymentProcessor):
+    """Pago manual / transferencia local (sin integración API)."""
+
+    def __init__(self, config=None):
+        super().__init__('manual_payment')
+        self._config = config
+
+    def create_payment(self, amount, currency='USD', metadata=None):
+        import secrets
+
+        reference = f"MAN-{secrets.token_hex(6).upper()}"
+        return True, {
+            'payment_reference': reference,
+            'payment_url': None,
+            'manual': True,
+        }, None
+
+    def verify_payment(self, payment_reference):
+        return True, 'awaiting_confirmation', {'note': 'Pago manual — confirmación administrativa'}
+
+
 class WireInternationalProcessor(PaymentProcessor):
     """Transferencias internacionales en USD (datos SWIFT / cuenta en Panamá)."""
 
@@ -794,6 +815,7 @@ def get_payment_processor(payment_method, config=None):
         'banco_general': BancoGeneralProcessor,
         'yappy': YappyProcessor,
         'wire_international': WireInternationalProcessor,
+        'manual_payment': ManualPaymentProcessor,
     }
     
     processor_class = processors.get(payment_method)

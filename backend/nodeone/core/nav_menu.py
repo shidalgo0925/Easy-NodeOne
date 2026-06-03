@@ -144,7 +144,6 @@ _VENTAS_CATALOG_EPS = (
     'admin_services_catalog.admin_services',
     'admin_services_catalog.admin_service_categories',
     'admin_plans',
-    'academic_enrollment_admin.list_programs',
     'admin_events.admin_events_index',
 )
 
@@ -153,7 +152,6 @@ _VENTAS_CATALOG_PATH_PREFIXES = (
     '/admin/services',
     '/admin/service-categories',
     '/admin/plans',
-    '/admin/academic-enrollment/programs',
     '/admin/events',
 )
 
@@ -174,6 +172,11 @@ def _v_ventas(ctx: NavContext) -> bool:
     return ctx.nav_can('payments.view') and ctx.saas_module_enabled('sales')
 
 
+def _v_tienda(ctx: NavContext) -> bool:
+    """Vitrina pública /services (compra y reservas del miembro)."""
+    return ctx.saas_module_enabled('appointments') and ctx.has_view_endpoint('services.list')
+
+
 def _v_catalog_productos(ctx: NavContext) -> bool:
     return _v_ventas(ctx) and ctx.has_view_endpoint('admin_services_catalog.admin_services')
 
@@ -186,10 +189,6 @@ def _v_catalog_membresias(ctx: NavContext) -> bool:
     return _v_membresias(ctx) and ctx.has_view_endpoint('admin_plans')
 
 
-def _v_catalog_programas(ctx: NavContext) -> bool:
-    return _v_educacion(ctx) and ctx.has_view_endpoint('academic_enrollment_admin.list_programs')
-
-
 def _v_catalog_eventos(ctx: NavContext) -> bool:
     return _v_eventos(ctx) and ctx.has_view_endpoint('admin_events.admin_events_index')
 
@@ -200,7 +199,6 @@ def _v_catalog_hub(ctx: NavContext) -> bool:
             _v_catalog_productos(ctx),
             _v_catalog_servicios(ctx),
             _v_catalog_membresias(ctx),
-            _v_catalog_programas(ctx),
             _v_catalog_eventos(ctx),
         )
     )
@@ -237,15 +235,6 @@ _CATALOG_DROPDOWN_ITEMS: tuple[NavAreaItem, ...] = (
         'admin_plans',
         visible=_v_catalog_membresias,
         active_endpoints=('admin_plans',),
-    ),
-    NavAreaItem(
-        'programas',
-        'Programas',
-        'fas fa-graduation-cap',
-        'academic_enrollment_admin.list_programs',
-        visible=_v_catalog_programas,
-        active_blueprints=('academic_enrollment_admin',),
-        active_path_prefixes=('/admin/academic-enrollment/programs',),
     ),
     NavAreaItem(
         'eventos',
@@ -446,7 +435,7 @@ _EVENTOS_GESTION_ITEMS: tuple[NavAreaItem, ...] = (
 _EDUCACION_ACADEMICO_ITEMS: tuple[NavAreaItem, ...] = (
     NavAreaItem(
         'programas',
-        'Programas',
+        'Programas (inscripción)',
         'fas fa-book-open',
         'academic_enrollment_admin.list_programs',
         active_blueprints=('academic_enrollment_admin',),
@@ -459,18 +448,25 @@ _EDUCACION_ACADEMICO_ITEMS: tuple[NavAreaItem, ...] = (
         active_endpoints=('academic_admin.admin_academic_students',),
     ),
     NavAreaItem(
-        'inscripciones',
-        'Inscripciones',
-        'fas fa-file-signature',
+        'cursos',
+        'Cursos',
+        'fas fa-book',
+        'academic_admin.admin_academic_courses',
+        active_endpoints=('academic_admin.admin_academic_courses',),
+    ),
+    NavAreaItem(
+        'matriculas',
+        'Matrículas',
+        'fas fa-clipboard-list',
         'academic_admin.admin_academic_enrollments',
         active_endpoints=('academic_admin.admin_academic_enrollments',),
     ),
     NavAreaItem(
-        'planes_pago',
-        'Planes de pago',
-        'fas fa-credit-card',
-        'academic_enrollment_admin.list_programs',
-        active_blueprints=('academic_enrollment_admin',),
+        'moodle',
+        'Moodle',
+        'fas fa-plug',
+        'academic_admin.admin_academic_moodle',
+        active_endpoints=('academic_admin.admin_academic_moodle',),
     ),
 )
 
@@ -585,14 +581,6 @@ _COMUNICACION_CANALES_ITEMS: tuple[NavAreaItem, ...] = (
         active_blueprints=('integrations',),
     ),
     NavAreaItem(
-        'marketing',
-        'Email marketing',
-        'fas fa-bullhorn',
-        'admin_marketing',
-        visible=lambda c: c.saas_module_enabled('marketing_email'),
-        active_endpoints=('admin_marketing',),
-    ),
-    NavAreaItem(
         'chatbots',
         'Chatbots',
         'fas fa-robot',
@@ -648,6 +636,18 @@ def _v_agenda(ctx: NavContext) -> bool:
 
 def _v_comunicacion(ctx: NavContext) -> bool:
     return ctx.nav_can('integrations.view')
+
+
+def _v_certificados(ctx: NavContext) -> bool:
+    """App Certificados: solo módulo SaaS ``certificates`` (sin académico)."""
+    return ctx.saas_module_enabled('certificates') and ctx.has_view_endpoint(
+        'admin_certificate_events'
+    )
+
+
+def _v_email_marketing(ctx: NavContext) -> bool:
+    """App Email marketing: solo módulo SaaS ``marketing_email`` (sin integraciones)."""
+    return ctx.saas_module_enabled('marketing_email') and ctx.has_view_endpoint('admin_marketing')
 
 
 def _v_facturas(ctx: NavContext) -> bool:
@@ -806,20 +806,43 @@ _CONFIG_ACCESO_ITEMS: tuple[NavAreaItem, ...] = (
 )
 
 
-# Orden del launcher lateral (apps principales del tenant).
-_SIDEBAR_LAUNCHER_ORDER: tuple[str, ...] = (
+# Endpoints y rutas de la app Certificados (independiente de Educación).
+_CERTIFICADOS_ZONE_ENDPOINTS: tuple[str, ...] = (
+    'admin_certificate_events',
+    'admin_certificate_templates',
+    'admin_certificate_template_editor',
+)
+
+# Launcher lateral: enlaces fijos (Dashboard va en base.html) y grupos colapsables.
+_SIDEBAR_TOP_LEVEL_AREA_IDS: tuple[str, ...] = (
+    'tienda',
     'contactos',
-    'taller',
-    'ventas',
-    'finanzas',
-    'crm',
-    'agenda',
-    'membresias',
-    'eventos',
-    'educacion',
-    'contador',
-    'analitica',
-    'plataforma',
+)
+
+@dataclass(frozen=True)
+class NavLauncherGroup:
+    id: str
+    label: str
+    icon: str
+    area_ids: tuple[str, ...]
+
+
+_SIDEBAR_LAUNCHER_GROUPS: tuple[NavLauncherGroup, ...] = (
+    NavLauncherGroup(
+        'comercial',
+        'Comercial',
+        'fas fa-briefcase',
+        ('crm', 'taller', 'ventas', 'membresias', 'eventos', 'marketing_email'),
+    ),
+    NavLauncherGroup(
+        'operaciones',
+        'Operaciones',
+        'fas fa-cogs',
+        ('agenda', 'educacion', 'certificados', 'contador'),
+    ),
+    NavLauncherGroup('finanzas', 'Finanzas', 'fas fa-file-invoice-dollar', ('finanzas',)),
+    NavLauncherGroup('inteligencia', 'Inteligencia', 'fas fa-chart-line', ('analitica',)),
+    NavLauncherGroup('sistema', 'Sistema', 'fas fa-server', ('plataforma',)),
 )
 
 
@@ -942,6 +965,25 @@ APP_AREAS: tuple[NavArea, ...] = (
         ),
     ),
     NavArea(
+        id='tienda',
+        label='Tienda',
+        icon='fas fa-store',
+        visible=_v_tienda,
+        zone_blueprints=('services',),
+        zone_endpoints=('services.list',),
+        zone_path_prefixes=('/services',),
+        items=(
+            NavAreaItem(
+                'vitrina',
+                'Ver tienda',
+                'fas fa-store',
+                'services.list',
+                active_blueprints=('services',),
+                active_path_prefixes=('/services',),
+            ),
+        ),
+    ),
+    NavArea(
         id='contador',
         label='Contador',
         icon='fas fa-clipboard-list',
@@ -1057,30 +1099,72 @@ APP_AREAS: tuple[NavArea, ...] = (
         ),
     ),
     NavArea(
-        id='educacion',
-        label='Educación',
-        icon='fas fa-graduation-cap',
-        visible=_v_educacion,
-        zone_blueprints=('academic_admin', 'academic_enrollment_admin'),
-        zone_endpoints=(
-            'admin_certificate_events',
-            'admin_certificate_templates',
-            'admin_certificate_template_editor',
+        id='certificados',
+        label='Certificados',
+        icon='fas fa-certificate',
+        visible=_v_certificados,
+        zone_endpoints=_CERTIFICADOS_ZONE_ENDPOINTS,
+        zone_path_prefixes=('/admin/certificate',),
+        zone_blueprints=(
+            'certificates_page',
+            'certificates_builder',
+            'certificates_api',
+            'certificates_public',
         ),
         items=(
-            _nav_menu_dropdown('academico', 'Académico', 'fas fa-book-open', _EDUCACION_ACADEMICO_ITEMS),
             NavAreaItem(
-                'certificados',
-                'Certificados',
-                'fas fa-certificate',
+                'eventos',
+                'Eventos',
+                'fas fa-calendar-alt',
                 'admin_certificate_events',
-                visible=lambda c: c.saas_module_enabled('certificates'),
+                active_endpoints=('admin_certificate_events',),
+            ),
+            NavAreaItem(
+                'plantillas',
+                'Plantillas',
+                'fas fa-file-image',
+                'admin_certificate_templates',
                 active_endpoints=(
-                    'admin_certificate_events',
                     'admin_certificate_templates',
                     'admin_certificate_template_editor',
                 ),
             ),
+        ),
+    ),
+    NavArea(
+        id='marketing_email',
+        label='Email marketing',
+        icon='fas fa-bullhorn',
+        visible=_v_email_marketing,
+        zone_path_prefixes=('/admin/marketing',),
+        items=(
+            NavAreaItem(
+                'campanas',
+                'Campañas',
+                'fas fa-bullhorn',
+                'admin_marketing',
+                active_path_prefixes=('/admin/marketing',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='educacion',
+        label='Educación',
+        icon='fas fa-graduation-cap',
+        visible=_v_educacion,
+        zone_blueprints=('academic_admin', 'academic_enrollment_admin', 'academic_api'),
+        zone_path_prefixes=('/admin/academic', '/admin/academic-enrollment'),
+        zone_endpoints=(
+            'academic_admin.admin_academic_students',
+            'academic_admin.admin_academic_courses',
+            'academic_admin.admin_academic_enrollments',
+            'academic_admin.admin_academic_moodle',
+            'academic_enrollment_admin.list_programs',
+            'academic_enrollment_admin.program_new',
+            'academic_enrollment_admin.program_edit',
+        ),
+        items=(
+            _nav_menu_dropdown('academico', 'Académico', 'fas fa-book-open', _EDUCACION_ACADEMICO_ITEMS),
         ),
     ),
     NavArea(
@@ -1188,7 +1272,6 @@ APP_AREAS: tuple[NavArea, ...] = (
         show_in_sidebar=False,
         zone_blueprints=('integrations',),
         zone_endpoints=(
-            'admin_marketing',
             'admin_chatbots',
             'admin_notifications',
             'office365_admin.admin_office365_requests',
@@ -1425,11 +1508,22 @@ def _in_comunicacion_zone() -> bool:
     if bp == 'integrations':
         return True
     return ep in (
-        'admin_marketing',
         'admin_chatbots',
         'admin_notifications',
         'office365_admin.admin_office365_requests',
     )
+
+
+def _resolve_educacion_zone_area_id(ctx: NavContext) -> str | None:
+    """Rutas LMS / inscripción académica pertenecen a Educación, no a Ventas."""
+    if not has_request_context():
+        return None
+    path = request.path or ''
+    if path.startswith('/admin/academic') or path.startswith('/admin/academic-enrollment'):
+        educacion = next((a for a in APP_AREAS if a.id == 'educacion'), None)
+        if educacion is not None and _area_visible(educacion, ctx):
+            return 'educacion'
+    return None
 
 
 def resolve_module_bar_area_id(ctx: NavContext) -> str | None:
@@ -1437,6 +1531,9 @@ def resolve_module_bar_area_id(ctx: NavContext) -> str | None:
     if not has_request_context():
         return None
     ep = getattr(request, 'endpoint', None) or ''
+    edu_area = _resolve_educacion_zone_area_id(ctx)
+    if edu_area:
+        return edu_area
     if ep in _ORG_PLATFORM_EPS and ctx.is_platform_admin and ctx.show_platform_admin_nav:
         return 'plataforma'
     if not ctx.show_tenant_admin_menu:
@@ -1464,6 +1561,9 @@ def resolve_active_area_id(ctx: NavContext) -> str | None:
     if not has_request_context():
         return None
     ep = getattr(request, 'endpoint', None) or ''
+    edu_area = _resolve_educacion_zone_area_id(ctx)
+    if edu_area:
+        return edu_area
     if ep == 'dashboard' and not ctx.show_tenant_admin_menu:
         return None
     if ep in _ORG_PLATFORM_EPS and ctx.is_platform_admin and ctx.show_platform_admin_nav:
@@ -1486,24 +1586,71 @@ def resolve_active_area_id(ctx: NavContext) -> str | None:
     return None
 
 
-def visible_areas(ctx: NavContext) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for area in APP_AREAS:
-        if not area.show_in_sidebar:
+def _area_by_id(area_id: str) -> NavArea | None:
+    return next((a for a in APP_AREAS if a.id == area_id), None)
+
+
+def _serialize_sidebar_area(area: NavArea, ctx: NavContext) -> dict[str, Any]:
+    return {
+        'id': area.id,
+        'label': area.label,
+        'icon': area.icon,
+        'url': area_default_url(area, ctx),
+    }
+
+
+def visible_sidebar_launcher(
+    ctx: NavContext,
+    *,
+    active_sidebar_area_id: str | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """
+    Top-level: Tienda, Contactos (sin grupo).
+    Resto: grupos colapsables Comercial, Operaciones, Finanzas, Inteligencia, Sistema.
+    """
+    top: list[dict[str, Any]] = []
+    for area_id in _SIDEBAR_TOP_LEVEL_AREA_IDS:
+        area = _area_by_id(area_id)
+        if area is None or not area.show_in_sidebar or not _area_visible(area, ctx):
             continue
-        if not _area_visible(area, ctx):
+        top.append(_serialize_sidebar_area(area, ctx))
+
+    groups: list[dict[str, Any]] = []
+    for grp in _SIDEBAR_LAUNCHER_GROUPS:
+        children: list[dict[str, Any]] = []
+        for area_id in grp.area_ids:
+            area = _area_by_id(area_id)
+            if area is None or not area.show_in_sidebar or not _area_visible(area, ctx):
+                continue
+            children.append(_serialize_sidebar_area(area, ctx))
+        if not children:
             continue
-        out.append(
+        open_group = bool(
+            active_sidebar_area_id
+            and any(c['id'] == active_sidebar_area_id for c in children)
+        )
+        if not open_group and active_sidebar_area_id is None:
+            open_group = True
+        groups.append(
             {
-                'id': area.id,
-                'label': area.label,
-                'icon': area.icon,
-                'url': area_default_url(area, ctx),
+                'id': grp.id,
+                'label': grp.label,
+                'icon': grp.icon,
+                'areas': children,
+                'open': open_group,
             }
         )
-    order = {aid: idx for idx, aid in enumerate(_SIDEBAR_LAUNCHER_ORDER)}
-    out.sort(key=lambda row: order.get(row['id'], len(order)))
-    return out
+    return top, groups
+
+
+def visible_areas(ctx: NavContext) -> list[dict[str, Any]]:
+    """Lista plana de apps visibles (compatibilidad)."""
+    active_id = sidebar_highlight_area_id(resolve_active_area_id(ctx))
+    top, groups = visible_sidebar_launcher(ctx, active_sidebar_area_id=active_id)
+    flat = list(top)
+    for grp in groups:
+        flat.extend(grp['areas'])
+    return flat
 
 
 def visible_area_children(area_id: str | None, ctx: NavContext) -> list[dict[str, Any]]:
@@ -1582,11 +1729,18 @@ def nav_launcher_payload(**kwargs) -> dict[str, Any]:
         pass
 
     ctx = build_nav_context(**kwargs)
-    areas = visible_areas(ctx)
     bar_area_id = resolve_module_bar_area_id(ctx)
+    active_id = bar_area_id or resolve_active_area_id(ctx)
+    sidebar_area_id = sidebar_highlight_area_id(active_id)
+    top_areas, launcher_groups = visible_sidebar_launcher(
+        ctx, active_sidebar_area_id=sidebar_area_id
+    )
+    areas = list(top_areas)
+    for grp in launcher_groups:
+        areas.extend(grp['areas'])
     if bar_area_id is None and len(areas) == 1:
         bar_area_id = areas[0]['id']
-    active_id = bar_area_id or resolve_active_area_id(ctx)
+        active_id = bar_area_id
     children = visible_area_children(active_id, ctx)
     active_child_label = _active_child_label(children)
     show_bar = bool(children) and (
@@ -1597,8 +1751,10 @@ def nav_launcher_payload(**kwargs) -> dict[str, Any]:
     )
     result = {
         'nav_app_areas': areas,
+        'nav_sidebar_top_areas': top_areas,
+        'nav_sidebar_groups': launcher_groups,
         'nav_active_area_id': active_id,
-        'nav_sidebar_area_id': sidebar_highlight_area_id(active_id),
+        'nav_sidebar_area_id': sidebar_area_id,
         'nav_active_area_label': active_area_label(active_id),
         'nav_area_children': children,
         'nav_single_area_mode': len(areas) == 1,

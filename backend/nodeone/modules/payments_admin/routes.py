@@ -184,9 +184,14 @@ def api_approve_payment(payment_id):
         if not user:
             return jsonify({'success': False, 'error': 'No autorizado para aprobar este pago'}), 403
 
-        if getattr(payment, 'payment_method', None) == 'yappy_manual':
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+        if is_manual_validation_method(getattr(payment, 'payment_method', None)):
             return jsonify(
-                {'success': False, 'error': 'Los pagos Yappy manual se validan en Administración → Pagos Yappy manual.'}
+                {
+                    'success': False,
+                    'error': 'Los pagos con validación administrativa se aprueban en Administración → Validación de pagos manuales.',
+                }
             ), 400
 
         if payment.status == 'succeeded':
@@ -248,9 +253,14 @@ def api_reject_payment(payment_id):
         if not user:
             return jsonify({'success': False, 'error': 'No autorizado para rechazar este pago'}), 403
 
-        if getattr(payment, 'payment_method', None) == 'yappy_manual':
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+        if is_manual_validation_method(getattr(payment, 'payment_method', None)):
             return jsonify(
-                {'success': False, 'error': 'Los pagos Yappy manual se rechazan desde el panel Yappy manual.'}
+                {
+                    'success': False,
+                    'error': 'Los pagos con validación administrativa se rechazan desde el panel de validación manual.',
+                }
             ), 400
 
         payment.status = 'failed'
@@ -422,8 +432,10 @@ def _admin_payments_page_inner(M):
             raise
 
     try:
+        from nodeone.services.organization_payment_methods import MANUAL_VALIDATION_METHOD_KEYS
+
         ymq = M.Payment.query.filter(
-            M.Payment.payment_method == 'yappy_manual',
+            M.Payment.payment_method.in_(tuple(MANUAL_VALIDATION_METHOD_KEYS)),
             M.Payment.status.in_(
                 [
                     'pending_receipt',
@@ -999,8 +1011,10 @@ def admin_yappy_manual_list():
     from nodeone.services.yappy_manual_status import yappy_status_label
     uids_sq = _admin_scope_user_ids_only_safe(M)
 
+    from nodeone.services.organization_payment_methods import MANUAL_VALIDATION_METHOD_KEYS
+
     def _base_yappy_query():
-        q = M.Payment.query.filter(M.Payment.payment_method == 'yappy_manual')
+        q = M.Payment.query.filter(M.Payment.payment_method.in_(tuple(MANUAL_VALIDATION_METHOD_KEYS)))
         if uids_sq is not None:
             q = q.filter(M.Payment.user_id.in_(uids_sq))
         return q
@@ -1062,6 +1076,8 @@ def admin_yappy_manual_detail(payment_id):
                 audit_events = []
         except Exception:
             audit_events = []
+    from nodeone.services.manual_payment_flow import method_display_label
+
     return render_template(
         'admin/yappy_manual_detail.html',
         payment=payment,
@@ -1069,6 +1085,7 @@ def admin_yappy_manual_detail(payment_id):
         payment_config=cfg,
         audit_events=audit_events,
         yappy_status_label=yappy_status_label,
+        method_label=method_display_label(payment.payment_method),
     )
 
 
@@ -1098,7 +1115,9 @@ def api_admin_yappy_manual_receipt(payment_id):
     payer = _payment_in_admin_scope_or_403(M, payment)
     if not payer:
         abort(403)
-    if payment.payment_method != 'yappy_manual':
+    from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+    if not is_manual_validation_method(payment.payment_method):
         abort(404)
     rel = getattr(payment, 'receipt_disk_path', None) or ''
     abs_path = absolute_path_for_disk_rel(current_app, rel) if rel else None
@@ -1134,8 +1153,10 @@ def api_yappy_manual_validate(payment_id):
         payer = _payment_in_admin_scope_or_403(M, payment)
         if not payer:
             return jsonify({'success': False, 'error': 'No autorizado'}), 403
-        if payment.payment_method != 'yappy_manual':
-            return jsonify({'success': False, 'error': 'No es un pago Yappy manual'}), 400
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
+        if not is_manual_validation_method(payment.payment_method):
+            return jsonify({'success': False, 'error': 'No es un pago con validación administrativa'}), 400
         if payment.status not in ('pending_admin_review', 'pending_validation', 'manual_review'):
             return jsonify({'success': False, 'error': 'Solo se validan pagos en revisión (comprobante recibido).'}), 400
 

@@ -159,6 +159,113 @@ aside.left-panel.sidebar-erp .nav-group-items .nav-link.active {
     color: #fff !important;
 }
 
+/* Launcher ERP: grupos Comercial, Operaciones, … (icono + etiqueta como Tienda/Contactos) */
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group {
+    margin-top: 6px;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    padding-top: 4px;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group:first-of-type {
+    margin-top: 8px;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group > .sidebar-nav-launcher-group-toggle {
+    padding: 6px 8px !important;
+    margin: 2px 6px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #e2e8f0 !important;
+    background: transparent !important;
+    border-radius: 6px;
+    cursor: pointer;
+    gap: 8px;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group > .sidebar-nav-launcher-group-toggle > .menu-icon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    font-size: 14px !important;
+    border-radius: 8px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    flex-shrink: 0;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--comercial > .sidebar-nav-launcher-group-toggle > .menu-icon {
+    background: linear-gradient(145deg, #38bdf8 0%, #2563eb 55%, #4f46e5 100%);
+    color: #fff !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--operaciones > .sidebar-nav-launcher-group-toggle > .menu-icon {
+    background: linear-gradient(145deg, #34d399 0%, #059669 55%, #047857 100%);
+    color: #fff !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--finanzas > .sidebar-nav-launcher-group-toggle > .menu-icon {
+    background: linear-gradient(145deg, #fbbf24 0%, #d97706 55%, #b45309 100%);
+    color: #fff !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--inteligencia > .sidebar-nav-launcher-group-toggle > .menu-icon {
+    background: linear-gradient(145deg, #c4b5fd 0%, #7c3aed 55%, #5b21b6 100%);
+    color: #fff !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--sistema > .sidebar-nav-launcher-group-toggle > .menu-icon {
+    background: linear-gradient(145deg, #94a3b8 0%, #475569 55%, #334155 100%);
+    color: #fff !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group > .sidebar-nav-launcher-group-toggle:hover {
+    color: #f8fafc !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group.show > .sidebar-nav-launcher-group-toggle {
+    color: #f8fafc !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group > .sidebar-nav-launcher-group-toggle .menu-arrow {
+    font-size: 11px !important;
+    margin-top: 2px !important;
+    opacity: 1 !important;
+    width: auto !important;
+    pointer-events: none;
+    color: #94a3b8 !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group.show > .sidebar-nav-launcher-group-toggle .menu-arrow {
+    color: #38bdf8 !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group .nav-group-items {
+    margin: 0 6px 6px !important;
+    padding: 2px 0 4px !important;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group .nav-group-items .nav-link {
+    padding: 6px 8px !important;
+    margin: 2px 0 !important;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+}
+
+aside.left-panel.sidebar-erp .sidebar-nav-launcher-group .nav-group-items .nav-link .menu-icon {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 13px !important;
+    margin-right: 8px !important;
+    flex-shrink: 0;
+}
+
 /* Íconos miembro — gradientes vivos (dos o tres tonos por ítem) */
 aside.left-panel.sidebar-erp .sidebar-nav-member--inicio .menu-icon {
     background: linear-gradient(145deg, #fde047 0%, #fb923c 42%, #ea580c 100%);
@@ -700,22 +807,34 @@ body:has(#erpAppSubnav) #right-panel .content:has(.erp-compact-page) {
 }
 
 /*
- * Modo horizontal (Odoo): sin acordeón lateral en nav-group.
- * - Con barra visible: body:has(#erpAppSubnav)
- * - Sin barra (p. ej. Dashboard): data-erp-app-chrome en body (mismo shell admin que el include del subnav)
+ * Modo horizontal (Odoo): sin acordeón lateral en nav-group del portal miembro.
+ * Los grupos del launcher admin (.sidebar-nav-launcher-group) sí despliegan hijos.
  */
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > ul.nav-group-items,
-body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group > ul.nav-group-items {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > ul.nav-group-items,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > ul.nav-group-items {
     display: none !important;
 }
 
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > a.nav-group-toggle .menu-arrow,
-body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group > a.nav-group-toggle .menu-arrow {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > a.nav-group-toggle .menu-arrow,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > a.nav-group-toggle .menu-arrow {
     opacity: 0;
     width: 0;
     margin: 0;
     overflow: hidden;
     pointer-events: none;
+}
+
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items {
+    display: block !important;
+    max-height: 2400px !important;
+    overflow: visible !important;
+}
+
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group:not(.show) > ul.nav-group-items,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group:not(.show) > ul.nav-group-items {
+    display: none !important;
+    max-height: 0 !important;
 }
 
 /* Pestañas internas que duplican la barra de módulo */

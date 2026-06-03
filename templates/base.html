@@ -19,7 +19,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-8-iius" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=25-platform-nav-chrome" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=27-launcher-icons" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
@@ -454,10 +454,10 @@
                                 <span class="menu-title-text">Mis servicios</span>
                             </a>
                         </li>
-                        <li class="nav-item sidebar-nav-member sidebar-nav-member--explore">
-                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de servicios y reservas">
-                                <i class="menu-icon fas fa-th-large"></i>
-                                <span class="menu-title-text">Explorar</span>
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--tienda">
+                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Tienda: servicios, reservas y compras">
+                                <i class="menu-icon fas fa-store"></i>
+                                <span class="menu-title-text">Tienda</span>
                             </a>
                         </li>
                         {% elif saas_module_enabled('appointments') and has_academic_campus_access %}
@@ -467,7 +467,7 @@
                                 <span class="menu-title-text">Mis servicios</span>
                             </a>
                         </li>
-                        {# Agenda / citas (miembro): debajo de Explorar #}
+                        {# Agenda / citas (miembro): debajo de Tienda #}
                         {% if not current_user.is_advisor %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--agenda">
                             <a class="nav-link sidebar-link {% if request.blueprint == 'appointments' %}active{% endif %}" href="{{ url_for('appointments.appointments_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Tus citas y reservas">
@@ -702,11 +702,23 @@
             }
 
             function restoreNavGroupsFromStorage() {
-                if (document.body.getAttribute('data-erp-app-chrome') === '1') return;
+                var erpChrome = document.body.getAttribute('data-erp-app-chrome') === '1';
                 document.querySelectorAll('.nav-group').forEach(function (group) {
+                    if (erpChrome && !group.classList.contains('sidebar-nav-launcher-group')) {
+                        return;
+                    }
                     var groupName = getNavGroupKey(group);
                     if (!groupName) return;
                     if (localStorage.getItem('navGroup_' + groupName) === 'open') {
+                        group.classList.add('show');
+                    }
+                });
+            }
+
+            /** Abre el grupo que contiene el ítem activo (prioridad sobre storage cerrado). */
+            function expandNavGroupsWithActiveChild() {
+                document.querySelectorAll('.nav-group').forEach(function (group) {
+                    if (group.querySelector('.nav-group-items .nav-link.active')) {
                         group.classList.add('show');
                     }
                 });
@@ -799,6 +811,7 @@
                 applySidebarCollapsedFromStorage();
                 initSidebarTooltips();
                 restoreNavGroupsFromStorage();
+                expandNavGroupsWithActiveChild();
                 if (sidebarObserver) sidebarObserver.disconnect();
                 sidebarObserver = new MutationObserver(updateSidebarTooltipsEnabled);
                 sidebarObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -874,10 +887,11 @@
                     if (!group) return;
                     e.preventDefault();
                     e.stopPropagation();
-                    /* Chrome ERP (barra horizontal / sin acordeón lateral): primer enlace del módulo */
+                    var isLauncherGroup = group.classList.contains('sidebar-nav-launcher-group');
                     var leftPanel = document.getElementById('left-panel');
                     var erpChrome = document.body.getAttribute('data-erp-app-chrome') === '1';
-                    if (erpChrome && leftPanel && leftPanel.classList.contains('sidebar-erp')) {
+                    /* Portal miembro en ERP: cabecera abre primer hijo; launcher admin: acordeón */
+                    if (erpChrome && !isLauncherGroup && leftPanel && leftPanel.classList.contains('sidebar-erp')) {
                         var subLinks = group.querySelectorAll('.nav-group-items a.nav-link[href]');
                         for (var si = 0; si < subLinks.length; si++) {
                             var hv = subLinks[si].getAttribute('href') || '';
@@ -887,7 +901,7 @@
                         }
                         return;
                     }
-                    if (document.body.classList.contains('sidebar-collapsed')) return;
+                    if (document.body.classList.contains('sidebar-collapsed') && !isLauncherGroup) return;
                     group.classList.toggle('show');
                     saveNavGroupsState();
                 }

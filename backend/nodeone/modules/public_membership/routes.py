@@ -352,7 +352,7 @@ def register_public_membership_routes(app):
         if stype == 'CV_REGISTRATION':
             return 'Completar formulario', url_for('cv_registro', service=service.id)
         if stype == 'COURSE':
-            return 'Ver en catálogo', url_for('services.list')
+            return 'Ver en tienda', url_for('services.list')
         el = (service.external_link or '').strip()
         if el:
             if el.startswith(('http://', 'https://', '//')):
@@ -364,7 +364,7 @@ def register_public_membership_routes(app):
             if stype == 'CONSULTIVO':
                 return 'Solicitar reunión', url_for('appointments.request_appointment', service_id=service.id)
             return 'Solicitar cita', url_for('services.request_appointment', service_id=service.id)
-        return 'Ver en catálogo', url_for('services.list')
+        return 'Ver en tienda', url_for('services.list')
 
     @app.route('/member/services')
     @login_required

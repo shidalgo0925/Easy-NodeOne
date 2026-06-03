@@ -1794,6 +1794,8 @@ def inject_admin_nav_context():
         pass
     out['nav_can'] = _nav_can_permission
     out.setdefault('nav_app_areas', [])
+    out.setdefault('nav_sidebar_top_areas', [])
+    out.setdefault('nav_sidebar_groups', [])
     out.setdefault('nav_active_area_id', None)
     out.setdefault('nav_sidebar_area_id', None)
     out.setdefault('nav_active_area_label', None)

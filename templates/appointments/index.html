@@ -15,7 +15,7 @@
                 </p>
             </div>
             <div class="col-12 col-lg-4 text-lg-end">
-                <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-lg w-100 w-lg-auto"><i class="fas fa-th-large me-2"></i>Ir a Servicios</a>
+                <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-lg w-100 w-lg-auto"><i class="fas fa-store me-2"></i>Ir a la tienda</a>
             </div>
         </div>
     </div>
@@ -46,7 +46,7 @@
                 {% endif %}
                 <div class="d-flex gap-2 flex-wrap">
                     {% if saas_module_enabled('appointments') %}
-                    <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-lg px-4"><i class="fas fa-calendar-plus me-2"></i>Reservar una cita</a>
+                    <a href="{{ url_for('services.list') }}" class="btn btn-primary btn-lg px-4"><i class="fas fa-store me-2"></i>Reservar desde la tienda</a>
                     {% endif %}
                     <a href="#appointment-types" class="btn btn-outline-primary btn-lg px-4">Explorar tipos de cita</a>
                 </div>

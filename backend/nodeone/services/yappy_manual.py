@@ -151,44 +151,9 @@ def _send_html(recipients: List[str], subject: str, html: str, **kwargs) -> bool
 
 
 def notify_admin_new_receipt(payment, payer_user, config) -> bool:
-    recipients = _split_admin_emails(config)
-    if not recipients:
-        _log_yappy_email_issue(
-            "admin: lista yappy_manual_admin_emails vacía; no se envía aviso de comprobante "
-            f"(payment_id={payment.id})"
-        )
-        return False
-    amount = (payment.amount or 0) / 100.0
-    ref = payment.payment_reference or ""
-    client_name = f"{payer_user.first_name or ''} {payer_user.last_name or ''}".strip() or payer_user.email
-    link = ""
-    try:
-        from flask import url_for
+    from nodeone.services.manual_payment_flow import notify_admin_email
 
-        link = url_for("payments_admin.admin_yappy_manual_detail", payment_id=payment.id, _external=True)
-    except Exception:
-        link = f"/admin/payments/yappy-manual/{payment.id}"
-    inner = f"""
-    <p style="margin:0 0 16px;line-height:1.6;">
-      <strong>Cliente:</strong> {client_name}<br>
-      <strong>Pedido:</strong> #{payment.id}<br>
-      <strong>Monto:</strong> USD {amount:.2f}<br>
-      <strong>Método:</strong> Yappy Manual
-    </p>
-    <p style="margin:0 0 16px;">El cliente ha subido un comprobante de pago y está pendiente de validación administrativa.</p>
-    <p style="margin:0 0 8px;"><strong>Referencia de pago:</strong> <code style="background:#f1f3f5;padding:2px 6px;border-radius:4px;">{ref}</code></p>
-    """
-    html = _tx_email_html("Nuevo comprobante Yappy pendiente de validación", inner, link, "Revisar en el panel")
-    return bool(
-        _send_html(
-            recipients,
-            f"[{_brand_name()}] Nuevo comprobante Yappy pendiente de validación",
-            html,
-            email_type="yappy_manual_admin_alert",
-            related_entity_type="payment",
-            related_entity_id=payment.id,
-        )
-    )
+    return bool(notify_admin_email(payment, payer_user, config, event='receipt_submitted'))
 
 
 def notify_client_receipt_received(payment, user) -> bool:

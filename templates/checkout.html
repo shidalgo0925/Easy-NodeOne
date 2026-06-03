@@ -330,7 +330,18 @@
 <script>
     const INTL_WIRE_DISPLAY = {{ intl_wire_display | default({}) | tojson }};
     const EN1_YAPPY_RECEIPT_REQUIRES = {{ (yappy_checkout.requires_receipt if yappy_checkout else True)|tojson }};
+    const EN1_METHOD_BY_KEY = {{ method_by_key | default({}) | tojson }};
+    const EN1_MANUAL_VALIDATION_METHODS = ['yappy_manual', 'wire_international', 'banco_general', 'manual_payment'];
     const EN1_CHECKOUT_IS_ADMIN = {{ (current_user.is_authenticated and current_user.is_admin)|tojson }};
+
+    function en1IsManualValidation(method) {
+        return EN1_MANUAL_VALIDATION_METHODS.indexOf(method) >= 0;
+    }
+    function en1MethodRequiresReceipt(method) {
+        const row = EN1_METHOD_BY_KEY[method];
+        if (row && typeof row.requires_receipt === 'boolean') return row.requires_receipt;
+        return true;
+    }
     const firstCheckedMethod = document.querySelector('input[name="payment_method"]:checked');
 
     /** Mensajes técnicos (modo prueba, Payment ID, demo): solo administradores. */
@@ -434,11 +445,15 @@
             initPayPal();
         } else if (currentPaymentMethod === 'yappy_manual') {
             document.getElementById('submit-button').classList.remove('d-none');
-        } else {
-            // Métodos manuales (solo banco_general ahora)
+        } else if (en1IsManualValidation(currentPaymentMethod) && currentPaymentMethod !== 'yappy_manual') {
             document.getElementById('manual-payment-section').classList.remove('d-none');
             document.getElementById('submit-button').classList.remove('d-none');
             showManualPaymentInfo(currentPaymentMethod);
+            const rcLbl = document.querySelector('label[for="receipt-upload"]');
+            const req = en1MethodRequiresReceipt(currentPaymentMethod);
+            if (rcLbl) {
+                rcLbl.innerHTML = 'Comprobante de pago' + (req ? ' <span class="text-danger">*</span>' : ' <span class="text-muted">(opcional)</span>');
+            }
         }
     }
     
@@ -669,6 +684,11 @@
                 ${w.instructions_html ? '<div class="mt-2 border rounded p-2 small">' + w.instructions_html + '</div>' : ''}
                 <p class="mb-0 small text-muted">Tras confirmar verás la referencia de pago y podrás adjuntar el comprobante de la transferencia.</p>
             `;
+        } else if (method === 'manual_payment') {
+            html = `
+                <h6>Pago manual / transferencia local</h6>
+                <p class="mb-0">Realiza la transferencia según las instrucciones del comercio y adjunta el comprobante. Tu compra se activará tras la validación del equipo.</p>
+            `;
         }
         content.innerHTML = html;
     }
@@ -726,6 +746,36 @@
                 return { success: true, data: data, yappyReceiptUploaded: yappyReceiptUploaded };
             } catch (error) {
                 console.error('Error creando pago yappy_manual:', error);
+                return { success: false, error: error.message || 'Error al crear el pago' };
+            }
+        }
+
+        if (en1IsManualValidation(paymentMethod) && paymentMethod !== 'yappy_manual') {
+            const rc = document.getElementById('receipt-upload');
+            const reqRc = en1MethodRequiresReceipt(paymentMethod);
+            if (reqRc && (!rc || !rc.files || !rc.files[0])) {
+                return { success: false, error: 'Debe adjuntar el comprobante de pago.' };
+            }
+            try {
+                const fd = new FormData();
+                fd.append('payment_method', paymentMethod);
+                fd.append('cart_id', String(requestData.cart_id));
+                fd.append('amount', String(requestData.amount));
+                if (rc && rc.files && rc.files[0]) fd.append('receipt', rc.files[0]);
+                const response = await fetch('/create-payment-intent', { method: 'POST', body: fd });
+                const contentType = response.headers.get('content-type') || '';
+                let data;
+                if (contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    throw new Error('Error del servidor: respuesta no JSON.');
+                }
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || ('Error ' + response.status));
+                }
+                const uploaded = data.status === 'pending_admin_review';
+                return { success: true, data: data, yappyReceiptUploaded: uploaded };
+            } catch (error) {
                 return { success: false, error: error.message || 'Error al crear el pago' };
             }
         }
@@ -929,10 +979,11 @@
                 } else {
                     throw new Error(data.error || 'No se pudo crear el pago con Yappy. Verifica la configuración.');
                 }
-            } else {
-                // Métodos manuales (solo banco_general) - mostrar mensaje y redirigir
-                alert('Pago iniciado. Por favor, sube el comprobante de pago cuando lo tengas.');
-                window.location.href = `/payment-success?payment_id=${data.payment_id}`;
+            } else if (data.manual_validation && data.payment_id) {
+                const dest = data.redirect_url || ('/payment-success?payment_id=' + data.payment_id);
+                window.location.href = dest;
+            } else if (data.payment_id) {
+                window.location.href = '/payment-success?payment_id=' + data.payment_id;
             }
         } catch (err) {
             console.error('Error completo:', err);
@@ -999,7 +1050,7 @@
             if (sp) sp.classList.remove('d-none');
             if (msg) msg.innerHTML = '';
             try {
-                const r = await fetch('/api/payment/yappy-manual/' + pid + '/submit-receipt', { method: 'POST', body: fd });
+                const r = await fetch('/api/payment/' + pid + '/submit-receipt', { method: 'POST', body: fd });
                 const data = await r.json().catch(function () { return {}; });
                 if (!r.ok || !data.success) throw new Error(data.error || ('Error ' + r.status));
                 var okHtml = '<div class="alert alert-success py-2 mb-0">' + (data.message || 'Listo') + '</div>';

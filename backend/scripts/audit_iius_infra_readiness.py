@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 IIUS_RUNTIME_ROOT = '/opt/easynodeone'
-FUTURE_IIUS_ROOTS = ('/opt/iius/dev', '/opt/iius/staging', '/opt/iius/prod')
+FUTURE_IIUS_ROOTS = ('/opt/iius/dev/app', '/opt/iius/staging/app', '/opt/iius/prod/app')
 FORBIDDEN_EDIT = '/var/www/nodeone'
 
 
@@ -30,10 +30,12 @@ def main() -> int:
     print('## Rutas')
     print(f'  runtime activo: {IIUS_RUNTIME_ROOT}/app')
     print(f'  backend CWD:    {IIUS_RUNTIME_ROOT}/app/backend')
+    iius_readme = os.path.isfile('/opt/iius/README.md')
+    print(f'  /opt/iius/README.md: {"sí" if iius_readme else "no"}')
     for p in FUTURE_IIUS_ROOTS:
         exists = os.path.isdir(p)
-        print(f'  futuro {p}: {"existe" if exists else "no creado"}')
-        if not exists:
+        print(f'  silo {p}: {"esqueleto OK" if exists else "pendiente"}')
+        if not exists and not iius_readme:
             notes.append(f'{p} pendiente de aprovisionar')
 
     if os.path.isdir(FORBIDDEN_EDIT):

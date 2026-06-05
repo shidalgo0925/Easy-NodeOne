@@ -5,7 +5,10 @@ Verifica todas las actividades pendientes y acciones requeridas del usuario
 """
 
 from datetime import datetime, timedelta
+
 from flask import current_app
+
+from nodeone.core.datetime_utils import as_utc, utc_now, utc_seconds_between
 
 class UserStatusChecker:
     """Clase para verificar el estado completo del usuario"""
@@ -54,7 +57,7 @@ class UserStatusChecker:
         
         status = {
             'user_id': user_id,
-            'checked_at': datetime.utcnow().isoformat(),
+            'checked_at': utc_now().isoformat(),
             'pending_payments': [],
             'upcoming_events': [],
             'upcoming_appointments': [],
@@ -84,7 +87,7 @@ class UserStatusChecker:
             ).order_by(Payment.created_at.desc()).all()
             
             for payment in pending_payments:
-                time_elapsed = (datetime.utcnow() - payment.created_at).total_seconds() / 60 if payment.created_at else 0
+                time_elapsed = utc_seconds_between(utc_now(), payment.created_at) / 60
                 minutes_elapsed = int(time_elapsed)
                 
                 try:
@@ -142,18 +145,19 @@ class UserStatusChecker:
             
             # ========== 2. VERIFICAR EVENTOS PRÓXIMOS ==========
             # Eventos en los próximos 7 días
-            next_week = datetime.utcnow() + timedelta(days=7)
+            now = utc_now()
+            next_week = now + timedelta(days=7)
             
             upcoming_registrations = EventRegistration.query.join(Event).filter(
                 EventRegistration.user_id == user_id,
                 EventRegistration.registration_status == 'confirmed',
-                Event.start_date >= datetime.utcnow(),
+                Event.start_date >= now,
                 Event.start_date <= next_week
             ).order_by(Event.start_date.asc()).limit(10).all()
             
             for registration in upcoming_registrations:
                 event = registration.event
-                days_until = (event.start_date - datetime.utcnow()).days if event.start_date else None
+                days_until = (as_utc(event.start_date) - now).days if event.start_date else None
                 
                 event_info = {
                     'id': event.id,
@@ -184,17 +188,17 @@ class UserStatusChecker:
             
             # ========== 3. VERIFICAR CITAS PRÓXIMAS ==========
             # Citas en las próximas 48 horas
-            next_48h = datetime.utcnow() + timedelta(hours=48)
+            next_48h = now + timedelta(hours=48)
             
             upcoming_appointments = Appointment.query.filter(
                 Appointment.user_id == user_id,
                 Appointment.status.in_(['confirmed', 'pending', 'CONFIRMADA', 'PENDIENTE']),
-                Appointment.start_datetime >= datetime.utcnow(),
+                Appointment.start_datetime >= now,
                 Appointment.start_datetime <= next_48h
             ).order_by(Appointment.start_datetime.asc()).limit(10).all()
             
             for appointment in upcoming_appointments:
-                hours_until = (appointment.start_datetime - datetime.utcnow()).total_seconds() / 3600 if appointment.start_datetime else None
+                hours_until = utc_seconds_between(appointment.start_datetime, now) / 3600 if appointment.start_datetime else None
                 
                 appointment_info = {
                     'id': appointment.id,
@@ -226,11 +230,11 @@ class UserStatusChecker:
             active_subscription = Subscription.query.filter(
                 Subscription.user_id == user_id,
                 Subscription.status == 'active',
-                Subscription.end_date > datetime.utcnow()
+                Subscription.end_date > now
             ).order_by(Subscription.end_date.asc()).first()
             
             if active_subscription:
-                days_until_expiry = (active_subscription.end_date - datetime.utcnow()).days
+                days_until_expiry = (as_utc(active_subscription.end_date) - now).days
                 
                 if days_until_expiry <= 30:  # Por vencer en 30 días o menos
                     status['expiring_membership'] = {
@@ -258,7 +262,7 @@ class UserStatusChecker:
             expired_subscription = Subscription.query.filter(
                 Subscription.user_id == user_id,
                 Subscription.status == 'active',
-                Subscription.end_date <= datetime.utcnow()
+                Subscription.end_date <= now
             ).first()
             
             if expired_subscription:
@@ -354,7 +358,7 @@ class UserStatusChecker:
         
         dashboard = {
             'user_id': user_id,
-            'generated_at': datetime.utcnow().isoformat(),
+            'generated_at': utc_now().isoformat(),
             'statistics': {},
             'recent_activity': [],
             'status_check': UserStatusChecker.check_user_status(user_id, db_session)
@@ -369,7 +373,7 @@ class UserStatusChecker:
             active_membership = Subscription.query.filter(
                 Subscription.user_id == user_id,
                 Subscription.status == 'active',
-                Subscription.end_date > datetime.utcnow()
+                Subscription.end_date > utc_now()
             ).first()
             
             dashboard['statistics'] = {

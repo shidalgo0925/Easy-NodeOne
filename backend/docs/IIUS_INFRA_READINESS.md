@@ -9,22 +9,27 @@ Estado en host `vmi3215083` (2026-05-27). La línea viva sigue siendo **`iius-pr
 | Código + Git | `/opt/easynodeone/app` → rama `iius-product` |
 | Runtime | `nodeone.service` → `WorkingDirectory=/opt/easynodeone/app/backend` |
 | Config | `/opt/easynodeone/app/.env` |
-| BD | SQLite `instance/NodeOne.db` |
+| BD | **PostgreSQL 16** `iius_nodeone` @ `127.0.0.1:5432` (migrado desde SQLite 2026-05-27) |
+| Backup pre-Postgres | `/opt/easynodeone/backups/NodeOne_pre_postgres_*.db` |
+| Credenciales PG | `/opt/easynodeone/app/instance/.pg_password` (no commitear) |
 | Uploads | `static/uploads/` |
 | Backups freeze | `/opt/easynodeone/backups/iius-freeze-20260527_*` |
 
 **No usar como runtime IIUS:** `/var/www/nodeone` (otro despliegue histórico).
 
-## Objetivo futuro
+## Silos `/opt/iius` (esqueleto 2026-05-27)
+
+Creado con `backend/scripts/provision_iius_opt_layout.sh`. **Prod real sigue en** `/opt/easynodeone/app`.
 
 ```
 /opt/iius/
-  dev/app      → rama develop o iius-product (sandbox)
-  staging/app  → main o iius-product pre-prod
-  prod/app     → main o iius-product estable
+  README.md
+  dev/{app,backups,logs}/      → .env.example
+  staging/{app,backups,logs}/
+  prod/{app,backups,logs}/
 ```
 
-Cada silo: propio `.env`, `instance/`, venv, systemd unit, dominio.
+Cada silo futuro: clonar repo, `.env`, venv, systemd unit, dominio propio.
 
 ## Checklist antes de separar entornos
 
@@ -36,7 +41,7 @@ Cada silo: propio `.env`, `instance/`, venv, systemd unit, dominio.
    - `python scripts/test_academic_gate_iius.py`
    - Matriz acceso real (10 casos) documentada en chat/ops.
 4. **Backup** `.env` + `instance/` + `static/uploads/` antes de cualquier migración.
-5. **Postgres:** solo tras dump/restore probado en staging; no cortar SQLite en prod sin ventana.
+5. **Postgres (hecho en prod):** `migrate_iius_sqlite_to_postgresql.sh` + `bootstrap_nodeone_schema()`; verificar con `audit_iius_infra_readiness.py` (`engine: …/iius_nodeone`).
 
 ## Auditoría repetible
 
@@ -55,6 +60,14 @@ Cancelar Yappy manual de prueba (≤ $1, sin comprobante):
 ```bash
 python scripts/ops_cancel_iius_yappy_test_payment.py          # dry-run
 python scripts/ops_cancel_iius_yappy_test_payment.py --apply  # ejecutar
+```
+
+## Migración SQLite → Postgres (referencia)
+
+```bash
+# Requiere: postgresql, pgloader, backup previo
+sudo bash backend/scripts/migrate_iius_sqlite_to_postgresql.sh
+systemctl restart nodeone.service
 ```
 
 ## Reglas de trabajo

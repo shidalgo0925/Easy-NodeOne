@@ -2,10 +2,10 @@
 
 
 def register_public_membership_routes(app):
-    from datetime import datetime
-
     from flask import flash, redirect, render_template, request, session, url_for
     from flask_login import current_user, login_required
+
+    from nodeone.core.datetime_utils import as_utc, utc_now, utc_seconds_between
 
     from app import (
         Benefit,
@@ -81,13 +81,13 @@ def register_public_membership_routes(app):
         # Calcular días desde inicio y días restantes
         days_active = None
         days_remaining = None
-        now = datetime.utcnow()
+        now = utc_now()
     
         if active_membership:
             if active_membership.start_date:
-                days_active = (now - active_membership.start_date).days
+                days_active = (now - as_utc(active_membership.start_date)).days
             if active_membership.end_date:
-                days_remaining = (active_membership.end_date - now).days
+                days_remaining = (as_utc(active_membership.end_date) - now).days
     
         # Estadísticas del usuario
         upcoming_appointments = Appointment.query.filter(
@@ -154,7 +154,7 @@ def register_public_membership_routes(app):
         # Detectar si es un usuario nuevo (creado en las últimas 24 horas)
         is_new_user = False
         if current_user.created_at:
-            hours_since_creation = (now - current_user.created_at).total_seconds() / 3600
+            hours_since_creation = utc_seconds_between(now, current_user.created_at) / 3600
             is_new_user = hours_since_creation < 24
     
         # Verificar si el usuario ha visto el onboarding

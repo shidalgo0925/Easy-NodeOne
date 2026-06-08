@@ -800,11 +800,12 @@ def admin_list_certificate_events():
     events = CertificateEvent.query.filter_by(organization_id=coid).order_by(
         CertificateEvent.created_at.desc()
     ).all()
-    items = [_cert_event_to_dict(e) for e in events]
-    for row in items:
+    mem_reg = [_cert_event_to_dict(e) for e in events]
+    for row in mem_reg:
         row['kind'] = 'certificate_event'
-    items.extend(list_event_certificate_formats_for_admin(coid))
-    return jsonify({'items': items})
+    event_formats = list_event_certificate_formats_for_admin(coid)
+    # Eventos primero: la acción principal es «Editar carátula» (editor visual), no el modal MEM/REG.
+    return jsonify({'items': event_formats + mem_reg})
 
 
 @certificates_api_bp.route('/admin/certificate-events', methods=['POST'])

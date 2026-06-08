@@ -85,6 +85,7 @@ Blueprint propio en `nodeone/modules/accounting_core/routes.py`:
 
 - Guard SaaS `workshop` en API.
 - Rutas admin pueden comprobar además `sales` en acciones concretas.
+- Manual de operaciones: [EN1_OPERACIONES_TALLER.md](./EN1_OPERACIONES_TALLER.md).
 
 ### Analytics
 

@@ -1102,6 +1102,13 @@ def admin_yappy_manual_detail(payment_id):
             audit_events = []
     from nodeone.services.manual_payment_flow import method_display_label
 
+    duplicate_warning = None
+    if payment.status in ('pending_admin_review', 'pending_validation', 'manual_review'):
+        cart = M.get_or_create_cart(payment.user_id)
+        from nodeone.services.payment_event_fulfillment import validate_no_duplicate_event_payment
+
+        duplicate_warning = validate_no_duplicate_event_payment(payment, cart)
+
     return render_template(
         'admin/yappy_manual_detail.html',
         payment=payment,
@@ -1110,6 +1117,7 @@ def admin_yappy_manual_detail(payment_id):
         audit_events=audit_events,
         yappy_status_label=yappy_status_label,
         method_label=method_display_label(payment.payment_method),
+        duplicate_warning=duplicate_warning,
     )
 
 
@@ -1155,6 +1163,34 @@ def api_admin_yappy_manual_receipt(payment_id):
             as_attachment=False,
         )
     abort(404)
+
+
+@payments_admin_bp.route('/api/admin/payments/<int:payment_id>/fulfill-events', methods=['POST'])
+@require_permission('payments.manage')
+def api_admin_payment_fulfill_events(payment_id):
+    """Repara pagos ya aprobados: inscripción/participante sin volver a aprobar."""
+    import app as M
+
+    from nodeone.services.payment_event_fulfillment import fulfill_paid_payment_events
+
+    payment = M.Payment.query.get_or_404(payment_id)
+    payer = _payment_in_admin_scope_or_403(M, payment)
+    if not payer:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 403
+    if (payment.status or '').strip() != 'paid':
+        return jsonify({'success': False, 'error': 'Solo aplica a pagos en estado paid.'}), 400
+    try:
+        result = fulfill_paid_payment_events(payment)
+        if result.get('error'):
+            return jsonify({'success': False, 'error': result['error']}), 400
+        stats = result.get('participant_stats') or {}
+        msg = 'Inscripción y participantes sincronizados.'
+        if stats.get('created'):
+            msg += f' Participantes creados: {stats["created"]}.'
+        return jsonify({'success': True, 'message': msg, 'fulfillment': result})
+    except Exception as e:
+        M.db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @payments_admin_bp.route('/api/admin/payments/<int:payment_id>/yappy-manual/validate', methods=['POST'])
@@ -1279,6 +1315,15 @@ def api_yappy_manual_validate(payment_id):
                         'error': 'Monto recibido menor al esperado: use «Pago incompleto» o rechace.',
                     }
                 ), 400
+            cart = M.get_or_create_cart(payment.user_id)
+            from nodeone.services.payment_event_fulfillment import (
+                fulfill_paid_payment_events,
+                validate_no_duplicate_event_payment,
+            )
+
+            dup_err = validate_no_duplicate_event_payment(payment, cart)
+            if dup_err:
+                return jsonify({'success': False, 'error': dup_err, 'duplicate': True}), 409
             payment.status = 'paid'
             payment.paid_at = datetime.utcnow()
             payment.amount_received_cents = amount_received_cents
@@ -1297,13 +1342,12 @@ def api_yappy_manual_validate(payment_id):
                     'observations': observations,
                 },
             )
-            M.db.session.commit()
+            M.db.session.flush()
 
-            cart = M.get_or_create_cart(payment.user_id)
-            if cart.get_items_count() > 0:
-                process_cart_after_payment(cart, payment)
-                cart.clear()
-                M.db.session.commit()
+            fulfillment = fulfill_paid_payment_events(payment, cart)
+            if fulfillment.get('error'):
+                M.db.session.rollback()
+                return jsonify({'success': False, 'error': fulfillment['error']}), 500
 
             try:
                 subscription = M.Subscription.query.filter_by(payment_id=payment.id).first()
@@ -1327,7 +1371,11 @@ def api_yappy_manual_validate(payment_id):
             except Exception as e:
                 print(f"⚠️ Odoo yappy_manual: {e}")
 
-            return _json_ok('Pago aprobado y compra activada.', mail_ok)
+            msg = 'Pago aprobado, inscripción al evento y participante actualizados.'
+            if fulfillment.get('participant_stats', {}).get('created'):
+                n = fulfillment['participant_stats']['created']
+                msg += f' Participantes creados: {n}.'
+            return _json_ok(msg, mail_ok)
 
         return jsonify({'success': False, 'error': 'decision inválida (paid|partially_paid|rejected|manual_review).'}), 400
     except Exception as e:

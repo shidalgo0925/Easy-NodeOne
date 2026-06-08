@@ -172,10 +172,13 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
 
     oid = int(resolve_current_organization())
 
+    from nodeone.services.payment_event_fulfillment import build_cart_items_snapshot
+
     metadata = {
         "user_id": current_user.id,
         "cart_id": cart.id,
         "items_count": cart.get_items_count(),
+        "cart_items": build_cart_items_snapshot(cart),
         "yappy_manual": True,
         "integration": "manual_receipt",
         "organization_id": oid,
@@ -362,10 +365,13 @@ def create_payment_intent():
         
         # Crear metadata para el pago
         import json
+        from nodeone.services.payment_event_fulfillment import build_cart_items_snapshot
+
         metadata = {
             'user_id': current_user.id,
             'cart_id': cart.id,
-            'items_count': cart.get_items_count()
+            'items_count': cart.get_items_count(),
+            'cart_items': build_cart_items_snapshot(cart),
         }
         
         # Crear pago con el procesador

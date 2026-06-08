@@ -32,6 +32,7 @@ def yappy_status_label(status: str | None) -> str:
         'partially_paid': 'Pago incompleto',
         'paid': 'Pagado',
         'rejected': 'Rechazado',
+        'rejected_duplicate': 'Rechazado (inscripción duplicada)',
         'cancelled': 'Cancelado',
     }
     return mapping.get(s, s or '—')

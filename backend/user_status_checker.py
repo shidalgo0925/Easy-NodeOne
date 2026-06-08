@@ -310,6 +310,10 @@ class UserStatusChecker:
             print(f"❌ Error verificando estado del usuario {user_id}: {e}")
             import traceback
             traceback.print_exc()
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
             status['error'] = str(e)
         
         return status

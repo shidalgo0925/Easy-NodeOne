@@ -756,6 +756,7 @@ def register_events_blueprints(app):
         return
     try:
         from nodeone.modules.events.routes import admin_events_bp, events_api_bp, events_bp
+        from nodeone.modules.events.user_certificates_routes import my_event_certificates_bp
         from saas_features import register_events_saas_guards
 
         if 'events' not in app.blueprints:
@@ -763,6 +764,8 @@ def register_events_blueprints(app):
             app.register_blueprint(events_bp)
             app.register_blueprint(admin_events_bp)
             app.register_blueprint(events_api_bp)
+        if 'my_event_certificates' not in app.blueprints:
+            app.register_blueprint(my_event_certificates_bp)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar los blueprints de eventos: {e}')
 

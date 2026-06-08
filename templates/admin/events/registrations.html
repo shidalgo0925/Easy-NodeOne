@@ -108,9 +108,13 @@
                         {% for registration in registrations %}
                         <tr>
                             <td>
-                                <strong>{{ registration.user.first_name }} {{ registration.user.last_name }}</strong>
+                                {% if registration.user %}
+                                <strong>{{ registration.user.first_name or '' }} {{ registration.user.last_name or '' }}</strong>
+                                {% else %}
+                                <span class="text-muted">Usuario #{{ registration.user_id or '—' }}</span>
+                                {% endif %}
                             </td>
-                            <td>{{ registration.user.email }}</td>
+                            <td>{{ registration.user.email if registration.user else '—' }}</td>
                             <td>{{ registration.registration_date.strftime('%d/%m/%Y %H:%M') }}</td>
                             <td>
                                 <span class="badge bg-{% if registration.registration_status == 'confirmed' %}success{% elif registration.registration_status == 'pending' %}warning{% elif registration.registration_status == 'cancelled' %}danger{% else %}secondary{% endif %}">

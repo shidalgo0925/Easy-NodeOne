@@ -3281,6 +3281,12 @@ def bootstrap_nodeone_schema():
             except Exception:
                 pass
         try:
+            from nodeone.services.payment_yappy_schema import ensure_payment_yappy_manual_columns
+
+            ensure_payment_yappy_manual_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_payment_yappy_manual_columns: {e}')
+        try:
             from nodeone.services.contador_schema import ensure_contador_qty_float_columns
 
             ensure_contador_qty_float_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

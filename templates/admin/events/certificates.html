@@ -3,87 +3,199 @@
 {% block title %}Certificados - {{ event.title }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-            <h1 class="h5 mb-0"><i class="fas fa-award"></i> Certificados del evento</h1>
-            <p class="text-muted small mb-0">{{ event.title }}</p>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm">Participantes</a>
-            <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-dark btn-sm">Editar evento</a>
-            <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-secondary btn-sm">Eventos</a>
-            <a href="{{ url_for('admin_events.admin_event_certificates_export', event_id=event.id) }}" class="btn btn-outline-success btn-sm">Exportar .xlsx</a>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header">Generación masiva</div>
-        <div class="card-body">
-            <p class="small text-muted mb-2">
-                Solo participantes con <strong>check-in</strong> o tipo <strong>reviewer</strong>, sin certificado activo previo.
-            </p>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <form method="post" action="{{ url_for('admin_events.admin_event_certificates_generate', event_id=event.id) }}" class="d-inline">
-                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                    <button type="submit" class="btn btn-primary btn-sm">Generar todos los elegibles</button>
-                </form>
-                <form method="post" action="{{ url_for('admin_events.admin_event_certificates_generate', event_id=event.id) }}" class="d-flex flex-wrap gap-2 align-items-center">
-                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                    <label class="small mb-0">IDs participantes (separados por coma o espacio):</label>
-                    <input type="text" name="participant_ids" class="form-control form-control-sm" style="min-width:200px" placeholder="ej. 12, 15, 20">
-                    <button type="submit" class="btn btn-outline-primary btn-sm">Generar seleccionados</button>
-                </form>
+<div class="container py-4 admin-event-certificates-page">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start gap-3">
+                <div class="min-w-0">
+                    <nav aria-label="breadcrumb" class="mb-2">
+                        <ol class="breadcrumb breadcrumb-sm mb-0 small">
+                            <li class="breadcrumb-item"><a href="{{ url_for('admin_events.admin_events_index') }}">Eventos</a></li>
+                            <li class="breadcrumb-item"><a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}">Participantes</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Certificados</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h5 mb-1">
+                        <i class="fas fa-award text-warning me-1"></i> Certificados
+                    </h1>
+                    <p class="text-muted mb-0 text-break small">{{ event.title }}</p>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-outline-info btn-sm" title="Participantes">
+                        <i class="fas fa-users"></i>
+                    </a>
+                    <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm" title="Editar evento">
+                        <i class="fas fa-sliders-h"></i>
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_event_certificates_export', event_id=event.id) }}" class="btn btn-outline-success btn-sm" title="Exportar Excel">
+                        <i class="fas fa-file-download"></i>
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_events_index') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>Eventos
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Emitidos ({{ certificates|length }})</span>
+    <div class="row g-2 mb-3">
+        <div class="col-auto">
+            <span class="badge rounded-pill bg-light text-dark border px-3 py-2">
+                <i class="fas fa-certificate me-1 text-success"></i>{{ cert_stats.issued }} emitido(s)
+            </span>
+        </div>
+        <div class="col-auto">
+            <span class="badge rounded-pill bg-light text-dark border px-3 py-2">
+                <i class="fas fa-hourglass-half me-1 text-warning"></i>{{ cert_stats.eligible }} pendiente(s)
+            </span>
+        </div>
+        {% if cert_stats.revoked %}
+        <div class="col-auto">
+            <span class="badge rounded-pill bg-light text-dark border px-3 py-2">
+                <i class="fas fa-ban me-1 text-danger"></i>{{ cert_stats.revoked }} revocado(s)
+            </span>
+        </div>
+        {% endif %}
+        <div class="col-auto">
+            <span class="badge rounded-pill bg-light text-dark border px-3 py-2">
+                <i class="fas fa-users me-1 text-primary"></i>{{ cert_stats.participants }} participante(s)
+            </span>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h2 class="h6 mb-0 fw-semibold">Generar certificados</h2>
+            {% if cert_stats.eligible > 0 %}
+            <form method="post" action="{{ url_for('admin_events.admin_event_certificates_generate', event_id=event.id) }}" class="mb-0">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-bolt me-1"></i>Generar todos los elegibles ({{ cert_stats.eligible }})
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        <div class="card-body py-3">
+            <p class="small text-muted mb-2 mb-md-3">
+                Elegibles: participantes con <strong>check-in</strong> o tipo <strong>revisor</strong>, sin certificado activo.
+            </p>
+            {% if eligible_pending %}
+            <form method="post" action="{{ url_for('admin_events.admin_event_certificates_generate', event_id=event.id) }}">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="table-responsive mb-2" style="max-height:14rem;">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th style="width:2rem">
+                                    <input type="checkbox" class="form-check-input" id="cert-select-all" title="Seleccionar todos">
+                                </th>
+                                <th>Participante</th>
+                                <th>Asistencia</th>
+                                <th>ID</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in eligible_pending %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input cert-pick" name="participant_ids" value="{{ p.id }}">
+                                </td>
+                                <td>
+                                    <div class="fw-semibold small">{{ p.full_name or ((p.first_name or '') ~ ' ' ~ (p.last_name or ''))|trim or '—' }}</div>
+                                    {% if p.email %}<div class="text-muted small text-break">{{ p.email }}</div>{% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if p.attendance_status in ('checked_in', 'attended') %}success{% else %}secondary{% endif %}">
+                                        {{ (p.attendance_status or 'pending')|replace('_', ' ')|title }}
+                                    </span>
+                                </td>
+                                <td class="text-muted small">#{{ p.id }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <button type="submit" class="btn btn-outline-primary btn-sm" id="cert-generate-selected">
+                        <i class="fas fa-check-double me-1"></i>Generar seleccionados
+                    </button>
+                    <span class="small text-muted">IDs manuales:</span>
+                    <input type="text" id="cert-ids-manual" class="form-control form-control-sm" style="max-width:12rem" placeholder="12, 15, 20">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="cert-generate-manual">Generar por ID</button>
+                </div>
+            </form>
+            {% else %}
+            <p class="text-muted small mb-0">
+                No hay participantes pendientes de certificado.
+                {% if cert_stats.participants == 0 %}
+                <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}">Cargá participantes</a> primero.
+                {% else %}
+                Revisá <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}">asistencia</a> (check-in) o generá desde cada fila.
+                {% endif %}
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h2 class="h6 mb-0 fw-semibold">
+                <i class="fas fa-list me-1 text-muted"></i>Emitidos
+                <span class="badge bg-primary ms-1">{{ certificates|length }}</span>
+            </h2>
         </div>
         <div class="card-body p-0">
             {% if certificates %}
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle">
+                <table class="table table-hover align-middle mb-0 admin-certificates-table">
                     <thead class="table-light">
                         <tr>
-                            <th>Código</th>
+                            <th class="ps-3">Código</th>
                             <th>Participante</th>
                             <th>Tipo</th>
                             <th>Estado</th>
                             <th>Emisión</th>
-                            <th class="text-end">Acciones</th>
+                            <th class="text-end pe-3 actions-cell">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in certificates %}
                         {% set pr = c.participant %}
-                        <tr>
-                            <td><code>{{ c.certificate_number }}</code></td>
+                        {% set pname = (pr.full_name or ((pr.first_name or '') ~ ' ' ~ (pr.last_name or ''))|trim) if pr else '' %}
+                        <tr class="{% if c.status == 'revoked' %}table-secondary{% endif %}">
+                            <td class="ps-3"><code class="small">{{ c.certificate_number }}</code></td>
                             <td>
-                                {% if pr %}
-                                    {{ pr.full_name or ((pr.first_name or '') ~ ' ' ~ (pr.last_name or ''))|trim }}
-                                {% else %}
-                                    —
-                                {% endif %}
+                                <div class="small fw-semibold">{{ pname or '—' }}</div>
+                                {% if pr and pr.email %}<div class="text-muted small text-break">{{ pr.email }}</div>{% endif %}
                             </td>
-                            <td>{{ c.certificate_type or '—' }}</td>
+                            <td class="small">
+                                {% if c.certificate_type == 'reviewer' %}Revisor
+                                {% elif c.certificate_type == 'participation' %}Participación
+                                {% else %}{{ c.certificate_type or '—' }}{% endif %}
+                            </td>
                             <td>
-                                <span class="badge bg-{% if c.status == 'revoked' %}warning text-dark{% else %}success{% endif %}">{{ c.status or '—' }}</span>
+                                <span class="badge bg-{% if c.status == 'revoked' %}danger{% else %}success{% endif %}">
+                                    {% if c.status == 'revoked' %}Revocado{% else %}{{ (c.status or 'generado')|replace('_',' ')|title }}{% endif %}
+                                </span>
                             </td>
-                            <td>{{ c.issued_date.strftime('%d/%m/%Y %H:%M') if c.issued_date else '—' }}</td>
-                            <td class="text-end text-nowrap">
-                                {% if c.certificate_url and c.status != 'revoked' %}
-                                <a class="btn btn-sm btn-outline-success" href="{{ url_for('admin_events.admin_event_certificate_download', event_id=event.id, certificate_id=c.id) }}">PDF</a>
-                                {% endif %}
+                            <td class="small text-nowrap">{{ c.issued_date.strftime('%d/%m/%Y %H:%M') if c.issued_date else '—' }}</td>
+                            <td class="text-end pe-3 actions-cell">
                                 {% if c.status != 'revoked' %}
-                                <form method="post" action="{{ url_for('admin_events.admin_event_certificate_revoke', event_id=event.id, certificate_id=c.id) }}" class="d-inline-block text-start mt-1" style="max-width:14rem;" onsubmit="return confirm('¿Revocar este certificado?');">
-                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                                    <label class="form-label visually-hidden" for="revoke-reason-{{ c.id }}">Motivo</label>
-                                    <textarea class="form-control form-control-sm mb-1" name="reason" id="revoke-reason-{{ c.id }}" rows="2" placeholder="Motivo de revocación (opcional)"></textarea>
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revocar</button>
-                                </form>
+                                <div class="cert-row-actions">
+                                    {% if c.certificate_url %}
+                                    <a class="btn btn-sm btn-outline-success py-0" href="{{ url_for('admin_events.admin_event_certificate_download', event_id=event.id, certificate_id=c.id) }}" title="Descargar PDF"><i class="fas fa-file-pdf"></i></a>
+                                    <a class="btn btn-sm btn-outline-info py-0" target="_blank" rel="noopener" href="{{ url_for(verify_endpoint, certificate_code=c.certificate_number) }}" title="Verificar"><i class="fas fa-shield-alt"></i></a>
+                                    {% endif %}
+                                    {% if pr %}
+                                    <a class="btn btn-sm btn-outline-warning py-0" href="{{ url_for('admin_events.admin_event_participant_certificate_view', event_id=event.id, participant_id=pr.id) }}" title="Detalle participante"><i class="fas fa-user"></i></a>
+                                    {% endif %}
+                                    <form method="post" action="{{ url_for('admin_events.admin_event_certificate_revoke', event_id=event.id, certificate_id=c.id) }}" onsubmit="return confirm('¿Revocar {{ c.certificate_number }}?');">
+                                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger py-0" title="Revocar"><i class="fas fa-ban"></i></button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <span class="text-muted small">—</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -92,9 +204,62 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-muted p-3 mb-0">Aún no hay certificados emitidos para este evento.</p>
+            <div class="text-center py-5 px-3">
+                <i class="fas fa-award fa-2x text-muted opacity-50 mb-3"></i>
+                <p class="text-muted mb-0">Aún no hay certificados emitidos para este evento.</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+<style>
+.admin-event-certificates-page .breadcrumb-sm { --bs-breadcrumb-divider: '›'; }
+.admin-certificates-table th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.02em; font-weight: 600; }
+.admin-certificates-table .actions-cell { white-space: nowrap; width: 1%; }
+.admin-certificates-table .cert-row-actions {
+    display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center;
+    justify-content: flex-end; gap: 0.25rem;
+}
+.admin-certificates-table .cert-row-actions form { margin: 0; flex: 0 0 auto; display: inline-flex; }
+.admin-certificates-table .cert-row-actions .btn {
+    width: 1.75rem; height: 1.75rem; padding: 0; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+</style>
+<script>
+(function() {
+    var all = document.getElementById('cert-select-all');
+    var form = all ? all.closest('form') : null;
+    if (all) {
+        all.addEventListener('change', function() {
+            document.querySelectorAll('.cert-pick').forEach(function(cb) { cb.checked = all.checked; });
+        });
+    }
+    var manualBtn = document.getElementById('cert-generate-manual');
+    var manualInput = document.getElementById('cert-ids-manual');
+    if (manualBtn && manualInput && form) {
+        manualBtn.addEventListener('click', function() {
+            var v = manualInput.value.trim();
+            if (!v) return;
+            form.querySelectorAll('.cert-pick').forEach(function(cb) { cb.checked = false; });
+            var hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'participant_ids';
+            hidden.value = v;
+            form.appendChild(hidden);
+            form.submit();
+        });
+    }
+    var selBtn = document.getElementById('cert-generate-selected');
+    if (selBtn && form) {
+        selBtn.addEventListener('click', function(e) {
+            var picked = form.querySelectorAll('.cert-pick:checked');
+            if (!picked.length) {
+                e.preventDefault();
+                alert('Seleccioná al menos un participante o usá IDs manuales.');
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import io
 import os
 import secrets
 from datetime import datetime
@@ -102,65 +100,9 @@ def build_verification_url(app, certificate_number: str) -> str:
 
 
 def _qr_base64_png(verify_url: str) -> str | None:
-    try:
-        import qrcode
+    from nodeone.services.certificate_institutional_pdf import qr_png_base64
 
-        buf = io.BytesIO()
-        qrcode.make(verify_url).save(buf, format='PNG')
-        return base64.b64encode(buf.getvalue()).decode()
-    except Exception:
-        return None
-
-
-def _pdf_reportlab_event(
-    full_name: str,
-    event_title: str,
-    certificate_title: str,
-    date_emission: str,
-    certificate_code: str,
-    verify_url: str,
-    qr_base64: str | None,
-) -> bytes:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.lib.utils import ImageReader
-    from reportlab.pdfgen import canvas
-
-    buf = io.BytesIO()
-    w, h = A4
-    c = canvas.Canvas(buf, pagesize=A4)
-    c.setTitle('Certificado')
-    c.setStrokeColorRGB(0.79, 0.64, 0.15)
-    c.setLineWidth(2)
-    c.rect(10 * mm, 10 * mm, w - 20 * mm, h - 20 * mm)
-    c.setStrokeColorRGB(0.12, 0.23, 0.37)
-    c.setLineWidth(1)
-    c.rect(14 * mm, 14 * mm, w - 28 * mm, h - 28 * mm)
-    c.setFont('Helvetica-Bold', 22)
-    c.drawCentredString(w / 2, h - 45 * mm, certificate_title or 'Certificado')
-    c.setFont('Helvetica-Bold', 18)
-    c.drawCentredString(w / 2, h - 65 * mm, full_name or '—')
-    c.setFont('Helvetica', 14)
-    c.drawCentredString(w / 2, h - 80 * mm, event_title or '—')
-    c.setFont('Helvetica', 10)
-    c.drawCentredString(
-        w / 2,
-        h - 100 * mm,
-        f'Fecha de emisión: {date_emission}  |  Código: {certificate_code}',
-    )
-    if qr_base64:
-        try:
-            raw = base64.b64decode(qr_base64)
-            img = ImageReader(io.BytesIO(raw))
-            c.drawImage(img, w - 55 * mm, 22 * mm, width=45 * mm, height=45 * mm)
-        except Exception:
-            pass
-    c.setFont('Helvetica', 8)
-    short = verify_url if len(verify_url) <= 72 else verify_url[:69] + '...'
-    c.drawString(18 * mm, 18 * mm, f'Validación: {short}')
-    c.save()
-    buf.seek(0)
-    return buf.getvalue()
+    return qr_png_base64(verify_url)
 
 
 def relative_static_path_from_abs(abs_path: str, app) -> str:
@@ -212,20 +154,25 @@ def create_event_certificate(
             if x
         ).strip()
     )
-    date_str = datetime.utcnow().strftime('%d/%m/%Y')
+    issued_at = datetime.utcnow()
     ctype = 'reviewer' if prefix == PREFIX_REVIEWER else 'participation'
     title_txt = certificate_title or ('Certificado de revisor' if ctype == 'reviewer' else 'Certificado de participación')
 
-    qr_b64 = _qr_base64_png(verify_url)
-    pdf_bytes = _pdf_reportlab_event(
-        display_name,
-        getattr(event, 'title', '') or 'Evento',
-        title_txt,
-        date_str,
-        cert_number,
-        verify_url,
-        qr_b64,
+    from nodeone.services.certificate_institutional_pdf import (
+        build_context_from_event_participant,
+        render_institutional_pdf,
     )
+
+    ctx = build_context_from_event_participant(
+        event=event,
+        participant=participant,
+        certificate_code=cert_number,
+        verify_url=verify_url,
+        issued_at=issued_at,
+        app_root=app.root_path,
+        org_id=org_id,
+    )
+    pdf_bytes = render_institutional_pdf(ctx)
     with open(pdf_fs, 'wb') as f:
         f.write(pdf_bytes)
 
@@ -249,7 +196,7 @@ def create_event_certificate(
         title=title_txt,
         certificate_url=cert_rel,
         qr_path=qr_rel,
-        issued_date=datetime.utcnow(),
+        issued_date=issued_at,
         issued_by=issued_by_user_id,
         status='generated',
         is_active=True,

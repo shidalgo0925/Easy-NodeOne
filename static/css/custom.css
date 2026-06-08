@@ -418,13 +418,44 @@ html[data-brand="iius"] .navbar-landing .nav-link.active {
     }
 }
 
-.dropdown-item {
-    color: #ffffff;
+/* Dropdowns en contenido (fuera de navbar): legibles sobre fondo claro */
+#right-panel .dropdown-menu {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.dropdown-item:hover {
-    background-color: #374151;
-    color: var(--cyan-top);
+#right-panel .dropdown-menu .dropdown-item {
+    color: #212529;
+}
+
+#right-panel .dropdown-menu .dropdown-item:hover,
+#right-panel .dropdown-menu .dropdown-item:focus {
+    background-color: #f8f9fa;
+    color: #1e2125;
+}
+
+#right-panel .dropdown-menu .dropdown-divider {
+    border-color: #e2e8f0;
+}
+
+html[data-theme="dark"] #right-panel .dropdown-menu,
+html[data-theme="auto"] #right-panel .dropdown-menu {
+    background-color: #252830;
+    border-color: #3a3f4b;
+}
+
+html[data-theme="dark"] #right-panel .dropdown-menu .dropdown-item,
+html[data-theme="auto"] #right-panel .dropdown-menu .dropdown-item {
+    color: #e4e6eb;
+}
+
+html[data-theme="dark"] #right-panel .dropdown-menu .dropdown-item:hover,
+html[data-theme="dark"] #right-panel .dropdown-menu .dropdown-item:focus,
+html[data-theme="auto"] #right-panel .dropdown-menu .dropdown-item:hover,
+html[data-theme="auto"] #right-panel .dropdown-menu .dropdown-item:focus {
+    background-color: #2d3139;
+    color: #ffffff;
 }
 
 /* Footer personalizado */

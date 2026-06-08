@@ -2,8 +2,9 @@
 
 **Plataforma:** [apps.relatic.org](https://apps.relatic.org)  
 **Audiencia:** administradores / equipo operativo Relatic  
-**Versión:** 1.0 (Nivel 1 — uso con envío manual)  
-**Validación técnica:** smoke GO 2026-06-08 en producción Relatic
+**Versión:** 2.0 (Nivel 2A PDF institucional + 2B portal «Mis Certificados»)  
+**Validación técnica:** smoke GO 2026-06-08 · portal 2B 2026-06-09  
+**Manual descargable (.docx):** `/static/downloads/MANUAL_USUARIO_RELATIC_CERTIFICADOS.docx`
 
 ---
 
@@ -21,10 +22,11 @@
    - estado **Check-in** / **Attended**, **o**
    - tipo **reviewer** (revisor), según el evento.
 
-2. **Descarga directa del participante y envío automático por correo no están habilitados** en esta versión.
-   - El **administrador** genera el certificado, **descarga el PDF** y lo **comparte manualmente** (correo, WhatsApp, etc.).
+2. **Portal usuario (2B):** cada participante con cuenta EN1 (mismo email) puede **descargar** en **Operaciones → Mis Certificados** (`/certificates`) tras la emisión admin.
+   - El admin puede seguir descargando y compartiendo manualmente si el participante no tiene cuenta.
+3. **Envío automático por correo** no está habilitado en esta versión.
 
-3. Los **cursos académicos** (`/inscripcion/…`) **no** usan este flujo. Este manual es solo para **eventos**.
+4. Los **cursos académicos** (`/inscripcion/…`) **no** usan este flujo. Este manual es solo para **eventos**.
 
 ---
 
@@ -47,9 +49,10 @@
 Los certificados se emiten sobre **Participantes del evento**, no sobre el listado de inscripciones de pago.
 
 1. Desde el evento, ir a **Participantes**.
-2. Elegir una vía:
-   - **Nuevo** — alta manual (nombre, documento, email, teléfono, tipo).
-   - **Importar Excel** — plantilla tipo «LISTA PARA CERTIFICADOS» (columnas A–G; opcional H–J).
+2. Menú **Agregar**:
+   - **Desde registros confirmados** — inscripciones con pago confirmado aún no en participantes.
+   - **Alta manual** — nombre, documento, email, teléfono, tipo.
+   - **Importar Excel** — columnas A–G obligatorias de datos; opcional H (tipo), I (pago), J (notas).
 
 **Ruta:** `/admin/events/<id>/participants`
 
@@ -154,16 +157,28 @@ No existe botón «Regenerar» en un solo clic; el flujo es **revocar + generar*
 
 ---
 
-## Limitaciones actuales (Nivel 1)
+## Diseño del PDF (Nivel 2A — implementado en código)
+
+Los certificados nuevos usan plantilla institucional **horizontal (Letter)** con encabezado Relatic, convenio, textos académicos, firmas, sello, QR, código y URL de verificación visibles.
+
+Configuración por defecto: `backend/data/relatic_event_certificate_layout.json`. Override opcional por evento: JSON en el campo **Plantilla certificado** del formulario de evento.
+
+**Logos y firmas escaneadas:** subir PNG/JPG en rutas configuradas; SVG no se incrusta en PDF.
+
+Certificados emitidos **antes** del despliegue conservan su PDF anterior hasta revocar y generar de nuevo.
+
+---
+
+## Limitaciones actuales (Nivel 1 operativo + 2A visual)
 
 | Función | Estado |
 |---------|--------|
-| Generar PDF con código y QR | Disponible |
+| Generar PDF institucional con código y QR | Disponible |
 | Verificación pública por URL/QR | Disponible |
 | Descarga admin | Disponible |
-| Descarga directa del participante | No disponible |
+| Descarga directa del participante (Mis Certificados) | Disponible (2B) |
 | Envío automático por email | No disponible |
-| Plantilla con logo y firma institucional | PDF básico (sin diseño a medida) |
+| Edición visual admin (logos/firmas sin JSON) | Pendiente (2A+) |
 | Certificados de cursos académicos | No disponible (otro módulo) |
 
 ---
@@ -174,7 +189,7 @@ Desarrollo futuro, no incluido en el cierre operativo actual:
 
 - Plantilla visual institucional (logo, firma, fondo).
 - Email automático al emitir certificado.
-- Portal de descarga para el participante.
+- ~~Portal de descarga para el participante.~~ **Implementado (2B)** — `/certificates`.
 - Botón «Regenerar certificado» (revocar + nuevo en un paso).
 - Certificados para **cursos / programas académicos**.
 

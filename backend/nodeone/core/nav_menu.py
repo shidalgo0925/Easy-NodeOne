@@ -639,9 +639,15 @@ def _v_comunicacion(ctx: NavContext) -> bool:
 
 
 def _v_certificados(ctx: NavContext) -> bool:
-    """App Certificados: solo módulo SaaS ``certificates`` (sin académico)."""
+    """App Certificados (admin): módulo ``certificates``."""
     return ctx.saas_module_enabled('certificates') and ctx.has_view_endpoint(
         'admin_certificate_events'
+    )
+
+
+def _v_portal_mis_certificados(ctx: NavContext) -> bool:
+    return (ctx.saas_module_enabled('events') or ctx.saas_module_enabled('certificates')) and ctx.has_view_endpoint(
+        'certificates_page.certificates_page'
     )
 
 
@@ -838,7 +844,7 @@ _SIDEBAR_LAUNCHER_GROUPS: tuple[NavLauncherGroup, ...] = (
         'operaciones',
         'Operaciones',
         'fas fa-cogs',
-        ('agenda', 'educacion', 'certificados', 'contador'),
+        ('agenda', 'educacion', 'certificados', 'mis_certificados', 'contador'),
     ),
     NavLauncherGroup('finanzas', 'Finanzas', 'fas fa-file-invoice-dollar', ('finanzas',)),
     NavLauncherGroup('inteligencia', 'Inteligencia', 'fas fa-chart-line', ('analitica',)),
@@ -1106,7 +1112,6 @@ APP_AREAS: tuple[NavArea, ...] = (
         zone_endpoints=_CERTIFICADOS_ZONE_ENDPOINTS,
         zone_path_prefixes=('/admin/certificate',),
         zone_blueprints=(
-            'certificates_page',
             'certificates_builder',
             'certificates_api',
             'certificates_public',
@@ -1128,6 +1133,26 @@ APP_AREAS: tuple[NavArea, ...] = (
                     'admin_certificate_templates',
                     'admin_certificate_template_editor',
                 ),
+            ),
+        ),
+    ),
+    NavArea(
+        id='mis_certificados',
+        label='Mis Certificados',
+        icon='fas fa-id-card',
+        visible=_v_portal_mis_certificados,
+        zone_path_prefixes=('/certificates', '/my/certificates'),
+        zone_blueprints=('certificates_page', 'my_event_certificates'),
+        zone_endpoints=('certificates_page.certificates_page',),
+        items=(
+            NavAreaItem(
+                'portal',
+                'Mis Certificados',
+                'fas fa-id-card',
+                'certificates_page.certificates_page',
+                active_endpoints=('certificates_page.certificates_page',),
+                active_blueprints=('my_event_certificates',),
+                active_path_prefixes=('/certificates', '/my/certificates'),
             ),
         ),
     ),

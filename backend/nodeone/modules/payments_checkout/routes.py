@@ -10,10 +10,10 @@ from flask_login import current_user, login_required
 from functools import wraps
 
 from nodeone.services.payment_post_process import (
-    build_cart_items_snapshot,
     process_cart_after_payment_with_snapshot,
     send_payment_to_odoo,
 )
+from nodeone.services.payment_event_fulfillment import build_cart_items_snapshot
 from utils.organization import resolve_current_organization
 
 payments_checkout_bp = Blueprint('payments_checkout', __name__)
@@ -176,10 +176,13 @@ def _create_yappy_manual_cart_payment(M, cart, total_amount, discount_breakdown,
 
     oid = int(resolve_current_organization())
 
+    from nodeone.services.payment_event_fulfillment import build_cart_items_snapshot
+
     metadata = {
         "user_id": current_user.id,
         "cart_id": cart.id,
         "items_count": cart.get_items_count(),
+        "cart_items": build_cart_items_snapshot(cart),
         "yappy_manual": True,
         "integration": "manual_receipt",
         "organization_id": oid,

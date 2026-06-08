@@ -15,6 +15,12 @@ def is_manual_validation_method(payment_method: str | None) -> bool:
     return (payment_method or '').strip() in MANUAL_VALIDATION_METHOD_KEYS
 
 
+def method_display_label(payment_method: str | None) -> str:
+    key = (payment_method or '').strip()
+    meta = METHOD_CATALOG.get(key) or {}
+    return meta.get('label') or key.replace('_', ' ').title() or 'Pago manual'
+
+
 def method_requires_receipt(organization_id: int, payment_method: str | None) -> bool:
     key = (payment_method or '').strip()
     if not is_manual_validation_method(key):

@@ -229,7 +229,7 @@ def api_approve_payment(payment_id):
                 pass
 
             try:
-                send_payment_to_odoo(payment, user, cart)
+                send_payment_to_odoo(payment, user, M.get_or_create_cart(payment.user_id))
             except Exception as e:
                 print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
 
@@ -1019,6 +1019,14 @@ def admin_yappy_manual_list():
     from nodeone.services.yappy_manual_status import yappy_status_label
     uids_sq = _admin_scope_user_ids_only_safe(M)
 
+    from nodeone.services.event_registration_guard import purge_duplicate_pending_registrations
+    from nodeone.services.organization_payment_methods import MANUAL_VALIDATION_METHOD_KEYS
+
+    try:
+        purge_duplicate_pending_registrations()
+    except Exception as exc:
+        current_app.logger.warning('purge_duplicate_pending_registrations: %s', exc)
+
     def _base_yappy_query():
         q = M.Payment.query.filter(M.Payment.payment_method == 'yappy_manual')
         if uids_sq is not None:
@@ -1084,10 +1092,10 @@ def admin_yappy_manual_detail(payment_id):
         cart = M.get_or_create_cart(payment.user_id)
         from nodeone.services.event_registration_guard import (
             REJECTED_DUPLICATE_REASON,
-            blocked_by_existing_registration,
+            should_reject_duplicate_payment,
         )
 
-        blocked, _eid, _msg = blocked_by_existing_registration(
+        blocked, _eid, _msg = should_reject_duplicate_payment(
             payment, cart, payer_email=getattr(payer, 'email', None)
         )
         if blocked:
@@ -1298,12 +1306,12 @@ def api_yappy_manual_validate(payment_id):
             cart = M.get_or_create_cart(payment.user_id)
             from nodeone.services.event_registration_guard import (
                 REJECTED_DUPLICATE_REASON,
-                blocked_by_existing_registration,
                 mark_payment_rejected_duplicate,
+                should_reject_duplicate_payment,
             )
             from nodeone.services.payment_event_fulfillment import fulfill_paid_payment_events
 
-            blocked, _event_id, dup_msg = blocked_by_existing_registration(
+            blocked, _event_id, dup_msg = should_reject_duplicate_payment(
                 payment, cart, payer_email=getattr(payer, 'email', None)
             )
             if blocked:

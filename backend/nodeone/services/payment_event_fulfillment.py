@@ -90,6 +90,40 @@ def cart_event_ids(cart) -> list[int]:
     return list(dict.fromkeys(ids))
 
 
+def _event_ids_from_cart_items_rows(rows: list) -> list[int]:
+    ids: list[int] = []
+    for row in rows or []:
+        if (row.get('product_type') or '').strip() != 'event':
+            continue
+        eid = row.get('product_id')
+        if eid is None and row.get('item_metadata'):
+            try:
+                raw = row.get('item_metadata')
+                meta = json.loads(raw) if isinstance(raw, str) else raw
+                eid = (meta or {}).get('event_id')
+            except (TypeError, ValueError, json.JSONDecodeError):
+                eid = None
+        if eid is not None:
+            try:
+                ids.append(int(eid))
+            except (TypeError, ValueError):
+                pass
+    return ids
+
+
+def payment_event_ids(payment, cart=None) -> list[int]:
+    """Eventos del pedido: carrito vivo + snapshot en payment_metadata."""
+    ids: list[int] = []
+    if cart is not None:
+        ids.extend(cart_event_ids(cart))
+    try:
+        meta = json.loads(getattr(payment, 'payment_metadata', None) or '{}')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        meta = {}
+    ids.extend(_event_ids_from_cart_items_rows(meta.get('cart_items') or []))
+    return list(dict.fromkeys(ids))
+
+
 def _paid_registration_for_event(user_id: int, event_id: int):
     from app import EventRegistration
 
@@ -105,24 +139,40 @@ def _paid_registration_for_event(user_id: int, event_id: int):
     )
 
 
-def _other_paid_manual_payment_for_event(user_id: int, event_id: int, exclude_payment_id: int):
-    """Otro pago manual ya aprobado vinculado al mismo evento (vía registro o carrito histórico)."""
-    from app import EventRegistration, Payment
+def _other_paid_payment_for_event(user_id: int, event_id: int, exclude_payment_id: int):
+    """Otro pago ya aprobado (paid) vinculado al mismo evento."""
+    from app import Payment
 
+    pay_q = Payment.query.filter_by(user_id=int(user_id), status='paid')
+    if exclude_payment_id:
+        pay_q = pay_q.filter(Payment.id != int(exclude_payment_id))
+    for pay in pay_q.order_by(Payment.id.desc()).all():
+        if int(event_id) in payment_event_ids(pay, cart=None):
+            return pay
     reg = _paid_registration_for_event(user_id, event_id)
     if not reg:
         return None
     pref = (getattr(reg, 'payment_reference', None) or '').strip()
-    pay_q = Payment.query.filter_by(user_id=int(user_id), status='paid')
-    if exclude_payment_id:
-        pay_q = pay_q.filter(Payment.id != int(exclude_payment_id))
     for pay in pay_q.order_by(Payment.id.desc()).all():
         if str(pay.id) == pref:
             return pay
         if pref and (getattr(pay, 'payment_reference', None) or '').strip() == pref:
             return pay
-    # Registro pagado sin poder resolver payment → conflicto genérico
     return reg
+
+
+def _paid_registrations_for_user(user_id: int) -> list:
+    from app import EventRegistration
+
+    return (
+        EventRegistration.query.filter_by(
+            user_id=int(user_id),
+            registration_status='confirmed',
+            payment_status='paid',
+        )
+        .order_by(EventRegistration.id.desc())
+        .all()
+    )
 
 
 def validate_no_duplicate_event_payment(
@@ -132,19 +182,21 @@ def validate_no_duplicate_event_payment(
     exclude_payment_id: int | None = None,
 ) -> str | None:
     """
-    Si el usuario ya tiene inscripción pagada al evento del carrito, no aprobar otro pago.
+    Si el usuario ya tiene inscripción pagada al evento, no aprobar otro pago pendiente.
+    Cubre carrito vacío (reintentos de checkout) y snapshot en payment_metadata.
     Devuelve mensaje de error o None si puede aprobarse.
     """
-    from app import Event
+    from app import Event, Payment
 
     uid = int(getattr(payment, 'user_id', 0) or 0)
     if not uid:
         return 'Pago sin usuario asociado.'
     pid = int(exclude_payment_id or getattr(payment, 'id', 0) or 0)
-    for event_id in cart_event_ids(cart):
-        conflict = _other_paid_manual_payment_for_event(uid, event_id, pid)
-        if conflict is None:
-            continue
+    event_ids = payment_event_ids(payment, cart)
+    paid_regs = _paid_registrations_for_user(uid)
+    paid_reg_by_event = {int(r.event_id): r for r in paid_regs if getattr(r, 'event_id', None)}
+
+    def _dup_message(event_id: int, conflict) -> str:
         event = Event.query.get(int(event_id))
         title = (getattr(event, 'title', None) or f'evento #{event_id}').strip()
         if hasattr(conflict, 'id') and hasattr(conflict, 'payment_method'):
@@ -156,6 +208,36 @@ def validate_no_duplicate_event_payment(
             f'El usuario ya está inscrito y pagado en «{title}». '
             f'Rechace este pedido como duplicado.'
         )
+
+    for event_id in event_ids:
+        if int(event_id) not in paid_reg_by_event:
+            continue
+        conflict = _other_paid_payment_for_event(uid, int(event_id), pid)
+        if conflict is not None:
+            return _dup_message(int(event_id), conflict)
+
+    other_paid_count = (
+        Payment.query.filter_by(user_id=uid, status='paid').filter(Payment.id != pid).count()
+    )
+    if not event_ids and other_paid_count > 0 and paid_regs:
+        titles = []
+        for reg in paid_regs:
+            eid = int(reg.event_id)
+            ev = Event.query.get(eid)
+            titles.append((getattr(ev, 'title', None) or f'evento #{eid}').strip())
+        joined = ', '.join(f'«{t}»' for t in titles[:3])
+        last_paid = (
+            Payment.query.filter_by(user_id=uid, status='paid')
+            .filter(Payment.id != pid)
+            .order_by(Payment.id.desc())
+            .first()
+        )
+        ref = f' (pedido #{last_paid.id})' if last_paid else ''
+        return (
+            f'El usuario ya tiene pago aprobado{ref} e inscripción pagada en {joined}. '
+            f'Este pedido pendiente parece un reintento duplicado (carrito vacío). Rechácelo.'
+        )
+
     return None
 
 

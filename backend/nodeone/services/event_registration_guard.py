@@ -4,8 +4,19 @@ from __future__ import annotations
 
 REJECTED_DUPLICATE_STATUS = 'rejected_duplicate'
 REJECTED_DUPLICATE_REASON = (
-    'Duplicado: el usuario ya está inscrito y pagado en este evento.'
+    'Ya existe una inscripción pagada para este usuario en este evento'
 )
+
+PENDING_ADMIN_STATUSES = (
+    'pending_receipt',
+    'pending_payment',
+    'pending_admin_review',
+    'pending_validation',
+    'manual_review',
+    'partially_paid',
+)
+
+DEFAULT_RELATIC_EVENT_ID = 2
 
 
 def is_user_already_registered(
@@ -42,23 +53,20 @@ def is_user_already_registered(
 
 
 def event_ids_in_cart(cart) -> list[int]:
-    """Eventos en el carrito (solo para saber a qué evento aplica el pago)."""
     from nodeone.services.payment_event_fulfillment import cart_event_ids
 
     return cart_event_ids(cart)
 
 
-def blocked_by_existing_registration(
+def should_reject_duplicate_payment(
     payment,
     cart,
     *,
     payer_email: str | None = None,
+    event_id: int = DEFAULT_RELATIC_EVENT_ID,
 ) -> tuple[bool, int | None, str]:
-    """
-    ¿Aprobar este pago crearía una inscripción duplicada?
-    Devuelve (bloqueado, event_id, mensaje).
-    """
-    from app import EventRegistration, User
+    """¿Este pago pendiente es duplicado porque el usuario ya está inscrito?"""
+    from app import User
 
     uid = int(getattr(payment, 'user_id', 0) or 0)
     email = (payer_email or '').strip().lower() or None
@@ -70,15 +78,8 @@ def blocked_by_existing_registration(
         if is_user_already_registered(int(eid), uid, email):
             return True, int(eid), REJECTED_DUPLICATE_REASON
 
-    if not event_ids_in_cart(cart) and uid:
-        for reg in EventRegistration.query.filter_by(
-            user_id=uid,
-            registration_status='confirmed',
-            payment_status='paid',
-        ).all():
-            eid = int(reg.event_id)
-            if is_user_already_registered(eid, uid, email):
-                return True, eid, REJECTED_DUPLICATE_REASON
+    if not event_ids_in_cart(cart) and is_user_already_registered(int(event_id), uid, email):
+        return True, int(event_id), REJECTED_DUPLICATE_REASON
 
     return False, None, ''
 
@@ -90,3 +91,36 @@ def mark_payment_rejected_duplicate(payment, *, reason: str | None = None) -> No
     payment.rejection_reason = reason or REJECTED_DUPLICATE_REASON
     payment.validation_observations = payment.rejection_reason
     payment.validated_at = datetime.utcnow()
+
+
+def purge_duplicate_pending_registrations(
+    event_id: int = DEFAULT_RELATIC_EVENT_ID,
+) -> dict[str, int]:
+    """
+    Sacar de Pendientes los pagos cuyo usuario ya tiene inscripción pagada activa.
+    Fuente de verdad: event_registration (no payment).
+    """
+    from app import Payment, User, db
+
+    stats = {'reviewed': 0, 'rejected': 0, 'skipped': 0}
+    pending = (
+        Payment.query.filter(Payment.status.in_(PENDING_ADMIN_STATUSES))
+        .order_by(Payment.id.asc())
+        .all()
+    )
+    for payment in pending:
+        stats['reviewed'] += 1
+        if (payment.status or '').strip() == REJECTED_DUPLICATE_STATUS:
+            stats['skipped'] += 1
+            continue
+        user = User.query.get(int(payment.user_id))
+        email = (getattr(user, 'email', None) or '').strip().lower() or None
+        if not is_user_already_registered(int(event_id), int(payment.user_id), email):
+            stats['skipped'] += 1
+            continue
+        mark_payment_rejected_duplicate(payment)
+        stats['rejected'] += 1
+
+    if stats['rejected']:
+        db.session.commit()
+    return stats

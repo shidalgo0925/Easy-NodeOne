@@ -1765,7 +1765,9 @@ def admin_event_participants_import(event_id):
         else:
             from openpyxl import load_workbook
 
-            wb = load_workbook(filename=BytesIO(data), read_only=True, data_only=True)
+            # Sin read_only: archivos exportados desde Word suelen declarar dimensiones
+            # incorrectas (solo fila 1) y la vista previa queda en 0 filas.
+            wb = load_workbook(filename=BytesIO(data), data_only=True)
             sheet = wb[wb.sheetnames[0]]
             parsed, had_header = parse_workbook_rows(sheet)
             wb.close()
@@ -1808,6 +1810,14 @@ def admin_event_participants_import(event_id):
             'had_header': had_header,
             'type_fallback': type_fallback,
         }
+        if not parsed:
+            flash(
+                'No se leyeron filas de datos. Comprobá que la hoja 1 tenga participantes '
+                'en columnas A–G (nombre, apellido, documento, email; teléfono opcional), '
+                'sin filas vacías al inicio. Si el archivo viene de Word, guardalo de nuevo '
+                'como .xlsx desde Excel o probá «Guardar como» → Libro de Excel.',
+                'warning',
+            )
         return render_template(
             'admin/events/participants_import.html',
             event=event,

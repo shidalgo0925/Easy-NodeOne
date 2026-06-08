@@ -105,3 +105,39 @@ def test_header_row_skipped_with_optional_columns():
     assert not r.errors
     assert r.first_name == 'Juan'
     assert r.participant_type_col == 'reviewer'
+
+
+def test_parse_multiple_rows_without_header():
+    rows, had_header = parse_matrix_rows(
+        [
+            ('Aura', 'Rosa', 'Franco', 'Gutiérrez', '176310794', 'dir.investigacion@isaeuniversidad.ac.pa', ''),
+            ('Pablo', '.', 'Díaz', '.', '97112378', 'pablo-adr@hotmail.com', ''),
+            ('Guillermina', 'Norberta', 'Hinojo', 'Jacinto', '6235245', 'ghinojo@une.edu.pe', ''),
+        ],
+    )
+    assert not had_header
+    assert len(rows) == 3
+    assert rows[1].middle_name == ''
+    assert rows[1].second_last_name == ''
+    assert not rows[1].errors
+
+
+def test_hotmail_email_not_treated_as_header_row():
+    rows, had_header = parse_matrix_rows(
+        [('Pablo', '.', 'Díaz', '.', '97112378', 'pablo-adr@hotmail.com', '')],
+    )
+    assert not had_header
+    assert len(rows) == 1
+    assert rows[0].first_name == 'Pablo'
+
+
+def test_title_row_skipped_before_data():
+    rows, had_header = parse_matrix_rows(
+        [
+            ('LISTA PARA CERTIFICADOS PARA REVISORES', '', '', '', '', '', ''),
+            ('Aura', 'Rosa', 'Franco', 'Gutiérrez', '176310794', 'dir.investigacion@isaeuniversidad.ac.pa', ''),
+        ],
+    )
+    assert not had_header
+    assert len(rows) == 1
+    assert rows[0].first_name == 'Aura'

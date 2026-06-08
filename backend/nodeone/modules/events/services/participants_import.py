@@ -23,6 +23,14 @@ def _normalize_spaces(value: str) -> str:
     return ' '.join(value.split()) if value else ''
 
 
+def _normalize_name_cell(value: str) -> str:
+    """Trata puntos y guiones sueltos como vacío (listas revisores en Word/Excel)."""
+    v = _normalize_spaces(value)
+    if v in ('.', '-', '—', '–', 'N/A', 'n/a', 'NA', 'S/N', 's/n'):
+        return ''
+    return v
+
+
 @dataclass
 class ParsedParticipantRow:
     row_index: int
@@ -85,9 +93,27 @@ def _looks_like_header(cells: list[str]) -> bool:
         )
     ):
         return True
-    if any(w in joined for w in ('first', 'last', 'name', 'phone', 'mail', 'document', 'payment', 'notes')):
+    # No usar «mail» suelto: dispara falso positivo en hotmail.com / gmail.com.
+    if any(w in joined for w in ('first', 'last', 'phone', 'document', 'payment', 'notes')):
+        return True
+    if re.search(r'\b(e-?mail|correo)\b', joined):
+        return True
+    if re.search(r'\bnombre\b', joined) and re.search(r'\b(apellido|email|documento)\b', joined):
         return True
     return False
+
+
+def _is_skippable_leading_row(base: list[str]) -> bool:
+    """Filas de título o separadores antes de los datos (p. ej. «LISTA PARA CERTIFICADOS…»)."""
+    if not any(base):
+        return True
+    has_name = bool(base[0] or base[2])
+    has_email = bool(base[5])
+    if has_name and has_email:
+        return False
+    if base[0] and not base[2] and not base[5]:
+        return True
+    return not has_name and not has_email
 
 
 def _header_probe_cells(first_row: tuple[Any, ...]) -> list[str]:
@@ -107,12 +133,14 @@ def parse_matrix_rows(raw_rows: list[tuple[Any, ...]]) -> tuple[list[ParsedParti
     first = raw_rows[0]
     probe = _header_probe_cells(first)
     had_header = _looks_like_header(probe[:7])
-    data_rows = [first] if not had_header else list(raw_rows[1:])
+    data_rows = list(raw_rows[1:]) if had_header else list(raw_rows)
 
     start_idx = 2 if had_header else 1
     for offset, row in enumerate(data_rows):
         ri = start_idx + offset
-        base = [_normalize_spaces(_cell(row, i) if row else '') for i in range(7)]
+        base = [_normalize_name_cell(_cell(row, i) if row else '') for i in range(7)]
+        if _is_skippable_leading_row(base):
+            continue
         if not any(base):
             continue
         pt_extra = _normalize_spaces(_cell(row, 7) if row else '')

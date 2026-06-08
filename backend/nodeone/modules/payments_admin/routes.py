@@ -1067,7 +1067,7 @@ def admin_yappy_manual_list():
     )
     payments_rejected = (
         _base_yappy_query()
-        .filter(M.Payment.status.in_(('rejected', 'cancelled')))
+        .filter(M.Payment.status.in_(('rejected', 'rejected_duplicate', 'cancelled')))
         .order_by(M.Payment.created_at.desc())
         .limit(100)
         .all()
@@ -1105,9 +1105,16 @@ def admin_yappy_manual_detail(payment_id):
     duplicate_warning = None
     if payment.status in ('pending_admin_review', 'pending_validation', 'manual_review'):
         cart = M.get_or_create_cart(payment.user_id)
-        from nodeone.services.payment_event_fulfillment import validate_no_duplicate_event_payment
+        from nodeone.services.event_registration_guard import (
+            REJECTED_DUPLICATE_REASON,
+            blocked_by_existing_registration,
+        )
 
-        duplicate_warning = validate_no_duplicate_event_payment(payment, cart)
+        blocked, _eid, _msg = blocked_by_existing_registration(
+            payment, cart, payer_email=getattr(payer, 'email', None)
+        )
+        if blocked:
+            duplicate_warning = REJECTED_DUPLICATE_REASON
 
     return render_template(
         'admin/yappy_manual_detail.html',
@@ -1316,14 +1323,35 @@ def api_yappy_manual_validate(payment_id):
                     }
                 ), 400
             cart = M.get_or_create_cart(payment.user_id)
-            from nodeone.services.payment_event_fulfillment import (
-                fulfill_paid_payment_events,
-                validate_no_duplicate_event_payment,
+            from nodeone.services.event_registration_guard import (
+                REJECTED_DUPLICATE_REASON,
+                blocked_by_existing_registration,
+                mark_payment_rejected_duplicate,
             )
+            from nodeone.services.payment_event_fulfillment import fulfill_paid_payment_events
 
-            dup_err = validate_no_duplicate_event_payment(payment, cart)
-            if dup_err:
-                return jsonify({'success': False, 'error': dup_err, 'duplicate': True}), 409
+            blocked, _event_id, dup_msg = blocked_by_existing_registration(
+                payment, cart, payer_email=getattr(payer, 'email', None)
+            )
+            if blocked:
+                mark_payment_rejected_duplicate(payment, reason=dup_msg or REJECTED_DUPLICATE_REASON)
+                append_yappy_manual_audit(
+                    payment,
+                    {
+                        'event': 'admin_rejected_duplicate',
+                        'admin_user_id': admin_id,
+                        'reason': payment.rejection_reason,
+                    },
+                )
+                M.db.session.commit()
+                return jsonify(
+                    {
+                        'success': False,
+                        'error': dup_msg or REJECTED_DUPLICATE_REASON,
+                        'duplicate': True,
+                        'status': payment.status,
+                    }
+                ), 409
             payment.status = 'paid'
             payment.paid_at = datetime.utcnow()
             payment.amount_received_cents = amount_received_cents

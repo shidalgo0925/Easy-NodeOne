@@ -33,6 +33,7 @@ PAYMENT_STATUS = {
     'partially_paid': 'Pago incompleto',
     'paid': 'Pagado',
     'rejected': 'Rechazado',
+    'rejected_duplicate': 'Rechazado (duplicado)',
     'manual_review': 'En revisión manual',
 }
 

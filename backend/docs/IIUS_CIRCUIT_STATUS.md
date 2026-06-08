@@ -1,6 +1,6 @@
 # IIUS — Estado del circuito (referencia rápida)
 
-**Última actualización:** 2026-05-22  
+**Última actualización:** 2026-06-06  
 **Leer primero en la próxima sesión.** Detalle operativo: `IIUS_GO_CHECKLIST.md`, `ETAPA2_IIUS_RUNBOOK.md`, `IIUS_PAYPAL_LIVE.md`.
 
 ---
@@ -63,6 +63,18 @@
 - Cerrar PR `release/iius-go-20260522` en GitHub si quedó abierto.
 - Commitear notas locales en IIUS si hay `.md` solo en servidor.
 - Autorizar scp IIUS→DEV solo si quieren copia manual del tar.
+
+---
+
+## Roadmap (backlog — implementar después)
+
+| ID | Tema | Problema hoy | Objetivo | Fuera de alcance (por ahora) |
+|----|------|--------------|----------|------------------------------|
+| **IIUS-CAT-01** | Vitrina `/programas` — programas creados en Apps | La sección **Talleres** (y lógica similar en `catalog_public`) solo lista los **4 slugs canónicos** `taller-de-*` cableados con WordPress. Programas nuevos publicados en admin (p. ej. talleres manuales) **no aparecen** en la vitrina de Apps aunque el landing `/inscripcion/<slug>` funcione. | Mostrar en **lista/vitrina de programas** (HTML `/programas` + `GET /api/public/academic-programs`) **todos** los `AcademicProgram` **publicados** de la org, agrupados por categoría/tipo, **sin** depender del cableado WP ni del badge WP·T. | Push automático a WordPress: el equipo actualiza **manualmente** las tarjetas en internationalinstitute.us con enlace a `/inscripcion/<slug>`. No tocar landings existentes ni sync masivo WP↔Apps en esta tarea. |
+
+**Rama de referencia:** `iius-product` (`catalog_public.py`, `group_programs_for_template`, `_published_talleres_programs`).
+
+**Criterio de aceptación (borrador):** dado un programa `status=published` con categoría «Talleres» y slug arbitrario, aparece en `/programas` y en la API; los 4 talleres canónicos siguen ordenados como hoy; landings `/inscripcion/*` sin regresión.
 
 ---
 

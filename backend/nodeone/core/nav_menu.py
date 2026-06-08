@@ -817,6 +817,7 @@ _CERTIFICADOS_ZONE_ENDPOINTS: tuple[str, ...] = (
     'admin_certificate_events',
     'admin_certificate_templates',
     'admin_certificate_template_editor',
+    'admin_certificate_institutional_editor',
 )
 
 # Launcher lateral: enlaces fijos (Dashboard va en base.html) y grupos colapsables.

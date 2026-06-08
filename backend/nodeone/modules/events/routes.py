@@ -2241,12 +2241,34 @@ def admin_event_certificates(event_id):
         'eligible': len(eligible_pending),
         'participants': len(participants),
     }
+    institutional_template_id = None
+    if getattr(event, 'has_certificate', False):
+        from app import CertificateTemplate
+
+        from nodeone.services.event_institutional_certificate_template import (
+            find_visual_template_for_event,
+            is_visual_template,
+            resolve_event_org_id,
+        )
+
+        org_id = resolve_event_org_id(event)
+        tpl = find_visual_template_for_event(CertificateTemplate, event, org_id)
+        if tpl and is_visual_template(tpl):
+            institutional_template_id = tpl.id
+    active_template_id = None
+    if getattr(event, 'has_certificate', False):
+        from nodeone.services.event_institutional_certificate_template import visual_template_id_for_event
+
+        active_template_id = visual_template_id_for_event(event)
+
     return render_template(
         'admin/events/certificates.html',
         event=event,
         certificates=certs,
         eligible_pending=eligible_pending,
         cert_stats=cert_stats,
+        institutional_template_id=institutional_template_id,
+        active_template_id=active_template_id,
         verify_endpoint='certificates_public.verify_event_certificate_alias',
     )
 
@@ -2302,7 +2324,36 @@ def admin_event_certificate_download(event_id, certificate_id):
     if not path or not os.path.isfile(path):
         flash('No se encontró el archivo PDF.', 'error')
         return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
-    return send_file(path, as_attachment=True, download_name=f'{ec.certificate_number}.pdf')
+    import time
+
+    mtime = int(os.path.getmtime(path))
+    response = send_file(path, as_attachment=True, download_name=f'{ec.certificate_number}.pdf')
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['ETag'] = f'"{ec.id}-{mtime}"'
+    return response
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/regenerate', methods=['POST'])
+@admin_required
+def admin_event_certificate_regenerate(event_id, certificate_id):
+    from nodeone.modules.events.services.certificates import regenerate_event_certificate
+
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    ec = _scoped_event_certificate(event_id, certificate_id)
+    if ec.status == 'revoked' or not ec.is_active:
+        flash('No se puede regenerar un certificado revocado.', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+    participant = ec.participant
+    if not participant:
+        flash('Participante no encontrado.', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+    _, err = regenerate_event_certificate(current_app, ec, event, participant, current_user.id)
+    if err:
+        flash(err, 'error')
+    else:
+        flash(f'Certificado {ec.certificate_number} regenerado con la plantilla vigente.', 'success')
+    return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
 
 
 @admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/revoke', methods=['POST'])

@@ -23,10 +23,16 @@
             <select id="selVariable" class="form-select form-select-sm mb-1">
                 <option value="">Variable...</option>
                 <option value="participant_name">Nombre participante</option>
+                <option value="document_id">Documento / ID</option>
                 <option value="program_name">Programa / Evento</option>
-                <option value="hours">Horas</option>
+                <option value="body_text">Texto de participación</option>
+                <option value="event_dates">Fechas del evento</option>
+                <option value="hours_line">Línea de horas académicas</option>
+                <option value="hours">Horas (número)</option>
+                <option value="issue_date_legal">Fecha legal de emisión</option>
                 <option value="issue_date">Fecha emisión</option>
-                <option value="certificate_code">Código</option>
+                <option value="certificate_code">Código certificado</option>
+                <option value="verification_url">URL verificación</option>
                 <option value="institution">Institución</option>
             </select>
             <button type="button" id="btnAddVariable" class="btn btn-outline-secondary btn-sm w-100 mb-1">Añadir variable</button>
@@ -44,11 +50,71 @@
             <input type="file" id="fileImage" accept="image/*" class="d-none">
             <input type="file" id="fileBgImage" accept="image/*" class="d-none">
         </div>
-        <div class="col-12 col-md-10">
-            <p class="small text-muted mb-1">Añadí objetos; <strong>clic</strong> para seleccionar y <strong>arrastrar</strong>. <strong>Eliminar</strong>: botón o Supr/Retroceso (no editando texto). <strong>Capas</strong>: usá los botones de la izquierda con un objeto seleccionado.</p>
+        <div class="col-12 col-lg-7">
+            <p class="small text-muted mb-1">Clic para seleccionar. Panel derecho: estilo y bloqueo de posición. <span id="lockToast" class="text-warning d-none"><i class="fas fa-lock"></i> Posición bloqueada</span></p>
             <div id="canvas-wrapper" class="border rounded overflow-auto cert-editor-workspace" style="min-height: 400px; max-height: 85vh;">
                 <canvas id="editor" width="1024" height="768"></canvas>
             </div>
+        </div>
+        <div class="col-12 col-lg-3">
+            <div id="propPanel" class="card shadow-sm d-none">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <span class="small fw-bold mb-0">Propiedades</span>
+                    <span id="propLockBadge" class="badge bg-warning text-dark d-none" title="Posición bloqueada"><i class="fas fa-lock"></i></span>
+                </div>
+                <div class="card-body py-2">
+                    <p class="small text-muted mb-2"><span class="fw-semibold">Tipo:</span> <span id="propType">—</span></p>
+                    <p class="small text-muted mb-2" id="propLabelWrap"><span class="fw-semibold">Contenido:</span> <span id="propLabel">—</span></p>
+
+                    <div id="propTextBlock">
+                        <label class="form-label small mb-1" for="propFontFamily">Fuente</label>
+                        <select id="propFontFamily" class="form-select form-select-sm mb-2">
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Garamond">Garamond</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Courier New">Courier New</option>
+                        </select>
+                        <label class="form-label small mb-1" for="propFontSize">Tamaño (px)</label>
+                        <input type="number" id="propFontSize" class="form-control form-control-sm mb-2" min="8" max="96" step="1" value="16">
+                        <div class="btn-group btn-group-sm w-100 mb-2" role="group">
+                            <button type="button" id="propBold" class="btn btn-outline-secondary" title="Negrita"><i class="fas fa-bold"></i></button>
+                            <button type="button" id="propItalic" class="btn btn-outline-secondary" title="Cursiva"><i class="fas fa-italic"></i></button>
+                            <button type="button" id="propUnderline" class="btn btn-outline-secondary" title="Subrayado"><i class="fas fa-underline"></i></button>
+                        </div>
+                        <label class="form-label small mb-1" for="propColor">Color</label>
+                        <input type="color" id="propColor" class="form-control form-control-color w-100 mb-2" value="#000000">
+                        <label class="form-label small mb-1">Alineación</label>
+                        <div class="btn-group btn-group-sm w-100 mb-2" role="group">
+                            <button type="button" class="btn btn-outline-secondary prop-align" data-align="left" title="Izquierda"><i class="fas fa-align-left"></i></button>
+                            <button type="button" class="btn btn-outline-secondary prop-align" data-align="center" title="Centro"><i class="fas fa-align-center"></i></button>
+                            <button type="button" class="btn btn-outline-secondary prop-align" data-align="right" title="Derecha"><i class="fas fa-align-right"></i></button>
+                            <button type="button" class="btn btn-outline-secondary prop-align" data-align="justify" title="Justificado"><i class="fas fa-align-justify"></i></button>
+                        </div>
+                        <label class="form-label small mb-1" for="propLineHeight">Interlineado</label>
+                        <input type="number" id="propLineHeight" class="form-control form-control-sm mb-2" min="0.8" max="3" step="0.1" value="1.2">
+                    </div>
+
+                    <div id="propImageBlock" class="d-none">
+                        <label class="form-label small mb-1" for="propImgWidth">Ancho (px)</label>
+                        <input type="number" id="propImgWidth" class="form-control form-control-sm mb-2" min="10" step="1">
+                        <label class="form-label small mb-1" for="propImgHeight">Alto (px)</label>
+                        <input type="number" id="propImgHeight" class="form-control form-control-sm mb-2" min="10" step="1">
+                    </div>
+
+                    <div id="propQrBlock" class="d-none">
+                        <label class="form-label small mb-1" for="propQrSize">Tamaño QR (px)</label>
+                        <input type="number" id="propQrSize" class="form-control form-control-sm mb-2" min="40" max="400" step="1" value="120">
+                    </div>
+
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="propLockPosition">
+                        <label class="form-check-label small" for="propLockPosition">Bloquear posición</label>
+                    </div>
+                </div>
+            </div>
+            <div id="propPanelEmpty" class="text-muted small py-3">Seleccioná un objeto en el lienzo para editar estilo y bloqueo.</div>
         </div>
     </div>
 </div>
@@ -84,6 +150,8 @@
     display: block;
     background: transparent !important;
 }
+.prop-align.active { background-color: #0d6efd; color: #fff; border-color: #0d6efd; }
+#propPanel .btn-group .btn.active { background-color: #0d6efd; color: #fff; border-color: #0d6efd; }
 </style>
 {# Fabric 5.3.0 CDN tiene typo textBaseline="alphabetical"; copia local corregida en static/js #}
 <script src="{{ url_for('static', filename='js/fabric-5.3.0.min.js') }}"></script>
@@ -111,6 +179,12 @@
     let btnLayerBack = null;
     /** URL guardada en BD (/static/...) o data URL temporal; se envía en PUT/POST */
     let backgroundImageUrl = null;
+    /** meta.event_id u otros metadatos de plantilla de evento */
+    let templateMeta = null;
+    let selectedObj = null;
+    let syncingPanel = false;
+    let lockToastTimer = null;
+    var VAR_DEFAULT_SIZES = { participant_name: 32, document_id: 14, body_text: 16, program_name: 24 };
 
     /* Etiquetas mustache: se arman con String.fromCharCode (no escribir llaves dobles aquí: Jinja las parsea). */
     function mustacheVar(inner) {
@@ -118,16 +192,254 @@
     }
     var VAR_LABELS = {
         participant_name: mustacheVar('nombre'),
+        document_id: mustacheVar('documento'),
         program_name: mustacheVar('programa'),
+        body_text: mustacheVar('participación'),
+        event_dates: mustacheVar('fechas'),
+        hours_line: mustacheVar('horas_texto'),
         hours: mustacheVar('horas'),
+        issue_date_legal: mustacheVar('fecha_legal'),
         issue_date: mustacheVar('fecha'),
         certificate_code: mustacheVar('código'),
+        verification_url: mustacheVar('url'),
         institution: mustacheVar('institución')
     };
 
     function showAlert(msg, type) {
         if (!alertEl) { try { console.warn('[editor cert]', msg); } catch (e) {} return; }
         alertEl.innerHTML = '<div class="alert alert-' + (type || 'info') + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function showLockToast() {
+        var el = document.getElementById('lockToast');
+        if (!el) return;
+        el.classList.remove('d-none');
+        if (lockToastTimer) clearTimeout(lockToastTimer);
+        lockToastTimer = setTimeout(function () { el.classList.add('d-none'); }, 1800);
+    }
+
+    function normalizeElementDefaults(el) {
+        var out = Object.assign({}, el);
+        var t = (out.type || '').toLowerCase();
+        if (t === 'text' || t === 'variable') {
+            out.font_family = out.font_family || out.fontFamily || 'Georgia';
+            out.font_size = parseInt(out.font_size || out.fontSize || VAR_DEFAULT_SIZES[out.name] || 16, 10);
+            if (isNaN(out.font_size)) out.font_size = 16;
+            out.font_weight = out.font_weight || out.fontWeight || 'normal';
+            out.font_style = out.font_style || out.fontStyle || 'normal';
+            out.text_decoration = out.text_decoration || 'none';
+            out.color = out.color || '#000000';
+            out.text_align = out.text_align || out.align || 'center';
+            out.line_height = parseFloat(out.line_height != null ? out.line_height : 1.2);
+            if (isNaN(out.line_height)) out.line_height = 1.2;
+            out.width = parseInt(out.width || 400, 10);
+        }
+        out.locked_position = out.locked_position === true;
+        return out;
+    }
+
+    function applyLockToObject(obj, locked) {
+        if (!obj) return;
+        obj.dataLockedPosition = !!locked;
+        obj.set({
+            lockMovementX: locked,
+            lockMovementY: locked,
+            lockScalingX: locked,
+            lockScalingY: locked,
+            lockRotation: locked
+        });
+        if (locked) {
+            obj.set({ borderColor: '#f0ad4e', cornerColor: '#f0ad4e' });
+        } else {
+            obj.set({ borderColor: 'rgba(102,153,255,0.8)', cornerColor: 'rgba(102,153,255,0.8)' });
+        }
+        if (canvas) canvas.requestRenderAll();
+    }
+
+    function isTextLikeObject(obj) {
+        return obj && (obj.dataType === 'variable' || obj.type === 'textbox' || obj.type === 'text');
+    }
+
+    function objectTypeLabel(obj) {
+        if (!obj) return '—';
+        if (obj.dataType === 'variable') return 'Variable';
+        if (obj.dataType === 'qr') return 'QR';
+        if (obj.dataType === 'border') return 'Borde';
+        if (obj.type === 'image') return 'Imagen';
+        if (obj.type === 'textbox' || obj.type === 'text') return 'Texto';
+        return obj.type || 'Objeto';
+    }
+
+    function objectContentLabel(obj) {
+        if (!obj) return '—';
+        if (obj.dataType === 'variable') return mustacheVar(obj.dataVariable || '');
+        if (obj.dataType === 'qr') return 'QR verificación';
+        if (obj.type === 'textbox' || obj.type === 'text') return (obj.text || '').slice(0, 60);
+        if (obj.type === 'image') return 'Imagen';
+        return '—';
+    }
+
+    function syncPanelFromObject(obj) {
+        syncingPanel = true;
+        selectedObj = obj || null;
+        var panel = document.getElementById('propPanel');
+        var empty = document.getElementById('propPanelEmpty');
+        var lockBadge = document.getElementById('propLockBadge');
+        if (!obj) {
+            if (panel) panel.classList.add('d-none');
+            if (empty) empty.classList.remove('d-none');
+            syncingPanel = false;
+            return;
+        }
+        if (panel) panel.classList.remove('d-none');
+        if (empty) empty.classList.add('d-none');
+        document.getElementById('propType').textContent = objectTypeLabel(obj);
+        document.getElementById('propLabel').textContent = objectContentLabel(obj);
+        var locked = !!obj.dataLockedPosition;
+        document.getElementById('propLockPosition').checked = locked;
+        if (lockBadge) lockBadge.classList.toggle('d-none', !locked);
+
+        var textBlock = document.getElementById('propTextBlock');
+        var imgBlock = document.getElementById('propImageBlock');
+        var qrBlock = document.getElementById('propQrBlock');
+        textBlock.classList.add('d-none');
+        imgBlock.classList.add('d-none');
+        qrBlock.classList.add('d-none');
+
+        if (isTextLikeObject(obj)) {
+            textBlock.classList.remove('d-none');
+            document.getElementById('propFontFamily').value = obj.fontFamily || 'Georgia';
+            document.getElementById('propFontSize').value = obj.fontSize || 16;
+            document.getElementById('propColor').value = (obj.fill && String(obj.fill).indexOf('#') === 0) ? obj.fill : '#000000';
+            document.getElementById('propLineHeight').value = obj.dataLineHeight != null ? obj.dataLineHeight : 1.2;
+            document.getElementById('propBold').classList.toggle('active', obj.fontWeight === 'bold');
+            document.getElementById('propItalic').classList.toggle('active', obj.fontStyle === 'italic');
+            document.getElementById('propUnderline').classList.toggle('active', !!obj.underline || obj.dataDecoration === 'underline');
+            document.querySelectorAll('.prop-align').forEach(function (btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-align') === (obj.textAlign || 'left'));
+            });
+        } else if (obj.type === 'image' && obj.dataSrc) {
+            imgBlock.classList.remove('d-none');
+            document.getElementById('propImgWidth').value = Math.round(obj.getScaledWidth ? obj.getScaledWidth() : (obj.width || 100));
+            document.getElementById('propImgHeight').value = Math.round(obj.getScaledHeight ? obj.getScaledHeight() : (obj.height || 100));
+        } else if (obj.dataType === 'qr') {
+            qrBlock.classList.remove('d-none');
+            document.getElementById('propQrSize').value = obj.dataSize || obj.width || 120;
+        }
+        syncingPanel = false;
+    }
+
+    function applyPanelToObject() {
+        if (syncingPanel || !selectedObj || !canvas) return;
+        var obj = selectedObj;
+        if (isTextLikeObject(obj)) {
+            var ff = document.getElementById('propFontFamily').value;
+            var fs = Math.min(96, Math.max(8, parseInt(document.getElementById('propFontSize').value, 10) || 16));
+            var color = document.getElementById('propColor').value || '#000000';
+            var lh = parseFloat(document.getElementById('propLineHeight').value) || 1.2;
+            var alignBtn = document.querySelector('.prop-align.active');
+            var align = alignBtn ? alignBtn.getAttribute('data-align') : (obj.textAlign || 'center');
+            var bold = document.getElementById('propBold').classList.contains('active');
+            var italic = document.getElementById('propItalic').classList.contains('active');
+            var underline = document.getElementById('propUnderline').classList.contains('active');
+            obj.set({
+                fontFamily: ff,
+                fontSize: fs,
+                fill: color,
+                textAlign: align,
+                fontWeight: bold ? 'bold' : 'normal',
+                fontStyle: italic ? 'italic' : 'normal',
+                underline: underline,
+                lineHeight: lh
+            });
+            obj.dataLineHeight = lh;
+            obj.dataDecoration = underline ? 'underline' : 'none';
+        } else if (obj.type === 'image' && obj.dataSrc) {
+            var iw = parseInt(document.getElementById('propImgWidth').value, 10) || 100;
+            var ih = parseInt(document.getElementById('propImgHeight').value, 10) || 100;
+            var baseW = obj.width || 1;
+            var baseH = obj.height || 1;
+            obj.set({ scaleX: iw / baseW, scaleY: ih / baseH });
+        } else if (obj.dataType === 'qr') {
+            var qs = parseInt(document.getElementById('propQrSize').value, 10) || 120;
+            obj.dataSize = qs;
+            obj.set({ width: qs, height: qs });
+        }
+        applyLockToObject(obj, document.getElementById('propLockPosition').checked);
+        canvas.requestRenderAll();
+    }
+
+    function bindPropertiesPanel() {
+        ['propFontFamily', 'propFontSize', 'propColor', 'propLineHeight', 'propImgWidth', 'propImgHeight', 'propQrSize'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', applyPanelToObject);
+            if (el) el.addEventListener('change', applyPanelToObject);
+        });
+        document.getElementById('propBold').addEventListener('click', function () {
+            this.classList.toggle('active');
+            applyPanelToObject();
+        });
+        document.getElementById('propItalic').addEventListener('click', function () {
+            this.classList.toggle('active');
+            applyPanelToObject();
+        });
+        document.getElementById('propUnderline').addEventListener('click', function () {
+            this.classList.toggle('active');
+            applyPanelToObject();
+        });
+        document.querySelectorAll('.prop-align').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.prop-align').forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                applyPanelToObject();
+            });
+        });
+        document.getElementById('propLockPosition').addEventListener('change', function () {
+            applyPanelToObject();
+            var badge = document.getElementById('propLockBadge');
+            if (badge) badge.classList.toggle('d-none', !this.checked);
+        });
+    }
+
+    function bindCanvasSelection() {
+        if (!canvas || canvas._certPropsBound) return;
+        canvas._certPropsBound = true;
+        canvas.on('selection:created', function (e) { syncPanelFromObject(e.selected && e.selected[0] ? e.selected[0] : canvas.getActiveObject()); });
+        canvas.on('selection:updated', function (e) { syncPanelFromObject(e.selected && e.selected[0] ? e.selected[0] : canvas.getActiveObject()); });
+        canvas.on('selection:cleared', function () { syncPanelFromObject(null); });
+        canvas.on('object:moving', function (e) {
+            if (e.target && e.target.dataLockedPosition) { showLockToast(); }
+        });
+        canvas.on('object:scaling', function (e) {
+            if (e.target && e.target.dataLockedPosition) {
+                showLockToast();
+                e.target.set({ scaleX: e.target._lastScaleX || e.target.scaleX, scaleY: e.target._lastScaleY || e.target.scaleY });
+            } else if (e.target) {
+                e.target._lastScaleX = e.target.scaleX;
+                e.target._lastScaleY = e.target.scaleY;
+            }
+        });
+    }
+
+    function textStylesForSave(obj) {
+        return {
+            font_family: obj.fontFamily || 'Georgia',
+            font_size: obj.fontSize || 16,
+            font_weight: obj.fontWeight || 'normal',
+            font_style: obj.fontStyle || 'normal',
+            text_decoration: (obj.underline || obj.dataDecoration === 'underline') ? 'underline' : 'none',
+            color: (obj.fill && String(obj.fill).indexOf('#') === 0) ? obj.fill : '#000000',
+            text_align: obj.textAlign || 'center',
+            line_height: obj.dataLineHeight != null ? obj.dataLineHeight : (obj.lineHeight || 1.2),
+            width: Math.round(obj.width || 400),
+            height: Math.round(obj.height || 40),
+            locked_position: !!obj.dataLockedPosition,
+            fontFamily: obj.fontFamily || 'Georgia',
+            fontSize: obj.fontSize || 16,
+            fontWeight: obj.fontWeight || 'normal',
+            fontStyle: obj.fontStyle || 'normal',
+            align: obj.textAlign || 'center'
+        };
     }
 
     function bindDom() {
@@ -175,13 +487,14 @@
             });
             canvas.renderAll();
             bindCanvasKeys();
+            bindCanvasSelection();
         } catch (e) {
             canvas = null;
             showAlert('No se pudo crear el lienzo Fabric: ' + (e && e.message ? e.message : String(e)), 'danger');
         }
     }
 
-    var FABRIC_EXTRA_PROPS = ['dataType', 'dataVariable', 'dataSrc', 'dataSize'];
+    var FABRIC_EXTRA_PROPS = ['dataType', 'dataVariable', 'dataSrc', 'dataSize', 'dataLockedPosition', 'dataPrefix', 'dataSuffix', 'dataDecoration', 'dataLineHeight'];
 
     /** Recarga el estado del lienzo sin fondo (más fiable que solo anular backgroundImage). */
     function clearFabricBackground(done) {
@@ -251,7 +564,8 @@
 
     function addText() {
         if (!canvas) { showAlert('El lienzo no está listo. Recargá la página o revisá que Fabric.js cargue.', 'warning'); return; }
-        const text = new fabric.Textbox('Texto', { left: 200, top: 200, width: 300, fontSize: 40, fontFamily: 'Times New Roman', fill: '#000', textBaseline: 'alphabetic' });
+        const text = new fabric.Textbox('Texto', { left: 200, top: 200, width: 300, fontSize: 16, fontFamily: 'Georgia', fill: '#000000', textAlign: 'center', lineHeight: 1.2, textBaseline: 'alphabetic' });
+        text.dataLineHeight = 1.2;
         canvas.add(text);
         canvas.setActiveObject(text);
         canvas.renderAll();
@@ -273,9 +587,11 @@
         if (!canvas) { showAlert('El lienzo no está listo.', 'warning'); return; }
         if (!name) { showAlert('Elegí una variable en el desplegable (Programa, Horas, etc.) y después tocá "Añadir variable".', 'warning'); return; }
         const label = VAR_LABELS[name] || mustacheVar(name);
-        const text = new fabric.Textbox(label, { left: 200, top: 300, width: 400, fontSize: 36, fontFamily: 'Times New Roman', fill: '#000000', textBaseline: 'alphabetic' });
+        var defSize = VAR_DEFAULT_SIZES[name] || 16;
+        const text = new fabric.Textbox(label, { left: 200, top: 300, width: 400, fontSize: defSize, fontFamily: 'Georgia', fill: '#000000', textAlign: 'center', lineHeight: 1.2, textBaseline: 'alphabetic' });
         text.dataType = 'variable';
         text.dataVariable = name;
+        text.dataLineHeight = 1.2;
         canvas.add(text);
         canvas.setActiveObject(text);
         canvas.renderAll();
@@ -390,21 +706,73 @@
         const h = canvas.getHeight();
         const elements = [];
         canvas.getObjects().forEach(function(obj, i) {
-            const left = obj.left || 0;
-            const top = obj.top || 0;
-            if (obj.dataType === 'variable') {
-                elements.push({ id: 'var_' + i, type: 'variable', name: obj.dataVariable, x: left, y: top, fontSize: obj.fontSize || 24, fontFamily: obj.fontFamily || 'Times New Roman', align: obj.textAlign || 'left' });
+            const left = Math.round(obj.left || 0);
+            const top = Math.round(obj.top || 0);
+            const locked = !!obj.dataLockedPosition;
+            if (obj.dataType === 'border') {
+                elements.push({ id: 'border_' + i, type: 'border', x: left, y: top, width: obj.width || 100, height: obj.height || 100, color: obj.stroke || '#002B5C', lineWidth: obj.strokeWidth || 2, locked_position: locked });
+            } else if (obj.dataType === 'variable') {
+                var ve = Object.assign({ id: 'var_' + i, type: 'variable', name: obj.dataVariable, x: left, y: top }, textStylesForSave(obj));
+                if (obj.dataPrefix) ve.prefix = obj.dataPrefix;
+                if (obj.dataSuffix) ve.suffix = obj.dataSuffix;
+                elements.push(ve);
             } else if (obj.dataType === 'qr') {
-                elements.push({ id: 'qr_' + i, type: 'qr', variable: 'verification_url', x: left, y: top, size: obj.dataSize || 120 });
+                elements.push({ id: 'qr_' + i, type: 'qr', variable: 'verification_url', x: left, y: top, size: obj.dataSize || obj.width || 120, locked_position: locked });
             } else if (obj.type === 'textbox' || obj.type === 'text') {
-                elements.push({ id: 'text_' + i, type: 'text', value: obj.text || '', x: left, y: top, fontSize: obj.fontSize || 24, fontFamily: obj.fontFamily || 'Times New Roman', align: obj.textAlign || 'left' });
+                var te = Object.assign({ id: 'text_' + i, type: 'text', value: obj.text || '', x: left, y: top }, textStylesForSave(obj));
+                elements.push(te);
             } else if (obj.type === 'image' && obj.dataSrc) {
                 const sw = obj.getScaledWidth();
                 const sh = obj.getScaledHeight();
-                elements.push({ id: 'img_' + i, type: 'image', src: obj.dataSrc, x: left, y: top, width: Math.round(sw), height: Math.round(sh) });
+                elements.push({ id: 'img_' + i, type: 'image', src: obj.dataSrc, x: left, y: top, width: Math.round(sw), height: Math.round(sh), locked_position: locked });
             }
         });
-        return { canvas: { width: w, height: h }, elements: elements };
+        var layout = { canvas: { width: w, height: h }, elements: elements };
+        if (templateMeta && typeof templateMeta === 'object') layout.meta = templateMeta;
+        return layout;
+    }
+
+    function addElementToCanvas(el) {
+        el = normalizeElementDefaults(el);
+        if (el.type === 'border') {
+            const r = new fabric.Rect({ left: el.x, top: el.y, width: el.width || 100, height: el.height || 100, fill: 'transparent', stroke: el.color || '#002B5C', strokeWidth: el.lineWidth || 2, selectable: true });
+            r.dataType = 'border';
+            applyLockToObject(r, el.locked_position);
+            canvas.add(r);
+        } else if (el.type === 'text') {
+            const t = new fabric.Textbox(el.value || 'Texto', { left: el.x, top: el.y, fontSize: el.font_size, fontFamily: el.font_family, fill: el.color, width: el.width || 400, textAlign: el.text_align, fontWeight: el.font_weight, fontStyle: el.font_style, underline: el.text_decoration === 'underline', lineHeight: el.line_height, textBaseline: 'alphabetic' });
+            t.dataLineHeight = el.line_height;
+            t.dataDecoration = el.text_decoration;
+            applyLockToObject(t, el.locked_position);
+            canvas.add(t);
+        } else if (el.type === 'variable') {
+            const label = (el.prefix || '') + mustacheVar(el.name || '') + (el.suffix || '');
+            const t = new fabric.Textbox(label, { left: el.x, top: el.y, fontSize: el.font_size, fontFamily: el.font_family, fill: el.color, width: el.width || 400, textAlign: el.text_align, fontWeight: el.font_weight, fontStyle: el.font_style, underline: el.text_decoration === 'underline', lineHeight: el.line_height, textBaseline: 'alphabetic' });
+            t.dataType = 'variable';
+            t.dataVariable = el.name;
+            t.dataPrefix = el.prefix || '';
+            t.dataSuffix = el.suffix || '';
+            t.dataLineHeight = el.line_height;
+            t.dataDecoration = el.text_decoration;
+            applyLockToObject(t, el.locked_position);
+            canvas.add(t);
+        } else if (el.type === 'image' && el.src) {
+            fabric.Image.fromURL(el.src, function(img) {
+                const scaleX = (el.width || 100) / (img.width || 1);
+                const scaleY = (el.height || 100) / (img.height || 1);
+                img.set({ left: el.x, top: el.y, scaleX: scaleX, scaleY: scaleY });
+                img.dataSrc = el.src;
+                applyLockToObject(img, el.locked_position);
+                canvas.add(img);
+                canvas.requestRenderAll();
+            });
+        } else if (el.type === 'qr') {
+            const r = new fabric.Rect({ left: el.x, top: el.y, width: el.size || 120, height: el.size || 120, fill: '#e0e0e0', stroke: '#999' });
+            r.dataType = 'qr';
+            r.dataSize = el.size || 120;
+            applyLockToObject(r, el.locked_position);
+            canvas.add(r);
+        }
     }
 
     function saveTemplate() {
@@ -455,34 +823,13 @@
                 applyBackgroundImage(backgroundImageUrl);
                 var layout = item.json_layout;
                 if (typeof layout === 'string') try { layout = JSON.parse(layout); } catch (e) {}
+                templateMeta = (layout && layout.meta) ? layout.meta : null;
+                if (layout && layout.kind === 'institutional_event') {
+                    showAlert('Esta plantilla se está migrando al editor visual. Recargá la lista de plantillas.', 'warning');
+                    return;
+                }
                 if (layout && layout.elements && layout.elements.length) {
-                    layout.elements.forEach(function(el) {
-                        if (el.type === 'text') {
-                            const t = new fabric.Textbox(el.value || 'Texto', { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', fill: '#000000', width: 400, textBaseline: 'alphabetic' });
-                            if (el.align) t.set('textAlign', el.align);
-                            canvas.add(t);
-                        } else if (el.type === 'variable') {
-                            const label = mustacheVar(el.name || '');
-                            const t = new fabric.Textbox(label, { left: el.x, top: el.y, fontSize: el.fontSize || 24, fontFamily: el.fontFamily || 'Times New Roman', fill: '#000000', width: 400, textBaseline: 'alphabetic' });
-                            t.dataType = 'variable';
-                            t.dataVariable = el.name;
-                            if (el.align) t.set('textAlign', el.align);
-                            canvas.add(t);
-                        } else if (el.type === 'image' && el.src) {
-                            fabric.Image.fromURL(el.src, function(img) {
-                                const scaleX = (el.width || 100) / (img.width || 1);
-                                const scaleY = (el.height || 100) / (img.height || 1);
-                                img.set({ left: el.x, top: el.y, scaleX: scaleX, scaleY: scaleY });
-                                img.dataSrc = el.src;
-                                canvas.add(img);
-                            });
-                        } else if (el.type === 'qr') {
-                            const r = new fabric.Rect({ left: el.x, top: el.y, width: el.size || 120, height: el.size || 120, fill: '#e0e0e0', stroke: '#999' });
-                            r.dataType = 'qr';
-                            r.dataSize = el.size || 120;
-                            canvas.add(r);
-                        }
-                    });
+                    layout.elements.forEach(function(el) { addElementToCanvas(el); });
                 }
                 canvas.renderAll();
             })
@@ -560,6 +907,7 @@
 
     function start() {
         bindDom();
+        bindPropertiesPanel();
         wireUi();
         if (typeof fabric === 'undefined') {
             showAlert('No se cargó Fabric.js (static/js/fabric-5.3.0.min.js). Revisá red o caché (Ctrl+F5).', 'danger');

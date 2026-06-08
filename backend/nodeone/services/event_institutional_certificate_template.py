@@ -284,6 +284,48 @@ def sync_event_template_link_from_template(db, template) -> int | None:
     return int(event.id)
 
 
+def list_event_certificate_formats_for_admin(org_id: int) -> list[dict[str, Any]]:
+    """Formatos de certificado ligados a eventos (módulo Eventos) para la pantalla admin unificada."""
+    from app import CertificateTemplate, Event, EventCertificate
+
+    oid = int(org_id or 1)
+    out: list[dict[str, Any]] = []
+    for event in Event.query.order_by(Event.id.asc()).all():
+        if int(resolve_event_org_id(event)) != oid:
+            continue
+        tid = visual_template_id_for_event(event)
+        if not tid:
+            continue
+        tpl = CertificateTemplate.query.filter_by(id=int(tid), organization_id=oid).first()
+        if not tpl:
+            tpl = CertificateTemplate.query.get(int(tid))
+        issued = (
+            EventCertificate.query.filter_by(event_id=event.id)
+            .filter(EventCertificate.status != 'revoked')
+            .count()
+        )
+        edit_path = f'/admin/certificate-templates/editor/{int(tid)}'
+        out.append(
+            {
+                'kind': 'event_module',
+                'event_id': int(event.id),
+                'name': (event.title or '').strip() or f'Evento #{event.id}',
+                'code_prefix': f'EVT-{event.id}',
+                'template_id': int(tid),
+                'institution': '',
+                'is_active': getattr(event, 'publish_status', 'published') != 'archived',
+                'verification_enabled': True,
+                'requirement_text': f'Participación · evento #{event.id}',
+                'issued_count': int(issued),
+                'edit_path': edit_path,
+                'certificates_url': f'/admin/events/{event.id}/certificates',
+                'participants_url': f'/admin/events/{event.id}/participants',
+                'template_name': (getattr(tpl, 'name', None) or '').strip() if tpl else '',
+            }
+        )
+    return out
+
+
 def ensure_institutional_event_certificate_templates(db, printfn=print) -> None:
     """Crea o migra plantillas visuales editables (lienzo) para eventos con certificado."""
     from app import CertificateTemplate, Event

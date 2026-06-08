@@ -14,7 +14,7 @@
                     <i class="fas fa-plus me-1"></i> Nuevo formato
                 </button>
             </div>
-            <p class="text-muted small mb-0">Configura cada tipo de certificado: sube el fondo, logos y sello; define institución y firmas. Para usar una <strong>plantilla visual</strong>, edita el formato, elige "Plantilla visual" en el desplegable, guarda y usa <strong>Vista previa</strong> (icono <i class="fas fa-eye"></i>) para comprobar.</p>
+            <p class="text-muted small mb-0">Configura cada tipo de certificado: sube el fondo, logos y sello; define institución y firmas (membresía/registro). Los certificados de <strong>eventos</strong> (Seminario, revisores, etc.) aparecen aquí con prefijo <code>EVT-</code> y enlace a la plantilla visual y a los certificados emitidos del evento.</p>
             {% if saas_module_enabled('qr_generator') %}
             <p class="small mt-2 mb-0">Para un <strong>QR de verificación</strong>, usá {% if has_view_endpoint('admin_tools_qr') %}<a href="{{ url_for('admin_tools_qr') }}">Herramientas → Generador QR</a>{% else %}el generador QR del sitio (no disponible en este despliegue){% endif %} con la URL pública de verificación del certificado (ruta <code class="small">/verify/&lt;código&gt;</code> del sitio).</p>
             {% endif %}
@@ -219,6 +219,26 @@
                 tableWrap.classList.remove('d-none');
                 const items = data.items || [];
                 tbody.innerHTML = items.map(function(e) {
+                    if (e.kind === 'event_module') {
+                        var reqEv = e.requirement_text || ('Evento #' + e.event_id);
+                        var tplEv = e.template_id
+                            ? '<span class="badge bg-info">Sí (id ' + e.template_id + ')</span>'
+                            : '<span class="text-muted">—</span>';
+                        var issued = (e.issued_count != null && e.issued_count > 0)
+                            ? ' <span class="badge bg-secondary">' + e.issued_count + ' emitido(s)</span>'
+                            : ' <span class="badge bg-warning text-dark">Sin emitir</span>';
+                        return '<tr>' +
+                            '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-success">Evento #' + e.event_id + '</span>' + issued + '</td>' +
+                            '<td><code>' + (e.code_prefix || '') + '</code></td>' +
+                            '<td>' + (e.institution || '—') + '</td>' +
+                            '<td>' + tplEv + '</td>' +
+                            '<td><small>' + reqEv + '</small></td>' +
+                            '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
+                            '<td><a href="' + (e.certificates_url || '#') + '" class="btn btn-info btn-sm me-1" title="Certificados emitidos"><i class="fas fa-eye"></i></a>' +
+                            '<a href="' + (e.edit_path || '#') + '" class="btn btn-outline-primary btn-sm me-1" title="Editar plantilla"><i class="fas fa-edit"></i></a>' +
+                            '<a href="' + (e.participants_url || '#') + '" class="btn btn-outline-secondary btn-sm" title="Participantes"><i class="fas fa-users"></i></a></td>' +
+                            '</tr>';
+                    }
                     var req = 'Membresía activa';
                     if (e.membership_required_id) req = 'Plan ID ' + e.membership_required_id;
                     else if (e.event_required_id) req = 'Evento ID ' + e.event_required_id;

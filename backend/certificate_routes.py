@@ -791,12 +791,20 @@ def admin_list_certificate_events():
     """Lista todos los certificate_events (admin) con todos los campos."""
     from app import CertificateEvent
 
+    from nodeone.services.event_institutional_certificate_template import (
+        list_event_certificate_formats_for_admin,
+    )
+
     coid = _cert_admin_org_id()
     _seed_org_certificate_events(coid)
     events = CertificateEvent.query.filter_by(organization_id=coid).order_by(
         CertificateEvent.created_at.desc()
     ).all()
-    return jsonify({'items': [_cert_event_to_dict(e) for e in events]})
+    items = [_cert_event_to_dict(e) for e in events]
+    for row in items:
+        row['kind'] = 'certificate_event'
+    items.extend(list_event_certificate_formats_for_admin(coid))
+    return jsonify({'items': items})
 
 
 @certificates_api_bp.route('/admin/certificate-events', methods=['POST'])

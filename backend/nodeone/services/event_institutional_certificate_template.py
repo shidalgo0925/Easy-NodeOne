@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from typing import Any
 
 INSTITUTIONAL_KIND = 'institutional_event'
@@ -187,17 +188,42 @@ def needs_institutional_visual_layout(template) -> bool:
     return meta.get('layout_kind') != 'institutional_visual'
 
 
-def apply_institutional_visual_layout_to_template(template, event, org_id: int) -> None:
+def strip_missing_layout_asset_urls(layout: dict[str, Any], app_root: str) -> dict[str, Any]:
+    """Omite logos/sello cuya ruta /static/... no existe en disco (evita 404 en PDF)."""
+    out = dict(layout)
+    root = os.path.abspath(app_root or '.')
+    for key in ('logo_left_url', 'logo_right_url', 'seal_url'):
+        url = (out.get(key) or '').strip()
+        if not url:
+            continue
+        rel = url.lstrip('/')
+        if not os.path.isfile(os.path.join(root, rel)):
+            out[key] = ''
+    return out
+
+
+def apply_institutional_visual_layout_to_template(
+    template,
+    event,
+    org_id: int,
+    *,
+    preserve_background: bool = False,
+    app_root: str | None = None,
+) -> None:
     from nodeone.services.event_certificate_visual_layout import (
         CANVAS_HEIGHT,
         CANVAS_WIDTH,
         build_institutional_visual_layout,
     )
 
-    layout = merged_layout_for_event(event, org_id)
+    prev_bg = getattr(template, 'background_image', None) if preserve_background else None
+    root = app_root or os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', '..', '..')
+    )
+    layout = strip_missing_layout_asset_urls(merged_layout_for_event(event, org_id), root)
     visual = build_institutional_visual_layout(layout, event_id=event.id)
     template.json_layout = json.dumps(visual, ensure_ascii=False)
-    template.background_image = None
+    template.background_image = prev_bg if preserve_background else None
     template.width = CANVAS_WIDTH
     template.height = CANVAS_HEIGHT
     title = (getattr(event, 'title', None) or f'Evento #{event.id}').strip()

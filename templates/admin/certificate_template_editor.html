@@ -181,6 +181,8 @@
     let backgroundImageUrl = null;
     /** meta.event_id u otros metadatos de plantilla de evento */
     let templateMeta = null;
+    /** Elementos al cargar; alerta si Guardar deja muchos menos (layout pisado). */
+    let initialElementCount = 0;
     let selectedObj = null;
     let syncingPanel = false;
     let lockToastTimer = null;
@@ -722,9 +724,9 @@
                 var te = Object.assign({ id: 'text_' + i, type: 'text', value: obj.text || '', x: left, y: top }, textStylesForSave(obj));
                 elements.push(te);
             } else if (obj.type === 'image' && obj.dataSrc) {
-                const sw = obj.getScaledWidth();
-                const sh = obj.getScaledHeight();
-                elements.push({ id: 'img_' + i, type: 'image', src: obj.dataSrc, x: left, y: top, width: Math.round(sw), height: Math.round(sh), locked_position: locked });
+                const sw = Math.max(1, Math.round(obj.getScaledWidth ? obj.getScaledWidth() : (obj.width || 1)));
+                const sh = Math.max(1, Math.round(obj.getScaledHeight ? obj.getScaledHeight() : (obj.height || 1)));
+                elements.push({ id: 'img_' + i, type: 'image', src: obj.dataSrc, x: left, y: top, width: sw, height: sh, locked_position: locked });
             }
         });
         var layout = { canvas: { width: w, height: h }, elements: elements };
@@ -758,14 +760,18 @@
             canvas.add(t);
         } else if (el.type === 'image' && el.src) {
             fabric.Image.fromURL(el.src, function(img) {
-                const scaleX = (el.width || 100) / (img.width || 1);
-                const scaleY = (el.height || 100) / (img.height || 1);
+                const natW = img.width || 100;
+                const natH = img.height || 100;
+                const targetW = (el.width > 0) ? el.width : natW;
+                const targetH = (el.height > 0) ? el.height : natH;
+                const scaleX = targetW / natW;
+                const scaleY = targetH / natH;
                 img.set({ left: el.x, top: el.y, scaleX: scaleX, scaleY: scaleY });
                 img.dataSrc = el.src;
                 applyLockToObject(img, el.locked_position);
                 canvas.add(img);
                 canvas.requestRenderAll();
-            });
+            }, { crossOrigin: 'anonymous' });
         } else if (el.type === 'qr') {
             const r = new fabric.Rect({ left: el.x, top: el.y, width: el.size || 120, height: el.size || 120, fill: '#e0e0e0', stroke: '#999' });
             r.dataType = 'qr';
@@ -780,6 +786,17 @@
         const name = (templateNameEl.value || '').trim();
         if (!name) { showAlert('Escribe el nombre de la plantilla.', 'warning'); return; }
         const json_layout = buildLayout();
+        const newCount = (json_layout.elements || []).length;
+        if (initialElementCount >= 8 && newCount < Math.max(5, Math.floor(initialElementCount * 0.55))) {
+            if (!window.confirm(
+                'Quedan ' + newCount + ' elementos en el lienzo (al cargar había ' + initialElementCount + '). '
+                + 'Si guardás ahora podés perder textos y marcos del certificado. '
+                + '¿Guardar igual?'
+            )) {
+                showAlert('Guardado cancelado. Recargá la página si el lienzo no muestra todos los elementos.', 'warning');
+                return;
+            }
+        }
         const payload = {
             name: name,
             width: canvas.getWidth(),
@@ -795,7 +812,11 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).then(r => r.json()).then(data => {
-            if (data.success || data.item) { showAlert('Guardado correctamente.', 'success'); if (data.item && !templateId) window.location.href = '/admin/certificate-templates/editor/' + data.item.id; }
+            if (data.success || data.item) {
+                initialElementCount = newCount;
+                showAlert('Guardado correctamente. El fondo decorativo se guarda aparte (botón fondo de plantilla).', 'success');
+                if (data.item && !templateId) window.location.href = '/admin/certificate-templates/editor/' + data.item.id;
+            }
             else showAlert(data.error || 'Error al guardar', 'danger');
         }).catch(e => showAlert('Error: ' + e.message, 'danger'));
     }
@@ -828,6 +849,7 @@
                     showAlert('Esta plantilla se está migrando al editor visual. Recargá la lista de plantillas.', 'warning');
                     return;
                 }
+                initialElementCount = (layout && layout.elements) ? layout.elements.length : 0;
                 if (layout && layout.elements && layout.elements.length) {
                     layout.elements.forEach(function(el) { addElementToCanvas(el); });
                 }

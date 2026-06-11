@@ -20,7 +20,8 @@ from sqlalchemy import func, text as sql_text
 try:
     from dotenv import load_dotenv
 
-    load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+    if os.environ.get('NODEONE_SKIP_DOTENV_APP', '').strip().lower() not in ('1', 'true', 'yes'):
+        load_dotenv(Path(__file__).resolve().parent.parent / '.env')
 except ImportError:
     pass
 

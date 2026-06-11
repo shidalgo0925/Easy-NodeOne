@@ -64,6 +64,7 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+backend/tmp/
 
 # Flask
 instance/

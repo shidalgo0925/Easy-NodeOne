@@ -79,6 +79,7 @@ _CONFIG_EPS = (
     'admin_email',
     'media_admin.admin_media',
     'admin_ai',
+    'admin_ecalendar_settings_page',
     'admin_product_guide',
     'admin_appointments.admin_appointments_dashboard',
     'admin_appointments.create_appointment_type',
@@ -752,6 +753,14 @@ _CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
         'admin_email',
         visible=_v_config,
         active_endpoints=('admin_email',),
+    ),
+    NavAreaItem(
+        'ecalendar',
+        'Agenda ECalendar',
+        'fas fa-calendar-check',
+        'admin_ecalendar_settings_page',
+        visible=lambda c: _v_config(c) and c.has_view_endpoint('admin_ecalendar_settings_page'),
+        active_endpoints=('admin_ecalendar_settings_page',),
     ),
     NavAreaItem(
         'media',

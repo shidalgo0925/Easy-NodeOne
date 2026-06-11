@@ -309,6 +309,9 @@
                             {% if saas_module_enabled('chatbot') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_ai') }}"><i class="fas fa-robot me-2"></i> IA</a></li>
                             {% endif %}
+                            {% if has_view_endpoint('admin_ecalendar_settings_page') %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_settings_page') }}"><i class="fas fa-calendar-check me-2"></i> Agenda ECalendar</a></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
                             {% endif %}
                             {% if saas_module_enabled('rbac_matrix') and nav_can('roles.view') and has_view_endpoint('admin_roles_matrix') %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Agenda ECalendar - Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h5 mb-2">
+                <i class="fas fa-calendar-check"></i> Agenda ECalendar
+            </h1>
+            <p class="text-muted small mb-0">
+                Configura Google Calendar, horarios y CORS para la agenda pública del sitio. Todo desde EN1, sin .env.
+            </p>
+        </div>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Configuración</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="enabled">
+                <label class="form-check-label" for="enabled"><strong>Activar ECalendar</strong></label>
+            </div>
+            <div class="form-check form-switch mb-4">
+                <input class="form-check-input" type="checkbox" id="use_for_public_agenda" checked>
+                <label class="form-check-label" for="use_for_public_agenda">
+                    <strong>Usar este tenant para la agenda pública del sitio</strong>
+                </label>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-12 col-md-6">
+                    <label for="google_account_email" class="form-label">Cuenta Google (referencia)</label>
+                    <input type="email" class="form-control" id="google_account_email" placeholder="easytechservices25@gmail.com">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="google_calendar_id" class="form-label">ID del calendario</label>
+                    <input type="text" class="form-control" id="google_calendar_id" placeholder="primary">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="google_client_id" class="form-label">Client ID</label>
+                    <input type="text" class="form-control" id="google_client_id">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="google_client_secret" class="form-label">Client secret</label>
+                    <input type="password" class="form-control" id="google_client_secret" placeholder="Vacío = conservar">
+                </div>
+                <div class="col-12">
+                    <label for="google_refresh_token" class="form-label">Refresh token</label>
+                    <input type="password" class="form-control" id="google_refresh_token" placeholder="Vacío = conservar">
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-12 col-md-4">
+                    <label for="timezone" class="form-label">Zona horaria</label>
+                    <input type="text" class="form-control" id="timezone" value="America/Panama">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label for="business_start" class="form-label">Inicio</label>
+                    <input type="text" class="form-control" id="business_start" value="09:00">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label for="business_end" class="form-label">Fin</label>
+                    <input type="text" class="form-control" id="business_end" value="17:00">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label for="slot_minutes" class="form-label">Slot (min)</label>
+                    <input type="number" class="form-control" id="slot_minutes" value="30" min="15">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label for="lead_hours" class="form-label">Lead (h)</label>
+                    <input type="number" class="form-control" id="lead_hours" value="4" min="0">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label for="horizon_days" class="form-label">Horizonte</label>
+                    <input type="number" class="form-control" id="horizon_days" value="30" min="1">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label for="title_prefix" class="form-label">Prefijo título</label>
+                    <input type="text" class="form-control" id="title_prefix" placeholder="[TEST]">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="allowed_origins" class="form-label">Orígenes CORS (coma-separados)</label>
+                <textarea class="form-control" id="allowed_origins" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="products_json" class="form-label">Productos JSON (opcional)</label>
+                <textarea class="form-control font-monospace small" id="products_json" rows="3"></textarea>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-primary" id="btn-save"><i class="fas fa-save me-1"></i> Guardar</button>
+                <button type="button" class="btn btn-outline-secondary" id="btn-test"><i class="fas fa-plug me-1"></i> Probar OAuth</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const alertContainer = document.getElementById('alert-container');
+    function showAlert(msg, type) {
+        alertContainer.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+    function fillForm(cfg) {
+        if (!cfg) return;
+        document.getElementById('enabled').checked = !!cfg.enabled;
+        document.getElementById('use_for_public_agenda').checked = !!cfg.use_for_public_agenda;
+        document.getElementById('google_account_email').value = cfg.google_account_email || '';
+        document.getElementById('google_calendar_id').value = cfg.google_calendar_id || 'primary';
+        document.getElementById('google_client_id').value = cfg.google_client_id || '';
+        document.getElementById('google_client_secret').value = '';
+        document.getElementById('google_refresh_token').value = '';
+        document.getElementById('timezone').value = cfg.timezone || 'America/Panama';
+        document.getElementById('business_start').value = cfg.business_start || '09:00';
+        document.getElementById('business_end').value = cfg.business_end || '17:00';
+        document.getElementById('slot_minutes').value = cfg.slot_minutes || 30;
+        document.getElementById('lead_hours').value = cfg.lead_hours || 4;
+        document.getElementById('horizon_days').value = cfg.horizon_days || 30;
+        document.getElementById('title_prefix').value = cfg.title_prefix || '';
+        document.getElementById('allowed_origins').value = cfg.allowed_origins || '';
+        document.getElementById('products_json').value = cfg.products_json || '';
+    }
+    function payloadFromForm() {
+        return {
+            enabled: document.getElementById('enabled').checked,
+            use_for_public_agenda: document.getElementById('use_for_public_agenda').checked,
+            google_account_email: document.getElementById('google_account_email').value.trim(),
+            google_calendar_id: document.getElementById('google_calendar_id').value.trim(),
+            google_client_id: document.getElementById('google_client_id').value.trim(),
+            google_client_secret: document.getElementById('google_client_secret').value.trim(),
+            google_refresh_token: document.getElementById('google_refresh_token').value.trim(),
+            timezone: document.getElementById('timezone').value.trim(),
+            business_start: document.getElementById('business_start').value.trim(),
+            business_end: document.getElementById('business_end').value.trim(),
+            slot_minutes: parseInt(document.getElementById('slot_minutes').value || '30', 10),
+            lead_hours: parseInt(document.getElementById('lead_hours').value || '4', 10),
+            horizon_days: parseInt(document.getElementById('horizon_days').value || '30', 10),
+            title_prefix: document.getElementById('title_prefix').value.trim(),
+            allowed_origins: document.getElementById('allowed_origins').value.trim(),
+            products_json: document.getElementById('products_json').value.trim()
+        };
+    }
+    document.getElementById('btn-save').addEventListener('click', function() {
+        fetch('/api/admin/ecalendar/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadFromForm())
+        }).then(function(r) { return r.json(); }).then(function(j) {
+            if (j.success) { showAlert('Guardado.', 'success'); fillForm(j.config); }
+            else { showAlert(j.error || 'Error', 'danger'); }
+        }).catch(function() { showAlert('Error de conexión.', 'danger'); });
+    });
+    document.getElementById('btn-test').addEventListener('click', function() {
+        fetch('/api/admin/ecalendar/test', { method: 'POST' }).then(function(r) { return r.json(); }).then(function(j) {
+            showAlert(j.success ? j.message : (j.error || 'Falló'), j.success ? 'success' : 'danger');
+        });
+    });
+    fetch('/api/admin/ecalendar/config').then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success) fillForm(d.config);
+    });
+})();
+</script>
+{% endblock %}

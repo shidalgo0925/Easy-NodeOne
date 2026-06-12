@@ -216,6 +216,13 @@
             {% endfor %}
         </div>
     </div>
+        {% elif store_filtered_for_user|default(false) %}
+    <div class="alert alert-info py-3 mb-4">
+        <i class="fas fa-box-open me-2"></i>
+        No hay servicios nuevos para comprar en este momento.
+        <a href="{{ url_for('member_services') }}" class="alert-link fw-semibold">Ver Mis servicios</a>
+        para acceder a lo que ya tenés contratado o incluido en tu plan.
+    </div>
         {% endif %}
         {% if featured_events|default([]) %}
     <div class="plan-section mb-5" data-plan="all" data-rail="upcoming-events">

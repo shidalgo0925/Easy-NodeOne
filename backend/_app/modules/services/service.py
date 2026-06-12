@@ -177,6 +177,63 @@ def _get_plans_info(user=None, organization_id=None):
         return fb
 
 
+_STORE_BLOCKING_USER_SERVICE_STATUSES = frozenset({'active', 'pending', 'scheduled'})
+_STORE_OPEN_SERVICE_REQUEST_STATUSES = frozenset(
+    {'requested', 'appointment_scheduled', 'in_consultation', 'quoted', 'approved', 'in_progress'}
+)
+
+
+def _service_ids_with_open_contract(user, organization_id: int) -> set[int]:
+    """Servicios con compra o solicitud consultiva en curso → no van en tienda."""
+    from models.service_request import ServiceRequest
+
+    from app import Service, UserService
+
+    excluded: set[int] = set()
+    now = datetime.utcnow()
+
+    purchases = (
+        UserService.query.join(Service, UserService.service_id == Service.id)
+        .filter(
+            UserService.user_id == user.id,
+            Service.organization_id == organization_id,
+            UserService.status.in_(tuple(_STORE_BLOCKING_USER_SERVICE_STATUSES)),
+        )
+        .all()
+    )
+    for rec in purchases:
+        if rec.expires_at and rec.expires_at < now:
+            continue
+        excluded.add(int(rec.service_id))
+
+    for sr in ServiceRequest.query.filter(
+        ServiceRequest.user_id == user.id,
+        ServiceRequest.organization_id == organization_id,
+        ServiceRequest.status.in_(tuple(_STORE_OPEN_SERVICE_REQUEST_STATUSES)),
+    ).all():
+        excluded.add(int(sr.service_id))
+
+    return excluded
+
+
+def _should_show_service_in_store(service, *, user, membership_type: str, open_contract_ids: set[int]) -> bool:
+    """Tienda = catálogo menos lo ya contratado, incluido en plan o derecho básico."""
+    if int(service.id) in open_contract_ids:
+        return False
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return True
+
+    from nodeone.services.commercial_flow import COMMERCIAL_FLOW_SERVICE_INCLUDED, resolve_commercial_flow_type
+
+    pricing = service.pricing_for_membership(membership_type)
+    flow = resolve_commercial_flow_type(service, pricing)
+    if flow == COMMERCIAL_FLOW_SERVICE_INCLUDED:
+        return False
+    if (getattr(service, 'membership_type', None) or '').strip().lower() == 'basic':
+        return False
+    return True
+
+
 def get_services_page_data(user=None, organization_id=None):
     """
     Datos para la página /services.
@@ -192,9 +249,24 @@ def get_services_page_data(user=None, organization_id=None):
     if organization_id is not None:
         org_kw['organization_id'] = int(organization_id)
 
+    from app import MembershipPlan, default_organization_id
+
     categories = repository.get_active_categories(**org_kw)
     all_services = repository.get_active_services(**org_kw)
-    from app import MembershipPlan, default_organization_id
+
+    open_contract_ids: set[int] = set()
+    if user is not None and getattr(user, 'is_authenticated', False):
+        _oid_filter = int(organization_id) if organization_id is not None else int(
+            getattr(user, 'organization_id', None) or default_organization_id()
+        )
+        open_contract_ids = _service_ids_with_open_contract(user, _oid_filter)
+        all_services = [
+            s
+            for s in all_services
+            if _should_show_service_in_store(
+                s, user=user, membership_type=membership_type, open_contract_ids=open_contract_ids
+            )
+        ]
 
     _oid_mp = int(organization_id) if organization_id is not None else int(
         getattr(user, 'organization_id', None) or default_organization_id()
@@ -315,6 +387,7 @@ def get_services_page_data(user=None, organization_id=None):
         'user_membership_type': membership_type,
         'membership_type': membership_type,
         'plan_slugs_ordered': plan_slugs_ordered,
+        'store_filtered_for_user': bool(user is not None and getattr(user, 'is_authenticated', False)),
     }
 
 

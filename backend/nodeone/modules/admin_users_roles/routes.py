@@ -521,16 +521,16 @@ def register_admin_users_roles_routes(app):
     
         try:
             user_name = f"{user.first_name} {user.last_name}"
-        
-            # Eliminar perfil de asesor si existe
-            if user.advisor_profile:
-                db.session.delete(user.advisor_profile)
-        
-            # Eliminar usuario
-            db.session.delete(user)
+
+            from nodeone.services.user_deletion import UserDeletionBlockedError, delete_user_and_related
+
+            delete_user_and_related(user, db=db)
             db.session.commit()
-        
+
             flash(f'Usuario {user_name} eliminado correctamente.', 'success')
+        except UserDeletionBlockedError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
         except Exception as e:
             db.session.rollback()
             flash(f'Error al eliminar usuario: {str(e)}', 'error')

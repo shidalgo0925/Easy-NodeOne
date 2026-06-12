@@ -430,11 +430,15 @@
         var id = document.getElementById('eventId').value;
         var payload = {
             name: document.getElementById('eventName').value.trim(),
+            code_prefix: document.getElementById('eventCodePrefix').value.trim() || 'REL',
             institution: document.getElementById('eventInstitution').value.trim() || null,
             partner_organization: document.getElementById('eventPartner').value.trim() || null,
             rector_name: document.getElementById('eventRector').value.trim() || null,
             academic_director_name: document.getElementById('eventDirector').value.trim() || null,
             duration_hours: document.getElementById('eventDuration').value ? parseFloat(document.getElementById('eventDuration').value) : null,
+            start_date: document.getElementById('eventStart').value || null,
+            end_date: document.getElementById('eventEnd').value || null,
+            membership_required_id: document.getElementById('eventMembershipPlan').value || null,
             background_url: document.getElementById('eventBackgroundUrl').value || null,
             logo_left_url: document.getElementById('eventLogoLeftUrl').value || null,
             logo_right_url: document.getElementById('eventLogoRightUrl').value || null,
@@ -484,10 +488,6 @@
     document.getElementById('btnSaveEvent').addEventListener('click', function() {
         var id = document.getElementById('eventId').value;
         var payload = buildEventPayload();
-        payload.code_prefix = document.getElementById('eventCodePrefix').value.trim() || 'REL';
-        payload.start_date = document.getElementById('eventStart').value || null;
-        payload.end_date = document.getElementById('eventEnd').value || null;
-        payload.membership_required_id = document.getElementById('eventMembershipPlan').value || null;
         payload.is_active = document.getElementById('eventIsActive').checked;
         payload.verification_enabled = document.getElementById('eventVerification').checked;
         if (payload.event_id) delete payload.event_id;

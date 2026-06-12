@@ -180,12 +180,42 @@ def render_html_from_json_layout(template_model, data, base_url, qr_base64=None,
             html_parts.append('<div class="cert-el" style="%s">%s</div>' % (style, _escape(value)))
         elif el_type == 'variable':
             name = el.get('name', '')
+            from nodeone.services.certificate_template_data import IMAGE_CERT_VARIABLES
+
+            if name in IMAGE_CERT_VARIABLES:
+                src = str(data.get(name, '') or '').strip()
+                if src and base_url and not src.startswith('data:'):
+                    src = _abs_url(base_url, src)
+                if use_file_urls and upload_dir and src and '/static/uploads/certificates/' in src:
+                    bp = _background_path_from_url(src, upload_dir)
+                    if bp:
+                        src = 'file://' + os.path.abspath(bp)
+                if src:
+                    w = int(el.get('width') or 120)
+                    h = int(el.get('height') or 80)
+                    style = style_attr % (x, y) + ' width: %dpx; height: %dpx; object-fit: contain;' % (w, h)
+                    html_parts.append('<img class="cert-el" src="%s" alt="" style="%s" />' % (_escape_attr(src), style))
+                continue
             value = str(data.get(name, ''))
             prefix = el.get('prefix', '') or ''
             suffix = el.get('suffix', '') or ''
             value = prefix + value + suffix
             style = style_attr % (x, y) + ' ' + _text_element_css(el)
             html_parts.append('<div class="cert-el" style="%s">%s</div>' % (style, _escape(value)))
+        elif el_type == 'variable_image':
+            name = el.get('name', '')
+            src = str(data.get(name, '') or '').strip()
+            if src and base_url and not src.startswith('data:'):
+                src = _abs_url(base_url, src)
+            if use_file_urls and upload_dir and src and '/static/uploads/certificates/' in src:
+                bp = _background_path_from_url(src, upload_dir)
+                if bp:
+                    src = 'file://' + os.path.abspath(bp)
+            if src:
+                w = int(el.get('width') or 120)
+                h = int(el.get('height') or 80)
+                style = style_attr % (x, y) + ' width: %dpx; height: %dpx; object-fit: contain;' % (w, h)
+                html_parts.append('<img class="cert-el" src="%s" alt="" style="%s" />' % (_escape_attr(src), style))
         elif el_type == 'image':
             src = el.get('src', '')
             if src and base_url and not src.startswith('data:'):

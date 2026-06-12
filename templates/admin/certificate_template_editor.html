@@ -22,18 +22,45 @@
             <button type="button" id="btnAddImage" class="btn btn-outline-secondary btn-sm w-100 mb-1">Imagen</button>
             <select id="selVariable" class="form-select form-select-sm mb-1">
                 <option value="">Variable...</option>
-                <option value="participant_name">Nombre participante</option>
-                <option value="document_id">Documento / ID</option>
-                <option value="program_name">Programa / Evento</option>
-                <option value="body_text">Texto de participación</option>
-                <option value="event_dates">Fechas del evento</option>
-                <option value="hours_line">Línea de horas académicas</option>
-                <option value="hours">Horas (número)</option>
-                <option value="issue_date_legal">Fecha legal de emisión</option>
-                <option value="issue_date">Fecha emisión</option>
-                <option value="certificate_code">Código certificado</option>
-                <option value="verification_url">URL verificación</option>
-                <option value="institution">Institución</option>
+                <optgroup label="Carátula — datos">
+                    <option value="certificate_name">Nombre del certificado</option>
+                    <option value="code_prefix">Prefijo código</option>
+                    <option value="institution">Institución</option>
+                    <option value="partner_organization">Organización partner</option>
+                    <option value="rector_name">Nombre rector</option>
+                    <option value="academic_director_name">Directora académica</option>
+                    <option value="rector_title">Cargo rector</option>
+                    <option value="director_title">Cargo directora</option>
+                    <option value="duration_hours">Duración (horas)</option>
+                    <option value="start_date">Fecha inicio</option>
+                    <option value="end_date">Fecha fin</option>
+                    <option value="event_dates">Fechas del evento (rango)</option>
+                    <option value="membership_plan_required">Plan requerido</option>
+                </optgroup>
+                <optgroup label="Carátula — imágenes">
+                    <option value="background_url">Fondo (imagen)</option>
+                    <option value="logo_left_url">Logo izquierdo (imagen)</option>
+                    <option value="logo_right_url">Logo derecho (imagen)</option>
+                    <option value="seal_url">Sello (imagen)</option>
+                </optgroup>
+                <optgroup label="Titular / emisión">
+                    <option value="participant_name">Nombre participante</option>
+                    <option value="document_id">Documento / ID</option>
+                    <option value="program_name">Programa / Evento</option>
+                    <option value="body_text">Texto de participación</option>
+                    <option value="hours_line">Línea de horas académicas</option>
+                    <option value="hours">Horas (número)</option>
+                    <option value="issue_date_legal">Fecha legal de emisión</option>
+                    <option value="issue_date">Fecha emisión</option>
+                    <option value="certificate_code">Código certificado</option>
+                    <option value="verification_url">URL verificación</option>
+                </optgroup>
+                <optgroup label="Membresía del titular">
+                    <option value="membership_type">Tipo de membresía</option>
+                    <option value="membership_start">Membresía — fecha inicio</option>
+                    <option value="membership_end">Membresía — fecha fin</option>
+                    <option value="membership_period">Membresía — vigencia (desde/hasta)</option>
+                </optgroup>
             </select>
             <button type="button" id="btnAddVariable" class="btn btn-outline-secondary btn-sm w-100 mb-1">Añadir variable</button>
             <button type="button" id="btnAddQR" class="btn btn-outline-secondary btn-sm w-100 mb-1">QR verificación</button>
@@ -192,19 +219,45 @@
     function mustacheVar(inner) {
         return String.fromCharCode(123, 123) + inner + String.fromCharCode(125, 125);
     }
+    var IMAGE_VARIABLES = ['background_url', 'logo_left_url', 'logo_right_url', 'seal_url'];
+    var IMAGE_VARIABLE_SIZES = {
+        background_url: { w: 240, h: 160 },
+        logo_left_url: { w: 140, h: 72 },
+        logo_right_url: { w: 140, h: 72 },
+        seal_url: { w: 100, h: 100 }
+    };
     var VAR_LABELS = {
+        certificate_name: mustacheVar('nombre_cert'),
+        code_prefix: mustacheVar('prefijo'),
+        institution: mustacheVar('institución'),
+        partner_organization: mustacheVar('partner'),
+        rector_name: mustacheVar('rector'),
+        academic_director_name: mustacheVar('directora'),
+        rector_title: mustacheVar('cargo_rector'),
+        director_title: mustacheVar('cargo_directora'),
+        duration_hours: mustacheVar('duración_h'),
+        start_date: mustacheVar('fecha_inicio'),
+        end_date: mustacheVar('fecha_fin'),
+        event_dates: mustacheVar('fechas'),
+        membership_plan_required: mustacheVar('plan_req'),
+        background_url: '[Fondo]',
+        logo_left_url: '[Logo izq.]',
+        logo_right_url: '[Logo der.]',
+        seal_url: '[Sello]',
         participant_name: mustacheVar('nombre'),
         document_id: mustacheVar('documento'),
         program_name: mustacheVar('programa'),
         body_text: mustacheVar('participación'),
-        event_dates: mustacheVar('fechas'),
         hours_line: mustacheVar('horas_texto'),
         hours: mustacheVar('horas'),
         issue_date_legal: mustacheVar('fecha_legal'),
         issue_date: mustacheVar('fecha'),
         certificate_code: mustacheVar('código'),
         verification_url: mustacheVar('url'),
-        institution: mustacheVar('institución')
+        membership_type: mustacheVar('membresía'),
+        membership_start: mustacheVar('mem_inicio'),
+        membership_end: mustacheVar('mem_fin'),
+        membership_period: mustacheVar('mem_vigencia')
     };
 
     function showAlert(msg, type) {
@@ -262,9 +315,14 @@
         return obj && (obj.dataType === 'variable' || obj.type === 'textbox' || obj.type === 'text');
     }
 
+    function isImageVariable(name) {
+        return IMAGE_VARIABLES.indexOf(name) >= 0;
+    }
+
     function objectTypeLabel(obj) {
         if (!obj) return '—';
         if (obj.dataType === 'variable') return 'Variable';
+        if (obj.dataType === 'variable_image') return 'Variable imagen';
         if (obj.dataType === 'qr') return 'QR';
         if (obj.dataType === 'border') return 'Borde';
         if (obj.type === 'image') return 'Imagen';
@@ -275,6 +333,7 @@
     function objectContentLabel(obj) {
         if (!obj) return '—';
         if (obj.dataType === 'variable') return mustacheVar(obj.dataVariable || '');
+        if (obj.dataType === 'variable_image') return (VAR_LABELS[obj.dataVariable] || obj.dataVariable || 'Imagen');
         if (obj.dataType === 'qr') return 'QR verificación';
         if (obj.type === 'textbox' || obj.type === 'text') return (obj.text || '').slice(0, 60);
         if (obj.type === 'image') return 'Imagen';
@@ -308,7 +367,11 @@
         imgBlock.classList.add('d-none');
         qrBlock.classList.add('d-none');
 
-        if (isTextLikeObject(obj)) {
+        if (obj.dataType === 'variable_image' || (obj.type === 'image' && obj.dataSrc)) {
+            imgBlock.classList.remove('d-none');
+            document.getElementById('propImgWidth').value = Math.round(obj.getScaledWidth ? obj.getScaledWidth() : (obj.width || 100));
+            document.getElementById('propImgHeight').value = Math.round(obj.getScaledHeight ? obj.getScaledHeight() : (obj.height || 100));
+        } else if (isTextLikeObject(obj)) {
             textBlock.classList.remove('d-none');
             document.getElementById('propFontFamily').value = obj.fontFamily || 'Georgia';
             document.getElementById('propFontSize').value = obj.fontSize || 16;
@@ -320,10 +383,6 @@
             document.querySelectorAll('.prop-align').forEach(function (btn) {
                 btn.classList.toggle('active', btn.getAttribute('data-align') === (obj.textAlign || 'left'));
             });
-        } else if (obj.type === 'image' && obj.dataSrc) {
-            imgBlock.classList.remove('d-none');
-            document.getElementById('propImgWidth').value = Math.round(obj.getScaledWidth ? obj.getScaledWidth() : (obj.width || 100));
-            document.getElementById('propImgHeight').value = Math.round(obj.getScaledHeight ? obj.getScaledHeight() : (obj.height || 100));
         } else if (obj.dataType === 'qr') {
             qrBlock.classList.remove('d-none');
             document.getElementById('propQrSize').value = obj.dataSize || obj.width || 120;
@@ -362,6 +421,10 @@
             var baseW = obj.width || 1;
             var baseH = obj.height || 1;
             obj.set({ scaleX: iw / baseW, scaleY: ih / baseH });
+        } else if (obj.dataType === 'variable_image') {
+            var viw = parseInt(document.getElementById('propImgWidth').value, 10) || 100;
+            var vih = parseInt(document.getElementById('propImgHeight').value, 10) || 80;
+            obj.set({ width: viw, height: vih, scaleX: 1, scaleY: 1 });
         } else if (obj.dataType === 'qr') {
             var qs = parseInt(document.getElementById('propQrSize').value, 10) || 120;
             obj.dataSize = qs;
@@ -587,7 +650,25 @@
 
     function addVariable(name) {
         if (!canvas) { showAlert('El lienzo no está listo.', 'warning'); return; }
-        if (!name) { showAlert('Elegí una variable en el desplegable (Programa, Horas, etc.) y después tocá "Añadir variable".', 'warning'); return; }
+        if (!name) { showAlert('Elegí una variable en el desplegable y después tocá "Añadir variable".', 'warning'); return; }
+        if (isImageVariable(name)) {
+            var sz = IMAGE_VARIABLE_SIZES[name] || { w: 120, h: 80 };
+            var rect = new fabric.Rect({
+                left: 100,
+                top: 100,
+                width: sz.w,
+                height: sz.h,
+                fill: '#ececec',
+                stroke: '#888888',
+                strokeWidth: 1
+            });
+            rect.dataType = 'variable_image';
+            rect.dataVariable = name;
+            canvas.add(rect);
+            canvas.setActiveObject(rect);
+            canvas.renderAll();
+            return;
+        }
         const label = VAR_LABELS[name] || mustacheVar(name);
         var defSize = VAR_DEFAULT_SIZES[name] || 16;
         const text = new fabric.Textbox(label, { left: 200, top: 300, width: 400, fontSize: defSize, fontFamily: 'Georgia', fill: '#000000', textAlign: 'center', lineHeight: 1.2, textBaseline: 'alphabetic' });
@@ -718,6 +799,19 @@
                 if (obj.dataPrefix) ve.prefix = obj.dataPrefix;
                 if (obj.dataSuffix) ve.suffix = obj.dataSuffix;
                 elements.push(ve);
+            } else if (obj.dataType === 'variable_image') {
+                const sw = Math.max(1, Math.round(obj.width * (obj.scaleX || 1)));
+                const sh = Math.max(1, Math.round(obj.height * (obj.scaleY || 1)));
+                elements.push({
+                    id: 'varimg_' + i,
+                    type: 'variable_image',
+                    name: obj.dataVariable,
+                    x: left,
+                    y: top,
+                    width: sw,
+                    height: sh,
+                    locked_position: !!obj.dataLockedPosition
+                });
             } else if (obj.dataType === 'qr') {
                 elements.push({ id: 'qr_' + i, type: 'qr', variable: 'verification_url', x: left, y: top, size: obj.dataSize || obj.width || 120, locked_position: locked });
             } else if (obj.type === 'textbox' || obj.type === 'text') {
@@ -758,6 +852,20 @@
             t.dataDecoration = el.text_decoration;
             applyLockToObject(t, el.locked_position);
             canvas.add(t);
+        } else if (el.type === 'variable_image') {
+            const r = new fabric.Rect({
+                left: el.x,
+                top: el.y,
+                width: el.width || 120,
+                height: el.height || 80,
+                fill: '#ececec',
+                stroke: '#888888',
+                strokeWidth: 1
+            });
+            r.dataType = 'variable_image';
+            r.dataVariable = el.name;
+            applyLockToObject(r, el.locked_position);
+            canvas.add(r);
         } else if (el.type === 'image' && el.src) {
             fabric.Image.fromURL(el.src, function(img) {
                 const natW = img.width || 100;

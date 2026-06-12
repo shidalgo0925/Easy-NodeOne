@@ -336,6 +336,7 @@ def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_ur
         membership_end = membership_end.strftime('%Y-%m-%d')
     sample_data = {
         'participant_name': full_name,
+        'document_id': getattr(user, 'document_id', None) or getattr(user, 'cedula', None) or '',
         'program_name': event_name,
         'hours': cert_event.duration_hours or '',
         'issue_date': date_str,
@@ -491,15 +492,21 @@ def _get_certificate_html(event_like, sample_data, verification_url=None, use_fi
     if template_obj and json_layout:
         try:
             from certificate_template_routes import render_html_from_json_layout
-            data = {
-                'participant_name': full_name,
-                'program_name': event_name,
-                'hours': sample_data.get('hours', '') or getattr(event_like, 'duration_hours', ''),
-                'issue_date': date_str,
-                'certificate_code': certificate_code,
-                'verification_url': verify_url,
-                'institution': sample_data.get('institution', '') or getattr(event_like, 'institution', ''),
-            }
+            from nodeone.services.certificate_template_data import build_certificate_template_data
+
+            data = build_certificate_template_data(
+                event_like,
+                participant_name=full_name,
+                document_id=sample_data.get('document_id', ''),
+                program_name=event_name,
+                certificate_code=certificate_code,
+                verification_url=verify_url,
+                issue_date=date_str,
+                membership_type=sample_data.get('membership_type', ''),
+                membership_start=sample_data.get('membership_start', ''),
+                membership_end=sample_data.get('membership_end', ''),
+                body_text=sample_data.get('body_text', ''),
+            )
             upload_dir = _certificates_upload_dir()
             html = render_html_from_json_layout(template_obj, data, base, qr_b64, upload_dir, use_file_urls=use_file_urls)
             if html:
@@ -969,6 +976,7 @@ def admin_certificate_event_preview():
             id=ev.id,
             organization_id=getattr(ev, 'organization_id', None) or 1,
             name=data.get('name', ev.name),
+            code_prefix=data.get('code_prefix', ev.code_prefix),
             template_id=_parse_template_id(data.get('template_id')) if 'template_id' in data else getattr(ev, 'template_id', None),
             institution=data.get('institution', ev.institution),
             partner_organization=data.get('partner_organization', getattr(ev, 'partner_organization', None)),
@@ -980,12 +988,16 @@ def admin_certificate_event_preview():
             background_url=data.get('background_url', getattr(ev, 'background_url', None)),
             template_html=data.get('template_html', ev.template_html),
             duration_hours=float(data['duration_hours']) if data.get('duration_hours') not in (None, '') else ev.duration_hours,
+            start_date=data.get('start_date') or ev.start_date,
+            end_date=data.get('end_date') or ev.end_date,
+            membership_required_id=data.get('membership_required_id', ev.membership_required_id),
         )
     else:
         event_like = SimpleNamespace(
             id=None,
             organization_id=_cert_admin_org_id(),
             name=data.get('name', 'Vista previa'),
+            code_prefix=data.get('code_prefix') or '',
             template_id=_parse_template_id(data.get('template_id')),
             institution=data.get('institution') or '',
             partner_organization=data.get('partner_organization') or '',
@@ -997,16 +1009,23 @@ def admin_certificate_event_preview():
             background_url=data.get('background_url') or '',
             template_html=data.get('template_html') or '',
             duration_hours=float(data['duration_hours']) if data.get('duration_hours') not in (None, '') else None,
+            start_date=data.get('start_date'),
+            end_date=data.get('end_date'),
+            membership_required_id=data.get('membership_required_id'),
         )
-    sample_data = {
-        'participant_name': 'Nombre de Ejemplo',
-        'program_name': getattr(event_like, 'name', 'Certificado'),
-        'hours': getattr(event_like, 'duration_hours', '') or '',
-        'issue_date': datetime.utcnow().strftime('%Y-%m-%d'),
-        'certificate_code': 'PREVIEW-0000',
-        'verification_url': _get_base_url() + '/verify/PREVIEW-0000',
-        'institution': getattr(event_like, 'institution', '') or '',
-    }
+    from nodeone.services.certificate_template_data import build_certificate_template_data
+
+    sample_data = build_certificate_template_data(
+        event_like,
+        participant_name='Nombre de Ejemplo',
+        document_id='8-888-8888',
+        program_name=getattr(event_like, 'name', 'Certificado'),
+        certificate_code='PREVIEW-0000',
+        verification_url=_get_base_url() + '/verify/PREVIEW-0000',
+        membership_type='deluxe',
+        membership_start='2025-01-01',
+        membership_end='2026-01-01',
+    )
     html = _get_certificate_html(event_like, sample_data)
     if not html:
         return jsonify({'error': 'No se pudo generar la vista previa'}), 500

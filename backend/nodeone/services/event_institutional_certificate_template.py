@@ -166,19 +166,37 @@ def build_visual_certificate_data(
     issue_city = (layout.get('issue_city') or 'Panamá').strip()
     url_short = verify_url if len(verify_url) <= 52 else verify_url[:49] + '...'
 
+    def _fmt_d(d):
+        if d and hasattr(d, 'strftime'):
+            return d.strftime('%d/%m/%Y')
+        return ''
+
     return {
         'participant_name': (display_name or '—').upper(),
         'document_id': doc,
         'program_name': f'"{program.upper()}"',
+        'certificate_name': program,
         'body_text': body,
         'event_dates': date_range,
+        'start_date': _fmt_d(start),
+        'end_date': _fmt_d(end),
         'hours': str(hours) if hours is not None else '',
         'hours_line': hours_line,
+        'duration_hours': str(hours) if hours is not None else '',
         'issue_date': issued_at.strftime('%d/%m/%Y'),
         'issue_date_legal': format_issue_date_legal(issued_at, issue_city),
         'certificate_code': cert_number,
         'verification_url': url_short,
         'institution': (layout.get('header_text') or '').strip(),
+        'partner_organization': (layout.get('signatory_right_org') or '').strip(),
+        'rector_name': (layout.get('signatory_left_name') or '').strip(),
+        'academic_director_name': (layout.get('signatory_right_name') or '').strip(),
+        'rector_title': (layout.get('signatory_left_role') or 'Rector').strip(),
+        'director_title': (layout.get('signatory_right_role') or 'Directora Académica').strip(),
+        'logo_left_url': (layout.get('logo_left_url') or '').strip(),
+        'logo_right_url': (layout.get('logo_right_url') or '').strip(),
+        'seal_url': (layout.get('seal_url') or '').strip(),
+        'background_url': (layout.get('background_url') or '').strip(),
     }
 
 

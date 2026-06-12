@@ -2016,6 +2016,54 @@ html[data-theme="auto"] .eno-settings-accordion .accordion-button:not(.collapsed
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* Flash auto-dismiss: línea de progreso 30s en la base del banner */
+.alert.flash-auto-dismiss {
+    position: relative;
+    overflow: hidden;
+    padding-bottom: calc(0.75rem + 3px);
+}
+
+.flash-auto-dismiss__content {
+    padding-right: 1.5rem;
+}
+
+.flash-auto-dismiss__progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 100%;
+    background: currentColor;
+    opacity: 0.45;
+    transform-origin: left center;
+    pointer-events: none;
+    animation: flash-auto-dismiss-shrink linear forwards;
+    animation-duration: var(--flash-dismiss-ms, 10s);
+}
+
+@keyframes flash-auto-dismiss-shrink {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
+}
+
+.alert-success.flash-auto-dismiss .flash-auto-dismiss__progress {
+    opacity: 0.55;
+}
+
+.alert-danger.flash-auto-dismiss .flash-auto-dismiss__progress,
+.alert-warning.flash-auto-dismiss .flash-auto-dismiss__progress {
+    opacity: 0.5;
+}
+
+.alert-info.flash-auto-dismiss .flash-auto-dismiss__progress,
+.alert-primary.flash-auto-dismiss .flash-auto-dismiss__progress {
+    opacity: 0.45;
+}
+
 /* Sidebar Navigation - Legacy (mantener por compatibilidad) */
 .sidebar-container {
     padding-right: 0;

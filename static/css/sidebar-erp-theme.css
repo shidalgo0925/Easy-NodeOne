@@ -285,6 +285,12 @@ aside.left-panel.sidebar-erp .sidebar-nav-member--services .menu-icon {
     text-shadow: 0 1px 1px rgba(15, 118, 110, 0.45);
 }
 
+aside.left-panel.sidebar-erp .sidebar-nav-member--tienda .menu-icon {
+    background: linear-gradient(145deg, #fde68a 0%, #fbbf24 38%, #f97316 72%, #ea580c 100%);
+    color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(154, 52, 18, 0.45);
+}
+
 aside.left-panel.sidebar-erp .sidebar-nav-member--explore .menu-icon {
     background: linear-gradient(145deg, #93c5fd 0%, #3b82f6 40%, #1d4ed8 85%, #1e3a8a 100%);
     color: #ffffff !important;

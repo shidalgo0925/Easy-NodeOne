@@ -31,6 +31,7 @@ def list():
         user_membership_type=data['user_membership_type'],
         membership_type=data['membership_type'],
         plan_slugs_ordered=data['plan_slugs_ordered'],
+        store_filtered_for_user=data.get('store_filtered_for_user', False),
     )
 
 

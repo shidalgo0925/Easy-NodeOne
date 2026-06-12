@@ -1,4 +1,4 @@
-"""Configuración cargada desde el entorno (.env vía python-dotenv en wsgi / bootstrap)."""
+"""Configuración desde entorno. BD operativa: PostgreSQL (DATABASE_URL en /opt/easynodeone/<silo>/.env)."""
 
 import os
 from pathlib import Path

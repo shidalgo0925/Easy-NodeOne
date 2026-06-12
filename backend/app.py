@@ -175,6 +175,8 @@ if _db_uri:
         _db_uri = _db_uri.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = _db_uri
 else:
+    # Silos dev/staging/prod usan PostgreSQL vía DATABASE_URL en /opt/easynodeone/<silo>/.env (systemd).
+    # SQLite solo si no hay URL — desarrollo local aislado; no usar en servidores.
     db_path = os.path.join(_instance_dir, 'NodeOne.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -3327,6 +3329,13 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_contacts_schema: {e}')
+        try:
+            from nodeone.services.academic_schema import ensure_academic_schema
+
+            ensure_academic_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_academic_schema: {e}')
         # WIP comercial (tenant_crm_contact): solo si se pide explícitamente; evita abortar la sesión en Fase 1 Contactos.
         if os.environ.get('NODEONE_COMMERCIAL_PARTNERS_SCHEMA', '').strip().lower() in ('1', 'true', 'yes'):
             try:

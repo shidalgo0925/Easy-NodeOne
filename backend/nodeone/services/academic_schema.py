@@ -20,6 +20,7 @@ def ensure_academic_schema(db, engine, printfn=None) -> None:
             "ALTER TABLE students ADD COLUMN campus VARCHAR(120)",
             "ALTER TABLE students ADD COLUMN cohort_year INTEGER",
             "ALTER TABLE students ADD COLUMN institutional_email VARCHAR(255)",
+            "ALTER TABLE students ADD COLUMN contact_id INTEGER",
         ):
             col = col_sql.split('ADD COLUMN ')[1].split()[0]
             if col not in st_cols:
@@ -32,6 +33,23 @@ def ensure_academic_schema(db, engine, printfn=None) -> None:
                     db.session.rollback()
                     raise
         insp = inspect(engine)
+
+    if 'enrollments' in insp.get_table_names():
+        encols = {c['name'] for c in insp.get_columns('enrollments')}
+        for col_sql in (
+            "ALTER TABLE enrollments ADD COLUMN contact_id INTEGER",
+            "ALTER TABLE enrollments ADD COLUMN billing_contact_id INTEGER",
+        ):
+            col = col_sql.split('ADD COLUMN ')[1].split()[0]
+            if col not in encols:
+                try:
+                    db.session.execute(text(col_sql))
+                    db.session.commit()
+                    if printfn:
+                        printfn('+ enrollments.' + col)
+                except Exception:
+                    db.session.rollback()
+                    raise
 
     if 'invoices' not in insp.get_table_names():
         return

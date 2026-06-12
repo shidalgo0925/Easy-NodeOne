@@ -14,6 +14,8 @@ os.environ.setdefault('NODEONE_ROOT', str(ROOT))
 
 from dotenv import load_dotenv
 
+# Silo: /opt/easynodeone/dev/.env (DATABASE_URL PG). app/.env es opcional y va después.
+load_dotenv(ROOT.parent / '.env')
 load_dotenv(ROOT / '.env')
 
 BACKEND = ROOT / 'backend'

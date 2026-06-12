@@ -20,7 +20,7 @@ activa protocolo
 
 Cuando uses esta instrucción, el asistente:
 
-1. ✅ **Lee el protocolo** (`.ai-protocol.md`)
+1. ✅ **Lee las reglas** ([`AGENTS.md`](../AGENTS.md) — punto de entrada único; detalle en `.ai-protocol.md`)
 2. ✅ **Lee el resumen funcional** (`RESUMEN_FUNCIONAL.md`)
 3. ✅ **Entiende las reglas de trabajo**:
    - Solo hacer lo que indiques

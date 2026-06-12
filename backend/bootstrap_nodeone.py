@@ -16,7 +16,10 @@ if __name__ == '__main__':
     try:
         from dotenv import load_dotenv
 
-        load_dotenv(Path(here).resolve().parent / '.env')
+        app_root = Path(here).resolve().parent
+        # systemd usa /opt/easynodeone/dev/.env (DATABASE_URL PG); app/.env suele no tenerla.
+        load_dotenv(app_root.parent / '.env')
+        load_dotenv(app_root / '.env')
     except ImportError:
         pass
     os.chdir(here)

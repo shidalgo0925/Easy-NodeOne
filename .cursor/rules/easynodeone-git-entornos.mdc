@@ -9,10 +9,12 @@ alwaysApply: true
 
 Resumen mínimo si no puedes abrir el archivo:
 
-- Editar código **solo** en `/opt/easynodeone/dev/app` (rama `develop`).
-- **Prohibido** tocar staging, prod y relatic manualmente; solo `git pull` + despliegue.
-- BD operativa: **PostgreSQL** vía `/opt/easynodeone/<silo>/.env` — no SQLite en servidores.
+- **Modo estricto — solo Dev EN1:** `/opt/easynodeone/dev/app` · rama `develop` · BD `easynodeone_dev` · servicio `easynodeone-dev` · appdev `:9101`. Prohibido staging/prod/relatic salvo GO explícito.
+- Editar código **solo** en Dev EN1.
+- **Prohibido** tocar staging, prod y relatic manualmente; solo `git pull` + despliegue (y solo si el usuario lo pide en ese chat).
+- BD operativa: **PostgreSQL** vía `/opt/easynodeone/dev/.env` — no SQLite en servidores.
 - Sin **GO** del usuario: no cambiar archivos ni commitear.
 - Commit/push/PR solo si el usuario lo pide.
+- **1 chat = 1 tarea:** Plan → Cambios → Review → Commit → Push → cerrar chat → chat nuevo.
 
 Detalle humano: `REGLAS-DE-TRABAJO.md`. Despliegue: `docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`.

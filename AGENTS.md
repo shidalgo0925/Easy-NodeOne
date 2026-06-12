@@ -17,6 +17,25 @@ Detalle operativo humano: [`REGLAS-DE-TRABAJO.md`](REGLAS-DE-TRABAJO.md). Despli
 
 **Prohibido para la IA:** asumir alcance, tocar staging/prod/relatic, crear `.md` no pedidos, commitear por iniciativa propia.
 
+### Ciclo por chat (1 chat = 1 tarea)
+
+Cada conversación cubre **una sola tarea** de punta a punta:
+
+```text
+Plan → Cambios → Review → Commit → Push → Cerrar chat → Chat nuevo
+```
+
+| Fase | IA | Usuario |
+|------|-----|---------|
+| **Plan** | Alcance, archivos, riesgos, criterio de hecho. **Sin editar.** | Describe la tarea (o `??` solo opciones) |
+| **Cambios** | Implementa **solo** lo acordado en el plan | **GO** / «implementa X» |
+| **Review** | Resume diff, riesgos, qué probar | Feedback o OK |
+| **Commit** | `git add` + commit con mensaje claro | «commit» explícito |
+| **Push** | `git push origin develop` | «push» explícito |
+| **Cerrar** | Confirma que la tarea quedó cerrada | Abre **chat nuevo** para la siguiente tarea |
+
+**Reglas del ciclo:** no mezclar tareas en un mismo chat; no pasar a **Cambios** sin plan acordado; al cerrar, working tree limpio o cambios ya commiteados y pusheados.
+
 ---
 
 ## 2. Entornos y Git
@@ -40,6 +59,31 @@ Cada silo: su `.env`, `venv/`, PostgreSQL y unit systemd. **No** sincronizar car
 
 Despliegue fuera de dev: **tag o commit explícito** acordado — nunca «lo último de develop» a ciegas.
 
+### Modo estricto — solo Dev EN1 (obligatorio para IA)
+
+**Dev EN1** es el único entorno de trabajo. Todo lo demás queda fuera de alcance salvo que el usuario lo pida **explícitamente** en ese chat.
+
+| Concepto | Dev EN1 (único permitido) |
+|----------|---------------------------|
+| Silo | `dev` |
+| Código | `/opt/easynodeone/dev/app` |
+| Rama Git | `develop` |
+| `.env` / `DATABASE_URL` | `/opt/easynodeone/dev/.env` → `easynodeone_dev` @ `127.0.0.1:5432` |
+| Servicio systemd | `easynodeone-dev` |
+| URL | `https://appdev.easynodeone.com` |
+| Puerto | `9101` |
+
+**Permitido:** editar código, migrar/bootstrap, reiniciar servicio, probar y commitear **solo** en Dev EN1.
+
+**Prohibido sin GO explícito del usuario:**
+
+- Editar, copiar o ejecutar en `/opt/easynodeone/staging`, `prod` o `relatic`.
+- `git pull`, despliegue, migraciones o `systemctl` en silos que no sean `dev`.
+- DDL o consultas contra BD distinta de `easynodeone_dev`.
+- Asumir despliegue a appprd, staging o relatic al cerrar una tarea.
+
+Si la tarea requiere otro silo, el usuario debe decirlo en el **Plan** de ese chat; si no, la IA se limita a Dev EN1.
+
 ---
 
 ## 3. Base de datos — PostgreSQL (no SQLite)
@@ -59,10 +103,12 @@ Despliegue fuera de dev: **tag o commit explícito** acordado — nunca «lo úl
 ## 4. Checklist antes de actuar (IA)
 
 1. ¿El usuario dio **GO** o pidió explícitamente el cambio?
-2. ¿La edición es solo bajo `/opt/easynodeone/dev/app`?
-3. ¿Migración o bootstrap? → Confirmar `DATABASE_URL` apunta a **PostgreSQL** del silo.
-4. ¿Alcance mínimo? → Un mensaje = un cambio acotado.
-5. ¿Commit/push? → Solo si lo pidió.
+2. ¿Modo estricto? → ¿Todo es **solo Dev EN1** (§2)? Si no, parar y pedir aclaración.
+3. ¿La edición es solo bajo `/opt/easynodeone/dev/app`?
+4. ¿Migración o bootstrap? → Confirmar `DATABASE_URL` apunta a **`easynodeone_dev`** (`/opt/easynodeone/dev/.env`).
+5. ¿Alcance mínimo? → Un mensaje = un cambio acotado; **1 chat = 1 tarea** (ver §1).
+6. ¿Commit/push? → Solo si lo pidió.
+7. ¿Es otra tarea distinta? → Cerrar chat y abrir uno nuevo; no acumular en la misma conversación.
 
 ---
 

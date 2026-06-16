@@ -862,13 +862,15 @@ body.sidebar-collapsed .navbar .navbar-nav li > a:hover .menu-icon {
 
 /* Active state en iconos colapsados */
 body.sidebar-collapsed .navbar .navbar-nav > .active > a,
-body.sidebar-collapsed .navbar .navbar-nav .nav-link.active {
+body.sidebar-collapsed .navbar .navbar-nav .nav-link.active,
+body.sidebar-collapsed .navbar .navbar-nav .nav-group:has(.nav-group-items .nav-link.active) > .nav-group-toggle {
     background: rgba(0, 0, 0, 0.08) !important;
     border-left: 3px solid var(--color-primary) !important;
 }
 
 body.sidebar-collapsed .navbar .navbar-nav > .active > a .menu-icon,
-body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon {
+body.sidebar-collapsed .navbar .navbar-nav .nav-link.active .menu-icon,
+body.sidebar-collapsed .navbar .navbar-nav .nav-group:has(.nav-group-items .nav-link.active) > .nav-group-toggle .menu-icon {
     color: var(--color-primary) !important;
     transform: translate(-50%, -50%);
 }

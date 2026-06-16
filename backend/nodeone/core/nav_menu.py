@@ -1664,8 +1664,6 @@ def visible_sidebar_launcher(
             active_sidebar_area_id
             and any(c['id'] == active_sidebar_area_id for c in children)
         )
-        if not open_group and active_sidebar_area_id is None:
-            open_group = True
         groups.append(
             {
                 'id': grp.id,

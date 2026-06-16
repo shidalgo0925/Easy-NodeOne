@@ -406,6 +406,16 @@ aside.left-panel.sidebar-erp .sidebar-eventos-badge-inner {
 body.sidebar-collapsed aside.left-panel.sidebar-erp {
     background: #0f172a !important;
     min-width: 70px;
+    width: 70px;
+}
+
+body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-org-bar {
+    display: none !important;
+}
+
+body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-nav-launcher-group > .nav-group-toggle.active {
+    background: rgba(56, 189, 248, 0.15) !important;
+    border-left: 3px solid #38bdf8 !important;
 }
 
 body.sidebar-collapsed aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link,
@@ -841,6 +851,13 @@ body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-l
 body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group:not(.show) > ul.nav-group-items {
     display: none !important;
     max-height: 0 !important;
+}
+
+body.sidebar-collapsed:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items,
+body.sidebar-collapsed[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items {
+    display: none !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
 }
 
 /* Pestañas internas que duplican la barra de módulo */

@@ -201,6 +201,8 @@ Registro: `nodeone.core.features.register_ecalendar_blueprint`.
 
 Rollback: desregistrar blueprint (`NODEONE_SKIP_ECALENDAR_BLUEPRINT=1`) o revertir deploy.
 
+**Roadmap V2 (pospuesto):** ver `docs/ECALENDAR_ROADMAP.md`.
+
 ---
 
 ## Fuera de V1

@@ -608,6 +608,10 @@
                 if (expandSidebarBtn) {
                     expandSidebarBtn.style.display = 'none';
                 }
+                if (!isCollapsed) {
+                    restoreNavGroupsFromStorage();
+                    expandNavGroupsWithActiveChild();
+                }
                 updateSidebarTooltipsEnabled();
             }
 
@@ -646,7 +650,8 @@
                 var leftPanel = document.getElementById('left-panel');
                 var expandSidebarBtn = document.getElementById('expandSidebarBtn');
                 if (!leftPanel) return;
-                var isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                var stored = localStorage.getItem('sidebarCollapsed');
+                var isCollapsed = stored !== 'false';
                 if (isCollapsed) {
                     document.body.classList.add('sidebar-collapsed');
                     if (expandSidebarBtn) expandSidebarBtn.style.display = 'none';
@@ -657,6 +662,7 @@
             }
 
             function restoreNavGroupsFromStorage() {
+                if (document.body.classList.contains('sidebar-collapsed')) return;
                 var erpChrome = document.body.getAttribute('data-erp-app-chrome') === '1';
                 document.querySelectorAll('.nav-group').forEach(function (group) {
                     if (erpChrome && !group.classList.contains('sidebar-nav-launcher-group')) {
@@ -672,6 +678,7 @@
 
             /** Abre el grupo que contiene el ítem activo (prioridad sobre storage cerrado). */
             function expandNavGroupsWithActiveChild() {
+                if (document.body.classList.contains('sidebar-collapsed')) return;
                 document.querySelectorAll('.nav-group').forEach(function (group) {
                     if (group.querySelector('.nav-group-items .nav-link.active')) {
                         group.classList.add('show');
@@ -856,7 +863,7 @@
                         }
                         return;
                     }
-                    if (document.body.classList.contains('sidebar-collapsed') && !isLauncherGroup) return;
+                    if (document.body.classList.contains('sidebar-collapsed')) return;
                     group.classList.toggle('show');
                     saveNavGroupsState();
                 }

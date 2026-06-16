@@ -119,10 +119,21 @@ Adicionalmente:
 
 ---
 
-## 6. Referencias rápidas
+## 6. Roadmap — V2 pospuesta
+
+**ECalendar V2** (confirmación por email + lead CRM + evento GCal solo al confirmar) queda **fuera del alcance del cierre V1**.
+
+Planificación y fases: **`docs/ECALENDAR_ROADMAP.md`**
+
+Implementar V2 solo tras **GO explícito** y con V1 operativo en producción.
+
+---
+
+## 7. Referencias rápidas
 
 | Recurso | Ruta |
 |---------|------|
+| **Roadmap V1 / V2** | `docs/ECALENDAR_ROADMAP.md` |
 | Guía admin | `docs/ECALENDAR_ADMIN_GUIDE.md` |
 | QA | `docs/ECALENDAR_QA_CHECKLIST.md` |
 | Instrucción implementación | `docs/INSTRUCCION_ECALENDAR_EN1_APPDEV.md` |

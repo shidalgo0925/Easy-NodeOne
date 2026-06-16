@@ -127,3 +127,57 @@ def create_event(
     if resp.status_code >= 400:
         raise GoogleCalendarError(f'create_event_failed: {resp.text[:200]}', resp.status_code)
     return resp.json()
+
+
+def _calendar_events_url(cfg: ECalendarConfig, suffix: str = '') -> str:
+    from urllib.parse import quote
+
+    cal_id = quote(cfg.google_calendar_id or 'primary', safe='')
+    base = f'{_API_BASE}/calendars/{cal_id}/events'
+    if suffix:
+        return f'{base}/{quote(suffix, safe="")}'
+    return base
+
+
+def list_upcoming_events(
+    cfg: ECalendarConfig,
+    *,
+    time_min: datetime,
+    time_max: datetime,
+    max_results: int = 100,
+) -> list[dict[str, Any]]:
+    """Lista eventos del calendario configurado (singleEvents, ordenados por inicio)."""
+    params = {
+        'timeMin': time_min.isoformat(),
+        'timeMax': time_max.isoformat(),
+        'singleEvents': 'true',
+        'orderBy': 'startTime',
+        'maxResults': str(max(1, min(max_results, 250))),
+    }
+    resp = requests.get(
+        _calendar_events_url(cfg),
+        headers=_headers(cfg),
+        params=params,
+        timeout=30,
+    )
+    if resp.status_code >= 400:
+        raise GoogleCalendarError(f'list_events_failed: {resp.text[:200]}', resp.status_code)
+    data = resp.json()
+    return list(data.get('items') or [])
+
+
+def delete_event(cfg: ECalendarConfig, event_id: str) -> None:
+    """Elimina un evento del calendario configurado."""
+    eid = (event_id or '').strip()
+    if not eid:
+        raise GoogleCalendarError('missing_event_id', 400)
+    resp = requests.delete(
+        _calendar_events_url(cfg, eid),
+        headers=_headers(cfg),
+        params={'sendUpdates': 'all'},
+        timeout=30,
+    )
+    if resp.status_code == 404:
+        raise GoogleCalendarError('event_not_found', 404)
+    if resp.status_code >= 400:
+        raise GoogleCalendarError(f'delete_event_failed: {resp.text[:200]}', resp.status_code)

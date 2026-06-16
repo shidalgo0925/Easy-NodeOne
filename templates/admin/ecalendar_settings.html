@@ -17,6 +17,29 @@
 
     <div id="alert-container"></div>
 
+    {% if appointments_preview is defined and appointments_preview %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h5 class="mb-0"><i class="fas fa-calendar-day me-1"></i> Próximas citas (landing)</h5>
+            <div class="d-flex gap-2 align-items-center">
+                {% if not appointments_preview.error %}
+                <span class="badge bg-primary">{{ appointments_preview.visible_items|length }} reserva(s)</span>
+                {% endif %}
+                <a href="{{ url_for('admin_ecalendar_appointments_page') }}" class="btn btn-sm btn-outline-primary">Gestionar citas</a>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if appointments_preview.error %}
+            <div class="p-3 text-danger small">{{ appointments_preview.error_message }}</div>
+            {% else %}
+            {% with appointments=appointments_preview.visible_items, appointments_error=None, show_actions=false, tbody_id='appointments-preview-body' %}
+            {% include 'admin/partials/ecalendar_appointments_table.html' %}
+            {% endwith %}
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Configuración</h5>
@@ -98,6 +121,9 @@
 
             <div class="d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-primary" id="btn-save"><i class="fas fa-save me-1"></i> Guardar</button>
+                <a href="{{ url_for('admin_ecalendar_appointments_page') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-list me-1"></i> Gestionar citas
+                </a>
                 <button type="button" class="btn btn-outline-secondary" id="btn-test"><i class="fas fa-plug me-1"></i> Probar OAuth</button>
             </div>
         </div>

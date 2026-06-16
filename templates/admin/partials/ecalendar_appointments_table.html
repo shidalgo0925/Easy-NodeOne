@@ -1,0 +1,55 @@
+{# Tabla citas ECalendar — reutilizable en /admin/ecalendar y /admin/ecalendar/citas #}
+<div class="table-responsive">
+    <table class="table table-hover table-sm mb-0 align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Producto</th>
+                <th>Cliente</th>
+                <th>Contacto</th>
+                <th>Título</th>
+                {% if show_actions|default(true) %}
+                <th class="text-end">Acciones</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody id="{{ tbody_id|default('appointments-body') }}">
+            {% set col_count = 7 if show_actions|default(true) else 6 %}
+            {% if appointments_error %}
+            <tr><td colspan="{{ col_count }}" class="text-center text-muted py-4">—</td></tr>
+            {% elif appointments %}
+            {% for a in appointments %}
+            <tr data-event-id="{{ a.event_id }}">
+                <td>{{ a.display_date or '—' }}</td>
+                <td>{{ a.display_time or '—' }}</td>
+                <td>{{ a.product or '—' }}</td>
+                <td>
+                    {{ a.client_name or '—' }}
+                    {% if a.company %}<div class="small text-muted">{{ a.company }}</div>{% endif %}
+                </td>
+                <td class="small">
+                    {% if a.email %}<a href="mailto:{{ a.email }}">{{ a.email }}</a>{% endif %}
+                    {% if a.email and a.phone %}<br>{% endif %}
+                    {% if a.phone %}{{ a.phone }}{% endif %}
+                    {% if not a.email and not a.phone %}—{% endif %}
+                </td>
+                <td class="small">{{ a.title }}</td>
+                {% if show_actions|default(true) %}
+                <td class="text-end text-nowrap">
+                    {% if a.google_event_link %}
+                    <a href="{{ a.google_event_link }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Abrir en Google Calendar"><i class="fas fa-external-link-alt"></i></a>
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-cancel" data-event-id="{{ a.event_id }}" data-title="{{ a.title }}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="{{ col_count }}" class="text-center text-muted py-4">No hay citas próximas{% if bookings_only|default(true) %} de la landing{% endif %}.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

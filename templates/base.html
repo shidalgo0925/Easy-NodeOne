@@ -311,6 +311,7 @@
                             {% endif %}
                             {% if has_view_endpoint('admin_ecalendar_settings_page') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_settings_page') }}"><i class="fas fa-calendar-check me-2"></i> Agenda ECalendar</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_appointments_page') }}"><i class="fas fa-list me-2"></i> Gestionar citas ECalendar</a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
                             {% endif %}

@@ -9,6 +9,14 @@ from flask import Blueprint, jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from nodeone.core.db import db
+from nodeone.modules.ecalendar.services.appointments_admin import (
+    cancel_admin_appointment,
+    error_http_status,
+    error_message,
+    load_dev_appointments_config,
+    parse_bookings_only_param,
+    query_dev_appointments,
+)
 from nodeone.modules.ecalendar.services.config import load_ecalendar_config
 from nodeone.modules.ecalendar.services.google_calendar import GoogleCalendarError, _access_token
 from nodeone.modules.ecalendar.services.settings_store import ensure_ecalendar_settings_table
@@ -40,6 +48,22 @@ def _admin_org_id() -> int:
     return int(M._catalog_org_for_admin_catalog_routes())
 
 
+def _appointments_bookings_only() -> bool:
+    return parse_bookings_only_param(request.args.get('bookings_only'))
+
+
+def _json_appointment_error(view, *, status: int | None = None):
+    code = view.error or 'google_api_error'
+    return jsonify({
+        'success': False,
+        'error': code,
+        'message': error_message(code),
+        'appointments': [],
+        'organization_id': view.org_id,
+        'organization_name': view.org_name,
+    }), status or error_http_status(code)
+
+
 def register_ecalendar_admin_routes(app):
     @app.route('/admin/ecalendar')
     @_admin_required_lazy
@@ -52,7 +76,29 @@ def register_ecalendar_admin_routes(app):
             db.session.commit()
         except Exception:
             db.session.rollback()
-        return render_template('admin/ecalendar_settings.html', ecalendar_config=row)
+        appointments_view = query_dev_appointments(bookings_only=True)
+        return render_template(
+            'admin/ecalendar_settings.html',
+            ecalendar_config=row,
+            appointments_preview=appointments_view,
+        )
+
+    @app.route('/admin/ecalendar/citas')
+    @_admin_required_lazy
+    def admin_ecalendar_appointments_page():
+        ensure_ecalendar_settings_table()
+        view = query_dev_appointments(bookings_only=_appointments_bookings_only())
+        return render_template(
+            'admin/ecalendar_appointments.html',
+            ecalendar_tenant_name=view.org_name,
+            ecalendar_tenant_id=view.org_id,
+            appointments=view.visible_items,
+            appointments_total=view.total_events,
+            appointments_bookings=view.bookings_count,
+            appointments_error=view.error,
+            appointments_error_message=view.error_message,
+            bookings_only=view.bookings_only,
+        )
 
     if 'ecalendar_admin' not in app.blueprints:
         app.register_blueprint(ecalendar_admin_bp)
@@ -129,3 +175,36 @@ def api_ecalendar_test():
         return jsonify({'success': True, 'message': 'Conexión OAuth OK.'})
     except GoogleCalendarError as ex:
         return jsonify({'success': False, 'error': str(ex)}), 200
+
+
+@ecalendar_admin_bp.route('/api/admin/ecalendar/appointments', methods=['GET'])
+@_admin_required_lazy
+def api_ecalendar_appointments_list():
+    view = query_dev_appointments(bookings_only=_appointments_bookings_only())
+    if view.error:
+        return _json_appointment_error(view)
+    return jsonify({
+        'success': True,
+        'appointments': view.visible_items,
+        'count': len(view.visible_items),
+        'total_events': view.total_events,
+        'bookings_count': view.bookings_count,
+        'bookings_only': view.bookings_only,
+        'organization_id': view.org_id,
+        'organization_name': view.org_name,
+        'calendar_id': view.cfg.google_calendar_id,
+    })
+
+
+@ecalendar_admin_bp.route('/api/admin/ecalendar/appointments/<path:event_id>', methods=['DELETE'])
+@_admin_required_lazy
+def api_ecalendar_appointments_delete(event_id):
+    cfg, _org_id, _org_name = load_dev_appointments_config()
+    err = cancel_admin_appointment(cfg, event_id)
+    if err:
+        return jsonify({
+            'success': False,
+            'error': err,
+            'message': error_message(err),
+        }), error_http_status(err)
+    return jsonify({'success': True, 'message': 'Cita eliminada de Google Calendar.'})

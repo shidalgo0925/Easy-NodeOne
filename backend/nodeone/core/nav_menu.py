@@ -79,6 +79,8 @@ _CONFIG_EPS = (
     'admin_email',
     'media_admin.admin_media',
     'admin_ai',
+    'admin_ecalendar_settings_page',
+    'admin_ecalendar_appointments_page',
     'admin_product_guide',
     'admin_appointments.admin_appointments_dashboard',
     'admin_appointments.create_appointment_type',
@@ -639,9 +641,15 @@ def _v_comunicacion(ctx: NavContext) -> bool:
 
 
 def _v_certificados(ctx: NavContext) -> bool:
-    """App Certificados: solo módulo SaaS ``certificates`` (sin académico)."""
+    """App Certificados (admin): módulo ``certificates``."""
     return ctx.saas_module_enabled('certificates') and ctx.has_view_endpoint(
         'admin_certificate_events'
+    )
+
+
+def _v_portal_mis_certificados(ctx: NavContext) -> bool:
+    return (ctx.saas_module_enabled('events') or ctx.saas_module_enabled('certificates')) and ctx.has_view_endpoint(
+        'certificates_page.certificates_page'
     )
 
 
@@ -748,6 +756,14 @@ _CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
         active_endpoints=('admin_email',),
     ),
     NavAreaItem(
+        'ecalendar',
+        'Agenda ECalendar',
+        'fas fa-calendar-check',
+        'admin_ecalendar_settings_page',
+        visible=lambda c: _v_config(c) and c.has_view_endpoint('admin_ecalendar_settings_page'),
+        active_endpoints=('admin_ecalendar_settings_page', 'admin_ecalendar_appointments_page'),
+    ),
+    NavAreaItem(
         'media',
         'Multimedia',
         'fas fa-photo-video',
@@ -811,6 +827,7 @@ _CERTIFICADOS_ZONE_ENDPOINTS: tuple[str, ...] = (
     'admin_certificate_events',
     'admin_certificate_templates',
     'admin_certificate_template_editor',
+    'admin_certificate_institutional_editor',
 )
 
 # Launcher lateral: enlaces fijos (Dashboard va en base.html) y grupos colapsables.
@@ -838,7 +855,7 @@ _SIDEBAR_LAUNCHER_GROUPS: tuple[NavLauncherGroup, ...] = (
         'operaciones',
         'Operaciones',
         'fas fa-cogs',
-        ('agenda', 'educacion', 'certificados', 'contador'),
+        ('agenda', 'educacion', 'certificados', 'mis_certificados', 'contador'),
     ),
     NavLauncherGroup('finanzas', 'Finanzas', 'fas fa-file-invoice-dollar', ('finanzas',)),
     NavLauncherGroup('inteligencia', 'Inteligencia', 'fas fa-chart-line', ('analitica',)),
@@ -1106,7 +1123,6 @@ APP_AREAS: tuple[NavArea, ...] = (
         zone_endpoints=_CERTIFICADOS_ZONE_ENDPOINTS,
         zone_path_prefixes=('/admin/certificate',),
         zone_blueprints=(
-            'certificates_page',
             'certificates_builder',
             'certificates_api',
             'certificates_public',
@@ -1128,6 +1144,26 @@ APP_AREAS: tuple[NavArea, ...] = (
                     'admin_certificate_templates',
                     'admin_certificate_template_editor',
                 ),
+            ),
+        ),
+    ),
+    NavArea(
+        id='mis_certificados',
+        label='Mis Certificados',
+        icon='fas fa-id-card',
+        visible=_v_portal_mis_certificados,
+        zone_path_prefixes=('/certificates', '/my/certificates'),
+        zone_blueprints=('certificates_page', 'my_event_certificates'),
+        zone_endpoints=('certificates_page.certificates_page',),
+        items=(
+            NavAreaItem(
+                'portal',
+                'Mis Certificados',
+                'fas fa-id-card',
+                'certificates_page.certificates_page',
+                active_endpoints=('certificates_page.certificates_page',),
+                active_blueprints=('my_event_certificates',),
+                active_path_prefixes=('/certificates', '/my/certificates'),
             ),
         ),
     ),
@@ -1629,8 +1665,6 @@ def visible_sidebar_launcher(
             active_sidebar_area_id
             and any(c['id'] == active_sidebar_area_id for c in children)
         )
-        if not open_group and active_sidebar_area_id is None:
-            open_group = True
         groups.append(
             {
                 'id': grp.id,

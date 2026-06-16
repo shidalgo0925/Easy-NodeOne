@@ -1,0 +1,109 @@
+/* Portal /membership — una sola hoja de estilos (sin duplicar en custom.css) */
+.membership-page {
+    --membership-gap: 0.5rem;
+}
+
+.membership-page__title {
+    font-size: 1.1rem;
+    margin-bottom: 0.15rem;
+}
+
+.membership-page__lead {
+    line-height: 1.3;
+}
+
+.membership-page__plan-cta .btn {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+    white-space: nowrap;
+}
+
+.membership-page__status {
+    margin-bottom: var(--membership-gap);
+}
+
+.membership-page__status .card-body {
+    padding: 0.45rem 0.65rem;
+}
+
+.membership-page__meta {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.membership-page__meta--email {
+    max-width: 100%;
+}
+
+@media (min-width: 768px) {
+    .membership-page__meta--email {
+        max-width: 16rem;
+    }
+}
+
+.membership-page__table {
+    font-size: 0.85rem;
+}
+
+.membership-page__table thead th,
+.membership-page__table tbody td {
+    padding: 0.35rem 0.3rem;
+    vertical-align: middle;
+}
+
+.membership-page__service-col {
+    width: 28%;
+    min-width: 10rem;
+}
+
+.membership-page__plan-col {
+    min-width: 6.25rem;
+}
+
+.membership-page__plan-col--current {
+    background-color: rgba(13, 110, 253, 0.07) !important;
+}
+
+.membership-page__plan-head {
+    padding: 0.35rem 0.3rem;
+    border-radius: 6px;
+    line-height: 1.25;
+}
+
+.membership-page__plan-name {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.membership-page__plan-price {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-top: 0.1rem;
+}
+
+.membership-page__plan-badge,
+.membership-page__plan-current {
+    display: block;
+    font-size: 0.6rem;
+    margin-top: 0.1rem;
+    opacity: 0.9;
+}
+
+.membership-page__plan-current {
+    font-weight: 700;
+}
+
+.membership-page__footnote {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.5rem;
+}
+
+.membership-page-toast {
+    top: 80px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 280px;
+}

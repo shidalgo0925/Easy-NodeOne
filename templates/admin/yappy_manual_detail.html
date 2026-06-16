@@ -51,7 +51,21 @@
 
     {% if payment.status not in ('pending_admin_review', 'pending_validation', 'manual_review') %}
     <div class="alert alert-secondary">Este pago ya no admite validación desde esta pantalla (estado: {{ yappy_status_label(payment.status) }}).</div>
+    {% if payment.status == 'paid' %}
+    <div class="mb-3">
+        <button type="button" class="btn btn-outline-primary btn-sm" id="ym-fulfill-events">
+            <i class="fas fa-user-check"></i> Sincronizar inscripción y participante del evento
+        </button>
+        <div id="ym-fulfill-msg" class="mt-2"></div>
+    </div>
+    {% endif %}
     {% else %}
+    {% if duplicate_warning %}
+    <div class="alert alert-warning">
+        <strong>Posible duplicado:</strong> {{ duplicate_warning }}
+        El usuario ya tiene inscripción pagada activa en este evento. No aprobar.
+    </div>
+    {% endif %}
     <div class="card border-primary mb-4">
         <div class="card-header bg-primary text-white">Registrar validación</div>
         <div class="card-body">
@@ -87,6 +101,23 @@
     if (isNaN(n) || n < 0) return null;
     return Math.round(n * 100);
   }
+  var fulfillBtn = document.getElementById('ym-fulfill-events');
+  if (fulfillBtn) {
+    fulfillBtn.addEventListener('click', async function() {
+      fulfillBtn.disabled = true;
+      var box = document.getElementById('ym-fulfill-msg');
+      box.innerHTML = '';
+      try {
+        var r = await fetch('/api/admin/payments/' + paymentId + '/fulfill-events', { method: 'POST' });
+        var data = await r.json();
+        if (!data.success) throw new Error(data.error || 'Error');
+        box.innerHTML = '<div class="alert alert-success">' + (data.message || 'OK') + '</div>';
+      } catch (e) {
+        box.innerHTML = '<div class="alert alert-danger">' + e.message + '</div>';
+        fulfillBtn.disabled = false;
+      }
+    });
+  }
   document.querySelectorAll('[data-decision]').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       const decision = btn.getAttribute('data-decision');
@@ -110,7 +141,11 @@
           body: JSON.stringify({ decision, amount_received_cents: cents, observations })
         });
         const data = await r.json();
-        if (!data.success) throw new Error(data.error || 'Error');
+        if (!data.success) {
+          var err = data.error || 'Error';
+          if (data.duplicate) err = 'Duplicado: ' + err;
+          throw new Error(err);
+        }
         var inner = '<div class="alert alert-success">' + (data.message || 'OK') + '</div>';
         if (data.email_notification_warning) {
           inner += '<div class="alert alert-warning mt-2">' + data.email_notification_warning + '</div>';

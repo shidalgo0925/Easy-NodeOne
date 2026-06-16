@@ -244,15 +244,10 @@ def _next_certificate_code(cert_event):
 
 
 def _qr_base64(verify_url):
-    """Base64 PNG del QR que apunta a verify_url."""
-    try:
-        import qrcode
-        buf = io.BytesIO()
-        qrcode.make(verify_url).save(buf, format='PNG')
-        from base64 import b64encode
-        return b64encode(buf.getvalue()).decode()
-    except Exception:
-        return None
+    """Base64 PNG del QR (delega al renderer institucional compartido)."""
+    from nodeone.services.certificate_institutional_pdf import qr_png_base64
+
+    return qr_png_base64(verify_url)
 
 
 def _background_path_from_url(url):
@@ -272,64 +267,58 @@ def _background_path_from_url(url):
     return None
 
 
-def _render_pdf_reportlab(full_name, event_name, date_emission, certificate_code, verify_url,
-                         qr_base64=None, membership_type=None, membership_start='', membership_end='', background_path=None):
-    """Genera PDF del certificado con ReportLab (fallback cuando WeasyPrint no está disponible)."""
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.utils import ImageReader
-    import base64
-    buf = io.BytesIO()
-    w, h = A4
-    c = canvas.Canvas(buf, pagesize=A4)
-    c.setTitle("Certificado")
-    # Fondo (si hay imagen). ReportLab no soporta SVG; usar PNG/JPG.
-    if background_path and os.path.isfile(background_path):
-        try:
-            ext = os.path.splitext(background_path)[1].lower()
-            if ext == '.svg':
-                logger.warning("Certificado fondo: SVG no soportado en fallback ReportLab, use PNG/JPG")
-            else:
-                c.drawImage(background_path, 0, 0, width=w, height=h, preserveAspectRatio=True, anchor='c')
-        except Exception as e:
-            logger.warning("Certificado fondo ReportLab falló: %s path=%s", e, background_path[:80] if background_path else None)
-    # Marco simple
-    c.setStrokeColorRGB(0.79, 0.64, 0.15)  # dorado
-    c.setLineWidth(2)
-    c.rect(10*mm, 10*mm, w - 20*mm, h - 20*mm)
-    c.setStrokeColorRGB(0.12, 0.23, 0.37)
-    c.setLineWidth(1)
-    c.rect(14*mm, 14*mm, w - 28*mm, h - 28*mm)
-    # Título
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(w/2, h - 45*mm, "Certificado")
-    # Nombre
-    c.setFont("Helvetica-Bold", 18)
-    c.drawCentredString(w/2, h - 65*mm, full_name or "—")
-    # Evento
-    c.setFont("Helvetica", 14)
-    c.drawCentredString(w/2, h - 80*mm, event_name or "—")
-    if membership_type:
-        c.setFont("Helvetica", 11)
-        c.drawCentredString(w/2, h - 92*mm, "Membresía: %s" % (membership_type.upper()))
-        if membership_start or membership_end:
-            c.drawCentredString(w/2, h - 100*mm, "Vigente: %s – %s" % (membership_start, membership_end))
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(w/2, h - 115*mm, "Fecha de emisión: %s  |  Código: %s" % (date_emission, certificate_code))
-    # QR (opcional)
-    if qr_base64:
-        try:
-            qr_data = base64.b64decode(qr_base64)
-            img = ImageReader(io.BytesIO(qr_data))
-            c.drawImage(img, w/2 - 25*mm, h - 165*mm, width=50*mm, height=50*mm)
-        except Exception:
-            pass
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(w/2, h - 172*mm, "Verificar: %s" % (verify_url[:60] + "..." if len(verify_url) > 60 else verify_url))
-    c.save()
-    buf.seek(0)
-    return buf.getvalue()
+def _render_pdf_reportlab(
+    full_name,
+    event_name,
+    date_emission,
+    certificate_code,
+    verify_url,
+    qr_base64=None,
+    membership_type=None,
+    membership_start='',
+    membership_end='',
+    background_path=None,
+    cert_event=None,
+):
+    """Fallback PDF: renderer institucional compartido (mismo motor que eventos)."""
+    from nodeone.services.certificate_institutional_pdf import (
+        build_context_from_membership,
+        render_institutional_pdf,
+    )
+
+    try:
+        issued = datetime.strptime((date_emission or '')[:10], '%Y-%m-%d')
+    except ValueError:
+        issued = datetime.utcnow()
+
+    if cert_event is not None:
+        ctx = build_context_from_membership(
+            cert_event=cert_event,
+            full_name=full_name,
+            program_name=event_name,
+            certificate_code=certificate_code,
+            verify_url=verify_url,
+            issued_at=issued,
+            app_root=os.path.dirname(os.path.dirname(__file__)),
+            membership_type=membership_type or '',
+            membership_start=membership_start or '',
+            membership_end=membership_end or '',
+        )
+    else:
+        from nodeone.services.certificate_institutional_pdf import CertificateRenderContext
+
+        ctx = CertificateRenderContext(
+            participant_name=full_name or '—',
+            document_id='No registrado',
+            program_name=event_name or 'Certificado',
+            certificate_code=certificate_code,
+            verify_url=verify_url,
+            issued_at=issued,
+            qr_base64=qr_base64 or _qr_base64(verify_url),
+            membership_type=membership_type or '',
+            membership_period=f'{membership_start} – {membership_end}'.strip(' –') if (membership_start or membership_end) else '',
+        )
+    return render_institutional_pdf(ctx)
 
 
 def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_url):
@@ -347,6 +336,7 @@ def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_ur
         membership_end = membership_end.strftime('%Y-%m-%d')
     sample_data = {
         'participant_name': full_name,
+        'document_id': getattr(user, 'document_id', None) or getattr(user, 'cedula', None) or '',
         'program_name': event_name,
         'hours': cert_event.duration_hours or '',
         'issue_date': date_str,
@@ -387,6 +377,7 @@ def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_ur
             membership_start=membership_start or '',
             membership_end=membership_end or '',
             background_path=bg_path,
+            cert_event=cert_event,
         )
     except Exception as e3:
         logger.exception("Fallback ReportLab PDF falló: %s", e3)
@@ -501,15 +492,21 @@ def _get_certificate_html(event_like, sample_data, verification_url=None, use_fi
     if template_obj and json_layout:
         try:
             from certificate_template_routes import render_html_from_json_layout
-            data = {
-                'participant_name': full_name,
-                'program_name': event_name,
-                'hours': sample_data.get('hours', '') or getattr(event_like, 'duration_hours', ''),
-                'issue_date': date_str,
-                'certificate_code': certificate_code,
-                'verification_url': verify_url,
-                'institution': sample_data.get('institution', '') or getattr(event_like, 'institution', ''),
-            }
+            from nodeone.services.certificate_template_data import build_certificate_template_data
+
+            data = build_certificate_template_data(
+                event_like,
+                participant_name=full_name,
+                document_id=sample_data.get('document_id', ''),
+                program_name=event_name,
+                certificate_code=certificate_code,
+                verification_url=verify_url,
+                issue_date=date_str,
+                membership_type=sample_data.get('membership_type', ''),
+                membership_start=sample_data.get('membership_start', ''),
+                membership_end=sample_data.get('membership_end', ''),
+                body_text=sample_data.get('body_text', ''),
+            )
             upload_dir = _certificates_upload_dir()
             html = render_html_from_json_layout(template_obj, data, base, qr_b64, upload_dir, use_file_urls=use_file_urls)
             if html:
@@ -671,8 +668,37 @@ def request_certificate(event_id):
 @certificates_page_bp.route('/certificates')
 @login_required
 def certificates_page():
-    """Página frontend: listar certificados disponibles y solicitar/descargar."""
-    return render_template('certificates.html')
+    """Documentos → Certificados: eventos emitidos + membresía (solicitar/descargar)."""
+    from flask_login import current_user
+
+    event_certificates = []
+    events_enabled = False
+    try:
+        from app import has_saas_module_enabled, tenant_data_organization_id
+
+        oid = int(tenant_data_organization_id())
+        events_enabled = bool(has_saas_module_enabled(oid, 'events'))
+    except Exception:
+        events_enabled = False
+
+    if events_enabled:
+        try:
+            from nodeone.modules.events.services.user_certificates import (
+                link_unassigned_participants_for_user,
+                query_user_event_certificates,
+            )
+
+            link_unassigned_participants_for_user(current_user)
+            event_certificates = query_user_event_certificates(current_user)
+        except Exception:
+            event_certificates = []
+
+    return render_template(
+        'certificates.html',
+        event_certificates=event_certificates,
+        events_enabled=events_enabled,
+        verify_endpoint='certificates_public.verify_event_certificate_alias',
+    )
 
 
 def _certificates_pdf_dir():
@@ -772,12 +798,21 @@ def admin_list_certificate_events():
     """Lista todos los certificate_events (admin) con todos los campos."""
     from app import CertificateEvent
 
+    from nodeone.services.event_institutional_certificate_template import (
+        list_event_certificate_formats_for_admin,
+    )
+
     coid = _cert_admin_org_id()
     _seed_org_certificate_events(coid)
     events = CertificateEvent.query.filter_by(organization_id=coid).order_by(
         CertificateEvent.created_at.desc()
     ).all()
-    return jsonify({'items': [_cert_event_to_dict(e) for e in events]})
+    mem_reg = [_cert_event_to_dict(e) for e in events]
+    for row in mem_reg:
+        row['kind'] = 'certificate_event'
+    event_formats = list_event_certificate_formats_for_admin(coid)
+    # Eventos primero: la acción principal es «Editar carátula» (editor visual), no el modal MEM/REG.
+    return jsonify({'items': event_formats + mem_reg})
 
 
 @certificates_api_bp.route('/admin/certificate-events', methods=['POST'])
@@ -941,6 +976,7 @@ def admin_certificate_event_preview():
             id=ev.id,
             organization_id=getattr(ev, 'organization_id', None) or 1,
             name=data.get('name', ev.name),
+            code_prefix=data.get('code_prefix', ev.code_prefix),
             template_id=_parse_template_id(data.get('template_id')) if 'template_id' in data else getattr(ev, 'template_id', None),
             institution=data.get('institution', ev.institution),
             partner_organization=data.get('partner_organization', getattr(ev, 'partner_organization', None)),
@@ -952,12 +988,16 @@ def admin_certificate_event_preview():
             background_url=data.get('background_url', getattr(ev, 'background_url', None)),
             template_html=data.get('template_html', ev.template_html),
             duration_hours=float(data['duration_hours']) if data.get('duration_hours') not in (None, '') else ev.duration_hours,
+            start_date=data.get('start_date') or ev.start_date,
+            end_date=data.get('end_date') or ev.end_date,
+            membership_required_id=data.get('membership_required_id', ev.membership_required_id),
         )
     else:
         event_like = SimpleNamespace(
             id=None,
             organization_id=_cert_admin_org_id(),
             name=data.get('name', 'Vista previa'),
+            code_prefix=data.get('code_prefix') or '',
             template_id=_parse_template_id(data.get('template_id')),
             institution=data.get('institution') or '',
             partner_organization=data.get('partner_organization') or '',
@@ -969,16 +1009,23 @@ def admin_certificate_event_preview():
             background_url=data.get('background_url') or '',
             template_html=data.get('template_html') or '',
             duration_hours=float(data['duration_hours']) if data.get('duration_hours') not in (None, '') else None,
+            start_date=data.get('start_date'),
+            end_date=data.get('end_date'),
+            membership_required_id=data.get('membership_required_id'),
         )
-    sample_data = {
-        'participant_name': 'Nombre de Ejemplo',
-        'program_name': getattr(event_like, 'name', 'Certificado'),
-        'hours': getattr(event_like, 'duration_hours', '') or '',
-        'issue_date': datetime.utcnow().strftime('%Y-%m-%d'),
-        'certificate_code': 'PREVIEW-0000',
-        'verification_url': _get_base_url() + '/verify/PREVIEW-0000',
-        'institution': getattr(event_like, 'institution', '') or '',
-    }
+    from nodeone.services.certificate_template_data import build_certificate_template_data
+
+    sample_data = build_certificate_template_data(
+        event_like,
+        participant_name='Nombre de Ejemplo',
+        document_id='8-888-8888',
+        program_name=getattr(event_like, 'name', 'Certificado'),
+        certificate_code='PREVIEW-0000',
+        verification_url=_get_base_url() + '/verify/PREVIEW-0000',
+        membership_type='deluxe',
+        membership_start='2025-01-01',
+        membership_end='2026-01-01',
+    )
     html = _get_certificate_html(event_like, sample_data)
     if not html:
         return jsonify({'error': 'No se pudo generar la vista previa'}), 500

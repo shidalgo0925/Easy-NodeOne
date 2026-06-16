@@ -473,6 +473,31 @@ def register_public_api_blueprint(app):
         print(f'Warning: No se pudo registrar public_api_bp: {e}')
 
 
+def register_ecalendar_blueprint(app):
+    if os.environ.get('NODEONE_SKIP_ECALENDAR_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.ecalendar.routes import ecalendar_bp
+
+        if 'ecalendar' not in app.blueprints:
+            app.register_blueprint(ecalendar_bp)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar ecalendar_bp: {e}')
+
+
+def register_ecalendar_admin_routes(app):
+    if os.environ.get('NODEONE_SKIP_ECALENDAR_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    if 'admin_ecalendar_settings_page' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.ecalendar.admin_routes import register_ecalendar_admin_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas admin ECalendar: {e}')
+
+
 def register_history_admin_blueprint(app):
     if os.environ.get('NODEONE_SKIP_ADMIN_HISTORY_API_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -756,6 +781,7 @@ def register_events_blueprints(app):
         return
     try:
         from nodeone.modules.events.routes import admin_events_bp, events_api_bp, events_bp
+        from nodeone.modules.events.user_certificates_routes import my_event_certificates_bp
         from saas_features import register_events_saas_guards
 
         if 'events' not in app.blueprints:
@@ -763,6 +789,8 @@ def register_events_blueprints(app):
             app.register_blueprint(events_bp)
             app.register_blueprint(admin_events_bp)
             app.register_blueprint(events_api_bp)
+        if 'my_event_certificates' not in app.blueprints:
+            app.register_blueprint(my_event_certificates_bp)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar los blueprints de eventos: {e}')
 
@@ -997,6 +1025,8 @@ def register_modules(app):
     register_cv_application_routes(app)
     register_public_program_routes(app)
     register_public_api_blueprint(app)
+    register_ecalendar_blueprint(app)
+    register_ecalendar_admin_routes(app)
     register_ai_api_blueprint(app)
     register_admin_email_api_blueprint(app)
     register_media_admin_blueprint(app)

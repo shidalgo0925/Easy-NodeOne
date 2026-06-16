@@ -3,60 +3,135 @@
 {% block title %}Certificados — {{ participant.full_name or participant.first_name }} — {{ event.title }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-            <h1 class="h5 mb-0"><i class="fas fa-award" aria-hidden="true"></i> Certificados del participante</h1>
-            <p class="text-muted small mb-0">{{ event.title }}</p>
-            <p class="mb-0 fw-medium">{{ participant.full_name or ((participant.first_name or '') ~ ' ' ~ (participant.last_name or ''))|trim or ('#' ~ participant.id) }}</p>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm">Participantes</a>
-            <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}" class="btn btn-outline-warning btn-sm">Todos los certificados</a>
-            <a href="{{ url_for('admin_events.edit_event', event_id=event.id, tab='certopts') }}#certificate_feature_card" class="btn btn-outline-dark btn-sm">Editar evento</a>
+{% set display_name = participant.full_name or ((participant.first_name or '') ~ ' ' ~ (participant.last_name or ''))|trim or ('#' ~ participant.id) %}
+<div class="container py-4 admin-participant-cert-page">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start gap-3">
+                <div class="min-w-0">
+                    <nav aria-label="breadcrumb" class="mb-2">
+                        <ol class="breadcrumb breadcrumb-sm mb-0 small">
+                            <li class="breadcrumb-item"><a href="{{ url_for('admin_events.admin_events_index') }}">Eventos</a></li>
+                            <li class="breadcrumb-item"><a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}">Participantes</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Certificados</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h5 mb-1">
+                        <i class="fas fa-award text-warning me-1"></i> Certificados del participante
+                    </h1>
+                    <p class="text-muted mb-0 text-break small">{{ event.title }}</p>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <a href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}" class="btn btn-outline-info btn-sm" title="Participantes">
+                        <i class="fas fa-users"></i>
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}" class="btn btn-outline-warning btn-sm" title="Todos los certificados">
+                        <i class="fas fa-list"></i>
+                    </a>
+                    <a href="{{ url_for('admin_events.admin_event_participant_edit', event_id=event.id, participant_id=participant.id) }}" class="btn btn-outline-primary btn-sm" title="Editar participante">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span>Emitidos para este participante ({{ certificates|length }})</span>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="d-flex flex-column flex-md-row flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="fw-semibold fs-6">{{ display_name }}</div>
+                    {% if participant.email %}<div class="small text-break"><a href="mailto:{{ participant.email }}" class="text-decoration-none">{{ participant.email }}</a></div>{% endif %}
+                    {% if participant.document_id %}<div class="small text-muted mt-1"><i class="fas fa-id-card me-1 opacity-50"></i>{{ participant.document_id }}</div>{% endif %}
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge bg-{% if participant.attendance_status in ('checked_in', 'attended') %}success{% elif participant.attendance_status == 'absent' %}danger{% else %}warning text-dark{% endif %}">
+                        {{ (participant.attendance_status or 'pending')|replace('_', ' ')|title }}
+                    </span>
+                    <span class="badge bg-{% if participant.certificate_status in ('issued', 'generated', 'sent') %}success{% elif participant.certificate_status == 'revoked' %}danger{% else %}secondary{% endif %}">
+                        Cert. {{ (participant.certificate_status or 'pending')|replace('_', ' ')|title }}
+                    </span>
+                    {% if can_generate_cert %}
+                    <form method="post" action="{{ url_for('admin_events.admin_event_participant_generate_certificate', event_id=event.id, participant_id=participant.id) }}" class="mb-0">
+                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                        <button type="submit" class="btn btn-warning btn-sm">
+                            <i class="fas fa-certificate me-1"></i>Generar certificado
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h2 class="h6 mb-0 fw-semibold">
+                <i class="fas fa-file-certificate me-1 text-muted"></i>Emitidos
+                <span class="badge bg-primary ms-1">{{ certificates|length }}</span>
+            </h2>
         </div>
         <div class="card-body p-0">
             {% if certificates %}
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle">
+                <table class="table table-hover align-middle mb-0 admin-participant-cert-table">
                     <thead class="table-light">
                         <tr>
-                            <th>Código</th>
+                            <th class="ps-3">Código</th>
                             <th>Tipo</th>
                             <th>Estado</th>
                             <th>Emisión</th>
-                            <th class="text-end">Acciones</th>
+                            <th class="text-end pe-3 actions-cell">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in certificates %}
-                        <tr>
-                            <td><code>{{ c.certificate_number }}</code></td>
-                            <td>{{ c.certificate_type or '—' }}</td>
-                            <td>
-                                <span class="badge bg-{% if c.status == 'revoked' %}warning text-dark{% else %}success{% endif %}">{{ c.status or '—' }}</span>
+                        <tr class="{% if c.status == 'revoked' %}table-secondary{% endif %}">
+                            <td class="ps-3"><code class="small">{{ c.certificate_number }}</code></td>
+                            <td class="small">
+                                {% if c.certificate_type == 'reviewer' %}Revisor
+                                {% elif c.certificate_type == 'participation' %}Participación
+                                {% else %}{{ c.certificate_type or '—' }}{% endif %}
                             </td>
-                            <td>{{ c.issued_date.strftime('%d/%m/%Y %H:%M') if c.issued_date else '—' }}</td>
-                            <td class="text-end text-nowrap">
-                                {% if c.certificate_url and c.status != 'revoked' %}
-                                <a class="btn btn-sm btn-outline-success" href="{{ url_for('admin_events.admin_event_certificate_download', event_id=event.id, certificate_id=c.id) }}">PDF</a>
-                                {% endif %}
+                            <td>
+                                <span class="badge bg-{% if c.status == 'revoked' %}danger{% else %}success{% endif %}">
+                                    {% if c.status == 'revoked' %}Revocado{% else %}{{ (c.status or 'generado')|replace('_',' ')|title }}{% endif %}
+                                </span>
+                            </td>
+                            <td class="small text-nowrap">{{ c.issued_date.strftime('%d/%m/%Y %H:%M') if c.issued_date else '—' }}</td>
+                            <td class="text-end pe-3 actions-cell">
                                 {% if c.status != 'revoked' %}
-                                <a class="btn btn-sm btn-outline-info" target="_blank" rel="noopener" href="{{ url_for('certificates_public.verify', certificate_code=c.certificate_number) }}">Verificar</a>
-                                {% endif %}
-                                {% if c.status != 'revoked' %}
-                                <form method="post" action="{{ url_for('admin_events.admin_event_certificate_revoke', event_id=event.id, certificate_id=c.id) }}" class="d-inline-block text-start mt-1" style="max-width:14rem;" onsubmit="return confirm('¿Revocar este certificado?');">
-                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                                    <label class="form-label visually-hidden" for="revoke-reason-{{ c.id }}">Motivo</label>
-                                    <textarea class="form-control form-control-sm mb-1" name="reason" id="revoke-reason-{{ c.id }}" rows="2" placeholder="Motivo de revocación (opcional)"></textarea>
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revocar</button>
-                                </form>
+                                <div class="cert-row-actions">
+                                    {% if c.certificate_url %}
+                                    <a class="btn btn-sm btn-outline-success py-0" href="{{ url_for('admin_events.admin_event_certificate_download', event_id=event.id, certificate_id=c.id) }}" title="Descargar PDF"><i class="fas fa-file-pdf"></i></a>
+                                    <a class="btn btn-sm btn-outline-info py-0" target="_blank" rel="noopener" href="{{ url_for(verify_endpoint, certificate_code=c.certificate_number) }}" title="Verificar"><i class="fas fa-shield-alt"></i></a>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger py-0" title="Revocar" data-bs-toggle="modal" data-bs-target="#revokeModal{{ c.id }}"><i class="fas fa-ban"></i></button>
+                                </div>
+                                <div class="modal fade" id="revokeModal{{ c.id }}" tabindex="-1" aria-labelledby="revokeModalLabel{{ c.id }}" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content">
+                                            <form method="post" action="{{ url_for('admin_events.admin_event_certificate_revoke', event_id=event.id, certificate_id=c.id) }}">
+                                                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                <div class="modal-header py-2">
+                                                    <h3 class="modal-title h6" id="revokeModalLabel{{ c.id }}">Revocar certificado</h3>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p class="small mb-2"><code>{{ c.certificate_number }}</code></p>
+                                                    <label class="form-label small" for="revoke-reason-{{ c.id }}">Motivo (opcional)</label>
+                                                    <textarea class="form-control form-control-sm" name="reason" id="revoke-reason-{{ c.id }}" rows="2" placeholder="Ej. error en datos del participante"></textarea>
+                                                </div>
+                                                <div class="modal-footer py-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-sm btn-danger">Revocar</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-muted small">—</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -65,9 +140,36 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-muted p-3 mb-0">Este participante aún no tiene certificados emitidos.</p>
+            <div class="text-center py-5 px-3">
+                <i class="fas fa-award fa-2x text-muted opacity-50 mb-3"></i>
+                <p class="text-muted mb-3">Este participante aún no tiene certificados emitidos.</p>
+                {% if can_generate_cert %}
+                <form method="post" action="{{ url_for('admin_events.admin_event_participant_generate_certificate', event_id=event.id, participant_id=participant.id) }}" class="d-inline">
+                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="fas fa-certificate me-1"></i>Generar certificado
+                    </button>
+                </form>
+                {% elif participant.attendance_status not in ('checked_in', 'attended') and participant.participant_type != 'reviewer' %}
+                <p class="small text-muted mb-0">Requiere <strong>check-in</strong> o ser tipo <strong>revisor</strong> para emitir.</p>
+                {% endif %}
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+<style>
+.admin-participant-cert-page .breadcrumb-sm { --bs-breadcrumb-divider: '›'; }
+.admin-participant-cert-table th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.02em; font-weight: 600; }
+.admin-participant-cert-table .actions-cell { white-space: nowrap; width: 1%; }
+.admin-participant-cert-table .cert-row-actions {
+    display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center;
+    justify-content: flex-end; gap: 0.25rem;
+}
+.admin-participant-cert-table .cert-row-actions form { margin: 0; flex: 0 0 auto; display: inline-flex; }
+.admin-participant-cert-table .cert-row-actions .btn {
+    width: 1.75rem; height: 1.75rem; padding: 0; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+</style>
 {% endblock %}

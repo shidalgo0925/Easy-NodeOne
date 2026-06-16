@@ -186,11 +186,53 @@ def _current_org_id_for_events():
 
 
 def _scoped_events_query():
+    """Eventos visibles: creados por la org activa o con participantes de usuarios de esa org."""
+    from sqlalchemy import func
+
     from nodeone.services.user_organization import user_in_org_clause
 
     ensure_models()
     oid = _current_org_id_for_events()
-    return Event.query.join(User, Event.created_by == User.id).filter(user_in_org_clause(User, oid))
+
+    creator_ids = (
+        db.session.query(Event.id)
+        .join(User, Event.created_by == User.id)
+        .filter(user_in_org_clause(User, oid))
+    )
+    org_user_ids = db.session.query(User.id).filter(user_in_org_clause(User, oid))
+    by_user_id = db.session.query(EventParticipant.event_id).filter(
+        EventParticipant.user_id.in_(org_user_ids)
+    )
+    org_emails = (
+        db.session.query(func.lower(func.trim(User.email)))
+        .filter(user_in_org_clause(User, oid))
+        .filter(User.email.isnot(None), User.email != '')
+    )
+    by_email = db.session.query(EventParticipant.event_id).filter(
+        func.lower(func.trim(EventParticipant.email)).in_(org_emails)
+    )
+    return Event.query.filter(
+        or_(
+            Event.id.in_(creator_ids),
+            Event.id.in_(by_user_id),
+            Event.id.in_(by_email),
+        )
+    )
+
+
+def _participant_counts_by_event(event_ids: list[int]) -> dict[int, int]:
+    if not event_ids:
+        return {}
+    from sqlalchemy import func
+
+    ensure_models()
+    rows = (
+        db.session.query(EventParticipant.event_id, func.count(EventParticipant.id))
+        .filter(EventParticipant.event_id.in_(event_ids))
+        .group_by(EventParticipant.event_id)
+        .all()
+    )
+    return {int(eid): int(cnt) for eid, cnt in rows}
 
 
 def _save_file(storage, prefix='event'):
@@ -833,6 +875,7 @@ def admin_events_index():
         'drafts': scoped_base.filter(Event.publish_status == 'draft').count(),
         'archived': scoped_base.filter(Event.publish_status == 'archived').count(),
     }
+    participant_counts = _participant_counts_by_event([e.id for e in events])
 
     return render_template(
         'admin/events/list.html',
@@ -847,6 +890,7 @@ def admin_events_index():
         start_idx=start_idx,
         end_idx=end_idx,
         stats=stats,
+        participant_counts=participant_counts,
     )
 
 
@@ -856,20 +900,7 @@ def event_registrations(event_id):
     """Vista para ver y gestionar registros de un evento"""
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
-    
-    # Verificar que el usuario sea responsable del evento (creador, moderador, administrador o expositor)
-    is_responsible = (
-        event.created_by == current_user.id or
-        event.moderator_id == current_user.id or
-        event.administrator_id == current_user.id or
-        event.speaker_id == current_user.id or
-        current_user.is_admin
-    )
-    
-    if not is_responsible:
-        flash('No tienes permisos para ver los registros de este evento.', 'error')
-        return redirect(url_for('admin_events.admin_events_index'))
-    
+
     status_filter = request.args.get('status', 'all')
     query = EventRegistration.query.filter_by(event_id=event.id)
     
@@ -1635,9 +1666,22 @@ def admin_event_participants(event_id):
 
     rows = q.order_by(EventParticipant.id.asc()).all()
     from nodeone.modules.events.services import certificates as ev_cert_svc
+    from nodeone.modules.events.services.participants_from_registrations import (
+        count_importable_registrations,
+    )
 
     active_cert_by_participant_id = {p.id: ev_cert_svc.participant_active_certificate(p.id, event.id) for p in rows}
     participant_cert_eligible = {p.id: ev_cert_svc.participant_eligible_for_certificate(p) for p in rows}
+    importable_from_regs = 0
+    registration_stats = {'total': 0, 'confirmed': 0}
+    if EventRegistration:
+        importable_from_regs = count_importable_registrations(event.id)
+        registration_stats = {
+            'total': EventRegistration.query.filter_by(event_id=event.id).count(),
+            'confirmed': EventRegistration.query.filter_by(
+                event_id=event.id, registration_status='confirmed'
+            ).count(),
+        }
     return render_template(
         'admin/events/participants.html',
         event=event,
@@ -1645,7 +1689,33 @@ def admin_event_participants(event_id):
         attendance_filter=attendance_filter,
         active_cert_by_participant_id=active_cert_by_participant_id,
         participant_cert_eligible=participant_cert_eligible,
+        importable_from_regs=importable_from_regs,
+        registration_stats=registration_stats,
     )
+
+
+@admin_events_bp.route('/<int:event_id>/participants/import-from-registrations', methods=['POST'])
+@admin_required
+def admin_event_participants_import_from_registrations(event_id):
+    """Crea participantes desde inscripciones confirmadas (mismo evento)."""
+    from nodeone.modules.events.services.participants_from_registrations import (
+        import_participants_from_registrations,
+    )
+
+    ensure_models()
+    _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    if not EventRegistration:
+        flash('Registros de evento no disponibles en este entorno.', 'error')
+        return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
+    stats = import_participants_from_registrations(event_id, only_confirmed=True)
+    n = stats['created']
+    if n:
+        flash(f'Se importaron {n} participante(s) desde registros confirmados.', 'success')
+    elif stats['skipped']:
+        flash('No hay registros nuevos por importar (ya existen como participantes).', 'info')
+    else:
+        flash('No hay registros confirmados para importar.', 'warning')
+    return redirect(url_for('admin_events.admin_event_participants', event_id=event_id))
 
 
 @admin_events_bp.route('/<int:event_id>/participants/import', methods=['GET', 'POST'])
@@ -1695,7 +1765,9 @@ def admin_event_participants_import(event_id):
         else:
             from openpyxl import load_workbook
 
-            wb = load_workbook(filename=BytesIO(data), read_only=True, data_only=True)
+            # Sin read_only: archivos exportados desde Word suelen declarar dimensiones
+            # incorrectas (solo fila 1) y la vista previa queda en 0 filas.
+            wb = load_workbook(filename=BytesIO(data), data_only=True)
             sheet = wb[wb.sheetnames[0]]
             parsed, had_header = parse_workbook_rows(sheet)
             wb.close()
@@ -1738,6 +1810,14 @@ def admin_event_participants_import(event_id):
             'had_header': had_header,
             'type_fallback': type_fallback,
         }
+        if not parsed:
+            flash(
+                'No se leyeron filas de datos. Comprobá que la hoja 1 tenga participantes '
+                'en columnas A–G (nombre, apellido, documento, email; teléfono opcional), '
+                'sin filas vacías al inicio. Si el archivo viene de Word, guardalo de nuevo '
+                'como .xlsx desde Excel o probá «Guardar como» → Libro de Excel.',
+                'warning',
+            )
         return render_template(
             'admin/events/participants_import.html',
             event=event,
@@ -2110,16 +2190,22 @@ def admin_event_participant_certificate_view(event_id, participant_id):
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
     p = _scoped_event_participant(event_id, participant_id)
+    from nodeone.modules.events.services import certificates as ev_cert_svc
+
     certs = (
         EventCertificate.query.filter_by(event_id=event_id, participant_id=participant_id)
         .order_by(EventCertificate.id.desc())
         .all()
     )
+    active_cert = ev_cert_svc.participant_active_certificate(p.id, event.id)
     return render_template(
         'admin/events/participant_certificate.html',
         event=event,
         participant=p,
         certificates=certs,
+        active_cert=active_cert,
+        can_generate_cert=ev_cert_svc.participant_eligible_for_certificate(p) and not active_cert,
+        verify_endpoint='certificates_public.verify_event_certificate_alias',
     )
 
 
@@ -2142,6 +2228,8 @@ def admin_event_participant_generate_certificate(event_id, participant_id):
 @admin_events_bp.route('/<int:event_id>/certificates')
 @admin_required
 def admin_event_certificates(event_id):
+    from nodeone.modules.events.services import certificates as ev_cert_svc
+
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
     certs = (
@@ -2149,10 +2237,49 @@ def admin_event_certificates(event_id):
         .order_by(EventCertificate.id.desc())
         .all()
     )
+    participants = EventParticipant.query.filter_by(event_id=event_id).order_by(EventParticipant.id.asc()).all()
+    eligible_pending = []
+    for p in participants:
+        if not ev_cert_svc.participant_eligible_for_certificate(p):
+            continue
+        if ev_cert_svc.participant_active_certificate(p.id, event.id):
+            continue
+        eligible_pending.append(p)
+    cert_stats = {
+        'issued': sum(1 for c in certs if c.status != 'revoked'),
+        'revoked': sum(1 for c in certs if c.status == 'revoked'),
+        'eligible': len(eligible_pending),
+        'participants': len(participants),
+    }
+    institutional_template_id = None
+    if getattr(event, 'has_certificate', False):
+        from app import CertificateTemplate
+
+        from nodeone.services.event_institutional_certificate_template import (
+            find_visual_template_for_event,
+            is_visual_template,
+            resolve_event_org_id,
+        )
+
+        org_id = resolve_event_org_id(event)
+        tpl = find_visual_template_for_event(CertificateTemplate, event, org_id)
+        if tpl and is_visual_template(tpl):
+            institutional_template_id = tpl.id
+    active_template_id = None
+    if getattr(event, 'has_certificate', False):
+        from nodeone.services.event_institutional_certificate_template import visual_template_id_for_event
+
+        active_template_id = visual_template_id_for_event(event)
+
     return render_template(
         'admin/events/certificates.html',
         event=event,
         certificates=certs,
+        eligible_pending=eligible_pending,
+        cert_stats=cert_stats,
+        institutional_template_id=institutional_template_id,
+        active_template_id=active_template_id,
+        verify_endpoint='certificates_public.verify_event_certificate_alias',
     )
 
 
@@ -2164,17 +2291,28 @@ def admin_event_certificates_generate(event_id):
 
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
-    ids_raw = request.form.get('participant_ids', '').strip()
     participant_ids = None
-    if ids_raw:
+    ids_checked = request.form.getlist('participant_ids')
+    if ids_checked:
         participant_ids = []
-        for x in ids_raw.replace(',', ' ').split():
+        for x in ids_checked:
             try:
                 participant_ids.append(int(x))
-            except ValueError:
+            except (TypeError, ValueError):
                 pass
         if not participant_ids:
             participant_ids = None
+    if participant_ids is None:
+        ids_raw = request.form.get('participant_ids', '').strip()
+        if ids_raw:
+            participant_ids = []
+            for x in ids_raw.replace(',', ' ').split():
+                try:
+                    participant_ids.append(int(x))
+                except ValueError:
+                    pass
+            if not participant_ids:
+                participant_ids = None
     stats = generate_bulk_for_event(current_app, event, current_user.id, participant_ids)
     flash(
         f"Certificados generados: {stats['created']}. Omitidos: {stats['skipped']}.",
@@ -2196,7 +2334,36 @@ def admin_event_certificate_download(event_id, certificate_id):
     if not path or not os.path.isfile(path):
         flash('No se encontró el archivo PDF.', 'error')
         return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
-    return send_file(path, as_attachment=True, download_name=f'{ec.certificate_number}.pdf')
+    import time
+
+    mtime = int(os.path.getmtime(path))
+    response = send_file(path, as_attachment=True, download_name=f'{ec.certificate_number}.pdf')
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['ETag'] = f'"{ec.id}-{mtime}"'
+    return response
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/regenerate', methods=['POST'])
+@admin_required
+def admin_event_certificate_regenerate(event_id, certificate_id):
+    from nodeone.modules.events.services.certificates import regenerate_event_certificate
+
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    ec = _scoped_event_certificate(event_id, certificate_id)
+    if ec.status == 'revoked' or not ec.is_active:
+        flash('No se puede regenerar un certificado revocado.', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+    participant = ec.participant
+    if not participant:
+        flash('Participante no encontrado.', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+    _, err = regenerate_event_certificate(current_app, ec, event, participant, current_user.id)
+    if err:
+        flash(err, 'error')
+    else:
+        flash(f'Certificado {ec.certificate_number} regenerado con la plantilla vigente.', 'success')
+    return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
 
 
 @admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/revoke', methods=['POST'])

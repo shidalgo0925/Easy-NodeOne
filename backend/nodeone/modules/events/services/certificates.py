@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import io
 import os
 import secrets
 from datetime import datetime
@@ -102,65 +100,9 @@ def build_verification_url(app, certificate_number: str) -> str:
 
 
 def _qr_base64_png(verify_url: str) -> str | None:
-    try:
-        import qrcode
+    from nodeone.services.certificate_institutional_pdf import qr_png_base64
 
-        buf = io.BytesIO()
-        qrcode.make(verify_url).save(buf, format='PNG')
-        return base64.b64encode(buf.getvalue()).decode()
-    except Exception:
-        return None
-
-
-def _pdf_reportlab_event(
-    full_name: str,
-    event_title: str,
-    certificate_title: str,
-    date_emission: str,
-    certificate_code: str,
-    verify_url: str,
-    qr_base64: str | None,
-) -> bytes:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.lib.utils import ImageReader
-    from reportlab.pdfgen import canvas
-
-    buf = io.BytesIO()
-    w, h = A4
-    c = canvas.Canvas(buf, pagesize=A4)
-    c.setTitle('Certificado')
-    c.setStrokeColorRGB(0.79, 0.64, 0.15)
-    c.setLineWidth(2)
-    c.rect(10 * mm, 10 * mm, w - 20 * mm, h - 20 * mm)
-    c.setStrokeColorRGB(0.12, 0.23, 0.37)
-    c.setLineWidth(1)
-    c.rect(14 * mm, 14 * mm, w - 28 * mm, h - 28 * mm)
-    c.setFont('Helvetica-Bold', 22)
-    c.drawCentredString(w / 2, h - 45 * mm, certificate_title or 'Certificado')
-    c.setFont('Helvetica-Bold', 18)
-    c.drawCentredString(w / 2, h - 65 * mm, full_name or '—')
-    c.setFont('Helvetica', 14)
-    c.drawCentredString(w / 2, h - 80 * mm, event_title or '—')
-    c.setFont('Helvetica', 10)
-    c.drawCentredString(
-        w / 2,
-        h - 100 * mm,
-        f'Fecha de emisión: {date_emission}  |  Código: {certificate_code}',
-    )
-    if qr_base64:
-        try:
-            raw = base64.b64decode(qr_base64)
-            img = ImageReader(io.BytesIO(raw))
-            c.drawImage(img, w - 55 * mm, 22 * mm, width=45 * mm, height=45 * mm)
-        except Exception:
-            pass
-    c.setFont('Helvetica', 8)
-    short = verify_url if len(verify_url) <= 72 else verify_url[:69] + '...'
-    c.drawString(18 * mm, 18 * mm, f'Validación: {short}')
-    c.save()
-    buf.seek(0)
-    return buf.getvalue()
+    return qr_png_base64(verify_url)
 
 
 def relative_static_path_from_abs(abs_path: str, app) -> str:
@@ -170,6 +112,86 @@ def relative_static_path_from_abs(abs_path: str, app) -> str:
         rel = abs_path[len(static_root) :].replace(os.sep, '/').lstrip('/')
         return f'/static/{rel}'
     return '/static/' + os.path.basename(abs_path)
+
+
+def _certificates_upload_dir(app) -> str:
+    return os.path.abspath(os.path.join(app.root_path, '..', 'static', 'uploads', 'certificates'))
+
+
+def _base_url_for_certificate(app) -> str:
+    base = (os.getenv('BASE_URL') or '').strip().rstrip('/')
+    if base:
+        return base
+    try:
+        from flask import request
+
+        if request and request.url_root:
+            return request.url_root.rstrip('/')
+    except Exception:
+        pass
+    return 'http://127.0.0.1'
+
+
+def _render_event_certificate_pdf_bytes(
+    *,
+    app,
+    event,
+    participant,
+    display_name: str,
+    cert_number: str,
+    verify_url: str,
+    issued_at: datetime,
+    org_id: int,
+) -> bytes | None:
+    from app import CertificateTemplate, db
+
+    from nodeone.services.event_institutional_certificate_template import (
+        is_visual_template,
+    )
+    from nodeone.services.certificate_institutional_pdf import (
+        build_context_from_event_participant,
+        compute_academic_hours,
+        render_institutional_pdf,
+    )
+
+    from nodeone.services.event_institutional_certificate_template import get_fresh_visual_template_for_render
+
+    template = get_fresh_visual_template_for_render(db, CertificateTemplate, event, org_id)
+    if template and is_visual_template(template):
+        from certificate_template_routes import render_pdf_from_json_layout
+        from nodeone.services.event_institutional_certificate_template import build_visual_certificate_data
+
+        sample = build_visual_certificate_data(
+            event=event,
+            participant=participant,
+            display_name=display_name,
+            cert_number=cert_number,
+            verify_url=verify_url,
+            issued_at=issued_at,
+            org_id=org_id,
+            app_root=app.root_path,
+        )
+        qr_b64 = _qr_base64_png(verify_url)
+        pdf_bytes = render_pdf_from_json_layout(
+            template,
+            sample,
+            _base_url_for_certificate(app),
+            qr_b64,
+            _certificates_upload_dir(app),
+        )
+        if pdf_bytes:
+            return pdf_bytes
+
+    ctx = build_context_from_event_participant(
+        event=event,
+        participant=participant,
+        certificate_code=cert_number,
+        verify_url=verify_url,
+        issued_at=issued_at,
+        app_root=app.root_path,
+        org_id=org_id,
+    )
+    return render_institutional_pdf(ctx)
 
 
 def create_event_certificate(
@@ -212,20 +234,22 @@ def create_event_certificate(
             if x
         ).strip()
     )
-    date_str = datetime.utcnow().strftime('%d/%m/%Y')
+    issued_at = datetime.utcnow()
     ctype = 'reviewer' if prefix == PREFIX_REVIEWER else 'participation'
     title_txt = certificate_title or ('Certificado de revisor' if ctype == 'reviewer' else 'Certificado de participación')
 
-    qr_b64 = _qr_base64_png(verify_url)
-    pdf_bytes = _pdf_reportlab_event(
-        display_name,
-        getattr(event, 'title', '') or 'Evento',
-        title_txt,
-        date_str,
-        cert_number,
-        verify_url,
-        qr_b64,
+    pdf_bytes = _render_event_certificate_pdf_bytes(
+        app=app,
+        event=event,
+        participant=participant,
+        display_name=display_name,
+        cert_number=cert_number,
+        verify_url=verify_url,
+        issued_at=issued_at,
+        org_id=org_id,
     )
+    if not pdf_bytes:
+        return None, 'No se pudo generar el PDF del certificado.'
     with open(pdf_fs, 'wb') as f:
         f.write(pdf_bytes)
 
@@ -249,7 +273,7 @@ def create_event_certificate(
         title=title_txt,
         certificate_url=cert_rel,
         qr_path=qr_rel,
-        issued_date=datetime.utcnow(),
+        issued_date=issued_at,
         issued_by=issued_by_user_id,
         status='generated',
         is_active=True,
@@ -259,6 +283,76 @@ def create_event_certificate(
     db.session.add(participant)
     db.session.commit()
     return ec, None
+
+
+def regenerate_event_certificate(
+    app,
+    cert,
+    event,
+    participant,
+    issued_by_user_id: int | None,
+) -> tuple[object | None, str | None]:
+    """Reemplaza el PDF existente usando la plantilla vigente del evento."""
+    from app import db
+
+    if (getattr(cert, 'status', None) or '') == 'revoked' or not getattr(cert, 'is_active', True):
+        return None, 'El certificado está revocado o inactivo.'
+    if not participant_eligible_for_certificate(participant):
+        return None, 'El participante no cumple condiciones para certificado.'
+
+    org_id = organization_id_for_event(event)
+    verify_url = build_verification_url(app, cert.certificate_number)
+    display_name = (
+        (getattr(participant, 'full_name', None) or '').strip()
+        or ' '.join(
+            x
+            for x in (
+                participant.first_name,
+                participant.middle_name,
+                participant.last_name,
+                participant.second_last_name,
+            )
+            if x
+        ).strip()
+    )
+    issued_at = datetime.utcnow()
+
+    pdf_bytes = _render_event_certificate_pdf_bytes(
+        app=app,
+        event=event,
+        participant=participant,
+        display_name=display_name,
+        cert_number=cert.certificate_number,
+        verify_url=verify_url,
+        issued_at=issued_at,
+        org_id=org_id,
+    )
+    if not pdf_bytes:
+        return None, 'No se pudo regenerar el PDF del certificado.'
+
+    pdf_fs = abs_path_from_certificate_url(app, cert.certificate_url)
+    if not pdf_fs:
+        folder = certificates_storage_dir(app, org_id, event.id)
+        pdf_fs = os.path.join(folder, cert.certificate_number.replace('/', '-') + '.pdf')
+
+    with open(pdf_fs, 'wb') as f:
+        f.write(pdf_bytes)
+
+    qr_fs = pdf_fs.replace('.pdf', '_qr.png')
+    try:
+        import qrcode
+
+        qrcode.make(verify_url).save(qr_fs, format='PNG')
+        cert.qr_path = relative_static_path_from_abs(qr_fs, app)
+    except Exception:
+        pass
+
+    cert.certificate_url = relative_static_path_from_abs(pdf_fs, app)
+    cert.issued_date = issued_at
+    cert.issued_by = issued_by_user_id
+    db.session.add(cert)
+    db.session.commit()
+    return cert, None
 
 
 def revoke_event_certificate(cert, revoked_by_user_id: int | None, reason: str | None) -> None:

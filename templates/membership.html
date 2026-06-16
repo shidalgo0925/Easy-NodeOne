@@ -3,557 +3,139 @@
 {% block title %}Membresía - Easy NodeOne{% endblock %}
 
 {% block page_content %}
-<div class="container py-4">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="h3 mb-4">
-                <i class="fas fa-crown"></i> Membresía
-            </h1>
-        </div>
-    </div>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/membership-page.css') }}?v=3">
+
+<div class="container-fluid px-2 px-sm-3 py-2 membership-page" data-checkout-url="{{ url_for('payments.checkout') }}">
+    <h1 class="membership-page__title mb-0">
+        <i class="fas fa-crown text-primary me-1"></i>Membresía
+    </h1>
+    <p class="membership-page__lead small text-muted mb-2">
+        {% if can_purchase_plans %}
+        Compara planes y compra o haz upgrade del tuyo.
+        {% else %}
+        Vista de administrador: acceso total sin compra.
+        {% endif %}
+    </p>
 
     {% if membership %}
-    <!-- Current Membership -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header {% if membership.is_paused %}bg-warning{% elif membership.status == 'expired' %}bg-danger{% else %}bg-success{% endif %} text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-{% if membership.is_paused %}pause-circle{% elif membership.status == 'expired' %}exclamation-circle{% else %}check-circle{% endif %}"></i> 
-                        Membresía {% if membership.is_paused %}Pausada{% elif membership.status == 'expired' %}Expirada{% else %}Activa{% endif %}
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-12 col-md-6">
-                            <p><strong>Tipo:</strong> 
-                                {% if membership.membership_type == 'admin' %}
-                                <span class="badge bg-primary">Administrador</span>
-                                {% else %}
-                                {{ membership.membership_type.title() }}
-                                {% endif %}
-                            </p>
-                            <p><strong>Estado:</strong> 
-                                {% if membership.is_paused %}
-                                <span class="badge bg-warning">Pausada</span>
-                                {% elif membership.status == 'expired' %}
-                                <span class="badge bg-danger">Expirada</span>
-                                {% else %}
-                                <span class="badge bg-success">Activa</span>
-                                {% endif %}
-                            </p>
-                            <p><strong>Correo Electrónico:</strong> 
-                                <i class="fas fa-envelope text-primary"></i> 
-                                {{ current_user.email }}
-                            </p>
-                            {% if membership.is_paused and membership.paused_at %}
-                            <p><strong>Pausada desde:</strong> {{ membership.paused_at.strftime('%d/%m/%Y %H:%M') }}</p>
-                            {% if membership.paused_until %}
-                            <p><strong>Reanudará el:</strong> {{ membership.paused_until.strftime('%d/%m/%Y') }}</p>
-                            {% endif %}
-                            {% endif %}
-                            {% if membership.status == 'expired' and membership.grace_period_end %}
-                            <p><strong>Período de gracia hasta:</strong> {{ membership.grace_period_end.strftime('%d/%m/%Y') }}</p>
-                            {% endif %}
-                        </div>
-                        <div class="col-12 col-md-6">
-                            <p><strong>Inicio:</strong> {{ membership.start_date.strftime('%d/%m/%Y') }}</p>
-                            <p><strong>Vencimiento:</strong> 
-                                {% if membership.membership_type == 'admin' %}
-                                <span class="badge bg-success">Ilimitado (Administrador)</span>
-                                {% elif membership.end_date %}
-                                {{ membership.end_date.strftime('%d/%m/%Y') }}
-                                {% else %}
-                                <span class="badge bg-warning">No definido</span>
-                                {% endif %}
-                            </p>
-                            {% if membership.downgrade_requested and membership.requested_membership_type %}
-                            <p><strong>Downgrade programado:</strong> 
-                                <span class="badge bg-info">{{ membership.requested_membership_type.title() }}</span>
-                            </p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="alert alert-info mt-3 mb-0">
-                        <i class="fas fa-info-circle"></i>
-                        <strong>Descuentos activos:</strong> 
-                        {% if membership.membership_type == 'admin' %}
-                        <strong>Acceso completo</strong> como administrador. Tienes acceso a todas las funcionalidades sin restricciones.
-                        {% else %}
-                        Los descuentos y beneficios dependen de tu plan (Personal, Emprendedor o Ejecutivo) y de las reglas configuradas en la plataforma. Revisá la página de <a href="{{ url_for('benefits') }}">Beneficios</a>.
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Acciones de membresía -->
-                    {% if membership.__class__.__name__ == 'Subscription' %}
-                    <div class="mt-3">
-                        <div class="btn-group flex-wrap" role="group">
-                            <a href="{{ url_for('benefits') }}" class="btn btn-primary">
-                                <i class="fas fa-star"></i> Ver Beneficios
-                            </a>
-                            {% if saas_module_enabled('appointments') %}
-                            <a href="{{ url_for('member_services') }}" class="btn btn-outline-primary">
-                                <i class="fas fa-box-open"></i> Mis servicios
-                            </a>
-                            {% endif %}
-                            {% if membership_cert_event_id %}
-                            {% if membership_cert_issued %}
-                            <a href="{{ membership_cert_download_url }}" class="btn btn-outline-success" target="_blank">
-                                <i class="fas fa-certificate"></i> Descargar certificado de membresía
-                            </a>
-                            {% else %}
-                            <button type="button" class="btn btn-outline-success" id="btn-emit-membership-cert" data-event-id="{{ membership_cert_event_id }}">
-                                <i class="fas fa-certificate"></i> Emitir certificado de membresía
-                            </button>
-                            {% endif %}
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Botones de gestión -->
-                        {# <div class="mt-3">
-                            {% if membership.is_paused %}
-                            <form method="POST" action="{{ url_for('resume_membership') }}" class="d-inline">
-                                <button type="submit" class="btn btn-success">
-                                    <i class="fas fa-play"></i> Reanudar Membresía
-                                </button>
-                            </form>
-                            {% else %}
-                            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#pauseModal">
-                                <i class="fas fa-pause"></i> Pausar Membresía
-                            </button>
-                            {% endif %}
-                            
-                            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#upgradeModal">
-                                <i class="fas fa-arrow-up"></i> Upgrade
-                            </button>
-                            
-                            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#downgradeModal">
-                                <i class="fas fa-arrow-down"></i> Downgrade
-                            </button>
-                        </div> #}
-                            
-                            {# {% if not family_group %}
-                            <a href="{{ url_for('create_family_group') }}" class="btn btn-outline-success">
-                                <i class="fas fa-users"></i> Crear Grupo Familiar
-                            </a>
-                            {% else %}
-                            <a href="{{ url_for('family_group', group_id=family_group.id) }}" class="btn btn-outline-success">
-                                <i class="fas fa-users"></i> Ver Grupo Familiar
-                            </a>
-                            {% endif %} #}
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="mt-3">
-                        <div class="btn-group flex-wrap" role="group">
-                            <a href="{{ url_for('benefits') }}" class="btn btn-primary">
-                                <i class="fas fa-star"></i> Ver Beneficios
-                            </a>
-                            {% if saas_module_enabled('appointments') %}
-                            <a href="{{ url_for('member_services') }}" class="btn btn-outline-primary">
-                                <i class="fas fa-box-open"></i> Mis servicios
-                            </a>
-                            {% endif %}
-                            {% if membership_cert_event_id %}
-                            {% if membership_cert_issued %}
-                            <a href="{{ membership_cert_download_url }}" class="btn btn-outline-success" target="_blank">
-                                <i class="fas fa-certificate"></i> Descargar certificado de membresía
-                            </a>
-                            {% else %}
-                            <button type="button" class="btn btn-outline-success" id="btn-emit-membership-cert" data-event-id="{{ membership_cert_event_id }}">
-                                <i class="fas fa-certificate"></i> Emitir certificado de membresía
-                            </button>
-                            {% endif %}
-                            {% endif %}
-                        </div>
-                    </div>
+    <div class="card border shadow-sm membership-page__status">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="badge {% if membership.is_paused %}bg-warning text-dark{% elif membership.status == 'expired' %}bg-danger{% else %}bg-success{% endif %}">
+                    {% if membership.is_paused %}Pausada{% elif membership.status == 'expired' %}Expirada{% else %}Activa{% endif %}
+                </span>
+                <span class="badge {{ current_plan_badge }}">{{ current_plan_label }}</span>
+                <span class="membership-page__meta membership-page__meta--email text-truncate" title="{{ current_user.email }}">
+                    <i class="fas fa-envelope me-1"></i>{{ current_user.email }}
+                </span>
+                <span class="membership-page__meta">
+                    {% if membership.start_date %}Inicio {{ membership.start_date.strftime('%d/%m/%Y') }}{% endif %}
+                    {% if is_admin_plan %}
+                    · <span class="text-success">Ilimitado</span>
+                    {% elif membership.end_date %}
+                    · Vence {{ membership.end_date.strftime('%d/%m/%Y') }}
+                    {% if days_remaining is not none %}
+                    · <span class="{% if days_remaining <= 30 %}text-warning{% endif %}">{{ days_remaining }} d</span>
                     {% endif %}
-                </div>
+                    {% endif %}
+                </span>
             </div>
+            {% if membership.is_paused and membership.paused_at %}
+            <p class="small text-muted mb-0 mt-1">
+                Pausada desde {{ membership.paused_at.strftime('%d/%m/%Y %H:%M') }}
+                {% if membership.paused_until %} · Reanuda {{ membership.paused_until.strftime('%d/%m/%Y') }}{% endif %}
+            </p>
+            {% endif %}
+            {% if membership.status == 'expired' and membership.grace_period_end %}
+            <p class="small text-warning mb-0 mt-1">Gracia hasta {{ membership.grace_period_end.strftime('%d/%m/%Y') }}</p>
+            {% endif %}
+            {% if membership.downgrade_requested and membership.requested_membership_type %}
+            <p class="small text-info mb-0 mt-1">Downgrade a {{ membership.requested_membership_type|title }}</p>
+            {% endif %}
         </div>
     </div>
-    
-    <!-- Modales para gestión de membresía -->
-    {# {% if membership.__class__.__name__ == 'Subscription' %}
-    <!-- Modal Pausar -->
-    <div class="modal fade" id="pauseModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Pausar Membresía</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="{{ url_for('pause_membership') }}">
-                    <div class="modal-body">
-                        <p>¿Estás seguro de que deseas pausar tu membresía temporalmente?</p>
-                        <p class="text-muted small">Durante la pausa, no tendrás acceso a los beneficios. Los días pausados se extenderán automáticamente al final de tu período.</p>
-                        <div class="mb-3">
-                            <label for="pause_until" class="form-label">Pausar hasta (opcional):</label>
-                            <input type="date" class="form-control" id="pause_until" name="pause_until">
-                            <small class="text-muted">Si no especificas una fecha, la pausa será indefinida hasta que la reanudes manualmente.</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-warning">Pausar Membresía</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal Upgrade -->
-    <div class="modal fade" id="upgradeModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Upgrade de Membresía</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="{{ url_for('upgrade_membership') }}">
-                    <div class="modal-body">
-                        <p>Selecciona el plan al que deseas hacer upgrade:</p>
-                        <div class="mb-3">
-                            <select class="form-select" name="membership_type" required>
-                                <option value="">Selecciona un plan...</option>
-                                {% if membership.membership_type == 'basic' %}
-                                <option value="pro">Pro - $60/año (10% descuento)</option>
-                                <option value="premium">Premium - $120/año (20% descuento)</option>
-                                <option value="deluxe">Deluxe - $180/año (30% descuento)</option>
-                                {% elif membership.membership_type == 'pro' %}
-                                <option value="premium">Premium - $120/año (20% descuento)</option>
-                                <option value="deluxe">Deluxe - $180/año (30% descuento)</option>
-                                {% elif membership.membership_type == 'premium' %}
-                                <option value="deluxe">Deluxe - $180/año (30% descuento)</option>
-                                {% endif %}
-                            </select>
-                        </div>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> El upgrade se aplicará inmediatamente. Se calculará el prorrateo del costo.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-info">Hacer Upgrade</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal Downgrade -->
-    <div class="modal fade" id="downgradeModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Downgrade de Membresía</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="{{ url_for('downgrade_membership') }}">
-                    <div class="modal-body">
-                        <p>Selecciona el plan al que deseas hacer downgrade:</p>
-                        <div class="mb-3">
-                            <select class="form-select" name="membership_type" required>
-                                <option value="">Selecciona un plan...</option>
-                                {% if membership.membership_type == 'deluxe' %}
-                                <option value="premium">Premium - $120/año (20% descuento)</option>
-                                <option value="pro">Pro - $60/año (10% descuento)</option>
-                                <option value="basic">Básico - $0/año</option>
-                                {% elif membership.membership_type == 'premium' %}
-                                <option value="pro">Pro - $60/año (10% descuento)</option>
-                                <option value="basic">Básico - $0/año</option>
-                                {% elif membership.membership_type == 'pro' %}
-                                <option value="basic">Básico - $0/año</option>
-                                {% endif %}
-                            </select>
-                        </div>
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle"></i> El downgrade se aplicará al final de tu período actual. Seguirás disfrutando de los beneficios del plan actual hasta entonces.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-secondary">Programar Downgrade</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    #}
     {% else %}
-    <!-- No Membership - Mensaje informativo -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                <strong>Sin Membresía Activa</strong> - Adquiere una membresía para acceder a todos los beneficios y descuentos en servicios.
-            </div>
-        </div>
+    <div class="alert alert-warning py-2 px-2 mb-2 small">
+        <i class="fas fa-exclamation-triangle me-1"></i>
+        <strong>Sin membresía activa.</strong> Elige un plan y pulsa <strong>Comprar</strong>.
     </div>
     {% endif %}
 
-    <!-- Tabla comparativa de planes (única lista de planes en la página) -->
-    <div class="row mb-5">
-        <div class="col-12">
-            <h3 class="text-center mb-4">Compara nuestros planes</h3>
-            
-            <!-- Selector de período de pago -->
-            <div class="text-center mb-4">
-                <div class="btn-group" role="group" id="billingCycleSelector">
-                    <input type="radio" class="btn-check" name="billingCycle" id="monthly" value="monthly" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="monthly">
-                        <i class="fas fa-calendar-alt"></i> Mensual
-                    </label>
-                    
-                    <input type="radio" class="btn-check" name="billingCycle" id="yearly" value="yearly" autocomplete="off" checked>
-                    <label class="btn btn-outline-primary" for="yearly">
-                        <i class="fas fa-calendar"></i> Anual <span class="badge bg-success">Ahorra más</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover table-sm comparison-table" style="font-size: 0.85rem;">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 25%; padding: 0.5rem;">Servicios</th>
-                            {% for p in plans_display %}
-                            <th class="text-center" style="width: 15%; padding: 0.5rem;">
-                                <div class="plan-header {{ p.color or 'bg-secondary' }} text-white" style="padding: 0.4rem;">
-                                    <strong style="font-size: 0.9rem;">{{ p.name }}</strong>
-                                    <div class="plan-price" data-monthly="${{ "%.2f"|format(pricing_monthly.get(p.slug, 0)) }}/mes" data-yearly="${{ "%.2f"|format(pricing_yearly.get(p.slug, 0)) }}/año" style="font-size: 0.8rem;">
-                                        ${{ "%.2f"|format(pricing_yearly.get(p.slug, 0)) }}/año
-                                    </div>
-                                    {% if p.badge %}<small style="font-size: 0.65rem; opacity: 0.9;">{{ p.badge }}</small>{% endif %}
-                                </div>
-                            </th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if services_with_plans %}
-                            {% for item in services_with_plans %}
-                            {% set service = item.service %}
-                            {% set available_plans = item.available_plans %}
-                            <tr style="padding: 0.4rem;">
-                                <td style="padding: 0.5rem;">
-                                    <div style="line-height: 1.3;">
-                                        {% if service.icon %}
-                                        <i class="{{ service.icon }} me-1" style="font-size: 0.85rem;"></i>
-                                        {% endif %}
-                                        <strong style="font-size: 0.9rem;">{{ service.name }}</strong>
-                                        {% if service.description %}
-                                        <br><small class="text-muted" style="font-size: 0.75rem;">{{ service.description[:60] }}{% if service.description|length > 60 %}...{% endif %}</small>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                {% for p in plans_display %}
-                                <td class="text-center" style="padding: 0.5rem;">
-                                    {% if p.slug in available_plans %}
-                                        <i class="fas fa-check text-success" style="font-size: 1rem;" title="Disponible"></i>
-                                    {% else %}
-                                        <i class="fas fa-times text-danger" style="font-size: 0.9rem;" title="No disponible"></i>
-                                    {% endif %}
-                                </td>
-                                {% endfor %}
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="{{ 1 + plans_display|length }}" class="text-center text-muted py-4">
-                                    <i class="fas fa-info-circle"></i> No hay servicios configurados.
-                                    {% if current_user.is_admin %}
-                                    <a href="{{ url_for('admin_services_catalog.admin_services') }}">Configura servicios desde el panel de administración</a>
-                                    {% else %}
-                                    Contacta al administrador para configurar servicios.
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endif %}
-                        <tr class="table-light">
-                            <td style="padding: 0.5rem;"><strong style="font-size: 0.9rem;">Acción</strong></td>
-                            {% for p in plans_display %}
-                            <td class="text-center" style="padding: 0.5rem;">
-                                {% if not membership %}
-                                <button onclick="addToCart('membership', '{{ p.slug }}', 'Membresía {{ p.name }}', {{ (p.price_yearly or 0) * 100 }})" class="btn btn-sm btn-outline-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                                    <i class="fas fa-cart-plus"></i> Agregar
-                                </button>
-                                {% elif membership.membership_type == p.slug %}
-                                <span class="badge bg-secondary" style="font-size: 0.75rem;">Tu plan</span>
-                                {% else %}
-                                <span class="badge bg-light text-muted" style="font-size: 0.75rem;">-</span>
-                                {% endif %}
-                            </td>
-                            {% endfor %}
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover table-sm membership-page__table mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="membership-page__service-col">Servicios</th>
+                    {% for col in plan_columns %}
+                    {% set p = col.plan %}
+                    <th class="text-center membership-page__plan-col {% if col.is_current %}membership-page__plan-col--current{% endif %}">
+                        <div class="membership-page__plan-head {{ p.color or 'bg-secondary' }} text-white">
+                            <span class="membership-page__plan-name">{{ p.name }}</span>
+                            <span class="membership-page__plan-price">${{ "%.2f"|format(p.price_yearly or 0) }}/año</span>
+                            {% if p.badge %}<small class="membership-page__plan-badge">{{ p.badge }}</small>{% endif %}
+                        </div>
+                        <div class="membership-page__plan-cta mt-1">
+                            {% if col.cta.kind == 'current' %}
+                            <span class="badge bg-primary">{{ col.cta.label }}</span>
+                            {% elif col.cta.kind in ('buy', 'upgrade', 'downgrade') %}
+                            <button type="button" class="btn btn-sm {{ col.cta.btn_class }} membership-page__buy-btn"
+                                data-slug="{{ p.slug }}"
+                                data-name="{{ p.name|e }}"
+                                data-cta="{{ col.cta.kind }}">
+                                <i class="fas {{ col.cta.icon }} me-1"></i>{{ col.cta.label }}
+                            </button>
+                            {% endif %}
+                        </div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if services_with_plans %}
+                    {% for item in services_with_plans %}
+                    <tr>
+                        <td class="membership-page__service-col">
+                            {% if item.service.icon %}<i class="{{ item.service.icon }} me-1 text-primary"></i>{% endif %}
+                            <strong>{{ item.service.name }}</strong>
+                            {% if item.service.description %}
+                            <br><small class="text-muted">{{ item.service.description[:60] }}{% if item.service.description|length > 60 %}…{% endif %}</small>
+                            {% endif %}
+                        </td>
+                        {% for col in plan_columns %}
+                        <td class="text-center {% if col.is_current %}membership-page__plan-col--current{% endif %}">
+                            {% if col.plan.slug in item.available_plans %}
+                            <i class="fas fa-check text-success" title="Incluido"></i>
+                            {% else %}
+                            <i class="fas fa-times text-danger" title="No incluido"></i>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="{{ 1 + plan_columns|length }}" class="text-center text-muted py-3">
+                            No hay servicios configurados.
+                            {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin_services_catalog.admin_services') }}">Configurar</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
     </div>
 
-    <!-- Información adicional -->
-    <div class="row mt-5">
-        <div class="col-12">
-            <div class="alert alert-info">
-                <h5><i class="fas fa-info-circle"></i> Información Importante</h5>
-                <ul class="mb-0">
-                    <li>Los planes de membresía tienen validez anual y se renuevan automáticamente.</li>
-                    <li>Los descuentos en servicios y eventos se aplican automáticamente según tu plan de membresía.</li>
-                    <li>Puedes agregar múltiples productos al carrito y pagarlos todos juntos.</li>
-                    {% if saas_module_enabled('appointments') %}
-                    <li>Para ver todos los servicios disponibles, visita la <a href="{{ url_for('services.list') }}" class="alert-link">tienda</a>.</li>
-                    {% endif %}
-                </ul>
-            </div>
-        </div>
-    </div>
+    {% if can_purchase_plans %}
+    <p class="membership-page__footnote mb-0">
+        <i class="fas fa-shopping-cart me-1"></i>Al comprar o hacer upgrade se agrega al carrito; luego continúa en
+        <a href="{{ url_for('payments.checkout') }}">checkout</a>.
+        {% if saas_module_enabled('appointments') %}
+        · <a href="{{ url_for('services.list') }}">Tienda</a>
+        {% endif %}
+    </p>
+    {% endif %}
 </div>
 
-<script>
-function addToCart(productType, productId, productName, unitPrice, serviceData = null) {
-    // Determinar membership_type si es una membresía
-    let membershipType = null;
-    let finalProductId = productId;
-    
-    if (productType === 'membership') {
-        membershipType = productId; // En este caso productId es el tipo de membresía ('basic', 'pro', etc.)
-        // El backend calculará el product_id basado en membership_type, así que enviamos 0 como placeholder
-        finalProductId = 0;
-    } else {
-        finalProductId = parseInt(productId) || 0;
-    }
-    
-    const data = {
-        product_type: productType,
-        product_id: finalProductId,
-        quantity: 1
-    };
-    
-    // Para membresías, siempre enviar membership_type
-    if (productType === 'membership' && membershipType) {
-        data.membership_type = membershipType;
-    }
-    
-    // Si es un servicio, agregar información adicional
-    if (productType === 'service' && serviceData) {
-        data.service_name = serviceData.name || productName;
-        data.base_price = serviceData.base_price || (unitPrice / 100);
-        data.service_description = serviceData.description || '';
-    }
-    
-    fetch('/cart/add', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => {
-        // Verificar si la respuesta es JSON
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            return response.json();
-        } else {
-            // Si no es JSON, leer como texto para ver qué pasó
-            return response.text().then(text => {
-                throw new Error('Respuesta no válida del servidor. Por favor, verifica tu sesión.');
-            });
-        }
-    })
-    .then(data => {
-        if (data.success) {
-            // Actualizar contador del carrito
-            const cartBadge = document.getElementById('cart-count-badge');
-            if (cartBadge) {
-                cartBadge.textContent = data.cart_items_count;
-                cartBadge.style.display = 'block';
-            }
-            
-            // Mostrar mensaje de éxito con toast o alert mejorado
-            showNotification('Producto agregado al carrito', 'success');
-            
-            // Opcional: redirigir al carrito después de 1 segundo
-            // setTimeout(() => window.location.href = '/cart', 1000);
-        } else {
-            if (data.requires_verification) {
-                showNotification('Por favor, verifica tu correo electrónico antes de continuar.', 'error');
-                // Opcional: redirigir a la página de verificación
-                setTimeout(() => {
-                    window.location.href = '/resend-verification';
-                }, 2000);
-            } else {
-                showNotification('Error: ' + (data.error || 'Error desconocido'), 'error');
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('Ocurrió un error al agregar el producto al carrito: ' + error.message, 'error');
-    });
-}
-
-function showNotification(message, type = 'info') {
-    // Crear notificación visual
-    const notification = document.createElement('div');
-    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
-    notification.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
-    notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.body.appendChild(notification);
-    
-    // Auto-remover después de 3 segundos
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var btnEmit = document.getElementById('btn-emit-membership-cert');
-    if (btnEmit) {
-        btnEmit.addEventListener('click', function() {
-            var eventId = this.getAttribute('data-event-id');
-            if (!eventId) return;
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generando...';
-            fetch('/api/request-certificate/' + eventId, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-                .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-                .then(function(o) {
-                    if (o.ok && o.data.download_url) {
-                        window.location.href = o.data.download_url;
-                    } else if (o.ok) {
-                        window.location.reload();
-                    } else {
-                        btnEmit.disabled = false;
-                        btnEmit.innerHTML = '<i class="fas fa-certificate"></i> Emitir certificado de membresía';
-                        showNotification(o.data.error || 'No se pudo generar el certificado.', 'error');
-                    }
-                })
-                .catch(function() {
-                    btnEmit.disabled = false;
-                    btnEmit.innerHTML = '<i class="fas fa-certificate"></i> Emitir certificado de membresía';
-                    showNotification('Error de conexión.', 'error');
-                });
-        });
-    }
-});
-
-function hash(str) {
-    // Generar hash MD5-like para coincidir con Python
-    // Python usa: int(hashlib.md5(membership_type.encode()).hexdigest()[:8], 16) % 1000000
-    // Simulamos esto en JavaScript
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    // Convertir a string hexadecimal y tomar primeros 8 caracteres
-    const hexStr = Math.abs(hash).toString(16).padStart(8, '0').substring(0, 8);
-    return parseInt(hexStr, 16) % 1000000;
-}
-</script>
+<script src="{{ url_for('static', filename='js/membership-page.js') }}?v=3"></script>
 {% endblock %}

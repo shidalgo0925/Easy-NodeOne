@@ -9,8 +9,6 @@ def register_public_membership_routes(app):
 
     from app import (
         Benefit,
-        Certificate,
-        CertificateEvent,
         db,
         has_saas_module_enabled,
         MembershipPlan,
@@ -172,8 +170,22 @@ def register_public_membership_routes(app):
                 )
         except Exception:
             next_featured_event = None
-    
-        return render_template('dashboard.html', 
+
+        ecalendar_dashboard_events = []
+        try:
+            import app as M
+            if (current_user.is_admin or M._user_has_any_admin_permission(current_user)) and (
+                'admin_ecalendar_appointments_page' in M.app.view_functions
+            ):
+                from nodeone.modules.ecalendar.services.appointments_admin import (
+                    query_dev_appointments_for_dashboard,
+                )
+
+                ecalendar_dashboard_events = query_dev_appointments_for_dashboard()
+        except Exception:
+            ecalendar_dashboard_events = []
+
+        return render_template('dashboard.html',
                              membership=active_membership, 
                              benefits=benefits,
                              days_active=days_active,
@@ -192,7 +204,8 @@ def register_public_membership_routes(app):
                              show_onboarding=show_onboarding,
                              is_new_user=is_new_user,
                              user_status=user_status,
-                             next_featured_event=next_featured_event)
+                             next_featured_event=next_featured_event,
+                             ecalendar_dashboard_events=ecalendar_dashboard_events)
 
 
 
@@ -200,140 +213,15 @@ def register_public_membership_routes(app):
     @login_required
     @_require_memberships
     def membership():
-        """Página de membresía"""
+        """Página de membresía: estado compacto + tabla planes × servicios."""
+        from nodeone.modules.public_membership.page_context import build_membership_portal_context
+
         active_membership = current_user.get_active_membership()
-    
-        # Planes desde BD (para que se vean los planes de membresía)
-        plans = MembershipPlan.get_active_ordered()
-        pricing_monthly = {p.slug: float(p.price_monthly or 0) for p in plans}
-        pricing_yearly = {p.slug: float(p.price_yearly or 0) for p in plans}
-        if not pricing_monthly:
-            pricing_monthly = {'basic': 0, 'personal': 12.42, 'emprendedor': 37.42, 'ejecutivo': 79.08}
-        if not pricing_yearly:
-            pricing_yearly = {'basic': 0, 'personal': 149, 'emprendedor': 449, 'ejecutivo': 949}
-    
-        # Servicios activos solo de la empresa del usuario (no mezclar con otras orgs)
-        _svc_org = tenant_data_organization_id()
-        all_services = Service.query.filter_by(is_active=True, organization_id=_svc_org).order_by(
-            Service.display_order, Service.name
-        ).all()
-    
-        # Jerarquía de membresías (desde BD; fallback a dict por si no hay tabla aún)
-        try:
-            membership_hierarchy = MembershipPlan.get_hierarchy()
-            if not membership_hierarchy:
-                membership_hierarchy = {'basic': 0, 'personal': 1, 'emprendedor': 2, 'ejecutivo': 3}
-        except Exception:
-            membership_hierarchy = {'basic': 0, 'personal': 1, 'emprendedor': 2, 'ejecutivo': 3}
-    
-        # Para cada servicio, determinar en qué planes está disponible
-        # Esto se usará en el template para mostrar checkmarks
-        services_with_plans = []
-        for service in all_services:
-            # Obtener todas las reglas de precio activas para este servicio
-            pricing_rules = ServicePricingRule.query.filter_by(
-                service_id=service.id,
-                is_active=True
-            ).all()
-        
-            available_plans = []
-        
-            # SIEMPRE incluir el membership_type base del servicio (CRÍTICO)
-            # Esto asegura que un servicio con membership_type='ejecutivo' aparezca en esa columna, etc.
-            if service.membership_type:
-                smt = (service.membership_type or '').strip().lower()
-                # ``basic`` en el servicio = disponible para todos los planes de pago (no hay fila de venta ``basic``).
-                if smt == 'basic':
-                    # Incluido en el nivel gratuito / base y en planes superiores (sin columna admin).
-                    if 'basic' not in available_plans:
-                        available_plans.append('basic')
-                    for slug, tier in membership_hierarchy.items():
-                        if slug in ('admin', 'basic'):
-                            continue
-                        if tier > 0 and slug not in available_plans:
-                            available_plans.append(slug)
-                elif smt not in available_plans:
-                    available_plans.append(smt)
-        
-            # Si tiene reglas de precio, agregar también esos planes
-            # Las pricing_rules permiten que un servicio aparezca en múltiples planes
-            if pricing_rules:
-                for rule in pricing_rules:
-                    if rule.membership_type and rule.membership_type not in available_plans:
-                        available_plans.append(rule.membership_type)
-            else:
-                # Si no tiene reglas, agregar también a todos los planes superiores (jerarquía)
-                # Esto permite que servicios básicos aparezcan en todos los planes superiores
-                service_tier = membership_hierarchy.get(service.membership_type, -1)
-                if service_tier >= 0:  # Solo si el tier es válido
-                    for plan_type, tier in membership_hierarchy.items():
-                        if tier > service_tier and plan_type not in available_plans:
-                            available_plans.append(plan_type)
-        
-            services_with_plans.append({
-                'service': service,
-                'available_plans': available_plans
-            })
-    
-        # Sin columna ``admin``. ``basic`` se muestra si existe en BD (plan gratuito / entrada).
-        plans_display = [p for p in plans if (p.slug or '').lower() != 'admin']
-        # Certificado de membresía: evento activo "Certificado de Membresía" o code_prefix MEM (emitir desde esta página)
-        membership_cert_event_id = None
-        membership_cert_issued = False
-        membership_cert_download_url = None
-        if active_membership:
-            try:
-                CertificateEvent.__table__.create(db.engine, checkfirst=True)
-                Certificate.__table__.create(db.engine, checkfirst=True)
-                _mem_cert_oid = int(tenant_data_organization_id())
-                if not CertificateEvent.query.filter(
-                    CertificateEvent.organization_id == _mem_cert_oid,
-                    db.or_(
-                        CertificateEvent.name == 'Certificado de Membresía',
-                        CertificateEvent.code_prefix == 'MEM',
-                    ),
-                ).first():
-                    ev_default = CertificateEvent(
-                        organization_id=_mem_cert_oid,
-                        name='Certificado de Membresía',
-                        is_active=True,
-                        verification_enabled=True,
-                        code_prefix='MEM',
-                        membership_required_id=None,
-                        event_required_id=None,
-                    )
-                    db.session.add(ev_default)
-                    db.session.commit()
-                cert_ev = CertificateEvent.query.filter(
-                    CertificateEvent.organization_id == _mem_cert_oid,
-                    CertificateEvent.is_active == True,
-                    db.or_(
-                        CertificateEvent.name == 'Certificado de Membresía',
-                        CertificateEvent.code_prefix == 'MEM',
-                    ),
-                ).first()
-                if cert_ev:
-                    membership_cert_event_id = cert_ev.id
-                    existing = Certificate.query.filter_by(
-                        user_id=current_user.id,
-                        certificate_event_id=cert_ev.id
-                    ).first()
-                    if existing:
-                        membership_cert_issued = True
-                        membership_cert_download_url = url_for('certificates_api.download_certificate', certificate_code=existing.certificate_code)
-            except Exception:
-                pass
-        return render_template('membership.html', 
-                             membership=active_membership,
-                             plans=plans,
-                             plans_display=plans_display,
-                             pricing_monthly=pricing_monthly,
-                             pricing_yearly=pricing_yearly,
-                             services_with_plans=services_with_plans,
-                             membership_hierarchy=membership_hierarchy,
-                             membership_cert_event_id=membership_cert_event_id,
-                             membership_cert_issued=membership_cert_issued,
-                             membership_cert_download_url=membership_cert_download_url)
+        ctx = build_membership_portal_context(
+            active_membership,
+            organization_id=int(tenant_data_organization_id()),
+        )
+        return render_template('membership.html', **ctx)
 
 
 

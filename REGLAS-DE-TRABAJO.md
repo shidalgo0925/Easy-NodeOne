@@ -2,7 +2,9 @@
 
 Documento fijo para programadores y operación. Política **obligatoria** salvo acuerdo explícito por escrito del responsable del proyecto.
 
-**Antes de tocar código:** leé **este documento** completo. Para **cada despliegue** o comunicación a clientes, consultá también el checklist [`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) (incluye la norma de **tag o commit explícito** en silos que no son dev).
+> **Punto de entrada único (IA y resumen rápido):** [`AGENTS.md`](AGENTS.md) en la raíz del repo. Cursor y asistentes deben leerlo primero.
+
+**Antes de tocar código:** leé [`AGENTS.md`](AGENTS.md) y **este documento** completo. Para **cada despliegue** o comunicación a clientes, consultá también el checklist [`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) (incluye la norma de **tag o commit explícito** en silos que no son dev).
 
 ---
 
@@ -38,6 +40,24 @@ En **`/opt/easynodeone/dev/app`** es el **único** entorno donde se puede:
 - crear **commits** y hacer **push** al remoto  
 
 **Git no es “la carpeta dev”.** Git es el historial central. `dev/app` es donde nace el trabajo; el remoto es la fuente de verdad compartida.
+
+---
+
+## Base de datos — PostgreSQL (no SQLite)
+
+**Desde 2026 los silos dev, staging, prod y relatic usan PostgreSQL.** Ya no se opera con `instance/NodeOne.db` (SQLite) como base principal.
+
+| Entorno | `DATABASE_URL` (systemd) | BD típica |
+|---------|-------------------------|-----------|
+| **dev** | `/opt/easynodeone/dev/.env` | `easynodeone_dev` en `127.0.0.1:5432` |
+| staging / prod / relatic | cada silo: `/opt/easynodeone/<silo>/.env` | PostgreSQL del silo |
+
+**Reglas:**
+
+- **`EnvironmentFiles` de systemd** apunta al `.env` del **silo** (`/opt/easynodeone/dev/.env`), no a `dev/app/.env`.
+- **`bootstrap_nodeone.py`** y migraciones manuales deben cargar ese `.env` (o exportar `DATABASE_URL`) antes de ejecutar; si no, el fallback SQLite de `app.py` migra la BD equivocada y el servicio sigue fallando en PG.
+- El fallback SQLite en `app.py` queda solo para desarrollo local aislado **sin** `DATABASE_URL`; en servidores **no** usarlo.
+- DDL / columnas nuevas: aplicar en **PostgreSQL** (bootstrap del unit, o `psql` como superusuario si el rol de app no es owner de la tabla).
 
 ---
 

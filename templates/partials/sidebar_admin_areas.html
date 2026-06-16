@@ -15,7 +15,7 @@
 {% if nav_sidebar_groups %}
 {% for group in nav_sidebar_groups %}
 <li class="nav-item nav-group sidebar-nav-launcher-group sidebar-nav-launcher-group--{{ group.id }}{% if group.open %} show{% endif %}" data-nav-group-key="erp-{{ group.id }}">
-    <a class="nav-link nav-group-toggle sidebar-nav-launcher-group-toggle d-flex align-items-center" href="#" onclick="return false;" aria-expanded="{{ 'true' if group.open else 'false' }}" title="{{ group.label }}">
+    <a class="nav-link nav-group-toggle sidebar-nav-launcher-group-toggle d-flex align-items-center{% if group.open %} active{% endif %}" href="#" onclick="return false;" aria-expanded="{{ 'true' if group.open else 'false' }}" title="{{ group.label }}" data-bs-toggle="tooltip" data-bs-placement="right">
         <i class="menu-icon {{ group.icon }}" aria-hidden="true"></i>
         <span class="menu-title-text sidebar-launcher-group-label flex-grow-1">{{ group.label }}</span>
         <i class="menu-arrow fas fa-chevron-down flex-shrink-0" aria-hidden="true"></i>

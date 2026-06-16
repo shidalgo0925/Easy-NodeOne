@@ -1,0 +1,23 @@
+{
+  "header_text": "LA UNIVERSIDAD JOSÉ MARTÍ DE LATINOAMÉRICA Y LA FUNDACIÓN RELATIC PANAMÁ",
+  "convenio_text": "Según convenio vigente No. 100-001 del 20 de octubre de 2025",
+  "activity_type": "Diplomado",
+  "issue_city": "Panamá",
+  "primary_color": "#002B5C",
+  "secondary_color": "#F2B705",
+  "text_color": "#4A4A4A",
+  "title_color": "#222222",
+  "logo_left_url": "/static/uploads/certificates/layout/logo_ujml.png",
+  "logo_right_url": "/static/uploads/certificates/layout/logo_relatic.png",
+  "seal_url": "/static/uploads/certificates/layout/seal_relatic.png",
+  "signatory_left_name": "Dr. Carlos Mendoza",
+  "signatory_left_role": "Rector",
+  "signatory_left_org": "Universidad José Martí de Latinoamérica",
+  "signatory_left_image": "",
+  "signatory_right_name": "Lic. Sandra Hidalgo",
+  "signatory_right_role": "Directora Académica",
+  "signatory_right_org": "Fundación Relatic Panamá",
+  "signatory_right_image": "",
+  "closing_text": "En mérito a lo expuesto, y con el fin de acreditar su formación, se expide el presente diploma.",
+  "academic_hours": 40
+}

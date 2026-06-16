@@ -20,7 +20,8 @@ from sqlalchemy import func, text as sql_text
 try:
     from dotenv import load_dotenv
 
-    load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+    if os.environ.get('NODEONE_SKIP_DOTENV_APP', '').strip().lower() not in ('1', 'true', 'yes'):
+        load_dotenv(Path(__file__).resolve().parent.parent / '.env')
 except ImportError:
     pass
 
@@ -174,6 +175,8 @@ if _db_uri:
         _db_uri = _db_uri.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = _db_uri
 else:
+    # Silos dev/staging/prod usan PostgreSQL vía DATABASE_URL en /opt/easynodeone/<silo>/.env (systemd).
+    # SQLite solo si no hay URL — desarrollo local aislado; no usar en servidores.
     db_path = os.path.join(_instance_dir, 'NodeOne.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -3226,6 +3229,14 @@ def bootstrap_nodeone_schema():
 
             for org in SaasOrganization.query.filter_by(is_active=True).all():
                 _cert_routes_mod._seed_org_certificate_events(int(org.id))
+            try:
+                from nodeone.services.event_institutional_certificate_template import (
+                    ensure_institutional_event_certificate_templates,
+                )
+
+                ensure_institutional_event_certificate_templates(db, printfn=print)
+            except Exception as e_inst:
+                print(f'⚠️ ensure_institutional_event_certificate_templates: {e_inst}')
         except Exception as e:
             print(f'⚠️ ensure_certificate_events: {e}')
         ensure_office365_discount_code_id()
@@ -3281,6 +3292,12 @@ def bootstrap_nodeone_schema():
             except Exception:
                 pass
         try:
+            from nodeone.services.payment_yappy_schema import ensure_payment_yappy_manual_columns
+
+            ensure_payment_yappy_manual_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_payment_yappy_manual_columns: {e}')
+        try:
             from nodeone.services.contador_schema import ensure_contador_qty_float_columns
 
             ensure_contador_qty_float_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
@@ -3312,6 +3329,13 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_contacts_schema: {e}')
+        try:
+            from nodeone.services.academic_schema import ensure_academic_schema
+
+            ensure_academic_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_academic_schema: {e}')
         # WIP comercial (tenant_crm_contact): solo si se pide explícitamente; evita abortar la sesión en Fase 1 Contactos.
         if os.environ.get('NODEONE_COMMERCIAL_PARTNERS_SCHEMA', '').strip().lower() in ('1', 'true', 'yes'):
             try:

@@ -46,11 +46,14 @@ def process_cart_after_payment(cart, payment):
 
     import json
 
+    from nodeone.services.manual_payment_flow import is_manual_validation_method
+
     st = (getattr(payment, "status", None) or "").strip()
-    if getattr(payment, "payment_method", None) == "yappy_manual":
+    method = (getattr(payment, "payment_method", None) or "").strip()
+    if is_manual_validation_method(method):
         if st != "paid":
             raise RuntimeError(
-                "Yappy manual: la compra solo se activa con estado paid tras validación administrativa."
+                "Pago manual: la compra solo se activa con estado paid tras validación administrativa."
             )
     elif st != "succeeded":
         raise RuntimeError("El carrito solo se procesa con pago confirmado (succeeded).")
@@ -105,7 +108,7 @@ def process_cart_after_payment(cart, payment):
         elif item.product_type == 'event':
             # Registrar al evento
             metadata = json.loads(item.item_metadata) if item.item_metadata else {}
-            event_id = metadata.get('event_id')
+            event_id = metadata.get('event_id') or item.product_id
             if event_id:
                 # Verificar si el evento existe
                 event = M.Event.query.get(event_id)
@@ -347,6 +350,16 @@ def process_cart_after_payment(cart, payment):
         process_academic_program_items_after_payment = None
     if process_academic_program_items_after_payment:
         process_academic_program_items_after_payment(cart, payment)
+
+    if events_registered:
+        try:
+            from nodeone.services.payment_event_fulfillment import ensure_participants_for_event_ids
+
+            ensure_participants_for_event_ids(
+                list({int(er.event_id) for er in events_registered if getattr(er, 'event_id', None)})
+            )
+        except Exception as e:
+            print(f'⚠️ participantes tras pago evento: {e}')
 
     M.db.session.commit()
 

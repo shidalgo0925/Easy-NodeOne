@@ -14,7 +14,7 @@
                     <i class="fas fa-plus me-1"></i> Nuevo formato
                 </button>
             </div>
-            <p class="text-muted small mb-0">Configura cada tipo de certificado: sube el fondo, logos y sello; define institución y firmas. Para usar una <strong>plantilla visual</strong>, edita el formato, elige "Plantilla visual" en el desplegable, guarda y usa <strong>Vista previa</strong> (icono <i class="fas fa-eye"></i>) para comprobar.</p>
+            <p class="text-muted small mb-0">Los certificados de <strong>eventos</strong> (Seminario, revisores…) se editan con <strong>Editar carátula</strong> → editor visual del PDF. La sección MEM/REG abajo es solo para membresía y registro (modal con fondo/logos/HTML).</p>
             {% if saas_module_enabled('qr_generator') %}
             <p class="small mt-2 mb-0">Para un <strong>QR de verificación</strong>, usá {% if has_view_endpoint('admin_tools_qr') %}<a href="{{ url_for('admin_tools_qr') }}">Herramientas → Generador QR</a>{% else %}el generador QR del sitio (no disponible en este despliegue){% endif %} con la URL pública de verificación del certificado (ruta <code class="small">/verify/&lt;código&gt;</code> del sitio).</p>
             {% endif %}
@@ -218,23 +218,64 @@
                 tableLoading.classList.add('d-none');
                 tableWrap.classList.remove('d-none');
                 const items = data.items || [];
-                tbody.innerHTML = items.map(function(e) {
+                const eventItems = items.filter(function(e) { return e.kind === 'event_module'; });
+                const memItems = items.filter(function(e) { return e.kind !== 'event_module'; });
+
+                function renderEventRow(e) {
+                    var reqEv = e.requirement_text || ('Evento #' + e.event_id);
+                    var tplEv = e.template_id
+                        ? '<span class="badge bg-info">Carátula id ' + e.template_id + '</span>'
+                        : '<span class="text-muted">—</span>';
+                    var issued = (e.issued_count != null && e.issued_count > 0)
+                        ? ' <span class="badge bg-secondary">' + e.issued_count + ' emitido(s)</span>'
+                        : ' <span class="badge bg-warning text-dark">Sin emitir</span>';
+                    var coverHref = e.edit_path || ('/admin/certificate-templates/editor/' + (e.template_id || ''));
+                    return '<tr class="table-primary-subtle">' +
+                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-success">Evento #' + e.event_id + '</span>' + issued + '</td>' +
+                        '<td><code>' + (e.code_prefix || '') + '</code></td>' +
+                        '<td>' + (e.institution || '—') + '</td>' +
+                        '<td>' + tplEv + '</td>' +
+                        '<td><small>' + reqEv + '</small></td>' +
+                        '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
+                        '<td class="text-nowrap">' +
+                        '<a href="' + coverHref + '" class="btn btn-primary btn-sm me-1" title="Editor visual de la carátula del certificado (PDF)"><i class="fas fa-image me-1"></i>Editar carátula</a>' +
+                        '<a href="' + (e.certificates_url || '#') + '" class="btn btn-outline-info btn-sm me-1" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></a>' +
+                        '<a href="' + (e.participants_url || '#') + '" class="btn btn-outline-secondary btn-sm" title="Participantes"><i class="fas fa-users"></i></a>' +
+                        '</td></tr>';
+                }
+
+                function renderMemRow(e) {
                     var req = 'Membresía activa';
                     if (e.membership_required_id) req = 'Plan ID ' + e.membership_required_id;
                     else if (e.event_required_id) req = 'Evento ID ' + e.event_required_id;
                     var tpl = (e.template_id ? '<span class="badge bg-info">Sí (id ' + e.template_id + ')</span>' : '<span class="text-muted">—</span>');
                     return '<tr>' +
-                        '<td><strong>' + (e.name || '') + '</strong></td>' +
+                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-light text-dark border">MEM/REG</span></td>' +
                         '<td><code>' + (e.code_prefix || '') + '</code></td>' +
                         '<td>' + (e.institution || '—') + '</td>' +
                         '<td>' + tpl + '</td>' +
                         '<td><small>' + req + '</small></td>' +
                         '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
-                        '<td><button type="button" class="btn btn-info btn-sm me-1" onclick="previewEvent(' + e.id + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
-                        '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')"><i class="fas fa-edit"></i></button>' +
+                        '<td class="text-nowrap">' +
+                        '<button type="button" class="btn btn-info btn-sm me-1" onclick="previewEvent(' + e.id + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
+                        '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')" title="Editar formato MEM/REG (fondo, logos, HTML)"><i class="fas fa-cog"></i></button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteEvent(' + e.id + ',' + JSON.stringify(e.name || '') + ')"><i class="fas fa-trash"></i></button></td>' +
                         '</tr>';
-                }).join('');
+                }
+
+                var html = '';
+                if (eventItems.length) {
+                    html += '<tr class="table-light"><td colspan="7" class="fw-semibold py-2"><i class="fas fa-calendar-check me-1"></i> Certificados de eventos — use <strong>Editar carátula</strong> para el diseño visual del PDF (no el modal MEM/REG).</td></tr>';
+                    html += eventItems.map(renderEventRow).join('');
+                }
+                if (memItems.length) {
+                    html += '<tr class="table-light"><td colspan="7" class="fw-semibold py-2"><i class="fas fa-id-card me-1"></i> Membresía y registro (MEM / REG)</td></tr>';
+                    html += memItems.map(renderMemRow).join('');
+                }
+                if (!html) {
+                    html = '<tr><td colspan="7" class="text-muted text-center py-4">No hay formatos configurados.</td></tr>';
+                }
+                tbody.innerHTML = html;
             })
             .catch(function() {
                 tableLoading.classList.add('d-none');
@@ -389,11 +430,15 @@
         var id = document.getElementById('eventId').value;
         var payload = {
             name: document.getElementById('eventName').value.trim(),
+            code_prefix: document.getElementById('eventCodePrefix').value.trim() || 'REL',
             institution: document.getElementById('eventInstitution').value.trim() || null,
             partner_organization: document.getElementById('eventPartner').value.trim() || null,
             rector_name: document.getElementById('eventRector').value.trim() || null,
             academic_director_name: document.getElementById('eventDirector').value.trim() || null,
             duration_hours: document.getElementById('eventDuration').value ? parseFloat(document.getElementById('eventDuration').value) : null,
+            start_date: document.getElementById('eventStart').value || null,
+            end_date: document.getElementById('eventEnd').value || null,
+            membership_required_id: document.getElementById('eventMembershipPlan').value || null,
             background_url: document.getElementById('eventBackgroundUrl').value || null,
             logo_left_url: document.getElementById('eventLogoLeftUrl').value || null,
             logo_right_url: document.getElementById('eventLogoRightUrl').value || null,
@@ -443,10 +488,6 @@
     document.getElementById('btnSaveEvent').addEventListener('click', function() {
         var id = document.getElementById('eventId').value;
         var payload = buildEventPayload();
-        payload.code_prefix = document.getElementById('eventCodePrefix').value.trim() || 'REL';
-        payload.start_date = document.getElementById('eventStart').value || null;
-        payload.end_date = document.getElementById('eventEnd').value || null;
-        payload.membership_required_id = document.getElementById('eventMembershipPlan').value || null;
         payload.is_active = document.getElementById('eventIsActive').checked;
         payload.verification_enabled = document.getElementById('eventVerification').checked;
         if (payload.event_id) delete payload.event_id;

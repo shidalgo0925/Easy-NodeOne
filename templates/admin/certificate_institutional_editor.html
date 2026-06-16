@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Plantilla institucional — {{ event_title }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-column flex-md-row flex-wrap align-items-stretch align-items-md-center gap-2 mb-3">
+        <h1 class="h5 mb-0"><i class="fas fa-file-certificate me-1"></i>Plantilla institucional de evento</h1>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('admin_certificate_templates') }}" class="btn btn-outline-secondary btn-sm">Volver a plantillas</a>
+            <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event_id) }}" class="btn btn-outline-primary btn-sm">Certificados del evento</a>
+            <button type="button" id="btnSave" class="btn btn-primary btn-sm">Guardar cambios</button>
+        </div>
+    </div>
+
+    <p class="text-muted small">
+        Formato PDF institucional para <strong>{{ event_title }}</strong> (evento #{{ event_id }}).
+        Los cambios se aplican al generar certificados desde Participantes → Certificados.
+    </p>
+
+    <div id="alert-container"></div>
+
+    <form id="layoutForm" class="row g-3">
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2"><strong>Textos principales</strong></div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="header_text">Encabezado institucional</label>
+                        <textarea class="form-control" id="header_text" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="convenio_text">Texto de convenio</label>
+                        <textarea class="form-control" id="convenio_text" rows="2"></textarea>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="activity_type">Tipo de actividad</label>
+                            <input type="text" class="form-control" id="activity_type" placeholder="Diplomado, Seminario, Taller...">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="academic_hours">Horas académicas</label>
+                            <input type="number" class="form-control" id="academic_hours" min="0" step="0.5">
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-2">
+                        <label class="form-label" for="issue_city">Ciudad de emisión</label>
+                        <input type="text" class="form-control" id="issue_city" value="Panamá">
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="closing_text">Texto de cierre</label>
+                        <textarea class="form-control" id="closing_text" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2"><strong>Colores</strong></div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <label class="form-label" for="primary_color">Primario</label>
+                            <input type="color" class="form-control form-control-color w-100" id="primary_color">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label" for="secondary_color">Secundario</label>
+                            <input type="color" class="form-control form-control-color w-100" id="secondary_color">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label" for="text_color">Texto</label>
+                            <input type="color" class="form-control form-control-color w-100" id="text_color">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label" for="title_color">Título</label>
+                            <input type="color" class="form-control form-control-color w-100" id="title_color">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header py-2"><strong>Logos y sello</strong></div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="logo_left_url">Logo izquierdo (URL)</label>
+                        <input type="text" class="form-control" id="logo_left_url" placeholder="/static/uploads/certificates/...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="logo_right_url">Logo derecho (URL)</label>
+                        <input type="text" class="form-control" id="logo_right_url" placeholder="/static/uploads/certificates/...">
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="seal_url">Sello (URL)</label>
+                        <input type="text" class="form-control" id="seal_url" placeholder="/static/uploads/certificates/...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header py-2"><strong>Firmas</strong></div>
+                <div class="card-body">
+                    <p class="small text-muted">Firma izquierda</p>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="signatory_left_name" placeholder="Nombre">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="signatory_left_role" placeholder="Cargo">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="signatory_left_org" placeholder="Organización">
+                        </div>
+                        <div class="col-12">
+                            <input type="text" class="form-control" id="signatory_left_image" placeholder="Imagen firma (URL, opcional)">
+                        </div>
+                    </div>
+                    <p class="small text-muted">Firma derecha</p>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="signatory_right_name" placeholder="Nombre">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="signatory_right_role" placeholder="Cargo">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="signatory_right_org" placeholder="Organización">
+                        </div>
+                        <div class="col-12">
+                            <input type="text" class="form-control" id="signatory_right_image" placeholder="Imagen firma (URL, opcional)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+(function() {
+    const templateId = {{ template_id | tojson }};
+    const fieldIds = [
+        'header_text', 'convenio_text', 'activity_type', 'issue_city',
+        'primary_color', 'secondary_color', 'text_color', 'title_color',
+        'logo_left_url', 'logo_right_url', 'seal_url',
+        'signatory_left_name', 'signatory_left_role', 'signatory_left_org', 'signatory_left_image',
+        'signatory_right_name', 'signatory_right_role', 'signatory_right_org', 'signatory_right_image',
+        'closing_text', 'academic_hours'
+    ];
+    const alertEl = document.getElementById('alert-container');
+    const btnSave = document.getElementById('btnSave');
+
+    function showAlert(msg, type) {
+        alertEl.innerHTML = '<div class="alert alert-' + (type || 'info') + ' alert-dismissible fade show" role="alert">' +
+            msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function collectLayout() {
+        const layout = {};
+        fieldIds.forEach(function(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let val = el.value;
+            if (id === 'academic_hours' && val !== '') {
+                val = parseFloat(val);
+            }
+            layout[id] = val;
+        });
+        return layout;
+    }
+
+    function fillForm(layout) {
+        fieldIds.forEach(function(id) {
+            const el = document.getElementById(id);
+            if (!el || layout[id] === undefined || layout[id] === null) return;
+            el.value = layout[id];
+        });
+    }
+
+    fetch('/api/templates/' + templateId + '/institutional-layout', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                showAlert(data.error, 'danger');
+                return;
+            }
+            fillForm(data.layout || {});
+        })
+        .catch(function(e) { showAlert('Error al cargar: ' + e.message, 'danger'); });
+
+    btnSave.addEventListener('click', function() {
+        btnSave.disabled = true;
+        fetch('/api/templates/' + templateId + '/institutional-layout', {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ layout: collectLayout() })
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                btnSave.disabled = false;
+                if (data.success) showAlert('Plantilla guardada. Los nuevos certificados usarán este formato.', 'success');
+                else showAlert(data.error || 'Error al guardar', 'danger');
+            })
+            .catch(function(e) {
+                btnSave.disabled = false;
+                showAlert('Error: ' + e.message, 'danger');
+            });
+    });
+})();
+</script>
+{% endblock %}

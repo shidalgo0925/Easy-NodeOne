@@ -187,3 +187,7 @@ Orden:
 - **Test:** `backend/scripts/test_academic_enrollment_iius.py`.
 
 Pendiente: enlace opcional a `Service`/facturación avanzada; más landings migradas desde legacy.
+
+**Roadmap IIUS (ver `backend/docs/IIUS_CIRCUIT_STATUS.md` § Roadmap):**
+
+- **IIUS-CAT-01** — Incluir en vitrina `/programas` los programas publicados creados en Apps (no solo slugs cableados WP). WordPress se mantiene manual; no ampliar push automático en esa entrega.

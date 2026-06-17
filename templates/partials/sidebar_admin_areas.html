@@ -1,0 +1,45 @@
+{# Admin tenant: Dashboard (base.html) + top-level + grupos colapsables. #}
+{% set _sidebar_active = nav_sidebar_area_id|default(nav_active_area_id) %}
+
+{% if nav_sidebar_top_areas %}
+{% for area in nav_sidebar_top_areas %}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--area sidebar-nav-app--{{ area.id }}">
+    <a class="nav-link {% if _sidebar_active == area.id %}active{% endif %}" href="{{ area.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ area.label }}">
+        <i class="menu-icon {{ area.icon }}"></i>
+        <span class="menu-title-text">{{ area.label }}</span>
+    </a>
+</li>
+{% endfor %}
+{% endif %}
+
+{% if nav_sidebar_groups %}
+{% for group in nav_sidebar_groups %}
+<li class="nav-item nav-group sidebar-nav-launcher-group sidebar-nav-launcher-group--{{ group.id }}{% if group.open %} show{% endif %}" data-nav-group-key="erp-{{ group.id }}">
+    <a class="nav-link nav-group-toggle sidebar-nav-launcher-group-toggle d-flex align-items-center" href="#" onclick="return false;" aria-expanded="{{ 'true' if group.open else 'false' }}" title="{{ group.label }}">
+        <i class="menu-icon {{ group.icon }}" aria-hidden="true"></i>
+        <span class="menu-title-text sidebar-launcher-group-label flex-grow-1">{{ group.label }}</span>
+        <i class="menu-arrow fas fa-chevron-down flex-shrink-0" aria-hidden="true"></i>
+    </a>
+    <ul class="nav-group-items">
+        {% for area in group.areas %}
+        <li class="nav-item sidebar-nav-app sidebar-nav-app--area sidebar-nav-app--{{ area.id }}">
+            <a class="nav-link {% if _sidebar_active == area.id %}active{% endif %}" href="{{ area.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ area.label }}">
+                <i class="menu-icon {{ area.icon }}"></i>
+                <span class="menu-title-text">{{ area.label }}</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</li>
+{% endfor %}
+{% elif nav_app_areas %}
+{# Fallback plano si el payload no trae grupos #}
+{% for area in nav_app_areas %}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--area sidebar-nav-app--{{ area.id }}">
+    <a class="nav-link {% if _sidebar_active == area.id %}active{% endif %}" href="{{ area.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ area.label }}">
+        <i class="menu-icon {{ area.icon }}"></i>
+        <span class="menu-title-text">{{ area.label }}</span>
+    </a>
+</li>
+{% endfor %}
+{% endif %}

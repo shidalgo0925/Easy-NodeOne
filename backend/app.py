@@ -1652,6 +1652,7 @@ def inject_admin_nav_context():
         'show_org_switcher_link': False,
         'show_member_organization_switcher': False,
         'member_organizations_nav': [],
+        'show_erp_admin_chrome': False,
     }
     if not has_request_context():
         out['nav_can'] = _nav_can_permission
@@ -1735,6 +1736,59 @@ def inject_admin_nav_context():
     except Exception:
         pass
     out['nav_can'] = _nav_can_permission
+    out.setdefault('nav_app_areas', [])
+    out.setdefault('nav_sidebar_top_areas', [])
+    out.setdefault('nav_sidebar_groups', [])
+    out.setdefault('nav_active_area_id', None)
+    out.setdefault('nav_sidebar_area_id', None)
+    out.setdefault('nav_active_area_label', None)
+    out.setdefault('nav_area_children', [])
+    out.setdefault('nav_single_area_mode', False)
+    out.setdefault('nav_show_module_bar', False)
+    out.setdefault('nav_active_child_label', None)
+    try:
+        is_authenticated = has_request_context() and getattr(current_user, 'is_authenticated', False)
+        is_platform_admin_user = bool(getattr(current_user, 'is_admin', False))
+        show_erp_chrome = bool(out.get('show_tenant_admin_menu')) or (
+            bool(out.get('show_platform_admin_nav')) and is_platform_admin_user
+        )
+        out['show_erp_admin_chrome'] = show_erp_chrome if is_authenticated else False
+        if is_authenticated and show_erp_chrome:
+            from flask import current_app
+
+            from nodeone.core.nav_menu import nav_launcher_payload
+            from nodeone.services.academic_module import is_academic_module_enabled_for_org
+            from nodeone.services.office365_module import is_office365_module_enabled_for_org
+
+            show_academic_nav = False
+            if (
+                'academic_admin' in current_app.blueprints
+                and is_academic_module_enabled_for_org(_org_id_for_module_visibility())
+            ):
+                show_academic_nav = True
+            out.update(
+                nav_launcher_payload(
+                    nav_can=_nav_can_permission,
+                    saas_module_enabled=saas_module_enabled,
+                    saas_module_enabled_chain=saas_module_enabled_chain,
+                    has_view_endpoint=has_view_endpoint,
+                    show_academic_admin_nav=show_academic_nav,
+                    office365_module_enabled=is_office365_module_enabled_for_org(
+                        _org_id_for_module_visibility()
+                    ),
+                    show_platform_admin_nav=bool(out.get('show_platform_admin_nav')),
+                    is_platform_admin=bool(getattr(current_user, 'is_admin', False)),
+                    is_advisor=bool(getattr(current_user, 'is_advisor', False)),
+                    show_tenant_admin_menu=bool(out.get('show_tenant_admin_menu')),
+                )
+            )
+    except Exception:
+        try:
+            from flask import current_app
+
+            current_app.logger.exception('inject_admin_nav_context: nav_launcher_payload falló')
+        except Exception:
+            pass
     return out
 
 

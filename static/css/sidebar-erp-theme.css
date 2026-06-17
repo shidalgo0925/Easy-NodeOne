@@ -417,6 +417,48 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
     box-shadow: inset 0 -2px 0 0 #38bdf8;
 }
 
+.erp-app-subnav__link.is-menu-active {
+    color: #0f172a;
+    font-weight: 600;
+    background: #e0f2fe;
+}
+
+.erp-app-subnav__link--menu.dropdown-toggle::after {
+    margin-left: 0.35em;
+    vertical-align: 0.15em;
+}
+
+/* Dropdowns (Administración, etc.): anular .dropdown-item global (#fff sobre fondo claro) */
+.erp-app-subnav__dropdown-menu {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.35rem 0;
+    min-width: 12rem;
+}
+
+.erp-app-subnav__dropdown-item {
+    color: #334155 !important;
+    font-size: 0.8125rem;
+    padding: 0.45rem 0.85rem;
+}
+
+.erp-app-subnav__dropdown-item:hover,
+.erp-app-subnav__dropdown-item:focus {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+
+.erp-app-subnav__dropdown-item.active,
+.erp-app-subnav__dropdown-item:active {
+    background-color: #e0f2fe !important;
+    color: #0f172a !important;
+}
+
+.erp-app-subnav__dropdown-item .text-muted {
+    color: #64748b !important;
+}
+
 html[data-theme="dark"] .erp-app-subnav,
 html[data-theme="auto"] .erp-app-subnav {
     background: #1e293b;
@@ -446,6 +488,39 @@ html[data-theme="auto"] .erp-app-subnav__link.is-active {
     color: #f8fafc;
 }
 
+html[data-theme="dark"] .erp-app-subnav__link.is-menu-active,
+html[data-theme="auto"] .erp-app-subnav__link.is-menu-active {
+    background: rgba(56, 189, 248, 0.2);
+    color: #f8fafc;
+}
+
+html[data-theme="dark"] .erp-app-subnav__dropdown-menu,
+html[data-theme="auto"] .erp-app-subnav__dropdown-menu {
+    background-color: #1e293b;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .erp-app-subnav__dropdown-item,
+html[data-theme="auto"] .erp-app-subnav__dropdown-item {
+    color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .erp-app-subnav__dropdown-item:hover,
+html[data-theme="dark"] .erp-app-subnav__dropdown-item:focus,
+html[data-theme="auto"] .erp-app-subnav__dropdown-item:hover,
+html[data-theme="auto"] .erp-app-subnav__dropdown-item:focus {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .erp-app-subnav__dropdown-item.active,
+html[data-theme="dark"] .erp-app-subnav__dropdown-item:active,
+html[data-theme="auto"] .erp-app-subnav__dropdown-item.active,
+html[data-theme="auto"] .erp-app-subnav__dropdown-item:active {
+    background-color: rgba(56, 189, 248, 0.2) !important;
+    color: #f8fafc !important;
+}
+
 body.sidebar-collapsed .erp-app-subnav {
     left: 80px;
 }
@@ -470,21 +545,34 @@ body:has(#erpAppSubnav) #right-panel .content {
 }
 
 /*
- * Modo horizontal (Odoo): sin acordeón lateral en nav-group.
- * - Con barra visible: body:has(#erpAppSubnav)
- * - Sin barra (p. ej. Dashboard): data-erp-app-chrome en body (mismo shell admin que el include del subnav)
+ * Modo horizontal (Odoo): ocultar acordeón lateral genérico.
+ * Excepción: grupos launcher (Comercial, Operaciones…) muestran sus apps hijas al expandir.
  */
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > ul.nav-group-items,
-body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group > ul.nav-group-items {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > ul.nav-group-items,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > ul.nav-group-items {
     display: none !important;
 }
 
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group > a.nav-group-toggle .menu-arrow,
-body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group > a.nav-group-toggle .menu-arrow {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items {
+    display: block !important;
+}
+
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > a.nav-group-toggle .menu-arrow,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > a.nav-group-toggle .menu-arrow {
     opacity: 0;
     width: 0;
     margin: 0;
     overflow: hidden;
+    pointer-events: none;
+}
+
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group > a.nav-group-toggle .menu-arrow,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group > a.nav-group-toggle .menu-arrow {
+    opacity: 1;
+    width: auto;
+    margin: 0 0 0 0.35rem;
+    overflow: visible;
     pointer-events: none;
 }
 

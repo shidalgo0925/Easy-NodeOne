@@ -87,11 +87,11 @@ PAYMENT_PROFILES: dict[str, dict[str, Any]] = {
         },
     },
     'international': {
-        'label': 'Internacional (IIUS) — PayPal + SWIFT',
+        'label': 'Internacional (IIUS) — PayPal + SWIFT + Stripe',
         'enabled': {
             'paypal': True,
             'wire_international': True,
-            'stripe': False,
+            'stripe': True,
             'yappy_manual': False,
             'banco_general': False,
             'manual_payment': False,

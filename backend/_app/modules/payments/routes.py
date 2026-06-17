@@ -308,7 +308,9 @@ def checkout():
         pay_oid = int(resolve_current_organization())
         pcfg = PaymentConfig.get_active_config(organization_id=pay_oid)
         ctx = opm.build_checkout_payment_context(pay_oid, payment_config=pcfg)
-        stripe_pk = STRIPE_PUBLISHABLE_KEY
+        stripe_pk = (pcfg.get_stripe_publishable_key() or '').strip() if pcfg else ''
+        if not stripe_pk:
+            stripe_pk = STRIPE_PUBLISHABLE_KEY
         if not PAYMENT_PROCESSORS_AVAILABLE:
             pm = dict(ctx['payment_methods'])
             ctx['payment_methods'] = pm

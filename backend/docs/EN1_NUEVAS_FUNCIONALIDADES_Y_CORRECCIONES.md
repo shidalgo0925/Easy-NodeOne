@@ -71,7 +71,7 @@ Tras el deploy en prod fue necesario aplicar **migraciones DDL adicionales** (co
 | Admin Pagos ampliado | Sección Yappy manual, listados, API de configuración. |
 | PayPal / IIUS | Documentación y checklist para pagos en campus académico (release IIUS). |
 
-**Nota:** Stripe desactivado en checkout según política de este release.
+**Nota:** Stripe desactivado en checkout según política de este release. Plan de activación: [`docs/EN1_ROADMAP.md`](../../docs/EN1_ROADMAP.md) § Stripe.
 
 ---
 

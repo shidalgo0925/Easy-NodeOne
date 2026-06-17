@@ -370,6 +370,7 @@ def create_payment_intent():
         metadata = {
             'user_id': current_user.id,
             'cart_id': cart.id,
+            'organization_id': pay_oid,
             'items_count': cart.get_items_count(),
             'cart_items': build_cart_items_snapshot(cart),
         }
@@ -384,6 +385,20 @@ def create_payment_intent():
         if not success:
             return jsonify({'error': error_message or 'Error al crear el pago'}), 400
 
+        if payment_method == 'stripe':
+            from nodeone.services.stripe_webhook import stripe_credentials_configured
+            import logging
+
+            if payment_data.get('demo_mode') or not stripe_credentials_configured(payment_config):
+                return jsonify({'error': 'Stripe no está configurado para esta organización.'}), 400
+            logging.getLogger('nodeone.stripe').info(
+                'create_payment_intent: pi=%s payment_id pending user=%s org=%s amount=%s',
+                payment_data.get('payment_reference'),
+                current_user.id,
+                pay_oid,
+                total_amount,
+            )
+
         if payment_method == 'wire_international' and payment_data.get('bank_account'):
             metadata['intl_wire'] = payment_data.get('bank_account')
         if payment_method == 'banco_general' and payment_data.get('bank_account'):
@@ -391,25 +406,17 @@ def create_payment_intent():
         
         # Detectar si estamos en modo demo
         is_demo_mode = payment_data.get('demo_mode', False)
-        
-        # Si es modo demo, también verificar si no hay credenciales configuradas
-        if not is_demo_mode:
-            # if payment_method == 'stripe':
-            #     if payment_config:
-            #         has_stripe_key = bool(payment_config.get_stripe_secret_key() and
-            #                             not payment_config.get_stripe_secret_key().startswith('sk_test_your_'))
-            #     else:
-            #         has_stripe_key = bool(os.getenv('STRIPE_SECRET_KEY') and
-            #                             not os.getenv('STRIPE_SECRET_KEY', '').startswith('sk_test_your_'))
-            #     is_demo_mode = not has_stripe_key
+
+        if payment_method == 'stripe':
+            is_demo_mode = False
+        elif not is_demo_mode:
             if payment_method == 'paypal':
                 if payment_config:
                     has_paypal_creds = bool(payment_config.get_paypal_client_id() and payment_config.get_paypal_client_secret())
                 else:
                     has_paypal_creds = bool(os.getenv('PAYPAL_CLIENT_ID') and os.getenv('PAYPAL_CLIENT_SECRET'))
                 is_demo_mode = not has_paypal_creds
-            else:
-                # Métodos manuales siempre están en modo demo hasta que se configuren APIs
+            elif payment_method not in ('wire_international',):
                 is_demo_mode = True
 
         if payment_method == 'wire_international':
@@ -457,6 +464,8 @@ def create_payment_intent():
         elif ocr_verified:
             initial_status = 'succeeded'
         elif payment_method == 'wire_international':
+            initial_status = 'pending'
+        elif payment_method == 'stripe':
             initial_status = 'pending'
         elif is_demo_mode and not receipt_url and not receipt_disk_path:
             initial_status = 'pending' if _checkout_no_demo_auto_success() else 'succeeded'
@@ -596,10 +605,10 @@ def create_payment_intent():
             'ocr_verified': ocr_verified
         }
         
-        # Agregar datos específicos según el método
-        # if payment_method == 'stripe':
-        #     response_data['client_secret'] = payment_data.get('client_secret', 'demo_client_secret')
-        if payment_method == 'paypal':
+        if payment_method == 'stripe':
+            response_data['client_secret'] = payment_data.get('client_secret')
+            response_data['payment_reference'] = payment_data.get('payment_reference')
+        elif payment_method == 'paypal':
             response_data['payment_url'] = payment_data.get('payment_url')
             response_data['order_id'] = payment_data.get('payment_reference')
         elif payment_method in ('banco_general', 'wire_international', 'manual_payment'):
@@ -1261,150 +1270,48 @@ def payment_cancel():
 
 
 def _stripe_construct_event_multi_tenant(raw_payload, sig_header):
-    """
-    Verifica firma Stripe probando STRIPE_WEBHOOK_SECRET y el secret del tenant
-    (según Payment del payment_intent), sin confiar en el JSON antes de validar.
-    """
-    import json
+    """Compat: delega en nodeone.services.stripe_webhook."""
+    from nodeone.services.stripe_webhook import construct_stripe_event
 
-    import app as M
-
-    if not M.STRIPE_AVAILABLE or not M.stripe:
-        return None, 'stripe_unavailable'
-
-    secrets_to_try = []
-    env_wh = (os.getenv('STRIPE_WEBHOOK_SECRET') or '').strip()
-    if env_wh:
-        secrets_to_try.append(env_wh)
-
-    try:
-        parsed = json.loads(raw_payload.decode('utf-8'))
-    except Exception:
-        return None, 'invalid_json'
-
-    if parsed.get('type') == 'payment_intent.succeeded':
-        obj = (parsed.get('data') or {}).get('object') or {}
-        pi_id = obj.get('id')
-        if pi_id:
-            payment = M.Payment.query.filter_by(payment_reference=pi_id).first()
-            if payment:
-                cfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id)
-                if cfg:
-                    wh = (cfg.get_stripe_webhook_secret() or '').strip()
-                    if wh and wh not in secrets_to_try:
-                        secrets_to_try.append(wh)
-
-    if not secrets_to_try:
-        secrets_to_try.append((os.getenv('STRIPE_WEBHOOK_SECRET') or 'whsec_test').strip() or 'whsec_test')
-
-    last_err = None
-    for wh in secrets_to_try:
-        if not wh:
-            continue
-        try:
-            return M.stripe.Webhook.construct_event(raw_payload, sig_header, wh), None
-        except ValueError as e:
-            return None, e
-        except M.stripe.error.SignatureVerificationError as e:
-            last_err = e
-            continue
-    return None, last_err
+    return construct_stripe_event(raw_payload, sig_header)
 
 
 @payments_checkout_bp.route('/stripe-webhook', methods=['POST'])
 def stripe_webhook():
-    """Webhook de Stripe para confirmar pagos (firma: env y/o secret por tenant)."""
-    import app as M
+    """Webhook Stripe: firma por tenant, eventos de pago y reembolso."""
+    import logging
 
+    from nodeone.services.stripe_webhook import construct_stripe_event, dispatch_stripe_webhook_event
+
+    log = logging.getLogger('nodeone.stripe')
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
+    log.info('stripe_webhook: POST recibido bytes=%s', len(payload))
 
-    event, err = _stripe_construct_event_multi_tenant(payload, sig_header)
+    event, err = construct_stripe_event(payload, sig_header)
     if event is None:
         if err == 'stripe_unavailable':
             return 'Stripe unavailable', 503
-        if isinstance(err, ValueError):
+        if err in ('invalid_json', 'invalid_payload'):
             return 'Invalid payload', 400
+        if err in ('missing_signature', 'invalid_signature', 'no_webhook_secret'):
+            return 'Invalid signature', 400
         return 'Invalid signature', 400
 
-    # Manejar el evento
-    if event['type'] == 'payment_intent.succeeded':
-        payment_intent = event['data']['object']
-        handle_successful_payment(payment_intent, event_type=event.get('type'))
+    try:
+        dispatch_stripe_webhook_event(event)
+    except Exception as exc:
+        log.exception('stripe_webhook: error procesando evento: %s', exc)
+        return jsonify({'error': 'processing_failed'}), 500
 
     return jsonify({'status': 'success'})
 
 
 def handle_successful_payment(payment_intent, event_type=None):
-    """Manejar pago exitoso"""
-    import app as M
-    try:
-        # Buscar el pago en la base de datos
-        payment = M.Payment.query.filter_by(
-            payment_reference=payment_intent['id']
-        ).first()
-        
-        if payment:
-            # Actualizar estado del pago
-            payment.status = 'succeeded'
-            payment.paid_at = datetime.utcnow()
-            M.db.session.commit()
-            
-            # Registrar confirmación de pago vía webhook en historial
-            try:
-                from history_module import HistoryLogger
-                # Registrar como acción del usuario (el pago es del usuario)
-                HistoryLogger.log_user_action(
-                    user_id=payment.user_id,
-                    action=f"Pago confirmado - Stripe Webhook - ${payment.amount/100:.2f}",
-                    status="success",
-                    context={"app": "webhook", "screen": "payment", "module": "stripe"},
-                    payload={
-                        "payment_id": payment.id,
-                        "payment_method": "stripe",
-                        "amount": payment.amount,
-                        "event_type": event_type,
-                    },
-                    result={
-                        "payment_id": payment.id,
-                        "status": "succeeded",
-                        "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
-                    },
-                    visibility="both"
-                )
-            except Exception as e:
-                print(f"⚠️ Error registrando confirmación de pago Stripe en historial: {e}")
-            
-            # Crear suscripción
-            end_date = datetime.utcnow() + timedelta(days=365)  # 1 año
-            subscription = M.Subscription(
-                user_id=payment.user_id,
-                payment_id=payment.id,
-                membership_type=payment.membership_type,
-                status='active',
-                end_date=end_date
-            )
-            M.db.session.add(subscription)
-            M.db.session.commit()
-            
-            # Enviar notificación y email de confirmación
-            M.NotificationEngine.notify_membership_payment(payment.user, payment, subscription)
-            try:
-                from nodeone.services.communication_dispatch import dispatch_membership_payment_confirmation
+    """Compat legacy: delega en servicio Stripe."""
+    from nodeone.services.stripe_webhook import handle_payment_intent_succeeded
 
-                dispatch_membership_payment_confirmation(payment.user, payment, subscription)
-            except Exception:
-                pass
-
-            # Enviar webhook a Odoo (no bloquea si falla)
-            try:
-                cart = M.get_or_create_cart(payment.user_id)
-                send_payment_to_odoo(payment, payment.user, cart)
-            except Exception as e:
-                print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")
-            
-    except Exception as e:
-        print(f"Error handling payment: {e}")
+    handle_payment_intent_succeeded(payment_intent, event_type)
 
 
 @payments_checkout_bp.route('/payments/status/<int:payment_id>')

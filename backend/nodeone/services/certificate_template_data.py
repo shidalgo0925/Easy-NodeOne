@@ -34,6 +34,49 @@ def _fmt_date(val) -> str:
     return str(val)
 
 
+def _parse_date(val) -> datetime | None:
+    if val is None or val == '':
+        return None
+    if isinstance(val, datetime):
+        return val
+    if hasattr(val, 'strftime') and not isinstance(val, str):
+        try:
+            return datetime(val.year, val.month, val.day)
+        except Exception:
+            return None
+    if isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return None
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+            try:
+                return datetime.strptime(s[:10], fmt)
+            except ValueError:
+                continue
+    return None
+
+
+def split_date_parts(val) -> dict[str, str]:
+    """Día (número), mes (nombre en español) y año; vacíos si no hay fecha."""
+    dt = _parse_date(val)
+    if dt is None:
+        return {'dia': '', 'mes': '', 'anio': ''}
+    from nodeone.services.certificate_institutional_pdf import _SPANISH_MONTHS
+
+    mes = _SPANISH_MONTHS[dt.month - 1] if 1 <= dt.month <= 12 else str(dt.month)
+    return {'dia': str(dt.day), 'mes': mes, 'anio': str(dt.year)}
+
+
+def date_parts_to_template_keys(prefix: str, val) -> dict[str, str]:
+    """Genera dia_{prefix}, mes_{prefix}, anio_{prefix} para plantillas."""
+    parts = split_date_parts(val)
+    return {
+        f'dia_{prefix}': parts['dia'],
+        f'mes_{prefix}': parts['mes'],
+        f'anio_{prefix}': parts['anio'],
+    }
+
+
 def _membership_plan_label(event_like) -> str:
     mid = getattr(event_like, 'membership_required_id', None)
     if not mid:
@@ -166,6 +209,12 @@ def build_certificate_template_data(
         'membership_start': m_start,
         'membership_end': m_end,
         'membership_period': m_period,
+        # Fechas desglosadas (dia / mes texto / anio) — plantillas nuevas; las anteriores siguen igual
+        **date_parts_to_template_keys('emision', issued),
+        **date_parts_to_template_keys('membresia_inicio', membership_start or None),
+        **date_parts_to_template_keys('membresia_fin', membership_end or None),
+        **date_parts_to_template_keys('inicio', start_raw),
+        **date_parts_to_template_keys('fin', end_raw),
         # Carátula — imágenes (URLs relativas /static/...)
         'background_url': (getattr(event_like, 'background_url', None) or '').strip(),
         'logo_left_url': (getattr(event_like, 'logo_left_url', None) or '').strip(),

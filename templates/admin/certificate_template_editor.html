@@ -32,9 +32,15 @@
                     <option value="rector_title">Cargo rector</option>
                     <option value="director_title">Cargo directora</option>
                     <option value="duration_hours">Duración (horas)</option>
-                    <option value="start_date">Fecha inicio</option>
-                    <option value="end_date">Fecha fin</option>
-                    <option value="event_dates">Fechas del evento (rango)</option>
+                    <option value="start_date">Evento — fecha inicio</option>
+                    <option value="end_date">Evento — fecha fin</option>
+                    <option value="event_dates">Evento — rango fechas</option>
+                    <option value="dia_inicio">Evento — día inicio</option>
+                    <option value="mes_inicio">Evento — mes inicio</option>
+                    <option value="anio_inicio">Evento — año inicio</option>
+                    <option value="dia_fin">Evento — día fin</option>
+                    <option value="mes_fin">Evento — mes fin</option>
+                    <option value="anio_fin">Evento — año fin</option>
                     <option value="membership_plan_required">Plan requerido</option>
                 </optgroup>
                 <optgroup label="Carátula — imágenes">
@@ -52,6 +58,9 @@
                     <option value="hours">Horas (número)</option>
                     <option value="issue_date_legal">Fecha legal de emisión</option>
                     <option value="issue_date">Fecha emisión</option>
+                    <option value="dia_emision">Emisión — día</option>
+                    <option value="mes_emision">Emisión — mes</option>
+                    <option value="anio_emision">Emisión — año</option>
                     <option value="certificate_code">Código certificado</option>
                     <option value="verification_url">URL verificación</option>
                 </optgroup>
@@ -60,6 +69,12 @@
                     <option value="membership_start">Membresía — fecha inicio</option>
                     <option value="membership_end">Membresía — fecha fin</option>
                     <option value="membership_period">Membresía — vigencia (desde/hasta)</option>
+                    <option value="dia_membresia_inicio">Membresía — día inicio</option>
+                    <option value="mes_membresia_inicio">Membresía — mes inicio</option>
+                    <option value="anio_membresia_inicio">Membresía — año inicio</option>
+                    <option value="dia_membresia_fin">Membresía — día fin</option>
+                    <option value="mes_membresia_fin">Membresía — mes fin</option>
+                    <option value="anio_membresia_fin">Membresía — año fin</option>
                 </optgroup>
             </select>
             <button type="button" id="btnAddVariable" class="btn btn-outline-secondary btn-sm w-100 mb-1">Añadir variable</button>
@@ -239,6 +254,12 @@
         start_date: mustacheVar('fecha_inicio'),
         end_date: mustacheVar('fecha_fin'),
         event_dates: mustacheVar('fechas'),
+        dia_inicio: mustacheVar('dia_inicio'),
+        mes_inicio: mustacheVar('mes_inicio'),
+        anio_inicio: mustacheVar('anio_inicio'),
+        dia_fin: mustacheVar('dia_fin'),
+        mes_fin: mustacheVar('mes_fin'),
+        anio_fin: mustacheVar('anio_fin'),
         membership_plan_required: mustacheVar('plan_req'),
         background_url: '[Fondo]',
         logo_left_url: '[Logo izq.]',
@@ -252,12 +273,21 @@
         hours: mustacheVar('horas'),
         issue_date_legal: mustacheVar('fecha_legal'),
         issue_date: mustacheVar('fecha'),
+        dia_emision: mustacheVar('dia_emision'),
+        mes_emision: mustacheVar('mes_emision'),
+        anio_emision: mustacheVar('anio_emision'),
         certificate_code: mustacheVar('código'),
         verification_url: mustacheVar('url'),
         membership_type: mustacheVar('membresía'),
         membership_start: mustacheVar('mem_inicio'),
         membership_end: mustacheVar('mem_fin'),
-        membership_period: mustacheVar('mem_vigencia')
+        membership_period: mustacheVar('mem_vigencia'),
+        dia_membresia_inicio: mustacheVar('dia_mem_inicio'),
+        mes_membresia_inicio: mustacheVar('mes_mem_inicio'),
+        anio_membresia_inicio: mustacheVar('anio_mem_inicio'),
+        dia_membresia_fin: mustacheVar('dia_mem_fin'),
+        mes_membresia_fin: mustacheVar('mes_mem_fin'),
+        anio_membresia_fin: mustacheVar('anio_mem_fin')
     };
 
     function showAlert(msg, type) {

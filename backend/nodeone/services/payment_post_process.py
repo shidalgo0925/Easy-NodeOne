@@ -92,7 +92,17 @@ def process_cart_after_payment(cart, payment):
         if item.product_type == 'membership':
             metadata = json.loads(item.item_metadata) if item.item_metadata else {}
             membership_type = metadata.get('membership_type', 'basic')
-            
+
+            for old_sub in M.Subscription.query.filter_by(
+                user_id=payment.user_id, status='active'
+            ).all():
+                old_sub.status = 'cancelled'
+                old_sub.updated_at = datetime.utcnow()
+
+            from nodeone.services.certificate_membership_rules import sync_membership_rows_after_paid_plan
+
+            sync_membership_rows_after_paid_plan(payment.user_id)
+
             # Crear suscripción
             end_date = datetime.utcnow() + timedelta(days=365)
             subscription = M.Subscription(

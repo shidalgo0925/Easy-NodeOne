@@ -38,52 +38,15 @@ def _get_base_url():
 
 
 def _user_qualified_for_event(user, cert_event):
-    """True si el usuario cumple requisitos. Certificado por Registro (REG): cualquier usuario registrado. Resto con membership/event requerido."""
-    from app import EventRegistration
-    # Certificado por Registro: cualquier usuario autenticado puede emitirlo (no exige membresía)
-    if (cert_event.code_prefix or '').strip().upper() == 'REG':
-        return True
-    if cert_event.membership_required_id is not None:
-        user_plan_id = _user_active_membership_plan_id(user)
-        if user_plan_id != cert_event.membership_required_id:
-            return False
-    if cert_event.event_required_id is not None:
-        reg = EventRegistration.query.filter_by(
-            user_id=user.id,
-            event_id=cert_event.event_required_id,
-            registration_status='confirmed'
-        ).first()
-        if not reg:
-            reg2 = EventRegistration.query.filter_by(
-                user_id=user.id,
-                event_id=cert_event.event_required_id,
-                registration_status='completed'
-            ).first()
-            if not reg2:
-                return False
-    if cert_event.membership_required_id is None and cert_event.event_required_id is None:
-        if not user.get_active_membership():
-            return False
-    return True
+    from nodeone.services.certificate_membership_rules import user_qualified_for_certificate_event
+
+    return user_qualified_for_certificate_event(user, cert_event, org_id=_cert_member_org_id())
 
 
 def _user_active_membership_plan_id(user):
-    """ID del plan de membresía activo del usuario, o None."""
-    from app import MembershipPlan, _enable_multi_tenant_catalog
-    active = user.get_active_membership()
-    if not active:
-        return None
-    mt = getattr(active, 'membership_type', None) or getattr(active, 'membership_type', None)
-    if not mt:
-        return None
-    oid = int(getattr(user, 'organization_id', None) or 1)
-    if not _enable_multi_tenant_catalog():
-        oid = 1
-    plan = (
-        MembershipPlan.query.filter_by(organization_id=oid, slug=mt).first()
-        or MembershipPlan.query.filter_by(organization_id=oid, name=mt).first()
-    )
-    return plan.id if plan else None
+    from nodeone.services.certificate_membership_rules import user_active_membership_plan_id
+
+    return user_active_membership_plan_id(user, org_id=_cert_member_org_id())
 
 
 def _user_completed_event_ids(user):
@@ -97,14 +60,9 @@ def _user_completed_event_ids(user):
 
 
 def _requirement_text(cert_event):
-    """Texto del requisito para mostrar en la lista."""
-    if (cert_event.code_prefix or '').strip().upper() == 'REG':
-        return "Usuario registrado"
-    if cert_event.membership_required_id is not None and cert_event.membership_plan:
-        return f"Membresía: plan {cert_event.membership_plan.name}"
-    if cert_event.event_required_id is not None and cert_event.event_required:
-        return f"Evento completado: {cert_event.event_required.title}"
-    return "Membresía activa"
+    from nodeone.services.certificate_membership_rules import requirement_text_for_certificate_event
+
+    return requirement_text_for_certificate_event(cert_event)
 
 
 def _certificates_upload_dir():
@@ -126,51 +84,13 @@ def _parse_template_id(v):
 
 
 def _seed_org_certificate_events(oid: int):
-    """Crea tablas si hace falta y siembra REG + MEM para la organización oid."""
-    from app import CertificateEvent, Certificate, SaasOrganization, db
+    """Crea tablas si hace falta y siembra REG + certificado por cada plan de membresía."""
+    from app import db
 
-    oid = int(oid)
+    from nodeone.services.certificate_membership_rules import seed_membership_certificate_events_for_org
+
     try:
-        if SaasOrganization.query.get(oid) is None:
-            return
-        CertificateEvent.__table__.create(db.engine, checkfirst=True)
-        Certificate.__table__.create(db.engine, checkfirst=True)
-        if not CertificateEvent.query.filter(
-            CertificateEvent.organization_id == oid,
-            db.or_(
-                CertificateEvent.name == 'Certificado por Registro',
-                CertificateEvent.code_prefix == 'REG',
-            ),
-        ).first():
-            ev = CertificateEvent(
-                organization_id=oid,
-                name='Certificado por Registro',
-                is_active=True,
-                verification_enabled=True,
-                code_prefix='REG',
-                membership_required_id=None,
-                event_required_id=None,
-            )
-            db.session.add(ev)
-            db.session.commit()
-        if not CertificateEvent.query.filter(
-            CertificateEvent.organization_id == oid,
-            db.or_(
-                CertificateEvent.name == 'Certificado de Membresía',
-                CertificateEvent.code_prefix == 'MEM',
-            ),
-        ).first():
-            ev = CertificateEvent(
-                organization_id=oid,
-                name='Certificado de Membresía',
-                is_active=True,
-                verification_enabled=True,
-                code_prefix='MEM',
-                membership_required_id=None,
-                event_required_id=None,
-            )
-            db.session.add(ev)
-            db.session.commit()
+        seed_membership_certificate_events_for_org(db, int(oid))
     except Exception:
         db.session.rollback()
 
@@ -197,9 +117,11 @@ def my_certificates():
     cert_event_list = CertificateEvent.query.filter_by(
         organization_id=coid, is_active=True
     ).order_by(CertificateEvent.name).all()
-    user_plan_id = _user_active_membership_plan_id(current_user)
-    user_event_ids = _user_completed_event_ids(current_user)
-    has_membership = bool(current_user.get_active_membership())
+    from nodeone.services.certificate_membership_rules import membership_certificate_events_visible_to_user
+
+    cert_event_list = membership_certificate_events_visible_to_user(
+        current_user, cert_event_list, coid
+    )
     result = []
     for ev in cert_event_list:
         qualified = _user_qualified_for_event(current_user, ev)

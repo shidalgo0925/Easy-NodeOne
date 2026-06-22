@@ -242,23 +242,9 @@ def register_public_auth_legacy_routes(app):
             db.session.commit()
             session.pop('pending_invite_token', None)
 
-            # Asignar membresía básica al registrarse para que pueda emitir certificado de membresía desde el primer día
-            try:
-                end_date = datetime.utcnow() + timedelta(days=365)
-                free_membership = Membership(
-                    user_id=user.id,
-                    membership_type='basic',
-                    start_date=datetime.utcnow(),
-                    end_date=end_date,
-                    is_active=True,
-                    payment_status='paid',
-                    amount=0.0
-                )
-                db.session.add(free_membership)
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                pass  # No romper el registro si falla (ej. tabla Membership no existe aún)
+            from nodeone.services.certificate_membership_rules import grant_default_basic_membership
+
+            grant_default_basic_membership(user.id, int(user.organization_id))
 
             # Registrar registro de usuario en historial
             try:
@@ -527,6 +513,10 @@ def register_public_auth_legacy_routes(app):
                 accept_invite_for_user(inv, user)
             session.pop('pending_invite_token', None)
             db.session.commit()
+            if oauth_new_user:
+                from nodeone.services.certificate_membership_rules import grant_default_basic_membership
+
+                grant_default_basic_membership(user.id, reg_org)
             if not user.is_active:
                 flash('Tu cuenta está desactivada.', 'error')
                 return redirect(url_for('auth.login'))

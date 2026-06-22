@@ -72,6 +72,14 @@ class TestCertificateMembershipRules(unittest.TestCase):
         self.assertEqual(rules._plan_code_prefix('basic'), 'PLAN-BASIC')
         self.assertTrue(rules._plan_code_prefix('pro').startswith('PLAN-'))
 
+    @patch.object(rules, 'get_user_currently_active_membership_record')
+    def test_orphan_rel_seminar_not_qualified(self, mock_mem):
+        mock_mem.return_value = MagicMock(membership_type='basic')
+        user = MagicMock(id=1, is_admin=False)
+        ev = _CertEvent(prefix='REL', membership_required_id=None, event_required_id=None)
+        ev.name = 'Seminario de ejemplo'
+        self.assertFalse(rules.user_qualified_for_certificate_event(user, ev, org_id=1))
+
 
 if __name__ == '__main__':
     unittest.main()

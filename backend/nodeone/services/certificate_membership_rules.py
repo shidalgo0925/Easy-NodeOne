@@ -120,7 +120,8 @@ def user_qualified_for_certificate_event(user, cert_event, org_id: int | None = 
     if cert_event.membership_required_id is None and cert_event.event_required_id is None:
         if prefix.startswith('MEM') or prefix.startswith('PLAN'):
             return user_active_membership_plan_id(user, org_id) is not None
-        return get_user_currently_active_membership_record(int(user.id)) is not None
+        # REL u otros formatos huérfanos (p. ej. seminario sin event_required_id): no autoservicio.
+        return False
 
     return True
 
@@ -169,6 +170,40 @@ def _plan_code_prefix(slug: str) -> str:
     return f'PLAN-{s}'[:20]
 
 
+def _cleanup_legacy_certificate_event_formats(db, oid: int) -> None:
+    """
+    Desactiva formatos legacy que permitían solicitar certificados de seminario
+    sin participación (REL huérfanos) y duplicados MEM/REL cuando ya existe PLAN-*.
+    """
+    from app import CertificateEvent, MembershipPlan
+
+    oid = int(oid)
+    orphans = CertificateEvent.query.filter(
+        CertificateEvent.organization_id == oid,
+        CertificateEvent.membership_required_id.is_(None),
+        CertificateEvent.event_required_id.is_(None),
+        CertificateEvent.is_active.is_(True),
+    ).all()
+    for ev in orphans:
+        pfx = (ev.code_prefix or '').strip().upper()
+        if pfx != 'REG':
+            ev.is_active = False
+
+    for plan in MembershipPlan.query.filter_by(organization_id=oid, is_active=True):
+        rows = CertificateEvent.query.filter_by(
+            organization_id=oid,
+            membership_required_id=int(plan.id),
+            is_active=True,
+        ).all()
+        if len(rows) <= 1:
+            continue
+        plan_rows = [r for r in rows if (r.code_prefix or '').upper().startswith('PLAN-')]
+        keep = plan_rows[0] if plan_rows else rows[0]
+        for row in rows:
+            if row.id != keep.id:
+                row.is_active = False
+
+
 def seed_membership_certificate_events_for_org(db, oid: int) -> None:
     """REG + un certificado por plan de membresía activo; desactiva MEM genérico legacy."""
     from app import CertificateEvent, Certificate, MembershipPlan, SaasOrganization
@@ -196,6 +231,9 @@ def seed_membership_certificate_events_for_org(db, oid: int) -> None:
                 existing.is_active = True
             if not (existing.name or '').strip():
                 existing.name = f'Certificado de Membresía {plan.name}'
+            expected_prefix = _plan_code_prefix(slug)
+            if (existing.code_prefix or '').strip().upper() != expected_prefix:
+                existing.code_prefix = expected_prefix
             continue
         db.session.add(
             CertificateEvent(
@@ -217,6 +255,8 @@ def seed_membership_certificate_events_for_org(db, oid: int) -> None:
     ).all()
     for ev in legacy:
         ev.is_active = False
+
+    _cleanup_legacy_certificate_event_formats(db, oid)
 
     db.session.commit()
 

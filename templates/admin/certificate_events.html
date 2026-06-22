@@ -181,6 +181,38 @@
     </div>
 </div>
 
+<!-- Modal Certificados emitidos (membresía / PLAN) -->
+<div class="modal fade" id="issuedModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-file-pdf me-1"></i> Certificados emitidos — <span id="issuedModalTitle"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="issuedLoading" class="text-center py-4 text-muted">Cargando...</div>
+                <div id="issuedEmpty" class="text-center py-5 text-muted d-none">No hay certificados emitidos para este formato.</div>
+                <div id="issuedWrap" class="table-responsive d-none">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Código</th>
+                                <th>Usuario</th>
+                                <th>Emisión</th>
+                                <th class="text-end pe-3">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="issued-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Vista previa -->
 <div class="modal fade" id="previewModal" tabindex="-1">
     <div class="modal-dialog modal-xl" style="max-width: 95%;">
@@ -249,17 +281,21 @@
                     if (e.membership_required_id) req = 'Plan ID ' + e.membership_required_id;
                     else if (e.event_required_id) req = 'Evento ID ' + e.event_required_id;
                     var tpl = (e.template_id ? '<span class="badge bg-info">Sí (id ' + e.template_id + ')</span>' : '<span class="text-muted">—</span>');
+                    var issued = (e.issued_count != null && e.issued_count > 0)
+                        ? ' <span class="badge bg-secondary">' + e.issued_count + ' emitido(s)</span>'
+                        : '';
                     return '<tr>' +
-                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-light text-dark border">MEM/REG</span></td>' +
+                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-light text-dark border">MEM/REG</span>' + issued + '</td>' +
                         '<td><code>' + (e.code_prefix || '') + '</code></td>' +
                         '<td>' + (e.institution || '—') + '</td>' +
                         '<td>' + tpl + '</td>' +
                         '<td><small>' + req + '</small></td>' +
                         '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
                         '<td class="text-nowrap">' +
+                        '<button type="button" class="btn btn-outline-info btn-sm me-1" onclick="showIssued(' + e.id + ',' + JSON.stringify(e.name || '') + ')" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></button>' +
                         '<button type="button" class="btn btn-info btn-sm me-1" onclick="previewEvent(' + e.id + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
                         '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')" title="Editar formato MEM/REG (fondo, logos, HTML)"><i class="fas fa-cog"></i></button>' +
-                        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteEvent(' + e.id + ',' + JSON.stringify(e.name || '') + ')"><i class="fas fa-trash"></i></button></td>' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteEvent(' + e.id + ',' + JSON.stringify(e.name || '') + ')" title="Eliminar formato"><i class="fas fa-trash"></i></button></td>' +
                         '</tr>';
                 }
 
@@ -407,6 +443,84 @@
                 new bootstrap.Modal(document.getElementById('eventModal')).show();
             })
             .catch(function() { showAlert('Error al cargar evento.', 'danger'); });
+    };
+
+    var issuedEventId = null;
+
+    function formatIssuedDate(iso) {
+        if (!iso) return '—';
+        try {
+            var d = new Date(iso);
+            return d.toLocaleString('es', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            return iso.slice(0, 16).replace('T', ' ');
+        }
+    }
+
+    function loadIssuedList(eventId) {
+        var loading = document.getElementById('issuedLoading');
+        var empty = document.getElementById('issuedEmpty');
+        var wrap = document.getElementById('issuedWrap');
+        var tbodyIssued = document.getElementById('issued-tbody');
+        loading.classList.remove('d-none');
+        empty.classList.add('d-none');
+        wrap.classList.add('d-none');
+        tbodyIssued.innerHTML = '';
+        fetch('/api/admin/certificate-events/' + eventId + '/certificates', { credentials: 'same-origin' })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(o) {
+                loading.classList.add('d-none');
+                if (!o.ok) {
+                    showAlert(o.j.error || 'Error al cargar emitidos.', 'danger');
+                    return;
+                }
+                var items = o.j.items || [];
+                if (!items.length) {
+                    empty.classList.remove('d-none');
+                    return;
+                }
+                wrap.classList.remove('d-none');
+                tbodyIssued.innerHTML = items.map(function(c) {
+                    var userLine = (c.user_name || '—');
+                    if (c.user_email) userLine += '<div class="text-muted small">' + c.user_email + '</div>';
+                    return '<tr>' +
+                        '<td class="ps-3"><code class="small">' + (c.certificate_code || '') + '</code></td>' +
+                        '<td>' + userLine + '</td>' +
+                        '<td class="small text-nowrap">' + formatIssuedDate(c.generated_at) + '</td>' +
+                        '<td class="text-end pe-3">' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteIssued(' + c.id + ',' + JSON.stringify(c.certificate_code || '') + ')" title="Eliminar emisión (permite volver a generar)"><i class="fas fa-trash"></i></button>' +
+                        '</td></tr>';
+                }).join('');
+            })
+            .catch(function() {
+                loading.classList.add('d-none');
+                showAlert('Error de conexión al cargar emitidos.', 'danger');
+            });
+    }
+
+    window.showIssued = function(eventId, name) {
+        issuedEventId = eventId;
+        document.getElementById('issuedModalTitle').textContent = typeof name === 'string' ? name : '';
+        loadIssuedList(eventId);
+        new bootstrap.Modal(document.getElementById('issuedModal')).show();
+    };
+
+    window.deleteIssued = function(certId, code) {
+        var label = typeof code === 'string' ? code : '';
+        var msg = '¿Eliminar el certificado ' + label + '?\n\nSe borrará el PDF y el usuario podrá solicitarlo de nuevo con la plantilla vigente.';
+        if (!confirm(msg)) return;
+        fetch('/api/admin/certificates/' + certId, { method: 'DELETE', credentials: 'same-origin' })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(o) {
+                if (o.ok && o.j.success) {
+                    showAlert('Certificado eliminado. El usuario puede volver a solicitarlo.', 'success');
+                    if (issuedEventId) loadIssuedList(issuedEventId);
+                    loadList();
+                } else {
+                    showAlert(o.j.error || 'Error al eliminar certificado.', 'danger');
+                }
+            })
+            .catch(function() { showAlert('Error de conexión.', 'danger'); });
     };
 
     window.deleteEvent = function(id, name) {

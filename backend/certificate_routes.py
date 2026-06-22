@@ -684,6 +684,43 @@ def _validate_certificate_event_refs_for_org(org_id, data, partial=False):
     return None
 
 
+def _user_display_name(user) -> str:
+    if not user:
+        return '—'
+    parts = [
+        getattr(user, 'first_name', None),
+        getattr(user, 'last_name', None),
+    ]
+    name = ' '.join(p for p in parts if p).strip()
+    return name or getattr(user, 'email', None) or f'Usuario #{getattr(user, "id", "?")}'
+
+
+def _certificate_to_admin_dict(cert) -> dict:
+    user = getattr(cert, 'user', None)
+    return {
+        'id': cert.id,
+        'certificate_code': cert.certificate_code,
+        'user_id': cert.user_id,
+        'user_name': _user_display_name(user),
+        'user_email': getattr(user, 'email', None) if user else None,
+        'generated_at': cert.generated_at.isoformat() if cert.generated_at else None,
+        'status': cert.status or 'generated',
+    }
+
+
+def _remove_certificate_pdf_file(pdf_path: str | None) -> None:
+    if not pdf_path:
+        return
+    allowed_dir = _certificates_pdf_dir()
+    real_path = os.path.normpath(os.path.realpath(pdf_path))
+    if not real_path.startswith(allowed_dir) or not os.path.isfile(real_path):
+        return
+    try:
+        os.remove(real_path)
+    except OSError:
+        logger.warning('No se pudo eliminar PDF de certificado: %s', real_path)
+
+
 def _cert_event_to_dict(e):
     """Serializa un CertificateEvent para API."""
     return {
@@ -729,9 +766,14 @@ def admin_list_certificate_events():
     events = CertificateEvent.query.filter_by(organization_id=coid).order_by(
         CertificateEvent.created_at.desc()
     ).all()
+    from app import Certificate
+
     mem_reg = [_cert_event_to_dict(e) for e in events]
     for row in mem_reg:
         row['kind'] = 'certificate_event'
+        row['issued_count'] = Certificate.query.filter_by(
+            certificate_event_id=row['id']
+        ).count()
     event_formats = list_event_certificate_formats_for_admin(coid)
     # Eventos primero: la acción principal es «Editar carátula» (editor visual), no el modal MEM/REG.
     return jsonify({'items': event_formats + mem_reg})
@@ -836,6 +878,52 @@ def admin_update_certificate_event(event_id):
         ev.verification_enabled = bool(data['verification_enabled'])
     db.session.commit()
     return jsonify({'success': True, 'item': _cert_event_to_dict(ev)})
+
+
+@certificates_api_bp.route('/admin/certificate-events/<int:event_id>/certificates', methods=['GET'])
+@login_required
+@_admin_required
+def admin_list_issued_certificates(event_id):
+    """Lista certificados emitidos para un formato MEM/REG/PLAN (admin)."""
+    from app import CertificateEvent, Certificate
+
+    coid = _cert_admin_org_id()
+    ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
+    if not ev:
+        return jsonify({'error': 'No encontrado'}), 404
+    rows = (
+        Certificate.query.filter_by(certificate_event_id=event_id)
+        .order_by(Certificate.generated_at.desc(), Certificate.id.desc())
+        .all()
+    )
+    return jsonify({
+        'event': _cert_event_to_dict(ev),
+        'items': [_certificate_to_admin_dict(c) for c in rows],
+    })
+
+
+@certificates_api_bp.route('/admin/certificates/<int:cert_id>', methods=['DELETE'])
+@login_required
+@_admin_required
+def admin_delete_issued_certificate(cert_id):
+    """Elimina un certificado emitido (registro + PDF) para permitir re-emisión."""
+    from app import db, Certificate, CertificateEvent
+
+    coid = _cert_admin_org_id()
+    cert = Certificate.query.get(cert_id)
+    if not cert:
+        return jsonify({'error': 'No encontrado'}), 404
+    ev = CertificateEvent.query.filter_by(
+        id=cert.certificate_event_id,
+        organization_id=coid,
+    ).first()
+    if not ev:
+        return jsonify({'error': 'No autorizado'}), 403
+    code = cert.certificate_code
+    _remove_certificate_pdf_file(cert.pdf_path)
+    db.session.delete(cert)
+    db.session.commit()
+    return jsonify({'success': True, 'certificate_code': code})
 
 
 @certificates_api_bp.route('/admin/certificate-events/<int:event_id>', methods=['DELETE'])

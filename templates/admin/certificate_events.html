@@ -292,11 +292,10 @@
                         '<td><small>' + req + '</small></td>' +
                         '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
                         '<td class="text-nowrap">' +
-                        '<button type="button" class="btn btn-outline-info btn-sm me-1" onclick="showIssued(' + e.id + ',' + JSON.stringify(e.name || '') + ')" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></button>' +
+                        '<button type="button" class="btn btn-outline-info btn-sm me-1" data-action="show-issued" data-event-id="' + e.id + '" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></button>' +
                         '<button type="button" class="btn btn-info btn-sm me-1" onclick="previewEvent(' + e.id + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
                         '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')" title="Editar formato MEM/REG (fondo, logos, HTML)"><i class="fas fa-cog"></i></button>' +
-                        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteEvent(' + e.id + ',' + JSON.stringify(e.name || '') + ')" title="Eliminar formato"><i class="fas fa-trash"></i></button></td>' +
-                        '</tr>';
+                        '</td></tr>';
                 }
 
                 var html = '';
@@ -474,6 +473,9 @@
                     showAlert(o.j.error || 'Error al cargar emitidos.', 'danger');
                     return;
                 }
+                if (o.j.event && o.j.event.name) {
+                    document.getElementById('issuedModalTitle').textContent = o.j.event.name;
+                }
                 var items = o.j.items || [];
                 if (!items.length) {
                     empty.classList.remove('d-none');
@@ -488,7 +490,7 @@
                         '<td>' + userLine + '</td>' +
                         '<td class="small text-nowrap">' + formatIssuedDate(c.generated_at) + '</td>' +
                         '<td class="text-end pe-3">' +
-                        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteIssued(' + c.id + ',' + JSON.stringify(c.certificate_code || '') + ')" title="Eliminar emisión (permite volver a generar)"><i class="fas fa-trash"></i></button>' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-issued" data-cert-id="' + c.id + '" data-cert-code="' + String(c.certificate_code || '').replace(/"/g, '&quot;') + '" title="Eliminar emisión (permite volver a generar)"><i class="fas fa-trash"></i></button>' +
                         '</td></tr>';
                 }).join('');
             })
@@ -498,11 +500,16 @@
             });
     }
 
-    window.showIssued = function(eventId, name) {
+    window.showIssued = function(eventId) {
         issuedEventId = eventId;
-        document.getElementById('issuedModalTitle').textContent = typeof name === 'string' ? name : '';
+        document.getElementById('issuedModalTitle').textContent = '…';
+        document.getElementById('issuedLoading').classList.remove('d-none');
+        document.getElementById('issuedEmpty').classList.add('d-none');
+        document.getElementById('issuedWrap').classList.add('d-none');
+        document.getElementById('issued-tbody').innerHTML = '';
+        var modalEl = document.getElementById('issuedModal');
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
         loadIssuedList(eventId);
-        new bootstrap.Modal(document.getElementById('issuedModal')).show();
     };
 
     window.deleteIssued = function(certId, code) {
@@ -647,6 +654,25 @@
 
     loadList();
     loadTemplatesDropdown();
+
+    tbody.addEventListener('click', function(ev) {
+        var showBtn = ev.target.closest('[data-action="show-issued"]');
+        if (showBtn) {
+            ev.preventDefault();
+            var id = parseInt(showBtn.getAttribute('data-event-id'), 10);
+            if (!isNaN(id)) showIssued(id);
+        }
+    });
+
+    document.getElementById('issued-tbody').addEventListener('click', function(ev) {
+        var delBtn = ev.target.closest('[data-action="delete-issued"]');
+        if (delBtn) {
+            ev.preventDefault();
+            var certId = parseInt(delBtn.getAttribute('data-cert-id'), 10);
+            var code = delBtn.getAttribute('data-cert-code') || '';
+            if (!isNaN(certId)) deleteIssued(certId, code);
+        }
+    });
 })();
 </script>
 {% endblock %}

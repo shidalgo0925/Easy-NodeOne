@@ -117,6 +117,12 @@
             <div class="mb-3">
                 <label for="products_json" class="form-label">Productos JSON (opcional)</label>
                 <textarea class="form-control font-monospace small" id="products_json" rows="3"></textarea>
+                <p class="form-text small mb-0">Si está vacío, se usan los 11 productos EasyTech por defecto.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Vista previa del catálogo</label>
+                <div id="ecalendar-products-grid" class="row g-2"></div>
             </div>
 
             <div class="d-flex flex-wrap gap-2">
@@ -192,6 +198,24 @@
     });
     fetch('/api/admin/ecalendar/config').then(function(r) { return r.json(); }).then(function(d) {
         if (d.success) fillForm(d.config);
+    });
+    fetch('/api/ecalendar/products').then(function(r) { return r.json(); }).then(function(d) {
+        var grid = document.getElementById('ecalendar-products-grid');
+        if (!grid || !d || !d.products) return;
+        grid.innerHTML = '';
+        d.products.forEach(function(p) {
+            var col = document.createElement('div');
+            col.className = 'col-6 col-md-4 col-lg-3';
+            var logoHtml = '';
+            if (p.logo) {
+                logoHtml = '<img src="/static/' + p.logo + '" alt="" class="d-block mx-auto mb-2" style="max-height:52px;max-width:100%;object-fit:contain">';
+            } else {
+                logoHtml = '<div class="text-muted mb-2" style="height:52px;line-height:52px"><i class="fas fa-box"></i></div>';
+            }
+            col.innerHTML = '<div class="border rounded p-2 h-100 text-center small bg-light">' + logoHtml +
+                '<div class="fw-semibold text-truncate" title="' + (p.name || '') + '">' + (p.name || p.id) + '</div></div>';
+            grid.appendChild(col);
+        });
     });
 })();
 </script>

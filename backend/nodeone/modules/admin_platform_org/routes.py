@@ -24,6 +24,7 @@ def register_admin_platform_org_routes(app):
         return [
             {'id': 'line-services', 'expanded': True, 'image': 'help-services-catalog.png', 'name': 'Catalogo y servicios', 'title_question': 'Que cubre?', 'intro': 'Oferta de servicios o productos con precios, turnos y pagos integrados al mismo portal.', 'bullets': [], 'footer_title': '', 'footer': '', 'rich': False},
             {'id': 'line-confirm', 'expanded': False, 'image': 'product-confirma.png', 'name': 'Confirmacion y seguimiento', 'title_question': 'Que cubre?', 'intro': 'Flujos de confirmacion y comunicacion con el cliente tras la reserva o la compra.', 'bullets': [], 'footer_title': '', 'footer': '', 'rich': False},
+            {'id': 'line-epayroll', 'expanded': False, 'image': 'product-epayroll.png', 'name': 'EPayRoll', 'title_question': 'Que cubre?', 'intro': 'Gestion de planilla y nomina: calculo de salarios, deducciones y reportes legales.', 'bullets': [], 'footer_title': 'Logo', 'footer': 'static/images/logo-epayroll.png', 'rich': False},
             {'id': 'line-go', 'expanded': False, 'image': 'product-go.png', 'name': 'Operacion y crecimiento', 'title_question': 'Que cubre?', 'intro': 'Herramientas para operar el dia a dia y escalar (modulos, automatizacion, canales).', 'bullets': [], 'footer_title': '', 'footer': '', 'rich': False},
         ]
 

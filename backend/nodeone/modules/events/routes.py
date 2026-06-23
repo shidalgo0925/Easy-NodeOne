@@ -170,6 +170,55 @@ def _users_for_event_admin_pickers():
     )
 
 
+def _event_certificate_form_context(event=None) -> dict:
+    from app import CertificateTemplate, admin_data_scope_organization_id
+    from nodeone.services.event_institutional_certificate_template import (
+        list_certificate_templates_for_event_form,
+        visual_template_id_for_event,
+    )
+
+    org_id = int(admin_data_scope_organization_id())
+    return {
+        'certificate_templates': list_certificate_templates_for_event_form(
+            CertificateTemplate, org_id
+        ),
+        'selected_certificate_template_id': (
+            visual_template_id_for_event(event) if event else None
+        ),
+    }
+
+
+def _apply_event_certificate_template(event, has_cert: bool) -> bool:
+    """Vincula plantilla visual al evento. False si la selección no es válida."""
+    from app import CertificateTemplate, db, admin_data_scope_organization_id
+    from nodeone.services.event_institutional_certificate_template import (
+        apply_certificate_template_from_event_form,
+        ensure_certificate_template_for_event,
+        resolve_event_org_id,
+        visual_template_id_for_event,
+    )
+
+    if not has_cert:
+        event.certificate_template = ''
+        return True
+
+    org_id = resolve_event_org_id(event) if getattr(event, 'id', None) else int(
+        admin_data_scope_organization_id()
+    )
+    err = apply_certificate_template_from_event_form(
+        event,
+        request.form.get('certificate_visual_template_id'),
+        org_id,
+        CertificateTemplate,
+    )
+    if err:
+        flash(err, 'error')
+        return False
+    if not visual_template_id_for_event(event):
+        ensure_certificate_template_for_event(db, event)
+    return True
+
+
 def _current_org_id_for_events():
     from app import admin_data_scope_organization_id, tenant_data_organization_id
 
@@ -967,7 +1016,6 @@ def create_event():
         is_virtual = _is_virtual_from_event_format(format_val)
         has_cert = bool(request.form.get('has_certificate'))
         cert_instr = (request.form.get('certificate_instructions') or '').strip() if has_cert else ''
-        cert_tmpl = (request.form.get('certificate_template') or '').strip() if has_cert else ''
 
         event = Event(
             title=title,
@@ -989,7 +1037,7 @@ def create_event():
             is_virtual=is_virtual,
             has_certificate=has_cert,
             certificate_instructions=cert_instr,
-            certificate_template=cert_tmpl,
+            certificate_template='',
             kahoot_enabled=bool(request.form.get('kahoot_enabled')),
             kahoot_link=(request.form.get('kahoot_link') or '').strip(),
             kahoot_required=bool(request.form.get('kahoot_required')),
@@ -1045,6 +1093,10 @@ def create_event():
                     priority=order
                 ))
 
+        if not _apply_event_certificate_template(event, has_cert):
+            db.session.rollback()
+            return redirect(request.url)
+
         db.session.commit()
         ActivityLog.log_activity(
             current_user.id,
@@ -1086,7 +1138,8 @@ def create_event():
         discounts=discounts,
         users=users,
         default_start=default_start,
-        default_end=default_end
+        default_end=default_end,
+        **_event_certificate_form_context(),
     )
 
 
@@ -1134,7 +1187,6 @@ def edit_event(event_id):
         is_virtual = _is_virtual_from_event_format(format_val)
         has_cert = bool(request.form.get('has_certificate'))
         cert_instr = (request.form.get('certificate_instructions') or '').strip() if has_cert else ''
-        cert_tmpl = (request.form.get('certificate_template') or '').strip() if has_cert else ''
 
         event.title = title
         event.summary = request.form.get('summary', '').strip()
@@ -1154,7 +1206,6 @@ def edit_event(event_id):
         event.is_virtual = is_virtual
         event.has_certificate = has_cert
         event.certificate_instructions = cert_instr
-        event.certificate_template = cert_tmpl
         event.kahoot_enabled = bool(request.form.get('kahoot_enabled'))
         event.kahoot_link = (request.form.get('kahoot_link') or '').strip()
         event.kahoot_required = bool(request.form.get('kahoot_required'))
@@ -1218,6 +1269,10 @@ def edit_event(event_id):
                     discount_id=discount.id,
                     priority=order
                 ))
+
+        if not _apply_event_certificate_template(event, has_cert):
+            db.session.rollback()
+            return redirect(request.url)
 
         db.session.commit()
         ActivityLog.log_activity(
@@ -1284,6 +1339,7 @@ def edit_event(event_id):
         default_start=event.start_date,
         default_end=event.end_date,
         active_tab=active_tab,
+        **_event_certificate_form_context(event),
     )
 
 

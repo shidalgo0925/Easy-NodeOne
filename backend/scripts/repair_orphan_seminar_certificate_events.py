@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Desactiva formatos certificate_events huérfanos (REL seminario sin evento/plan)
+Desactiva formatos huérfanos con emisiones, elimina los que no tienen ninguna,
 y deduplica MEM/REL vs PLAN-* por plan de membresía.
 
 Uso:
@@ -36,8 +36,11 @@ def main() -> int:
             org_ids = [int(o.id) for o in SaasOrganization.query.filter_by(is_active=True).all()]
         for oid in org_ids:
             seed_membership_certificate_events_for_org(db, oid)
-            run_legacy_certificate_event_cleanup(db, oid)
-            print(f'org {oid}: seed + cleanup OK')
+            stats = run_legacy_certificate_event_cleanup(db, oid)
+            print(
+                f'org {oid}: seed + cleanup OK '
+                f'(deleted={stats.get("deleted", 0)}, deactivated={stats.get("deactivated", 0)})'
+            )
     return 0
 
 

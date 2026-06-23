@@ -170,24 +170,38 @@ def _plan_code_prefix(slug: str) -> str:
     return f'PLAN-{s}'[:20]
 
 
-def _cleanup_legacy_certificate_event_formats(db, oid: int) -> None:
+def _is_orphan_certificate_event(cert_event) -> bool:
+    """Sin plan de membresía ni evento EN1 vinculado."""
+    return (
+        cert_event.membership_required_id is None
+        and cert_event.event_required_id is None
+    )
+
+
+def _purge_orphan_certificate_event_formats(db, oid: int) -> dict:
     """
-    Desactiva formatos legacy que permitían solicitar certificados de seminario
-    sin participación (REL huérfanos) y duplicados MEM/REL cuando ya existe PLAN-*.
+    Elimina formatos huérfanos sin emisiones y desactiva el resto (REL/MEM sueltos).
+    REG legacy se mantiene solo inactivo si ya tiene certificados emitidos.
     """
-    from app import CertificateEvent, MembershipPlan
+    from app import Certificate, CertificateEvent, MembershipPlan
 
     oid = int(oid)
+    stats = {'deactivated': 0, 'deleted': 0}
     orphans = CertificateEvent.query.filter(
         CertificateEvent.organization_id == oid,
         CertificateEvent.membership_required_id.is_(None),
         CertificateEvent.event_required_id.is_(None),
-        CertificateEvent.is_active.is_(True),
     ).all()
     for ev in orphans:
         pfx = (ev.code_prefix or '').strip().upper()
-        if pfx != 'REG':
+        issued = Certificate.query.filter_by(certificate_event_id=int(ev.id)).count()
+        if issued == 0:
+            db.session.delete(ev)
+            stats['deleted'] += 1
+            continue
+        if ev.is_active:
             ev.is_active = False
+            stats['deactivated'] += 1
 
     for plan in MembershipPlan.query.filter_by(organization_id=oid, is_active=True):
         rows = CertificateEvent.query.filter_by(
@@ -202,6 +216,13 @@ def _cleanup_legacy_certificate_event_formats(db, oid: int) -> None:
         for row in rows:
             if row.id != keep.id:
                 row.is_active = False
+                stats['deactivated'] += 1
+    return stats
+
+
+def _cleanup_legacy_certificate_event_formats(db, oid: int) -> None:
+    """Alias legacy → purga completa de huérfanos."""
+    _purge_orphan_certificate_event_formats(db, oid)
 
 
 def seed_membership_certificate_events_for_org(db, oid: int) -> None:
@@ -256,13 +277,16 @@ def seed_membership_certificate_events_for_org(db, oid: int) -> None:
     for ev in legacy:
         ev.is_active = False
 
+    _purge_orphan_certificate_event_formats(db, oid)
+
     db.session.commit()
 
 
-def run_legacy_certificate_event_cleanup(db, oid: int) -> None:
-    """Limpieza one-shot de REL huérfanos; no llamar en cada carga del admin."""
-    _cleanup_legacy_certificate_event_formats(db, oid)
+def run_legacy_certificate_event_cleanup(db, oid: int) -> dict:
+    """Limpieza de huérfanos REL/MEM y duplicados PLAN (script o mantenimiento)."""
+    stats = _purge_orphan_certificate_event_formats(db, oid)
     db.session.commit()
+    return stats
 
 
 def sync_membership_rows_after_paid_plan(user_id: int) -> None:

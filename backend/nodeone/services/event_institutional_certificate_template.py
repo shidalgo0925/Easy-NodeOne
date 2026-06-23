@@ -370,6 +370,84 @@ def list_event_certificate_formats_for_admin(org_id: int) -> list[dict[str, Any]
     return out
 
 
+def apply_certificate_template_from_event_form(
+    event,
+    raw_template_id,
+    org_id: int,
+    CertificateTemplate,
+) -> str | None:
+    """Vincula plantilla elegida en el formulario. None = sin selección (auto al guardar)."""
+    raw = (raw_template_id or '').strip()
+    if not raw:
+        return None
+    try:
+        tid = int(raw)
+    except (TypeError, ValueError):
+        return 'Seleccione una plantilla de certificado válida'
+    if tid <= 0:
+        return None
+    t = CertificateTemplate.query.filter_by(id=tid, organization_id=int(org_id)).first()
+    if not t:
+        return 'Plantilla no encontrada para esta organización'
+    link_visual_template_to_event(event, tid)
+    return None
+
+
+def list_certificate_templates_for_event_form(CertificateTemplate, org_id: int) -> list[dict]:
+    rows = CertificateTemplate.query.filter_by(organization_id=int(org_id)).order_by(
+        CertificateTemplate.name.asc(),
+        CertificateTemplate.id.asc(),
+    ).all()
+    return [
+        {'id': int(t.id), 'name': ((t.name or '').strip() or f'Plantilla #{t.id}')}
+        for t in rows
+    ]
+
+
+def ensure_certificate_template_for_event(db, event) -> str:
+    """
+    Crea o repara la plantilla visual de un evento con certificado.
+    Retorna: created | migrated | repaired | linked | ok
+    """
+    from app import CertificateTemplate
+
+    org_id = resolve_event_org_id(event)
+    existing = find_visual_template_for_event(CertificateTemplate, event, org_id)
+
+    if existing and is_institutional_template(existing):
+        apply_institutional_visual_layout_to_template(existing, event, org_id)
+        link_visual_template_to_event(event, existing.id)
+        return 'migrated'
+
+    if existing and is_visual_template(existing):
+        status = 'ok'
+        if int(getattr(existing, 'organization_id', None) or 0) != org_id:
+            existing.organization_id = org_id
+            status = 'repaired'
+        if not visual_template_id_for_event(event):
+            link_visual_template_to_event(event, existing.id)
+            status = 'linked'
+        if needs_institutional_visual_layout(existing):
+            apply_institutional_visual_layout_to_template(existing, event, org_id)
+            status = 'repaired'
+        return status
+
+    title = (getattr(event, 'title', None) or f'Evento #{event.id}').strip()
+    t = CertificateTemplate(
+        organization_id=org_id,
+        name=title[:200],
+        width=1056,
+        height=816,
+        background_image=None,
+        json_layout='{}',
+    )
+    db.session.add(t)
+    db.session.flush()
+    apply_institutional_visual_layout_to_template(t, event, org_id)
+    link_visual_template_to_event(event, t.id)
+    return 'created'
+
+
 def ensure_institutional_event_certificate_templates(db, printfn=print) -> None:
     """Crea o migra plantillas visuales editables (lienzo) para eventos con certificado."""
     from app import CertificateTemplate, Event
@@ -383,41 +461,13 @@ def ensure_institutional_event_certificate_templates(db, printfn=print) -> None:
     repaired = 0
 
     for event in events:
-        org_id = resolve_event_org_id(event)
-        existing = find_visual_template_for_event(CertificateTemplate, event, org_id)
-
-        if existing and is_institutional_template(existing):
-            apply_institutional_visual_layout_to_template(existing, event, org_id)
-            link_visual_template_to_event(event, existing.id)
+        result = ensure_certificate_template_for_event(db, event)
+        if result == 'created':
+            created += 1
+        elif result == 'migrated':
             migrated += 1
-            continue
-
-        if existing and is_visual_template(existing):
-            if int(getattr(existing, 'organization_id', None) or 0) != org_id:
-                existing.organization_id = org_id
-                repaired += 1
-            if not visual_template_id_for_event(event):
-                link_visual_template_to_event(event, existing.id)
-                repaired += 1
-            if needs_institutional_visual_layout(existing):
-                apply_institutional_visual_layout_to_template(existing, event, org_id)
-                repaired += 1
-            continue
-
-        title = (getattr(event, 'title', None) or f'Evento #{event.id}').strip()
-        t = CertificateTemplate(
-            organization_id=org_id,
-            name=title[:200],
-            width=1056,
-            height=816,
-            background_image=None,
-            json_layout='{}',
-        )
-        db.session.add(t)
-        db.session.flush()
-        apply_institutional_visual_layout_to_template(t, event, org_id)
-        link_visual_template_to_event(event, t.id)
-        created += 1
+        elif result in ('repaired', 'linked'):
+            repaired += 1
 
     if created or migrated or repaired:
         db.session.commit()

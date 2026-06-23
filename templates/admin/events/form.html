@@ -306,8 +306,19 @@
                                 <textarea name="certificate_instructions" class="form-control" rows="3" placeholder="Cómo obtiene el participante su certificado">{{ event.certificate_instructions if event else '' }}</textarea>
                             </div>
                             <div class="mb-0">
-                                <label class="form-label fw-medium">Plantilla o referencia</label>
-                                <input type="text" name="certificate_template" class="form-control" maxlength="500" value="{{ event.certificate_template if event else '' }}" placeholder="Ruta, nombre o ID (opcional)">
+                                <label class="form-label fw-medium" for="certificate_visual_template_id">Plantilla visual</label>
+                                <select name="certificate_visual_template_id" id="certificate_visual_template_id" class="form-select">
+                                    <option value="">— Automática (crear o usar la del evento) —</option>
+                                    {% for t in certificate_templates %}
+                                    <option value="{{ t.id }}"{% if selected_certificate_template_id == t.id %} selected{% endif %}>{{ t.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <p class="form-text small text-muted mb-0 mt-1">
+                                    Diseño del PDF del certificado. Si no elige una, el sistema crea una al guardar.
+                                    {% if action == 'edit' and selected_certificate_template_id %}
+                                    <a href="{{ url_for('admin_certificate_template_editor', template_id=selected_certificate_template_id) }}">Editar carátula</a>
+                                    {% endif %}
+                                </p>
                             </div>
                         </div>
                     </div>

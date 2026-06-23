@@ -663,8 +663,45 @@ def _admin_required(f):
     return wrapped
 
 
+def _reject_orphan_certificate_event_payload(data, *, partial: bool = False) -> str | None:
+    """Formatos sin plan ni evento no están permitidos en esta pantalla."""
+    mem = data.get('membership_required_id')
+    ev = data.get('event_required_id')
+    mem_id = int(mem) if mem not in (None, '') else None
+    ev_id = int(ev) if ev not in (None, '') else None
+    if mem_id is not None or ev_id is not None:
+        return None
+    if partial and 'is_active' not in data:
+        return None
+    if partial and not data.get('is_active'):
+        return None
+    return (
+        'No se permiten certificados huérfanos. Asigne un plan de membresía '
+        'o administre seminarios desde Eventos → Certificados.'
+    )
+
+
+def _reject_orphan_certificate_event_model(ev, data) -> str | None:
+    mem_id = ev.membership_required_id
+    ev_id = ev.event_required_id
+    if 'membership_required_id' in data:
+        v = data['membership_required_id']
+        mem_id = int(v) if v not in (None, '') else None
+    if 'event_required_id' in data:
+        v = data['event_required_id']
+        ev_id = int(v) if v not in (None, '') else None
+    if mem_id is not None or ev_id is not None:
+        return None
+    if 'is_active' in data and not data.get('is_active'):
+        return None
+    return (
+        'No se permiten certificados huérfanos. Asigne un plan de membresía '
+        'o administre seminarios desde Eventos → Certificados.'
+    )
+
+
 def _validate_certificate_event_refs_for_org(org_id, data, partial=False):
-    from app import MembershipPlan, CertificateTemplate
+    from app import MembershipPlan, CertificateTemplate, Event
     oid = int(org_id)
     if (not partial) or ('membership_required_id' in data):
         v = data.get('membership_required_id')
@@ -672,6 +709,12 @@ def _validate_certificate_event_refs_for_org(org_id, data, partial=False):
             p = MembershipPlan.query.filter_by(id=int(v), organization_id=oid).first()
             if not p:
                 return 'Plan de membresía no válido para esta organización'
+    if (not partial) or ('event_required_id' in data):
+        v = data.get('event_required_id')
+        if v not in (None, ''):
+            e = Event.query.get(int(v))
+            if not e:
+                return 'Evento no válido'
     if (not partial) or ('template_id' in data):
         if partial and 'template_id' not in data:
             pass
@@ -764,7 +807,7 @@ def admin_list_certificate_events():
     ).all()
     from app import Certificate
 
-    mem_reg = [_cert_event_to_dict(e) for e in events]
+    mem_reg = [_cert_event_to_dict(e) for e in events if e.membership_required_id is not None]
     for row in mem_reg:
         row['kind'] = 'certificate_event'
         row['issued_count'] = Certificate.query.filter_by(
@@ -784,6 +827,9 @@ def admin_create_certificate_event():
     if not name:
         return jsonify({'error': 'name es obligatorio'}), 400
     coid = _cert_admin_org_id()
+    err = _reject_orphan_certificate_event_payload(data, partial=False)
+    if err:
+        return jsonify({'error': err}), 400
     err = _validate_certificate_event_refs_for_org(coid, data, partial=False)
     if err:
         return jsonify({'error': err}), 400
@@ -839,6 +885,9 @@ def admin_update_certificate_event(event_id):
     if not ev:
         return jsonify({'error': 'No encontrado'}), 404
     data = request.get_json() or {}
+    err = _reject_orphan_certificate_event_model(ev, data)
+    if err:
+        return jsonify({'error': err}), 400
     err = _validate_certificate_event_refs_for_org(coid, data, partial=True)
     if err:
         return jsonify({'error': err}), 400

@@ -754,12 +754,8 @@ def _cert_event_to_dict(e):
 @login_required
 @_admin_required
 def admin_list_certificate_events():
-    """Lista todos los certificate_events (admin) con todos los campos."""
+    """Lista formatos MEM/REG/PLAN (certificate_events). Eventos EN1 se gestionan en Eventos."""
     from app import CertificateEvent
-
-    from nodeone.services.event_institutional_certificate_template import (
-        list_event_certificate_formats_for_admin,
-    )
 
     coid = _cert_admin_org_id()
     _seed_org_certificate_events(coid)
@@ -774,9 +770,7 @@ def admin_list_certificate_events():
         row['issued_count'] = Certificate.query.filter_by(
             certificate_event_id=row['id']
         ).count()
-    event_formats = list_event_certificate_formats_for_admin(coid)
-    # Eventos primero: la acción principal es «Editar carátula» (editor visual), no el modal MEM/REG.
-    return jsonify({'items': event_formats + mem_reg})
+    return jsonify({'items': mem_reg})
 
 
 @certificates_api_bp.route('/admin/certificate-events', methods=['POST'])

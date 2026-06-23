@@ -14,7 +14,7 @@
                     <i class="fas fa-plus me-1"></i> Nuevo formato
                 </button>
             </div>
-            <p class="text-muted small mb-0">Los certificados de <strong>eventos</strong> (Seminario, revisores…) se editan con <strong>Editar carátula</strong> → editor visual del PDF. La sección MEM/REG abajo es solo para membresía y registro (modal con fondo/logos/HTML).</p>
+            <p class="text-muted small mb-0">Formatos de <strong>membresía y registro</strong> (MEM / REG / PLAN). Los certificados de <strong>eventos</strong> (seminarios, talleres) se administran en <strong>Eventos → Certificados</strong> del evento correspondiente.</p>
             {% if saas_module_enabled('qr_generator') %}
             <p class="small mt-2 mb-0">Para un <strong>QR de verificación</strong>, usá {% if has_view_endpoint('admin_tools_qr') %}<a href="{{ url_for('admin_tools_qr') }}">Herramientas → Generador QR</a>{% else %}el generador QR del sitio (no disponible en este despliegue){% endif %} con la URL pública de verificación del certificado (ruta <code class="small">/verify/&lt;código&gt;</code> del sitio).</p>
             {% endif %}
@@ -250,31 +250,7 @@
                 tableLoading.classList.add('d-none');
                 tableWrap.classList.remove('d-none');
                 const items = data.items || [];
-                const eventItems = items.filter(function(e) { return e.kind === 'event_module'; });
                 const memItems = items.filter(function(e) { return e.kind !== 'event_module'; });
-
-                function renderEventRow(e) {
-                    var reqEv = e.requirement_text || ('Evento #' + e.event_id);
-                    var tplEv = e.template_id
-                        ? '<span class="badge bg-info">Carátula id ' + e.template_id + '</span>'
-                        : '<span class="text-muted">—</span>';
-                    var issued = (e.issued_count != null && e.issued_count > 0)
-                        ? ' <span class="badge bg-secondary">' + e.issued_count + ' emitido(s)</span>'
-                        : ' <span class="badge bg-warning text-dark">Sin emitir</span>';
-                    var coverHref = e.edit_path || ('/admin/certificate-templates/editor/' + (e.template_id || ''));
-                    return '<tr class="table-primary-subtle">' +
-                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-success">Evento #' + e.event_id + '</span>' + issued + '</td>' +
-                        '<td><code>' + (e.code_prefix || '') + '</code></td>' +
-                        '<td>' + (e.institution || '—') + '</td>' +
-                        '<td>' + tplEv + '</td>' +
-                        '<td><small>' + reqEv + '</small></td>' +
-                        '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
-                        '<td class="text-nowrap">' +
-                        '<a href="' + coverHref + '" class="btn btn-primary btn-sm me-1" title="Editor visual de la carátula del certificado (PDF)"><i class="fas fa-image me-1"></i>Editar carátula</a>' +
-                        '<a href="' + (e.certificates_url || '#') + '" class="btn btn-outline-info btn-sm me-1" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></a>' +
-                        '<a href="' + (e.participants_url || '#') + '" class="btn btn-outline-secondary btn-sm" title="Participantes"><i class="fas fa-users"></i></a>' +
-                        '</td></tr>';
-                }
 
                 function renderMemRow(e) {
                     var req = 'Membresía activa';
@@ -284,6 +260,7 @@
                     var issued = (e.issued_count != null && e.issued_count > 0)
                         ? ' <span class="badge bg-secondary">' + e.issued_count + ' emitido(s)</span>'
                         : '';
+                    var coverHref = e.template_id ? ('/admin/certificate-templates/editor/' + e.template_id) : '';
                     return '<tr>' +
                         '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-light text-dark border">MEM/REG</span>' + issued + '</td>' +
                         '<td><code>' + (e.code_prefix || '') + '</code></td>' +
@@ -292,6 +269,7 @@
                         '<td><small>' + req + '</small></td>' +
                         '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
                         '<td class="text-nowrap">' +
+                        (coverHref ? '<a href="' + coverHref + '" class="btn btn-primary btn-sm me-1" title="Editor visual de la carátula"><i class="fas fa-image"></i></a>' : '') +
                         '<button type="button" class="btn btn-outline-info btn-sm me-1" data-action="show-issued" data-event-id="' + e.id + '" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></button>' +
                         '<button type="button" class="btn btn-info btn-sm me-1" onclick="previewEvent(' + e.id + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
                         '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')" title="Editar formato MEM/REG (fondo, logos, HTML)"><i class="fas fa-cog"></i></button>' +
@@ -299,15 +277,9 @@
                 }
 
                 var html = '';
-                if (eventItems.length) {
-                    html += '<tr class="table-light"><td colspan="7" class="fw-semibold py-2"><i class="fas fa-calendar-check me-1"></i> Certificados de eventos — use <strong>Editar carátula</strong> para el diseño visual del PDF (no el modal MEM/REG).</td></tr>';
-                    html += eventItems.map(renderEventRow).join('');
-                }
                 if (memItems.length) {
-                    html += '<tr class="table-light"><td colspan="7" class="fw-semibold py-2"><i class="fas fa-id-card me-1"></i> Membresía y registro (MEM / REG)</td></tr>';
                     html += memItems.map(renderMemRow).join('');
-                }
-                if (!html) {
+                } else {
                     html = '<tr><td colspan="7" class="text-muted text-center py-4">No hay formatos configurados.</td></tr>';
                 }
                 tbody.innerHTML = html;

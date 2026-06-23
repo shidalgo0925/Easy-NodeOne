@@ -80,6 +80,22 @@ class TestCertificateMembershipRules(unittest.TestCase):
         ev.name = 'Seminario de ejemplo'
         self.assertFalse(rules.user_qualified_for_certificate_event(user, ev, org_id=1))
 
+    @patch.object(rules, '_cleanup_legacy_certificate_event_formats')
+    def test_seed_does_not_run_legacy_cleanup(self, mock_cleanup):
+        """El admin debe poder activar un formato REL sin que el seed lo desactive."""
+        mock_db = MagicMock()
+        with patch('app.SaasOrganization') as SO, patch('app.MembershipPlan') as MP, patch(
+            'app.CertificateEvent'
+        ) as CE, patch('app.Certificate') as Cert:
+            SO.query.get.return_value = MagicMock()
+            MP.query.filter_by.return_value.order_by.return_value.all.return_value = []
+            CE.query.filter.return_value.all.return_value = []
+            CE.query.filter_by.return_value.first.return_value = None
+            CE.__table__ = MagicMock()
+            Cert.__table__ = MagicMock()
+            rules.seed_membership_certificate_events_for_org(mock_db, 1)
+        mock_cleanup.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

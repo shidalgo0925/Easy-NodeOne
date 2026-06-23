@@ -256,8 +256,12 @@ def seed_membership_certificate_events_for_org(db, oid: int) -> None:
     for ev in legacy:
         ev.is_active = False
 
-    _cleanup_legacy_certificate_event_formats(db, oid)
+    db.session.commit()
 
+
+def run_legacy_certificate_event_cleanup(db, oid: int) -> None:
+    """Limpieza one-shot de REL huérfanos; no llamar en cada carga del admin."""
+    _cleanup_legacy_certificate_event_formats(db, oid)
     db.session.commit()
 
 

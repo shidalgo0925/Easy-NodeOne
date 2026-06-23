@@ -22,7 +22,10 @@ def main() -> int:
     args = parser.parse_args()
 
     from app import SaasOrganization, app
-    from nodeone.services.certificate_membership_rules import seed_membership_certificate_events_for_org
+    from nodeone.services.certificate_membership_rules import (
+        run_legacy_certificate_event_cleanup,
+        seed_membership_certificate_events_for_org,
+    )
 
     from nodeone.core.db import db
 
@@ -33,6 +36,7 @@ def main() -> int:
             org_ids = [int(o.id) for o in SaasOrganization.query.filter_by(is_active=True).all()]
         for oid in org_ids:
             seed_membership_certificate_events_for_org(db, oid)
+            run_legacy_certificate_event_cleanup(db, oid)
             print(f'org {oid}: seed + cleanup OK')
     return 0
 

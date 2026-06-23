@@ -122,7 +122,21 @@
 
             <div class="mb-4">
                 <label class="form-label">Vista previa del catálogo</label>
-                <div id="ecalendar-products-grid" class="row g-2"></div>
+                <p class="form-text small">Los logos se muestran aquí aunque ECalendar esté desactivado.</p>
+                <div id="ecalendar-products-grid" class="row g-2">
+                    {% for p in catalog_products %}
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="border rounded p-2 h-100 text-center small bg-light">
+                            {% if p.logo %}
+                            <img src="{{ url_for('static', filename=p.logo) }}" alt="" class="d-block mx-auto mb-2" style="max-height:52px;max-width:100%;object-fit:contain">
+                            {% else %}
+                            <div class="text-muted mb-2" style="height:52px;line-height:52px"><i class="fas fa-box"></i></div>
+                            {% endif %}
+                            <div class="fw-semibold text-truncate" title="{{ p.name }}">{{ p.name }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
 
             <div class="d-flex flex-wrap gap-2">
@@ -198,24 +212,6 @@
     });
     fetch('/api/admin/ecalendar/config').then(function(r) { return r.json(); }).then(function(d) {
         if (d.success) fillForm(d.config);
-    });
-    fetch('/api/ecalendar/products').then(function(r) { return r.json(); }).then(function(d) {
-        var grid = document.getElementById('ecalendar-products-grid');
-        if (!grid || !d || !d.products) return;
-        grid.innerHTML = '';
-        d.products.forEach(function(p) {
-            var col = document.createElement('div');
-            col.className = 'col-6 col-md-4 col-lg-3';
-            var logoHtml = '';
-            if (p.logo) {
-                logoHtml = '<img src="/static/' + p.logo + '" alt="" class="d-block mx-auto mb-2" style="max-height:52px;max-width:100%;object-fit:contain">';
-            } else {
-                logoHtml = '<div class="text-muted mb-2" style="height:52px;line-height:52px"><i class="fas fa-box"></i></div>';
-            }
-            col.innerHTML = '<div class="border rounded p-2 h-100 text-center small bg-light">' + logoHtml +
-                '<div class="fw-semibold text-truncate" title="' + (p.name || '') + '">' + (p.name || p.id) + '</div></div>';
-            grid.appendChild(col);
-        });
     });
 })();
 </script>

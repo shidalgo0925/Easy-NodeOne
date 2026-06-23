@@ -77,10 +77,15 @@ def register_ecalendar_admin_routes(app):
         except Exception:
             db.session.rollback()
         appointments_view = query_dev_appointments(bookings_only=True)
+        from nodeone.modules.ecalendar.products import products_payload
+
+        cfg = load_ecalendar_config()
+        catalog_products = products_payload(cfg.products_json).get('products') or []
         return render_template(
             'admin/ecalendar_settings.html',
             ecalendar_config=row,
             appointments_preview=appointments_view,
+            catalog_products=catalog_products,
         )
 
     @app.route('/admin/ecalendar/citas')

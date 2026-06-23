@@ -152,8 +152,19 @@
                     </div>
                     <div class="mb-3">
                         <strong>Membresía:</strong>
-                        {% if current_user.get_active_membership() %}
-                            <span class="badge bg-primary">{{ current_user.get_active_membership().membership_type.title() }}</span>
+                        {% set active_mem = current_user.get_active_membership() %}
+                        {% if active_mem %}
+                            <span class="badge bg-primary">{{ active_mem.membership_type.title() }}</span>
+                            {% if active_mem.membership_type == 'admin' %}
+                            <br><span class="text-muted small">Vigencia ilimitada</span>
+                            {% else %}
+                            {% if active_mem.start_date %}
+                            <br><span class="text-muted small">Inicio {{ active_mem.start_date.strftime('%d/%m/%Y') }}</span>
+                            {% endif %}
+                            {% if active_mem.end_date %}
+                            <br><span class="text-muted small">Vence {{ active_mem.end_date.strftime('%d/%m/%Y') }}</span>
+                            {% endif %}
+                            {% endif %}
                         {% else %}
                             <span class="badge bg-warning">Sin membresía</span>
                         {% endif %}

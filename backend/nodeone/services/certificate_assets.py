@@ -33,11 +33,17 @@ def _org_name(org_id: int) -> str:
         return ''
 
 
-def find_event_certificate_format(CertificateEvent, event, org_id: int):
-    return CertificateEvent.query.filter_by(
-        organization_id=int(org_id),
-        event_required_id=int(event.id),
-    ).first()
+def find_event_certificate_format(CertificateEvent, event, org_id: int | None = None):
+    """Busca formato por event_required_id (vínculo canónico evento ↔ formato)."""
+    row = CertificateEvent.query.filter_by(event_required_id=int(event.id)).first()
+    if row:
+        return row
+    if org_id is not None:
+        return CertificateEvent.query.filter_by(
+            organization_id=int(org_id),
+            event_required_id=int(event.id),
+        ).first()
+    return None
 
 
 def _fill_empty_format_fields(fmt, event, org_id: int) -> bool:
@@ -238,6 +244,108 @@ def ensure_certificate_assets_for_event(db, event, *, commit: bool = False) -> d
     if commit:
         db.session.commit()
     return result
+
+
+def resolve_event_certificate_org_id(event, *, admin_scope_org_id: int) -> int:
+    """Org canónica del evento (creador); fallback al scope admin en altas sin id."""
+    if event and getattr(event, 'id', None):
+        from nodeone.services.event_institutional_certificate_template import resolve_event_org_id
+
+        return int(resolve_event_org_id(event))
+    return int(admin_scope_org_id or 1)
+
+
+def sync_event_certificate_on_save(
+    db,
+    event,
+    *,
+    has_certificate: bool,
+    template_form_value: str | None,
+    admin_scope_org_id: int,
+) -> tuple[bool, str | None, dict[str, Any]]:
+    """
+    Único punto al guardar create/edit: desactiva o garantiza formato + plantilla.
+    El formato se crea antes de validar la plantilla del formulario (nunca rollback por plantilla).
+    """
+    from app import CertificateTemplate
+
+    from nodeone.services.event_institutional_certificate_template import (
+        apply_certificate_template_from_event_form,
+    )
+
+    empty: dict[str, Any] = {}
+    if not has_certificate:
+        deactivate_certificate_assets_for_event(db, event, commit=False)
+        return True, None, empty
+
+    assets = ensure_certificate_assets_for_event(db, event, commit=False)
+    org_id = resolve_event_certificate_org_id(event, admin_scope_org_id=admin_scope_org_id)
+    err = apply_certificate_template_from_event_form(
+        event,
+        template_form_value,
+        org_id,
+        CertificateTemplate,
+    )
+    return True, err, assets
+
+
+def ensure_all_event_certificate_formats(db, *, commit: bool = True) -> dict[str, Any]:
+    """Crea/repara formatos+plantillas de TODOS los eventos con has_certificate (sin filtro org)."""
+    from app import Event
+
+    stats: dict[str, Any] = {
+        STATUS_CREATED: 0,
+        STATUS_REPAIRED: 0,
+        STATUS_REUSED: 0,
+        'events': [],
+    }
+    for event in Event.query.filter_by(has_certificate=True).order_by(Event.id).all():
+        r = ensure_certificate_assets_for_event(db, event, commit=False)
+        stats['events'].append(r)
+        for key in ('format_status', 'template_status'):
+            st = r.get(key) or STATUS_REUSED
+            if st in stats:
+                stats[st] = int(stats.get(st, 0)) + 1
+    if commit:
+        db.session.commit()
+    return stats
+
+
+def event_certificate_ui_context(
+    db,
+    CertificateTemplate,
+    event=None,
+    *,
+    admin_scope_org_id: int,
+    ensure: bool = False,
+) -> dict[str, Any]:
+    """Contexto compartido formulario y pantalla certificados (plantillas + id formato)."""
+    from app import CertificateEvent
+
+    from nodeone.services.event_institutional_certificate_template import (
+        list_certificate_templates_for_event_form,
+        visual_template_id_for_event,
+    )
+
+    org_id = resolve_event_certificate_org_id(event, admin_scope_org_id=admin_scope_org_id)
+    certificate_event_id = None
+    if event and getattr(event, 'has_certificate', False) and getattr(event, 'id', None):
+        if ensure:
+            assets = ensure_certificate_assets_for_event(db, event, commit=True)
+            certificate_event_id = assets.get('certificate_event_id')
+        if certificate_event_id is None:
+            fmt = find_event_certificate_format(CertificateEvent, event, org_id)
+            certificate_event_id = int(fmt.id) if fmt else None
+
+    return {
+        'certificate_templates': list_certificate_templates_for_event_form(
+            CertificateTemplate, org_id
+        ),
+        'selected_certificate_template_id': (
+            visual_template_id_for_event(event) if event else None
+        ),
+        'certificate_event_id': certificate_event_id,
+    }
 
 
 def deactivate_certificate_assets_for_event(db, event, *, commit: bool = False) -> str:

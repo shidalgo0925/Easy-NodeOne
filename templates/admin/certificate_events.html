@@ -14,7 +14,7 @@
                     <i class="fas fa-plus me-1"></i> Nuevo formato
                 </button>
             </div>
-            <p class="text-muted small mb-0">Formatos de <strong>membresía y registro</strong> (MEM / REG / PLAN). Los certificados de <strong>eventos</strong> (seminarios, talleres) se administran en <strong>Eventos → Certificados</strong> del evento correspondiente.</p>
+            <p class="text-muted small mb-0">Formatos de <strong>membresía y registro</strong> (MEM / REG / PLAN) y, abajo, formatos <strong>automáticos de eventos</strong> (seminarios). Los PDF emitidos a participantes se generan en <strong>Eventos → Certificados</strong>.</p>
             {% if saas_module_enabled('qr_generator') %}
             <p class="small mt-2 mb-0">Para un <strong>QR de verificación</strong>, usá {% if has_view_endpoint('admin_tools_qr') %}<a href="{{ url_for('admin_tools_qr') }}">Herramientas → Generador QR</a>{% else %}el generador QR del sitio (no disponible en este despliegue){% endif %} con la URL pública de verificación del certificado (ruta <code class="small">/verify/&lt;código&gt;</code> del sitio).</p>
             {% endif %}
@@ -250,7 +250,8 @@
                 tableLoading.classList.add('d-none');
                 tableWrap.classList.remove('d-none');
                 const items = data.items || [];
-                const memItems = items.filter(function(e) { return e.kind !== 'event_module'; });
+                const memItems = items.filter(function(e) { return e.kind === 'certificate_event' || (!e.kind && !e.event_required_id); });
+                const eventItems = items.filter(function(e) { return e.kind === 'event_seminar' || (e.event_required_id && e.kind !== 'certificate_event'); });
 
                 function renderMemRow(e) {
                     var req = 'Membresía activa';
@@ -276,11 +277,41 @@
                         '</td></tr>';
                 }
 
+                function renderEventRow(e) {
+                    var eid = e.event_id || e.event_required_id;
+                    var tpl = (e.template_id ? '<span class="badge bg-info">Sí (id ' + e.template_id + ')</span>' : '<span class="text-muted">—</span>');
+                    var issued = (e.issued_count != null && e.issued_count > 0)
+                        ? ' <span class="badge bg-secondary">' + e.issued_count + ' PDF(s)</span>'
+                        : ' <span class="badge bg-light text-muted border">0 PDF</span>';
+                    var certsUrl = eid ? ('/admin/events/' + eid + '/certificates') : '#';
+                    var coverHref = e.template_id ? ('/admin/certificate-templates/editor/' + e.template_id) : '';
+                    return '<tr>' +
+                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-primary">EVENTO</span>' + issued + '</td>' +
+                        '<td><code>' + (e.code_prefix || 'EVT') + '</code></td>' +
+                        '<td>' + (e.institution || '—') + '</td>' +
+                        '<td>' + tpl + '</td>' +
+                        '<td><small>Evento #' + eid + '</small></td>' +
+                        '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
+                        '<td class="text-nowrap">' +
+                        '<a href="' + certsUrl + '" class="btn btn-success btn-sm me-1" title="Emitir certificados PDF"><i class="fas fa-certificate"></i></a>' +
+                        (coverHref ? '<a href="' + coverHref + '" class="btn btn-primary btn-sm me-1" title="Editor plantilla visual"><i class="fas fa-image"></i></a>' : '') +
+                        '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')" title="Editar formato institucional"><i class="fas fa-cog"></i></button>' +
+                        '<a href="/admin/events/' + eid + '/certificates/preview" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener" title="Vista previa PDF"><i class="fas fa-eye"></i></a>' +
+                        '</td></tr>';
+                }
+
                 var html = '';
                 if (memItems.length) {
                     html += memItems.map(renderMemRow).join('');
-                } else {
-                    html = '<tr><td colspan="7" class="text-muted text-center py-4">No hay formatos configurados.</td></tr>';
+                }
+                if (eventItems.length) {
+                    if (memItems.length) {
+                        html += '<tr class="table-light"><td colspan="7" class="small fw-semibold text-secondary py-2">Formatos de eventos (creados al marcar certificado en el evento)</td></tr>';
+                    }
+                    html += eventItems.map(renderEventRow).join('');
+                }
+                if (!memItems.length && !eventItems.length) {
+                    html = '<tr><td colspan="7" class="text-muted text-center py-4">No hay formatos configurados. Los de eventos aparecen al guardar un evento con certificado habilitado.</td></tr>';
                 }
                 tbody.innerHTML = html;
             })

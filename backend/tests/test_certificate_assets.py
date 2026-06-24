@@ -71,6 +71,33 @@ class TestCertificateAssets(unittest.TestCase):
         self.assertEqual(assets.STATUS_CREATED, 'CREATED')
         self.assertEqual(assets.STATUS_REUSED, 'REUSED')
 
+    def test_find_event_certificate_format_by_event_id_only(self):
+        fmt = SimpleNamespace(id=25, organization_id=3, event_required_id=5)
+        mock_ce = MagicMock()
+        mock_ce.query.filter_by.return_value.first.return_value = fmt
+        found = assets.find_event_certificate_format(mock_ce, SimpleNamespace(id=5), org_id=1)
+        self.assertIs(found, fmt)
+        mock_ce.query.filter_by.assert_called_once_with(event_required_id=5)
+
+    def test_sync_event_certificate_on_save_ensures_before_template_error(self):
+        event = SimpleNamespace(id=9, has_certificate=True)
+        mock_db = MagicMock()
+        with patch.object(assets, 'ensure_certificate_assets_for_event') as ensure_mock:
+            with patch.object(assets, 'resolve_event_certificate_org_id', return_value=3):
+                with patch(
+                    'nodeone.services.event_institutional_certificate_template.apply_certificate_template_from_event_form',
+                    return_value='Plantilla no encontrada',
+                ):
+                    ok, warn, _assets = assets.sync_event_certificate_on_save(
+                        mock_db,
+                        event,
+                        has_certificate=True,
+                        template_form_value='999',
+                        admin_scope_org_id=1,
+                    )
+        self.assertTrue(ok)
+        self.assertIn('Plantilla', warn or '')
+        ensure_mock.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()

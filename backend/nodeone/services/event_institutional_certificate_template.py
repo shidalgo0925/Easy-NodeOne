@@ -405,7 +405,7 @@ def list_certificate_templates_for_event_form(CertificateTemplate, org_id: int) 
 
 
 def ensure_certificate_template_for_event(db, event) -> str:
-    """Compat: delega a ensure_certificate_assets_for_event (solo plantilla)."""
+    """Compat: usar certificate_assets.ensure_certificate_assets_for_event."""
     from nodeone.services.certificate_assets import (
         STATUS_CREATED,
         STATUS_DEACTIVATED,
@@ -419,11 +419,7 @@ def ensure_certificate_template_for_event(db, event) -> str:
     fmt_status = result.get('format_status')
     if fmt_status == STATUS_DEACTIVATED:
         return 'ok'
-    mapping = {
-        STATUS_CREATED: 'created',
-        STATUS_REPAIRED: 'repaired',
-        STATUS_REUSED: 'ok',
-    }
+    mapping = {STATUS_CREATED: 'created', STATUS_REPAIRED: 'repaired', STATUS_REUSED: 'ok'}
     if tpl_status == STATUS_CREATED:
         return 'created'
     if tpl_status == STATUS_REPAIRED:
@@ -432,31 +428,16 @@ def ensure_certificate_template_for_event(db, event) -> str:
 
 
 def ensure_institutional_event_certificate_templates(db, printfn=print) -> None:
-    """Compat: repara activos de certificado para eventos con has_certificate."""
-    from app import Event
-
+    """Compat: usar certificate_assets.ensure_all_event_certificate_formats."""
     from nodeone.services.certificate_assets import (
         STATUS_CREATED,
         STATUS_REPAIRED,
-        ensure_certificate_assets_for_event,
+        ensure_all_event_certificate_formats,
     )
 
-    events = Event.query.filter_by(has_certificate=True).order_by(Event.id).all()
-    if not events:
-        return
-
-    created = 0
-    repaired = 0
-    for event in events:
-        result = ensure_certificate_assets_for_event(db, event, commit=False)
-        for st in (result.get('format_status'), result.get('template_status')):
-            if st == STATUS_CREATED:
-                created += 1
-            elif st == STATUS_REPAIRED:
-                repaired += 1
-
-    if created or repaired:
-        db.session.commit()
+    stats = ensure_all_event_certificate_formats(db, commit=True)
+    created = int(stats.get(STATUS_CREATED, 0))
+    repaired = int(stats.get(STATUS_REPAIRED, 0))
     if created:
         printfn(f'Activos de certificado de evento creados: {created}')
     if repaired:

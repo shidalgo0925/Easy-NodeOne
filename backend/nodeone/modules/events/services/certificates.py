@@ -27,8 +27,57 @@ def certificates_storage_dir(app, org_id: int, event_id: int) -> str:
     path = os.path.abspath(
         os.path.join(app.root_path, '..', 'static', 'uploads', 'certificates', str(org_id), str(event_id))
     )
-    os.makedirs(path, exist_ok=True)
+    os.makedirs(path, exist_ok=True, mode=0o775)
     return path
+
+
+def _certificate_pdf_paths(
+    app,
+    *,
+    org_id: int,
+    event_id: int,
+    cert_number: str,
+    existing_certificate_url: str | None = None,
+) -> list[str]:
+    """Rutas candidatas para escribir PDF (ruta actual primero, luego org canónica del evento)."""
+    paths: list[str] = []
+    if existing_certificate_url:
+        current = abs_path_from_certificate_url(app, existing_certificate_url)
+        if current:
+            paths.append(current)
+    folder = certificates_storage_dir(app, org_id, event_id)
+    canonical = os.path.join(folder, cert_number.replace('/', '-') + '.pdf')
+    if canonical not in paths:
+        paths.append(canonical)
+    return paths
+
+
+def _write_certificate_pdf_file(
+    app,
+    *,
+    org_id: int,
+    event_id: int,
+    cert_number: str,
+    pdf_bytes: bytes,
+    existing_certificate_url: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Escribe PDF; si la ruta legada no es escribible, usa la carpeta org/evento actual."""
+    last_err: str | None = None
+    for pdf_fs in _certificate_pdf_paths(
+        app,
+        org_id=org_id,
+        event_id=event_id,
+        cert_number=cert_number,
+        existing_certificate_url=existing_certificate_url,
+    ):
+        try:
+            os.makedirs(os.path.dirname(pdf_fs), exist_ok=True, mode=0o775)
+            with open(pdf_fs, 'wb') as f:
+                f.write(pdf_bytes)
+            return pdf_fs, None
+        except OSError as exc:
+            last_err = str(exc)
+    return None, last_err or 'No se pudo guardar el PDF del certificado.'
 
 
 def code_prefix_for_participant(participant) -> str:
@@ -219,7 +268,6 @@ def create_event_certificate(
     org_id = organization_id_for_event(event)
     folder = certificates_storage_dir(app, org_id, event.id)
     base_fs = os.path.join(folder, cert_number.replace('/', '-'))
-    pdf_fs = base_fs + '.pdf'
 
     display_name = (
         (getattr(participant, 'full_name', None) or '').strip()
@@ -250,8 +298,16 @@ def create_event_certificate(
     )
     if not pdf_bytes:
         return None, 'No se pudo generar el PDF del certificado.'
-    with open(pdf_fs, 'wb') as f:
-        f.write(pdf_bytes)
+
+    pdf_fs, write_err = _write_certificate_pdf_file(
+        app,
+        org_id=org_id,
+        event_id=event.id,
+        cert_number=cert_number,
+        pdf_bytes=pdf_bytes,
+    )
+    if not pdf_fs:
+        return None, write_err or 'No se pudo guardar el PDF del certificado.'
 
     qr_fs = base_fs + '_qr.png'
     try:
@@ -330,13 +386,16 @@ def regenerate_event_certificate(
     if not pdf_bytes:
         return None, 'No se pudo regenerar el PDF del certificado.'
 
-    pdf_fs = abs_path_from_certificate_url(app, cert.certificate_url)
+    pdf_fs, write_err = _write_certificate_pdf_file(
+        app,
+        org_id=org_id,
+        event_id=event.id,
+        cert_number=cert.certificate_number,
+        pdf_bytes=pdf_bytes,
+        existing_certificate_url=cert.certificate_url,
+    )
     if not pdf_fs:
-        folder = certificates_storage_dir(app, org_id, event.id)
-        pdf_fs = os.path.join(folder, cert.certificate_number.replace('/', '-') + '.pdf')
-
-    with open(pdf_fs, 'wb') as f:
-        f.write(pdf_bytes)
+        return None, write_err or 'No se pudo guardar el PDF del certificado.'
 
     qr_fs = pdf_fs.replace('.pdf', '_qr.png')
     try:

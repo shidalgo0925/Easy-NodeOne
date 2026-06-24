@@ -301,6 +301,19 @@
                             <label class="form-check-label fw-medium" for="has_certificate">Este evento incluye certificado</label>
                         </div>
                         <div id="certificate_fields_wrap"{% if not event or not event.has_certificate %} class="d-none"{% endif %}>
+                            {% if certificate_event_id and event %}
+                            <div class="alert alert-success py-2 small mb-3">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Formato de certificado activo: <strong>#{{ certificate_event_id }}</strong>.
+                                <a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}" class="alert-link">Emitir PDFs</a>
+                                · <a href="{{ url_for('admin_events.admin_event_certificate_preview', event_id=event.id) }}" class="alert-link" target="_blank" rel="noopener">Vista previa</a>
+                            </div>
+                            {% elif event and event.has_certificate and action == 'edit' %}
+                            <div class="alert alert-warning py-2 small mb-3">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                Aún no hay formato vinculado. Guardá de nuevo con certificado activado para crearlo automáticamente.
+                            </div>
+                            {% endif %}
                             <div class="mb-3">
                                 <label class="form-label fw-medium">Instrucciones</label>
                                 <textarea name="certificate_instructions" class="form-control" rows="3" placeholder="Cómo obtiene el participante su certificado">{{ event.certificate_instructions if event else '' }}</textarea>
@@ -315,6 +328,10 @@
                                 </select>
                                 <p class="form-text small text-muted mb-0 mt-1">
                                     Diseño del PDF del certificado. Si no elige una, el sistema crea una al guardar.
+                                    {% if certificate_event_id and event %}
+                                    Formato institucional: <strong>#{{ certificate_event_id }}</strong>
+                                    (<a href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}">Eventos → Certificados</a>).
+                                    {% endif %}
                                     {% if action == 'edit' and selected_certificate_template_id %}
                                     <a href="{{ url_for('admin_certificate_template_editor', template_id=selected_certificate_template_id) }}">Editar carátula</a>
                                     {% endif %}

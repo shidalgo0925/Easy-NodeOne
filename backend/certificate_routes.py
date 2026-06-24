@@ -797,8 +797,8 @@ def _cert_event_to_dict(e):
 @login_required
 @_admin_required
 def admin_list_certificate_events():
-    """Lista formatos MEM/REG/PLAN (certificate_events). Eventos EN1 se gestionan en Eventos."""
-    from app import CertificateEvent
+    """Lista formatos MEM/REG/PLAN y formatos vinculados a eventos EN1."""
+    from app import CertificateEvent, EventCertificate
 
     coid = _cert_admin_org_id()
     _seed_org_certificate_events(coid)
@@ -813,7 +813,14 @@ def admin_list_certificate_events():
         row['issued_count'] = Certificate.query.filter_by(
             certificate_event_id=row['id']
         ).count()
-    return jsonify({'items': mem_reg})
+
+    event_formats = [_cert_event_to_dict(e) for e in events if e.event_required_id is not None]
+    for row in event_formats:
+        row['kind'] = 'event_seminar'
+        row['event_id'] = int(row['event_required_id'])
+        row['issued_count'] = EventCertificate.query.filter_by(event_id=row['event_id']).count()
+
+    return jsonify({'items': mem_reg + event_formats})
 
 
 @certificates_api_bp.route('/admin/certificate-events', methods=['POST'])

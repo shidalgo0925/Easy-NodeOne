@@ -9,7 +9,14 @@
             <h1 class="h5 mb-2">
                 <i class="fas fa-database"></i> Respaldo de Base de Datos
             </h1>
-            <p class="text-muted">Gestiona los respaldos de la base de datos del sistema</p>
+                    <p class="text-muted">Gestiona los respaldos de la base de datos del sistema</p>
+                    {% if backup_meta.postgresql %}
+                    <p class="small text-muted mb-0">
+                        Motor: <strong>PostgreSQL</strong> · BD: <code>{{ backup_meta.database_name }}</code>
+                    </p>
+                    {% else %}
+                    <p class="small text-muted mb-0">Motor: <strong>SQLite</strong> (desarrollo local)</p>
+                    {% endif %}
         </div>
     </div>
 
@@ -23,7 +30,7 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <p>Genera un respaldo completo de la base de datos y descárgalo a tu computadora.</p>
+                    <p>Genera un respaldo completo con <code>pg_dump</code> y descárgalo a tu computadora.</p>
                     <div class="d-grid d-sm-inline-block">
                     <button type="button" class="btn btn-sm btn-primary" id="createBackupBtn" onclick="createBackup()"><i class="fas fa-download"></i> Crear y Descargar Respaldo</button>
                     </div>
@@ -33,13 +40,13 @@
         </div>
     </div>
 
-    <!-- Lista de respaldos existentes -->
+    <!-- Respaldos creados desde el panel -->
     <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0">
-                        <i class="fas fa-history"></i> Respaldos Existentes
+                        <i class="fas fa-history"></i> Respaldos del panel
                     </h5>
                 </div>
                 <div class="card-body">
@@ -50,7 +57,7 @@
                                 <tr>
                                     <th>Fecha y Hora</th>
                                     <th>Tamaño</th>
-                                    <th>Nombre del Archivo</th>
+                                    <th>Archivo</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -58,33 +65,32 @@
                                 {% for backup in backups %}
                                 <tr>
                                     <td>
-                                        <i class="fas fa-calendar"></i> 
+                                        <i class="fas fa-calendar"></i>
                                         {{ backup.created_at.strftime('%d/%m/%Y %H:%M:%S') }}
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary">
-                                            {{ backup.size_mb }} MB
-                                        </span>
+                                        <span class="badge bg-secondary">{{ backup.size_mb }} MB</span>
                                     </td>
+                                    <td><code>{{ backup.filename }}</code></td>
                                     <td>
-                                        <code>{{ backup.filename }}</code>
-                                    </td>
-                                    <td>
-                                        <a href="/admin/backup/download/{{ backup.filename }}" 
-                                           class="btn btn-sm btn-success" 
-                                           download>
+                                        <a href="/admin/backup/download/{{ backup.filename }}"
+                                           class="btn btn-sm btn-success" download>
                                             <i class="fas fa-download"></i> Descargar
                                         </a>
-                                        <button type="button" 
-                                                class="btn btn-sm btn-warning" 
+                                        {% if backup.restorable %}
+                                        <button type="button"
+                                                class="btn btn-sm btn-warning"
                                                 onclick="restoreBackup('{{ backup.filename }}')">
                                             <i class="fas fa-undo"></i> Restaurar
                                         </button>
-                                        <button type="button" 
-                                                class="btn btn-sm btn-danger" 
+                                        {% endif %}
+                                        {% if backup.deletable %}
+                                        <button type="button"
+                                                class="btn btn-sm btn-danger"
                                                 onclick="deleteBackup('{{ backup.filename }}')">
                                             <i class="fas fa-trash"></i> Eliminar
                                         </button>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -92,8 +98,8 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> No hay respaldos disponibles. Crea el primero usando el botón de arriba.
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i> No hay respaldos creados desde el panel. Usá el botón de arriba.
                     </div>
                     {% endif %}
                 </div>
@@ -101,14 +107,58 @@
         </div>
     </div>
 
+    {% if server_backups %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-server"></i> Respaldos automáticos del servidor
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Generados por cron nocturno (solo descarga; no se eliminan desde aquí).</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tamaño</th>
+                                    <th>Archivo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in server_backups[:15] %}
+                                <tr>
+                                    <td>{{ backup.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td><span class="badge bg-secondary">{{ backup.size_mb }} MB</span></td>
+                                    <td><code>{{ backup.filename }}</code></td>
+                                    <td>
+                                        <a href="/admin/backup/download-server/{{ backup.filename }}"
+                                           class="btn btn-sm btn-outline-success" download>
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Información sobre automatización -->
     <div class="row mt-4">
         <div class="col-12">
             <div class="alert alert-warning">
                 <h6><i class="fas fa-info-circle"></i> Automatización de Respaldos</h6>
                 <p class="mb-0">
-                    Los respaldos automáticos están configurados para ejecutarse diariamente. 
-                    Los respaldos antiguos se eliminan automáticamente manteniendo solo los últimos 10.
+                    Los respaldos automáticos del servidor se ejecutan cada noche (cron).
+                    Desde este panel podés generar un respaldo adicional con <code>pg_dump</code> antes de cambios delicados.
                 </p>
             </div>
         </div>

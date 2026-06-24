@@ -1,0 +1,13 @@
+# Rutas obsoletas a borrar tras deploy si aún existen en disco.
+# Una ruta por línea, relativa a la raíz del repo (…/app/).
+# Añadir aquí cuando un commit elimine o mueva archivos del árbol versionado.
+#
+# Certificados (refactor 2026-06)
+templates/my/event_certificates.html
+backend/analytics.py
+backend/create_certificate_tables.py
+#
+# Parches manuales típicos (no deben quedar en silos)
+backend/certificate_routes.py.bak
+backend/app.py.bak
+*.pyc.bak

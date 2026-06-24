@@ -1066,7 +1066,7 @@
             if (!f) return;
             const fd = new FormData();
             fd.append('file', f);
-            fetch('/api/certificates-builder/upload-image', { method: 'POST', credentials: 'same-origin', body: fd })
+            fetch('/api/templates/upload-image', { method: 'POST', credentials: 'same-origin', body: fd })
                 .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
                 .then(function (res) {
                     if (!res.ok || !res.data.url) {

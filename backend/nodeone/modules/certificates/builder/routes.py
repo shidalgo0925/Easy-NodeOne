@@ -1,21 +1,14 @@
 """Rutas del módulo certificates_builder. Prefijo /api/certificates-builder y página editor."""
 import json
-import os
-import uuid
-from flask import Blueprint, jsonify, request, render_template
+from flask import Blueprint, jsonify, request, redirect, url_for
 from flask_login import login_required, current_user
 
 from . import storage
 
 from nodeone.core.admin_api import admin_required_json as _admin_required
-from nodeone.services.certificate_http import certificates_upload_dir
 
 certificates_builder_bp = Blueprint('certificates_builder', __name__, url_prefix='/api/certificates-builder')
 certificates_builder_page_bp = Blueprint('certificates_builder_page', __name__)
-
-
-def _upload_dir():
-    return certificates_upload_dir()
 
 
 def _cb_admin_org_id():
@@ -79,17 +72,13 @@ def update_template(template_id):
 @login_required
 @_admin_required
 def upload_image():
-    """Sube imagen para usar en el editor (fondo o elemento). Guarda en static/uploads/certificates."""
+    """Legacy: usar POST /api/templates/upload-image. Misma carpeta uploads/certificates."""
+    from nodeone.services.certificate_http import save_certificate_image_upload
+
     f = request.files.get('file') or request.files.get('image')
-    if not f or not f.filename:
-        return jsonify({'error': 'Falta el archivo'}), 400
-    ext = (os.path.splitext(f.filename)[1] or '.png').lower()
-    if ext not in ('.png', '.jpg', '.jpeg', '.gif', '.webp'):
-        return jsonify({'error': 'Formato no permitido'}), 400
-    name = 'builder_' + uuid.uuid4().hex[:12] + ext
-    path = os.path.join(_upload_dir(), name)
-    f.save(path)
-    url = '/static/uploads/certificates/' + name
+    url, err = save_certificate_image_upload(f, prefix='builder')
+    if err:
+        return jsonify({'error': err}), 400
     return jsonify({'success': True, 'url': url})
 
 
@@ -180,6 +169,8 @@ def publish_to_engine():
 @login_required
 @_admin_required
 def editor_page():
-    """Página del editor visual. No modifica rutas existentes de certificados."""
-    template_id = request.args.get('id', type=int)
-    return render_template('certificates_builder/editor.html', template_id=template_id)
+    """Editor prototipo retirado: redirige al editor canónico de plantillas."""
+    tid = request.args.get('id', type=int)
+    if tid:
+        return redirect(url_for('admin_certificate_template_editor', template_id=tid))
+    return redirect(url_for('admin_certificate_templates'))

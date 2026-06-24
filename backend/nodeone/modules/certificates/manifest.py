@@ -11,6 +11,7 @@ MODULE = {
         'builder': 'nodeone.modules.certificates.builder.routes',
         'pages': 'nodeone.modules.admin_certificate_pages.routes',
     },
+    # builder: prototipo JSON local; editor canónico = admin/certificate-templates/editor
     'routes_legacy_shims': [
         'certificate_routes',
         'certificate_template_routes',

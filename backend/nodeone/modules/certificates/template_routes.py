@@ -230,6 +230,20 @@ def link_template_to_event(template_id):
     return jsonify({'success': True, 'item': _template_to_dict(t), 'event_id': int(event.id)})
 
 
+@certificate_templates_bp.route('/templates/upload-image', methods=['POST'])
+@login_required
+@_admin_required
+def upload_template_image():
+    """Sube imagen para el editor canónico de plantillas (fondo o elementos)."""
+    from nodeone.services.certificate_http import save_certificate_image_upload
+
+    f = request.files.get('file') or request.files.get('image')
+    url, err = save_certificate_image_upload(f, prefix='tpl')
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'success': True, 'url': url})
+
+
 @certificate_templates_bp.route('/templates/<int:template_id>/institutional-layout', methods=['GET'])
 @login_required
 @_admin_required

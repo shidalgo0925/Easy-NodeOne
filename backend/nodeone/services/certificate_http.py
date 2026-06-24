@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import uuid
+
+_ALLOWED_CERT_IMAGE_EXT = frozenset({'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'})
 
 
 def certificate_base_url() -> str:
@@ -36,3 +39,16 @@ def certificates_upload_dir(*, app=None) -> str:
         path = os.path.abspath(os.path.join(backend_dir, '..', 'static', 'uploads', 'certificates'))
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def save_certificate_image_upload(file_storage, *, prefix: str = 'tpl') -> tuple[str | None, str | None]:
+    """Guarda imagen en uploads/certificates. Retorna (url /static/..., mensaje error)."""
+    if not file_storage or not getattr(file_storage, 'filename', None):
+        return None, 'Falta el archivo'
+    ext = (os.path.splitext(file_storage.filename)[1] or '.png').lower()
+    if ext not in _ALLOWED_CERT_IMAGE_EXT:
+        return None, 'Formato no permitido. Use PNG, JPG, GIF, WebP o SVG.'
+    safe_name = f'{prefix}_{uuid.uuid4().hex[:12]}{ext}'
+    path = os.path.join(certificates_upload_dir(), safe_name)
+    file_storage.save(path)
+    return f'/static/uploads/certificates/{safe_name}', None

@@ -99,17 +99,31 @@ Este es el flujo más habitual para congresos, diplomados cortos y seminarios.
    - El campo **«Plantilla o referencia»** es de uso interno del sistema; **no hace falta completarlo manualmente**.
 4. Guardar el evento.
 
-Al guardar con certificado activado, el sistema crea (o repara) automáticamente una **plantilla visual** vinculada a ese evento.
+Al guardar con certificado activado, el sistema crea (o repara) automáticamente:
 
-### Paso 2 — Diseñar la carátula del PDF
+- Un **formato institucional** (`certificate_events`, prefijo EVT) vinculado al evento — verás el mensaje «Formato de certificado creado: #…» y, al volver a editar, la alerta verde con el número.
+- Una **plantilla visual** si aún no existe una para ese evento (el diseño del PDF en el editor).
+
+Tras guardar, la pantalla vuelve a la pestaña **Certificación** del evento para que confirmes el formato creado.
+
+### Paso 2 — Formato institucional vs plantilla visual (dos piezas, un PDF)
+
+| Pieza | Dónde editarla | Qué define |
+|-------|----------------|------------|
+| **Formato institucional** | Eventos → Certificados → **Formato** (engranaje azul) | Institución, firmantes, logos por URL, fechas, prefijo de código |
+| **Plantilla visual** | **Plantilla** (paleta amarilla) o Certificados → Plantillas | Diseño del lienzo: textos, variables, QR, fondo |
+
+Al emitir el PDF se usa **la plantilla visual** si existe; si no, un diseño institucional por defecto. No son dos certificados distintos: es diseño + datos.
+
+### Paso 3 — Diseñar la carátula del PDF
 
 La carátula es el diseño visual del certificado: fondo, logos, textos, nombre del participante, código y QR.
 
 **Formas de abrir el editor:**
 
-- **Certificados → Eventos** → fila del evento → botón **Editar carátula**.
-- **Certificados → Plantillas** → **Editar** en la plantilla marcada como evento.
-- **Eventos → Certificados** del evento → enlace **Editar plantilla** (icono paleta).
+- **Eventos → Certificados** del evento → botón **Plantilla** (icono paleta).
+- **Certificados → Plantillas** → **Editar** en la plantilla del evento.
+- **Certificados → Eventos** → fila **EVENTO** → icono imagen (si hay plantilla vinculada).
 
 Se abre el **Editor de plantilla** (`/admin/certificate-templates/editor/<id>`).
 
@@ -170,7 +184,9 @@ Los certificados **nuevos** y los **regenerados** usarán esta versión de la pl
 
 #### 2.5 Vista previa
 
-Desde **Formatos de certificado** (solo filas MEM/REG) existe **Vista previa** en el modal. Para eventos, la prueba real es **generar un certificado de prueba** con un participante de prueba y descargar el PDF.
+- **Eventos → Certificados** → botón **Vista previa** (ojo): abre un PDF de ejemplo con datos ficticios (no se guarda en la base de datos).
+- En **editar evento**, pestaña Certificación: enlace **Vista previa** en la alerta verde del formato.
+- En **Formatos de certificado** (`/admin/certificate-events`): la vista previa del modal aplica sobre todo a formatos **MEM/REG**; para eventos use la vista previa del paso anterior.
 
 ### Paso 3 — Cargar participantes
 

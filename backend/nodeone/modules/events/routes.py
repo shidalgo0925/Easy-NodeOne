@@ -170,6 +170,46 @@ def _users_for_event_admin_pickers():
     )
 
 
+def _event_certificate_form_context(event=None, *, ensure: bool = False) -> dict:
+    from app import CertificateTemplate, admin_data_scope_organization_id, db
+    from nodeone.services.certificate_assets import event_certificate_ui_context
+
+    return event_certificate_ui_context(
+        db,
+        CertificateTemplate,
+        event,
+        admin_scope_org_id=int(admin_data_scope_organization_id()),
+        ensure=ensure,
+    )
+
+
+def _save_event_certificate_assets(event, has_cert: bool) -> dict:
+    """Único hook POST create/edit: garantiza formato + plantilla del evento."""
+    from app import db, admin_data_scope_organization_id
+    from nodeone.services.certificate_assets import (
+        STATUS_CREATED,
+        STATUS_REPAIRED,
+        sync_event_certificate_on_save,
+    )
+
+    _ok, warn, assets = sync_event_certificate_on_save(
+        db,
+        event,
+        has_certificate=has_cert,
+        template_form_value=request.form.get('certificate_visual_template_id'),
+        admin_scope_org_id=int(admin_data_scope_organization_id()),
+    )
+    if warn:
+        flash(f'{warn} El formato institucional se guardó igualmente.', 'warning')
+    if has_cert and assets.get('certificate_event_id'):
+        fmt_st = assets.get('format_status')
+        if fmt_st == STATUS_CREATED:
+            flash(f"Formato de certificado creado: #{assets['certificate_event_id']}.", 'success')
+        elif fmt_st == STATUS_REPAIRED:
+            flash(f"Formato de certificado reparado: #{assets['certificate_event_id']}.", 'info')
+    return assets if _ok else {}
+
+
 def _current_org_id_for_events():
     from app import admin_data_scope_organization_id, tenant_data_organization_id
 
@@ -967,7 +1007,6 @@ def create_event():
         is_virtual = _is_virtual_from_event_format(format_val)
         has_cert = bool(request.form.get('has_certificate'))
         cert_instr = (request.form.get('certificate_instructions') or '').strip() if has_cert else ''
-        cert_tmpl = (request.form.get('certificate_template') or '').strip() if has_cert else ''
 
         event = Event(
             title=title,
@@ -989,7 +1028,7 @@ def create_event():
             is_virtual=is_virtual,
             has_certificate=has_cert,
             certificate_instructions=cert_instr,
-            certificate_template=cert_tmpl,
+            certificate_template='',
             kahoot_enabled=bool(request.form.get('kahoot_enabled')),
             kahoot_link=(request.form.get('kahoot_link') or '').strip(),
             kahoot_required=bool(request.form.get('kahoot_required')),
@@ -1045,6 +1084,8 @@ def create_event():
                     priority=order
                 ))
 
+        _save_event_certificate_assets(event, has_cert)
+
         db.session.commit()
         ActivityLog.log_activity(
             current_user.id,
@@ -1074,6 +1115,8 @@ def create_event():
                 )
             except Exception:
                 flash('Evento creado; no se pudo completar el envío a miembros (revisar SMTP y logs).', 'warning')
+        if has_cert:
+            return redirect(url_for('admin_events.edit_event', event_id=event.id, tab='certopts'))
         return redirect(url_for('admin_events.admin_events_index'))
 
     default_start = (datetime.utcnow() + timedelta(days=7)).replace(minute=0, second=0, microsecond=0)
@@ -1086,7 +1129,8 @@ def create_event():
         discounts=discounts,
         users=users,
         default_start=default_start,
-        default_end=default_end
+        default_end=default_end,
+        **_event_certificate_form_context(),
     )
 
 
@@ -1134,7 +1178,6 @@ def edit_event(event_id):
         is_virtual = _is_virtual_from_event_format(format_val)
         has_cert = bool(request.form.get('has_certificate'))
         cert_instr = (request.form.get('certificate_instructions') or '').strip() if has_cert else ''
-        cert_tmpl = (request.form.get('certificate_template') or '').strip() if has_cert else ''
 
         event.title = title
         event.summary = request.form.get('summary', '').strip()
@@ -1154,7 +1197,6 @@ def edit_event(event_id):
         event.is_virtual = is_virtual
         event.has_certificate = has_cert
         event.certificate_instructions = cert_instr
-        event.certificate_template = cert_tmpl
         event.kahoot_enabled = bool(request.form.get('kahoot_enabled'))
         event.kahoot_link = (request.form.get('kahoot_link') or '').strip()
         event.kahoot_required = bool(request.form.get('kahoot_required'))
@@ -1219,6 +1261,8 @@ def edit_event(event_id):
                     priority=order
                 ))
 
+        _save_event_certificate_assets(event, has_cert)
+
         db.session.commit()
         ActivityLog.log_activity(
             current_user.id,
@@ -1266,6 +1310,8 @@ def edit_event(event_id):
                 )
             except Exception:
                 flash('No se pudo completar el envío a miembros (revisar SMTP).', 'warning')
+        if has_cert:
+            return redirect(url_for('admin_events.edit_event', event_id=event.id, tab='certopts'))
         return redirect(url_for('admin_events.admin_events_index'))
 
     users = _users_for_event_admin_pickers()
@@ -1284,6 +1330,7 @@ def edit_event(event_id):
         default_start=event.start_date,
         default_end=event.end_date,
         active_tab=active_tab,
+        **_event_certificate_form_context(event, ensure=True),
     )
 
 
@@ -1364,7 +1411,12 @@ def duplicate_event(event_id):
                 discount_id=event_discount.discount_id,
                 priority=event_discount.priority
             ))
-        
+
+        if getattr(duplicate, 'has_certificate', False):
+            from nodeone.services.certificate_assets import ensure_certificate_assets_for_event
+
+            ensure_certificate_assets_for_event(db, duplicate, commit=False)
+
         db.session.commit()
         
         ActivityLog.log_activity(
@@ -2232,6 +2284,18 @@ def admin_event_certificates(event_id):
 
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+
+    from app import CertificateTemplate, db, admin_data_scope_organization_id
+    from nodeone.services.certificate_assets import event_certificate_ui_context
+
+    cert_ui = event_certificate_ui_context(
+        db,
+        CertificateTemplate,
+        event,
+        admin_scope_org_id=int(admin_data_scope_organization_id()),
+        ensure=getattr(event, 'has_certificate', False),
+    )
+
     certs = (
         EventCertificate.query.filter_by(event_id=event_id)
         .order_by(EventCertificate.id.desc())
@@ -2251,23 +2315,9 @@ def admin_event_certificates(event_id):
         'eligible': len(eligible_pending),
         'participants': len(participants),
     }
-    institutional_template_id = None
-    if getattr(event, 'has_certificate', False):
-        from app import CertificateTemplate
-
-        from nodeone.services.event_institutional_certificate_template import (
-            find_visual_template_for_event,
-            is_visual_template,
-            resolve_event_org_id,
-        )
-
-        org_id = resolve_event_org_id(event)
-        tpl = find_visual_template_for_event(CertificateTemplate, event, org_id)
-        if tpl and is_visual_template(tpl):
-            institutional_template_id = tpl.id
     active_template_id = None
     if getattr(event, 'has_certificate', False):
-        from nodeone.services.event_institutional_certificate_template import visual_template_id_for_event
+        from nodeone.services.certificate_visual_templates import visual_template_id_for_event
 
         active_template_id = visual_template_id_for_event(event)
 
@@ -2277,8 +2327,8 @@ def admin_event_certificates(event_id):
         certificates=certs,
         eligible_pending=eligible_pending,
         cert_stats=cert_stats,
-        institutional_template_id=institutional_template_id,
         active_template_id=active_template_id,
+        certificate_event_id=cert_ui.get('certificate_event_id'),
         verify_endpoint='certificates_public.verify_event_certificate_alias',
     )
 
@@ -2314,11 +2364,81 @@ def admin_event_certificates_generate(event_id):
             if not participant_ids:
                 participant_ids = None
     stats = generate_bulk_for_event(current_app, event, current_user.id, participant_ids)
-    flash(
-        f"Certificados generados: {stats['created']}. Omitidos: {stats['skipped']}.",
-        'success' if stats['created'] else 'info',
-    )
+    msg = f"Certificados generados: {stats['created']}. Omitidos: {stats['skipped']}."
+    errs = stats.get('errors') or []
+    if errs:
+        msg += ' ' + '; '.join(errs[:4])
+        if len(errs) > 4:
+            msg += f' (+{len(errs) - 4} más)'
+    flash(msg, 'success' if stats['created'] else ('warning' if errs else 'info'))
     return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/preview')
+@admin_required
+def admin_event_certificate_preview(event_id):
+    """Vista previa PDF de certificado (sin emitir ni guardar en BD)."""
+    import io
+    from types import SimpleNamespace
+
+    from flask import send_file
+
+    from nodeone.modules.events.services.certificates import (
+        _render_event_certificate_pdf_bytes,
+        build_verification_url,
+        organization_id_for_event,
+    )
+
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    if not getattr(event, 'has_certificate', False):
+        flash('Este evento no tiene certificado habilitado.', 'warning')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+    from app import CertificateTemplate, db, admin_data_scope_organization_id
+    from nodeone.services.certificate_assets import event_certificate_ui_context
+
+    event_certificate_ui_context(
+        db,
+        CertificateTemplate,
+        event,
+        admin_scope_org_id=int(admin_data_scope_organization_id()),
+        ensure=True,
+    )
+
+    participant = SimpleNamespace(
+        full_name='Nombre de Ejemplo',
+        document_id='8-888-8888',
+        participant_type='external',
+        first_name='Nombre',
+        middle_name='',
+        last_name='Ejemplo',
+        second_last_name='',
+    )
+    cert_number = 'PREVIEW-0000'
+    verify_url = build_verification_url(current_app, cert_number)
+    issued_at = datetime.utcnow()
+    org_id = organization_id_for_event(event)
+    pdf_bytes = _render_event_certificate_pdf_bytes(
+        app=current_app,
+        event=event,
+        participant=participant,
+        display_name='Nombre de Ejemplo',
+        cert_number=cert_number,
+        verify_url=verify_url,
+        issued_at=issued_at,
+        org_id=org_id,
+    )
+    if not pdf_bytes:
+        flash('No se pudo generar la vista previa del certificado.', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f'preview_event_{event_id}.pdf',
+    )
 
 
 @admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/download')

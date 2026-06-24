@@ -6,6 +6,21 @@
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-12">
+            {% if return_url %}
+            {# Flujo anidado: llegó desde Eventos → Certificados; mantener contexto al salir. #}
+            <nav aria-label="breadcrumb" class="mb-2">
+                <ol class="breadcrumb breadcrumb-sm mb-0 small">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_events.admin_events_index') }}">Eventos</a></li>
+                    <li class="breadcrumb-item"><a href="{{ return_url }}">Certificados del evento</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Formato</li>
+                </ol>
+            </nav>
+            <div class="mb-2">
+                <a href="{{ return_url }}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>Volver a certificados del evento
+                </a>
+            </div>
+            {% endif %}
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center flex-wrap gap-2">
                 <h1 class="h5 mb-0">
                     <i class="fas fa-certificate"></i> Formatos de certificado
@@ -14,7 +29,7 @@
                     <i class="fas fa-plus me-1"></i> Nuevo formato
                 </button>
             </div>
-            <p class="text-muted small mb-0">Los certificados de <strong>eventos</strong> (Seminario, revisores…) se editan con <strong>Editar carátula</strong> → editor visual del PDF. La sección MEM/REG abajo es solo para membresía y registro (modal con fondo/logos/HTML).</p>
+            <p class="text-muted small mb-0">Formatos de <strong>membresía y registro</strong> (MEM / REG / PLAN) y, abajo, formatos <strong>automáticos de eventos</strong> (seminarios). Los PDF emitidos a participantes se generan en <strong>Eventos → Certificados</strong>.</p>
             {% if saas_module_enabled('qr_generator') %}
             <p class="small mt-2 mb-0">Para un <strong>QR de verificación</strong>, usá {% if has_view_endpoint('admin_tools_qr') %}<a href="{{ url_for('admin_tools_qr') }}">Herramientas → Generador QR</a>{% else %}el generador QR del sitio (no disponible en este despliegue){% endif %} con la URL pública de verificación del certificado (ruta <code class="small">/verify/&lt;código&gt;</code> del sitio).</p>
             {% endif %}
@@ -49,7 +64,8 @@
     </div>
 </div>
 
-<!-- Modal Crear/Editar formato -->
+<!-- Modal Crear/Editar formato — editor único (MEM/REG/EVENTO).
+     Eventos → Certificados → Formato enlaza aquí con ?edit=<certificate_event_id>. -->
 <div class="modal fade" id="eventModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -174,8 +190,44 @@
             </div>
             <div class="modal-footer flex-nowrap">
                 <button type="button" class="btn btn-info" id="btnPreviewEvent" title="Ver cómo quedará el certificado"><i class="fas fa-eye me-1"></i> Vista previa</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                {% if return_url %}
+                <a href="{{ return_url }}" class="btn btn-secondary" id="btnCancelEvent">Volver a certificados</a>
+                {% else %}
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancelEvent">Cancelar</button>
+                {% endif %}
                 <button type="button" class="btn btn-primary" id="btnSaveEvent"><i class="fas fa-save me-1"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Certificados emitidos (membresía / PLAN) -->
+<div class="modal fade" id="issuedModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-file-pdf me-1"></i> Certificados emitidos — <span id="issuedModalTitle"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="issuedLoading" class="text-center py-4 text-muted">Cargando...</div>
+                <div id="issuedEmpty" class="text-center py-5 text-muted d-none">No hay certificados emitidos para este formato.</div>
+                <div id="issuedWrap" class="table-responsive d-none">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Código</th>
+                                <th>Usuario</th>
+                                <th>Emisión</th>
+                                <th class="text-end pe-3">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="issued-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -204,6 +256,13 @@
     const tableWrap = document.getElementById('table-wrap');
     const tbody = document.getElementById('events-tbody');
     const baseUrl = window.location.origin;
+    const returnUrl = {{ return_url|tojson if return_url else 'null' }};
+    const eventModalEl = document.getElementById('eventModal');
+    var openedFromEventFlow = false;
+
+    function goBackToEventCertificates() {
+        if (returnUrl) window.location.href = returnUrl;
+    }
 
     function showAlert(msg, type) {
         alertContainer.innerHTML = '<div class="alert alert-' + (type === 'error' ? 'danger' : type) + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
@@ -218,62 +277,68 @@
                 tableLoading.classList.add('d-none');
                 tableWrap.classList.remove('d-none');
                 const items = data.items || [];
-                const eventItems = items.filter(function(e) { return e.kind === 'event_module'; });
-                const memItems = items.filter(function(e) { return e.kind !== 'event_module'; });
-
-                function renderEventRow(e) {
-                    var reqEv = e.requirement_text || ('Evento #' + e.event_id);
-                    var tplEv = e.template_id
-                        ? '<span class="badge bg-info">Carátula id ' + e.template_id + '</span>'
-                        : '<span class="text-muted">—</span>';
-                    var issued = (e.issued_count != null && e.issued_count > 0)
-                        ? ' <span class="badge bg-secondary">' + e.issued_count + ' emitido(s)</span>'
-                        : ' <span class="badge bg-warning text-dark">Sin emitir</span>';
-                    var coverHref = e.edit_path || ('/admin/certificate-templates/editor/' + (e.template_id || ''));
-                    return '<tr class="table-primary-subtle">' +
-                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-success">Evento #' + e.event_id + '</span>' + issued + '</td>' +
-                        '<td><code>' + (e.code_prefix || '') + '</code></td>' +
-                        '<td>' + (e.institution || '—') + '</td>' +
-                        '<td>' + tplEv + '</td>' +
-                        '<td><small>' + reqEv + '</small></td>' +
-                        '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
-                        '<td class="text-nowrap">' +
-                        '<a href="' + coverHref + '" class="btn btn-primary btn-sm me-1" title="Editor visual de la carátula del certificado (PDF)"><i class="fas fa-image me-1"></i>Editar carátula</a>' +
-                        '<a href="' + (e.certificates_url || '#') + '" class="btn btn-outline-info btn-sm me-1" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></a>' +
-                        '<a href="' + (e.participants_url || '#') + '" class="btn btn-outline-secondary btn-sm" title="Participantes"><i class="fas fa-users"></i></a>' +
-                        '</td></tr>';
-                }
+                const memItems = items.filter(function(e) { return e.kind === 'certificate_event' || (!e.kind && !e.event_required_id); });
+                const eventItems = items.filter(function(e) { return e.kind === 'event_seminar' || (e.event_required_id && e.kind !== 'certificate_event'); });
 
                 function renderMemRow(e) {
                     var req = 'Membresía activa';
                     if (e.membership_required_id) req = 'Plan ID ' + e.membership_required_id;
                     else if (e.event_required_id) req = 'Evento ID ' + e.event_required_id;
                     var tpl = (e.template_id ? '<span class="badge bg-info">Sí (id ' + e.template_id + ')</span>' : '<span class="text-muted">—</span>');
+                    var issued = (e.issued_count != null && e.issued_count > 0)
+                        ? ' <span class="badge bg-secondary">' + e.issued_count + ' emitido(s)</span>'
+                        : '';
+                    var coverHref = e.template_id ? ('/admin/certificate-templates/editor/' + e.template_id) : '';
                     return '<tr>' +
-                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-light text-dark border">MEM/REG</span></td>' +
+                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-light text-dark border">MEM/REG</span>' + issued + '</td>' +
                         '<td><code>' + (e.code_prefix || '') + '</code></td>' +
                         '<td>' + (e.institution || '—') + '</td>' +
                         '<td>' + tpl + '</td>' +
                         '<td><small>' + req + '</small></td>' +
                         '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
                         '<td class="text-nowrap">' +
+                        (coverHref ? '<a href="' + coverHref + '" class="btn btn-primary btn-sm me-1" title="Editor visual de la carátula"><i class="fas fa-image"></i></a>' : '') +
+                        '<button type="button" class="btn btn-outline-info btn-sm me-1" data-action="show-issued" data-event-id="' + e.id + '" title="Ver certificados emitidos"><i class="fas fa-file-pdf"></i></button>' +
                         '<button type="button" class="btn btn-info btn-sm me-1" onclick="previewEvent(' + e.id + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
                         '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')" title="Editar formato MEM/REG (fondo, logos, HTML)"><i class="fas fa-cog"></i></button>' +
-                        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteEvent(' + e.id + ',' + JSON.stringify(e.name || '') + ')"><i class="fas fa-trash"></i></button></td>' +
-                        '</tr>';
+                        '</td></tr>';
+                }
+
+                function renderEventRow(e) {
+                    var eid = e.event_id || e.event_required_id;
+                    var tpl = (e.template_id ? '<span class="badge bg-info">Sí (id ' + e.template_id + ')</span>' : '<span class="text-muted">—</span>');
+                    var issued = (e.issued_count != null && e.issued_count > 0)
+                        ? ' <span class="badge bg-secondary">' + e.issued_count + ' PDF(s)</span>'
+                        : ' <span class="badge bg-light text-muted border">0 PDF</span>';
+                    var certsUrl = eid ? ('/admin/events/' + eid + '/certificates') : '#';
+                    var coverHref = e.template_id ? ('/admin/certificate-templates/editor/' + e.template_id) : '';
+                    return '<tr>' +
+                        '<td><strong>' + (e.name || '') + '</strong> <span class="badge bg-primary">EVENTO</span>' + issued + '</td>' +
+                        '<td><code>' + (e.code_prefix || 'EVT') + '</code></td>' +
+                        '<td>' + (e.institution || '—') + '</td>' +
+                        '<td>' + tpl + '</td>' +
+                        '<td><small>Evento #' + eid + '</small></td>' +
+                        '<td>' + (e.is_active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td>' +
+                        '<td class="text-nowrap">' +
+                        '<a href="' + certsUrl + '" class="btn btn-success btn-sm me-1" title="Emitir certificados PDF"><i class="fas fa-certificate"></i></a>' +
+                        (coverHref ? '<a href="' + coverHref + '" class="btn btn-primary btn-sm me-1" title="Editor plantilla visual"><i class="fas fa-image"></i></a>' : '') +
+                        '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editEvent(' + e.id + ')" title="Editar formato institucional"><i class="fas fa-cog"></i></button>' +
+                        '<a href="/admin/events/' + eid + '/certificates/preview" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener" title="Vista previa PDF"><i class="fas fa-eye"></i></a>' +
+                        '</td></tr>';
                 }
 
                 var html = '';
-                if (eventItems.length) {
-                    html += '<tr class="table-light"><td colspan="7" class="fw-semibold py-2"><i class="fas fa-calendar-check me-1"></i> Certificados de eventos — use <strong>Editar carátula</strong> para el diseño visual del PDF (no el modal MEM/REG).</td></tr>';
-                    html += eventItems.map(renderEventRow).join('');
-                }
                 if (memItems.length) {
-                    html += '<tr class="table-light"><td colspan="7" class="fw-semibold py-2"><i class="fas fa-id-card me-1"></i> Membresía y registro (MEM / REG)</td></tr>';
                     html += memItems.map(renderMemRow).join('');
                 }
-                if (!html) {
-                    html = '<tr><td colspan="7" class="text-muted text-center py-4">No hay formatos configurados.</td></tr>';
+                if (eventItems.length) {
+                    if (memItems.length) {
+                        html += '<tr class="table-light"><td colspan="7" class="small fw-semibold text-secondary py-2">Formatos de eventos (creados al marcar certificado en el evento)</td></tr>';
+                    }
+                    html += eventItems.map(renderEventRow).join('');
+                }
+                if (!memItems.length && !eventItems.length) {
+                    html = '<tr><td colspan="7" class="text-muted text-center py-4">No hay formatos configurados. Los de eventos aparecen al guardar un evento con certificado habilitado.</td></tr>';
                 }
                 tbody.innerHTML = html;
             })
@@ -409,6 +474,92 @@
             .catch(function() { showAlert('Error al cargar evento.', 'danger'); });
     };
 
+    var issuedEventId = null;
+
+    function formatIssuedDate(iso) {
+        if (!iso) return '—';
+        try {
+            var d = new Date(iso);
+            return d.toLocaleString('es', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            return iso.slice(0, 16).replace('T', ' ');
+        }
+    }
+
+    function loadIssuedList(eventId) {
+        var loading = document.getElementById('issuedLoading');
+        var empty = document.getElementById('issuedEmpty');
+        var wrap = document.getElementById('issuedWrap');
+        var tbodyIssued = document.getElementById('issued-tbody');
+        loading.classList.remove('d-none');
+        empty.classList.add('d-none');
+        wrap.classList.add('d-none');
+        tbodyIssued.innerHTML = '';
+        fetch('/api/admin/certificate-events/' + eventId + '/certificates', { credentials: 'same-origin' })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(o) {
+                loading.classList.add('d-none');
+                if (!o.ok) {
+                    showAlert(o.j.error || 'Error al cargar emitidos.', 'danger');
+                    return;
+                }
+                if (o.j.event && o.j.event.name) {
+                    document.getElementById('issuedModalTitle').textContent = o.j.event.name;
+                }
+                var items = o.j.items || [];
+                if (!items.length) {
+                    empty.classList.remove('d-none');
+                    return;
+                }
+                wrap.classList.remove('d-none');
+                tbodyIssued.innerHTML = items.map(function(c) {
+                    var userLine = (c.user_name || '—');
+                    if (c.user_email) userLine += '<div class="text-muted small">' + c.user_email + '</div>';
+                    return '<tr>' +
+                        '<td class="ps-3"><code class="small">' + (c.certificate_code || '') + '</code></td>' +
+                        '<td>' + userLine + '</td>' +
+                        '<td class="small text-nowrap">' + formatIssuedDate(c.generated_at) + '</td>' +
+                        '<td class="text-end pe-3">' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-issued" data-cert-id="' + c.id + '" data-cert-code="' + String(c.certificate_code || '').replace(/"/g, '&quot;') + '" title="Eliminar emisión (permite volver a generar)"><i class="fas fa-trash"></i></button>' +
+                        '</td></tr>';
+                }).join('');
+            })
+            .catch(function() {
+                loading.classList.add('d-none');
+                showAlert('Error de conexión al cargar emitidos.', 'danger');
+            });
+    }
+
+    window.showIssued = function(eventId) {
+        issuedEventId = eventId;
+        document.getElementById('issuedModalTitle').textContent = '…';
+        document.getElementById('issuedLoading').classList.remove('d-none');
+        document.getElementById('issuedEmpty').classList.add('d-none');
+        document.getElementById('issuedWrap').classList.add('d-none');
+        document.getElementById('issued-tbody').innerHTML = '';
+        var modalEl = document.getElementById('issuedModal');
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        loadIssuedList(eventId);
+    };
+
+    window.deleteIssued = function(certId, code) {
+        var label = typeof code === 'string' ? code : '';
+        var msg = '¿Eliminar el certificado ' + label + '?\n\nSe borrará el PDF y el usuario podrá solicitarlo de nuevo con la plantilla vigente.';
+        if (!confirm(msg)) return;
+        fetch('/api/admin/certificates/' + certId, { method: 'DELETE', credentials: 'same-origin' })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(o) {
+                if (o.ok && o.j.success) {
+                    showAlert('Certificado eliminado. El usuario puede volver a solicitarlo.', 'success');
+                    if (issuedEventId) loadIssuedList(issuedEventId);
+                    loadList();
+                } else {
+                    showAlert(o.j.error || 'Error al eliminar certificado.', 'danger');
+                }
+            })
+            .catch(function() { showAlert('Error de conexión.', 'danger'); });
+    };
+
     window.deleteEvent = function(id, name) {
         var msg = '¿Eliminar el formato ' + (typeof name === 'string' ? name.replace(/["\\]/g, '') : '') + '? No se borran certificados ya emitidos.';
         if (!confirm(msg)) return;
@@ -506,6 +657,10 @@
         .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
         .then(function(o) {
             if (o.ok && (o.j.success || o.j.id)) {
+                if (returnUrl) {
+                    goBackToEventCertificates();
+                    return;
+                }
                 showAlert('Guardado correctamente.', 'success');
                 loadList();
                 bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
@@ -533,6 +688,44 @@
 
     loadList();
     loadTemplatesDropdown();
+
+    // Desde Eventos → Certificados: ?edit=<id>&return= abre el modal y al cerrar vuelve al evento.
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var editParam = params.get('edit');
+        if (!editParam) return;
+        var editId = parseInt(editParam, 10);
+        if (isNaN(editId) || editId <= 0) return;
+        if (returnUrl) openedFromEventFlow = true;
+        editEvent(editId);
+    })();
+
+    if (eventModalEl) {
+        eventModalEl.addEventListener('hidden.bs.modal', function() {
+            if (openedFromEventFlow && returnUrl) {
+                goBackToEventCertificates();
+            }
+        });
+    }
+
+    tbody.addEventListener('click', function(ev) {
+        var showBtn = ev.target.closest('[data-action="show-issued"]');
+        if (showBtn) {
+            ev.preventDefault();
+            var id = parseInt(showBtn.getAttribute('data-event-id'), 10);
+            if (!isNaN(id)) showIssued(id);
+        }
+    });
+
+    document.getElementById('issued-tbody').addEventListener('click', function(ev) {
+        var delBtn = ev.target.closest('[data-action="delete-issued"]');
+        if (delBtn) {
+            ev.preventDefault();
+            var certId = parseInt(delBtn.getAttribute('data-cert-id'), 10);
+            var code = delBtn.getAttribute('data-cert-code') || '';
+            if (!isNaN(certId)) deleteIssued(certId, code);
+        }
+    });
 })();
 </script>
 {% endblock %}

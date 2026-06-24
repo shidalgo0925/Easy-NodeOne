@@ -207,7 +207,7 @@
                                     <th>Email</th>
                                     <th class="text-nowrap">País</th>
                                     <th class="text-nowrap">Estado</th>
-                                    <th class="text-nowrap">Plan</th>
+                                    <th class="text-nowrap">Plan / vigencia</th>
                                     <th class="text-nowrap">Fecha registro</th>
                                     <th class="text-nowrap text-end">Acciones</th>
                                 </tr>
@@ -244,7 +244,12 @@
                                         {% set um = user_memberships.get(user.id) %}
                                         {% if um %}
                                             <span class="badge bg-secondary">{{ um.type|upper }}</span>
-                                            {% if um.end_date %}<br><span class="text-muted">{{ um.end_date.strftime('%d/%m/%Y') }}</span>{% endif %}
+                                            {% if um.type == 'admin' %}
+                                            <br><span class="text-muted">Ilimitado</span>
+                                            {% else %}
+                                            {% if um.start_date %}<br><span class="text-muted">Inicio {{ um.start_date.strftime('%d/%m/%Y') }}</span>{% endif %}
+                                            {% if um.end_date %}<br><span class="text-muted">Vence {{ um.end_date.strftime('%d/%m/%Y') }}</span>{% endif %}
+                                            {% endif %}
                                         {% else %}
                                             <span class="text-muted">—</span>
                                         {% endif %}

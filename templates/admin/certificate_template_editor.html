@@ -4,10 +4,22 @@
 
 {% block page_content %}
 <div class="container-fluid py-4">
+    {% if return_url %}
+  {# Flujo anidado desde Eventos → Certificados; Volver lleva al evento, no al catálogo global. #}
+    <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb breadcrumb-sm mb-0 small">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_events.admin_events_index') }}">Eventos</a></li>
+            <li class="breadcrumb-item"><a href="{{ return_url }}">Certificados del evento</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Plantilla</li>
+        </ol>
+    </nav>
+    {% endif %}
     <div class="d-flex flex-column flex-md-row flex-wrap align-items-stretch align-items-md-center gap-2 gap-md-3 mb-3">
         <h1 class="h5 mb-0 flex-shrink-0"><i class="fas fa-palette me-1"></i>Editor de plantilla</h1>
         <div class="d-flex flex-wrap align-items-center gap-2 min-w-0 flex-grow-1 cert-editor-header-actions">
-            <a href="{{ url_for('admin_certificate_templates') }}" class="btn btn-outline-secondary btn-sm text-nowrap flex-shrink-0">Volver</a>
+            <a href="{{ return_url or url_for('admin_certificate_templates') }}" class="btn btn-outline-secondary btn-sm text-nowrap flex-shrink-0">
+                {% if return_url %}<i class="fas fa-arrow-left me-1"></i>Volver a certificados{% else %}Volver{% endif %}
+            </a>
             <input type="text" id="templateName" class="form-control form-control-sm cert-editor-name-input" placeholder="Nombre de la plantilla" value="" autocomplete="off">
             <button type="button" id="btnSave" class="btn btn-primary btn-sm text-nowrap flex-shrink-0">Guardar</button>
         </div>
@@ -200,6 +212,7 @@
 <script>
 (function() {
     const templateId = {{ template_id | tojson }};
+    const returnUrl = {{ return_url|tojson if return_url else 'null' }};
 
     let canvas = null;
     let alertEl = null;
@@ -952,6 +965,10 @@
         }).then(r => r.json()).then(data => {
             if (data.success || data.item) {
                 initialElementCount = newCount;
+                if (returnUrl) {
+                    window.location.href = returnUrl;
+                    return;
+                }
                 showAlert('Guardado correctamente. El fondo decorativo se guarda aparte (botón fondo de plantilla).', 'success');
                 if (data.item && !templateId) window.location.href = '/admin/certificate-templates/editor/' + data.item.id;
             }
@@ -1049,7 +1066,7 @@
             if (!f) return;
             const fd = new FormData();
             fd.append('file', f);
-            fetch('/api/certificates-builder/upload-image', { method: 'POST', credentials: 'same-origin', body: fd })
+            fetch('/api/templates/upload-image', { method: 'POST', credentials: 'same-origin', body: fd })
                 .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
                 .then(function (res) {
                     if (!res.ok || !res.data.url) {

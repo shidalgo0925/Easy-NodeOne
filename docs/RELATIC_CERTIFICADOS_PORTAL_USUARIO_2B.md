@@ -112,6 +112,6 @@ sudo systemctl restart easynodeone-relatic-panama-dev.service
 | `templates/certificates.html` | UI: eventos + membresía |
 | `backend/nodeone/modules/events/services/user_certificates.py` | Query, vínculo por email, resolución PDF |
 | `backend/nodeone/modules/events/user_certificates_routes.py` | Alias `/my/certificates`, descarga evento |
-| `templates/my/event_certificates.html` | Plantilla legacy (referencia; lista usa `certificates.html`) |
+| `templates/my/event_certificates.html` | Plantilla legacy eliminada; lista unificada en `templates/certificates.html` |
 | `backend/nodeone/core/features.py` | Registro blueprints |
 | `templates/base.html`, `templates/profile.html` | Enlaces de menú |

@@ -117,6 +117,26 @@
             <div class="mb-3">
                 <label for="products_json" class="form-label">Productos JSON (opcional)</label>
                 <textarea class="form-control font-monospace small" id="products_json" rows="3"></textarea>
+                <p class="form-text small mb-0">Si está vacío, se usan los 11 productos EasyTech por defecto.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Vista previa del catálogo</label>
+                <p class="form-text small">Los logos se muestran aquí aunque ECalendar esté desactivado.</p>
+                <div id="ecalendar-products-grid" class="row g-2">
+                    {% for p in catalog_products %}
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="border rounded p-2 h-100 text-center small bg-light">
+                            {% if p.logo %}
+                            <img src="{{ url_for('static', filename=p.logo) }}" alt="" class="d-block mx-auto mb-2" style="max-height:52px;max-width:100%;object-fit:contain">
+                            {% else %}
+                            <div class="text-muted mb-2" style="height:52px;line-height:52px"><i class="fas fa-box"></i></div>
+                            {% endif %}
+                            <div class="fw-semibold text-truncate" title="{{ p.name }}">{{ p.name }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
 
             <div class="d-flex flex-wrap gap-2">

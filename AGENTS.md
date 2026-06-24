@@ -124,6 +124,7 @@ No subir: `.env`, secretos, `venv/`, `logs/`, `uploads/`, dumps. Respetar `.giti
 |------|---------|
 | Reglas completas equipo | [`REGLAS-DE-TRABAJO.md`](REGLAS-DE-TRABAJO.md) |
 | Despliegue y clientes | [`docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](docs/CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) |
+| Limpieza post-deploy (silos + IIUS) | [`docs/EN1_DEPLOY_LIMPIEZA_CONTEXTO.md`](docs/EN1_DEPLOY_LIMPIEZA_CONTEXTO.md) |
 | Roles RBAC | [`docs/RBAC_Y_ROLES.md`](docs/RBAC_Y_ROLES.md) |
 | Eventos EN1 (módulo) | [`.cursor/rules/easynodeone-events-en1-plan.mdc`](.cursor/rules/easynodeone-events-en1-plan.mdc) |
 | Protocolo legado (`??` / `go`) | [`md/.ai-protocol.md`](md/.ai-protocol.md) → sustituido por §1 de este archivo |

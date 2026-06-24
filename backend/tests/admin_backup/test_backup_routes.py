@@ -16,6 +16,7 @@ class TestAdminBackupBlueprint(unittest.TestCase):
             'admin_backup.admin_backup',
             'admin_backup.create_backup',
             'admin_backup.download_backup',
+            'admin_backup.download_server_backup',
             'admin_backup.delete_backup',
             'admin_backup.restore_backup',
         }

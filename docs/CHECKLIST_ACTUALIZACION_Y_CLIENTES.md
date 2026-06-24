@@ -37,10 +37,11 @@ Detalle de release (ejemplo operativo): [`PLAN_RELEASE_3.0.1_OPERACION.md`](PLAN
 
 1. Ventana acordada (si los clientes son sensibles al downtime).
 2. En `prod/app` (y `relatic/app` si toca): `git pull` al commit/tag acordado.
-3. **Migraciones** si hubo cambios de esquema.
-4. **Reinicio** del servicio systemd correspondiente.
-5. **Verificación mínima** (login, pantalla clave, API crítica).
-6. Registrar en tu bitácora interna: **fecha**, **entorno**, **commit**, **quién**.
+3. **Limpieza post-pull:** `bash app/scripts/post_deploy_cleanup.sh prod` (o `relatic`) — [`EN1_DEPLOY_LIMPIEZA_CONTEXTO.md`](EN1_DEPLOY_LIMPIEZA_CONTEXTO.md).
+4. **Migraciones** si hubo cambios de esquema.
+5. **Reinicio** del servicio systemd correspondiente.
+6. **Verificación mínima** (login, pantalla clave, API crítica).
+7. Registrar en tu bitácora interna: **fecha**, **entorno**, **commit**, **quién**.
 
 ## Antes de avisar a clientes
 
@@ -102,6 +103,7 @@ Si notan algún inconveniente, [canal de soporte acordado].
 
 1. `git pull` al commit acordado.  
 2. `pip install` solo si cambió `requirements.txt` / lock.  
-3. **Reinicio** del servicio.  
-4. **`systemctl status`** + **últimas líneas de `journalctl`** (confirmar `ExecStartPre` OK).  
-5. Prueba rápida en UI (login + una pantalla tocada por el release).
+3. **Limpieza post-pull** (cachés + rutas legacy): `bash app/scripts/post_deploy_cleanup.sh <dev|staging|prod|relatic|iius>` — ver [`EN1_DEPLOY_LIMPIEZA_CONTEXTO.md`](EN1_DEPLOY_LIMPIEZA_CONTEXTO.md).  
+4. **Reinicio** del servicio.  
+5. **`systemctl status`** + **últimas líneas de `journalctl`** (confirmar `ExecStartPre` OK).  
+6. Prueba rápida en UI (login + una pantalla tocada por el release).

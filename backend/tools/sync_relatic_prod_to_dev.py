@@ -564,6 +564,81 @@ def sync_event_participants(src, dst, uid_map: dict[int, int] | None, dry_run: b
     print(f'  event_participant: inserted={ins} updated_user={upd} skipped={skip}')
 
 
+def build_participant_id_map(src, dst) -> dict[int, int]:
+    """Mapa participant_id Relatic → Dev por event_id + email."""
+    with src.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as sc:
+        sc.execute(
+            """
+            SELECT id, event_id, lower(trim(coalesce(email, ''))) AS em
+            FROM event_participant
+            """
+        )
+        src_rows = sc.fetchall()
+    out: dict[int, int] = {}
+    with dst.cursor() as dc:
+        for r in src_rows:
+            em = (r.get('em') or '').strip()
+            if not em:
+                continue
+            dc.execute(
+                """
+                SELECT id FROM event_participant
+                WHERE event_id=%s AND lower(trim(coalesce(email, '')))=%s
+                LIMIT 1
+                """,
+                (int(r['event_id']), em),
+            )
+            row = dc.fetchone()
+            if row:
+                out[int(r['id'])] = int(row[0])
+    return out
+
+
+def sync_event_certificates(
+    src, dst, pid_map: dict[int, int], uid_map: dict[int, int], dry_run: bool
+) -> None:
+    with src.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as sc:
+        sc.execute('SELECT * FROM event_certificate ORDER BY id')
+        rows = sc.fetchall()
+    if not rows:
+        print('  event_certificate: nothing in source')
+        return
+    cols = [c for c in common_table_columns(src, dst, 'event_certificate') if c != 'id']
+    if not cols:
+        print('  event_certificate: no common columns')
+        return
+    upd = ', '.join(f'{c}=EXCLUDED.{c}' for c in cols)
+    col_list = ', '.join(cols)
+    ins = skip = 0
+    with dst.cursor() as dc:
+        for row in rows:
+            src_pid = int(row.get('participant_id') or 0)
+            dst_pid = pid_map.get(src_pid)
+            if not dst_pid:
+                skip += 1
+                continue
+            payload = {c: row[c] for c in cols}
+            payload['participant_id'] = dst_pid
+            for fk in ('issued_by', 'revoked_by'):
+                if fk in payload and payload.get(fk):
+                    payload[fk] = uid_map.get(int(payload[fk]), payload[fk])
+            if dry_run:
+                ins += 1
+                continue
+            placeholders = ', '.join(['%s'] * len(cols))
+            dc.execute(
+                f"""
+                INSERT INTO event_certificate ({col_list}) VALUES ({placeholders})
+                ON CONFLICT (certificate_number) DO UPDATE SET {upd}
+                """,
+                [payload[c] for c in cols],
+            )
+            ins += 1
+    if not dry_run:
+        dst.commit()
+    print(f'  event_certificate: upserted={ins} skipped={skip}')
+
+
 def refresh_panama_users_from_prod(src, dst, dry_run: bool):
     """relatic_panama_dev: alinear users con prod (org 1) sin perder datos ajenos opcional."""
     with src.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as sc:
@@ -627,6 +702,8 @@ def main():
         print(f'  user_id map relatic→dev: {len(uid_map)} emails vinculados')
         sync_events(src, dst_a, uid_map, args.dry_run)
         sync_event_participants(src, dst_a, uid_map, args.dry_run)
+        pid_map = build_participant_id_map(src, dst_a)
+        sync_event_certificates(src, dst_a, pid_map, uid_map, args.dry_run)
         sync_event_registrations(src, dst_a, uid_map, args.dry_run)
         pay_map = sync_payments(src, dst_a, uid_map, target_org=3, dry_run=args.dry_run)
         sync_subscriptions(src, dst_a, uid_map, pay_map, args.dry_run)

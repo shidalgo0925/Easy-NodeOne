@@ -101,3 +101,18 @@
 7. Export participantes y export certificados `.xlsx` (columnas esperadas).
 
 **Última revisión del checklist:** 2026-05-05 — plan tabla cerrado v1; smoke manual recomendado pre-deploy.
+
+---
+
+## G. Certificados — Fase 1 anti-huérfanos y sync (jun 2026)
+
+| # | Entrega | Estado | Notas |
+|---|---------|--------|-------|
+| G.1 | `ensure_certificate_assets_for_event` centralizado | HECHO | `certificate_assets.py` · commit `4ce0976` |
+| G.2 | Sync al guardar evento + UI formato #ID | HECHO | `sync_event_certificate_on_save`, redirect `?tab=certopts` · `f3534c0` |
+| G.3 | Listado formatos EVENTO en `/admin/certificate-events` | HECHO | `kind: event_seminar` |
+| G.4 | Regenerar PDF resiliente (permisos / ruta org) | HECHO | `_write_certificate_pdf_file` |
+| G.5 | Job reparación `repair_certificates_job.py` | HECHO | Cron en servidor: **PEND** |
+| G.6 | Auto-emitir PDF al check-in | PEND | Fase 2, no acordada |
+
+**Contexto técnico completo para IA:** `docs/EN1_CERTIFICADOS_EVENTOS_CONTEXTO.md`

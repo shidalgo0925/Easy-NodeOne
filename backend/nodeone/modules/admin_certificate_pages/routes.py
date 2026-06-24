@@ -1,6 +1,15 @@
 """Registro de vistas /admin/certificate-* sobre la app (endpoints legacy)."""
 
 
+def _admin_certificate_return_url():
+    """Path interno seguro para volver al flujo Eventos (query ?return=)."""
+    from flask import request
+
+    from _app.modules.auth.service import safe_next_path
+
+    return safe_next_path(request.args.get('return'))
+
+
 def register_admin_certificate_pages_routes(app):
     from flask import render_template
 
@@ -9,9 +18,13 @@ def register_admin_certificate_pages_routes(app):
     @app.route('/admin/certificate-events')
     @admin_required
     def admin_certificate_events():
-        """CRUD de eventos de certificado (fondos, logos, datos)."""
+        """CRUD de formatos de certificado. Query ?edit=<id> abre el editor; ?return= vuelve al evento."""
         plans = MembershipPlan.get_active_ordered()
-        return render_template('admin/certificate_events.html', plans=plans or [])
+        return render_template(
+            'admin/certificate_events.html',
+            plans=plans or [],
+            return_url=_admin_certificate_return_url(),
+        )
 
     @app.route('/admin/certificate-templates')
     @admin_required
@@ -24,7 +37,11 @@ def register_admin_certificate_pages_routes(app):
     @admin_required
     def admin_certificate_template_editor(template_id=None):
         """Editor drag & drop (Fabric.js) para crear/editar plantilla de certificado."""
-        return render_template('admin/certificate_template_editor.html', template_id=template_id)
+        return render_template(
+            'admin/certificate_template_editor.html',
+            template_id=template_id,
+            return_url=_admin_certificate_return_url(),
+        )
 
     @app.route('/admin/certificate-templates/institutional-editor/<int:template_id>')
     @admin_required
@@ -32,7 +49,7 @@ def register_admin_certificate_pages_routes(app):
         """Editor de plantilla institucional PDF para certificados de evento."""
         from app import CertificateTemplate, Event
 
-        from nodeone.services.event_institutional_certificate_template import (
+        from nodeone.services.certificate_visual_templates import (
             is_institutional_template,
             parse_institutional_meta,
         )

@@ -193,6 +193,7 @@ def register_admin_users_roles_routes(app):
                 if isinstance(active_membership, Subscription):
                     user_memberships[user.id] = {
                         'type': active_membership.membership_type,
+                        'start_date': getattr(active_membership, 'start_date', None),
                         'end_date': active_membership.end_date,
                         'status': active_membership.status,
                         'is_subscription': True
@@ -200,6 +201,7 @@ def register_admin_users_roles_routes(app):
                 else:
                     user_memberships[user.id] = {
                         'type': active_membership.membership_type,
+                        'start_date': getattr(active_membership, 'start_date', None),
                         'end_date': active_membership.end_date,
                         'status': 'active' if active_membership.is_active else 'expired',
                         'is_subscription': False

@@ -6,6 +6,21 @@
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-12">
+            {% if return_url %}
+            {# Flujo anidado: llegó desde Eventos → Certificados; mantener contexto al salir. #}
+            <nav aria-label="breadcrumb" class="mb-2">
+                <ol class="breadcrumb breadcrumb-sm mb-0 small">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_events.admin_events_index') }}">Eventos</a></li>
+                    <li class="breadcrumb-item"><a href="{{ return_url }}">Certificados del evento</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Formato</li>
+                </ol>
+            </nav>
+            <div class="mb-2">
+                <a href="{{ return_url }}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>Volver a certificados del evento
+                </a>
+            </div>
+            {% endif %}
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center flex-wrap gap-2">
                 <h1 class="h5 mb-0">
                     <i class="fas fa-certificate"></i> Formatos de certificado
@@ -49,7 +64,8 @@
     </div>
 </div>
 
-<!-- Modal Crear/Editar formato -->
+<!-- Modal Crear/Editar formato — editor único (MEM/REG/EVENTO).
+     Eventos → Certificados → Formato enlaza aquí con ?edit=<certificate_event_id>. -->
 <div class="modal fade" id="eventModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -174,7 +190,11 @@
             </div>
             <div class="modal-footer flex-nowrap">
                 <button type="button" class="btn btn-info" id="btnPreviewEvent" title="Ver cómo quedará el certificado"><i class="fas fa-eye me-1"></i> Vista previa</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                {% if return_url %}
+                <a href="{{ return_url }}" class="btn btn-secondary" id="btnCancelEvent">Volver a certificados</a>
+                {% else %}
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancelEvent">Cancelar</button>
+                {% endif %}
                 <button type="button" class="btn btn-primary" id="btnSaveEvent"><i class="fas fa-save me-1"></i> Guardar</button>
             </div>
         </div>
@@ -236,6 +256,13 @@
     const tableWrap = document.getElementById('table-wrap');
     const tbody = document.getElementById('events-tbody');
     const baseUrl = window.location.origin;
+    const returnUrl = {{ return_url|tojson if return_url else 'null' }};
+    const eventModalEl = document.getElementById('eventModal');
+    var openedFromEventFlow = false;
+
+    function goBackToEventCertificates() {
+        if (returnUrl) window.location.href = returnUrl;
+    }
 
     function showAlert(msg, type) {
         alertContainer.innerHTML = '<div class="alert alert-' + (type === 'error' ? 'danger' : type) + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
@@ -630,6 +657,10 @@
         .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
         .then(function(o) {
             if (o.ok && (o.j.success || o.j.id)) {
+                if (returnUrl) {
+                    goBackToEventCertificates();
+                    return;
+                }
                 showAlert('Guardado correctamente.', 'success');
                 loadList();
                 bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
@@ -657,6 +688,25 @@
 
     loadList();
     loadTemplatesDropdown();
+
+    // Desde Eventos → Certificados: ?edit=<id>&return= abre el modal y al cerrar vuelve al evento.
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var editParam = params.get('edit');
+        if (!editParam) return;
+        var editId = parseInt(editParam, 10);
+        if (isNaN(editId) || editId <= 0) return;
+        if (returnUrl) openedFromEventFlow = true;
+        editEvent(editId);
+    })();
+
+    if (eventModalEl) {
+        eventModalEl.addEventListener('hidden.bs.modal', function() {
+            if (openedFromEventFlow && returnUrl) {
+                goBackToEventCertificates();
+            }
+        });
+    }
 
     tbody.addEventListener('click', function(ev) {
         var showBtn = ev.target.closest('[data-action="show-issued"]');

@@ -663,6 +663,21 @@ def _admin_required(f):
     return wrapped
 
 
+def _certificate_event_for_admin_api(event_id: int):
+    """Resuelve formato por id: scope admin o vínculo event_required_id (org del evento)."""
+    from app import CertificateEvent
+
+    ev = CertificateEvent.query.get(int(event_id))
+    if not ev:
+        return None
+    coid = _cert_admin_org_id()
+    if int(ev.organization_id or 0) == int(coid):
+        return ev
+    if ev.event_required_id:
+        return ev
+    return None
+
+
 def _reject_orphan_certificate_event_payload(data, *, partial: bool = False) -> str | None:
     """Formatos sin plan ni evento no están permitidos en esta pantalla."""
     mem = data.get('membership_required_id')
@@ -873,9 +888,7 @@ def admin_create_certificate_event():
 @_admin_required
 def admin_get_certificate_event(event_id):
     """Obtiene un CertificateEvent por id."""
-    from app import CertificateEvent
-    coid = _cert_admin_org_id()
-    ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
+    ev = _certificate_event_for_admin_api(event_id)
     if not ev:
         return jsonify({'error': 'No encontrado'}), 404
     return jsonify({'item': _cert_event_to_dict(ev)})
@@ -886,11 +899,11 @@ def admin_get_certificate_event(event_id):
 @_admin_required
 def admin_update_certificate_event(event_id):
     """Actualiza un CertificateEvent (admin)."""
-    from app import db, CertificateEvent
-    coid = _cert_admin_org_id()
-    ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
+    from app import db
+    ev = _certificate_event_for_admin_api(event_id)
     if not ev:
         return jsonify({'error': 'No encontrado'}), 404
+    coid = _cert_admin_org_id()
     data = request.get_json() or {}
     err = _reject_orphan_certificate_event_model(ev, data)
     if err:

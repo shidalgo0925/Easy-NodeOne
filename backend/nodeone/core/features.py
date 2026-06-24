@@ -800,29 +800,9 @@ def register_certificates_blueprints(app):
     if os.environ.get('NODEONE_SKIP_CERTIFICATES_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
         return
     try:
-        from certificate_routes import (
-            certificates_api_bp,
-            certificates_page_bp,
-            certificates_public_bp,
-        )
-        from certificate_template_routes import certificate_templates_bp
-        from certificates_builder.routes import certificates_builder_bp, certificates_builder_page_bp
-        from saas_features import register_certificates_saas_guards
+        from nodeone.modules.certificates.register import register_certificates_blueprints as _register_certificates
 
-        if 'certificates_api' not in app.blueprints:
-            register_certificates_saas_guards(
-                certificates_api_bp,
-                certificates_page_bp,
-                certificate_templates_bp,
-                certificates_builder_bp,
-                certificates_builder_page_bp,
-            )
-            app.register_blueprint(certificates_api_bp)
-            app.register_blueprint(certificates_public_bp)
-            app.register_blueprint(certificates_page_bp)
-            app.register_blueprint(certificate_templates_bp)
-            app.register_blueprint(certificates_builder_bp)
-            app.register_blueprint(certificates_builder_page_bp)
+        _register_certificates(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar los blueprints de certificados: {e}')
 

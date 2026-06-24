@@ -36,7 +36,7 @@ def main() -> int:
     os.environ.setdefault('NODEONE_ROOT', root)
 
     from app import CertificateTemplate, Event, app, db
-    from nodeone.services.event_institutional_certificate_template import (
+    from nodeone.services.certificate_visual_templates import (
         apply_institutional_visual_layout_to_template,
         link_visual_template_to_event,
         parse_visual_layout,

@@ -49,7 +49,7 @@ def register_admin_certificate_pages_routes(app):
         """Editor de plantilla institucional PDF para certificados de evento."""
         from app import CertificateTemplate, Event
 
-        from nodeone.services.event_institutional_certificate_template import (
+        from nodeone.services.certificate_visual_templates import (
             is_institutional_template,
             parse_institutional_meta,
         )

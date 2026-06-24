@@ -85,7 +85,7 @@ class TestCertificateAssets(unittest.TestCase):
         with patch.object(assets, 'ensure_certificate_assets_for_event') as ensure_mock:
             with patch.object(assets, 'resolve_event_certificate_org_id', return_value=3):
                 with patch(
-                    'nodeone.services.event_institutional_certificate_template.apply_certificate_template_from_event_form',
+                    'nodeone.services.certificate_assets.apply_certificate_template_from_event_form',
                     return_value='Plantilla no encontrada',
                 ):
                     ok, warn, _assets = assets.sync_event_certificate_on_save(

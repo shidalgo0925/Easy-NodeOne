@@ -163,24 +163,6 @@ def relative_static_path_from_abs(abs_path: str, app) -> str:
     return '/static/' + os.path.basename(abs_path)
 
 
-def _certificates_upload_dir(app) -> str:
-    return os.path.abspath(os.path.join(app.root_path, '..', 'static', 'uploads', 'certificates'))
-
-
-def _base_url_for_certificate(app) -> str:
-    base = (os.getenv('BASE_URL') or '').strip().rstrip('/')
-    if base:
-        return base
-    try:
-        from flask import request
-
-        if request and request.url_root:
-            return request.url_root.rstrip('/')
-    except Exception:
-        pass
-    return 'http://127.0.0.1'
-
-
 def _render_event_certificate_pdf_bytes(
     *,
     app,
@@ -194,22 +176,20 @@ def _render_event_certificate_pdf_bytes(
 ) -> bytes | None:
     from app import CertificateTemplate, db
 
-    from nodeone.services.event_institutional_certificate_template import (
+    from nodeone.services.certificate_http import certificate_base_url, certificates_upload_dir
+    from nodeone.services.certificate_render import render_pdf_from_json_layout
+    from nodeone.services.certificate_visual_templates import (
+        build_visual_certificate_data,
+        get_fresh_visual_template_for_render,
         is_visual_template,
     )
     from nodeone.services.certificate_institutional_pdf import (
         build_context_from_event_participant,
-        compute_academic_hours,
         render_institutional_pdf,
     )
 
-    from nodeone.services.event_institutional_certificate_template import get_fresh_visual_template_for_render
-
     template = get_fresh_visual_template_for_render(db, CertificateTemplate, event, org_id)
     if template and is_visual_template(template):
-        from certificate_template_routes import render_pdf_from_json_layout
-        from nodeone.services.event_institutional_certificate_template import build_visual_certificate_data
-
         sample = build_visual_certificate_data(
             event=event,
             participant=participant,
@@ -224,9 +204,9 @@ def _render_event_certificate_pdf_bytes(
         pdf_bytes = render_pdf_from_json_layout(
             template,
             sample,
-            _base_url_for_certificate(app),
+            certificate_base_url(),
             qr_b64,
-            _certificates_upload_dir(app),
+            certificates_upload_dir(app=app),
         )
         if pdf_bytes:
             return pdf_bytes

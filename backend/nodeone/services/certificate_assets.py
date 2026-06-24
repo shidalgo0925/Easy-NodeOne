@@ -10,6 +10,7 @@ from nodeone.services.certificate_membership_rules import (
     _plan_code_prefix,
     _purge_orphan_certificate_event_formats,
 )
+from nodeone.services.certificate_org import resolve_event_org_id
 
 STATUS_CREATED = 'CREATED'
 STATUS_REUSED = 'REUSED'
@@ -136,7 +137,7 @@ def ensure_event_certificate_format(db, event, org_id: int) -> tuple[Any, str]:
 
 
 def _template_has_user_content(template) -> bool:
-    from nodeone.services.event_institutional_certificate_template import (
+    from nodeone.services.certificate_visual_templates import (
         is_institutional_template,
         is_visual_template,
         parse_visual_layout,
@@ -157,7 +158,7 @@ def ensure_event_visual_template(db, event, org_id: int) -> tuple[Any | None, st
     """
     from app import CertificateTemplate
 
-    from nodeone.services.event_institutional_certificate_template import (
+    from nodeone.services.certificate_visual_templates import (
         apply_institutional_visual_layout_to_template,
         find_visual_template_for_event,
         is_institutional_template,
@@ -211,8 +212,6 @@ def _link_format_to_template(fmt, template) -> bool:
 
 def ensure_certificate_assets_for_event(db, event, *, commit: bool = False) -> dict[str, Any]:
     """Garantiza formato + plantilla para un evento con has_certificate=true."""
-    from nodeone.services.event_institutional_certificate_template import resolve_event_org_id
-
     org_id = resolve_event_org_id(event)
     result: dict[str, Any] = {
         'event_id': int(event.id),
@@ -249,10 +248,44 @@ def ensure_certificate_assets_for_event(db, event, *, commit: bool = False) -> d
 def resolve_event_certificate_org_id(event, *, admin_scope_org_id: int) -> int:
     """Org canónica del evento (creador); fallback al scope admin en altas sin id."""
     if event and getattr(event, 'id', None):
-        from nodeone.services.event_institutional_certificate_template import resolve_event_org_id
-
-        return int(resolve_event_org_id(event))
+        return resolve_event_org_id(event)
     return int(admin_scope_org_id or 1)
+
+
+def apply_certificate_template_from_event_form(
+    event,
+    raw_template_id,
+    org_id: int,
+    CertificateTemplate,
+) -> str | None:
+    """Vincula plantilla elegida en el formulario. None = sin selección (auto al guardar)."""
+    from nodeone.services.certificate_visual_templates import link_visual_template_to_event
+
+    raw = (raw_template_id or '').strip()
+    if not raw:
+        return None
+    try:
+        tid = int(raw)
+    except (TypeError, ValueError):
+        return 'Seleccione una plantilla de certificado válida'
+    if tid <= 0:
+        return None
+    t = CertificateTemplate.query.filter_by(id=tid, organization_id=int(org_id)).first()
+    if not t:
+        return 'Plantilla no encontrada para esta organización'
+    link_visual_template_to_event(event, tid)
+    return None
+
+
+def list_certificate_templates_for_event_form(CertificateTemplate, org_id: int) -> list[dict]:
+    rows = CertificateTemplate.query.filter_by(organization_id=int(org_id)).order_by(
+        CertificateTemplate.name.asc(),
+        CertificateTemplate.id.asc(),
+    ).all()
+    return [
+        {'id': int(t.id), 'name': ((t.name or '').strip() or f'Plantilla #{t.id}')}
+        for t in rows
+    ]
 
 
 def sync_event_certificate_on_save(
@@ -268,10 +301,6 @@ def sync_event_certificate_on_save(
     El formato se crea antes de validar la plantilla del formulario (nunca rollback por plantilla).
     """
     from app import CertificateTemplate
-
-    from nodeone.services.event_institutional_certificate_template import (
-        apply_certificate_template_from_event_form,
-    )
 
     empty: dict[str, Any] = {}
     if not has_certificate:
@@ -322,10 +351,7 @@ def event_certificate_ui_context(
     """Contexto compartido formulario y pantalla certificados (plantillas + id formato)."""
     from app import CertificateEvent
 
-    from nodeone.services.event_institutional_certificate_template import (
-        list_certificate_templates_for_event_form,
-        visual_template_id_for_event,
-    )
+    from nodeone.services.certificate_visual_templates import visual_template_id_for_event
 
     org_id = resolve_event_certificate_org_id(event, admin_scope_org_id=admin_scope_org_id)
     certificate_event_id = None
@@ -351,8 +377,6 @@ def event_certificate_ui_context(
 def deactivate_certificate_assets_for_event(db, event, *, commit: bool = False) -> str:
     """Desactiva formato vinculado; no borra plantilla ni emisiones."""
     from app import CertificateEvent
-
-    from nodeone.services.event_institutional_certificate_template import resolve_event_org_id
 
     org_id = resolve_event_org_id(event)
     fmt = find_event_certificate_format(CertificateEvent, event, org_id)
@@ -444,8 +468,6 @@ def ensure_certificate_assets_for_org(db, org_id: int, *, commit: bool = True) -
     stats['orphans'] = _purge_orphan_certificate_event_formats(db, oid)
 
     for event in Event.query.filter_by(has_certificate=True).order_by(Event.id).all():
-        from nodeone.services.event_institutional_certificate_template import resolve_event_org_id
-
         if resolve_event_org_id(event) != oid:
             continue
         r = ensure_certificate_assets_for_event(db, event, commit=False)
@@ -507,7 +529,7 @@ def certificate_template_delete_blocked(template) -> str | None:
     """Bloquea DELETE de plantillas en uso."""
     from app import Certificate, CertificateEvent, Event
 
-    from nodeone.services.event_institutional_certificate_template import (
+    from nodeone.services.certificate_visual_templates import (
         event_id_from_visual_template,
         parse_event_certificate_config,
         visual_template_id_for_event,

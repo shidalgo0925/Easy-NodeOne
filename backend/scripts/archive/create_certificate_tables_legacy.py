@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Crear tablas certificate_events y certificates y evento por defecto Certificado de Membresía."""
+"""LEGACY archivado — no ejecutar. Schema vía bootstrap PostgreSQL en app.py."""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

@@ -2,7 +2,7 @@
 
 **Para:** IA, programadores y operación en Dev EN1.  
 **Última actualización:** 2026-06-24  
-**Rama / commit de referencia:** `develop` · `f3534c0` (`fix(certificates): formatos de evento unificados y regeneración PDF resiliente`)
+**Rama / commit de referencia:** `develop` · `1d878d4` (`fix(certificates): editor único de formato y retorno al evento`)
 
 > Comentario: este archivo es la **fuente de verdad de contexto** para chats y tareas sobre certificados de **eventos** (seminarios). No sustituye `AGENTS.md` ni `REGLAS-DE-TRABAJO.md` para protocolo Git/entornos.
 
@@ -46,7 +46,7 @@ Event (has_certificate=true)
 
 | Pieza | Automático | Manual operador | Prohibido |
 |-------|------------|-----------------|-----------|
-| **Formato** (`certificate_events`) | Sí: al marcar certificado y guardar/abrir editar | Editar en Eventos→Certificados→**Formato** o modal API | Borrar si está vinculado |
+| **Formato** (`certificate_events`) | Sí: al marcar certificado y guardar/abrir editar | Editar en Eventos→Certificados→**Formato** (abre editor único en `/admin/certificate-events`) | Borrar si está vinculado |
 | **Plantilla** (`certificate_templates`) | Solo **crear** si no existe | Elegir en formulario evento o **Plantilla** (editor) | **Sobrescribir** `json_layout` si ya tiene contenido de usuario |
 | **PDF** (`event_certificate`) | **No** | Check-in + **Generar** en Eventos→Certificados | — |
 
@@ -89,10 +89,19 @@ Archivo: `backend/nodeone/modules/events/services/certificates.py` → `_render_
 
 ### API admin formatos MEM/REG + listado EVENTO
 
-**`backend/certificate_routes.py`**
+**`backend/nodeone/modules/certificates/api_routes.py`** (shim: `certificate_routes.py`)
 
 - `GET /api/admin/certificate-events` devuelve MEM/REG **y** filas `kind: event_seminar` (formatos con `event_required_id`).
 - Los formatos de evento **no** se crean desde el modal «Nuevo formato» (rechazo anti-huérfanos); se crean al guardar el evento.
+- `_certificate_event_for_admin_api(event_id)`: GET/PUT por id acepta formatos del scope admin **o** vinculados por `event_required_id` (org del evento puede ≠ scope catálogo admin).
+
+### Vistas admin certificados (páginas HTML)
+
+**`backend/nodeone/modules/admin_certificate_pages/routes.py`**
+
+- `/admin/certificate-events` — editor único de formato (modal `#eventModal`).
+- `/admin/certificate-templates/editor/<id>` — editor visual plantilla.
+- `_admin_certificate_return_url()` — valida query `?return=` (path interno `/admin/...`) para flujo anidado desde evento.
 
 ### Emisión PDF
 
@@ -100,6 +109,15 @@ Archivo: `backend/nodeone/modules/events/services/certificates.py` → `_render_
 
 - `create_event_certificate`, `regenerate_event_certificate`, `generate_bulk_for_event`
 - `_write_certificate_pdf_file`: si la ruta legada no es escribible, guarda en `uploads/certificates/<org_id>/<event_id>/`
+- Render visual: `nodeone.services.certificate_render.render_pdf_from_json_layout`
+
+### Motor render y HTTP compartido (fase refactor 2)
+
+| Módulo | Rol |
+|--------|-----|
+| `nodeone/services/certificate_render.py` | JSON layout → HTML → PDF (WeasyPrint) |
+| `nodeone/services/certificate_http.py` | `certificate_base_url()`, `certificates_upload_dir()` |
+| `nodeone/core/admin_api.py` | `admin_required_json` para APIs admin certificados |
 
 ### Reparación manual
 
@@ -115,9 +133,24 @@ NODEONE_ROOT=/opt/easynodeone/dev/app python repair_certificates_job.py
 
 | Botón | Color / icono | Qué hace | Tabla |
 |-------|---------------|----------|-------|
-| **Formato** | Azul, engranaje | Edita metadatos institucionales (modal API `certificate-events/<id>`) | `certificate_events` |
-| **Plantilla** | Amarillo, paleta | Abre editor visual del PDF | `certificate_templates` |
+| **Formato** | Azul, engranaje | Enlace a **editor único** `/admin/certificate-events?edit=<format_id>&return=/admin/events/<id>/certificates` | `certificate_events` |
+| **Plantilla** | Amarillo, paleta | Editor visual `/admin/certificate-templates/editor/<id>?return=...` | `certificate_templates` |
 | **Vista previa** | Celeste, ojo | PDF de ejemplo (no guarda en BD) | — |
+
+**No hay modal duplicado** en `templates/admin/events/certificates.html` (eliminado jun 2026). Formato y Plantilla reutilizan las pantallas globales de certificados.
+
+### Navegación con contexto de evento (`?return=`)
+
+Problema resuelto: al salir de Formato/Plantilla el operador no debe quedar en el catálogo global sin rastro del evento.
+
+| Origen | URL destino | Al guardar / volver / cerrar modal |
+|--------|-------------|-------------------------------------|
+| Eventos → Certificados → **Formato** | `/admin/certificate-events?edit=N&return=/admin/events/E/certificates` | Vuelve a certificados del evento E |
+| Eventos → Certificados → **Plantilla** | `/admin/certificate-templates/editor/T?return=...` | Botón «Volver a certificados» y guardar redirigen al evento |
+
+En **Formatos de certificado** con `return`: breadcrumb Eventos → Certificados del evento → Formato; botón «Volver a certificados del evento» en cabecera y en pie del modal.
+
+Sin `return` (entrada desde menú admin): comportamiento clásico del módulo certificados.
 
 En **editar evento** (pestaña certificado): alerta verde con **Formato #N** si ya existe; enlace a vista previa y emitir PDFs.
 
@@ -146,6 +179,9 @@ En **`/admin/certificate-events`**: filas **EVENTO** con mismos enlaces; el ojo 
 | Formato no visible en admin | `/admin/certificate-events` solo listaba MEM/REG | API + UI filas EVENTO |
 | 500 al **regenerar** PDF | Sync Relatic: archivos `dev:nodeone`, ACL grupo sin escritura; Gunicorn `nodeone` | `chown nodeone:nodeone` en `static/uploads/certificates/`; `_write_certificate_pdf_file` con fallback de ruta |
 | Rutas PDF `certificates/1/3/...` en org 3 | Certificados clonados con path org 1 | Regenerar reescribe; nuevos usan `organization_id_for_event(event)` |
+| Botón **Formato** no hace nada | JS ejecutaba `bootstrap.Modal` antes de cargar Bootstrap (`defer`) | Eliminado modal local; enlace al editor único |
+| Dos UIs editando el mismo formato | Modal recortado en Eventos→Certificados + modal completo en Formatos | Un solo editor; `?edit=` abre modal en `/admin/certificate-events` |
+| Operador perdido al salir de Formato/Plantilla | Sin `return` al módulo global | `?return=/admin/events/<id>/certificates` + breadcrumb y redirección |
 
 ---
 
@@ -169,6 +205,8 @@ Verificación: eventos con `has_certificate=true` sin fila `event_required_id` �
 |--------|-------------|
 | `4ce0976` | Fase 1 `ensure_certificate_assets` anti-huérfanos |
 | `f3534c0` | Unificación sync/UI, listado EVENTO, PDF regenerate resiliente, tests |
+| `1696aba` | Docs contexto EN1 certificados de eventos |
+| `1d878d4` | Editor único Formato/Plantilla, `?return=` navegación evento, API org evento |
 
 ---
 
@@ -179,7 +217,20 @@ Verificación: eventos con `has_certificate=true` sin fila `event_required_id` �
 | Cron `repair_certificates_job` en `/etc/cron.d/` | Pendiente |
 | Fase 2: auto-emitir PDF al check-in | No acordado |
 | Quitar ojo duplicado en filas EVENTO de certificate-events | Opcional UX |
-| Despliegue staging/prod/relatic | Solo con GO explícito del usuario |
+| Despliegue relatic `1d878d4` | Hecho (pull `develop` + restart `easynodeone-relatic`, jun 2026) |
+| Commit `docs/MANUAL_USUARIO_RELATIC_GUIA_PANTALLA.md` | Pendiente (archivo local sin commit) |
+
+### Refactor certificados (plan jun 2026)
+
+| Fase | Estado | Notas |
+|------|--------|-------|
+| **0 Quick wins** | Hecho | `institutional_template_id` muerto; `event_certificates.html` eliminado; `analytics.py` y `create_certificate_tables.py` → `backend/scripts/archive/`; `nodeone/modules/certificates/manifest.py` |
+| **1 Tests** | Hecho | `tests/events/test_event_certificates.py`, `tests/test_certificate_verify.py` |
+| **2 Motor render + helpers** | Hecho | `certificate_render.py`, `certificate_http.py`, `admin_api.admin_required_json` |
+| **3 Mover blueprints** | Hecho | `nodeone/modules/certificates/` + shims en `backend/` |
+| **4 Consolidar services** | Hecho | `certificate_visual_templates` + `certificate_org`; form helpers en `certificate_assets`; shim legacy |
+| **5 certificates_builder** | Pendiente | Decisión producto |
+| **6 app.py** | Epic aparte | — |
 
 ---
 
@@ -203,3 +254,6 @@ Verificación: eventos con `has_certificate=true` sin fila `event_required_id` �
 4. ¿Cambio en `routes.py`? → preferir extender `certificate_assets.py`.
 5. ¿Probar en servidor? → restart `easynodeone-dev` tras cambios Python.
 6. ¿Sync/rsync uploads? → permisos `nodeone:nodeone` en `static/uploads/certificates/`.
+7. ¿UI Formato desde evento? → **no** duplicar modal; enlace `?edit=` + `?return=` a `/admin/events/<id>/certificates`.
+8. ¿Cambiar navegación certificados? → `admin_certificate_pages/routes.py`, `certificate_events.html`, `certificates.html`.
+9. ¿Tests emisión/verify? → `tests/events/test_event_certificates.py`, `tests/test_certificate_verify.py` antes de mover PDF o `/verify`.

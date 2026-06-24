@@ -2315,23 +2315,9 @@ def admin_event_certificates(event_id):
         'eligible': len(eligible_pending),
         'participants': len(participants),
     }
-    institutional_template_id = None
-    if getattr(event, 'has_certificate', False):
-        from app import CertificateTemplate
-
-        from nodeone.services.event_institutional_certificate_template import (
-            find_visual_template_for_event,
-            is_visual_template,
-            resolve_event_org_id,
-        )
-
-        org_id = resolve_event_org_id(event)
-        tpl = find_visual_template_for_event(CertificateTemplate, event, org_id)
-        if tpl and is_visual_template(tpl):
-            institutional_template_id = tpl.id
     active_template_id = None
     if getattr(event, 'has_certificate', False):
-        from nodeone.services.event_institutional_certificate_template import visual_template_id_for_event
+        from nodeone.services.certificate_visual_templates import visual_template_id_for_event
 
         active_template_id = visual_template_id_for_event(event)
 
@@ -2341,7 +2327,6 @@ def admin_event_certificates(event_id):
         certificates=certs,
         eligible_pending=eligible_pending,
         cert_stats=cert_stats,
-        institutional_template_id=institutional_template_id,
         active_template_id=active_template_id,
         certificate_event_id=cert_ui.get('certificate_event_id'),
         verify_endpoint='certificates_public.verify_event_certificate_alias',

@@ -189,17 +189,19 @@ def _event_certificate_form_context(event=None) -> dict:
 
 
 def _apply_event_certificate_template(event, has_cert: bool) -> bool:
-    """Vincula plantilla visual al evento. False si la selección no es válida."""
+    """Vincula plantilla visual y garantiza activos de certificado."""
     from app import CertificateTemplate, db, admin_data_scope_organization_id
+    from nodeone.services.certificate_assets import (
+        deactivate_certificate_assets_for_event,
+        ensure_certificate_assets_for_event,
+    )
     from nodeone.services.event_institutional_certificate_template import (
         apply_certificate_template_from_event_form,
-        ensure_certificate_template_for_event,
         resolve_event_org_id,
-        visual_template_id_for_event,
     )
 
     if not has_cert:
-        event.certificate_template = ''
+        deactivate_certificate_assets_for_event(db, event, commit=False)
         return True
 
     org_id = resolve_event_org_id(event) if getattr(event, 'id', None) else int(
@@ -214,8 +216,7 @@ def _apply_event_certificate_template(event, has_cert: bool) -> bool:
     if err:
         flash(err, 'error')
         return False
-    if not visual_template_id_for_event(event):
-        ensure_certificate_template_for_event(db, event)
+    ensure_certificate_assets_for_event(db, event, commit=False)
     return True
 
 
@@ -2288,6 +2289,16 @@ def admin_event_certificates(event_id):
 
     ensure_models()
     event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+
+    if getattr(event, 'has_certificate', False):
+        from app import db
+
+        from nodeone.services.certificate_assets import ensure_certificate_assets_for_event
+
+        assets = ensure_certificate_assets_for_event(db, event, commit=True)
+    else:
+        assets = {}
+
     certs = (
         EventCertificate.query.filter_by(event_id=event_id)
         .order_by(EventCertificate.id.desc())
@@ -2335,6 +2346,7 @@ def admin_event_certificates(event_id):
         cert_stats=cert_stats,
         institutional_template_id=institutional_template_id,
         active_template_id=active_template_id,
+        certificate_event_id=assets.get('certificate_event_id'),
         verify_endpoint='certificates_public.verify_event_certificate_alias',
     )
 
@@ -2375,6 +2387,68 @@ def admin_event_certificates_generate(event_id):
         'success' if stats['created'] else 'info',
     )
     return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+
+@admin_events_bp.route('/<int:event_id>/certificates/preview')
+@admin_required
+def admin_event_certificate_preview(event_id):
+    """Vista previa PDF de certificado (sin emitir ni guardar en BD)."""
+    import io
+    from types import SimpleNamespace
+
+    from flask import send_file
+
+    from nodeone.modules.events.services.certificates import (
+        _render_event_certificate_pdf_bytes,
+        build_verification_url,
+        organization_id_for_event,
+    )
+
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    if not getattr(event, 'has_certificate', False):
+        flash('Este evento no tiene certificado habilitado.', 'warning')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+    from app import db
+
+    from nodeone.services.certificate_assets import ensure_certificate_assets_for_event
+
+    ensure_certificate_assets_for_event(db, event, commit=True)
+
+    participant = SimpleNamespace(
+        full_name='Nombre de Ejemplo',
+        document_id='8-888-8888',
+        participant_type='external',
+        first_name='Nombre',
+        middle_name='',
+        last_name='Ejemplo',
+        second_last_name='',
+    )
+    cert_number = 'PREVIEW-0000'
+    verify_url = build_verification_url(current_app, cert_number)
+    issued_at = datetime.utcnow()
+    org_id = organization_id_for_event(event)
+    pdf_bytes = _render_event_certificate_pdf_bytes(
+        app=current_app,
+        event=event,
+        participant=participant,
+        display_name='Nombre de Ejemplo',
+        cert_number=cert_number,
+        verify_url=verify_url,
+        issued_at=issued_at,
+        org_id=org_id,
+    )
+    if not pdf_bytes:
+        flash('No se pudo generar la vista previa del certificado.', 'error')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f'preview_event_{event_id}.pdf',
+    )
 
 
 @admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/download')

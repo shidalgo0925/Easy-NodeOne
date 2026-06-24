@@ -405,75 +405,59 @@ def list_certificate_templates_for_event_form(CertificateTemplate, org_id: int) 
 
 
 def ensure_certificate_template_for_event(db, event) -> str:
-    """
-    Crea o repara la plantilla visual de un evento con certificado.
-    Retorna: created | migrated | repaired | linked | ok
-    """
-    from app import CertificateTemplate
-
-    org_id = resolve_event_org_id(event)
-    existing = find_visual_template_for_event(CertificateTemplate, event, org_id)
-
-    if existing and is_institutional_template(existing):
-        apply_institutional_visual_layout_to_template(existing, event, org_id)
-        link_visual_template_to_event(event, existing.id)
-        return 'migrated'
-
-    if existing and is_visual_template(existing):
-        status = 'ok'
-        if int(getattr(existing, 'organization_id', None) or 0) != org_id:
-            existing.organization_id = org_id
-            status = 'repaired'
-        if not visual_template_id_for_event(event):
-            link_visual_template_to_event(event, existing.id)
-            status = 'linked'
-        if needs_institutional_visual_layout(existing):
-            apply_institutional_visual_layout_to_template(existing, event, org_id)
-            status = 'repaired'
-        return status
-
-    title = (getattr(event, 'title', None) or f'Evento #{event.id}').strip()
-    t = CertificateTemplate(
-        organization_id=org_id,
-        name=title[:200],
-        width=1056,
-        height=816,
-        background_image=None,
-        json_layout='{}',
+    """Compat: delega a ensure_certificate_assets_for_event (solo plantilla)."""
+    from nodeone.services.certificate_assets import (
+        STATUS_CREATED,
+        STATUS_DEACTIVATED,
+        STATUS_REPAIRED,
+        STATUS_REUSED,
+        ensure_certificate_assets_for_event,
     )
-    db.session.add(t)
-    db.session.flush()
-    apply_institutional_visual_layout_to_template(t, event, org_id)
-    link_visual_template_to_event(event, t.id)
-    return 'created'
+
+    result = ensure_certificate_assets_for_event(db, event, commit=False)
+    tpl_status = result.get('template_status')
+    fmt_status = result.get('format_status')
+    if fmt_status == STATUS_DEACTIVATED:
+        return 'ok'
+    mapping = {
+        STATUS_CREATED: 'created',
+        STATUS_REPAIRED: 'repaired',
+        STATUS_REUSED: 'ok',
+    }
+    if tpl_status == STATUS_CREATED:
+        return 'created'
+    if tpl_status == STATUS_REPAIRED:
+        return 'repaired'
+    return mapping.get(tpl_status, 'ok')
 
 
 def ensure_institutional_event_certificate_templates(db, printfn=print) -> None:
-    """Crea o migra plantillas visuales editables (lienzo) para eventos con certificado."""
-    from app import CertificateTemplate, Event
+    """Compat: repara activos de certificado para eventos con has_certificate."""
+    from app import Event
+
+    from nodeone.services.certificate_assets import (
+        STATUS_CREATED,
+        STATUS_REPAIRED,
+        ensure_certificate_assets_for_event,
+    )
 
     events = Event.query.filter_by(has_certificate=True).order_by(Event.id).all()
     if not events:
         return
 
     created = 0
-    migrated = 0
     repaired = 0
-
     for event in events:
-        result = ensure_certificate_template_for_event(db, event)
-        if result == 'created':
-            created += 1
-        elif result == 'migrated':
-            migrated += 1
-        elif result in ('repaired', 'linked'):
-            repaired += 1
+        result = ensure_certificate_assets_for_event(db, event, commit=False)
+        for st in (result.get('format_status'), result.get('template_status')):
+            if st == STATUS_CREATED:
+                created += 1
+            elif st == STATUS_REPAIRED:
+                repaired += 1
 
-    if created or migrated or repaired:
+    if created or repaired:
         db.session.commit()
     if created:
-        printfn(f'Plantillas visuales de evento creadas: {created}')
-    if migrated:
-        printfn(f'Plantillas institucionales migradas a visual: {migrated}')
+        printfn(f'Activos de certificado de evento creados: {created}')
     if repaired:
-        printfn(f'Plantillas de evento reparadas/enlazadas: {repaired}')
+        printfn(f'Activos de certificado de evento reparados: {repaired}')

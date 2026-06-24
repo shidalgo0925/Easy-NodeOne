@@ -226,60 +226,10 @@ def _cleanup_legacy_certificate_event_formats(db, oid: int) -> None:
 
 
 def seed_membership_certificate_events_for_org(db, oid: int) -> None:
-    """REG + un certificado por plan de membresía activo; desactiva MEM genérico legacy."""
-    from app import CertificateEvent, Certificate, MembershipPlan, SaasOrganization
+    """Compat: delega al servicio central de activos de certificado."""
+    from nodeone.services.certificate_assets import ensure_certificate_assets_for_org
 
-    oid = int(oid)
-    if SaasOrganization.query.get(oid) is None:
-        return
-
-    CertificateEvent.__table__.create(db.engine, checkfirst=True)
-    Certificate.__table__.create(db.engine, checkfirst=True)
-
-    for plan in MembershipPlan.query.filter_by(organization_id=oid, is_active=True).order_by(
-        MembershipPlan.display_order, MembershipPlan.level, MembershipPlan.id
-    ):
-        slug = (plan.slug or '').strip().lower()
-        if not slug or slug in _SKIP_PLAN_SLUGS:
-            continue
-        code_prefix = _plan_code_prefix(slug)
-        existing = CertificateEvent.query.filter(
-            CertificateEvent.organization_id == oid,
-            CertificateEvent.membership_required_id == int(plan.id),
-        ).first()
-        if existing:
-            if not existing.is_active:
-                existing.is_active = True
-            if not (existing.name or '').strip():
-                existing.name = f'Certificado de Membresía {plan.name}'
-            expected_prefix = _plan_code_prefix(slug)
-            if (existing.code_prefix or '').strip().upper() != expected_prefix:
-                existing.code_prefix = expected_prefix
-            continue
-        db.session.add(
-            CertificateEvent(
-                organization_id=oid,
-                name=f'Certificado de Membresía {plan.name}',
-                is_active=True,
-                verification_enabled=True,
-                code_prefix=code_prefix,
-                membership_required_id=int(plan.id),
-                event_required_id=None,
-            )
-        )
-
-    legacy = CertificateEvent.query.filter(
-        CertificateEvent.organization_id == oid,
-        CertificateEvent.membership_required_id.is_(None),
-        CertificateEvent.event_required_id.is_(None),
-        CertificateEvent.code_prefix.in_(['MEM', 'mem', 'REG', 'reg']),
-    ).all()
-    for ev in legacy:
-        ev.is_active = False
-
-    _purge_orphan_certificate_event_formats(db, oid)
-
-    db.session.commit()
+    ensure_certificate_assets_for_org(db, int(oid), commit=True)
 
 
 def run_legacy_certificate_event_cleanup(db, oid: int) -> dict:

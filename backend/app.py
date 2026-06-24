@@ -3240,13 +3240,11 @@ def bootstrap_nodeone_schema():
             for org in SaasOrganization.query.filter_by(is_active=True).all():
                 _cert_routes_mod._seed_org_certificate_events(int(org.id))
             try:
-                from nodeone.services.event_institutional_certificate_template import (
-                    ensure_institutional_event_certificate_templates,
-                )
+                from nodeone.services.certificate_assets import repair_certificates_job
 
-                ensure_institutional_event_certificate_templates(db, printfn=print)
+                repair_certificates_job(db, printfn=print)
             except Exception as e_inst:
-                print(f'⚠️ ensure_institutional_event_certificate_templates: {e_inst}')
+                print(f'⚠️ repair_certificates_job: {e_inst}')
         except Exception as e:
             print(f'⚠️ ensure_certificate_events: {e}')
         ensure_office365_discount_code_id()

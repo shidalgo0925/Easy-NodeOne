@@ -975,10 +975,15 @@ def admin_delete_issued_certificate(cert_id):
 def admin_delete_certificate_event(event_id):
     """Elimina un CertificateEvent (admin). No borra certificados ya emitidos."""
     from app import db, CertificateEvent
+    from nodeone.services.certificate_assets import certificate_event_delete_blocked
+
     coid = _cert_admin_org_id()
     ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
     if not ev:
         return jsonify({'error': 'No encontrado'}), 404
+    blocked = certificate_event_delete_blocked(ev)
+    if blocked:
+        return jsonify({'error': blocked}), 400
     db.session.delete(ev)
     db.session.commit()
     return jsonify({'success': True})

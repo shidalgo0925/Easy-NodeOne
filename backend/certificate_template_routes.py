@@ -535,10 +535,15 @@ def update_institutional_layout(template_id):
 @_admin_required
 def delete_template(template_id):
     from app import db, CertificateTemplate
+    from nodeone.services.certificate_assets import certificate_template_delete_blocked
+
     coid = _tpl_admin_org_id()
     t = CertificateTemplate.query.filter_by(id=template_id, organization_id=coid).first()
     if not t:
         return jsonify({'error': 'Plantilla no encontrada'}), 404
+    blocked = certificate_template_delete_blocked(t)
+    if blocked:
+        return jsonify({'error': blocked}), 400
     db.session.delete(t)
     db.session.commit()
     return jsonify({'success': True})

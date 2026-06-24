@@ -27,9 +27,19 @@
                     <a href="{{ url_for('admin_events.edit_event', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm" title="Editar evento">
                         <i class="fas fa-sliders-h"></i>
                     </a>
-                    {% if institutional_template_id %}
-                    <a href="{{ url_for('admin_certificate_template_editor', template_id=institutional_template_id) }}" class="btn btn-outline-warning btn-sm" title="Editar plantilla del certificado">
-                        <i class="fas fa-palette"></i>
+                    {% if event.has_certificate %}
+                    {% if certificate_event_id %}
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnEditFormat" data-format-id="{{ certificate_event_id }}" title="Editar formato institucional">
+                        <i class="fas fa-cog"></i> Formato
+                    </button>
+                    {% endif %}
+                    {% if active_template_id %}
+                    <a href="{{ url_for('admin_certificate_template_editor', template_id=active_template_id) }}" class="btn btn-outline-warning btn-sm" title="Editar plantilla visual">
+                        <i class="fas fa-palette"></i> Plantilla
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('admin_events.admin_event_certificate_preview', event_id=event.id) }}" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener" title="Vista previa PDF">
+                        <i class="fas fa-eye"></i> Vista previa
                     </a>
                     {% endif %}
                     <a href="{{ url_for('admin_events.admin_event_certificates_export', event_id=event.id) }}" class="btn btn-outline-success btn-sm" title="Exportar Excel">
@@ -46,9 +56,13 @@
     {% if active_template_id %}
     <div class="alert alert-info py-2 small mb-3">
         <i class="fas fa-palette me-1"></i>
-        Plantilla activa del evento: <strong>#{{ active_template_id }}</strong>.
-        <a href="{{ url_for('admin_certificate_template_editor', template_id=active_template_id) }}">Editar plantilla</a>.
-        Los certificados nuevos y regenerados usan esta plantilla desde BD.
+        Plantilla activa: <strong>#{{ active_template_id }}</strong>
+        {% if certificate_event_id %} · Formato institucional: <strong>#{{ certificate_event_id }}</strong>{% endif %}
+    </div>
+    {% elif event.has_certificate and certificate_event_id %}
+    <div class="alert alert-info py-2 small mb-3">
+        <i class="fas fa-cog me-1"></i>
+        Formato institucional: <strong>#{{ certificate_event_id }}</strong>
     </div>
     {% endif %}
 
@@ -280,4 +294,109 @@
     }
 })();
 </script>
+
+{% if certificate_event_id %}
+<div class="modal fade" id="formatModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar formato institucional</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formatForm" class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="fmtName" maxlength="200">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Prefijo</label>
+                        <input type="text" class="form-control" id="fmtPrefix" maxlength="20">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Institución</label>
+                        <input type="text" class="form-control" id="fmtInstitution" maxlength="200">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Organización partner</label>
+                        <input type="text" class="form-control" id="fmtPartner" maxlength="200">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Rector</label>
+                        <input type="text" class="form-control" id="fmtRector" maxlength="200">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Directora académica</label>
+                        <input type="text" class="form-control" id="fmtDirector" maxlength="200">
+                    </div>
+                </form>
+                <div id="formatAlert" class="mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="fmtSaveBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var formatId = {{ certificate_event_id }};
+    var btn = document.getElementById('btnEditFormat');
+    var modalEl = document.getElementById('formatModal');
+    if (!btn || !modalEl) return;
+    var modal = new bootstrap.Modal(modalEl);
+    function setField(id, val) {
+        var el = document.getElementById(id);
+        if (el) el.value = val || '';
+    }
+    btn.addEventListener('click', function() {
+        fetch('/api/admin/certificate-events/' + formatId, { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var item = data.item || {};
+                setField('fmtName', item.name);
+                setField('fmtPrefix', item.code_prefix);
+                setField('fmtInstitution', item.institution);
+                setField('fmtPartner', item.partner_organization);
+                setField('fmtRector', item.rector_name);
+                setField('fmtDirector', item.academic_director_name);
+                document.getElementById('formatAlert').innerHTML = '';
+                modal.show();
+            })
+            .catch(function() { alert('No se pudo cargar el formato.'); });
+    });
+    document.getElementById('fmtSaveBtn').addEventListener('click', function() {
+        var payload = {
+            name: document.getElementById('fmtName').value,
+            code_prefix: document.getElementById('fmtPrefix').value,
+            institution: document.getElementById('fmtInstitution').value,
+            partner_organization: document.getElementById('fmtPartner').value,
+            rector_name: document.getElementById('fmtRector').value,
+            academic_director_name: document.getElementById('fmtDirector').value,
+        };
+        fetch('/api/admin/certificate-events/' + formatId, {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(res) {
+                if (res.ok) {
+                    document.getElementById('formatAlert').innerHTML =
+                        '<div class="alert alert-success py-2 mb-0">Formato guardado.</div>';
+                } else {
+                    document.getElementById('formatAlert').innerHTML =
+                        '<div class="alert alert-danger py-2 mb-0">' + (res.j.error || 'Error al guardar') + '</div>';
+                }
+            })
+            .catch(function() {
+                document.getElementById('formatAlert').innerHTML =
+                    '<div class="alert alert-danger py-2 mb-0">Error de red.</div>';
+            });
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

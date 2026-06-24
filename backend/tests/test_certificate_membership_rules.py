@@ -80,21 +80,12 @@ class TestCertificateMembershipRules(unittest.TestCase):
         ev.name = 'Seminario de ejemplo'
         self.assertFalse(rules.user_qualified_for_certificate_event(user, ev, org_id=1))
 
-    @patch.object(rules, '_purge_orphan_certificate_event_formats')
-    def test_seed_runs_orphan_purge(self, mock_purge):
-        mock_purge.return_value = {'deactivated': 0, 'deleted': 0}
+    @patch('nodeone.services.certificate_assets.ensure_certificate_assets_for_org')
+    def test_seed_runs_orphan_purge(self, mock_ensure):
+        mock_ensure.return_value = {'orphans': {'deleted': 0}}
         mock_db = MagicMock()
-        with patch('app.SaasOrganization') as SO, patch('app.MembershipPlan') as MP, patch(
-            'app.CertificateEvent'
-        ) as CE, patch('app.Certificate') as Cert:
-            SO.query.get.return_value = MagicMock()
-            MP.query.filter_by.return_value.order_by.return_value.all.return_value = []
-            CE.query.filter.return_value.all.return_value = []
-            CE.query.filter_by.return_value.first.return_value = None
-            CE.__table__ = MagicMock()
-            Cert.__table__ = MagicMock()
-            rules.seed_membership_certificate_events_for_org(mock_db, 1)
-        mock_purge.assert_called_once_with(mock_db, 1)
+        rules.seed_membership_certificate_events_for_org(mock_db, 1)
+        mock_ensure.assert_called_once_with(mock_db, 1, commit=True)
 
     def test_purge_deletes_zero_issued_orphans(self):
         orphan = MagicMock(id=6, is_active=True, code_prefix='REL')

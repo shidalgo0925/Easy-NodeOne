@@ -434,6 +434,42 @@ def generate_bulk_for_event(app, event, issued_by_user_id: int | None, participa
     return {'created': created, 'skipped': skipped, 'errors': errors}
 
 
+def regenerate_bulk_for_event(
+    app,
+    event,
+    issued_by_user_id: int | None,
+    certificate_ids: list[int] | None = None,
+) -> dict:
+    """Regenera PDFs de certificados activos del evento con plantilla/formato vigentes."""
+    from app import EventCertificate
+
+    q = EventCertificate.query.filter_by(event_id=event.id)
+    if certificate_ids:
+        q = q.filter(EventCertificate.id.in_(certificate_ids))
+    regenerated = 0
+    skipped = 0
+    errors: list[str] = []
+    for cert in q.order_by(EventCertificate.id.asc()).all():
+        if (getattr(cert, 'status', None) or '') == 'revoked' or not getattr(cert, 'is_active', True):
+            skipped += 1
+            continue
+        participant = cert.participant
+        if not participant:
+            skipped += 1
+            if len(errors) < 12:
+                errors.append(f'#{cert.id}: sin participante')
+            continue
+        _, err = regenerate_event_certificate(app, cert, event, participant, issued_by_user_id)
+        if err:
+            skipped += 1
+            if len(errors) < 12:
+                label = cert.certificate_number or f'#{cert.id}'
+                errors.append(f'{label}: {err}')
+        else:
+            regenerated += 1
+    return {'regenerated': regenerated, 'skipped': skipped, 'errors': errors}
+
+
 def abs_path_from_certificate_url(app, certificate_url: str | None) -> str | None:
     if not certificate_url:
         return None

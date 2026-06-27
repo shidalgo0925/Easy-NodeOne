@@ -126,6 +126,30 @@ class TestEventCertificateHelpers(unittest.TestCase):
         self.assertIsNone(cert)
         self.assertIn('activo', err or '')
 
+    def test_regenerate_bulk_skips_revoked(self):
+        app = SimpleNamespace(root_path=backend_dir)
+        event = SimpleNamespace(id=5)
+        active = SimpleNamespace(
+            id=1,
+            status='generated',
+            is_active=True,
+            certificate_number='EN1-2026-001',
+            participant=SimpleNamespace(id=10, attendance_status='checked_in', participant_type='external'),
+        )
+        revoked = SimpleNamespace(id=2, status='revoked', is_active=False, certificate_number='EN1-2026-002', participant=None)
+
+        with patch('app.EventCertificate') as EC:
+            q = MagicMock()
+            EC.query.filter_by.return_value = q
+            q.order_by.return_value.all.return_value = [active, revoked]
+            with patch.object(ev_cert, 'regenerate_event_certificate') as regen_mock:
+                regen_mock.return_value = (active, None)
+                result = ev_cert.regenerate_bulk_for_event(app, event, 99)
+
+        self.assertEqual(result['regenerated'], 1)
+        self.assertEqual(result['skipped'], 1)
+        regen_mock.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

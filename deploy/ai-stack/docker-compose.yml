@@ -1,0 +1,38 @@
+# Despliegue en CODITO: /opt/ai-stack
+# Copiar este directorio o enlazar archivos; secrets fuera de git (ver .gitignore).
+
+services:
+  litellm-db:
+    image: postgres:16
+    container_name: litellm-db
+    restart: always
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${LITELLM_DB_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - ai-stack-net
+
+  litellm:
+    image: ghcr.io/berriai/litellm-database:main-stable
+    container_name: litellm
+    restart: always
+    command: ["--config", "/app/proxy_server_config.yaml", "--port", "4000"]
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/proxy_server_config.yaml:ro
+    environment:
+      DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD}@litellm-db:5432/litellm
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-stack-net
+    depends_on:
+      - litellm-db
+
+networks:
+  ai-stack-net:
+    name: ai-stack-net

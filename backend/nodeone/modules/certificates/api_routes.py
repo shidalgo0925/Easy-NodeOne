@@ -13,6 +13,10 @@ from types import SimpleNamespace
 from nodeone.core.admin_api import admin_required_json as _admin_required
 from nodeone.services.certificate_http import certificate_base_url as _get_base_url
 from nodeone.services.certificate_http import certificates_upload_dir as _certificates_upload_dir
+from nodeone.services.certificate_http import (
+    membership_certificates_pdf_dir,
+    resolve_membership_certificate_pdf_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +100,40 @@ def _ensure_membership_certificate_event():
     _seed_org_certificate_events(_cert_member_org_id())
 
 
+def _membership_download_url(certificate_code: str) -> str:
+    """URL relativa para descarga (mismo origen; evita perder sesión HTTPS→HTTP)."""
+    return url_for('certificates_api.download_certificate', certificate_code=certificate_code)
+
+
+def _write_membership_pdf_file(certificate_code: str, pdf_bytes: bytes) -> str:
+    cert_dir = membership_certificates_pdf_dir().rstrip(os.sep)
+    safe_code = certificate_code.replace('/', '_')
+    pdf_path = os.path.join(cert_dir, f'{safe_code}.pdf')
+    with open(pdf_path, 'wb') as f:
+        f.write(pdf_bytes)
+    return pdf_path
+
+
+def _regenerate_membership_certificate_pdf(cert, cert_event, user) -> str | None:
+    """Reescribe PDF en disco si se perdió el archivo (misma lógica que emisión original)."""
+    from app import app, db
+
+    base = _get_base_url()
+    verify_url = f"{base}/verify/{cert.certificate_code}"
+    vhash = cert.verification_hash or hashlib.sha256(
+        (cert.certificate_code + app.config.get('SECRET_KEY', '')).encode()
+    ).hexdigest()
+    pdf_bytes = _render_pdf(cert_event, user, cert.certificate_code, vhash, verify_url)
+    if not pdf_bytes:
+        return None
+    pdf_path = _write_membership_pdf_file(cert.certificate_code, pdf_bytes)
+    cert.pdf_path = pdf_path
+    if not cert.verification_hash:
+        cert.verification_hash = vhash
+    db.session.add(cert)
+    return pdf_path
+
+
 @certificates_api_bp.route('/my-certificates', methods=['GET'])
 @login_required
 def my_certificates():
@@ -128,7 +166,7 @@ def my_certificates():
             'qualified': qualified,
             'already_issued': existing is not None,
             'certificate_code': existing.certificate_code if existing else None,
-            'download_url': url_for('certificates_api.download_certificate', certificate_code=existing.certificate_code, _external=True) if existing else None,
+            'download_url': _membership_download_url(existing.certificate_code) if existing else None,
         })
     return jsonify({'available': result})
 
@@ -505,10 +543,20 @@ def request_certificate(event_id):
         certificate_event_id=cert_event.id
     ).first()
     if existing:
-        base = _get_base_url()
+        real_path = resolve_membership_certificate_pdf_path(
+            existing.pdf_path, existing.certificate_code
+        )
+        if real_path and (existing.pdf_path or '') != real_path:
+            existing.pdf_path = real_path
+            db.session.commit()
+        if not real_path:
+            real_path = _regenerate_membership_certificate_pdf(existing, cert_event, current_user)
+            if not real_path:
+                return jsonify({'error': 'No se pudo generar el PDF'}), 500
+            db.session.commit()
         return jsonify({
             'certificate_code': existing.certificate_code,
-            'download_url': f"{base}/api/certificates/{existing.certificate_code}/download",
+            'download_url': _membership_download_url(existing.certificate_code),
             'already_issued': True,
         }), 200
     certificate_code = _next_certificate_code(cert_event)
@@ -526,12 +574,7 @@ def request_certificate(event_id):
     pdf_bytes = _render_pdf(cert_event, current_user, certificate_code, verification_hash, verify_url)
     if not pdf_bytes:
         return jsonify({'error': 'No se pudo generar el PDF'}), 500
-    cert_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'certificates')
-    os.makedirs(cert_dir, exist_ok=True)
-    safe_code = certificate_code.replace('/', '_')
-    pdf_path = os.path.join(cert_dir, f"{safe_code}.pdf")
-    with open(pdf_path, 'wb') as f:
-        f.write(pdf_bytes)
+    pdf_path = _write_membership_pdf_file(certificate_code, pdf_bytes)
     cert = Certificate(
         user_id=current_user.id,
         certificate_event_id=cert_event.id,
@@ -542,7 +585,8 @@ def request_certificate(event_id):
     )
     db.session.add(cert)
     db.session.commit()
-    download_url = f"{base}/api/certificates/{certificate_code}/download"
+    download_url = _membership_download_url(certificate_code)
+    safe_code = certificate_code.replace('/', '_')
     if _cert_app.Mail and getattr(current_user, 'email', None):
         try:
             from flask_mail import Message
@@ -613,26 +657,31 @@ def certificates_page():
 
 
 def _certificates_pdf_dir():
-    """Directorio canónico donde se guardan los PDFs de certificados (con sep final)."""
-    d = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'certificates')
-    return os.path.normpath(os.path.abspath(d)) + os.sep
+    """Compat tests/shims: directorio canónico PDF membresía."""
+    return membership_certificates_pdf_dir()
 
 
 @certificates_api_bp.route('/certificates/<certificate_code>/download', methods=['GET'])
 @login_required
 def download_certificate(certificate_code):
     """Descarga el PDF del certificado si pertenece al usuario."""
-    from app import Certificate
+    from app import Certificate, CertificateEvent, db
     cert = Certificate.query.filter_by(certificate_code=certificate_code).first()
     if not cert:
         return jsonify({'error': 'Certificado no encontrado'}), 404
     if cert.user_id != current_user.id:
         return jsonify({'error': 'No autorizado'}), 403
-    if not cert.pdf_path or not os.path.isfile(cert.pdf_path):
-        return jsonify({'error': 'Archivo no disponible'}), 404
-    allowed_dir = _certificates_pdf_dir()
-    real_path = os.path.normpath(os.path.realpath(cert.pdf_path))
-    if not real_path.startswith(allowed_dir):
+    real_path = resolve_membership_certificate_pdf_path(cert.pdf_path, cert.certificate_code)
+    if real_path and (cert.pdf_path or '') != real_path:
+        cert.pdf_path = real_path
+        db.session.commit()
+    if not real_path:
+        cert_event = CertificateEvent.query.get(cert.certificate_event_id)
+        if cert_event:
+            real_path = _regenerate_membership_certificate_pdf(cert, cert_event, current_user)
+            if real_path:
+                db.session.commit()
+    if not real_path:
         return jsonify({'error': 'Archivo no disponible'}), 404
     return send_file(
         real_path,
@@ -745,12 +794,9 @@ def _certificate_to_admin_dict(cert) -> dict:
     }
 
 
-def _remove_certificate_pdf_file(pdf_path: str | None) -> None:
-    if not pdf_path:
-        return
-    allowed_dir = _certificates_pdf_dir()
-    real_path = os.path.normpath(os.path.realpath(pdf_path))
-    if not real_path.startswith(allowed_dir) or not os.path.isfile(real_path):
+def _remove_certificate_pdf_file(pdf_path: str | None, certificate_code: str | None = None) -> None:
+    real_path = resolve_membership_certificate_pdf_path(pdf_path, certificate_code)
+    if not real_path:
         return
     try:
         os.remove(real_path)
@@ -962,7 +1008,7 @@ def admin_delete_issued_certificate(cert_id):
     if not ev:
         return jsonify({'error': 'No autorizado'}), 403
     code = cert.certificate_code
-    _remove_certificate_pdf_file(cert.pdf_path)
+    _remove_certificate_pdf_file(cert.pdf_path, cert.certificate_code)
     db.session.delete(cert)
     db.session.commit()
     return jsonify({'success': True, 'certificate_code': code})

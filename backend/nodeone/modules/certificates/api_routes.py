@@ -114,22 +114,44 @@ def _write_membership_pdf_file(certificate_code: str, pdf_bytes: bytes) -> str:
     return pdf_path
 
 
-def _regenerate_membership_certificate_pdf(cert, cert_event, user) -> str | None:
-    """Reescribe PDF en disco si se perdió el archivo (misma lógica que emisión original)."""
+def _regenerate_membership_certificate_pdf(
+    cert,
+    cert_event,
+    user,
+    *,
+    emission_snapshot=None,
+    force: bool = False,
+) -> str | None:
+    """Reconfecciona PDF en disco (mismo motor que emisión; snapshot congelado si existe)."""
     from app import app, db
+    from nodeone.services.certificate_membership_bulk import ensure_emission_snapshot
+
+    if emission_snapshot is None:
+        emission_snapshot = ensure_emission_snapshot(cert, user, cert_event, persist=True)
 
     base = _get_base_url()
     verify_url = f"{base}/verify/{cert.certificate_code}"
     vhash = cert.verification_hash or hashlib.sha256(
         (cert.certificate_code + app.config.get('SECRET_KEY', '')).encode()
     ).hexdigest()
-    pdf_bytes = _render_pdf(cert_event, user, cert.certificate_code, vhash, verify_url)
+    pdf_bytes = _render_pdf(
+        cert_event,
+        user,
+        cert.certificate_code,
+        vhash,
+        verify_url,
+        emission_snapshot=emission_snapshot,
+    )
     if not pdf_bytes:
         return None
     pdf_path = _write_membership_pdf_file(cert.certificate_code, pdf_bytes)
     cert.pdf_path = pdf_path
     if not cert.verification_hash:
         cert.verification_hash = vhash
+    if not cert.emission_snapshot and emission_snapshot:
+        import json
+
+        cert.emission_snapshot = json.dumps(emission_snapshot, ensure_ascii=False)
     db.session.add(cert)
     return pdf_path
 
@@ -270,22 +292,39 @@ def _render_pdf_reportlab(
     return render_institutional_pdf(ctx)
 
 
-def _render_pdf(cert_event, user, certificate_code, verification_hash, verify_url):
+def _render_pdf(
+    cert_event,
+    user,
+    certificate_code,
+    verification_hash,
+    verify_url,
+    *,
+    emission_snapshot=None,
+):
     """Genera PDF usando el mismo HTML que la vista previa (_get_certificate_html). Así pantalla y descarga son idénticos."""
-    full_name = f"{user.first_name} {user.last_name}".strip()
+    if emission_snapshot:
+        full_name = (emission_snapshot.get('participant_name') or '').strip()
+        date_str = (emission_snapshot.get('issue_date') or '').strip() or datetime.utcnow().strftime('%Y-%m-%d')
+        membership_type = emission_snapshot.get('membership_type') or ''
+        membership_start = emission_snapshot.get('membership_start') or ''
+        membership_end = emission_snapshot.get('membership_end') or ''
+        document_id = emission_snapshot.get('document_id') or ''
+    else:
+        full_name = f"{user.first_name} {user.last_name}".strip()
+        date_str = datetime.utcnow().strftime('%Y-%m-%d')
+        membership = user.get_active_membership()
+        membership_type = getattr(membership, 'membership_type', None) if membership else None
+        membership_start = getattr(membership, 'start_date', None)
+        membership_end = getattr(membership, 'end_date', None)
+        if membership_start and hasattr(membership_start, 'strftime'):
+            membership_start = membership_start.strftime('%Y-%m-%d')
+        if membership_end and hasattr(membership_end, 'strftime'):
+            membership_end = membership_end.strftime('%Y-%m-%d')
+        document_id = getattr(user, 'document_id', None) or getattr(user, 'cedula', None) or ''
     event_name = cert_event.name
-    date_str = datetime.utcnow().strftime('%Y-%m-%d')
-    membership = user.get_active_membership()
-    membership_type = getattr(membership, 'membership_type', None) if membership else None
-    membership_start = getattr(membership, 'start_date', None)
-    membership_end = getattr(membership, 'end_date', None)
-    if membership_start and hasattr(membership_start, 'strftime'):
-        membership_start = membership_start.strftime('%Y-%m-%d')
-    if membership_end and hasattr(membership_end, 'strftime'):
-        membership_end = membership_end.strftime('%Y-%m-%d')
     sample_data = {
         'participant_name': full_name,
-        'document_id': getattr(user, 'document_id', None) or getattr(user, 'cedula', None) or '',
+        'document_id': document_id,
         'program_name': event_name,
         'hours': cert_event.duration_hours or '',
         'issue_date': date_str,
@@ -550,7 +589,12 @@ def request_certificate(event_id):
             existing.pdf_path = real_path
             db.session.commit()
         if not real_path:
-            real_path = _regenerate_membership_certificate_pdf(existing, cert_event, current_user)
+            from nodeone.services.certificate_membership_bulk import ensure_emission_snapshot
+
+            snap = ensure_emission_snapshot(existing, current_user, cert_event, persist=True)
+            real_path = _regenerate_membership_certificate_pdf(
+                existing, cert_event, current_user, emission_snapshot=snap, force=True
+            )
             if not real_path:
                 return jsonify({'error': 'No se pudo generar el PDF'}), 500
             db.session.commit()
@@ -571,7 +615,18 @@ def request_certificate(event_id):
         pass
     tid = getattr(cert_event, 'template_id', None)
     logger.info("Certificado emisión event_id=%s template_id=%s", cert_event.id, tid)
-    pdf_bytes = _render_pdf(cert_event, current_user, certificate_code, verification_hash, verify_url)
+    from nodeone.services.certificate_membership_bulk import build_emission_snapshot
+    import json
+
+    emission_snapshot = build_emission_snapshot(current_user, cert_event)
+    pdf_bytes = _render_pdf(
+        cert_event,
+        current_user,
+        certificate_code,
+        verification_hash,
+        verify_url,
+        emission_snapshot=emission_snapshot,
+    )
     if not pdf_bytes:
         return jsonify({'error': 'No se pudo generar el PDF'}), 500
     pdf_path = _write_membership_pdf_file(certificate_code, pdf_bytes)
@@ -582,6 +637,7 @@ def request_certificate(event_id):
         verification_hash=verification_hash,
         pdf_path=pdf_path,
         status='generated',
+        emission_snapshot=json.dumps(emission_snapshot, ensure_ascii=False),
     )
     db.session.add(cert)
     db.session.commit()
@@ -678,7 +734,12 @@ def download_certificate(certificate_code):
     if not real_path:
         cert_event = CertificateEvent.query.get(cert.certificate_event_id)
         if cert_event:
-            real_path = _regenerate_membership_certificate_pdf(cert, cert_event, current_user)
+            from nodeone.services.certificate_membership_bulk import ensure_emission_snapshot
+
+            snap = ensure_emission_snapshot(cert, current_user, cert_event, persist=True)
+            real_path = _regenerate_membership_certificate_pdf(
+                cert, cert_event, current_user, emission_snapshot=snap, force=True
+            )
             if real_path:
                 db.session.commit()
     if not real_path:
@@ -988,6 +1049,31 @@ def admin_list_issued_certificates(event_id):
         'event': _cert_event_to_dict(ev),
         'items': [_certificate_to_admin_dict(c) for c in rows],
     })
+
+
+@certificates_api_bp.route('/admin/certificate-events/<int:event_id>/regenerate-all', methods=['POST'])
+@login_required
+@_admin_required
+def admin_regenerate_all_membership_certificates(event_id):
+    """Regenera todos los PDF de un formato de membresía (plantilla vigente; snapshot congelado)."""
+    from app import CertificateEvent
+    from nodeone.services.certificate_membership_bulk import (
+        is_membership_certificate_format,
+        regenerate_membership_certificates_for_format,
+    )
+
+    coid = _cert_admin_org_id()
+    ev = CertificateEvent.query.filter_by(id=event_id, organization_id=coid).first()
+    if not ev:
+        return jsonify({'error': 'No encontrado'}), 404
+    if not is_membership_certificate_format(ev):
+        return jsonify({'error': 'Solo aplica a formatos de membresía (PLAN/MEM)'}), 400
+    stats = regenerate_membership_certificates_for_format(
+        ev, issued_by_user_id=int(getattr(current_user, 'id', None) or 0) or None
+    )
+    if stats.get('errors') and stats.get('found', 0) == 0 and stats['errors']:
+        return jsonify({'error': stats['errors'][0], **stats}), 400
+    return jsonify({'success': True, **stats})
 
 
 @certificates_api_bp.route('/admin/certificates/<int:cert_id>', methods=['DELETE'])

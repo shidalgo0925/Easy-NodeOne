@@ -60,6 +60,8 @@ class Certificate(db.Model):
     pdf_path = db.Column(db.String(500), nullable=True)
     generated_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='generated')
+    # JSON: nombre, membresía y fecha congelados al emitir (regeneración admin).
+    emission_snapshot = db.Column(db.Text, nullable=True)
 
     user = db.relationship('User', backref='certificates')
     __table_args__ = (db.UniqueConstraint('user_id', 'certificate_event_id', name='uq_certificate_user_event'),)

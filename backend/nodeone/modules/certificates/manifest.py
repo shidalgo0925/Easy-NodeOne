@@ -20,6 +20,7 @@ MODULE = {
     'services': [
         'nodeone.services.certificate_assets',
         'nodeone.services.certificate_membership_rules',
+        'nodeone.services.certificate_membership_bulk',
         'nodeone.services.certificate_render',
         'nodeone.services.certificate_http',
         'nodeone.services.certificate_visual_templates',

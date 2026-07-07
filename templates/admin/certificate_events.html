@@ -226,7 +226,10 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer d-flex flex-wrap justify-content-between gap-2">
+                <button type="button" class="btn btn-warning" id="btnRegenerateAllIssued" disabled title="Reconfeccionar todos los PDF con la plantilla actual">
+                    <i class="fas fa-sync-alt me-1"></i>Regenerar certificados emitidos
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -509,8 +512,10 @@
                 var items = o.j.items || [];
                 if (!items.length) {
                     empty.classList.remove('d-none');
+                    document.getElementById('btnRegenerateAllIssued').disabled = true;
                     return;
                 }
+                document.getElementById('btnRegenerateAllIssued').disabled = false;
                 wrap.classList.remove('d-none');
                 tbodyIssued.innerHTML = items.map(function(c) {
                     var userLine = (c.user_name || '—');
@@ -559,6 +564,51 @@
             })
             .catch(function() { showAlert('Error de conexión.', 'danger'); });
     };
+
+    document.getElementById('btnRegenerateAllIssued').addEventListener('click', function() {
+        if (!issuedEventId) return;
+        var msg = 'Se regenerarán todos los certificados emitidos utilizando la plantilla actual.\n\n' +
+            'Esta acción no cambia códigos, fechas de emisión ni historial.\n' +
+            'Solo reconstruye los archivos generados (nombre y membresía congelados al emitir).\n\n' +
+            '¿Continuar?';
+        if (!confirm(msg)) return;
+        var btn = this;
+        btn.disabled = true;
+        var oldHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Procesando…';
+        fetch('/api/admin/certificate-events/' + issuedEventId + '/regenerate-all', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' }
+        })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(o) {
+                btn.disabled = false;
+                btn.innerHTML = oldHtml;
+                if (o.ok && o.j.success) {
+                    var parts = [
+                        'Encontrados: ' + (o.j.found != null ? o.j.found : '—'),
+                        'Regenerados: ' + (o.j.regenerated != null ? o.j.regenerated : '—')
+                    ];
+                    if (o.j.skipped) parts.push('Omitidos: ' + o.j.skipped);
+                    if (o.j.elapsed_ms != null) parts.push('Tiempo: ' + (o.j.elapsed_ms / 1000).toFixed(1) + ' s');
+                    var msgOk = parts.join(' · ');
+                    if (o.j.errors && o.j.errors.length) {
+                        msgOk += '. Errores: ' + o.j.errors.slice(0, 3).join('; ');
+                    }
+                    showAlert(msgOk, o.j.regenerated ? 'success' : 'warning');
+                    loadIssuedList(issuedEventId);
+                    loadList();
+                } else {
+                    showAlert(o.j.error || (o.j.errors && o.j.errors[0]) || 'Error al regenerar.', 'danger');
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                btn.innerHTML = oldHtml;
+                showAlert('Error de conexión al regenerar.', 'danger');
+            });
+    });
 
     window.deleteEvent = function(id, name) {
         var msg = '¿Eliminar el formato ' + (typeof name === 'string' ? name.replace(/["\\]/g, '') : '') + '? No se borran certificados ya emitidos.';

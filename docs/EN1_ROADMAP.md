@@ -1,6 +1,6 @@
 # EN1 — Roadmap producto
 
-**Última actualización:** junio 2026  
+**Última actualización:** 22 jun 2026  
 **Edición:** `/opt/easynodeone/dev/app` → rama `develop`
 
 Índice de iniciativas planificadas o en curso en Easy NodeOne. Roadmaps de módulo con detalle propio enlazan desde aquí.
@@ -8,7 +8,61 @@
 | Módulo | Documento |
 |--------|-----------|
 | ECalendar | [`ECALENDAR_ROADMAP.md`](ECALENDAR_ROADMAP.md) |
+| Certificados | Este archivo § Certificados |
 | Stripe / tarjetas | Este archivo § Stripe |
+
+---
+
+## Certificados — eventos y membresía
+
+**Estado:** **operativo en `develop` y Relatic** (jun 2026) — refactor cerrado; fix rutas PDF membresía en `804edf6`.
+
+Hay **dos flujos** (no mezclar):
+
+| Familia | Pantalla usuario | Pantalla admin | Emisión |
+|---------|------------------|----------------|---------|
+| **Eventos** (seminarios) | Mis Certificados → descarga | Eventos → Certificados | Admin genera PDF |
+| **Membresía** (`PLAN-BASIC`, `PLAN-PRO`, …) | Mis Certificados → **Solicitar** / descarga | Certificados → Eventos (formatos MEM/PLAN) | Usuario solicita si cumple plan |
+
+### Entregado (jun 2026)
+
+| Entrega | Commit / nota |
+|---------|----------------|
+| Refactor módulo `nodeone/modules/certificates/` + tests | `314d1f7`, fases 0–5 |
+| Editor único de formato + retorno al evento | `1d878d4` |
+| Regenerar **todos** los PDF de un evento | `33dde91` |
+| Un certificado por plan comercial (`PLAN-{slug}`) + elegibilidad por membresía vigente | `certificate_membership_rules.py` |
+| Admin: listar y **eliminar emisiones** MEM/PLAN (re-solicitar con plantilla vigente) | `6b9c17f`, `1911a9f` |
+| Fix rutas PDF membresía (`app/instance/certificates/`) tras refactor | **`804edf6`** — desplegado Relatic |
+| PDF membresía: descarga y regeneración si falta archivo en disco | `certificate_http.py`, `api_routes.py` |
+
+### Reglas de negocio (membresía)
+
+- **Básico** → solo `PLAN-BASIC` si membresía `basic` vigente.
+- **Pro / Premium / …** → solo el formato del plan que coincida con suscripción o `membership` activa.
+- Código emitido: `PLAN-PRO-O1-2026-XXXX` (legacy `MEM-O1-…` sigue descargable si existe fila en BD).
+- Sin plan coincidente → tarjeta **Requisitos pendientes** (sin botón Solicitar). Con emisión previa → **Emitido** + Descargar aunque el plan haya cambiado.
+
+### QA mínimo (smoke)
+
+- [ ] Mis Certificados carga `/api/my-certificates` (tarjetas por plan).
+- [ ] Usuario con plan Pro → Solicitar → PDF en `instance/certificates/` → descarga 200.
+- [ ] Admin → formato PLAN → Ver emitidos → Eliminar → usuario puede volver a solicitar.
+- [ ] Evento con participantes → Regenerar todos (N) tras cambio de plantilla.
+
+### Referencias
+
+| Documento | Uso |
+|-----------|------|
+| [`EN1_CERTIFICADOS_EVENTOS_CONTEXTO.md`](EN1_CERTIFICADOS_EVENTOS_CONTEXTO.md) | Eventos: formato, plantilla, emitir, regenerar |
+| [`EN1_CERTIFICADOS_ENTREGA_ANALISTA_2026-06.md`](EN1_CERTIFICADOS_ENTREGA_ANALISTA_2026-06.md) | Entrega analista jun 2026 |
+| `backend/docs/MANUAL_ADMIN_CERTIFICADOS_EN1.md` | Admin membresía + eventos |
+| `backend/docs/MANUAL_USUARIO_CERTIFICADOS_EN1.md` | Usuario final |
+
+### Fuera de alcance (esta fase)
+
+- Re-emitir automáticamente todos los MEM legacy al cambiar plantilla (solo regeneración bajo demanda / admin elimina emisión).
+- Certificados de membresía sin plan vinculado (formatos huérfanos REL/MEM sueltos — desactivados en siembra).
 
 ---
 

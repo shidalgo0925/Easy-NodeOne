@@ -6,6 +6,7 @@ de este paquete y se registran vía ``register_platform_apps``.
 """
 
 from nodeone.core.platform.app_integration import (
+    app_dependencies_satisfied,
     filter_launcher_apps_for_org,
     get_app_runtime,
     organization_has_integrated_apps,
@@ -38,7 +39,9 @@ from nodeone.core.platform.runtime import (
 
 __all__ = [
     'APPLICATIONS',
+    'app_dependencies_satisfied',
     'ApplicationDescriptor',
+    'app_dependencies_satisfied',
     'build_app_shell_nav_payload',
     'CoreCapability',
     'filter_launcher_apps_for_org',

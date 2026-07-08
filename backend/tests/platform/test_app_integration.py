@@ -59,6 +59,33 @@ class TestAppIntegration(unittest.TestCase):
         self.assertEqual(MODULE['nav_area_id'], 'eventos')
         self.assertEqual(MODULE['integration_order'], 3)
 
+    def test_ecertificates_manifest(self):
+        from nodeone.modules.ecertificates.manifest import MODULE
+
+        self.assertEqual(MODULE['id'], 'ecertificates')
+        self.assertIn('certificates', MODULE['saas_codes'])
+        self.assertEqual(MODULE['nav_area_id'], 'certificados')
+        self.assertIn('eevents', MODULE['depends_on'])
+        self.assertIn('emembership', MODULE['depends_on'])
+
+    def test_certificates_hidden_without_dependencies(self):
+        from nodeone.core.platform.app_integration import filter_launcher_apps_for_org
+
+        apps = [
+            {'id': 'certificados', 'platform_app_id': 'ecertificates', 'label': 'Certificados'},
+        ]
+
+        with patch(
+            'nodeone.core.platform.app_integration.organization_has_integrated_apps',
+            return_value=True,
+        ):
+            with patch(
+                'nodeone.core.platform.app_integration.get_app_runtime',
+                side_effect=lambda oid, aid: 'plataforma' if aid == 'ecertificates' else 'legacy',
+            ):
+                filtered = filter_launcher_apps_for_org(1, apps)
+        self.assertEqual(filtered, [])
+
     def test_filter_multiple_integrated_apps(self):
         from nodeone.core.platform.app_integration import filter_launcher_apps_for_org
 

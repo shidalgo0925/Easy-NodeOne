@@ -97,6 +97,22 @@ def is_app_integrated_for_launcher(organization_id: int | None, platform_app_id:
     return rt in ('en_migracion', 'plataforma')
 
 
+def app_dependencies_satisfied(organization_id: int | None, platform_app_id: str) -> bool:
+    """True si las apps declaradas en ``depends_on`` están integradas (plataforma/en_migracion)."""
+    from nodeone.core.platform.app_registry import get_application
+
+    desc = get_application(platform_app_id)
+    if desc is None or not desc.depends_on:
+        return True
+    for dep_id in desc.depends_on:
+        dep_desc = get_application(dep_id)
+        if dep_desc is not None and dep_desc.is_shared_service:
+            continue
+        if not is_app_integrated_for_launcher(organization_id, dep_id):
+            return False
+    return True
+
+
 def filter_launcher_apps_for_org(organization_id: int | None, apps: list) -> list:
     """
     Si la org tiene apps integradas, el launcher solo muestra esas.
@@ -108,7 +124,9 @@ def filter_launcher_apps_for_org(organization_id: int | None, apps: list) -> lis
     for row in apps:
         nav_id = row.get('id')
         app_id = nav_area_to_platform_app_id(nav_id)
-        if is_app_integrated_for_launcher(organization_id, app_id):
+        if is_app_integrated_for_launcher(organization_id, app_id) and app_dependencies_satisfied(
+            organization_id, app_id
+        ):
             out.append(row)
     return out
 

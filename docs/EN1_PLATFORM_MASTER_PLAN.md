@@ -177,19 +177,20 @@ export NODEONE_APP_RUNTIME_EMEMBERSHIP=plataforma
 
 Con runtime `plataforma`, la org entra en modo apps automáticamente y el launcher muestra solo apps integradas.
 
-**Orden restante:** ECertificates → EAppointments.
+**Orden restante:** EAppointments.
 
-**EEvents (3ª app) — activar en dev:**
+**ECertificates (4ª app) — activar en dev (después de EEvents + EMembership):**
 
 ```bash
+export NODEONE_PLATFORM_SEED_EMEMBERSHIP_ORG_IDS=1
 export NODEONE_PLATFORM_SEED_EEVENTS_ORG_IDS=1
-# o: NODEONE_APP_RUNTIME_EEVENTS_ORG_IDS=1 + NODEONE_APP_RUNTIME_EEVENTS=plataforma
+export NODEONE_PLATFORM_SEED_ECERTIFICATES_ORG_IDS=1
 sudo systemctl restart easynodeone-dev
 ```
 
-Manifest: `nodeone/modules/eevents/manifest.py`.
+Manifest: `nodeone/modules/ecertificates/manifest.py` · `depends_on`: eevents, emembership.
 
-**Estado integración dev:** EMembership, ECRM y EEvents cerradas (2026-07-08). Pendientes: ECertificates, EAppointments.
+**Estado integración dev:** EMembership, ECRM, EEvents y ECertificates cerradas (2026-07-08). Pendiente: EAppointments.
 
 ---
 

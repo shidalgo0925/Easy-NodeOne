@@ -3346,15 +3346,29 @@ def bootstrap_nodeone_schema():
         try:
             from nodeone.services.platform_app_runtime_schema import (
                 ensure_platform_app_runtime_schema,
+                seed_ecrm_platform_runtime,
                 seed_emembership_platform_runtime,
             )
 
             ensure_platform_app_runtime_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
-            seed_raw = (os.environ.get('NODEONE_PLATFORM_SEED_EMEMBERSHIP_ORG_IDS') or '').strip()
-            if seed_raw:
-                org_ids = [int(x.strip()) for x in seed_raw.split(',') if x.strip()]
-                if org_ids:
-                    seed_emembership_platform_runtime(db, org_ids, printfn=lambda m: print(f'📋 {m}'))
+
+            def _parse_org_id_list_env(name: str) -> list[int]:
+                raw = (os.environ.get(name) or '').strip()
+                if not raw:
+                    return []
+                out: list[int] = []
+                for part in raw.split(','):
+                    part = part.strip()
+                    if part:
+                        out.append(int(part))
+                return out
+
+            memb_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EMEMBERSHIP_ORG_IDS')
+            if memb_orgs:
+                seed_emembership_platform_runtime(db, memb_orgs, printfn=lambda m: print(f'📋 {m}'))
+            crm_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_ECRM_ORG_IDS')
+            if crm_orgs:
+                seed_ecrm_platform_runtime(db, crm_orgs, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_platform_app_runtime_schema: {e}')

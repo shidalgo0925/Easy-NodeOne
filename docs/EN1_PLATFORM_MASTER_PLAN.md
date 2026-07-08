@@ -177,9 +177,19 @@ export NODEONE_APP_RUNTIME_EMEMBERSHIP=plataforma
 
 Con runtime `plataforma`, la org entra en modo apps automáticamente y el launcher muestra solo apps integradas.
 
-**Orden restante:** ECRM → EEvents → ECertificates → EAppointments.
+**Orden restante:** EEvents → ECertificates → EAppointments.
 
-**Criterio cierre EMembership (dev):** manifest + runtime + launcher filtrado + shell. **Estado: cerrada en dev (2026-07-08).** Otras apps: pendientes.
+**ECRM (2ª app) — activar en dev:**
+
+```bash
+export NODEONE_PLATFORM_SEED_ECRM_ORG_IDS=1
+# o env: NODEONE_APP_RUNTIME_ECRM_ORG_IDS=1 + NODEONE_APP_RUNTIME_ECRM=plataforma
+sudo systemctl restart easynodeone-dev
+```
+
+Manifest: `nodeone/modules/ecrm/manifest.py` · depende de `contacts` (Core).
+
+**Criterio cierre EMembership + ECRM (dev):** manifest + runtime + launcher filtrado + shell. **Estado: EMembership y ECRM cerradas en dev (2026-07-08).** Otras apps: pendientes.
 
 ---
 

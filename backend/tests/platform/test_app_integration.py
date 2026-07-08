@@ -43,12 +43,35 @@ class TestAppIntegration(unittest.TestCase):
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0]['id'], 'membresias')
 
-    def test_emembership_manifest(self):
-        from nodeone.modules.emembership.manifest import MODULE
+    def test_ecrm_manifest(self):
+        from nodeone.modules.ecrm.manifest import MODULE
 
-        self.assertEqual(MODULE['id'], 'emembership')
-        self.assertIn('memberships', MODULE['saas_codes'])
-        self.assertEqual(MODULE['nav_area_id'], 'membresias')
+        self.assertEqual(MODULE['id'], 'ecrm')
+        self.assertIn('crm', MODULE['saas_codes'])
+        self.assertEqual(MODULE['nav_area_id'], 'crm')
+        self.assertIn('contacts', MODULE['depends_on'])
+
+    def test_filter_multiple_integrated_apps(self):
+        from nodeone.core.platform.app_integration import filter_launcher_apps_for_org
+
+        apps = [
+            {'id': 'membresias', 'platform_app_id': 'emembership', 'label': 'Membresías'},
+            {'id': 'crm', 'platform_app_id': 'ecrm', 'label': 'CRM'},
+            {'id': 'eventos', 'platform_app_id': 'eevents', 'label': 'Eventos'},
+        ]
+
+        def _runtime(oid, aid):
+            if aid in ('emembership', 'ecrm'):
+                return 'plataforma'
+            return 'legacy'
+
+        with patch(
+            'nodeone.core.platform.app_integration.organization_has_integrated_apps',
+            return_value=True,
+        ):
+            with patch('nodeone.core.platform.app_integration.get_app_runtime', side_effect=_runtime):
+                filtered = filter_launcher_apps_for_org(1, apps)
+        self.assertEqual({a['id'] for a in filtered}, {'membresias', 'crm'})
 
 
 class TestLauncherIntegratedMode(unittest.TestCase):

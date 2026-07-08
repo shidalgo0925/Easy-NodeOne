@@ -45,31 +45,50 @@ def ensure_platform_app_runtime_schema(db, engine, printfn=None) -> None:
         printfn('platform_org_app_runtime: tabla creada')
 
 
-def seed_emembership_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
-    """Marca EMembership como plataforma para orgs indicadas (solo dev / cutover acordado)."""
-    from models.platform_app import (
-        APP_RUNTIME_PLATFORM,
-        PlatformOrgAppRuntime,
-    )
+def seed_app_platform_runtime(
+    db,
+    app_id: str,
+    organization_ids: list[int],
+    *,
+    runtime: str = 'plataforma',
+    printfn=None,
+) -> None:
+    """Marca una app como integrada en plataforma para las orgs indicadas."""
+    from models.platform_app import APP_RUNTIME_VALUES, PlatformOrgAppRuntime
+
+    aid = (app_id or '').strip().lower()
+    rt = (runtime or 'plataforma').strip().lower()
+    if rt not in APP_RUNTIME_VALUES:
+        rt = 'plataforma'
 
     for oid in organization_ids:
-        row = PlatformOrgAppRuntime.query.filter_by(organization_id=int(oid), app_id='emembership').first()
+        row = PlatformOrgAppRuntime.query.filter_by(organization_id=int(oid), app_id=aid).first()
         if row is None:
             db.session.add(
                 PlatformOrgAppRuntime(
                     organization_id=int(oid),
-                    app_id='emembership',
-                    runtime=APP_RUNTIME_PLATFORM,
+                    app_id=aid,
+                    runtime=rt,
                 )
             )
             if printfn:
-                printfn(f'+ platform_org_app_runtime: org={oid} emembership → plataforma')
-        elif row.runtime != APP_RUNTIME_PLATFORM:
-            row.runtime = APP_RUNTIME_PLATFORM
+                printfn(f'+ platform_org_app_runtime: org={oid} {aid} → {rt}')
+        elif row.runtime != rt:
+            row.runtime = rt
             if printfn:
-                printfn(f'* platform_org_app_runtime: org={oid} emembership → plataforma')
+                printfn(f'* platform_org_app_runtime: org={oid} {aid} → {rt}')
     try:
         db.session.commit()
     except Exception:
         db.session.rollback()
         raise
+
+
+def seed_emembership_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
+    """Marca EMembership como plataforma para orgs indicadas (solo dev / cutover acordado)."""
+    seed_app_platform_runtime(db, 'emembership', organization_ids, printfn=printfn)
+
+
+def seed_ecrm_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
+    """Marca ECRM como plataforma para orgs indicadas (solo dev / cutover acordado)."""
+    seed_app_platform_runtime(db, 'ecrm', organization_ids, printfn=printfn)

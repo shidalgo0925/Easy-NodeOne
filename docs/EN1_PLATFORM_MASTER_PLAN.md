@@ -93,9 +93,9 @@ Detalle operativo (tags, ramas, tickets, smoke tests): [`EN1_PLATFORM_CARRILES_Y
 
 - No crear otro producto ni duplicar lógica.
 - Mismo repo, misma base de evolución (`/opt/easynodeone/dev/app`).
-- Entregable: inventario Core/Apps (ver apéndice A) y glosario aprobado.
+- Entregable: **[`EN1_PLATFORM_ETAPA1_CORE_APPS.md`](EN1_PLATFORM_ETAPA1_CORE_APPS.md)** (glosario, inventario, catálogo apps, reglas clasificación).
 
-**Criterio de cierre:** documento de fronteras Core/Apps revisado por el equipo; ningún cambio de comportamiento en prod.
+**Criterio de cierre:** documento Etapa 1 publicado; ningún cambio de comportamiento en prod. **Estado: cerrada (2026-07-08).**
 
 ---
 
@@ -344,6 +344,7 @@ EMarketing    EPayRoll    EInventory    BI
 | Tema | Archivo |
 |------|---------|
 | Carriles y soporte | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
+| **Etapa 1 Core vs Apps** | [`EN1_PLATFORM_ETAPA1_CORE_APPS.md`](EN1_PLATFORM_ETAPA1_CORE_APPS.md) |
 | Deploy clientes | [`CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) |
 | Arquitectura EN1 | [`../backend/docs/EN1_ARCHITECTURE.md`](../backend/docs/EN1_ARCHITECTURE.md) |
 | RBAC | [`RBAC_Y_ROLES.md`](RBAC_Y_ROLES.md) |

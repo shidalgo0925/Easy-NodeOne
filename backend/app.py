@@ -3347,6 +3347,7 @@ def bootstrap_nodeone_schema():
             from nodeone.services.platform_app_runtime_schema import (
                 ensure_platform_app_runtime_schema,
                 seed_ecrm_platform_runtime,
+                seed_eevents_platform_runtime,
                 seed_emembership_platform_runtime,
             )
 
@@ -3369,6 +3370,9 @@ def bootstrap_nodeone_schema():
             crm_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_ECRM_ORG_IDS')
             if crm_orgs:
                 seed_ecrm_platform_runtime(db, crm_orgs, printfn=lambda m: print(f'📋 {m}'))
+            events_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EEVENTS_ORG_IDS')
+            if events_orgs:
+                seed_eevents_platform_runtime(db, events_orgs, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_platform_app_runtime_schema: {e}')

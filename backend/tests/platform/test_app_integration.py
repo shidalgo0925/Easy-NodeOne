@@ -51,6 +51,14 @@ class TestAppIntegration(unittest.TestCase):
         self.assertEqual(MODULE['nav_area_id'], 'crm')
         self.assertIn('contacts', MODULE['depends_on'])
 
+    def test_eevents_manifest(self):
+        from nodeone.modules.eevents.manifest import MODULE
+
+        self.assertEqual(MODULE['id'], 'eevents')
+        self.assertIn('events', MODULE['saas_codes'])
+        self.assertEqual(MODULE['nav_area_id'], 'eventos')
+        self.assertEqual(MODULE['integration_order'], 3)
+
     def test_filter_multiple_integrated_apps(self):
         from nodeone.core.platform.app_integration import filter_launcher_apps_for_org
 

@@ -1,0 +1,139 @@
+"""Constantes del dominio comercial — Etapa 12 (contrato v1)."""
+
+from __future__ import annotations
+
+# --- Pedido ---
+ORDER_STATUS_DRAFT = 'draft'
+ORDER_STATUS_CONFIRMED = 'confirmed'
+ORDER_STATUS_IN_PROGRESS = 'in_progress'
+ORDER_STATUS_READY = 'ready'
+ORDER_STATUS_DELIVERED = 'delivered'
+ORDER_STATUS_CANCELLED = 'cancelled'
+ORDER_STATUS_REFUNDED = 'refunded'
+
+ORDER_STATUSES = frozenset(
+    {
+        ORDER_STATUS_DRAFT,
+        ORDER_STATUS_CONFIRMED,
+        ORDER_STATUS_IN_PROGRESS,
+        ORDER_STATUS_READY,
+        ORDER_STATUS_DELIVERED,
+        ORDER_STATUS_CANCELLED,
+        ORDER_STATUS_REFUNDED,
+    }
+)
+
+ORDER_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
+    ORDER_STATUS_DRAFT: frozenset({ORDER_STATUS_CONFIRMED, ORDER_STATUS_CANCELLED}),
+    ORDER_STATUS_CONFIRMED: frozenset(
+        {ORDER_STATUS_IN_PROGRESS, ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}
+    ),
+    ORDER_STATUS_IN_PROGRESS: frozenset(
+        {ORDER_STATUS_READY, ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}
+    ),
+    ORDER_STATUS_READY: frozenset(
+        {ORDER_STATUS_DELIVERED, ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}
+    ),
+    ORDER_STATUS_DELIVERED: frozenset({ORDER_STATUS_REFUNDED}),
+    ORDER_STATUS_CANCELLED: frozenset(),
+    ORDER_STATUS_REFUNDED: frozenset(),
+}
+
+# --- Pago ---
+PAYMENT_STATUS_PENDING = 'pending'
+PAYMENT_STATUS_AUTHORIZED = 'authorized'
+PAYMENT_STATUS_CAPTURED = 'captured'
+PAYMENT_STATUS_FAILED = 'failed'
+PAYMENT_STATUS_REFUNDED = 'refunded'
+PAYMENT_STATUS_PARTIAL_REFUND = 'partial_refund'
+
+PAYMENT_STATUSES = frozenset(
+    {
+        PAYMENT_STATUS_PENDING,
+        PAYMENT_STATUS_AUTHORIZED,
+        PAYMENT_STATUS_CAPTURED,
+        PAYMENT_STATUS_FAILED,
+        PAYMENT_STATUS_REFUNDED,
+        PAYMENT_STATUS_PARTIAL_REFUND,
+    }
+)
+
+PAYMENT_TYPE_CASH = 'cash'
+PAYMENT_TYPE_CARD = 'card'
+PAYMENT_TYPE_TRANSFER = 'transfer'
+PAYMENT_TYPE_WALLET = 'wallet'
+PAYMENT_TYPE_CREDIT = 'credit'
+PAYMENT_TYPE_OTHER = 'other'
+
+PAYMENT_TYPES = frozenset(
+    {
+        PAYMENT_TYPE_CASH,
+        PAYMENT_TYPE_CARD,
+        PAYMENT_TYPE_TRANSFER,
+        PAYMENT_TYPE_WALLET,
+        PAYMENT_TYPE_CREDIT,
+        PAYMENT_TYPE_OTHER,
+    }
+)
+
+# --- Factura ---
+INVOICE_KIND_FISCAL = 'fiscal'
+INVOICE_KIND_NON_FISCAL = 'non_fiscal'
+INVOICE_KIND_PROFORMA = 'proforma'
+
+INVOICE_KINDS = frozenset({INVOICE_KIND_FISCAL, INVOICE_KIND_NON_FISCAL, INVOICE_KIND_PROFORMA})
+
+INVOICE_STATUS_DRAFT = 'draft'
+INVOICE_STATUS_POSTED = 'posted'
+INVOICE_STATUS_PARTIAL = 'partial'
+INVOICE_STATUS_PAID = 'paid'
+INVOICE_STATUS_CANCELLED = 'cancelled'
+
+INVOICE_STATUSES = frozenset(
+    {
+        INVOICE_STATUS_DRAFT,
+        INVOICE_STATUS_POSTED,
+        INVOICE_STATUS_PARTIAL,
+        INVOICE_STATUS_PAID,
+        INVOICE_STATUS_CANCELLED,
+    }
+)
+
+# --- Entrega ---
+DELIVERY_STATUS_PENDING = 'pending'
+DELIVERY_STATUS_PARTIAL = 'partial'
+DELIVERY_STATUS_COMPLETED = 'completed'
+DELIVERY_STATUS_CANCELLED = 'cancelled'
+
+DELIVERY_STATUSES = frozenset(
+    {
+        DELIVERY_STATUS_PENDING,
+        DELIVERY_STATUS_PARTIAL,
+        DELIVERY_STATUS_COMPLETED,
+        DELIVERY_STATUS_CANCELLED,
+    }
+)
+
+# --- Caja ---
+CASH_SHIFT_OPEN = 'open'
+CASH_SHIFT_CLOSED = 'closed'
+CASH_SHIFT_RECONCILING = 'reconciling'
+
+CASH_SHIFT_STATUSES = frozenset({CASH_SHIFT_OPEN, CASH_SHIFT_CLOSED, CASH_SHIFT_RECONCILING})
+
+# --- POS ---
+POS_TERMINAL_ACTIVE = 'active'
+POS_TERMINAL_INACTIVE = 'inactive'
+POS_TERMINAL_MAINTENANCE = 'maintenance'
+
+POS_TERMINAL_STATUSES = frozenset(
+    {POS_TERMINAL_ACTIVE, POS_TERMINAL_INACTIVE, POS_TERMINAL_MAINTENANCE}
+)
+
+
+def can_transition_order_status(current: str, target: str) -> bool:
+    cur = (current or '').strip().lower()
+    tgt = (target or '').strip().lower()
+    if cur not in ORDER_STATUSES or tgt not in ORDER_STATUSES:
+        return False
+    return tgt in ORDER_STATUS_TRANSITIONS.get(cur, frozenset())

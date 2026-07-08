@@ -109,19 +109,22 @@ class TestEventBusDispatch(unittest.TestCase):
         self.assertEqual(received, [EPOSONE_ORDER_CREATED])
         mock_db.session.commit.assert_called()
 
-    @patch('nodeone.core.platform.events.publish_domain_event')
+    @patch('nodeone.core.services.audit.publish_domain_event')
     def test_eposone_publish_helpers(self, mock_publish):
+        from nodeone.core.commerce.events import COMMERCE_ORDER_CREATED
         from nodeone.core.platform.events import EPOSONE_ORDER_CREATED
 
         from nodeone.modules.eposone.events import publish_order_created
 
         publish_order_created(1, order_ref='T-99', total=10.5)
-        mock_publish.assert_called_once()
-        args, kwargs = mock_publish.call_args
-        self.assertEqual(args[0], 1)
-        self.assertEqual(args[1], EPOSONE_ORDER_CREATED)
-        self.assertEqual(args[2]['order_ref'], 'T-99')
-        self.assertEqual(kwargs['source_app_id'], 'eposone')
+        self.assertEqual(mock_publish.call_count, 2)
+        commerce_call = mock_publish.call_args_list[0]
+        eposone_call = mock_publish.call_args_list[1]
+        self.assertEqual(commerce_call[0][1], COMMERCE_ORDER_CREATED)
+        self.assertEqual(eposone_call[0][0], 1)
+        self.assertEqual(eposone_call[0][1], EPOSONE_ORDER_CREATED)
+        self.assertEqual(eposone_call[0][2]['order_ref'], 'T-99')
+        self.assertEqual(eposone_call[1]['source_app_id'], 'eposone')
 
     @patch('nodeone.core.platform.events.dispatch_event_by_id')
     @patch('models.platform_events.PlatformDomainEvent')

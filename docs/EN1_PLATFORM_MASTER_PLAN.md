@@ -103,7 +103,7 @@ Detalle operativo (tags, ramas, tickets, smoke tests): [`EN1_PLATFORM_CARRILES_Y
 
 **Objetivo:** el Core nace oficialmente como paquete/contrato explícito.
 
-Debe contener únicamente:
+Paquete: `backend/nodeone/core/platform/` · tests: `backend/tests/platform/test_core_smoke.py`
 
 | Área | Capacidades |
 |------|-------------|
@@ -112,11 +112,9 @@ Debe contener únicamente:
 | **Servicios** | Archivos, auditoría, configuración, API, notificaciones, IA |
 | **Licenciamiento** | App Registry, tenant apps, user apps |
 
-**Base EN1 existente:** `models/saas.py`, `models/users.py`, `utils/organization.py`, `saas_features.py`, `nodeone/services/*`, auth en `_app/modules/auth`.
+**Resultado:** `register_platform_core` + `register_platform_apps`; facades `runtime.py`; registry declarativo.
 
-**Resultado:** el Core puede ejecutar apps (contratos listos; apps aún en código legacy envuelto).
-
-**Criterio de cierre:** paquete `nodeone/core/platform/` (o equivalente acordado), tests humo Core (login, org switch, RBAC, toggle SaaS).
+**Criterio de cierre:** paquete platform publicado, tests humo Core OK, `register_modules` delega sin cambiar blueprints. **Estado: cerrada (2026-07-08).**
 
 ---
 

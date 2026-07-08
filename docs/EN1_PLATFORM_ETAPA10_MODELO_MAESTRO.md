@@ -149,7 +149,7 @@ Filesystem disperso (`static/uploads/...`) + columnas `*_url`.
 | Audit + domain events | ✅ | payloads específicos |
 | Notifications | ✅ | plantillas por app |
 | Calendar infra | ✅ | EEvents/EAppointments consumen |
-| Pedido / factura / caja | ❌ | Etapa 12 (dominio comercial) — EPosOne |
+| Pedido / factura / caja | ❌ (Core) | V3 Etapa 6 — [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md); implementación V3 Etapa 7 |
 
 ---
 
@@ -183,7 +183,7 @@ Filesystem disperso (`static/uploads/...`) + columnas `*_url`.
 |-----------|-------|-------------------|
 | P1 | **10 — Modelo maestro** | — |
 | P2 | 11 — Servicios compartidos | Contratos de 10 |
-| P3 | 12 — Dominio comercial | Contact + Product + OrgUnit |
+| P3 | 12 — Contratos comerciales (scaffold) | Contact + Product + OrgUnit; **dominio de negocio → V3 Etapa 6** |
 | P4 | 13 — Sync offline | Event bus + entidades estables |
 | P5 | 14 — EPosOne MVP | 10–13 |
 
@@ -201,7 +201,7 @@ Filesystem disperso (`static/uploads/...`) + columnas `*_url`.
 | 4 | Roadmap Fase 2 en Master Plan | Hecho |
 | 5 | Cero cambio comportamiento prod legacy | Hecho (solo docs) |
 
-**Siguiente chat recomendado:** **GO Etapa 11 — ContactService** (primer servicio compartido) o **GO Etapa 10b — DDL org_unit** si preferís materializar esquema antes.
+**Siguiente fase recomendada:** **V3 Etapa 6 — Dominio Comercial** ([`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md)) antes de más implementación POS.
 
 ---
 

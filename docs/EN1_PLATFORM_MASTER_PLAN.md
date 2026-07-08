@@ -4,8 +4,8 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión | **3.0** (Roadmap Oficial Platform V3) |
-| Estado | Aprobado — alcance apps de plataforma acotado (sin EPayRoll, EM+Acción, EClassOne, Odoo) |
+| Versión | **3.1** (Roadmap Oficial Platform V3 — dominio antes de features) |
+| Estado | Aprobado — alcance apps acotado; **V3 Etapa 6 Dominio Comercial en definición** |
 | Alcance edición | Solo `/opt/easynodeone/dev/app` (Dev EN1) |
 | Documento operativo | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
 
@@ -58,9 +58,14 @@ Los siguientes productos **no forman parte** de EasyNodeOne Platform. Cada uno m
 | **3** | Modelo maestro compartido | Contact (roles), catálogo, direcciones, archivos, auditoría — un solo modelo |
 | **4** | Servicios compartidos | ContactService, ProductService, OrganizationService, FileService, NotificationService, AuditService — Apps sin acceso cruzado |
 | **5** | Migración apps existentes | EMembership → ECRM → EEvents → ECertificates → EAppointments (una por una) |
-| **6** | EPosOne | Primera app 100 % bajo arquitectura nueva: back office, comercial, inventario, reportes |
-| **7** | Sincronización | Offline first: bus, cola, reintentos, conflictos, descarga incremental, versionado |
-| **8** | EPosOne comercial | Piloto, validación, hardware, KDS, QR, delivery |
+| **6** | **Dominio Comercial** | Cerrar modelo POS: org, roles, pedido, flujos, inventario/caja/pagos/facturación/sync — **solo documento, sin features nuevas** |
+| **7** | Construcción del dominio | Implementar sobre dominio congelado: inventario, caja, pedidos, reportes, reembolsos, KDS, delivery, menú QR |
+| **8** | Sincronización | Offline first: bus, cola, reintentos, conflictos, descarga incremental, versionado |
+| **9** | Hardware | Impresora, cajón, lector, integración terminales físicas |
+| **10** | FE Panamá | Facturación electrónica sobre flujo comercial definido |
+| **11** | Piloto comercial | Cliente real, validación operativa, go-live controlado |
+
+**Regla V3.1:** no avanzar Etapas 7–11 hasta **cierre aprobado** de Etapa 6 ([`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md)).
 
 ### Reglas de la plataforma (V3)
 
@@ -90,9 +95,12 @@ Numeración histórica en código/commits (Etapas 1–17 EN1) mapea así:
 | 3 | Etapa 10 — modelo maestro ([`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md)) |
 | 4 | Etapa 11 — `nodeone/core/services/` |
 | 5 | Etapa 5 — integración EMembership…EAppointments (runtime por org) |
-| 6 | Etapas 6–7, 12, 14–17 — EPosOne (scaffold → MVP + KDS + delivery + menú digital) |
-| 7 | Etapas 8, 13 — bus eventos + `nodeone/core/sync/` |
-| 8 | Pendiente — piloto comercial, hardware, FE Panamá |
+| **6** | **En curso** — dominio comercial ([`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md)) |
+| 7 | Scaffold exploratorio: Etapas EN1 6–7, 12, 14–17 (MVP, KDS, delivery, menú QR) — **revisar tras cierre Etapa 6** |
+| 8 | Scaffold: Etapas EN1 8, 13 — bus eventos + `nodeone/core/sync/` |
+| 9–11 | Pendiente — hardware, FE Panamá, piloto |
+
+**Nota:** el scaffold EN1 12–17 validó arquitectura técnica; **no sustituye** el cierre de dominio de V3 Etapa 6.
 
 ---
 
@@ -121,6 +129,10 @@ Cada app posee: menú propio, dashboard propio, permisos propios, navegación pr
 ### Regla 6 — Sin dependencias cruzadas entre apps
 
 Las apps dependen **solo del Core**. Las dependencias funcionales (ej. Certificates → Events + Membership) se declaran en el **App Registry** (`depends_on`) y se resuelven por contratos/servicios del Core, no por `import` directo entre apps.
+
+### Regla 7 — Dominio antes de features (V3.1)
+
+No implementar funcionalidades comerciales nuevas (inventario, reportes, reembolsos, hardware, FE, piloto) hasta **cerrar y aprobar** el dominio comercial — V3 Etapa 6. El scaffold técnico existente es referencia, no contrato de negocio.
 
 ---
 
@@ -269,7 +281,33 @@ Manifest: `nodeone/modules/eappointments/manifest.py`.
 
 ---
 
-### Etapa 6 — EPosOne (app nativa)
+### V3 Etapa 6 — Dominio Comercial (actual)
+
+**Objetivo:** cerrar el modelo de negocio POS **antes** de más implementación.
+
+| Sub-etapa | Tema |
+|-----------|------|
+| 6.1 | Organización comercial (empresa, sucursal, área, POS, terminal, caja, turno) |
+| 6.2 | Personas (cajero, vendedor, mesero, supervisor, gerente) |
+| 6.3 | Documento maestro — **Pedido** como centro del sistema |
+| 6.4 | Flujos (restaurante, retail, ferretería, mayorista, delivery) |
+| 6.5 | Inventario — solo modelado (reserva, descuento, devolución) |
+| 6.6 | Caja — apertura, cobros, reembolsos, arqueo, cierre |
+| 6.7 | Pagos — efectivo, tarjeta, mixto, Yappy, transferencia, crédito |
+| 6.8 | Facturación — cuándo nace, offline, relación FE Panamá |
+| 6.9 | Sincronización — eventos, offline, conflictos, prioridades |
+
+**Entregable:** [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md)
+
+**Criterio de cierre:** documento 6.1–6.9 aprobado; cero preguntas abiertas críticas; **sin código nuevo** hasta entonces.
+
+**Estado:** en definición (2026-07-08).
+
+**Siguiente:** V3 Etapa 7 — Construcción del dominio (inventario, caja, pedidos, reportes, reembolsos).
+
+---
+
+### Etapa 6 — EPosOne (app nativa) — EN1 legado
 
 **Objetivo:** primera app **construida nativamente** sobre la plataforma; valida el modelo.
 
@@ -371,7 +409,7 @@ Todo producto **de plataforma** nuevo nace como app registrada en el Registry.
 
 ## Avance técnico EN1 (legado Etapas 10–17 → ver mapa V3 arriba)
 
-**Regla vigente:** consolidar Core y EPosOne; **no** desarrollar productos fuera del alcance V3 (EPayRoll, EM+Acción, etc.).
+**Regla vigente (V3.1):** **congelar features POS nuevas** hasta cierre dominio comercial (V3 Etapa 6). Mantener scaffold; **no** desarrollar productos fuera del alcance V3 (EPayRoll, EM+Acción, etc.).
 
 ### Prioridades implementadas (numeración EN1)
 
@@ -379,22 +417,23 @@ Todo producto **de plataforma** nuevo nace como app registrada en el Registry.
 |---|-----------|--------|--------|-----|
 | **P1** | **10** | Modelo maestro compartido | Plan cerrado | → 3 |
 | **P2** | **11** | Servicios compartidos | Cerrado dev | → 4 |
-| **P3** | **12** | Dominio comercial | Cerrado dev | → 6 |
-| **P4** | **13** | Sync offline | Cerrado dev | → 7 |
-| **P5** | **14** | EPosOne MVP | MVP dev | → 6 |
-| — | **15** | KDS | Scaffold dev | → 8 |
-| — | **16** | Delivery | Scaffold dev | → 8 |
-| — | **17** | Menú digital QR | Scaffold dev | → 8 |
-| — | 18 | FE Panamá | Pendiente | → 8 |
+| **P3** | **12** | Contratos comerciales (código) | Scaffold dev | → 6 (revisar tras dominio) |
+| **P4** | **13** | Sync offline | Scaffold dev | → 8 |
+| **P5** | **14** | EPosOne MVP | Scaffold dev | → 7 (post-dominio) |
+| — | **15** | KDS | Scaffold dev | → 7 |
+| — | **16** | Delivery | Scaffold dev | → 7 |
+| — | **17** | Menú digital QR | Scaffold dev | → 7 |
+| — | 18 | FE Panamá | Pendiente | → 10 |
+| — | — | Hardware / piloto | Pendiente | → 9, 11 |
 
-### Secuencia acordada (V3)
+### Secuencia acordada (V3.1)
 
 ```text
 Core + Plataforma (1–2) → Modelo + Servicios (3–4)
     → Migración apps plataforma una a una (5)
-    → EPosOne completo (6) + Sync (7)
-    → Piloto comercial EPosOne (8)
-    → Validar con clientes reales
+    → Cerrar Dominio Comercial (6) — solo documento
+    → Construcción del dominio (7)
+    → Sincronización (8) → Hardware (9) → FE Panamá (10) → Piloto (11)
 ```
 
 **Fuera de secuencia plataforma:** EPayRoll, EM+Acción, EClassOne, Odoo.
@@ -423,9 +462,9 @@ Paquete `backend/nodeone/core/services/` — APIs internas para Apps (sin ORM ex
 
 **Consumidor ejemplo:** EPosOne eventos usan `AuditService.publish_domain_event`. Tests: `tests/platform/test_core_services.py`.
 
-### Etapa 12 — resumen
+### Etapa 12 — resumen (scaffold — sujeto a V3 Etapa 6)
 
-Paquete `backend/nodeone/core/commerce/` — contratos de negocio para EPosOne y ventas:
+Paquete `backend/nodeone/core/commerce/` — contratos de negocio para EPosOne y ventas (**borrador técnico**, alinear tras dominio aprobado):
 
 | Dominio | Servicio | Estado |
 |---------|----------|--------|
@@ -453,9 +492,9 @@ Paquete `backend/nodeone/core/sync/` — infraestructura offline sobre el outbox
 
 **API:** `GET /api/platform/sync/events`, `POST /api/platform/sync/operations`, cursores `GET/PUT /api/platform/sync/cursors/<domain>`. Tests: `tests/platform/test_sync_offline.py`.
 
-### Etapa 14 — resumen (MVP)
+### Etapa 14 — resumen (scaffold MVP — sujeto a V3 Etapa 6)
 
-Persistencia comercial Core + API EPosOne:
+Persistencia comercial Core + API EPosOne (exploración técnica):
 
 | Entrega | Detalle |
 |---------|---------|
@@ -504,7 +543,9 @@ Tests: `tests/platform/test_eposone_digital_menu.py`.
 
 ---
 
-Detalle completo: [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md).
+Detalle modelo maestro Core: [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md).
+
+Detalle dominio comercial POS (V3 Etapa 6): [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md).
 
 ---
 
@@ -553,6 +594,7 @@ No se obliga al cliente a migrar una app hasta que esté lista y acordada.
 |--------|------------|
 | Refactor rompe IIUS/Relatic | Etapa 0 + carril 1 |
 | Big bang | Regla 3 + carril 3 por app |
+| Construir antes de definir dominio | Regla 7 + V3 Etapa 6 antes de Etapa 7 |
 | Dos implementaciones eternas | Fecha de retiro legacy por app al declarar Plataforma |
 | Imports cruzados | Regla 6 + manifest `depends_on` |
 | Deploy accidental de develop | Reglas de desarrollo + checklist deploy |
@@ -592,8 +634,9 @@ FUERA: EPayRoll · EM+Acción · EClassOne · Odoo
 2. No habrá migración big bang; cada app tiene su plan de transición.
 3. **Alcance V3:** solo apps de plataforma (EPosOne + cinco apps de integración). EPayRoll, EM+Acción, EClassOne y Odoo **fuera**.
 4. EPosOne es la primera app **nativa** y el foco funcional principal.
-5. El Core es el activo principal: auth, multiempresa, permisos, API, auditoría, licenciamiento.
-6. La **plataforma** es el producto; las **apps de plataforma** son soluciones sobre el mismo núcleo.
+5. **Dominio comercial cerrado antes de features** — V3 Etapa 6; evita rehacer inventario, caja y reportes.
+6. El Core es el activo principal: auth, multiempresa, permisos, API, auditoría, licenciamiento.
+7. La **plataforma** es el producto; las **apps de plataforma** son soluciones sobre el mismo núcleo.
 
 ---
 
@@ -638,6 +681,7 @@ FUERA: EPayRoll · EM+Acción · EClassOne · Odoo
 |------|---------|
 | Carriles y soporte | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
 | **Etapa 10 modelo maestro** | [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
+| **V3 Etapa 6 dominio comercial** | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |
 | Deploy clientes | [`CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) |
 | Arquitectura EN1 | [`../backend/docs/EN1_ARCHITECTURE.md`](../backend/docs/EN1_ARCHITECTURE.md) |
 | RBAC | [`RBAC_Y_ROLES.md`](RBAC_Y_ROLES.md) |
@@ -647,4 +691,4 @@ FUERA: EPayRoll · EM+Acción · EClassOne · Odoo
 
 ---
 
-*Última actualización: 2026-07-08 (Fase 2 Etapas 10–30 añadidas). Cambios de alcance requieren acuerdo explícito del responsable del proyecto.*
+*Última actualización: 2026-07-08 (V3.1 — Etapa 6 Dominio Comercial; etapas 7–11 reorganizadas). Cambios de alcance requieren acuerdo explícito del responsable del proyecto.*

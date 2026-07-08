@@ -82,7 +82,10 @@ def login():
                     next_page = pending_continuar_url()
                 except Exception:
                     pass
-            return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+            from nodeone.core.platform.launcher import post_login_redirect_target
+
+            dest = post_login_redirect_target(next_page=next_page, user=user, session=session)
+            return redirect(dest)
         flash(error or 'Credenciales inválidas.', 'error')
         return render_template('login.html', saas_organizations=[], login_email=email)
     return render_template('login.html', saas_organizations=[], login_email=None)
@@ -100,7 +103,10 @@ def select_organization():
     if len(orgs) <= 1:
         session.pop('require_org_selection', None)
         next_page = service.safe_next_path(request.args.get('next'))
-        return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+        from nodeone.core.platform.launcher import post_login_redirect_target
+
+        dest = post_login_redirect_target(next_page=next_page, user=current_user, session=session)
+        return redirect(dest)
     cards = [{'id': int(o.id), 'name': (o.name or '').strip() or 'Empresa', 'logo': resolved_logo_url_for_org_card(int(o.id))} for o in orgs]
     next_page = service.safe_next_path(request.args.get('next'))
     return render_template(

@@ -92,12 +92,25 @@ Hotfix: commit en la rama del cliente → tag `*-hotfix-YYYYMMDD` → deploy sol
 ## Flujo plataforma (Carril 2)
 
 ```text
-1. Ticket: componente Core / App nativa / Registry
+1. Ticket: componente Core / App nativa / Registry / Launcher
 2. Rama desde develop (o feature/*)
 3. Desarrollo + pruebas en appdev (:9101)
 4. Merge a develop
 5. Deploy solo dev/staging plataforma — NUNCA prod/relatic sin cutover de app
 ```
+
+**Launcher v2 (Etapa 3):** por defecto `classic` (sin cambio para IIUS/Relatic). Probar en dev:
+
+```bash
+# Solo org 1 en modo apps
+export NODEONE_LAUNCHER_APPS_ORG_IDS=1
+
+# O global apps en dev (cuidado: afecta todas las orgs salvo classic override)
+export NODEONE_LAUNCHER_MODE=apps
+export NODEONE_LAUNCHER_CLASSIC_ORG_IDS=<id_iius>,<id_relatic>
+```
+
+URL: `/platform/apps` · sidebar «Mis aplicaciones» cuando el modo es `apps`.
 
 ---
 

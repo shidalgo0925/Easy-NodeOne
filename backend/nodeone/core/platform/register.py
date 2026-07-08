@@ -34,6 +34,9 @@ def register_platform_core(app) -> None:
     f.register_admin_backup_blueprint(app)
     f.register_contacts_blueprints(app)
     f.register_security_matrix_blueprints(app)
+    from nodeone.modules.platform_launcher.routes import register_platform_launcher
+
+    register_platform_launcher(app)
 
 
 def register_platform_apps(app) -> None:

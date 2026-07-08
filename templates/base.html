@@ -514,6 +514,14 @@
                             {% endif %}
                         {% endif %}
                         {% elif show_tenant_admin_menu or (show_platform_admin_nav and current_user.is_admin) %}
+                        {% if platform_launcher_enabled %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--platform-launcher">
+                            <a class="nav-link {% if request.blueprint == 'platform_launcher' %}active{% endif %}" href="{{ url_for('platform_launcher.apps_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Mis aplicaciones">
+                                <i class="menu-icon fas fa-th-large"></i>
+                                <span class="menu-title-text">Mis aplicaciones</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--dashboard">
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
                                 <i class="menu-icon fas fa-tachometer-alt"></i>

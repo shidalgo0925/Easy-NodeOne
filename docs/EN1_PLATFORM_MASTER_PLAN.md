@@ -120,25 +120,18 @@ Paquete: `backend/nodeone/core/platform/` · tests: `backend/tests/platform/test
 
 ### Etapa 3 — Launcher
 
-**Objetivo:** pantalla “Mis aplicaciones” post-login.
+**Objetivo:** pantalla «Mis aplicaciones» post-login.
 
-```text
-EasyNodeOne Platform
-  Mis aplicaciones
-    EPosOne
-    Membership
-    CRM
-    Events
-    Certificates
-    …
-```
+- Ruta `/platform/apps` · selección POST · `/platform/apps/switch`
+- Si una sola app autorizada → entrada directa.
+- Visibilidad: mismas reglas que sidebar ERP (`visible_areas` + SaaS + RBAC).
+- **Modo classic** por defecto (IIUS/Relatic sin cambio).
+- Activar en dev: `NODEONE_LAUNCHER_APPS_ORG_IDS=1` o `NODEONE_LAUNCHER_MODE=apps`.
+- Excluir org: `NODEONE_LAUNCHER_CLASSIC_ORG_IDS`.
 
-- Si el usuario solo tiene **una** app autorizada → entrada directa.
-- Visibilidad: org + perfil + App Registry.
+**Código:** `nodeone/core/platform/launcher.py`, `nodeone/modules/platform_launcher/`, `templates/platform/apps_launcher.html`.
 
-**Base EN1:** `nodeone/core/nav_menu.py`, `sidebar_admin_areas.html`, triple filtro (SaaS + RBAC + endpoint).
-
-**Criterio de cierre:** launcher v2 en dev; orgs IIUS/Relatic siguen en `launcher_mode=classic` hasta cutover por app.
+**Criterio de cierre:** launcher v2 en dev; prod clientes en classic hasta cutover. **Estado: cerrada (2026-07-08).**
 
 ---
 

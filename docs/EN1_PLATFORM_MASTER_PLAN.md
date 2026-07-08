@@ -4,8 +4,8 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión | 1.0 |
-| Estado | Aprobado (transición controlada, no migración big bang) |
+| Versión | **3.0** (Roadmap Oficial Platform V3) |
+| Estado | Aprobado — alcance apps de plataforma acotado (sin EPayRoll, EM+Acción, EClassOne, Odoo) |
 | Alcance edición | Solo `/opt/easynodeone/dev/app` (Dev EN1) |
 | Documento operativo | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
 
@@ -13,9 +13,86 @@
 
 ## Objetivo estratégico
 
-**No construir EPosOne como fin.** Construir **EasyNodeOne Platform** sin poner en riesgo a IIUS, Relatic ni las organizaciones en producción.
+**No construir EPosOne como fin.** Construir **EasyNodeOne Platform** — plataforma empresarial de Easy Technology Services que administra **solo** aplicaciones con el mismo Core empresarial.
+
+**No pretende contener todos los productos de ETS.** EPayRoll, EM+Acción, EClassOne y servicios Odoo tienen roadmap, arquitectura y despliegue **propios** — ver [Fuera del roadmap](#fuera-del-roadmap).
 
 No es una migración. Es una **transición controlada**: cada aplicación evoluciona con su propio ciclo de vida; los clientes adoptan apps de forma individual, nunca el sistema completo de una vez.
+
+---
+
+## Roadmap oficial V3
+
+### Visión
+
+EasyNodeOne Platform será la plataforma empresarial de ETS. Solo administrará aplicaciones que compartan el mismo Core empresarial.
+
+### Productos que pertenecen a la plataforma
+
+| Tipo | Apps |
+|------|------|
+| **Apps de plataforma** | **EPosOne** · **EMembership** · **ECRM** · **EEvents** · **ECertificates** · **EAppointments** |
+
+**EPosOne** = principal desarrollo funcional bajo la nueva arquitectura.
+
+**EMembership, ECRM, EEvents, ECertificates, EAppointments** = evolucionan e integran progresivamente (Etapa 5 — migración por app).
+
+### Fuera del roadmap
+
+Los siguientes productos **no forman parte** de EasyNodeOne Platform. Cada uno mantiene arquitectura, roadmap, despliegue y clientes propios:
+
+| Producto | Estado en EN1 dev |
+|----------|-------------------|
+| **EPayRoll** | Scaffold legacy en repo — **sin desarrollo ni roadmap de plataforma** |
+| **EM+Acción** | Fuera de alcance |
+| **EClassOne** | Fuera de alcance |
+| **Odoo** (servicios profesionales) | Fuera de alcance |
+
+### Etapas V3 (oficial)
+
+| Etapa | Nombre | Objetivo |
+|-------|--------|----------|
+| **0** | Protección de producción | IIUS y Relatic congelados; solo hotfixes |
+| **1** | Consolidación del Core | Seguridad, auth, multiempresa, org, usuarios, RBAC, contactos, archivos, auditoría, config, API, App Registry, licenciamiento — **sin lógica de negocio** |
+| **2** | Plataforma de aplicaciones | Registry, Launcher, menú dinámico, activación tenant/usuario, bundles, `depends_on`, versionado |
+| **3** | Modelo maestro compartido | Contact (roles), catálogo, direcciones, archivos, auditoría — un solo modelo |
+| **4** | Servicios compartidos | ContactService, ProductService, OrganizationService, FileService, NotificationService, AuditService — Apps sin acceso cruzado |
+| **5** | Migración apps existentes | EMembership → ECRM → EEvents → ECertificates → EAppointments (una por una) |
+| **6** | EPosOne | Primera app 100 % bajo arquitectura nueva: back office, comercial, inventario, reportes |
+| **7** | Sincronización | Offline first: bus, cola, reintentos, conflictos, descarga incremental, versionado |
+| **8** | EPosOne comercial | Piloto, validación, hardware, KDS, QR, delivery |
+
+### Reglas de la plataforma (V3)
+
+1. **El Core** nunca contiene lógica de negocio.
+2. **Las Apps** solo dependen del Core.
+3. **Dependencias entre Apps** solo vía `depends_on` + servicios compartidos — nunca imports directos.
+4. **Migración:** nunca clientes completos; solo apps individuales.
+5. **Producción:** IIUS y Relatic protegidos hasta certificar cada app.
+
+### Resultado esperado
+
+```text
+EasyNodeOne Platform  →  plataforma empresarial (Core + Apps de plataforma)
+EPosOne               →  principal producto funcional de la plataforma
+EMembership … EAppointments  →  integración progresiva
+EPayRoll, EM+Acción, EClassOne, Odoo  →  fuera, roadmap propio
+```
+
+### Mapa implementación EN1 → V3 (referencia)
+
+Numeración histórica en código/commits (Etapas 1–17 EN1) mapea así:
+
+| V3 | EN1 implementado (dev) |
+|----|----------------------|
+| 0 | Etapa 0 — freeze IIUS/Relatic |
+| 1–2 | Etapas 1–3 — Core + Registry + Launcher/Shell |
+| 3 | Etapa 10 — modelo maestro ([`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md)) |
+| 4 | Etapa 11 — `nodeone/core/services/` |
+| 5 | Etapa 5 — integración EMembership…EAppointments (runtime por org) |
+| 6 | Etapas 6–7, 12, 14–17 — EPosOne (scaffold → MVP + KDS + delivery + menú digital) |
+| 7 | Etapas 8, 13 — bus eventos + `nodeone/core/sync/` |
+| 8 | Pendiente — piloto comercial, hardware, FE Panamá |
 
 ---
 
@@ -266,15 +343,14 @@ Pedido creado → Inventario → Facturación → Reportes
 
 ---
 
-### Etapa 9 — Nuevas apps
+### Etapa 9 — Plantilla nuevas apps (solo apps de plataforma)
 
-Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR, BI, etc.
+Todo producto **de plataforma** nuevo nace como app registrada en el Registry.
 
 | Pieza | Ubicación |
 |-------|-----------|
 | Descubrimiento manifests | `nodeone/core/platform/manifest_registry.py` |
 | Plantilla nueva app | `NEW_APP_MANIFEST_TEMPLATE` en manifest_registry |
-| Ejemplo planificada | `nodeone/modules/epayroll/manifest.py` (`lifecycle: planned`) |
 | Registry + SaaS | `app_registry.py` + `saas_catalog_defaults.py` |
 
 **Checklist nueva app (Carril 2):**
@@ -282,46 +358,46 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 1. Crear `nodeone/modules/<app>/manifest.py` (y `register.py` + rutas si `lifecycle: active`).
 2. Añadir módulo a `PLATFORM_MANIFEST_MODULES`.
 3. Registrar `ApplicationDescriptor` en `app_registry.py`.
-4. Añadir código SaaS opt-in en `saas_catalog_defaults.py` (no toggleable global salvo acuerdo).
+4. Añadir código SaaS opt-in en `saas_catalog_defaults.py`.
 5. Nav + launcher mapping si tiene UI.
 6. Tests en `tests/platform/`.
 7. Eventos de dominio vía bus (Etapa 8), sin sync de tablas entre apps.
 
-**Estado Etapa 9 (scaffold):** manifest_registry + EPayroll scaffold en dev (2026-07-08).
+**Estado:** manifest_registry operativo en dev (2026-07-08).
 
-**Nota estratégica:** EPayroll queda **congelado en producto** hasta cerrar EPosOne MVP (Etapa 14) y validar con clientes. El scaffold en dev no implica desarrollo de nómina legal.
+**Nota:** EPayRoll tiene scaffold histórico en el repo; **no** es app de plataforma V3 — sin desarrollo ni prioridad en este roadmap.
 
 ---
 
-## Fase 2 ETS — Post-plataforma (Etapas 10–30)
+## Avance técnico EN1 (legado Etapas 10–17 → ver mapa V3 arriba)
 
-**Regla de oro:** no más funcionalidades de producto hasta consolidar base (Etapas 10–13). EPosOne MVP es el primer producto comercial; EPayroll y demás apps **después** de validar la plataforma.
+**Regla vigente:** consolidar Core y EPosOne; **no** desarrollar productos fuera del alcance V3 (EPayRoll, EM+Acción, etc.).
 
-### Prioridades reales
+### Prioridades implementadas (numeración EN1)
 
-| P | Etapa | Nombre | Estado |
-|---|-------|--------|--------|
-| **P1** | **10** | **Modelo maestro compartido** | **Plan cerrado** — [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
-| **P2** | **11** | **Servicios compartidos (APIs Core)** | **Cerrado en dev** — `nodeone/core/services/` |
-| **P3** | **12** | **Dominio comercial (pedido, pago, factura, caja, POS)** | **Cerrado en dev** — `nodeone/core/commerce/` |
-| **P4** | **13** | **Sincronización offline (cola, reintentos, conflictos)** | **Cerrado en dev** — `nodeone/core/sync/` |
-| **P5** | **14** | **EPosOne MVP comercial** | **MVP en dev** — pedidos, pagos, caja, API |
-| — | **15** | **KDS (cocina / bar / runner)** | **Scaffold en dev** — tickets + API + pantalla |
-| — | **16** | **Delivery (repartidores / entregas)** | **Scaffold en dev** — `eposone_delivery` + API |
-| — | **17** | **Menú digital (QR / pedido cliente)** | **Scaffold en dev** — menú público + API |
-| — | 18 | FE Panamá | Post-MVP POS |
-| — | 19 | EPayroll (motor legal) | **Después de EPosOne validado** |
-| — | 20–24 | CRM, Membership, Events, Certificates, Appointments | Migración por app |
-| — | 25–30 | Marketplace, APIs públicas, IA, Observabilidad, Multiempresa, Plataforma ETS | Largo plazo |
+| P | Etapa EN1 | Nombre | Estado | V3 |
+|---|-----------|--------|--------|-----|
+| **P1** | **10** | Modelo maestro compartido | Plan cerrado | → 3 |
+| **P2** | **11** | Servicios compartidos | Cerrado dev | → 4 |
+| **P3** | **12** | Dominio comercial | Cerrado dev | → 6 |
+| **P4** | **13** | Sync offline | Cerrado dev | → 7 |
+| **P5** | **14** | EPosOne MVP | MVP dev | → 6 |
+| — | **15** | KDS | Scaffold dev | → 8 |
+| — | **16** | Delivery | Scaffold dev | → 8 |
+| — | **17** | Menú digital QR | Scaffold dev | → 8 |
+| — | 18 | FE Panamá | Pendiente | → 8 |
 
-### Secuencia acordada
+### Secuencia acordada (V3)
 
 ```text
-Consolidar plataforma (10 → 11 → 12 → 13)
-    → EPosOne MVP (14)
-    → Validar 1–2 clientes reales
-    → EPayRoll, CRM, Membership, …
+Core + Plataforma (1–2) → Modelo + Servicios (3–4)
+    → Migración apps plataforma una a una (5)
+    → EPosOne completo (6) + Sync (7)
+    → Piloto comercial EPosOne (8)
+    → Validar con clientes reales
 ```
+
+**Fuera de secuencia plataforma:** EPayRoll, EM+Acción, EClassOne, Odoo.
 
 ### Etapa 10 — resumen
 
@@ -494,17 +570,18 @@ No se obliga al cliente a migrar una app hasta que esté lista y acordada.
 
 ---
 
-## Visión final
+## Visión final (V3)
 
 ```text
                 EasyNodeOne Platform
                          Core
 ──────────────────────────────────────────
 EPosOne    EMembership    ECRM    EEvents
-ECertificates    EAppointments    EPayments
-EMarketing    EPayRoll    EInventory    BI
+ECertificates    EAppointments
 ──────────────────────────────────────────
-               Todos usan el mismo Core
+        Apps de plataforma — mismo Core
+
+FUERA: EPayRoll · EM+Acción · EClassOne · Odoo
 ```
 
 ---
@@ -513,9 +590,10 @@ EMarketing    EPayRoll    EInventory    BI
 
 1. IIUS y Relatic congelados **funcionalmente**, con soporte y hotfixes continuos.
 2. No habrá migración big bang; cada app tiene su plan de transición.
-3. EPosOne es la primera app **nativa** de plataforma (validación del modelo).
-4. El Core es el activo principal de ETS: auth, multiempresa, permisos, API, auditoría, licenciamiento.
-5. La **plataforma** es el producto; las **apps** son soluciones independientes sobre el mismo núcleo.
+3. **Alcance V3:** solo apps de plataforma (EPosOne + cinco apps de integración). EPayRoll, EM+Acción, EClassOne y Odoo **fuera**.
+4. EPosOne es la primera app **nativa** y el foco funcional principal.
+5. El Core es el activo principal: auth, multiempresa, permisos, API, auditoría, licenciamiento.
+6. La **plataforma** es el producto; las **apps de plataforma** son soluciones sobre el mismo núcleo.
 
 ---
 

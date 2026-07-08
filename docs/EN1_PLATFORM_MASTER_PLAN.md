@@ -5,7 +5,7 @@
 | Campo | Valor |
 |-------|--------|
 | Versión | **3.1** (Roadmap Oficial Platform V3 — dominio antes de features) |
-| Estado | Aprobado — alcance apps acotado; **V3 Etapa 6 Dominio Comercial en definición** |
+| Estado | Aprobado — alcance apps acotado; **V3 Etapa 6 modelado v1.2, pendiente aprobación** |
 | Alcance edición | Solo `/opt/easynodeone/dev/app` (Dev EN1) |
 | Documento operativo | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
 
@@ -95,7 +95,7 @@ Numeración histórica en código/commits (Etapas 1–17 EN1) mapea así:
 | 3 | Etapa 10 — modelo maestro ([`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md)) |
 | 4 | Etapa 11 — `nodeone/core/services/` |
 | 5 | Etapa 5 — integración EMembership…EAppointments (runtime por org) |
-| **6** | **En curso** — dominio comercial ([`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md)) |
+| **6** | **En curso** — dominio comercial v1.2 modelado; **pendiente aprobación** ([`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) § Guía de aprobación) |
 | 7 | Scaffold exploratorio: Etapas EN1 6–7, 12, 14–17 (MVP, KDS, delivery, menú QR) — **revisar tras cierre Etapa 6** |
 | 8 | Scaffold: Etapas EN1 8, 13 — bus eventos + `nodeone/core/sync/` |
 | 9–11 | Pendiente — hardware, FE Panamá, piloto |
@@ -299,11 +299,11 @@ Manifest: `nodeone/modules/eappointments/manifest.py`.
 
 **Entregable:** [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md)
 
-**Criterio de cierre:** documento 6.1–6.9 aprobado; cero preguntas abiertas críticas; **sin código nuevo** hasta entonces.
+**Criterio de cierre:** documento 6.1–6.9 aprobado (guía de aprobación en entregable); cero preguntas abiertas críticas; **sin código nuevo** hasta entonces.
 
-**Estado:** en definición (2026-07-08).
+**Estado:** modelado v1.2 (2026-07-08) — **pendiente sesión de aprobación**.
 
-**Siguiente:** V3 Etapa 7 — Construcción del dominio (inventario, caja, pedidos, reportes, reembolsos).
+**Siguiente (solo tras aprobación):** V3 Etapa 7 — Construcción del dominio (chat nuevo + GO explícito).
 
 ---
 
@@ -691,4 +691,4 @@ FUERA: EPayRoll · EM+Acción · EClassOne · Odoo
 
 ---
 
-*Última actualización: 2026-07-08 (V3.1 — Etapa 6 Dominio Comercial; etapas 7–11 reorganizadas). Cambios de alcance requieren acuerdo explícito del responsable del proyecto.*
+*Última actualización: 2026-07-08 (V3.1 — Etapa 6 v1.2 modelado, pendiente aprobación). Cambios de alcance requieren acuerdo explícito del responsable del proyecto.*

@@ -4,8 +4,8 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión doc | **1.2** (6.3–6.9 modelados — pendiente aprobación integral) |
-| Estado | **En definición** — bloques 6.3–6.4 avanzados; pendiente aprobación responsable |
+| Versión doc | **1.2** |
+| Estado | **Modelado v1.2 — pendiente aprobación responsable** (sin código hasta cierre) |
 | Alcance edición | Solo Dev EN1 (`develop`) |
 | Master plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) v3.1 |
 | Modelo maestro Core | [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
@@ -911,6 +911,54 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 ```
 
 6.3 primero porque condiciona todo lo demás.
+
+---
+
+## Guía de aprobación — cierre Etapa 6
+
+**Una sesión.** Objetivo: validar decisiones v1.2 y firmar cierre. **No es implementación.**
+
+### Decisiones críticas (validar sí / no / ajuste)
+
+| # | Bloque | Pregunta de cierre | Doc |
+|---|--------|-------------------|-----|
+| 1 | 6.3 | ¿**Pedido** es el agregado raíz y la factura es derivada? | §6.3 |
+| 2 | 6.3 | ¿Tres ejes separados: operación, pago, fiscal? | §6.3 |
+| 3 | 6.1 | ¿Jerarquía empresa → sucursal → POS → caja → turno? | §6.1 |
+| 4 | 6.2 | ¿Mesero no cobra en restaurante; cajero abre turno? | §6.2 |
+| 5 | 6.4 | ¿Restaurante: confirmar cocina **antes** de pagar? | §6.4 |
+| 6 | 6.5 | ¿Retail descuenta en `paid`; despacho en `delivered`? | §6.5 |
+| 7 | 6.6 | ¿Arqueo ciego; efectivo solo con turno abierto? | §6.6 |
+| 8 | 6.7 | ¿N pagos por pedido; propina como línea `TIP`? | §6.7 |
+| 9 | 6.8 | ¿FE vía app `efactura`; emisión default `on_paid`? | §6.8 |
+| 10 | 6.9 | ¿Servidor fuente de verdad; conflictos pedido = manual? | §6.9 |
+
+### Checklist por bloque
+
+| Bloque | Modelado | Aprobado | Observaciones |
+|--------|:--------:|:--------:|---------------|
+| 6.1 Organización | ✓ | ☐ | |
+| 6.2 Personas / roles | ✓ | ☐ | |
+| 6.3 Documento maestro | ✓ | ☐ | |
+| 6.4 Flujos verticales | ✓ | ☐ | |
+| 6.5 Inventario | ✓ | ☐ | |
+| 6.6 Caja | ✓ | ☐ | |
+| 6.7 Pagos | ✓ | ☐ | |
+| 6.8 Facturación | ✓ | ☐ | |
+| 6.9 Sincronización | ✓ | ☐ | |
+
+### Cierre formal
+
+| Campo | Valor |
+|-------|--------|
+| Documento | `EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md` v1.2 |
+| Resultado | ☐ **Aprobado** · ☐ Aprobado con cambios · ☐ Rechazado |
+| Responsable | _________________________ Fecha: _________ |
+| Cambios acordados | (si aplica) |
+
+**Tras aprobación:** actualizar estado a **Cerrada** en este doc y en Master Plan; **recién entonces** se autoriza planificar V3 Etapa 7 (con GO explícito en chat nuevo).
+
+**Hasta entonces:** Regla 7 vigente — congelar features POS nuevas; scaffold solo mantenimiento.
 
 ---
 

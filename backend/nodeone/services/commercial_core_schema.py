@@ -18,6 +18,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
                 order_ref VARCHAR(50) NOT NULL,
                 status VARCHAR(32) NOT NULL DEFAULT 'draft',
+                payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
+                fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
                 contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 subtotal DOUBLE PRECISION NOT NULL DEFAULT 0,
@@ -41,6 +43,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 organization_id INTEGER NOT NULL,
                 order_ref VARCHAR(50) NOT NULL,
                 status VARCHAR(32) NOT NULL DEFAULT 'draft',
+                payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
+                fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
                 contact_id INTEGER,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 subtotal REAL NOT NULL DEFAULT 0,
@@ -57,6 +61,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
             CREATE INDEX IF NOT EXISTS ix_core_commercial_order_org ON core_commercial_order (organization_id);
             """
         _exec(engine, ddl, printfn, 'core_commercial_order')
+    else:
+        _ensure_order_status_axes(engine, insp, printfn)
 
     if 'core_commercial_order_line' not in tables:
         ddl = """
@@ -182,6 +188,54 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
             );
             """
         _exec(engine, ddl, printfn, 'core_pos_terminal')
+
+
+def _ensure_order_status_axes(engine, insp, printfn) -> None:
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    dialect = engine.dialect.name
+    stmts: list[str] = []
+    if 'payment_status' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN IF NOT EXISTS payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid'"
+            )
+        else:
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid'"
+            )
+    if 'fiscal_status' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN IF NOT EXISTS fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required'"
+            )
+        else:
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required'"
+            )
+    if stmts:
+        with engine.begin() as conn:
+            for stmt in stmts:
+                conn.execute(text(stmt))
+        if printfn:
+            printfn('core_commercial_order: columnas payment_status / fiscal_status añadidas')
+    if dialect == 'postgresql':
+        backfill = """
+        UPDATE core_commercial_order
+        SET payment_status = CASE
+            WHEN COALESCE(amount_paid, 0) <= 0 THEN 'unpaid'
+            WHEN COALESCE(amount_paid, 0) < COALESCE(grand_total, 0) THEN 'partial'
+            WHEN COALESCE(amount_paid, 0) = COALESCE(grand_total, 0) THEN 'paid'
+            ELSE 'overpaid'
+        END
+        WHERE payment_status IS NULL OR payment_status = 'unpaid'
+          AND COALESCE(amount_paid, 0) > 0
+        """
+        with engine.begin() as conn:
+            conn.execute(text(backfill))
 
 
 def _exec(engine, ddl: str, printfn, label: str) -> None:

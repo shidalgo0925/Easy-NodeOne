@@ -32,6 +32,76 @@ class TestCommerceConstants(unittest.TestCase):
 
         self.assertIn(ev.COMMERCE_ORDER_CREATED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_PAYMENT_CAPTURED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_ORDER_PAYMENT_STATUS_CHANGED, ev.COMMERCE_EVENT_TYPES)
+
+    def test_compute_order_payment_status(self):
+        from nodeone.core.commerce.constants import (
+            ORDER_PAYMENT_STATUS_OVERPAID,
+            ORDER_PAYMENT_STATUS_PAID,
+            ORDER_PAYMENT_STATUS_PARTIAL,
+            ORDER_PAYMENT_STATUS_UNPAID,
+            compute_order_payment_status,
+        )
+
+        self.assertEqual(compute_order_payment_status(0, 10), ORDER_PAYMENT_STATUS_UNPAID)
+        self.assertEqual(compute_order_payment_status(5, 10), ORDER_PAYMENT_STATUS_PARTIAL)
+        self.assertEqual(compute_order_payment_status(10, 10), ORDER_PAYMENT_STATUS_PAID)
+        self.assertEqual(compute_order_payment_status(12, 10), ORDER_PAYMENT_STATUS_OVERPAID)
+
+
+class TestPaymentServiceAxis(unittest.TestCase):
+    @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_captured')
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_initiated')
+    @patch('nodeone.core.commerce.payment.PaymentService._next_payment_ref', return_value='PAY-0001')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.payment.CoreCommercialOrder')
+    def test_capture_updates_payment_status_not_operational(
+        self,
+        mock_order_cls,
+        mock_payment_cls,
+        mock_db,
+        _next_ref,
+        mock_initiated,
+        mock_captured,
+        mock_payment_changed,
+    ):
+        from nodeone.core.commerce.constants import ORDER_PAYMENT_STATUS_PAID, ORDER_STATUS_IN_PROGRESS
+        from nodeone.core.commerce.payment import PaymentService
+
+        order = MagicMock()
+        order.id = 7
+        order.order_ref = 'POS-0001'
+        order.status = ORDER_STATUS_IN_PROGRESS
+        order.payment_status = 'unpaid'
+        order.amount_paid = 0.0
+        order.grand_total = 10.0
+        order.currency = 'USD'
+        order.version = 1
+
+        def _sync():
+            order.payment_status = ORDER_PAYMENT_STATUS_PAID
+            return ORDER_PAYMENT_STATUS_PAID
+
+        order.sync_payment_status.side_effect = _sync
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        pay_row = MagicMock()
+        pay_row.id = 1
+        pay_row.organization_id = 1
+        pay_row.payment_ref = 'PAY-0001'
+        pay_row.status = 'captured'
+        pay_row.payment_type = 'cash'
+        pay_row.amount = 10.0
+        pay_row.currency = 'USD'
+        pay_row.captured_at = None
+        mock_payment_cls.return_value = pay_row
+
+        PaymentService.capture(1, {'order_id': 7, 'amount': 10})
+
+        self.assertEqual(order.status, ORDER_STATUS_IN_PROGRESS)
+        mock_payment_changed.assert_called_once()
 
 
 class TestOrderService(unittest.TestCase):

@@ -11,6 +11,45 @@ ORDER_STATUS_DELIVERED = 'delivered'
 ORDER_STATUS_CANCELLED = 'cancelled'
 ORDER_STATUS_REFUNDED = 'refunded'
 
+# Alias semántico (dominio Etapa 6 — eje operativo)
+OPERATIONAL_STATUS_DRAFT = ORDER_STATUS_DRAFT
+OPERATIONAL_STATUS_CONFIRMED = ORDER_STATUS_CONFIRMED
+OPERATIONAL_STATUS_IN_PROGRESS = ORDER_STATUS_IN_PROGRESS
+OPERATIONAL_STATUS_READY = ORDER_STATUS_READY
+OPERATIONAL_STATUS_DELIVERED = ORDER_STATUS_DELIVERED
+OPERATIONAL_STATUS_CANCELLED = ORDER_STATUS_CANCELLED
+OPERATIONAL_STATUS_REFUNDED = ORDER_STATUS_REFUNDED
+
+# --- Eje pago del pedido (Etapa 7) ---
+ORDER_PAYMENT_STATUS_UNPAID = 'unpaid'
+ORDER_PAYMENT_STATUS_PARTIAL = 'partial'
+ORDER_PAYMENT_STATUS_PAID = 'paid'
+ORDER_PAYMENT_STATUS_OVERPAID = 'overpaid'
+
+ORDER_PAYMENT_STATUSES = frozenset(
+    {
+        ORDER_PAYMENT_STATUS_UNPAID,
+        ORDER_PAYMENT_STATUS_PARTIAL,
+        ORDER_PAYMENT_STATUS_PAID,
+        ORDER_PAYMENT_STATUS_OVERPAID,
+    }
+)
+
+# --- Eje fiscal del pedido (Etapa 7) ---
+ORDER_FISCAL_STATUS_NOT_REQUIRED = 'not_required'
+ORDER_FISCAL_STATUS_PENDING = 'pending'
+ORDER_FISCAL_STATUS_INVOICED = 'invoiced'
+ORDER_FISCAL_STATUS_CANCELLED = 'cancelled'
+
+ORDER_FISCAL_STATUSES = frozenset(
+    {
+        ORDER_FISCAL_STATUS_NOT_REQUIRED,
+        ORDER_FISCAL_STATUS_PENDING,
+        ORDER_FISCAL_STATUS_INVOICED,
+        ORDER_FISCAL_STATUS_CANCELLED,
+    }
+)
+
 ORDER_STATUSES = frozenset(
     {
         ORDER_STATUS_DRAFT,
@@ -137,3 +176,15 @@ def can_transition_order_status(current: str, target: str) -> bool:
     if cur not in ORDER_STATUSES or tgt not in ORDER_STATUSES:
         return False
     return tgt in ORDER_STATUS_TRANSITIONS.get(cur, frozenset())
+
+
+def compute_order_payment_status(amount_paid: float, grand_total: float) -> str:
+    paid = round(float(amount_paid or 0), 2)
+    total = round(float(grand_total or 0), 2)
+    if paid <= 0:
+        return ORDER_PAYMENT_STATUS_UNPAID
+    if paid < total:
+        return ORDER_PAYMENT_STATUS_PARTIAL
+    if paid == total:
+        return ORDER_PAYMENT_STATUS_PAID
+    return ORDER_PAYMENT_STATUS_OVERPAID

@@ -16,6 +16,8 @@ class CoreCommercialOrder(db.Model):
     )
     order_ref = db.Column(db.String(50), nullable=False, index=True)
     status = db.Column(db.String(32), nullable=False, default='draft')
+    payment_status = db.Column(db.String(32), nullable=False, default='unpaid')
+    fiscal_status = db.Column(db.String(32), nullable=False, default='not_required')
     contact_id = db.Column(db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True)
     currency = db.Column(db.String(8), nullable=False, default='USD')
     subtotal = db.Column(db.Float, nullable=False, default=0.0)
@@ -39,6 +41,21 @@ class CoreCommercialOrder(db.Model):
     __table_args__ = (
         db.UniqueConstraint('organization_id', 'order_ref', name='uq_core_commercial_order_ref'),
     )
+
+    @property
+    def operational_status(self) -> str:
+        return str(self.status or 'draft')
+
+    @operational_status.setter
+    def operational_status(self, value: str) -> None:
+        self.status = (value or 'draft').strip().lower()
+
+    def sync_payment_status(self) -> str:
+        from nodeone.core.commerce.constants import compute_order_payment_status
+
+        ps = compute_order_payment_status(float(self.amount_paid or 0), float(self.grand_total or 0))
+        self.payment_status = ps
+        return ps
 
 
 class CoreCommercialOrderLine(db.Model):

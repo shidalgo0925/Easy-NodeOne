@@ -8,7 +8,11 @@ from models.commercial_core import (
     CoreCommercialPayment,
     CorePosTerminal,
 )
-from nodeone.core.commerce.constants import PAYMENT_STATUS_CAPTURED
+from nodeone.core.commerce.constants import (
+    ORDER_FISCAL_STATUS_NOT_REQUIRED,
+    ORDER_PAYMENT_STATUS_UNPAID,
+    PAYMENT_STATUS_CAPTURED,
+)
 from nodeone.core.commerce.dtos import (
     CashShiftDTO,
     OrderDTO,
@@ -34,11 +38,14 @@ def order_to_dto(row: CoreCommercialOrder) -> OrderDTO:
         organization_id=int(row.organization_id),
         order_ref=str(row.order_ref),
         status=str(row.status),
+        payment_status=str(row.payment_status or ORDER_PAYMENT_STATUS_UNPAID),
+        fiscal_status=str(row.fiscal_status or ORDER_FISCAL_STATUS_NOT_REQUIRED),
         contact_id=int(row.contact_id) if row.contact_id else None,
         currency=str(row.currency or 'USD'),
         subtotal=float(row.subtotal or 0),
         tax_total=float(row.tax_total or 0),
         grand_total=float(row.grand_total or 0),
+        amount_paid=float(row.amount_paid or 0),
         lines=lines,
         source_app_id=str(row.source_app_id or 'eposone'),
         created_at=row.created_at,

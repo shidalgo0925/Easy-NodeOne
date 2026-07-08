@@ -6,6 +6,8 @@ from typing import Any
 
 from models.commercial_core import CoreCommercialOrder, CoreCommercialOrderLine
 from nodeone.core.commerce.constants import (
+    ORDER_FISCAL_STATUS_NOT_REQUIRED,
+    ORDER_PAYMENT_STATUS_UNPAID,
     ORDER_STATUS_CONFIRMED,
     ORDER_STATUS_DRAFT,
     can_transition_order_status,
@@ -15,6 +17,7 @@ from nodeone.core.commerce.events import (
     COMMERCE_ORDER_CANCELLED,
     COMMERCE_ORDER_CONFIRMED,
     COMMERCE_ORDER_CREATED,
+    COMMERCE_ORDER_PAYMENT_STATUS_CHANGED,
     COMMERCE_ORDER_STATUS_CHANGED,
 )
 from nodeone.core.commerce.persistence import order_to_dto
@@ -109,6 +112,8 @@ class OrderService:
             organization_id=oid,
             order_ref=order_ref,
             status=str(data.get('status') or ORDER_STATUS_DRAFT).strip().lower() or ORDER_STATUS_DRAFT,
+            payment_status=ORDER_PAYMENT_STATUS_UNPAID,
+            fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
             contact_id=int(data['contact_id']) if data.get('contact_id') else None,
             currency=str(data.get('currency') or 'USD')[:8],
             subtotal=subtotal,
@@ -126,6 +131,7 @@ class OrderService:
             oid,
             order_ref=dto.order_ref,
             status=dto.status,
+            payment_status=dto.payment_status,
             grand_total=dto.grand_total,
             source_app_id=source_app_id,
             extra={'order_id': dto.id},
@@ -216,11 +222,14 @@ class OrderService:
         *,
         order_ref: str,
         status: str,
+        payment_status: str | None = None,
         grand_total: float | None = None,
         source_app_id: str = 'eposone',
         extra: dict[str, Any] | None = None,
     ):
         payload: dict[str, Any] = {'order_ref': order_ref, 'status': status}
+        if payment_status is not None:
+            payload['payment_status'] = payment_status
         if grand_total is not None:
             payload['grand_total'] = grand_total
         if extra:
@@ -229,6 +238,26 @@ class OrderService:
             organization_id,
             COMMERCE_ORDER_CREATED,
             payload,
+            source_app_id=source_app_id,
+        )
+
+    @staticmethod
+    def publish_payment_status_changed(
+        organization_id: int,
+        *,
+        order_ref: str,
+        from_status: str,
+        to_status: str,
+        source_app_id: str = 'eposone',
+    ):
+        return AuditService.publish_domain_event(
+            organization_id,
+            COMMERCE_ORDER_PAYMENT_STATUS_CHANGED,
+            {
+                'order_ref': order_ref,
+                'from_payment_status': from_status,
+                'to_payment_status': to_status,
+            },
             source_app_id=source_app_id,
         )
 

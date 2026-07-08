@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from models.commercial_core import CoreCommercialOrder, CoreCommercialPayment
-from nodeone.core.commerce.constants import ORDER_STATUS_CONFIRMED, PAYMENT_STATUS_CAPTURED, PAYMENT_TYPE_CASH
+from nodeone.core.commerce.constants import PAYMENT_STATUS_CAPTURED, PAYMENT_TYPE_CASH
 from nodeone.core.commerce.dtos import PaymentDTO
 from nodeone.core.commerce.events import (
     COMMERCE_PAYMENT_CAPTURED,
@@ -14,7 +14,7 @@ from nodeone.core.commerce.events import (
     COMMERCE_PAYMENT_INITIATED,
     COMMERCE_PAYMENT_REFUNDED,
 )
-from nodeone.core.commerce.order import OrderValidationError
+from nodeone.core.commerce.order import OrderService, OrderValidationError
 from nodeone.core.commerce.persistence import payment_to_dto
 from nodeone.core.services.audit import AuditService
 
@@ -75,19 +75,20 @@ class PaymentService:
             captured_at=datetime.utcnow(),
         )
         db.session.add(row)
+        prev_payment_status = str(order.payment_status or 'unpaid')
         order.amount_paid = round(float(order.amount_paid or 0) + amount, 2)
         order.version = int(order.version or 1) + 1
-        if order.amount_paid >= float(order.grand_total or 0) and order.status not in ('cancelled', 'refunded'):
-            order.status = ORDER_STATUS_CONFIRMED
+        new_payment_status = order.sync_payment_status()
         db.session.commit()
 
-        if order.status == ORDER_STATUS_CONFIRMED:
-            try:
-                from nodeone.modules.eposone.kds_service import KdsService
-
-                KdsService.maybe_enqueue_for_order_status(oid, int(order.id), ORDER_STATUS_CONFIRMED)
-            except Exception:
-                pass
+        if new_payment_status != prev_payment_status:
+            OrderService.publish_payment_status_changed(
+                oid,
+                order_ref=str(order.order_ref),
+                from_status=prev_payment_status,
+                to_status=new_payment_status,
+                source_app_id=source_app_id,
+            )
 
         PaymentService.publish_captured(
             oid,

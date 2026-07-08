@@ -31,11 +31,14 @@ class OrderDTO:
     organization_id: int
     order_ref: str
     status: str
+    payment_status: str
+    fiscal_status: str
     contact_id: int | None
     currency: str
     subtotal: float
     tax_total: float
     grand_total: float
+    amount_paid: float
     lines: tuple[OrderLineDTO, ...]
     source_app_id: str
     created_at: datetime | None = None
@@ -46,11 +49,15 @@ class OrderDTO:
             'organization_id': self.organization_id,
             'order_ref': self.order_ref,
             'status': self.status,
+            'operational_status': self.status,
+            'payment_status': self.payment_status,
+            'fiscal_status': self.fiscal_status,
             'contact_id': self.contact_id,
             'currency': self.currency,
             'subtotal': self.subtotal,
             'tax_total': self.tax_total,
             'grand_total': self.grand_total,
+            'amount_paid': self.amount_paid,
             'lines': [line.to_dict() for line in self.lines],
             'source_app_id': self.source_app_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,

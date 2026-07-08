@@ -41,6 +41,44 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             source_app_id='eposone',
         )
         return
+    if op == 'open_cash_shift':
+        from nodeone.core.commerce.cash import CashRegisterService
+
+        payload = dict(dto.payload or {})
+        CashRegisterService.open_shift(
+            int(dto.organization_id),
+            register_ref=str(payload.get('register_ref') or ''),
+            opening_balance=float(payload.get('opening_balance') or 0),
+            source_app_id='eposone',
+        )
+        return
+    if op == 'reconcile_cash_shift':
+        from nodeone.core.commerce.cash import CashRegisterService
+
+        payload = dict(dto.payload or {})
+        shift_id = payload.get('shift_id')
+        if not shift_id:
+            raise OrderValidationError('shift_id_required')
+        CashRegisterService.begin_reconcile(
+            int(dto.organization_id),
+            int(shift_id),
+            counted_amount=float(payload.get('counted_amount') or 0),
+            source_app_id='eposone',
+        )
+        return
+    if op == 'close_cash_shift':
+        from nodeone.core.commerce.cash import CashRegisterService
+
+        payload = dict(dto.payload or {})
+        shift_id = payload.get('shift_id')
+        if not shift_id:
+            raise OrderValidationError('shift_id_required')
+        CashRegisterService.close_shift(
+            int(dto.organization_id),
+            int(shift_id),
+            source_app_id='eposone',
+        )
+        return
     raise OrderValidationError(f'unsupported_operation:{op}')
 
 

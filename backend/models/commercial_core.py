@@ -107,6 +107,9 @@ class CoreCommercialPayment(db.Model):
     amount = db.Column(db.Float, nullable=False, default=0.0)
     currency = db.Column(db.String(8), nullable=False, default='USD')
     captured_at = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
+    cash_shift_id = db.Column(
+        db.Integer, db.ForeignKey('core_cash_shift.id', ondelete='SET NULL'), nullable=True, index=True
+    )
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     order = db.relationship('CoreCommercialOrder', backref=db.backref('payments', lazy='dynamic'))
@@ -127,8 +130,36 @@ class CoreCashShift(db.Model):
     status = db.Column(db.String(32), nullable=False, default='open')
     opening_balance = db.Column(db.Float, nullable=False, default=0.0)
     closing_balance = db.Column(db.Float, nullable=True)
+    counted_amount = db.Column(db.Float, nullable=True)
+    expected_balance = db.Column(db.Float, nullable=True)
     opened_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     closed_at = db.Column(db.DateTime, nullable=True)
+
+    movements = db.relationship(
+        'CoreCashMovement',
+        backref='shift',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+    )
+
+
+class CoreCashMovement(db.Model):
+    __tablename__ = 'core_cash_movement'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    shift_id = db.Column(
+        db.Integer, db.ForeignKey('core_cash_shift.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    movement_type = db.Column(db.String(32), nullable=False)
+    amount = db.Column(db.Float, nullable=False, default=0.0)
+    payment_id = db.Column(
+        db.Integer, db.ForeignKey('core_commercial_payment.id', ondelete='SET NULL'), nullable=True
+    )
+    notes = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
 class CorePosTerminal(db.Model):

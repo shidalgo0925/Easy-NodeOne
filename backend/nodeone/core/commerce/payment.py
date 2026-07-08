@@ -66,6 +66,14 @@ class PaymentService:
         payment_type = str(data.get('payment_type') or PAYMENT_TYPE_CASH).strip().lower() or PAYMENT_TYPE_CASH
         payment_ref = (data.get('payment_ref') or '').strip() or PaymentService._next_payment_ref(oid)
 
+        cash_shift_id = None
+        if payment_type == PAYMENT_TYPE_CASH:
+            from nodeone.core.commerce.cash import CashRegisterService
+
+            register_ref = (data.get('register_ref') or '').strip()
+            shift = CashRegisterService.require_open_shift(oid, register_ref)
+            cash_shift_id = int(shift.id)
+
         PaymentService.publish_initiated(
             oid,
             payment_ref=payment_ref,
@@ -84,6 +92,7 @@ class PaymentService:
             amount=amount,
             currency=str(order.currency or 'USD'),
             captured_at=datetime.utcnow(),
+            cash_shift_id=cash_shift_id,
         )
         db.session.add(row)
         prev_payment_status = str(order.payment_status or 'unpaid')
@@ -124,6 +133,21 @@ class PaymentService:
             amount=amount,
             source_app_id=source_app_id,
         )
+        if cash_shift_id is not None:
+            try:
+                from nodeone.core.commerce.cash import CashRegisterService
+                from nodeone.core.commerce.constants import CASH_MOVEMENT_SALE_CASH
+
+                CashRegisterService.record_movement(
+                    oid,
+                    int(cash_shift_id),
+                    CASH_MOVEMENT_SALE_CASH,
+                    amount,
+                    payment_id=int(row.id),
+                    source_app_id=source_app_id,
+                )
+            except Exception:
+                pass
         return payment_to_dto(row, order_ref=str(order.order_ref))
 
     @staticmethod
@@ -159,6 +183,11 @@ class PaymentService:
             raise OrderValidationError('payment_not_found')
         if str(row.status or '') != PAYMENT_STATUS_CAPTURED:
             raise OrderValidationError('payment_not_refundable')
+
+        if str(row.payment_type or '') == PAYMENT_TYPE_CASH and row.cash_shift_id:
+            from nodeone.core.commerce.cash import CashRegisterService
+
+            CashRegisterService.assert_cash_refund_allowed(oid, int(row.cash_shift_id))
 
         order = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(row.order_id)).first()
         if order is None:
@@ -219,6 +248,21 @@ class PaymentService:
             amount=refund_amt,
             source_app_id=source_app_id,
         )
+        if str(row.payment_type or '') == PAYMENT_TYPE_CASH and row.cash_shift_id:
+            try:
+                from nodeone.core.commerce.cash import CashRegisterService
+                from nodeone.core.commerce.constants import CASH_MOVEMENT_REFUND_CASH
+
+                CashRegisterService.record_movement(
+                    oid,
+                    int(row.cash_shift_id),
+                    CASH_MOVEMENT_REFUND_CASH,
+                    refund_amt,
+                    payment_id=int(row.id),
+                    source_app_id=source_app_id,
+                )
+            except Exception:
+                pass
         return payment_to_dto(row, order_ref=str(order.order_ref))
 
     @staticmethod

@@ -163,6 +163,11 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
             );
             """
         _exec(engine, ddl, printfn, 'core_cash_shift')
+    else:
+        _ensure_cash_shift_arqueo_columns(engine, insp, printfn)
+
+    _ensure_cash_movement_table(engine, insp, printfn)
+    _ensure_payment_cash_shift_column(engine, insp, printfn)
 
     if 'core_pos_terminal' not in tables:
         if dialect == 'postgresql':
@@ -265,7 +270,85 @@ def _ensure_order_status_axes(engine, insp, printfn) -> None:
             conn.execute(text(backfill))
 
 
-def _exec(engine, ddl: str, printfn, label: str) -> None:
+def _ensure_cash_shift_arqueo_columns(engine, insp, printfn) -> None:
+    if 'core_cash_shift' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_cash_shift')}
+    dialect = engine.dialect.name
+    stmts: list[str] = []
+    if 'counted_amount' not in cols:
+        if dialect == 'postgresql':
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN IF NOT EXISTS counted_amount DOUBLE PRECISION')
+        else:
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN counted_amount REAL')
+    if 'expected_balance' not in cols:
+        if dialect == 'postgresql':
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN IF NOT EXISTS expected_balance DOUBLE PRECISION')
+        else:
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN expected_balance REAL')
+    if stmts:
+        with engine.begin() as conn:
+            for stmt in stmts:
+                conn.execute(text(stmt))
+        if printfn:
+            printfn('core_cash_shift: columnas arqueo añadidas')
+
+
+def _ensure_cash_movement_table(engine, insp, printfn) -> None:
+    if 'core_cash_movement' in insp.get_table_names():
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_cash_movement (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+            shift_id INTEGER NOT NULL REFERENCES core_cash_shift(id) ON DELETE CASCADE,
+            movement_type VARCHAR(32) NOT NULL,
+            amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            payment_id INTEGER REFERENCES core_commercial_payment(id) ON DELETE SET NULL,
+            notes VARCHAR(500),
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_cash_movement_shift ON core_cash_movement (shift_id);
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_cash_movement (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            organization_id INTEGER NOT NULL,
+            shift_id INTEGER NOT NULL,
+            movement_type VARCHAR(32) NOT NULL,
+            amount REAL NOT NULL DEFAULT 0,
+            payment_id INTEGER,
+            notes VARCHAR(500),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_cash_movement_shift ON core_cash_movement (shift_id);
+        """
+    _exec(engine, ddl, printfn, 'core_cash_movement')
+
+
+def _ensure_payment_cash_shift_column(engine, insp, printfn) -> None:
+    if 'core_commercial_payment' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_payment')}
+    if 'cash_shift_id' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_payment '
+            'ADD COLUMN IF NOT EXISTS cash_shift_id INTEGER REFERENCES core_cash_shift(id) ON DELETE SET NULL'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_payment ADD COLUMN cash_shift_id INTEGER'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_payment: columna cash_shift_id añadida')
+
+
     with engine.begin() as conn:
         for stmt in ddl.strip().split(';'):
             s = stmt.strip()

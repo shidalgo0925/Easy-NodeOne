@@ -68,7 +68,12 @@ def payment_to_dto(row: CoreCommercialPayment, *, order_ref: str) -> PaymentDTO:
     )
 
 
-def cash_shift_to_dto(row: CoreCashShift) -> CashShiftDTO:
+def cash_shift_to_dto(row: CoreCashShift, *, include_variance: bool = True) -> CashShiftDTO:
+    counted = float(row.counted_amount) if row.counted_amount is not None else None
+    expected = float(row.expected_balance) if row.expected_balance is not None else None
+    variance = None
+    if include_variance and counted is not None and expected is not None:
+        variance = round(counted - expected, 2)
     return CashShiftDTO(
         id=int(row.id),
         organization_id=int(row.organization_id),
@@ -78,6 +83,9 @@ def cash_shift_to_dto(row: CoreCashShift) -> CashShiftDTO:
         closed_at=row.closed_at,
         opening_balance=float(row.opening_balance or 0),
         closing_balance=float(row.closing_balance) if row.closing_balance is not None else None,
+        counted_amount=counted,
+        expected_balance=expected if include_variance else None,
+        cash_variance=variance,
     )
 
 

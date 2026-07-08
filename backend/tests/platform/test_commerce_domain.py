@@ -35,6 +35,8 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertIn(ev.COMMERCE_ORDER_PAYMENT_STATUS_CHANGED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_ORDER_FISCAL_STATUS_CHANGED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_INVOICE_REQUESTED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_CASH_MOVEMENT_RECORDED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_CASH_SHIFT_RECONCILING, ev.COMMERCE_EVENT_TYPES)
 
     def test_compute_order_payment_status(self):
         from nodeone.core.commerce.constants import (
@@ -52,6 +54,8 @@ class TestCommerceConstants(unittest.TestCase):
 
 
 class TestPaymentServiceAxis(unittest.TestCase):
+    @patch('nodeone.core.commerce.cash.CashRegisterService.record_movement')
+    @patch('nodeone.core.commerce.cash.CashRegisterService.require_open_shift')
     @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
     @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_captured')
@@ -70,9 +74,15 @@ class TestPaymentServiceAxis(unittest.TestCase):
         mock_captured,
         mock_payment_changed,
         mock_fiscal_changed,
+        mock_require_shift,
+        mock_record_movement,
     ):
         from nodeone.core.commerce.constants import ORDER_PAYMENT_STATUS_PAID, ORDER_STATUS_IN_PROGRESS
         from nodeone.core.commerce.payment import PaymentService
+
+        shift = MagicMock()
+        shift.id = 3
+        mock_require_shift.return_value = shift
 
         order = MagicMock()
         order.id = 7
@@ -111,12 +121,14 @@ class TestPaymentServiceAxis(unittest.TestCase):
         pay_row.captured_at = None
         mock_payment_cls.return_value = pay_row
 
-        PaymentService.capture(1, {'order_id': 7, 'amount': 10})
+        PaymentService.capture(1, {'order_id': 7, 'amount': 10, 'register_ref': 'REG-1'})
 
         self.assertEqual(order.status, ORDER_STATUS_IN_PROGRESS)
         mock_payment_changed.assert_called_once()
         mock_fiscal_changed.assert_called_once()
 
+    @patch('nodeone.core.commerce.cash.CashRegisterService.record_movement')
+    @patch('nodeone.core.commerce.cash.CashRegisterService.require_open_shift')
     @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
     @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_captured')
@@ -135,9 +147,15 @@ class TestPaymentServiceAxis(unittest.TestCase):
         mock_captured,
         mock_payment_changed,
         mock_fiscal_changed,
+        mock_require_shift,
+        mock_record_movement,
     ):
         from nodeone.core.commerce.constants import ORDER_PAYMENT_STATUS_PAID
         from nodeone.core.commerce.payment import PaymentService
+
+        shift = MagicMock()
+        shift.id = 4
+        mock_require_shift.return_value = shift
 
         order = MagicMock()
         order.id = 8
@@ -162,7 +180,10 @@ class TestPaymentServiceAxis(unittest.TestCase):
         pay_row.captured_at = None
         mock_payment_cls.return_value = pay_row
 
-        PaymentService.capture(1, {'order_id': 8, 'amount': 5, 'skip_fiscal': True})
+        PaymentService.capture(
+            1,
+            {'order_id': 8, 'amount': 5, 'skip_fiscal': True, 'register_ref': 'REG-1'},
+        )
 
         order.maybe_mark_fiscal_pending.assert_called_once_with(skip_fiscal=True)
         mock_fiscal_changed.assert_not_called()
@@ -219,7 +240,8 @@ class TestPaymentRefund(unittest.TestCase):
         pay_row.payment_ref = 'PAY-0010'
         pay_row.status = 'captured'
         pay_row.amount = 15.0
-        pay_row.payment_type = 'cash'
+        pay_row.payment_type = 'card'
+        pay_row.cash_shift_id = None
         pay_row.currency = 'USD'
         pay_row.captured_at = None
 
@@ -277,7 +299,8 @@ class TestPaymentRefund(unittest.TestCase):
         pay_row.payment_ref = 'PAY-0011'
         pay_row.status = 'captured'
         pay_row.amount = 20.0
-        pay_row.payment_type = 'cash'
+        pay_row.payment_type = 'card'
+        pay_row.cash_shift_id = None
         pay_row.currency = 'USD'
         pay_row.captured_at = None
 
@@ -304,6 +327,71 @@ class TestPaymentRefund(unittest.TestCase):
 
         with self.assertRaises(OrderValidationError):
             PaymentService.refund(1, 99)
+
+
+class TestCashRegisterService(unittest.TestCase):
+    @patch('nodeone.core.commerce.cash.CashRegisterService.publish_shift_opened')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.cash.CoreCashShift')
+    def test_open_shift_rejects_duplicate(self, mock_shift_cls, mock_db, _publish):
+        from nodeone.core.commerce.cash import CashRegisterService
+        from nodeone.core.commerce.order import OrderValidationError
+
+        mock_shift_cls.query.filter_by.return_value.first.return_value = MagicMock()
+        with self.assertRaises(OrderValidationError):
+            CashRegisterService.open_shift(1, register_ref='REG-1', opening_balance=50)
+
+    @patch('nodeone.core.commerce.cash.CashRegisterService.publish_shift_reconciling')
+    @patch('nodeone.core.commerce.cash.CashRegisterService.publish_count_recorded')
+    @patch('nodeone.core.commerce.cash.CashRegisterService.compute_expected_balance', return_value=120.0)
+    @patch('app.db')
+    @patch('nodeone.core.commerce.cash.CoreCashShift')
+    def test_begin_reconcile_hides_variance_from_dto(
+        self,
+        mock_shift_cls,
+        mock_db,
+        mock_expected,
+        _count,
+        _reconciling,
+    ):
+        from nodeone.core.commerce.cash import CashRegisterService
+        from nodeone.core.commerce.constants import CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
+
+        row = MagicMock()
+        row.id = 2
+        row.organization_id = 1
+        row.register_ref = 'REG-1'
+        row.status = CASH_SHIFT_OPEN
+        row.opening_balance = 100.0
+        row.counted_amount = None
+        row.expected_balance = None
+        row.closing_balance = None
+        row.opened_at = None
+        row.closed_at = None
+        mock_shift_cls.query.filter_by.return_value.first.return_value = row
+
+        dto = CashRegisterService.begin_reconcile(1, 2, counted_amount=115.0)
+
+        self.assertEqual(row.status, CASH_SHIFT_RECONCILING)
+        self.assertEqual(row.counted_amount, 115.0)
+        self.assertEqual(row.expected_balance, 120.0)
+        self.assertIsNone(dto.expected_balance)
+        self.assertIsNone(dto.cash_variance)
+
+    @patch('nodeone.core.commerce.cash.CashRegisterService.publish_shift_closed')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.cash.CoreCashShift')
+    def test_close_shift_requires_reconciling(self, mock_shift_cls, mock_db, _publish):
+        from nodeone.core.commerce.cash import CashRegisterService
+        from nodeone.core.commerce.constants import CASH_SHIFT_OPEN
+        from nodeone.core.commerce.order import OrderValidationError
+
+        row = MagicMock()
+        row.status = CASH_SHIFT_OPEN
+        mock_shift_cls.query.filter_by.return_value.first.return_value = row
+
+        with self.assertRaises(OrderValidationError):
+            CashRegisterService.close_shift(1, 2)
 
 
 class TestCommerceFiscalService(unittest.TestCase):

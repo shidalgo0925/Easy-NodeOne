@@ -170,9 +170,12 @@ class CashShiftDTO:
     closed_at: datetime | None
     opening_balance: float
     closing_balance: float | None
+    counted_amount: float | None = None
+    expected_balance: float | None = None
+    cash_variance: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             'id': self.id,
             'organization_id': self.organization_id,
             'register_ref': self.register_ref,
@@ -182,6 +185,13 @@ class CashShiftDTO:
             'opening_balance': self.opening_balance,
             'closing_balance': self.closing_balance,
         }
+        if self.counted_amount is not None:
+            data['counted_amount'] = self.counted_amount
+        if self.expected_balance is not None:
+            data['expected_balance'] = self.expected_balance
+        if self.cash_variance is not None:
+            data['cash_variance'] = self.cash_variance
+        return data
 
 
 @dataclass(frozen=True)

@@ -23,8 +23,10 @@ COMMERCE_DELIVERY_STARTED = 'commerce.delivery.started'
 COMMERCE_DELIVERY_COMPLETED = 'commerce.delivery.completed'
 
 COMMERCE_CASH_SHIFT_OPENED = 'commerce.cash.shift.opened'
+COMMERCE_CASH_SHIFT_RECONCILING = 'commerce.cash.shift.reconciling'
 COMMERCE_CASH_SHIFT_CLOSED = 'commerce.cash.shift.closed'
 COMMERCE_CASH_COUNT_RECORDED = 'commerce.cash.count.recorded'
+COMMERCE_CASH_MOVEMENT_RECORDED = 'commerce.cash.movement.recorded'
 
 COMMERCE_POS_TERMINAL_REGISTERED = 'commerce.pos.terminal.registered'
 
@@ -48,8 +50,10 @@ COMMERCE_EVENT_TYPES = frozenset(
         COMMERCE_DELIVERY_STARTED,
         COMMERCE_DELIVERY_COMPLETED,
         COMMERCE_CASH_SHIFT_OPENED,
+        COMMERCE_CASH_SHIFT_RECONCILING,
         COMMERCE_CASH_SHIFT_CLOSED,
         COMMERCE_CASH_COUNT_RECORDED,
+        COMMERCE_CASH_MOVEMENT_RECORDED,
         COMMERCE_POS_TERMINAL_REGISTERED,
     }
 )

@@ -25,8 +25,10 @@ def register_eposone_blueprints(app) -> None:
             app.register_blueprint(eposone_public_bp)
         from nodeone.core.commerce.fiscal_handlers import register_commerce_fiscal_handlers
         from nodeone.core.commerce.inventory_handlers import register_commerce_inventory_handlers
+        from nodeone.core.commerce.report_handlers import register_commerce_report_handlers
 
         register_commerce_fiscal_handlers()
         register_commerce_inventory_handlers()
+        register_commerce_report_handlers()
     except ImportError as e:
         print(f'Warning: No se pudo registrar eposone_bp: {e}')

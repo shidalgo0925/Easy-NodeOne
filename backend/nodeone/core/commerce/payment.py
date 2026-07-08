@@ -133,6 +133,7 @@ class PaymentService:
             payment_ref=payment_ref,
             order_ref=str(order.order_ref),
             amount=amount,
+            payment_type=payment_type,
             source_app_id=source_app_id,
         )
         if cash_shift_id is not None:
@@ -344,16 +345,20 @@ class PaymentService:
         payment_ref: str,
         order_ref: str,
         amount: float,
+        payment_type: str | None = None,
         source_app_id: str = 'eposone',
     ):
+        payload: dict[str, Any] = {
+            'payment_ref': payment_ref,
+            'order_ref': order_ref,
+            'amount': amount,
+        }
+        if payment_type:
+            payload['payment_type'] = payment_type
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_PAYMENT_CAPTURED,
-            {
-                'payment_ref': payment_ref,
-                'order_ref': order_ref,
-                'amount': amount,
-            },
+            payload,
             source_app_id=source_app_id,
         )
 

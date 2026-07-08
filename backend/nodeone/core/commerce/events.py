@@ -38,6 +38,11 @@ COMMERCE_INVENTORY_DEDUCTED = 'commerce.inventory.deducted'
 COMMERCE_INVENTORY_RETURNED = 'commerce.inventory.returned'
 COMMERCE_INVENTORY_ADJUSTED = 'commerce.inventory.adjusted'
 
+COMMERCE_REPORT_SALE_RECORDED = 'commerce.report.sale_recorded'
+COMMERCE_REPORT_REFUND_RECORDED = 'commerce.report.refund_recorded'
+COMMERCE_REPORT_ORDER_VOIDED = 'commerce.report.order_voided'
+COMMERCE_REPORT_SHIFT_CLOSED = 'commerce.report.shift_closed'
+
 COMMERCE_EVENT_TYPES = frozenset(
     {
         COMMERCE_ORDER_CREATED,
@@ -69,5 +74,9 @@ COMMERCE_EVENT_TYPES = frozenset(
         COMMERCE_INVENTORY_DEDUCTED,
         COMMERCE_INVENTORY_RETURNED,
         COMMERCE_INVENTORY_ADJUSTED,
+        COMMERCE_REPORT_SALE_RECORDED,
+        COMMERCE_REPORT_REFUND_RECORDED,
+        COMMERCE_REPORT_ORDER_VOIDED,
+        COMMERCE_REPORT_SHIFT_CLOSED,
     }
 )

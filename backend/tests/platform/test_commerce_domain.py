@@ -40,6 +40,7 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertIn(ev.COMMERCE_AUTHORIZATION_APPLIED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_INVENTORY_RESERVED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_INVENTORY_DEDUCTED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_REPORT_SALE_RECORDED, ev.COMMERCE_EVENT_TYPES)
 
     def test_inventory_policy_helpers(self):
         from nodeone.core.commerce.constants import (
@@ -668,6 +669,96 @@ class TestCommerceInventoryService(unittest.TestCase):
         mod.register_commerce_inventory_handlers()
         mod.register_commerce_inventory_handlers()
         self.assertEqual(mock_subscribe.call_count, 2)
+
+
+class TestCommerceReportService(unittest.TestCase):
+    @patch('nodeone.core.commerce.reports.AuditService.publish_domain_event')
+    def test_payment_captured_publishes_sale_recorded(self, mock_publish):
+        from nodeone.core.commerce.events import COMMERCE_PAYMENT_CAPTURED, COMMERCE_REPORT_SALE_RECORDED
+        from nodeone.core.commerce.reports import CommerceReportService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=20,
+            organization_id=1,
+            event_type=COMMERCE_PAYMENT_CAPTURED,
+            payload={
+                'order_ref': 'POS-0200',
+                'payment_ref': 'PAY-001',
+                'amount': 42.5,
+                'payment_type': 'cash',
+            },
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceReportService.process_payment_captured(msg)
+        self.assertEqual(result['status'], 'published')
+        self.assertEqual(result['metric'], 'sale')
+        mock_publish.assert_called_once()
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_REPORT_SALE_RECORDED)
+        self.assertEqual(mock_publish.call_args[0][2]['amount'], 42.5)
+
+    @patch('nodeone.core.commerce.reports.AuditService.publish_domain_event')
+    def test_payment_refunded_publishes_refund_recorded(self, mock_publish):
+        from nodeone.core.commerce.events import COMMERCE_REPORT_REFUND_RECORDED
+        from nodeone.core.commerce.reports import CommerceReportService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=21,
+            organization_id=1,
+            event_type='commerce.payment.refunded',
+            payload={'order_ref': 'POS-0201', 'payment_ref': 'PAY-002', 'amount': 10},
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceReportService.process_payment_refunded(msg)
+        self.assertEqual(result['status'], 'published')
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_REPORT_REFUND_RECORDED)
+
+    @patch('nodeone.core.commerce.reports.AuditService.publish_domain_event')
+    def test_shift_closed_publishes_report_metric(self, mock_publish):
+        from nodeone.core.commerce.events import COMMERCE_REPORT_SHIFT_CLOSED
+        from nodeone.core.commerce.reports import CommerceReportService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=22,
+            organization_id=1,
+            event_type='commerce.cash.shift.closed',
+            payload={'register_ref': 'REG-1', 'closing_balance': 500, 'variance': -2.5},
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceReportService.process_cash_shift_closed(msg)
+        self.assertEqual(result['status'], 'published')
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_REPORT_SHIFT_CLOSED)
+
+    @patch('nodeone.core.commerce.reports.CommerceReportService.process_payment_captured')
+    def test_handler_swallows_errors(self, mock_process):
+        from nodeone.core.commerce.report_handlers import _on_payment_captured
+        from nodeone.core.platform.events import DomainEventMessage
+
+        mock_process.side_effect = RuntimeError('boom')
+        _on_payment_captured(
+            DomainEventMessage(
+                id=23,
+                organization_id=1,
+                event_type='commerce.payment.captured',
+                payload={'order_ref': 'X', 'amount': 1},
+                source_app_id='eposone',
+                created_at=None,
+            )
+        )
+
+    @patch('nodeone.core.commerce.report_handlers.subscribe')
+    def test_register_handlers_once(self, mock_subscribe):
+        import nodeone.core.commerce.report_handlers as mod
+
+        mod._REGISTERED = False
+        mod.register_commerce_report_handlers()
+        mod.register_commerce_report_handlers()
+        self.assertEqual(mock_subscribe.call_count, 4)
 
 
 class TestCashRegisterService(unittest.TestCase):

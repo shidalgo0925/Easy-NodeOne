@@ -217,7 +217,9 @@ El seed marca runtime `plataforma` y habilita `saas_org_module` para `eposone` e
 
 **Criterio de cierre:** EPosOne operativo en dev con launcher + shell; home en `/admin/eposone/`. Back office POS completo → Etapa 7.
 
-**Estado Etapa 6 (scaffold):** implementado en dev (2026-07-08). Pendiente checklist funcional POS (Etapa 7).
+**Estado Etapa 6 (scaffold):** implementado en dev (2026-07-08).
+
+**Criterio de cierre Etapa 6:** home/dashboard en `/admin/eposone/` con launcher + shell. **Cerrada (2026-07-08).**
 
 ---
 
@@ -229,6 +231,15 @@ Menú propio de operación comercial:
 - Sucursales, Terminales, Cajas, Turnos, Promociones, Reportes, Configuración
 
 Puede **componer** capacidades existentes del Core (`sales`, `contacts`, inventario) sin acoplarse a apps académicas.
+
+| Pieza | Ubicación |
+|-------|-----------|
+| Menú shell | `nav_menu.py` área `eposone` |
+| Rutas nativas | `/admin/eposone/section/<slug>` · `eposone/sections.py` |
+| Dashboard | `templates/eposone/dashboard.html` |
+| Compose Core | enlaces condicionados en dashboard + ítems nav a ventas/contactos/contador |
+
+**Estado Etapa 7 (scaffold):** menú back office + pantallas nativas placeholder + composición Core en dev (2026-07-08). Lógica transaccional POS y KPIs → iteraciones posteriores / Etapa 8 (eventos).
 
 ---
 

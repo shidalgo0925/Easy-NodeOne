@@ -49,6 +49,38 @@ class TestEPosOneRoutes(unittest.TestCase):
             r = c.get('/admin/eposone/', follow_redirects=False)
             self.assertIn(r.status_code, (302, 401))
 
+    def test_eposone_section_unknown_404(self):
+        with self.app.test_client() as c:
+            r = c.get('/admin/eposone/section/unknown-slug', follow_redirects=False)
+            self.assertIn(r.status_code, (302, 401, 404))
+
+    def test_eposone_nav_backoffice_items(self):
+        from nodeone.core.nav_menu import APP_AREAS
+
+        area = next(a for a in APP_AREAS if a.id == 'eposone')
+        labels = {item.label for item in area.items}
+        for expected in (
+            'Dashboard',
+            'Pedidos',
+            'Ventas',
+            'Clientes',
+            'Productos',
+            'Sucursales',
+            'Terminales',
+            'Cajas',
+            'Turnos',
+            'Promociones',
+            'Reportes',
+            'Configuración',
+        ):
+            self.assertIn(expected, labels)
+
+    def test_eposone_sections_catalog(self):
+        from nodeone.modules.eposone.sections import EPOSONE_SECTION_SLUGS
+
+        self.assertIn('orders', EPOSONE_SECTION_SLUGS)
+        self.assertIn('settings', EPOSONE_SECTION_SLUGS)
+
 
 if __name__ == '__main__':
     unittest.main()

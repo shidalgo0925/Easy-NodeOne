@@ -1,18 +1,75 @@
-"""Rutas HTML de EPosOne (Etapa 6 — scaffold nativo)."""
+"""Rutas HTML de EPosOne (Etapa 6–7)."""
 
 from __future__ import annotations
 
-from flask import Blueprint, redirect, render_template, url_for
+from flask import Blueprint, abort, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
+from nodeone.modules.eposone.sections import EPOSONE_SECTIONS, EPOSONE_SECTION_SLUGS
 
 eposone_bp = Blueprint('eposone', __name__, url_prefix='/admin/eposone')
 
 
-@eposone_bp.route('/')
-@login_required
-def eposone_home():
+def _require_eposone_admin():
     if not user_can_see_tenant_admin_menu(current_user):
         return redirect(url_for('dashboard'))
-    return render_template('eposone/home.html')
+    return None
+
+
+@eposone_bp.route('/')
+@eposone_bp.route('/dashboard')
+@login_required
+def eposone_home():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    return render_template(
+        'eposone/dashboard.html',
+        compose_links=_compose_links(),
+    )
+
+
+@eposone_bp.route('/section/<slug>')
+@login_required
+def eposone_section(slug: str):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    key = (slug or '').strip().lower()
+    if key not in EPOSONE_SECTION_SLUGS:
+        abort(404)
+    title, description = EPOSONE_SECTIONS[key]
+    return render_template(
+        'eposone/section.html',
+        section_slug=key,
+        section_title=title,
+        section_description=description,
+    )
+
+
+def _compose_links() -> list[dict[str, str]]:
+    """Enlaces a capacidades Core disponibles (sin importar apps académicas)."""
+    from flask import current_app
+
+    from nodeone.core.platform.runtime import has_saas_module, resolve_organization_id
+
+    oid = resolve_organization_id()
+    links: list[dict[str, str]] = []
+
+    def _add(label: str, endpoint: str, module_code: str | None = None) -> None:
+        if endpoint not in current_app.view_functions:
+            return
+        if module_code and not has_saas_module(module_code, oid):
+            return
+        try:
+            links.append({'label': label, 'url': url_for(endpoint)})
+        except Exception:
+            pass
+
+    _add('Clientes', 'contacts_admin.contacts_index', 'contacts')
+    _add('Cotizaciones / ventas', 'admin_sales_quotations', 'sales')
+    _add('Productos', 'admin_services_catalog.admin_services', 'sales')
+    _add('Inventario (contador)', 'contador.contador_index', 'contador')
+    _add('Reportes ventas', 'admin_analytics_sales', 'analytics')
+    return links

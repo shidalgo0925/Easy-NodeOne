@@ -10,9 +10,12 @@ MODULE = {
     'register': 'nodeone.modules.eposone.register.register_eposone_blueprints',
     'zone_blueprints': ('eposone',),
     'zone_path_prefixes': ('/admin/eposone',),
-    'zone_endpoints': ('eposone.eposone_home',),
+    'zone_endpoints': (
+        'eposone.eposone_home',
+        'eposone.eposone_section',
+    ),
     'notes': (
         'App nativa Carril 2 — no importa Membership, Events ni Certificates.',
-        'Back office completo (pedidos, cajas, inventario) en Etapa 7.',
+        'Back office POS (Etapa 7): menú en nav_menu área eposone; compone Core (sales, contacts, contador).',
     ),
 }

@@ -182,6 +182,66 @@ def _v_eposone(ctx: NavContext) -> bool:
     )
 
 
+def _v_eposone_compose_sales(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('sales')
+        and ctx.has_view_endpoint('admin_sales_quotations')
+    )
+
+
+def _v_eposone_compose_contacts(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('contacts')
+        and ctx.has_view_endpoint('contacts_admin.contacts_index')
+    )
+
+
+def _v_eposone_compose_products(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('sales')
+        and ctx.has_view_endpoint('admin_services_catalog.admin_services')
+    )
+
+
+def _v_eposone_compose_contador(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('contador')
+        and ctx.has_view_endpoint('contador.contador_index')
+    )
+
+
+def _v_eposone_compose_analytics(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('analytics')
+        and ctx.has_view_endpoint('admin_analytics_sales')
+    )
+
+
+def _eposone_section_item(
+    item_id: str,
+    label: str,
+    icon: str,
+    slug: str,
+    *,
+    visible: Callable[[NavContext], bool] | None = None,
+) -> NavAreaItem:
+    path = f'/admin/eposone/section/{slug}'
+    return NavAreaItem(
+        item_id,
+        label,
+        icon,
+        'eposone.eposone_section',
+        url_path=path,
+        visible=visible or _v_eposone,
+        active_path_prefixes=(path,),
+    )
+
+
 def _v_tienda(ctx: NavContext) -> bool:
     """Vitrina pública /services (compra y reservas del miembro)."""
     return ctx.saas_module_enabled('appointments') and ctx.has_view_endpoint('services.list')
@@ -994,16 +1054,102 @@ APP_AREAS: tuple[NavArea, ...] = (
         label='EPosOne',
         icon='fas fa-cash-register',
         visible=_v_eposone,
-        zone_blueprints=('eposone',),
-        zone_path_prefixes=('/admin/eposone',),
+        zone_blueprints=('eposone', 'contacts_admin', 'admin_services_catalog', 'contador'),
+        zone_path_prefixes=(
+            '/admin/eposone',
+            '/admin/sales/quotations',
+            '/admin/sales/commercial-contacts',
+            '/admin/contacts',
+            '/admin/services',
+            '/admin/service-categories',
+            '/admin/contador',
+            '/admin/analytics/sales',
+        ),
+        zone_endpoints=(
+            'eposone.eposone_home',
+            'eposone.eposone_section',
+            'admin_sales_quotations',
+            'contacts_admin.contacts_index',
+            'admin_services_catalog.admin_services',
+            'contador.contador_index',
+            'admin_analytics_sales',
+        ),
         items=(
             NavAreaItem(
-                'inicio',
-                'Inicio',
-                'fas fa-home',
+                'dashboard',
+                'Dashboard',
+                'fas fa-chart-line',
                 'eposone.eposone_home',
+                visible=_v_eposone,
                 active_endpoints=('eposone.eposone_home',),
+                active_path_prefixes=('/admin/eposone/dashboard',),
             ),
+            _eposone_section_item('pedidos', 'Pedidos', 'fas fa-receipt', 'orders'),
+            NavAreaItem(
+                'ventas',
+                'Ventas',
+                'fas fa-file-invoice-dollar',
+                'admin_sales_quotations',
+                url_path='/admin/sales/quotations',
+                visible=_v_eposone_compose_sales,
+                active_endpoints=(
+                    'admin_sales_quotations',
+                    'admin_sales_quotation_form',
+                    'admin_sales_commercial_contacts',
+                ),
+                active_path_prefixes=('/admin/sales/quotations', '/admin/sales/commercial-contacts'),
+            ),
+            NavAreaItem(
+                'clientes',
+                'Clientes',
+                'fas fa-address-book',
+                'contacts_admin.contacts_index',
+                visible=_v_eposone_compose_contacts,
+                active_blueprints=('contacts_admin',),
+                active_path_prefixes=('/admin/contacts',),
+            ),
+            NavAreaItem(
+                'productos',
+                'Productos',
+                'fas fa-box-open',
+                'admin_services_catalog.admin_services',
+                url_path='/admin/services',
+                visible=_v_eposone_compose_products,
+                active_endpoints=('admin_services_catalog.admin_services',),
+                active_path_prefixes=('/admin/services', '/admin/service-categories'),
+            ),
+            NavAreaItem(
+                'inventario_core',
+                'Inventario',
+                'fas fa-boxes',
+                'contador.contador_index',
+                visible=_v_eposone_compose_contador,
+                active_blueprints=('contador',),
+                active_path_prefixes=('/admin/contador',),
+            ),
+            _eposone_section_item(
+                'inventario',
+                'Inventario',
+                'fas fa-warehouse',
+                'inventory',
+                visible=lambda c: _v_eposone(c) and not _v_eposone_compose_contador(c),
+            ),
+            _eposone_section_item('sucursales', 'Sucursales', 'fas fa-store', 'branches'),
+            _eposone_section_item('terminales', 'Terminales', 'fas fa-desktop', 'terminals'),
+            _eposone_section_item('cajas', 'Cajas', 'fas fa-cash-register', 'registers'),
+            _eposone_section_item('turnos', 'Turnos', 'fas fa-user-clock', 'shifts'),
+            _eposone_section_item('promociones', 'Promociones', 'fas fa-tags', 'promotions'),
+            NavAreaItem(
+                'reportes',
+                'Reportes',
+                'fas fa-chart-bar',
+                'admin_analytics_sales',
+                url_path='/admin/analytics/sales?source=eposone',
+                visible=_v_eposone_compose_analytics,
+                active_endpoints=('admin_analytics_sales',),
+                active_path_prefixes=('/admin/analytics/sales',),
+            ),
+            _eposone_section_item('configuracion', 'Configuración', 'fas fa-cog', 'settings'),
         ),
     ),
     NavArea(

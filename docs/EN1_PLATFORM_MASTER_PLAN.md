@@ -305,7 +305,7 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 | **P2** | **11** | **Servicios compartidos (APIs Core)** | **Cerrado en dev** — `nodeone/core/services/` |
 | **P3** | **12** | **Dominio comercial (pedido, pago, factura, caja, POS)** | **Cerrado en dev** — `nodeone/core/commerce/` |
 | **P4** | **13** | **Sincronización offline (cola, reintentos, conflictos)** | **Cerrado en dev** — `nodeone/core/sync/` |
-| P5 | 14 | **EPosOne MVP comercial** | Pendiente |
+| **P5** | **14** | **EPosOne MVP comercial** | **MVP en dev** — pedidos, pagos, caja, API |
 | — | 15–18 | KDS, Delivery, Menú digital, FE Panamá | Post-MVP POS |
 | — | 19 | EPayroll (motor legal) | **Después de EPosOne validado** |
 | — | 20–24 | CRM, Membership, Events, Certificates, Appointments | Migración por app |
@@ -373,6 +373,20 @@ Paquete `backend/nodeone/core/sync/` — infraestructura offline sobre el outbox
 | Bus eventos | `retry_count`, `next_retry_at`, `retry_failed_events()` |
 
 **API:** `GET /api/platform/sync/events`, `POST /api/platform/sync/operations`, cursores `GET/PUT /api/platform/sync/cursors/<domain>`. Tests: `tests/platform/test_sync_offline.py`.
+
+### Etapa 14 — resumen (MVP)
+
+Persistencia comercial Core + API EPosOne:
+
+| Entrega | Detalle |
+|---------|---------|
+| Tablas | `core_commercial_order`, `_line`, `_payment`, `core_cash_shift`, `core_pos_terminal` |
+| Servicios | `OrderService`, `PaymentService.capture`, `CashRegisterService`, `PosTerminalService` activos |
+| API | `/api/eposone/orders`, pagos, turnos de caja, terminales |
+| UI | Sección Pedidos con listado real |
+| Offline | `eposone/sync_handlers.py` — `create_order`, `capture_payment` |
+
+**Fuera de MVP v1:** inventario POS, hardware, reportes avanzados, reembolsos. Tests: `tests/platform/test_eposone_mvp.py`.
 
 ---
 

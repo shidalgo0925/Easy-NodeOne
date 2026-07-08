@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <span class="badge bg-secondary">{{ orders_total }} pedido(s)</span>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if orders %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Estado</th>
+                            <th class="text-end">Total</th>
+                            <th>Moneda</th>
+                            <th>Creado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td><code>{{ order.order_ref }}</code></td>
+                            <td><span class="badge text-bg-light border">{{ order.status }}</span></td>
+                            <td class="text-end">{{ '%.2f'|format(order.grand_total) }}</td>
+                            <td>{{ order.currency }}</td>
+                            <td class="text-muted small">
+                                {% if order.created_at %}{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">No hay pedidos POS todavía.</p>
+                <p class="small mb-0">
+                    Creá pedidos vía <code>POST /api/eposone/orders</code> o sincronización offline
+                    (<code>operation_type: create_order</code>).
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

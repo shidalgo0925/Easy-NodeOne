@@ -3407,6 +3407,13 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_platform_sync_schema: {e}')
         try:
+            from nodeone.services.commercial_core_schema import ensure_commercial_core_schema
+
+            ensure_commercial_core_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_commercial_core_schema: {e}')
+        try:
             from nodeone.services.academic_schema import ensure_academic_schema
 
             ensure_academic_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

@@ -40,6 +40,23 @@ def eposone_section(slug: str):
     if key not in EPOSONE_SECTION_SLUGS:
         abort(404)
     title, description = EPOSONE_SECTIONS[key]
+    if key == 'orders':
+        from nodeone.core.commerce.order import OrderService
+        from nodeone.core.platform.runtime import resolve_organization_id
+
+        oid = resolve_organization_id()
+        orders: list = []
+        orders_total = 0
+        if oid is not None:
+            orders, orders_total = OrderService.search(int(oid), limit=25)
+        return render_template(
+            'eposone/orders.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            orders=orders,
+            orders_total=orders_total,
+        )
     return render_template(
         'eposone/section.html',
         section_slug=key,

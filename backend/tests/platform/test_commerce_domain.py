@@ -35,11 +35,18 @@ class TestCommerceConstants(unittest.TestCase):
 
 
 class TestOrderService(unittest.TestCase):
-    def test_create_not_ready(self):
-        from nodeone.core.commerce.order import CommerceNotReadyError, OrderService
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
 
-        with self.assertRaises(CommerceNotReadyError):
-            OrderService.create(1, {'order_ref': 'O-1'})
+        cls.app = flask_app
+
+    def test_create_requires_lines(self):
+        from nodeone.core.commerce.order import OrderService, OrderValidationError
+
+        with self.app.app_context():
+            with self.assertRaises(OrderValidationError):
+                OrderService.create(1, {})
 
     @patch('nodeone.core.commerce.order.AuditService.publish_domain_event')
     def test_publish_created(self, mock_publish):

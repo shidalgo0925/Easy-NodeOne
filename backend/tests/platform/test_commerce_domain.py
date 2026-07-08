@@ -760,6 +760,17 @@ class TestCommerceReportService(unittest.TestCase):
         mod.register_commerce_report_handlers()
         self.assertEqual(mock_subscribe.call_count, 4)
 
+    @patch('nodeone.core.commerce.fiscal_handlers.register_commerce_fiscal_handlers')
+    @patch('nodeone.core.commerce.inventory_handlers.register_commerce_inventory_handlers')
+    @patch('nodeone.core.commerce.report_handlers.register_commerce_report_handlers')
+    def test_register_commerce_bus_handlers(self, mock_report, mock_inventory, mock_fiscal):
+        from nodeone.core.commerce.register import register_commerce_bus_handlers
+
+        register_commerce_bus_handlers()
+        mock_fiscal.assert_called_once()
+        mock_inventory.assert_called_once()
+        mock_report.assert_called_once()
+
 
 class TestCashRegisterService(unittest.TestCase):
     @patch('nodeone.core.commerce.cash.CashRegisterService.publish_shift_opened')

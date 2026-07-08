@@ -52,6 +52,31 @@ def sync_events_pull():
     )
 
 
+@platform_sync_bp.route('/events/dispatch', methods=['POST'])
+@login_required
+def sync_events_dispatch():
+    gate = _require_sync_access()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    limit = int(body.get('limit', 100) or 100)
+    retry_failed = bool(body.get('retry_failed', False))
+    from nodeone.core.platform.events import dispatch_pending_events, retry_failed_events
+
+    retried = 0
+    if retry_failed:
+        retried = retry_failed_events(limit=limit, organization_id=gate)
+    dispatched = dispatch_pending_events(limit=limit, organization_id=gate)
+    return jsonify(
+        {
+            'dispatched': dispatched,
+            'retried': retried,
+            'organization_id': gate,
+            'domain': SYNC_DOMAIN_EVENTS,
+        }
+    )
+
+
 @platform_sync_bp.route('/operations', methods=['POST'])
 @login_required
 def sync_operations_enqueue():

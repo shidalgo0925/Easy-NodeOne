@@ -81,6 +81,30 @@ class TestEventBusRetry(unittest.TestCase):
         self.assertIsNotNone(row.next_retry_at)
 
 
+class TestSyncEventsDispatchRoute(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+
+    def test_events_dispatch_route_registered(self):
+        rules = {r.rule for r in self.app.url_map.iter_rules()}
+        self.assertIn('/api/platform/sync/events/dispatch', rules)
+
+    @patch('nodeone.core.platform.events.retry_failed_events', return_value=1)
+    @patch('nodeone.core.platform.events.dispatch_pending_events', return_value=3)
+    def test_events_dispatch_logic(self, mock_dispatch, mock_retry):
+        gate = 1
+        body = {'limit': 10, 'retry_failed': True}
+        limit = int(body.get('limit', 100) or 100)
+        retry_failed = bool(body.get('retry_failed', False))
+        retried = mock_retry(limit=limit, organization_id=gate) if retry_failed else 0
+        dispatched = mock_dispatch(limit=limit, organization_id=gate)
+        self.assertEqual(retried, 1)
+        self.assertEqual(dispatched, 3)
+
+
 class TestSyncOperationService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

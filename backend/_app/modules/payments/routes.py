@@ -218,10 +218,13 @@ def checkout_programa_shortcut(slug, plan_code):
 @login_required
 def program_enrollment_thanks(enrollment_id):
     from app import AcademicProgramEnrollment
+    from nodeone.modules.academic_enrollment.agenda import enrollment_needs_agenda
 
     en = AcademicProgramEnrollment.query.get_or_404(enrollment_id)
     if en.user_id != current_user.id and not getattr(current_user, 'is_admin', False):
         abort(403)
+    if enrollment_needs_agenda(en):
+        return redirect(url_for('academic_enrollment_agenda_page', enrollment_id=en.id))
     return render_template('public/program_enrollment_thanks.html', enrollment=en)
 
 

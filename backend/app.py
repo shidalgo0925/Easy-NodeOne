@@ -693,12 +693,15 @@ def get_logo_cache_key():
 @app.context_processor
 def inject_logo():
     """Inyectar función para obtener logo en todos los templates y clave de caché."""
+    from nodeone.services.nav_branding import get_platform_contact_email
+
     return dict(
         get_system_logo=get_system_logo,
         get_logo_cache_key=get_logo_cache_key,
         get_nav_logo=get_nav_logo,
         get_nav_logo_cache_key=get_nav_logo_cache_key,
         get_nav_brand_name=get_nav_brand_name,
+        get_platform_contact_email=get_platform_contact_email,
         get_platform_logo=get_platform_logo,
         datetime=datetime,
         ORG_HOME=ORG_HOME,

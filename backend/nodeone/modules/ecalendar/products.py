@@ -5,6 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
+COACHING_PRODUCTS_IIUS: list[dict[str, str]] = [
+    {'id': 'coaching_personal', 'name': 'Coaching Personal'},
+    {'id': 'coaching_ejecutivo', 'name': 'Coaching Ejecutivo'},
+]
+
 DEFAULT_PRODUCTS: list[dict[str, str]] = [
     {'id': 'easy_odoo', 'name': 'Easy Odoo'},
     {'id': 'facturacion_electronica_panama', 'name': 'Facturación Electrónica Panamá'},
@@ -38,7 +43,11 @@ def load_products(products_json: str | None = None) -> list[dict[str, str]]:
                     return out
         except json.JSONDecodeError:
             pass
-    return list(DEFAULT_PRODUCTS)
+    out = list(DEFAULT_PRODUCTS)
+    for item in COACHING_PRODUCTS_IIUS:
+        if not any(p['id'] == item['id'] for p in out):
+            out.append(dict(item))
+    return out
 
 
 def product_by_id(product_id: str, products_json: str | None = None) -> dict[str, str] | None:

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Agendar coaching — {{ program.name }} — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block head_extra %}
+<link href="{{ url_for('static', filename='css/iius-enrollment-landings.css') }}?v=iius2" rel="stylesheet">
+<style>
+.pe-agenda { max-width: 640px; margin: 0 auto; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.pe-agenda h1 { font-size: 1.35rem; font-weight: 700; color: var(--pe-navy, #1a2744); margin-bottom: .35rem; }
+.pe-agenda-lead { color: #64748b; font-size: .95rem; margin-bottom: 1.25rem; }
+.pe-agenda-msg { padding: .75rem 1rem; border-radius: 10px; font-size: .88rem; margin-bottom: 1rem; }
+.pe-agenda-msg--info { background: #f5f7fb; border: 1px solid #e2e8f0; color: #374151; }
+.pe-agenda-msg--err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.pe-agenda-label { display: block; font-weight: 700; font-size: .85rem; margin-bottom: .5rem; color: var(--pe-navy, #1a2744); }
+.pe-agenda-date { width: 100%; max-width: 280px; padding: .55rem .75rem; border: 1px solid #d1d5db; border-radius: 8px; }
+.pe-agenda-slots { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .65rem; min-height: 2rem; }
+.pe-agenda-slot { border: 1px solid var(--pe-navy, #1a2744); background: #fff; color: var(--pe-navy, #1a2744); border-radius: 999px; padding: .4rem .85rem; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.pe-agenda-slot.is-selected, .pe-agenda-slot:hover { background: var(--pe-navy, #1a2744); color: #fff; }
+.pe-agenda-btn { display: inline-flex; align-items: center; justify-content: center; padding: .65rem 1.35rem; border-radius: 999px; font-weight: 700; font-size: .88rem; border: none; cursor: pointer; background: var(--pe-navy, #1a2744); color: #fff; margin-top: 1rem; }
+.pe-agenda-btn:disabled { opacity: .5; cursor: not-allowed; }
+.pe-agenda-loading { opacity: .65; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container py-4 pe-agenda" id="pe-agenda-root" data-enrollment-id="{{ enrollment.id }}" data-timezone="{{ timezone }}">
+  <h1>Agendar tu coaching</h1>
+  <p class="pe-agenda-lead">Pago confirmado para <strong>{{ program.name }}</strong>. Elegí fecha y hora para tu sesión.</p>
+
+  {% if not calendar_ok %}
+  <div class="pe-agenda-msg pe-agenda-msg--err">La agenda no está disponible en este momento. Contactá al instituto para coordinar tu cita.</div>
+  {% else %}
+  <div class="pe-agenda-msg pe-agenda-msg--info" id="pe-agenda-status">Seleccioná una fecha.</div>
+
+  <div class="mb-3">
+    <label class="pe-agenda-label" for="pe-agenda-date">1. Fecha</label>
+    <input type="date" class="pe-agenda-date" id="pe-agenda-date" />
+  </div>
+
+  <div class="mb-3">
+    <span class="pe-agenda-label">2. Hora disponible</span>
+    <div class="pe-agenda-slots" id="pe-agenda-slots" aria-live="polite"></div>
+  </div>
+
+  <button type="button" class="pe-agenda-btn" id="pe-agenda-confirm" disabled>Confirmar cita</button>
+  {% endif %}
+</div>
+
+{% if calendar_ok %}
+<script>
+(function(){
+  var root = document.getElementById('pe-agenda-root');
+  if (!root) return;
+  var enrollmentId = root.getAttribute('data-enrollment-id');
+  var tz = root.getAttribute('data-timezone') || '';
+  var statusEl = document.getElementById('pe-agenda-status');
+  var dateInput = document.getElementById('pe-agenda-date');
+  var slotsEl = document.getElementById('pe-agenda-slots');
+  var confirmBtn = document.getElementById('pe-agenda-confirm');
+  var selectedStart = '';
+
+  function msg(text, kind) {
+    statusEl.className = 'pe-agenda-msg pe-agenda-msg--' + (kind || 'info');
+    statusEl.textContent = text;
+  }
+
+  function minDateStr() {
+    var d = new Date();
+    return d.toISOString().slice(0, 10);
+  }
+
+  function maxDateStr() {
+    var d = new Date();
+    d.setDate(d.getDate() + {{ horizon_days|default(30) }});
+    return d.toISOString().slice(0, 10);
+  }
+
+  dateInput.min = minDateStr();
+  dateInput.max = maxDateStr();
+  dateInput.value = minDateStr();
+
+  function formatSlot(iso) {
+    try {
+      return new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: tz || undefined });
+    } catch (e) { return iso; }
+  }
+
+  function loadSlots() {
+    selectedStart = '';
+    confirmBtn.disabled = true;
+    slotsEl.innerHTML = '';
+    if (!dateInput.value) return;
+    root.classList.add('pe-agenda-loading');
+    fetch('/api/ecalendar/availability?date=' + encodeURIComponent(dateInput.value), { credentials: 'same-origin' })
+      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+      .then(function(res){
+        var j = res.j || {};
+        if (!res.ok || !j.ok) {
+          msg('No hay horarios para esta fecha. Probá otro día.', 'info');
+          return;
+        }
+        var slots = j.slots || [];
+        if (!slots.length) {
+          msg('No hay horarios libres este día.', 'info');
+          return;
+        }
+        msg('Seleccioná un horario.', 'info');
+        slots.forEach(function(slot){
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'pe-agenda-slot';
+          b.textContent = formatSlot(slot.start);
+          b.addEventListener('click', function(){
+            slotsEl.querySelectorAll('.pe-agenda-slot').forEach(function(x){ x.classList.remove('is-selected'); });
+            b.classList.add('is-selected');
+            selectedStart = slot.start;
+            confirmBtn.disabled = false;
+            msg('Confirmá tu cita: ' + b.textContent, 'info');
+          });
+          slotsEl.appendChild(b);
+        });
+      })
+      .catch(function(){ msg('Error al cargar horarios.', 'err'); })
+      .finally(function(){ root.classList.remove('pe-agenda-loading'); });
+  }
+
+  dateInput.addEventListener('change', loadSlots);
+  loadSlots();
+
+  confirmBtn.addEventListener('click', function(){
+    if (!selectedStart) return;
+    confirmBtn.disabled = true;
+    root.classList.add('pe-agenda-loading');
+    fetch('/inscripcion/agendar/' + enrollmentId, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ slot_start: selectedStart })
+    })
+      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+      .then(function(res){
+        if (!res.ok || !res.j.ok) {
+          var errMap = { slot_unavailable: 'Ese horario ya no está disponible.', invalid_slot_start: 'Horario inválido.' };
+          msg(errMap[(res.j.error || '')] || 'No se pudo confirmar la cita.', 'err');
+          confirmBtn.disabled = false;
+          if ((res.j.error || '') === 'slot_unavailable') loadSlots();
+          return;
+        }
+        window.location.reload();
+      })
+      .catch(function(){
+        msg('Error de conexión.', 'err');
+        confirmBtn.disabled = false;
+      })
+      .finally(function(){ root.classList.remove('pe-agenda-loading'); });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

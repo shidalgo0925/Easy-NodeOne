@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Programas formativos — {{ get_nav_brand_name() }}{% endblock %}
+{% block title %}{{ catalog_title or 'Programas formativos' }} — {{ get_nav_brand_name() }}{% endblock %}
 
 {% block head_extra %}
 <link href="{{ url_for('static', filename='css/iius-enrollment-landings.css') }}?v=iius2" rel="stylesheet">
@@ -38,9 +38,10 @@
 {% block page_content %}
 <div class="ap-catalog">
   <div class="ap-catalog-inner">
-    <h1>Catálogo de cursos y programas</h1>
-    <p class="ap-lead">Elegí tu programa e inscribite en línea. Cada tarjeta te lleva a la página de inscripción y pago seguro en esta plataforma.</p>
+    <h1>{{ catalog_title or 'Catálogo de cursos y programas' }}</h1>
+    <p class="ap-lead">{{ catalog_lead or 'Elegí tu programa e inscribite en línea. Cada tarjeta te lleva a la página de inscripción y pago seguro en esta plataforma.' }}</p>
 
+    {% if show_catalog_filters is not defined or show_catalog_filters %}
     <form method="get" class="ap-catalog-toolbar" role="search" aria-label="Filtrar programas">
       <span class="ap-toolbar-label"><i class="fas fa-filter me-1"></i> Filtros:</span>
       <input type="search" name="q" class="form-control form-control-sm" style="max-width:14rem;" placeholder="Buscar…" value="{{ filter_q or '' }}" aria-label="Buscar programas">
@@ -62,6 +63,7 @@
       <span class="small text-muted ms-auto d-none d-md-inline">Org {{ organization_id }}</span>
       {% endif %}
     </form>
+    {% endif %}
 
     {% if catalog_can_manage and has_view_endpoint('academic_enrollment_admin.list_programs') %}
     <div class="ap-catalog-toolbar" role="toolbar" aria-label="Gestión del catálogo">

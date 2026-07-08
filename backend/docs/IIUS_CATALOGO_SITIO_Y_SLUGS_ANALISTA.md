@@ -1,9 +1,10 @@
 # IIUS — Catálogo sitio web vs plataforma (documento para analista)
 
-**Fecha:** 2026-05-22  
+**Fecha:** 2026-05-22 (slugs/precios) · **Fechas de inicio diplomados:** ver §7.1 (actualizado 2026-05-26)  
 **Audiencia:** analista de negocio / producto  
 **Sitio marketing:** [internationalinstitute.us/cursos-detalle/](https://internationalinstitute.us/cursos-detalle/)  
-**Campus / compras:** [apps.internationalinstitute.us](https://apps.internationalinstitute.us) (NodeOne, org 1)
+**Campus / compras:** [apps.internationalinstitute.us](https://apps.internationalinstitute.us) (NodeOne, org 1)  
+**Inventario landings (URLs, PDF, calendario):** [`Easy-Wiki/05_Proyectos/iius/landings_iius.md`](../../../Easy-Wiki/05_Proyectos/iius/landings_iius.md)
 
 ---
 
@@ -157,6 +158,25 @@ Estos usan el funnel **A** (`/inscripcion/`) — **referencia de “cómo debe q
 | `neuro-heuristica-coaching-vida` | Neuro-Heurística™ y Coaching de Vida | 1499 / 1799 / 2199 | Sí | `/inscripcion/neuro-heuristica-coaching-vida` |
 
 Planes: `full` (contado), `6`, `10` (un cargo hoy por total del plan).
+
+### 7.1 Fechas de inicio (fuente única — no usar WP manual)
+
+| Regla | Detalle |
+|-------|---------|
+| **Campo en EN1** | `academic_program.start_date` (admin → Programas inscripción) |
+| **API pública** | `GET https://apps.internationalinstitute.us/api/public/diplomado-inicios` |
+| **Calendario web** | [internationalinstitute.us/coaching/](https://internationalinstitute.us/coaching/) — shortcode `[iius_diplomados_calendario]` lee la API (caché WP 5 min) |
+| **Títulos en calendario** | `AcademicProgram.name` vía misma API (`by_heading[slug].name`) |
+
+Solo entran diplomados **`published`** con `start_date` definido. No publicar en calendario slugs que no existan en EN1.
+
+**Consultar fechas actuales en prod** (no copiar de tablas estáticas en este doc):
+
+```bash
+curl -sS 'https://apps.internationalinstitute.us/api/public/diplomado-inicios' | jq '.by_heading | to_entries[] | {slug: .key, fecha: .value.fecha_texto, nombre: .value.name}'
+```
+
+Referencia operativa: [`landings_iius.md`](../../../Easy-Wiki/05_Proyectos/iius/landings_iius.md) §4.
 
 ---
 

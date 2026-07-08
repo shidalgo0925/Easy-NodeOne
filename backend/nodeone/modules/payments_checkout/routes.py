@@ -748,6 +748,23 @@ def payment_success():
                 else:
                     print(f"ℹ️ Carrito ya procesado previamente para Payment ID: {payment.id}")
                 try:
+                    from nodeone.modules.academic_enrollment.agenda import find_pending_agenda_enrollment
+
+                    pending_agenda = find_pending_agenda_enrollment(
+                        user_id=current_user.id, payment_id=int(payment.id)
+                    )
+                    if pending_agenda is not None:
+                        from flask import redirect, url_for
+
+                        return redirect(
+                            url_for(
+                                'academic_enrollment_agenda_page',
+                                enrollment_id=int(pending_agenda.id),
+                            )
+                        )
+                except Exception as e:
+                    print(f"⚠️ Redirección agenda post-pago: {e}")
+                try:
                     send_payment_to_odoo(payment, current_user, cart)
                 except Exception as e:
                     print(f"⚠️ Error enviando pago a Odoo (no crítico): {e}")

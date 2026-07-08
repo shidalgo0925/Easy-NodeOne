@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Cita confirmada — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container py-5 text-center" style="max-width: 560px;">
+  <h1 class="h3 mb-3 text-success"><i class="fas fa-check-circle me-2"></i>Su coaching ha sido agendado correctamente</h1>
+  {% if enrollment.program %}
+  <p class="text-muted mb-2"><strong>{{ enrollment.program.name }}</strong></p>
+  {% endif %}
+  {% if scheduled_at %}
+  <p class="mb-1"><strong>Fecha:</strong> {{ scheduled_at.strftime('%d/%m/%Y') }}</p>
+  <p class="mb-3"><strong>Hora:</strong> {{ scheduled_at.strftime('%H:%M') }}</p>
+  {% endif %}
+  <p class="small text-muted mb-4">Revise su correo para aceptar la invitación de Google Calendar.</p>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Ir a mi panel</a>
+</div>
+{% endblock %}

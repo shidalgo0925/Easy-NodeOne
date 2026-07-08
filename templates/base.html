@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}" data-menu-build="iius-nav-develop-v4"{% if brand_preset %} data-brand="{{ brand_preset }}"{% endif %}>
+<html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}" data-menu-build="iius-nav-develop-v5"{% if brand_preset %} data-brand="{{ brand_preset }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -236,6 +236,11 @@
                         <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'public_academic_programs_catalog' %}active fw-semibold{% endif %}" href="{{ url_for('public_academic_programs_catalog') }}" title="Catálogo de cursos, diplomados y talleres"><i class="fas fa-graduation-cap" aria-hidden="true"></i><span>Programas</span></a>
                     </li>
                     {% endif %}
+                    {% if has_view_endpoint('public_coaching_programs_catalog') %}
+                    <li class="nav-item">
+                        <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'public_coaching_programs_catalog' %}active fw-semibold{% endif %}" href="{{ url_for('public_coaching_programs_catalog') }}" title="Coaching — inscripción y pago"><i class="fas fa-hands-helping" aria-hidden="true"></i><span>Coaching</span></a>
+                    </li>
+                    {% endif %}
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         {% if show_tenant_admin_menu %}
@@ -313,6 +318,10 @@
                             <li><a class="dropdown-item" href="{{ url_for('media_admin.admin_media') }}"><i class="fas fa-photo-video me-2"></i> Multimedia</a></li>
                             {% if saas_module_enabled('chatbot') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_ai') }}"><i class="fas fa-robot me-2"></i> IA</a></li>
+                            {% endif %}
+                            {% if has_view_endpoint('admin_ecalendar_settings_page') %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_settings_page') }}"><i class="fas fa-calendar-check me-2"></i> Agenda ECalendar</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_appointments_page') }}"><i class="fas fa-list me-2"></i> Gestionar citas ECalendar</a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
                             {% endif %}
@@ -430,6 +439,14 @@
                             </a>
                         </li>
                         {% endif %}
+                        {% if has_view_endpoint('public_coaching_programs_catalog') %}
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--coaching">
+                            <a class="nav-link sidebar-link {% if request.endpoint == 'public_coaching_programs_catalog' %}active{% endif %}" href="{{ url_for('public_coaching_programs_catalog') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Coaching — inscripción y pago">
+                                <i class="menu-icon fas fa-hands-helping"></i>
+                                <span class="menu-title-text">Coaching</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         {% if saas_module_enabled('events') and not academic_member_gate_active %}
                         <li class="nav-item nav-item-eventos-cta px-1 sidebar-nav-member sidebar-nav-member--eventos">
                             <a class="nav-link sidebar-link sidebar-eventos-link d-flex align-items-start gap-2 flex-wrap {% if request.blueprint == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Próximos eventos y networking">
@@ -531,6 +548,7 @@
                             </a>
                         </li>
                             {% endif %}
+                        {% endif %}
                         {% endif %}
                         {% elif show_tenant_admin_menu or (show_platform_admin_nav and current_user.is_admin) %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--dashboard">
@@ -678,10 +696,22 @@
 
             function restoreNavGroupsFromStorage() {
                 var erpChrome = document.body.getAttribute('data-erp-app-chrome') === '1';
-                document.querySelectorAll('.nav-group').forEach(function (group) {
-                    if (erpChrome && !group.classList.contains('sidebar-nav-launcher-group')) {
+                if (erpChrome) {
+                    /* Con subnav Odoo: el servidor marca el grupo activo; no reabrir todo desde localStorage. */
+                    var serverOpen = document.querySelectorAll('.sidebar-nav-launcher-group.show');
+                    if (serverOpen.length > 0) {
                         return;
                     }
+                    document.querySelectorAll('.sidebar-nav-launcher-group').forEach(function (group) {
+                        var groupName = getNavGroupKey(group);
+                        if (!groupName) return;
+                        if (localStorage.getItem('navGroup_' + groupName) === 'open') {
+                            group.classList.add('show');
+                        }
+                    });
+                    return;
+                }
+                document.querySelectorAll('.nav-group').forEach(function (group) {
                     var groupName = getNavGroupKey(group);
                     if (!groupName) return;
                     if (localStorage.getItem('navGroup_' + groupName) === 'open') {
@@ -875,6 +905,12 @@
                                 window.location.href = subLinksCollapsed[sci].href;
                                 return;
                             }
+                        }
+                        var opening = !group.classList.contains('show');
+                        if (opening) {
+                            document.querySelectorAll('.sidebar-nav-launcher-group.show').forEach(function (other) {
+                                if (other !== group) other.classList.remove('show');
+                            });
                         }
                         group.classList.toggle('show');
                         saveNavGroupsState();

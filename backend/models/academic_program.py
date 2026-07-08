@@ -43,7 +43,7 @@ class AcademicProgram(db.Model):
     slug = db.Column(db.String(200), nullable=False)
     program_type = db.Column(
         db.String(32), nullable=False, default='diplomado'
-    )  # curso, diplomado, taller, certificacion, servicio, programa
+    )  # curso, diplomado, taller, coaching, certificacion, servicio, programa
     category = db.Column(db.String(120), nullable=True)
     # Landing ①–⑦ (WP / inscripción); ver glosario en docs PLAN_MODULO_ACADEMIC_ENROLLMENT.
     marketing_tag = db.Column(db.String(120), nullable=True)  # ① área (ej. Neurociencia)
@@ -74,6 +74,8 @@ class AcademicProgram(db.Model):
     seats_limit = db.Column(db.Integer, nullable=True)
     requires_approval = db.Column(db.Boolean, default=False, nullable=False)
     status = db.Column(db.String(32), nullable=False, default='draft', index=True)  # draft, published, archived
+    requires_agenda = db.Column(db.Boolean, default=False, nullable=False)
+    ecalendar_product_id = db.Column(db.String(64), nullable=True)  # ej. coaching_personal
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -98,6 +100,7 @@ class AcademicProgram(db.Model):
             'curso': 'Curso',
             'diplomado': 'Diplomado',
             'taller': 'Taller',
+            'coaching': 'Coaching',
             'certificacion': 'Certificación',
             'servicio': 'Servicio',
             'programa': 'Programa',
@@ -149,6 +152,11 @@ class AcademicProgramEnrollment(db.Model):
     )  # draft, pending_payment, paid, confirmed, cancelled
     payment_status = db.Column(db.String(32), nullable=True)
     payment_id = db.Column(db.Integer, db.ForeignKey('payment.id', ondelete='SET NULL'), nullable=True, index=True)
+    agenda_status = db.Column(
+        db.String(32), nullable=False, default='not_required', index=True
+    )  # not_required, pending, scheduled
+    scheduled_at = db.Column(db.DateTime, nullable=True)
+    google_event_id = db.Column(db.String(256), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     confirmed_at = db.Column(db.DateTime, nullable=True)
 

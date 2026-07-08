@@ -255,5 +255,10 @@ def process_academic_program_items_after_payment(cart, payment) -> None:
             from datetime import datetime
 
             en.confirmed_at = payment.paid_at or en.confirmed_at or datetime.utcnow()
+            from nodeone.modules.academic_enrollment.agenda import init_agenda_status_on_payment
+
+            prog = en.program
+            if prog is not None:
+                init_agenda_status_on_payment(en, prog)
             db.session.add(en)
     # El commit lo hace ``process_cart_after_payment`` del monolito.

@@ -164,3 +164,22 @@ def get_nav_brand_name():
 
     return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
 
+
+_IIUS_CONTACT_EMAIL = 'internationalinstitute.us@gmail.com'
+_IIUS_BRAND_PRESETS = frozenset(
+    ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
+)
+
+
+def get_platform_contact_email():
+    """Email de contacto público (footer, mailto). Env PLATFORM_CONTACT_EMAIL; preset IIUS tiene default."""
+    explicit = (
+        os.environ.get('PLATFORM_CONTACT_EMAIL') or os.environ.get('SUPPORT_EMAIL') or ''
+    ).strip()
+    if explicit:
+        return explicit
+    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
+    if preset in _IIUS_BRAND_PRESETS:
+        return _IIUS_CONTACT_EMAIL
+    return 'info@easynodeone.com'
+

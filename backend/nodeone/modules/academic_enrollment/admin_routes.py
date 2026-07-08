@@ -15,7 +15,7 @@ academic_enrollment_admin_bp = Blueprint(
 )
 
 _SLUG_RE = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
-_PROGRAM_TYPES = ('curso', 'diplomado', 'taller', 'certificacion', 'servicio', 'programa')
+_PROGRAM_TYPES = ('curso', 'diplomado', 'taller', 'coaching', 'certificacion', 'servicio', 'programa')
 _STATUSES = ('draft', 'published', 'archived')
 _CTA_ACTIONS = ('scroll_pricing', 'plan_full')
 
@@ -653,6 +653,8 @@ def _save_program_from_form(existing, organization_id: int) -> tuple[str | None,
         academic_program_pdf_title=academic_program_pdf_title,
         show_academic_program_pdf=show_academic_program_pdf,
         media_position=media_position,
+        requires_agenda=request.form.get('requires_agenda') == '1',
+        ecalendar_product_id=(request.form.get('ecalendar_product_id') or '').strip() or None,
     )
 
     if existing is None:

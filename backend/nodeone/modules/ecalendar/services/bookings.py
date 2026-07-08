@@ -27,8 +27,13 @@ def _parse_slot_start(raw: str, cfg: ECalendarConfig) -> datetime:
     return dt.astimezone(tz)
 
 
-def build_event_title(cfg: ECalendarConfig, product_name: str, guest_name: str) -> str:
-    title = f'[{product_name}] Demo con {guest_name}'
+def build_event_title(cfg: ECalendarConfig, product: dict[str, str], guest_name: str) -> str:
+    product_id = (product.get('id') or '').strip()
+    product_name = (product.get('name') or 'Cita').strip()
+    if product_id.startswith('coaching_'):
+        title = f'{product_name} — {guest_name}'
+    else:
+        title = f'[{product_name}] Demo con {guest_name}'
     if cfg.title_prefix:
         title = f'{cfg.title_prefix} {title}'
     return title[:200]
@@ -97,7 +102,7 @@ def create_booking(cfg: ECalendarConfig, data: dict[str, Any]) -> tuple[dict[str
     if not slot_is_available(cfg, slot_start, slot_end):
         return None, 409, 'slot_unavailable'
 
-    title = build_event_title(cfg, parsed['product']['name'], parsed['name'])
+    title = build_event_title(cfg, parsed['product'], parsed['name'])
     description = '\n'.join([
         f"Nombre: {parsed['name']}",
         f"Empresa: {parsed['company'] or '—'}",

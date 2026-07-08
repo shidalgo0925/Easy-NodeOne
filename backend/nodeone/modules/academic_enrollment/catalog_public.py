@@ -36,6 +36,45 @@ TALLERES_DISPLAY_ORDER: tuple[str, ...] = (
     'taller-de-liderazgo-y-comunicacion',
 )
 
+COACHING_CATEGORY = 'Coaching'
+COACHING_DISPLAY_ORDER: tuple[str, ...] = (
+    'coaching-de-vida',
+    'coaching-espiritual-y-de-proposito',
+    'coaching-familiar',
+    'coaching-financiero',
+    'coaching-ejecutivo',
+    'coaching-individual',
+    'coaching-organizacional-empresarial',
+)
+
+
+def _sort_coaching_programs(programs: list) -> list:
+    order = {s: i for i, s in enumerate(COACHING_DISPLAY_ORDER)}
+    return sorted(
+        programs,
+        key=lambda p: (
+            order.get((p.slug or '').strip().lower(), 99),
+            int(getattr(p, 'catalog_sort_order', 0) or 0),
+            (p.name or '').lower(),
+        ),
+    )
+
+
+def _published_coaching_programs(rows: list) -> list:
+    """Bloque Coaching: slugs canónicos publicados (program_type=coaching)."""
+    by_slug = {
+        (p.slug or '').strip().lower(): p
+        for p in rows
+        if (p.status or '').strip().lower() == 'published'
+        and (p.program_type or '').strip().lower() == 'coaching'
+    }
+    out: list = []
+    for i, slug in enumerate(COACHING_DISPLAY_ORDER, 1):
+        p = by_slug.get(slug)
+        if p is not None:
+            out.append(p)
+    return out
+
 
 def _sort_talleres_programs(programs: list) -> list:
     order = {s: i for i, s in enumerate(TALLERES_DISPLAY_ORDER)}
@@ -287,6 +326,9 @@ def group_programs_for_template(
         base, q=q, category=category, program_type=program_type, status='published'
     )
     rows = base.order_by(AcademicProgram.catalog_sort_order.asc(), AcademicProgram.name.asc()).all()
+    ptype_filter = (program_type or '').strip().lower()
+    if not ptype_filter or ptype_filter == 'all':
+        rows = [p for p in rows if (p.program_type or '').strip().lower() != 'coaching']
     buckets: dict[str, list] = {}
     for p in rows:
         cat = (p.category or '').strip() or 'Otros programas'
@@ -309,6 +351,22 @@ def group_programs_for_template(
         if cat not in seen:
             ordered.append((cat, buckets[cat]))
     return ordered
+
+
+def group_coaching_programs_for_template(organization_id: int) -> list[tuple[str, list]]:
+    """Lista (título_sección, programas ORM) para vitrina /coaching."""
+    from models.academic_program import AcademicProgram
+
+    rows = (
+        AcademicProgram.query.filter_by(organization_id=int(organization_id), status='published')
+        .filter(AcademicProgram.program_type == 'coaching')
+        .order_by(AcademicProgram.catalog_sort_order.asc(), AcademicProgram.name.asc())
+        .all()
+    )
+    coaching_rows = _published_coaching_programs(rows)
+    if not coaching_rows:
+        return []
+    return [(COACHING_CATEGORY, coaching_rows)]
 
 
 def _programs_in_catalog_order(programs: list) -> list:
@@ -362,6 +420,20 @@ def adjacent_published_programs(organization_id: int, slug: str) -> tuple[object
         return (
             talleres[idx - 1] if idx > 0 else None,
             talleres[idx + 1] if idx < len(talleres) - 1 else None,
+        )
+    if key in COACHING_DISPLAY_ORDER:
+        from models.academic_program import AcademicProgram
+
+        coaching_rows = AcademicProgram.query.filter_by(
+            organization_id=int(organization_id), status='published', program_type='coaching'
+        ).all()
+        coaching = _published_coaching_programs(coaching_rows)
+        idx = next((i for i, p in enumerate(coaching) if (p.slug or '').strip().lower() == key), None)
+        if idx is None:
+            return None, None
+        return (
+            coaching[idx - 1] if idx > 0 else None,
+            coaching[idx + 1] if idx < len(coaching) - 1 else None,
         )
     idx = next((i for i, p in enumerate(rows) if (p.slug or '').strip().lower() == key), None)
     if idx is None:

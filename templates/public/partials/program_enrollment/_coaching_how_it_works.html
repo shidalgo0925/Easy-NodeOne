@@ -1,0 +1,50 @@
+<aside class="pe-coaching-how" aria-labelledby="pe-coaching-how-title">
+  <h3 class="pe-coaching-how__title" id="pe-coaching-how-title">¿Cómo funciona tu coaching?</h3>
+  <ol class="pe-coaching-how__steps">
+    <li class="pe-coaching-how__step">
+      <span class="pe-coaching-how__num" aria-hidden="true">1</span>
+      <div>
+        <strong>Inscribite y pagá</strong>
+        <span>Completá el checkout seguro en esta plataforma.</span>
+      </div>
+    </li>
+    {% if program.requires_agenda %}
+    <li class="pe-coaching-how__step">
+      <span class="pe-coaching-how__num" aria-hidden="true">2</span>
+      <div>
+        <strong>Elegí fecha y hora</strong>
+        <span>Justo después del pago, en EN1, verás los horarios disponibles.</span>
+      </div>
+    </li>
+    <li class="pe-coaching-how__step">
+      <span class="pe-coaching-how__num" aria-hidden="true">3</span>
+      <div>
+        <strong>Invitación al calendario</strong>
+        <span>Recibirás la cita por correo (Google Calendar).</span>
+      </div>
+    </li>
+    <li class="pe-coaching-how__step">
+      <span class="pe-coaching-how__num" aria-hidden="true">4</span>
+      <div>
+        <strong>Tu sesión</strong>
+        <span>Coaching online según la modalidad del programa.</span>
+      </div>
+    </li>
+    {% else %}
+    <li class="pe-coaching-how__step">
+      <span class="pe-coaching-how__num" aria-hidden="true">2</span>
+      <div>
+        <strong>Confirmación</strong>
+        <span>Recibís el comprobante y la confirmación por correo.</span>
+      </div>
+    </li>
+    <li class="pe-coaching-how__step">
+      <span class="pe-coaching-how__num" aria-hidden="true">3</span>
+      <div>
+        <strong>Acceso en tu panel</strong>
+        <span>Tu matrícula queda activa en EN1 tras el pago.</span>
+      </div>
+    </li>
+    {% endif %}
+  </ol>
+</aside>

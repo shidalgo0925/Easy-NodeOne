@@ -90,7 +90,42 @@ def register_academic_enrollment_public_routes(app):
                 filter_category=category,
                 filter_program_type=program_type,
                 filter_categories=distinct_program_categories(oid, published_only=True),
-                program_types=('curso', 'diplomado', 'taller', 'certificacion', 'servicio', 'programa'),
+                program_types=('curso', 'diplomado', 'taller', 'coaching', 'certificacion', 'servicio', 'programa'),
+            )
+
+    if 'public_coaching_programs_catalog' not in _vfs:
+
+        @app.route('/coaching', methods=['GET'])
+        def public_coaching_programs_catalog():
+            from nodeone.modules.academic_enrollment.catalog_public import (
+                catalog_can_manage_programs,
+                group_coaching_programs_for_template,
+                resolve_catalog_organization_id,
+            )
+
+            oid = resolve_catalog_organization_id()
+            if oid is None:
+                abort(404)
+            sections = group_coaching_programs_for_template(oid)
+            if not sections:
+                abort(404)
+            can_manage = catalog_can_manage_programs()
+            return render_template(
+                'public/academic_programs_catalog.html',
+                sections=sections,
+                organization_id=oid,
+                catalog_can_manage=can_manage,
+                catalog_title='Coaching',
+                catalog_lead=(
+                    'Elegí tu línea de coaching e inscribite en línea. '
+                    'Cada tarjeta te lleva a la página de inscripción y pago seguro en esta plataforma.'
+                ),
+                show_catalog_filters=False,
+                filter_q='',
+                filter_category='all',
+                filter_program_type='coaching',
+                filter_categories=[],
+                program_types=('coaching',),
             )
 
     if 'academic_program_public_pdf' not in _vfs:

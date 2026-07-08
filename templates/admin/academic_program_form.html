@@ -187,6 +187,21 @@
           </select>
         </div>
       </div>
+      <div class="row g-2">
+        <div class="col-md-6 mb-2">
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="requires_agenda" name="requires_agenda" value="1"
+              {% if program and program.requires_agenda %}checked{% elif fv('requires_agenda') == '1' %}checked{% endif %}>
+            <label class="form-check-label" for="requires_agenda"><strong>Requiere agenda</strong> (cita post-pago vía Google Calendar)</label>
+          </div>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="ecalendar_product_id">ID producto ECalendar</label>
+          <input class="form-control" id="ecalendar_product_id" name="ecalendar_product_id"
+            placeholder="ej. coaching_personal"
+            value="{% if program %}{{ program.ecalendar_product_id or '' }}{% else %}{{ fv('ecalendar_product_id') }}{% endif %}">
+        </div>
+      </div>
       <div class="mb-0">
         <label class="form-label d-block">Posición de la imagen en la landing</label>
         {% set mp = (program.media_position if program else fv('media_position', 'left')) %}

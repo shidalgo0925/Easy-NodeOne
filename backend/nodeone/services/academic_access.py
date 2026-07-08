@@ -269,6 +269,8 @@ _ACADEMIC_GATE_ALLOW_ENDPOINTS = frozenset({
     'payments.inscripcion_seleccionar_plan',
     'payments.checkout_programa_shortcut',
     'payments.program_enrollment_thanks',
+    'academic_enrollment_agenda_page',
+    'academic_enrollment_agenda_confirm',
     'program_resource_download',
     'academic_program_public_pdf',
     'member_plan',

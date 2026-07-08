@@ -1,4 +1,5 @@
-<div class="pe-plan-grid">
+{% set is_coaching = (program.program_type or '')|lower == 'coaching' %}
+<div class="pe-plan-grid{% if is_coaching %} pe-plan-grid--coaching{% endif %}">
   {% if no_active_plans %}
   <p class="pe-pricing__foot">Este programa aún no tiene planes activos. Contactá al administrador.</p>
   {% endif %}
@@ -19,4 +20,7 @@
     <a class="pe-plan-cta" href="{{ url_for('payments.checkout_programa_shortcut', slug=slug, plan_code=plan.code) }}">Continuar al checkout</a>
   </article>
   {% endfor %}
+  {% if is_coaching %}
+  {% include 'public/partials/program_enrollment/_coaching_how_it_works.html' %}
+  {% endif %}
 </div>

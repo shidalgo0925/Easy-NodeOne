@@ -24,3 +24,4 @@ from .contador import *  # noqa: F403
 from .security_matrix import *  # noqa: F403
 from .qr_codes import *  # noqa: F403
 from .academic_program_pdf_lead import *  # noqa: F403
+from .ecalendar import *  # noqa: F403

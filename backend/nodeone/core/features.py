@@ -685,6 +685,15 @@ def register_academic_enrollment_public_routes(app):
         print(f'Warning: No se pudieron registrar rutas catálogo inscripción público: {e}')
 
 
+def register_academic_enrollment_agenda_routes(app):
+    try:
+        from nodeone.modules.academic_enrollment.agenda_routes import register_academic_enrollment_agenda_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas agenda coaching: {e}')
+
+
 def register_academic_enrollment_admin_blueprint(app):
     if os.environ.get('NODEONE_SKIP_ACADEMIC_ENROLLMENT_ADMIN', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -929,6 +938,31 @@ def register_accounting_core_blueprint(app):
         print(f'Warning: No se pudo registrar accounting_core_bp: {e}')
 
 
+def register_ecalendar_blueprint(app):
+    if os.environ.get('NODEONE_SKIP_ECALENDAR_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    try:
+        from nodeone.modules.ecalendar.routes import ecalendar_bp
+
+        if 'ecalendar' not in app.blueprints:
+            app.register_blueprint(ecalendar_bp)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar ecalendar_bp: {e}')
+
+
+def register_ecalendar_admin_routes(app):
+    if os.environ.get('NODEONE_SKIP_ECALENDAR_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    if 'admin_ecalendar_settings_page' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.ecalendar.admin_routes import register_ecalendar_admin_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas admin ECalendar: {e}')
+
+
 def register_saas_admin_blueprint(app):
     """API JSON módulos SaaS por organización (/api/admin/saas)."""
     if os.environ.get('NODEONE_SKIP_SAAS_ADMIN_API', '').strip().lower() in ('1', 'true', 'yes'):
@@ -970,6 +1004,7 @@ def register_modules(app):
     register_cv_application_routes(app)
     register_public_program_routes(app)
     register_academic_enrollment_public_routes(app)
+    register_academic_enrollment_agenda_routes(app)
     register_public_api_blueprint(app)
     register_ai_api_blueprint(app)
     register_admin_email_api_blueprint(app)
@@ -1006,6 +1041,8 @@ def register_modules(app):
     register_security_matrix_blueprints(app)
     register_qr_generator_routes(app)
     register_qr_tools_routes(app)
+    register_ecalendar_blueprint(app)
+    register_ecalendar_admin_routes(app)
 
 
 def init_extensions(app):

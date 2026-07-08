@@ -277,6 +277,66 @@
     grid-template-columns: repeat(3, 1fr);
     align-items: stretch;
   }
+  .pe-plan-grid--coaching .pe-coaching-how {
+    grid-column: span 2;
+  }
+}
+
+.pe-coaching-how {
+  background: var(--pe-card);
+  border: 1px solid var(--pe-border);
+  border-radius: var(--pe-radius-lg);
+  padding: 1.5rem 1.35rem;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
+}
+.pe-coaching-how__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--pe-navy);
+  margin: 0 0 1rem;
+}
+.pe-coaching-how__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.pe-coaching-how__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.pe-coaching-how__num {
+  flex-shrink: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pe-cta) 14%, transparent);
+  color: var(--pe-cta);
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.1rem;
+}
+.pe-coaching-how__step strong {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--pe-navy);
+  margin-bottom: 0.15rem;
+}
+.pe-coaching-how__step span {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--pe-muted);
 }
 
 .pe-plan-card {

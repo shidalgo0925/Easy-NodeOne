@@ -171,8 +171,30 @@ def register_public_membership_routes(app):
                 )
         except Exception:
             next_featured_event = None
-    
-        return render_template('dashboard.html', 
+
+        ecalendar_dashboard_events = []
+        try:
+            import app as M
+            if (current_user.is_admin or M._user_has_any_admin_permission(current_user)) and (
+                'admin_ecalendar_appointments_page' in M.app.view_functions
+            ):
+                from nodeone.modules.ecalendar.services.appointments_admin import (
+                    query_dev_appointments_for_dashboard,
+                )
+
+                ecalendar_dashboard_events = query_dev_appointments_for_dashboard()
+        except Exception:
+            ecalendar_dashboard_events = []
+
+        coaching_agenda_items = []
+        try:
+            from nodeone.modules.academic_enrollment.agenda import list_user_coaching_agenda_items
+
+            coaching_agenda_items = list_user_coaching_agenda_items(int(current_user.id))
+        except Exception:
+            coaching_agenda_items = []
+
+        return render_template('dashboard.html',
                              membership=active_membership, 
                              benefits=benefits,
                              days_active=days_active,
@@ -191,7 +213,9 @@ def register_public_membership_routes(app):
                              show_onboarding=show_onboarding,
                              is_new_user=is_new_user,
                              user_status=user_status,
-                             next_featured_event=next_featured_event)
+                             next_featured_event=next_featured_event,
+                             ecalendar_dashboard_events=ecalendar_dashboard_events,
+                             coaching_agenda_items=coaching_agenda_items)
 
 
 

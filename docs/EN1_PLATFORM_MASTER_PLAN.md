@@ -308,7 +308,8 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 | **P5** | **14** | **EPosOne MVP comercial** | **MVP en dev** — pedidos, pagos, caja, API |
 | — | **15** | **KDS (cocina / bar / runner)** | **Scaffold en dev** — tickets + API + pantalla |
 | — | **16** | **Delivery (repartidores / entregas)** | **Scaffold en dev** — `eposone_delivery` + API |
-| — | 17–18 | Menú digital, FE Panamá | Post-MVP POS |
+| — | **17** | **Menú digital (QR / pedido cliente)** | **Scaffold en dev** — menú público + API |
+| — | 18 | FE Panamá | Post-MVP POS |
 | — | 19 | EPayroll (motor legal) | **Después de EPosOne validado** |
 | — | 20–24 | CRM, Membership, Events, Certificates, Appointments | Migración por app |
 | — | 25–30 | Marketplace, APIs públicas, IA, Observabilidad, Multiempresa, Plataforma ETS | Largo plazo |
@@ -413,6 +414,17 @@ Tests: `tests/platform/test_eposone_kds.py`.
 | UI | `/admin/eposone/section/delivery` |
 
 Tests: `tests/platform/test_eposone_delivery.py`.
+
+### Etapa 17 — resumen (Menú digital)
+
+| Entrega | Detalle |
+|---------|---------|
+| Tablas | `eposone_digital_menu`, `eposone_digital_menu_item` |
+| Servicio | `DigitalMenuService` — catálogo + pedido vía token QR |
+| Público | `GET /m/eposone/<token>`, `GET/POST /api/public/eposone/menu/<token>` |
+| Admin | `GET/POST /api/eposone/digital-menus`, UI `/section/digital-menu` |
+
+Tests: `tests/platform/test_eposone_digital_menu.py`.
 
 ---
 

@@ -19,5 +19,9 @@ def register_eposone_blueprints(app) -> None:
         if 'eposone_api' not in app.blueprints:
             register_simple_saas_guard(eposone_api_bp, 'eposone')
             app.register_blueprint(eposone_api_bp)
+        from nodeone.modules.eposone.public_routes import eposone_public_bp
+
+        if 'eposone_public' not in app.blueprints:
+            app.register_blueprint(eposone_public_bp)
     except ImportError as e:
         print(f'Warning: No se pudo registrar eposone_bp: {e}')

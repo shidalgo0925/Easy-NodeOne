@@ -275,3 +275,41 @@ def deliveries_transition(delivery_id: int):
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'delivery': dto.to_dict()})
+
+
+@eposone_api_bp.route('/digital-menus', methods=['GET', 'POST'])
+@login_required
+def digital_menus_collection():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.digital_menu_service import DigitalMenuService
+
+    if request.method == 'GET':
+        menus = DigitalMenuService.list_menus(gate)
+        return jsonify(
+            {
+                'menus': [
+                    {
+                        **m.to_dict(),
+                        'public_url': DigitalMenuService.public_menu_url(m.public_token),
+                    }
+                    for m in menus
+                ]
+            }
+        )
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = DigitalMenuService.create_menu(
+            gate,
+            name=str(body.get('name') or ''),
+            items=body.get('items') if isinstance(body.get('items'), list) else None,
+        )
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify(
+        {
+            'menu': dto.to_dict(),
+            'public_url': DigitalMenuService.public_menu_url(dto.public_token),
+        }
+    ), 201

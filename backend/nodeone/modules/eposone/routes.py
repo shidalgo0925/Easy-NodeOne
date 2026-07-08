@@ -94,6 +94,27 @@ def eposone_section(slug: str):
             section_description=description,
             deliveries=deliveries,
         )
+    if key == 'digital-menu':
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.modules.eposone.digital_menu_service import DigitalMenuService
+
+        oid = resolve_organization_id()
+        menus: list = []
+        if oid is not None:
+            menus = [
+                {
+                    **m.to_dict(),
+                    'public_url': DigitalMenuService.public_menu_url(m.public_token),
+                }
+                for m in DigitalMenuService.list_menus(int(oid))
+            ]
+        return render_template(
+            'eposone/digital_menu.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            menus=menus,
+        )
     return render_template(
         'eposone/section.html',
         section_slug=key,

@@ -13,6 +13,7 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
     'promotions': ('Promociones', 'Descuentos, combos y reglas comerciales POS.'),
     'kds': ('KDS', 'Pantalla de cocina, bar y runner — tickets en tiempo real.'),
     'delivery': ('Delivery', 'Repartidores, rutas y estado de entrega.'),
+    'digital-menu': ('Menú digital', 'Catálogo QR para pedidos del cliente.'),
     'settings': ('Configuración', 'Parámetros operativos de EPosOne.'),
 }
 

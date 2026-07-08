@@ -51,6 +51,36 @@ class TestKdsService(unittest.TestCase):
         self.assertEqual(items[0].order_ref, 'POS-0001')
         mock_publish.assert_called_once()
 
+    @patch('nodeone.modules.eposone.kds_service.AuditService.publish_domain_event')
+    @patch('app.db')
+    @patch('nodeone.modules.eposone.kds_service.CoreCommercialOrder')
+    @patch('nodeone.modules.eposone.kds_service.EposoneKdsTicket')
+    def test_transition_syncs_order_line_status(self, mock_ticket_cls, mock_order_cls, mock_db, mock_publish):
+        from nodeone.modules.eposone.kds_service import KDS_TICKET_PREPARING, KdsService
+
+        ticket = MagicMock()
+        ticket.id = 11
+        ticket.order_id = 5
+        ticket.order_ref = 'POS-0001'
+        ticket.status = 'pending'
+        ticket.lines = [MagicMock(description='Taco', quantity=1.0, status='pending')]
+        mock_ticket_cls.query.filter_by.return_value.first.return_value = ticket
+
+        oline = MagicMock()
+        oline.line_status = 'pending'
+        order = MagicMock()
+        order.id = 5
+        order.order_ref = 'POS-0001'
+        order.status = 'confirmed'
+        order.version = 1
+        order.lines = [oline]
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        KdsService.transition_ticket(1, 11, KDS_TICKET_PREPARING)
+
+        self.assertEqual(oline.line_status, 'in_progress')
+        self.assertEqual(order.status, 'in_progress')
+
 
 class TestEPosOneKdsSections(unittest.TestCase):
     def test_kds_section_registered(self):

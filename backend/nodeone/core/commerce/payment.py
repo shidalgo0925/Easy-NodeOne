@@ -104,6 +104,12 @@ class PaymentService:
                 to_status=ORDER_FISCAL_STATUS_PENDING,
                 source_app_id=source_app_id,
             )
+            try:
+                from nodeone.core.commerce.fiscal import CommerceFiscalService
+
+                CommerceFiscalService.request_for_order(oid, int(order.id), source_app_id=source_app_id)
+            except Exception:
+                pass
 
         PaymentService.publish_captured(
             oid,

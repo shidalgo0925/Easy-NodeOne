@@ -9,16 +9,26 @@ from typing import Any
 from models.commercial_core import CoreCommercialOrder
 from models.eposone_kds import (
     KDS_STATION_KITCHEN,
+    KDS_TICKET_CANCELLED,
     KDS_TICKET_PENDING,
     KDS_TICKET_PREPARING,
     KDS_TICKET_READY,
     KDS_TICKET_SERVED,
-    KDS_TICKET_CANCELLED,
     EposoneKdsStation,
     EposoneKdsTicket,
     EposoneKdsTicketLine,
 )
-from nodeone.core.commerce.constants import ORDER_STATUS_CONFIRMED, ORDER_STATUS_IN_PROGRESS
+from nodeone.core.commerce.constants import (
+    ORDER_LINE_STATUS_CANCELLED,
+    ORDER_LINE_STATUS_IN_PROGRESS,
+    ORDER_LINE_STATUS_PENDING,
+    ORDER_LINE_STATUS_READY,
+    ORDER_LINE_STATUS_SERVED,
+    ORDER_STATUS_CONFIRMED,
+    ORDER_STATUS_IN_PROGRESS,
+    ORDER_STATUS_READY,
+)
+from nodeone.core.commerce.events import COMMERCE_ORDER_LINE_STATUS_CHANGED, COMMERCE_ORDER_STATUS_CHANGED
 from nodeone.core.commerce.order import OrderValidationError
 from nodeone.core.services.audit import AuditService
 
@@ -32,6 +42,14 @@ KDS_TICKET_TRANSITIONS: dict[str, frozenset[str]] = {
     KDS_TICKET_READY: frozenset({KDS_TICKET_SERVED, KDS_TICKET_PREPARING}),
     KDS_TICKET_SERVED: frozenset(),
     KDS_TICKET_CANCELLED: frozenset(),
+}
+
+KDS_TO_ORDER_LINE_STATUS: dict[str, str] = {
+    KDS_TICKET_PENDING: ORDER_LINE_STATUS_PENDING,
+    KDS_TICKET_PREPARING: ORDER_LINE_STATUS_IN_PROGRESS,
+    KDS_TICKET_READY: ORDER_LINE_STATUS_READY,
+    KDS_TICKET_SERVED: ORDER_LINE_STATUS_SERVED,
+    KDS_TICKET_CANCELLED: ORDER_LINE_STATUS_CANCELLED,
 }
 
 
@@ -175,6 +193,9 @@ class KdsService:
             )
             for line in (order.lines or [])
         ]
+        for idx, line in enumerate(order.lines or []):
+            if not getattr(line, 'line_status', None):
+                line.line_status = ORDER_LINE_STATUS_PENDING
         db.session.add(ticket)
         db.session.commit()
         dto = _ticket_to_dto(ticket)
@@ -213,6 +234,8 @@ class KdsService:
             raise OrderValidationError(f'invalid_kds_transition:{cur}->{tgt}')
 
         row.status = tgt
+        for tline in row.lines or []:
+            tline.status = tgt
         if tgt == KDS_TICKET_READY:
             row.ready_at = datetime.utcnow()
             AuditService.publish_domain_event(
@@ -229,5 +252,86 @@ class KdsService:
                 {'ticket_id': int(row.id), 'order_ref': str(row.order_ref)},
                 source_app_id='eposone',
             )
+        KdsService._sync_order_from_ticket(int(organization_id), row, tgt)
         db.session.commit()
         return _ticket_to_dto(row)
+
+    @staticmethod
+    def _sync_order_from_ticket(organization_id: int, ticket: EposoneKdsTicket, kds_status: str) -> None:
+        order_line_status = KDS_TO_ORDER_LINE_STATUS.get(kds_status)
+        if not order_line_status:
+            return
+        order = CoreCommercialOrder.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(ticket.order_id),
+        ).first()
+        if order is None:
+            return
+
+        order_lines = list(order.lines or [])
+        ticket_lines = list(ticket.lines or [])
+        for idx, tline in enumerate(ticket_lines):
+            if idx >= len(order_lines):
+                break
+            oline = order_lines[idx]
+            prev = str(oline.line_status or ORDER_LINE_STATUS_PENDING)
+            if prev == order_line_status:
+                continue
+            oline.line_status = order_line_status
+            AuditService.publish_domain_event(
+                int(organization_id),
+                COMMERCE_ORDER_LINE_STATUS_CHANGED,
+                {
+                    'order_ref': str(order.order_ref),
+                    'line_index': idx,
+                    'from_line_status': prev,
+                    'to_line_status': order_line_status,
+                },
+                source_app_id='eposone',
+            )
+
+        cur = str(order.status or '')
+        if kds_status == KDS_TICKET_PREPARING and cur == ORDER_STATUS_CONFIRMED:
+            order.status = ORDER_STATUS_IN_PROGRESS
+            order.version = int(order.version or 1) + 1
+            AuditService.publish_domain_event(
+                int(organization_id),
+                COMMERCE_ORDER_STATUS_CHANGED,
+                {
+                    'order_ref': str(order.order_ref),
+                    'from_status': cur,
+                    'to_status': ORDER_STATUS_IN_PROGRESS,
+                },
+                source_app_id='eposone',
+            )
+            cur = ORDER_STATUS_IN_PROGRESS
+
+        active = [
+            ln
+            for ln in order_lines
+            if str(ln.line_status or '') != ORDER_LINE_STATUS_CANCELLED
+        ]
+        if active and all(
+            str(ln.line_status or '') in (ORDER_LINE_STATUS_READY, ORDER_LINE_STATUS_SERVED) for ln in active
+        ):
+            if cur in (ORDER_STATUS_CONFIRMED, ORDER_STATUS_IN_PROGRESS):
+                order.status = ORDER_STATUS_READY
+                order.version = int(order.version or 1) + 1
+                AuditService.publish_domain_event(
+                    int(organization_id),
+                    COMMERCE_ORDER_STATUS_CHANGED,
+                    {
+                        'order_ref': str(order.order_ref),
+                        'from_status': cur,
+                        'to_status': ORDER_STATUS_READY,
+                    },
+                    source_app_id='eposone',
+                )
+                try:
+                    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+                    EposoneDeliveryService.maybe_create_for_order_status(
+                        int(organization_id), int(order.id), ORDER_STATUS_READY
+                    )
+                except Exception:
+                    pass

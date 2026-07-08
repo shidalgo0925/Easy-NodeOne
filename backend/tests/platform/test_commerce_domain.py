@@ -34,6 +34,7 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertIn(ev.COMMERCE_PAYMENT_CAPTURED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_ORDER_PAYMENT_STATUS_CHANGED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_ORDER_FISCAL_STATUS_CHANGED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_INVOICE_REQUESTED, ev.COMMERCE_EVENT_TYPES)
 
     def test_compute_order_payment_status(self):
         from nodeone.core.commerce.constants import (
@@ -165,6 +166,28 @@ class TestPaymentServiceAxis(unittest.TestCase):
 
         order.maybe_mark_fiscal_pending.assert_called_once_with(skip_fiscal=True)
         mock_fiscal_changed.assert_not_called()
+
+
+class TestCommerceFiscalService(unittest.TestCase):
+    @patch('nodeone.core.commerce.fiscal.AuditService.publish_domain_event')
+    @patch('nodeone.core.commerce.fiscal.CoreCommercialOrder')
+    def test_request_for_pending_order(self, mock_order_cls, mock_publish):
+        from nodeone.core.commerce.events import COMMERCE_INVOICE_REQUESTED
+        from nodeone.core.commerce.fiscal import CommerceFiscalService
+
+        order = MagicMock()
+        order.id = 3
+        order.order_ref = 'POS-0003'
+        order.fiscal_status = 'pending'
+        order.grand_total = 20.0
+        order.contact_id = None
+        order.payment_status = 'paid'
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        result = CommerceFiscalService.request_for_order(1, 3)
+        self.assertEqual(result['status'], 'queued')
+        mock_publish.assert_called_once()
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_INVOICE_REQUESTED)
 
 
 class TestOrderService(unittest.TestCase):

@@ -5,7 +5,7 @@
 | Campo | Valor |
 |-------|--------|
 | Versión doc | **1.2** |
-| Estado | **Modelado v1.2 — pendiente aprobación responsable** (sin código hasta cierre) |
+| Estado | **Cerrada v1.2** — dominio aprobado 2026-07-08; **sin código** hasta GO Etapa 7 en chat nuevo |
 | Alcance edición | Solo Dev EN1 (`develop`) |
 | Master plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) v3.1 |
 | Modelo maestro Core | [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
@@ -880,21 +880,21 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 
 | # | Criterio | Estado |
 |---|----------|--------|
-| 1 | 6.1 Organización comercial — diagrama y glosario aprobados | Borrador v1 |
-| 2 | 6.2 Personas y roles — matriz rol × acción | Borrador v1 |
-| 3 | 6.3 Documento maestro — **Pedido** confirmado como agregado raíz | **Cerrado v1** |
-| 4 | 6.4 Flujos — 5 escenarios con secuencias y eventos | Borrador v1 |
-| 5 | 6.5 Inventario — reglas momento × acción (sin código) | Borrador v1 |
-| 6 | 6.6 Caja — ciclo turno completo modelado | Borrador v1 |
-| 7 | 6.7 Pagos — medios y reglas mixtas | Borrador v1 |
-| 8 | 6.8 Facturación — nacimiento documento + offline | Borrador v1 |
-| 9 | 6.9 Sincronización — prioridades y conflictos | Borrador v1 |
+| 1 | 6.1 Organización comercial — diagrama y glosario aprobados | **Aprobado v1.2** |
+| 2 | 6.2 Personas y roles — matriz rol × acción | **Aprobado v1.2** |
+| 3 | 6.3 Documento maestro — **Pedido** confirmado como agregado raíz | **Aprobado v1.2** |
+| 4 | 6.4 Flujos — 5 escenarios con secuencias y eventos | **Aprobado v1.2** |
+| 5 | 6.5 Inventario — reglas momento × acción (sin código) | **Aprobado v1.2** |
+| 6 | 6.6 Caja — ciclo turno completo modelado | **Aprobado v1.2** |
+| 7 | 6.7 Pagos — medios y reglas mixtas | **Aprobado v1.2** |
+| 8 | 6.8 Facturación — nacimiento documento + offline | **Aprobado v1.2** |
+| 9 | 6.9 Sincronización — prioridades y conflictos | **Aprobado v1.2** |
 | 10 | Master Plan V3.1 actualizado y referenciado | Hecho |
-| 11 | Aprobación explícita responsable del proyecto | Pendiente |
+| 11 | Aprobación explícita responsable del proyecto | **Hecho (2026-07-08)** |
 
-**Progreso:** **9/9 bloques** modelados (6.3 cerrado v1; 6.1–6.2, 6.4–6.9 borrador v1).
+**Progreso:** **Etapa 6 cerrada** — dominio comercial v1.2 congelado como contrato de negocio.
 
-**Siguiente paso:** revisión integral + **aprobación responsable** → desbloquea **V3 Etapa 7 — Construcción**.
+**Siguiente:** **V3 Etapa 7 — Construcción** solo en **chat nuevo** con **GO explícito** de implementación.
 
 ---
 
@@ -937,28 +937,31 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 
 | Bloque | Modelado | Aprobado | Observaciones |
 |--------|:--------:|:--------:|---------------|
-| 6.1 Organización | ✓ | ☐ | |
-| 6.2 Personas / roles | ✓ | ☐ | |
-| 6.3 Documento maestro | ✓ | ☐ | |
-| 6.4 Flujos verticales | ✓ | ☐ | |
-| 6.5 Inventario | ✓ | ☐ | |
-| 6.6 Caja | ✓ | ☐ | |
-| 6.7 Pagos | ✓ | ☐ | |
-| 6.8 Facturación | ✓ | ☐ | |
-| 6.9 Sincronización | ✓ | ☐ | |
+| 6.1 Organización | ✓ | ✓ | 2026-07-08 |
+| 6.2 Personas / roles | ✓ | ✓ | 2026-07-08 |
+| 6.3 Documento maestro | ✓ | ✓ | 2026-07-08 |
+| 6.4 Flujos verticales | ✓ | ✓ | 2026-07-08 |
+| 6.5 Inventario | ✓ | ✓ | 2026-07-08 |
+| 6.6 Caja | ✓ | ✓ | 2026-07-08 |
+| 6.7 Pagos | ✓ | ✓ | 2026-07-08 |
+| 6.8 Facturación | ✓ | ✓ | 2026-07-08 |
+| 6.9 Sincronización | ✓ | ✓ | 2026-07-08 |
 
 ### Cierre formal
 
 | Campo | Valor |
 |-------|--------|
 | Documento | `EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md` v1.2 |
-| Resultado | ☐ **Aprobado** · ☐ Aprobado con cambios · ☐ Rechazado |
-| Responsable | _________________________ Fecha: _________ |
-| Cambios acordados | (si aplica) |
+| Resultado | **Aprobado** |
+| Responsable | Proyecto ETS — GO explícito chat dev EN1 |
+| Fecha | **2026-07-08** |
+| Cambios acordados | Ninguno — v1.2 aprobado integral |
 
-**Tras aprobación:** actualizar estado a **Cerrada** en este doc y en Master Plan; **recién entonces** se autoriza planificar V3 Etapa 7 (con GO explícito en chat nuevo).
+**Etapa 6 cerrada.** El dominio v1.2 es el **contrato de negocio** para EPosOne y construcción posterior.
 
-**Hasta entonces:** Regla 7 vigente — congelar features POS nuevas; scaffold solo mantenimiento.
+**V3 Etapa 7 (código):** requiere **chat nuevo** + **GO** de implementación. Este chat cierra la tarea de **definición de dominio**.
+
+**Regla post-cierre:** cambios de modelo requieren nueva versión del doc (v1.3+) y acuerdo explícito — no se altera en código sin actualizar dominio.
 
 ---
 
@@ -974,4 +977,4 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 
 ---
 
-*Etapa 6 dominio comercial — 2026-07-08 (v1.2: bloques 6.1–6.9 modelados). Cambios requieren actualizar este doc y acuerdo del responsable. Sin GO explícito: no implementación funcional nueva.*
+*Etapa 6 dominio comercial — **cerrada 2026-07-08** (v1.2 aprobado). Cambios de modelo: nueva versión del doc + acuerdo explícito. Implementación: V3 Etapa 7 en chat nuevo con GO.*

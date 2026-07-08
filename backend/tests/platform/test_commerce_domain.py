@@ -52,6 +52,15 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertEqual(compute_order_payment_status(10, 10), ORDER_PAYMENT_STATUS_PAID)
         self.assertEqual(compute_order_payment_status(12, 10), ORDER_PAYMENT_STATUS_OVERPAID)
 
+    def test_order_model_status_alias(self):
+        from models.commercial_core import CoreCommercialOrder
+
+        row = CoreCommercialOrder()
+        row.operational_status = 'confirmed'
+        self.assertEqual(row.status, 'confirmed')
+        row.status = 'in_progress'
+        self.assertEqual(row.operational_status, 'in_progress')
+
 
 class TestPaymentServiceAxis(unittest.TestCase):
     @patch('nodeone.core.commerce.cash.CashRegisterService.record_movement')

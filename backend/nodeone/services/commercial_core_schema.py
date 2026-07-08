@@ -17,7 +17,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 id SERIAL PRIMARY KEY,
                 organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
                 order_ref VARCHAR(50) NOT NULL,
-                status VARCHAR(32) NOT NULL DEFAULT 'draft',
+                operational_status VARCHAR(32) NOT NULL DEFAULT 'draft',
                 payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
                 fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
                 contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
@@ -34,7 +34,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 CONSTRAINT uq_core_commercial_order_ref UNIQUE (organization_id, order_ref)
             );
             CREATE INDEX IF NOT EXISTS ix_core_commercial_order_org ON core_commercial_order (organization_id);
-            CREATE INDEX IF NOT EXISTS ix_core_commercial_order_status ON core_commercial_order (organization_id, status);
+            CREATE INDEX IF NOT EXISTS ix_core_commercial_order_operational_status
+                ON core_commercial_order (organization_id, operational_status);
             """
         else:
             ddl = """
@@ -42,7 +43,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 organization_id INTEGER NOT NULL,
                 order_ref VARCHAR(50) NOT NULL,
-                status VARCHAR(32) NOT NULL DEFAULT 'draft',
+                operational_status VARCHAR(32) NOT NULL DEFAULT 'draft',
                 payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
                 fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
                 contact_id INTEGER,
@@ -63,6 +64,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
         _exec(engine, ddl, printfn, 'core_commercial_order')
     else:
         _ensure_order_status_axes(engine, insp, printfn)
+        _ensure_order_operational_status_column(engine, insp, printfn)
 
     if 'core_commercial_order_line' not in tables:
         ddl = """
@@ -199,7 +201,44 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
         _exec(engine, ddl, printfn, 'core_pos_terminal')
 
 
-def _ensure_order_line_status_axis(engine, insp, printfn) -> None:
+def _ensure_order_operational_status_column(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'operational_status' in cols:
+        return
+    dialect = engine.dialect.name
+    if 'status' in cols:
+        stmt = 'ALTER TABLE core_commercial_order RENAME COLUMN status TO operational_status'
+        with engine.begin() as conn:
+            conn.execute(text(stmt))
+        if dialect == 'postgresql':
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        'ALTER INDEX IF EXISTS ix_core_commercial_order_status '
+                        'RENAME TO ix_core_commercial_order_operational_status'
+                    )
+                )
+        if printfn:
+            printfn('core_commercial_order: columna status renombrada a operational_status')
+        return
+    if dialect == 'postgresql':
+        stmt = (
+            "ALTER TABLE core_commercial_order "
+            "ADD COLUMN IF NOT EXISTS operational_status VARCHAR(32) NOT NULL DEFAULT 'draft'"
+        )
+    else:
+        stmt = (
+            "ALTER TABLE core_commercial_order "
+            "ADD COLUMN operational_status VARCHAR(32) NOT NULL DEFAULT 'draft'"
+        )
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_order: columna operational_status añadida')
+
+
     if 'core_commercial_order_line' not in insp.get_table_names():
         return
     cols = {c['name'] for c in insp.get_columns('core_commercial_order_line')}

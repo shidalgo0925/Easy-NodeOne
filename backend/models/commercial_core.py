@@ -15,7 +15,7 @@ class CoreCommercialOrder(db.Model):
         db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
     )
     order_ref = db.Column(db.String(50), nullable=False, index=True)
-    status = db.Column(db.String(32), nullable=False, default='draft')
+    operational_status = db.Column(db.String(32), nullable=False, default='draft')
     payment_status = db.Column(db.String(32), nullable=False, default='unpaid')
     fiscal_status = db.Column(db.String(32), nullable=False, default='not_required')
     contact_id = db.Column(db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True)
@@ -43,12 +43,13 @@ class CoreCommercialOrder(db.Model):
     )
 
     @property
-    def operational_status(self) -> str:
-        return str(self.status or 'draft')
+    def status(self) -> str:
+        """Alias legacy — usar operational_status."""
+        return str(self.operational_status or 'draft')
 
-    @operational_status.setter
-    def operational_status(self, value: str) -> None:
-        self.status = (value or 'draft').strip().lower()
+    @status.setter
+    def status(self, value: str) -> None:
+        self.operational_status = (value or 'draft').strip().lower()
 
     def sync_payment_status(self) -> str:
         from nodeone.core.commerce.constants import compute_order_payment_status

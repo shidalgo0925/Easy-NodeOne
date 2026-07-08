@@ -39,7 +39,7 @@ def order_to_dto(row: CoreCommercialOrder) -> OrderDTO:
         id=int(row.id),
         organization_id=int(row.organization_id),
         order_ref=str(row.order_ref),
-        status=str(row.status),
+        status=str(row.operational_status),
         payment_status=str(row.payment_status or ORDER_PAYMENT_STATUS_UNPAID),
         fiscal_status=str(row.fiscal_status or ORDER_FISCAL_STATUS_NOT_REQUIRED),
         contact_id=int(row.contact_id) if row.contact_id else None,

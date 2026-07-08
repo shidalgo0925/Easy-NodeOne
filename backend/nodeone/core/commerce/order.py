@@ -68,7 +68,7 @@ class OrderService:
     ) -> tuple[list[OrderDTO], int]:
         q = CoreCommercialOrder.query.filter_by(organization_id=int(organization_id))
         if status:
-            q = q.filter_by(status=(status or '').strip().lower())
+            q = q.filter_by(operational_status=(status or '').strip().lower())
         total = q.count()
         rows = (
             q.order_by(CoreCommercialOrder.id.desc())
@@ -113,10 +113,14 @@ class OrderService:
             raise OrderValidationError('lines_required')
 
         grand_total = round(subtotal + tax_total, 2)
+        op_status = (
+            str(data.get('operational_status') or data.get('status') or ORDER_STATUS_DRAFT).strip().lower()
+            or ORDER_STATUS_DRAFT
+        )
         row = CoreCommercialOrder(
             organization_id=oid,
             order_ref=order_ref,
-            status=str(data.get('status') or ORDER_STATUS_DRAFT).strip().lower() or ORDER_STATUS_DRAFT,
+            operational_status=op_status,
             payment_status=ORDER_PAYMENT_STATUS_UNPAID,
             fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
             contact_id=int(data['contact_id']) if data.get('contact_id') else None,
@@ -235,7 +239,11 @@ class OrderService:
         source_app_id: str = 'eposone',
         extra: dict[str, Any] | None = None,
     ):
-        payload: dict[str, Any] = {'order_ref': order_ref, 'status': status}
+        payload: dict[str, Any] = {
+            'order_ref': order_ref,
+            'status': status,
+            'operational_status': status,
+        }
         if payment_status is not None:
             payload['payment_status'] = payment_status
         if grand_total is not None:
@@ -305,6 +313,8 @@ class OrderService:
                 'order_ref': order_ref,
                 'from_status': from_status,
                 'to_status': to_status,
+                'from_operational_status': from_status,
+                'to_operational_status': to_status,
             },
             source_app_id=source_app_id,
         )

@@ -111,6 +111,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 status VARCHAR(32) NOT NULL DEFAULT 'captured',
                 payment_type VARCHAR(32) NOT NULL DEFAULT 'cash',
                 amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+                refunded_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 captured_at TIMESTAMP WITHOUT TIME ZONE,
                 created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
@@ -128,6 +129,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 status VARCHAR(32) NOT NULL DEFAULT 'captured',
                 payment_type VARCHAR(32) NOT NULL DEFAULT 'cash',
                 amount REAL NOT NULL DEFAULT 0,
+                refunded_amount REAL NOT NULL DEFAULT 0,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 captured_at DATETIME,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -170,6 +172,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
 
     _ensure_cash_movement_table(engine, insp, printfn)
     _ensure_payment_cash_shift_column(engine, insp, printfn)
+    _ensure_payment_refunded_amount_column(engine, insp, printfn)
 
     if 'core_pos_terminal' not in tables:
         if dialect == 'postgresql':
@@ -387,6 +390,29 @@ def _ensure_payment_cash_shift_column(engine, insp, printfn) -> None:
         conn.execute(text(stmt))
     if printfn:
         printfn('core_commercial_payment: columna cash_shift_id añadida')
+
+
+def _ensure_payment_refunded_amount_column(engine, insp, printfn) -> None:
+    if 'core_commercial_payment' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_payment')}
+    if 'refunded_amount' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_payment '
+            'ADD COLUMN IF NOT EXISTS refunded_amount DOUBLE PRECISION NOT NULL DEFAULT 0'
+        )
+    else:
+        stmt = (
+            'ALTER TABLE core_commercial_payment '
+            'ADD COLUMN refunded_amount REAL NOT NULL DEFAULT 0'
+        )
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_payment: columna refunded_amount añadida')
 
 
 def _exec(engine, ddl: str, printfn, label: str) -> None:

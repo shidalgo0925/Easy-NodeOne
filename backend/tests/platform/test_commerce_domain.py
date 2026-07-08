@@ -249,6 +249,7 @@ class TestPaymentRefund(unittest.TestCase):
         pay_row.payment_ref = 'PAY-0010'
         pay_row.status = 'captured'
         pay_row.amount = 15.0
+        pay_row.refunded_amount = 0.0
         pay_row.payment_type = 'card'
         pay_row.cash_shift_id = None
         pay_row.currency = 'USD'
@@ -308,6 +309,7 @@ class TestPaymentRefund(unittest.TestCase):
         pay_row.payment_ref = 'PAY-0011'
         pay_row.status = 'captured'
         pay_row.amount = 20.0
+        pay_row.refunded_amount = 0.0
         pay_row.payment_type = 'card'
         pay_row.cash_shift_id = None
         pay_row.currency = 'USD'
@@ -319,6 +321,7 @@ class TestPaymentRefund(unittest.TestCase):
         PaymentService.refund(1, 6, amount=5.0)
 
         self.assertEqual(pay_row.status, PAYMENT_STATUS_PARTIAL_REFUND)
+        self.assertEqual(pay_row.refunded_amount, 5.0)
         self.assertEqual(order.amount_paid, 15.0)
         self.assertEqual(order.status, ORDER_STATUS_DELIVERED)
         mock_status_changed.assert_not_called()
@@ -336,6 +339,85 @@ class TestPaymentRefund(unittest.TestCase):
 
         with self.assertRaises(OrderValidationError):
             PaymentService.refund(1, 99)
+
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.payment.CoreCommercialOrder')
+    def test_chained_partial_refunds_until_full(
+        self,
+        mock_order_cls,
+        mock_payment_cls,
+        mock_db,
+        mock_payment_changed,
+        mock_status_changed,
+        mock_refunded,
+    ):
+        from nodeone.core.commerce.constants import (
+            ORDER_PAYMENT_STATUS_PAID,
+            ORDER_PAYMENT_STATUS_UNPAID,
+            PAYMENT_STATUS_PARTIAL_REFUND,
+            PAYMENT_STATUS_REFUNDED,
+        )
+        from nodeone.core.commerce.payment import PaymentService
+
+        order = MagicMock()
+        order.id = 12
+        order.order_ref = 'POS-0012'
+        order.status = 'delivered'
+        order.payment_status = ORDER_PAYMENT_STATUS_PAID
+        order.fiscal_status = 'not_required'
+        order.amount_paid = 20.0
+        order.grand_total = 20.0
+        order.version = 1
+
+        def _sync():
+            order.payment_status = ORDER_PAYMENT_STATUS_UNPAID
+            return ORDER_PAYMENT_STATUS_UNPAID
+
+        order.sync_payment_status.side_effect = _sync
+
+        pay_row = MagicMock()
+        pay_row.id = 7
+        pay_row.order_id = 12
+        pay_row.payment_ref = 'PAY-0012'
+        pay_row.status = 'captured'
+        pay_row.amount = 20.0
+        pay_row.refunded_amount = 0.0
+        pay_row.payment_type = 'card'
+        pay_row.cash_shift_id = None
+        pay_row.currency = 'USD'
+        pay_row.captured_at = None
+
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        PaymentService.refund(1, 7, amount=8.0)
+        self.assertEqual(pay_row.refunded_amount, 8.0)
+        self.assertEqual(pay_row.status, PAYMENT_STATUS_PARTIAL_REFUND)
+        self.assertEqual(order.amount_paid, 12.0)
+
+        PaymentService.refund(1, 7, amount=12.0)
+        self.assertEqual(pay_row.refunded_amount, 20.0)
+        self.assertEqual(pay_row.status, PAYMENT_STATUS_REFUNDED)
+        self.assertEqual(order.amount_paid, 0.0)
+        self.assertEqual(mock_refunded.call_count, 2)
+
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    def test_refund_rejects_when_nothing_left(self, mock_payment_cls):
+        from nodeone.core.commerce.order import OrderValidationError
+        from nodeone.core.commerce.payment import PaymentService
+
+        pay_row = MagicMock()
+        pay_row.status = 'partial_refund'
+        pay_row.amount = 10.0
+        pay_row.refunded_amount = 10.0
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+
+        with self.assertRaises(OrderValidationError):
+            PaymentService.refund(1, 50, amount=1.0)
 
 
 class TestCashRegisterService(unittest.TestCase):

@@ -62,6 +62,7 @@ def payment_to_dto(row: CoreCommercialPayment, *, order_ref: str) -> PaymentDTO:
         status=str(row.status or PAYMENT_STATUS_CAPTURED),
         payment_type=str(row.payment_type or 'cash'),
         amount=float(row.amount or 0),
+        refunded_amount=float(getattr(row, 'refunded_amount', 0) or 0),
         currency=str(row.currency or 'USD'),
         order_ref=order_ref,
         captured_at=row.captured_at,

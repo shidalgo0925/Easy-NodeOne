@@ -106,6 +106,7 @@ class CoreCommercialPayment(db.Model):
     status = db.Column(db.String(32), nullable=False, default='captured')
     payment_type = db.Column(db.String(32), nullable=False, default='cash')
     amount = db.Column(db.Float, nullable=False, default=0.0)
+    refunded_amount = db.Column(db.Float, nullable=False, default=0.0)
     currency = db.Column(db.String(8), nullable=False, default='USD')
     captured_at = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
     cash_shift_id = db.Column(

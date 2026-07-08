@@ -76,6 +76,7 @@ class PaymentDTO:
     amount: float
     currency: str
     order_ref: str | None = None
+    refunded_amount: float = 0.0
     captured_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,6 +87,7 @@ class PaymentDTO:
             'status': self.status,
             'payment_type': self.payment_type,
             'amount': self.amount,
+            'refunded_amount': self.refunded_amount,
             'currency': self.currency,
             'order_ref': self.order_ref,
             'captured_at': self.captured_at.isoformat() if self.captured_at else None,

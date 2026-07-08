@@ -18,6 +18,8 @@ from nodeone.core.commerce.constants import (
     PAYMENT_TYPE_CASH,
     can_transition_order_status,
 )
+
+_REFUNDABLE_PAYMENT_STATUSES = frozenset({PAYMENT_STATUS_CAPTURED, PAYMENT_STATUS_PARTIAL_REFUND})
 from nodeone.core.commerce.dtos import PaymentDTO
 from nodeone.core.commerce.events import (
     COMMERCE_PAYMENT_CAPTURED,
@@ -181,8 +183,14 @@ class PaymentService:
         row = CoreCommercialPayment.query.filter_by(organization_id=oid, id=int(payment_id)).first()
         if row is None:
             raise OrderValidationError('payment_not_found')
-        if str(row.status or '') != PAYMENT_STATUS_CAPTURED:
+        if str(row.status or '') not in _REFUNDABLE_PAYMENT_STATUSES:
             raise OrderValidationError('payment_not_refundable')
+
+        captured_amt = round(float(row.amount or 0), 2)
+        already_refunded = round(float(row.refunded_amount or 0), 2)
+        remaining = round(captured_amt - already_refunded, 2)
+        if remaining <= 0:
+            raise OrderValidationError('payment_already_refunded')
 
         if str(row.payment_type or '') == PAYMENT_TYPE_CASH and row.cash_shift_id:
             from nodeone.core.commerce.cash import CashRegisterService
@@ -193,19 +201,21 @@ class PaymentService:
         if order is None:
             raise OrderValidationError('order_not_found')
 
-        refund_amt = round(float(amount if amount is not None else row.amount or 0), 2)
-        captured_amt = round(float(row.amount or 0), 2)
+        refund_amt = round(float(amount if amount is not None else remaining), 2)
         if refund_amt <= 0:
             raise OrderValidationError('amount_required')
-        if refund_amt > captured_amt:
+        if refund_amt > remaining:
             raise OrderValidationError('refund_exceeds_payment')
 
         prev_payment_status = str(order.payment_status or 'unpaid')
         prev_operational = str(order.status or '')
         prev_fiscal_status = str(order.fiscal_status or '')
 
+        row.refunded_amount = round(already_refunded + refund_amt, 2)
         row.status = (
-            PAYMENT_STATUS_REFUNDED if refund_amt >= captured_amt else PAYMENT_STATUS_PARTIAL_REFUND
+            PAYMENT_STATUS_REFUNDED
+            if row.refunded_amount >= captured_amt
+            else PAYMENT_STATUS_PARTIAL_REFUND
         )
         order.amount_paid = round(max(0.0, float(order.amount_paid or 0) - refund_amt), 2)
         order.version = int(order.version or 1) + 1

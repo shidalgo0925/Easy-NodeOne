@@ -174,6 +174,14 @@ def _v_ventas(ctx: NavContext) -> bool:
     return ctx.nav_can('payments.view') and ctx.saas_module_enabled('sales')
 
 
+def _v_eposone(ctx: NavContext) -> bool:
+    return (
+        ctx.saas_module_enabled('eposone')
+        and ctx.nav_can('payments.view')
+        and ctx.has_view_endpoint('eposone.eposone_home')
+    )
+
+
 def _v_tienda(ctx: NavContext) -> bool:
     """Vitrina pública /services (compra y reservas del miembro)."""
     return ctx.saas_module_enabled('appointments') and ctx.has_view_endpoint('services.list')
@@ -978,6 +986,23 @@ APP_AREAS: tuple[NavArea, ...] = (
                 url_path='/admin/analytics/sales?source=ventas',
                 visible=lambda c: _v_ventas(c) and _v_analitica(c),
                 active_endpoints=('admin_analytics_sales',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='eposone',
+        label='EPosOne',
+        icon='fas fa-cash-register',
+        visible=_v_eposone,
+        zone_blueprints=('eposone',),
+        zone_path_prefixes=('/admin/eposone',),
+        items=(
+            NavAreaItem(
+                'inicio',
+                'Inicio',
+                'fas fa-home',
+                'eposone.eposone_home',
+                active_endpoints=('eposone.eposone_home',),
             ),
         ),
     ),

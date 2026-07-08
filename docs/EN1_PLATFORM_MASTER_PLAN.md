@@ -199,7 +199,25 @@ Manifest: `nodeone/modules/eappointments/manifest.py`.
 - Solo depende del **Core** (contactos, org, usuarios, archivos, licenciamiento vía contratos).
 - **No** importa Membership, Events ni Certificates.
 
-**Criterio de cierre:** EPosOne operativo en dev/staging con launcher + shell; checklist funcional POS acordado.
+| Pieza | Ubicación |
+|-------|-----------|
+| Manifest | `nodeone/modules/eposone/manifest.py` |
+| Rutas / home | `nodeone/modules/eposone/routes.py` |
+| Módulo SaaS | `eposone` en `saas_catalog_defaults.py` (opt-in, no en toggleable global) |
+| Nav / launcher | área `eposone` en `nav_menu.py` + `launcher.py` |
+
+**Activar EPosOne en dev:**
+
+```bash
+export NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS=1
+sudo systemctl restart easynodeone-dev
+```
+
+El seed marca runtime `plataforma` y habilita `saas_org_module` para `eposone` en esas orgs.
+
+**Criterio de cierre:** EPosOne operativo en dev con launcher + shell; home en `/admin/eposone/`. Back office POS completo → Etapa 7.
+
+**Estado Etapa 6 (scaffold):** implementado en dev (2026-07-08). Pendiente checklist funcional POS (Etapa 7).
 
 ---
 

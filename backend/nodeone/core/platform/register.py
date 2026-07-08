@@ -81,5 +81,6 @@ def register_platform_apps(app) -> None:
     f.register_academic_module(app)
     f.register_contador_blueprints(app)
     f.register_efactura_blueprints(app)
+    f.register_eposone_blueprints(app)
     f.register_qr_generator_routes(app)
     f.register_qr_tools_routes(app)

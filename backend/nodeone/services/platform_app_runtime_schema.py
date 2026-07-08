@@ -84,6 +84,37 @@ def seed_app_platform_runtime(
         raise
 
 
+def _ensure_saas_module_for_orgs(
+    db,
+    module_code: str,
+    organization_ids: list[int],
+    *,
+    printfn=None,
+) -> None:
+    """Activa módulo SaaS opt-in para orgs indicadas (dev / cutover)."""
+    from app import SaasModule, SaasOrgModule
+
+    mod = SaasModule.query.filter_by(code=(module_code or '').strip()).first()
+    if mod is None:
+        return
+    mid = int(mod.id)
+    for oid in organization_ids:
+        row = SaasOrgModule.query.filter_by(organization_id=int(oid), module_id=mid).first()
+        if row is None:
+            db.session.add(SaasOrgModule(organization_id=int(oid), module_id=mid, enabled=True))
+            if printfn:
+                printfn(f'+ saas_org_module: org={oid} {module_code} enabled=True')
+        elif not row.enabled:
+            row.enabled = True
+            if printfn:
+                printfn(f'* saas_org_module: org={oid} {module_code} enabled=True')
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+
 def seed_emembership_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
     """Marca EMembership como plataforma para orgs indicadas (solo dev / cutover acordado)."""
     seed_app_platform_runtime(db, 'emembership', organization_ids, printfn=printfn)
@@ -107,3 +138,9 @@ def seed_ecertificates_platform_runtime(db, organization_ids: list[int], printfn
 def seed_eappointments_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
     """Marca EAppointments como plataforma para orgs indicadas (solo dev / cutover acordado)."""
     seed_app_platform_runtime(db, 'eappointments', organization_ids, printfn=printfn)
+
+
+def seed_eposone_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
+    """Marca EPosOne como plataforma y habilita módulo SaaS eposone (opt-in)."""
+    seed_app_platform_runtime(db, 'eposone', organization_ids, printfn=printfn)
+    _ensure_saas_module_for_orgs(db, 'eposone', organization_ids, printfn=printfn)

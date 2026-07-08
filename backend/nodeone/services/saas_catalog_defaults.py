@@ -102,6 +102,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'Planes, miembros, beneficios y portal Mi membresía / Planes.',
         False,
     ),
+    (
+        'eposone',
+        'EPosOne',
+        'Punto de venta nativo (plataforma). Opt-in por tenant; no aplica a IIUS/Relatic legacy.',
+        False,
+    ),
 )
 
 

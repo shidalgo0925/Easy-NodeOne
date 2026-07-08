@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h4 mb-1"><i class="fas fa-cash-register me-2 text-primary"></i>EPosOne</h1>
+            <p class="text-muted small mb-0">
+                Punto de venta nativo sobre EasyNodeOne Platform. Solo depende del Core (contactos, org, licenciamiento).
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h6 text-uppercase text-muted mb-3">Etapa 6 — en curso</h2>
+                    <p class="mb-2">
+                        Esta pantalla valida el modelo de app nativa: launcher, shell aislado, módulo SaaS
+                        <code>eposone</code> y runtime <code>plataforma</code> por organización.
+                    </p>
+                    <p class="mb-0 text-muted small">
+                        El back office POS (pedidos, cajas, turnos, inventario) llega en la Etapa 7.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 text-uppercase text-muted mb-3">Próximamente</h2>
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-2"><i class="fas fa-chart-line me-2 text-secondary"></i>Dashboard</li>
+                        <li class="mb-2"><i class="fas fa-receipt me-2 text-secondary"></i>Pedidos y ventas</li>
+                        <li class="mb-2"><i class="fas fa-boxes me-2 text-secondary"></i>Productos e inventario</li>
+                        <li class="mb-0"><i class="fas fa-store me-2 text-secondary"></i>Sucursales, cajas y turnos</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

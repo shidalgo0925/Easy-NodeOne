@@ -4,8 +4,8 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión doc | **1.0** (borrador estructural — decisiones pendientes de aprobación) |
-| Estado | **En definición** — sin código nuevo hasta cierre |
+| Versión doc | **1.1** (6.3 cerrado · 6.1/6.2/6.4 borrador decisión) |
+| Estado | **En definición** — bloques 6.3–6.4 avanzados; pendiente aprobación responsable |
 | Alcance edición | Solo Dev EN1 (`develop`) |
 | Master plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) v3.1 |
 | Modelo maestro Core | [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
@@ -32,11 +32,11 @@ No construir funcionalidades antes de cerrar el dominio. EN1, IIUS, Relatic y EP
 | **V3 Etapa 7** | Construcción funcional sobre dominio congelado |
 | **Scaffold EN1 12–17** | Borrador técnico de validación — **no** contrato aprobado |
 
-### Principio rector (propuesto)
+### Principio rector (decisión 6.3)
 
-> **El centro del sistema es el Pedido, no la Factura.**
+> **El centro del sistema es el Pedido (`CommercialOrder`), no la Factura.**
 
-La factura es un **documento derivado** del pedido (o de un conjunto de pedidos), emitido según reglas fiscales y de negocio acordadas en 6.8.
+La factura es un **documento derivado** del pedido, emitido según reglas fiscales (6.8). Cotización, KDS, entrega, pagos y movimientos de caja **cuelgan del pedido**.
 
 ---
 
@@ -62,57 +62,136 @@ Cada sub-etapa cierra con: **decisión explícita**, **entidades/relaciones**, *
 
 **Objetivo:** jerarquía operativa única bajo el tenant.
 
-#### Entidades a definir
+**Estado:** borrador decisión v1 — pendiente aprobación.
 
-| Entidad | Pregunta clave | Notas / deuda actual |
-|---------|----------------|----------------------|
-| **Empresa** | ¿Es `SaasOrganization` o sub-entidad? | Hoy: tenant = org |
-| **Sucursal** | ¿Obligatoria para todo POS? | Etapa 10: `org_unit` tipo `branch` |
-| **Área** | ¿Salón, cocina, depósito, mostrador? | No modelado |
-| **POS** | ¿Punto lógico de venta vs terminal física? | UI placeholder `branches` |
-| **Terminal** | ¿Dispositivo, sesión, o ambos? | `core_pos_terminal` scaffold |
-| **Caja** | ¿Caja física, lógica, o turno? | Confusión caja vs turno |
-| **Turno** | ¿Por cajero, por terminal, por sucursal? | `core_cash_shift` scaffold |
+#### Decisión v1 — jerarquía
 
-#### Decisiones pendientes
+```text
+SaasOrganization (Empresa / tenant)
+    └── OrgUnit [branch]           Sucursal — obligatoria si hay POS físico
+            └── OrgUnit [area]     Área operativa (salón, cocina, bodega, mostrador)
+            └── OrgUnit [pos]      Punto de venta lógico (mostrador 1, barra, delivery hub)
+            └── OrgUnit [register] Caja lógica (cajón / cuenta de efectivo)
+            └── OrgUnit [warehouse] Bodega / depósito (inventario — 6.5)
+    └── PosTerminal                Dispositivo o sesión de captura (tablet, PC, handheld mesero)
+    └── CashShift                  Turno de caja (apertura → cierre)
+```
 
-- [ ] ¿Una sucursal puede tener múltiples cajas abiertas simultáneamente?
-- [ ] ¿Terminal sin turno puede cobrar?
-- [ ] ¿POS móvil (mesero) vs POS fijo (caja) — misma entidad o distinta?
-- [ ] ¿Multi-sucursal: catálogo e inventario por sucursal o centralizado?
-- [ ] Mapa definitivo `org_unit` tipos: `company` \| `branch` \| `area` \| `pos` \| `terminal` \| `warehouse`
+| Entidad | Definición v1 | Tabla / contrato |
+|---------|---------------|------------------|
+| **Empresa** | `SaasOrganization` — un tenant = una empresa fiscal operativa | `saas_organization` |
+| **Sucursal** | Local con dirección, FE y stock propios (si aplica) | `org_unit.type = branch` |
+| **Área** | Zona dentro de la sucursal (no vende sola; enruta a KDS/bodega) | `org_unit.type = area` |
+| **POS** | Punto lógico donde se originan pedidos (config, lista de precios, impresora) | `org_unit.type = pos` |
+| **Caja (register)** | Cuenta lógica de efectivo; N por sucursal | `org_unit.type = register` |
+| **Terminal** | Dispositivo que ejecuta la app; 1..N por POS o sucursal | `core_pos_terminal` |
+| **Turno** | Sesión de operación de un cajero sobre una caja | `core_cash_shift` |
+
+#### Reglas de cardinalidad v1
+
+| Regla | Decisión |
+|-------|----------|
+| ¿Multi-sucursal? | Sí — catálogo maestro a nivel empresa; precios/stock configurables por sucursal (6.5) |
+| ¿Varias cajas abiertas en una sucursal? | **Sí** — una por `register`; cada una con su turno |
+| ¿Un turno abierto por caja? | **Sí** — máximo un `CashShift` en `open` por `register_id` |
+| ¿Terminal sin turno puede cobrar efectivo? | **No** — cobro efectivo requiere turno abierto en la caja vinculada |
+| ¿Terminal sin turno puede tomar pedido? | **Sí** — terminal handheld (mesero) en modo `order_only` |
+| ¿POS móvil vs fijo? | Misma entidad `PosTerminal`; perfil `fixed` \| `handheld` |
+| ¿Pedido obliga sucursal? | **Sí** — `branch_id` requerido en todo pedido POS |
+
+#### Glosario
+
+| Término | Significado |
+|---------|-------------|
+| **Sucursal** | Local físico o punto fiscal |
+| **POS** | Configuración lógica de venta (no el dispositivo) |
+| **Terminal** | Dispositivo o sesión que corre EPosOne |
+| **Caja** | Registro lógico de dinero (no el cajón físico, aunque se mapea 1:1) |
+| **Turno** | Intervalo en que un cajero opera una caja |
+
+#### Preguntas diferidas (no bloquean 6.3)
+
+- [ ] ¿`warehouse` es `org_unit` hermano de `branch` o hijo? → decidir en **6.5 Inventario**
+- [ ] ¿Terminal puede cambiar de caja mid-shift? → **No** en v1
 
 #### Criterio de cierre 6.1
 
-Diagrama jerárquico aprobado + glosario de términos + reglas de cardinalidad (1:N, N:M).
+| Ítem | Estado |
+|------|--------|
+| Diagrama jerárquico | Hecho (borrador v1) |
+| Glosario | Hecho |
+| Reglas cardinalidad | Hecho (borrador v1) |
+| Aprobación responsable | Pendiente |
 
 ---
 
 ### 6.2 — Personas y roles comerciales
 
-**Objetivo:** separar **identidad de acceso** (`User`) de **rol operativo en el POS** (`Contact` + rol de turno).
+**Objetivo:** separar **identidad de acceso** (`User`) de **rol operativo en el POS** (asignación de turno/sesión).
 
-#### Roles a definir
+**Estado:** borrador decisión v1 — pendiente aprobación.
 
-| Rol | Pregunta | ¿Puede…? |
-|-----|----------|----------|
-| **Cajero** | ¿Quién abre turno y cobra? | Pendiente |
-| **Vendedor** | ¿Distinto del cajero en retail? | Pendiente |
-| **Mesero** | ¿Toma pedido sin cobrar? | Pendiente |
-| **Supervisor** | ¿Anulaciones, descuentos, arqueo? | Pendiente |
-| **Gerente** | ¿Reportes, cierre de día, config? | Pendiente |
+#### Decisión v1 — dos capas
 
-#### Decisiones pendientes
+| Capa | Entidad | Uso |
+|------|---------|-----|
+| **Acceso plataforma** | `User` + RBAC | Permisos de app, menús, configuración |
+| **Operación POS** | `User` + `operational_role` en sesión/turno | Acciones en piso y caja |
 
-- [ ] ¿Un `User` puede ser cajero y mesero el mismo día?
-- [ ] ¿Vendedor vs cajero: misma persona, dos roles, o dos personas obligatorias?
-- [ ] ¿Mesero “posee” el pedido hasta transferencia a caja?
-- [ ] ¿Supervisor requiere autorización por PIN, rol RBAC, o ambos?
-- [ ] Vínculo `User` ↔ `Contact` ↔ rol operativo del turno
+`Contact` = cliente del pedido (opcional en mostrador). **No** confundir con rol operativo.
+
+Vínculo futuro: `User.linked_contact_id` cuando el empleado también es tercero fiscal (Etapa 10).
+
+#### Roles operativos v1
+
+| Rol | Descripción | Contexto típico |
+|-----|-------------|-----------------|
+| **Mesero** | Toma y modifica pedidos; no cobra ni abre turno | Restaurante, handheld |
+| **Vendedor** | Crea pedidos y cobra (sin obligación de turno de caja en retail simple) | Retail, ferretería |
+| **Cajero** | Opera turno de caja; cobra, arquea, cierra | Caja fija |
+| **Supervisor** | Autoriza excepciones (descuento, anulación, reembolso) | Todos |
+| **Gerente** | Config, reportes, cierre de día, override supervisor | Back office |
+
+Un `User` **puede** tener varios roles operativos; al iniciar sesión en terminal elige rol (o se infiere por tipo de terminal).
+
+#### Matriz rol × acción v1
+
+| Acción | Mesero | Vendedor | Cajero | Supervisor | Gerente |
+|--------|:------:|:--------:|:------:|:----------:|:-------:|
+| Crear pedido `draft` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Editar pedido `draft` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Confirmar / enviar a cocina | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Aplicar descuento | — | límite % | límite % | ✓ | ✓ |
+| Capturar pago | — | ✓ | ✓ | ✓ | ✓ |
+| Cobro efectivo | — | ✓* | ✓ | ✓ | ✓ |
+| Abrir / cerrar turno | — | — | ✓ | ✓ | ✓ |
+| Transferir pedido a otra caja | — | — | ✓ | ✓ | ✓ |
+| Anular pedido (`cancelled`) | — | — | PIN | ✓ | ✓ |
+| Reembolso (`refunded`) | — | — | PIN | ✓ | ✓ |
+| Ver reportes de caja | — | — | propio turno | sucursal | todo |
+
+\* Vendedor en retail puede cobrar efectivo **sin** turno formal si la org tiene `retail_simple_mode=true`; en restaurante el cobro es siempre en caja (mesero no cobra).
+
+#### Reglas de autorización v1
+
+| Situación | Regla |
+|-----------|-------|
+| Descuento sobre límite | `Supervisor` autoriza con PIN o credencial |
+| Anulación post-confirmación | Supervisor + motivo obligatorio + auditoría |
+| Mesero cobra | **Prohibido** en restaurante — transferir a caja |
+| Vendedor = Cajero | Misma persona puede alternar roles; turno de caja sigue siendo explícito |
+
+#### Eventos de auditoría
+
+Toda acción de supervisor (override) publica `commerce.authorization.applied` con `user_id`, `action`, `order_id`, `reason`.
 
 #### Criterio de cierre 6.2
 
-Matriz rol × acción permitida + reglas de autorización y auditoría.
+| Ítem | Estado |
+|------|--------|
+| Matriz rol × acción | Hecho (borrador v1) |
+| Reglas mesero vs cajero vs vendedor | Hecho |
+| Aprobación responsable | Pendiente |
 
 ---
 
@@ -120,53 +199,255 @@ Matriz rol × acción permitida + reglas de autorización y auditoría.
 
 **Objetivo:** fijar el **agregado raíz** del dominio comercial.
 
-#### Opciones (decisión requerida)
+**Estado:** **cerrado v1** (decisiones documentadas — pendiente firma responsable).
 
-| Opción | Descripción | Implicaciones |
-|--------|-------------|---------------|
-| **A — Pedido** (recomendación proyecto) | Todo flujo comienza y termina en pedido | Factura, entrega, KDS cuelgan del pedido |
-| B — Factura | Venta = documento fiscal | Pedido como borrador previo |
-| C — Híbrido | Pedido operativo + factura obligatoria inmediata | Complejidad retail vs restaurante |
+#### Decisión principal
 
-#### Decisiones pendientes
+| Opción | Estado |
+|--------|--------|
+| **A — Pedido como agregado raíz** | **Adoptada** |
+| B — Factura como centro | Rechazada |
+| C — Híbrido factura obligatoria inmediata | Rechazada |
 
-- [ ] Confirmar **Opción A** (Pedido como centro) o documentar alternativa
-- [ ] ¿Pedido único vs pedido padre + sub-pedidos (mesas, comandas)?
-- [ ] ¿Estados del pedido vs estados de línea independientes?
-- [ ] ¿Pedido anónimo (mostrador) vs pedido con `Contact` obligatorio?
-- [ ] Relación pedido ↔ cotización ↔ factura ↔ nota de crédito
+#### Modelo de documentos
+
+```text
+Cotización (Quotation)     — opcional, pre-venta B2B
+        │
+        ▼ convertir (1:1 o 1:N líneas)
+Pedido (CommercialOrder)  — AGREGADO RAÍZ ★
+        │
+        ├── Líneas (OrderLine) — productos, cantidades, precios
+        ├── Pagos (Payment) — N pagos por pedido
+        ├── Entrega (Delivery) — 0..1 por pedido (6.4)
+        ├── Ticket KDS — derivado al confirmar (restaurante)
+        ├── Factura (Invoice) — 0..N documentos fiscales derivados (6.8)
+        └── Nota de crédito — revierte factura; referencia pedido origen
+```
+
+| Documento | ¿Centro? | Relación con pedido |
+|-----------|----------|---------------------|
+| **Pedido** | **Sí** | Raíz |
+| **Cotización** | No | Se convierte en pedido; no se factura directamente |
+| **Factura** | No | Se emite **desde** pedido(s) cobrado(s) o entregado(s) |
+| **Nota de crédito** | No | Referencia factura + pedido |
+| **Ticket KDS** | No | Vista operativa de líneas a preparar |
+
+#### Estructura del pedido v1
+
+| Campo conceptual | Regla |
+|------------------|-------|
+| `parent_order_id` | Opcional — cuenta padre (mesa) con sub-pedidos (comandas por persona o ronda) |
+| `contact_id` | Opcional en mostrador; obligatorio en crédito, delivery y factura nominativa |
+| `branch_id` | Obligatorio |
+| `pos_id` | Obligatorio — punto lógico de origen |
+| `terminal_id` | Obligatorio — dispositivo que creó el pedido |
+| `cashier_user_id` | Quien cobró (puede diferir de quien creó) |
+| `operational_status` | Ciclo operativo (cocina, entrega) |
+| `payment_status` | `unpaid` \| `partial` \| `paid` \| `overpaid` — **eje independiente** |
+| `fiscal_status` | `not_required` \| `pending` \| `invoiced` \| `cancelled` — **eje independiente** |
+
+**Regla:** operación, pago y fiscal **no** se mezclan en un solo campo `status` (el scaffold actual `status` único se refactoriza en Etapa 7).
+
+#### Estados operativos del pedido v1
+
+```text
+draft ──► confirmed ──► in_progress ──► ready ──► delivered
+  │            │              │             │
+  └────────────┴──────────────┴─────────────┴──► cancelled
+  │
+  └── (desde delivered + pago revertido) ──► refunded
+```
+
+| Estado | Significado | Editable |
+|--------|-------------|----------|
+| `draft` | Carrito / comanda abierta | Sí — líneas y cantidades |
+| `confirmed` | Comprometido — enviado a cocina o listo para cobrar | Solo con supervisor |
+| `in_progress` | En preparación (KDS) | No líneas; sí notas |
+| `ready` | Listo para entregar o cobrar | No |
+| `delivered` | Entregado al cliente / cerrado operativamente | No |
+| `cancelled` | Anulado antes de completar — sin efecto fiscal | Terminal |
+| `refunded` | Devolución post-venta | Terminal |
+
+Transiciones válidas = mismas que scaffold `ORDER_STATUS_TRANSITIONS` (alineado). El scaffold **no** modela aún `payment_status` ni `fiscal_status` separados.
+
+#### Estados de línea v1 (independientes del pedido)
+
+Cada `OrderLine` tiene `line_status`:
+
+| `line_status` | Uso |
+|---------------|-----|
+| `pending` | Esperando preparación |
+| `in_progress` | En cocina |
+| `ready` | Lista |
+| `served` | Entregada al cliente |
+| `cancelled` | Línea anulada |
+
+**Regla:** en restaurante el KDS opera sobre **líneas**; el pedido pasa a `ready` cuando todas las líneas activas están `ready` o `served`.
+
+#### Pedido anónimo vs identificado
+
+| Modo | `contact_id` | Factura nominativa |
+|------|--------------|-------------------|
+| Mostrador / consumo rápido | Opcional | Consumidor final |
+| Retail con programa fidelidad | Recomendado | Opcional |
+| Crédito / mayorista / delivery | **Obligatorio** | Según RUC |
+
+#### Definiciones operativas (glosario 6.3)
+
+| Término | Definición |
+|---------|------------|
+| **Cancelar** | Anular pedido **antes** de completar venta — sin movimiento de caja de reembolso |
+| **Reembolsar** | Devolver dinero **después** de cobro — pedido pasa a `refunded` |
+| **Anular factura** | Acto fiscal sobre documento emitido — no sustituye reembolso de caja |
+
+#### Eventos de dominio v1 (pedido)
+
+| Evento | Cuándo |
+|--------|--------|
+| `commerce.order.created` | Pedido `draft` creado |
+| `commerce.order.confirmed` | Pasa a `confirmed` |
+| `commerce.order.status_changed` | Cualquier cambio operativo |
+| `commerce.order.payment_status_changed` | Cambio en eje de pago |
+| `commerce.order.cancelled` | `cancelled` |
+| `commerce.order.refunded` | `refunded` |
+| `commerce.order.line_status_changed` | Cambio en línea (KDS) |
+
+#### Alineación con scaffold EN1
+
+| Scaffold actual | Acción Etapa 7 |
+|-----------------|----------------|
+| `status` único en `core_commercial_order` | Dividir en `operational_status` + `payment_status` + `fiscal_status` |
+| `amount_paid` vs `grand_total` | Mantener — alimenta `payment_status` |
+| Pago fuerza `confirmed` | Revisar — en restaurante confirm ≠ pagado |
 
 #### Criterio de cierre 6.3
 
-Agregado raíz declarado + diagrama de documentos derivados + máquina de estados del pedido v1.
+| Ítem | Estado |
+|------|--------|
+| Agregado raíz = Pedido | **Hecho** |
+| Diagrama documentos derivados | **Hecho** |
+| Máquina de estados operativos v1 | **Hecho** |
+| Estados de línea | **Hecho** |
+| Ejes payment / fiscal separados | **Hecho** (decisión) |
+| Aprobación responsable | Pendiente |
 
 ---
 
 ### 6.4 — Flujos comerciales (escenarios)
 
-**Objetivo:** validar el modelo contra verticales reales — **casos de prueba del dominio**, no features.
+**Objetivo:** validar el modelo 6.3 contra verticales reales.
 
-#### Escenarios obligatorios
+**Estado:** borrador v1 — secuencias documentadas; pendiente validación operaciones.
 
-| Escenario | Preguntas a resolver |
-|-----------|---------------------|
-| **Restaurante** | Mesa, comanda, cocina (KDS), cobro en mesa o caja, propina |
-| **Retail** | Mostrador, escaneo, devolución en tienda, cambio |
-| **Ferretería** | Precio por cantidad, crédito cliente, despacho desde bodega |
-| **Mayorista** | Pedido grande, factura posterior, múltiples entregas parciales |
-| **Delivery** | Pedido remoto, pago anticipado vs contra entrega, repartidor |
+#### Definiciones transversales v1
 
-#### Flujos transversales
+| Concepto | Definición |
+|----------|------------|
+| **Transferencia a caja** | Pedido creado por mesero (`handheld`) se asocia a terminal/caja fija para cobro; mismo pedido, cambia `terminal_id` de cobro |
+| **Split bill** | Pedido padre → N sub-pedidos por `parent_order_id`; cada uno cobra independiente |
+| **Suspender** | Pedido permanece en `draft` con `suspended_at`; retomable mismo día |
+| **Unir mesas** | Varios pedidos `draft` de mesas fusionadas → un pedido padre |
 
-- [ ] Transferencia de pedido (mesero → caja, sucursal → sucursal)
-- [ ] Pedido suspendido / retomado
-- [ ] División de cuenta (split bill)
-- [ ] Unión de mesas / pedidos
-- [ ] Cancelación vs anulación vs reembolso — definiciones distintas
+#### Restaurante — secuencia v1
+
+```text
+Mesero (handheld)                Cocina (KDS)              Caja (fixed)
+      │                               │                         │
+      ├─ crear draft                  │                         │
+      ├─ confirm ────────────────────►│ ticket líneas           │
+      │                               ├─ in_progress            │
+      │                               ├─ ready                  │
+      ├─ transferir a caja ────────────────────────────────────►│
+      │                                                         ├─ capturar pago
+      │                                                         ├─ payment_status=paid
+      │◄────────────────────────────────────────────────────────┤ delivered (opcional)
+```
+
+| Paso | Estado pedido | `payment_status` | Evento |
+|------|---------------|------------------|--------|
+| Tomar orden | `draft` | `unpaid` | `commerce.order.created` |
+| Enviar cocina | `confirmed` → `in_progress` | `unpaid` | `commerce.order.confirmed` |
+| Plato listo | `ready` | `unpaid` | `eposone.kds.ticket.ready` |
+| Cobrar en caja | `ready` o `delivered` | `paid` | `commerce.payment.captured` |
+| Cerrar | `delivered` | `paid` | `commerce.order.status_changed` |
+
+**Propina:** línea especial `tip` o pago `payment_type=tip` — decisión final en **6.7**.
+
+#### Retail — secuencia v1
+
+```text
+Vendedor (fixed o handheld)
+      ├─ crear draft (escaneo)
+      ├─ confirm (inmediato — sin KDS)
+      ├─ capturar pago (mismo rol)
+      ├─ payment_status=paid
+      ├─ fiscal_status=pending → invoiced (6.8)
+      └─ delivered (entrega mostrador)
+```
+
+| Paso | Estado | Notas |
+|------|--------|-------|
+| Venta mostrador | `draft` → `confirmed` → `delivered` | Sin `in_progress` si no hay fulfillment |
+| Devolución | `refunded` | Requiere supervisor; reingreso stock (6.5) |
+
+#### Ferretería — secuencia v1
+
+```text
+Vendedor → pedido grande (crédito o contado)
+      ├─ contact obligatorio
+      ├─ confirm
+      ├─ si contado: pago → delivered
+      ├─ si crédito: payment_status=unpaid, delivered desde bodega
+      └─ factura al despachar o al cobrar (config org — 6.8)
+```
+
+#### Mayorista — secuencia v1
+
+```text
+Cotización → convertir a pedido
+      ├─ confirm
+      ├─ entregas parciales (Delivery partial — 6.5/6.4)
+      ├─ N pagos parciales permitidos
+      └─ factura consolidada o por entrega (6.8)
+```
+
+#### Delivery — secuencia v1
+
+```text
+Canal: menú QR / call center / marketplace
+      ├─ crear pedido (branch + contact obligatorio)
+      ├─ confirm
+      ├─ in_progress → ready (cocina)
+      ├─ Delivery creado al `ready`
+      ├─ pago anticipado O contra entrega (6.7)
+      └─ delivered al completar entrega
+```
+
+| Pago | Momento |
+|------|---------|
+| Anticipado | Antes de `in_progress` |
+| Contra entrega | Al `delivered` por repartidor |
+
+#### Matriz vertical × fases del pedido
+
+| Vertical | KDS | Turno caja | Pago antes de `delivered` | Factura |
+|----------|:---:|:----------:|:-------------------------:|:-------:|
+| Restaurante | ✓ | ✓ | Opcional (caja) | Post-cobro |
+| Retail | — | opcional | ✓ | Post-cobro |
+| Ferretería | — | ✓ | Según crédito | Configurable |
+| Mayorista | — | — | Parcial | Por entrega |
+| Delivery | ✓ | — | Anticipado o final | Post-cobro |
 
 #### Criterio de cierre 6.4
 
-Un diagrama de secuencia por escenario + tabla “evento disparado en cada paso”.
+| Ítem | Estado |
+|------|--------|
+| Secuencia restaurante | Hecho (borrador v1) |
+| Secuencia retail | Hecho (borrador v1) |
+| Secuencia ferretería / mayorista / delivery | Hecho (borrador v1) |
+| Definiciones transversales | Hecho (borrador v1) |
+| Validación con operaciones reales | Pendiente |
 
 ---
 
@@ -200,24 +481,51 @@ Tabla momento × acción × evento + excepciones por vertical (restaurante sin s
 
 **Objetivo:** ciclo de vida del dinero en efectivo y medios en caja.
 
-#### Ciclo
+**Estado:** borrador decisión v1.
+
+#### Ciclo del turno v1
 
 ```text
-Apertura → Cobros → Reembolsos / retiros → Arqueo → Cierre
+open ──► (cobros / reembolsos / retiros) ──► reconciling ──► closed
 ```
 
-#### Decisiones pendientes
+| Estado turno | Significado |
+|--------------|-------------|
+| `open` | Cajero operando; acepta cobros efectivo |
+| `reconciling` | Arqueo en curso — no nuevos cobros |
+| `closed` | Turno cerrado; totales congelados |
 
-- [ ] ¿Apertura con fondo fijo obligatorio?
-- [ ] ¿Cobro sin turno abierto — permitido o bloqueado?
-- [ ] ¿Reembolso total vs parcial — impacto en turno y pedido?
-- [ ] ¿Arqueo ciego vs arqueo con detalle esperado?
-- [ ] ¿Un cajero, un turno, una terminal — regla de unicidad?
-- [ ] ¿Ventas a crédito pasan por caja o solo por cuenta por cobrar?
+#### Decisiones v1
+
+| Pregunta | Decisión |
+|----------|----------|
+| ¿Apertura con fondo fijo obligatorio? | **Sí** — `opening_balance` ≥ 0; puede ser 0 |
+| ¿Cobro efectivo sin turno? | **No** |
+| ¿Cobro tarjeta sin turno? | **Sí** en `retail_simple_mode`; **No** en restaurante |
+| ¿Reembolso en turno distinto al cobro? | **No** en v1 — mismo turno o supervisor |
+| ¿Arqueo? | **Ciego** — cajero ingresa conteo; sistema muestra diferencia al supervisor |
+| ¿Un cajero, un turno activo? | **Sí** — un `User` no puede tener dos turnos `open` |
+| ¿Ventas a crédito en caja? | Registran **compromiso** de pago; no incrementan efectivo en turno hasta cobro |
+
+#### Movimientos de caja v1
+
+| Tipo | Efecto |
+|------|--------|
+| `sale_cash` | + efectivo por pago capturado |
+| `refund_cash` | − efectivo por reembolso |
+| `cash_in` | Ingreso manual (fondo adicional) — supervisor |
+| `cash_out` | Retiro (depósito banco) — supervisor |
+| `tip_cash` | Propina en efectivo (si no va como línea de pedido) |
+
+Eventos: `commerce.cash_shift.opened`, `.movement_recorded`, `.reconciling`, `.closed`.
 
 #### Criterio de cierre 6.6
 
-Máquina de estados del turno + reglas de arqueo + eventos `commerce.cash_shift.*`.
+| Ítem | Estado |
+|------|--------|
+| Máquina de estados turno | Hecho (borrador v1) |
+| Reglas arqueo y reembolso | Hecho (borrador v1) |
+| Aprobación responsable | Pendiente |
 
 ---
 
@@ -225,26 +533,48 @@ Máquina de estados del turno + reglas de arqueo + eventos `commerce.cash_shift.
 
 **Objetivo:** medios de pago y combinaciones.
 
-#### Medios
+**Estado:** borrador decisión v1.
 
-| Medio | Preguntas |
-|-------|-----------|
-| Efectivo | Cambio, redondeo, multi-moneda |
-| Tarjeta | Integración terminal vs registro manual |
-| Mixto | Orden de aplicación, un pago o varios por pedido |
-| Yappy / transferencia | Confirmación manual vs automática |
-| Crédito | Límite, cuenta corriente, vencimiento |
+#### Catálogo `payment_type` v1
 
-#### Decisiones pendientes
+| Tipo | Código | Turno caja | Offline |
+|------|--------|:----------:|:-------:|
+| Efectivo | `cash` | Requerido | ✓ |
+| Tarjeta | `card` | Recomendado | Cola* |
+| Transferencia | `transfer` | No | Cola |
+| Yappy / wallet | `wallet` | No | Cola |
+| Crédito / cuenta | `credit` | No | ✓ |
+| Otro | `other` | Configurable | ✓ |
 
-- [ ] ¿Un pedido, N pagos — siempre permitido?
-- [ ] ¿Pago parcial deja pedido en estado intermedio?
-- [ ] ¿Propina — línea de pedido, pago aparte, o ajuste de caja?
-- [ ] ¿Pagos offline se encolan y reconcilian al sync?
+\* Tarjeta offline: registrar intención; capturar al reconectar o forzar efectivo alternativo.
+
+#### Reglas v1
+
+| Pregunta | Decisión |
+|----------|----------|
+| ¿Un pedido, N pagos? | **Sí** — pagos parciales permitidos |
+| ¿Pago parcial? | `payment_status=partial` hasta cubrir `grand_total` |
+| ¿Propina? | `payment_type=tip` **o** línea `OrderLine` con `product_ref=TIP` — **elegir uno en implementación** (preferencia: línea para KDS limpio) |
+| ¿Pago > total? | `overpaid` — diferencia registrada como propina o cambio según medio |
+| ¿Mixto? | Varios `Payment` en secuencia; orden libre |
+| ¿Reembolso? | `Payment` con `status=refunded` vinculado al original; supervisor |
+
+#### Estados de pago v1
+
+`pending` → `authorized` (opcional tarjeta) → `captured` → `refunded` \| `partial_refund` \| `failed`
+
+**Regla:** `payment_status` del pedido se calcula de la suma de pagos `captured` vs `grand_total`.
+
+Eventos: `commerce.payment.initiated`, `.captured`, `.failed`, `.refunded`.
 
 #### Criterio de cierre 6.7
 
-Catálogo de `payment_method` + estados de pago + reglas mixtas + eventos `commerce.payment.*`.
+| Ítem | Estado |
+|------|--------|
+| Catálogo medios | Hecho (borrador v1) |
+| Reglas mixtas y parciales | Hecho (borrador v1) |
+| Propina | Pendiente elección final línea vs pago |
+| Aprobación responsable | Pendiente |
 
 ---
 
@@ -317,19 +647,23 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 
 | # | Criterio | Estado |
 |---|----------|--------|
-| 1 | 6.1 Organización comercial — diagrama y glosario aprobados | Pendiente |
-| 2 | 6.2 Personas y roles — matriz rol × acción | Pendiente |
-| 3 | 6.3 Documento maestro — **Pedido** confirmado como agregado raíz | Pendiente |
-| 4 | 6.4 Flujos — 5 escenarios con secuencias y eventos | Pendiente |
+| 1 | 6.1 Organización comercial — diagrama y glosario aprobados | Borrador v1 |
+| 2 | 6.2 Personas y roles — matriz rol × acción | Borrador v1 |
+| 3 | 6.3 Documento maestro — **Pedido** confirmado como agregado raíz | **Cerrado v1** |
+| 4 | 6.4 Flujos — 5 escenarios con secuencias y eventos | Borrador v1 |
 | 5 | 6.5 Inventario — reglas momento × acción (sin código) | Pendiente |
-| 6 | 6.6 Caja — ciclo turno completo modelado | Pendiente |
-| 7 | 6.7 Pagos — medios y reglas mixtas | Pendiente |
+| 6 | 6.6 Caja — ciclo turno completo modelado | Borrador v1 |
+| 7 | 6.7 Pagos — medios y reglas mixtas | Borrador v1 |
 | 8 | 6.8 Facturación — nacimiento documento + offline | Pendiente |
 | 9 | 6.9 Sincronización — prioridades y conflictos | Pendiente |
 | 10 | Master Plan V3.1 actualizado y referenciado | Hecho |
 | 11 | Aprobación explícita responsable del proyecto | Pendiente |
 
-**Siguiente fase tras cierre:** **V3 Etapa 7 — Construcción del dominio** (inventario, caja, pedidos, reportes, reembolsos).
+**Progreso:** 5/9 bloques de dominio con borrador o cierre v1 (6.1–6.4, 6.6–6.7).
+
+**Siguiente bloque recomendado:** **6.5 Inventario** → **6.8 Facturación** → **6.9 Sincronización**.
+
+**Siguiente fase tras cierre total:** **V3 Etapa 7 — Construcción del dominio**.
 
 ---
 
@@ -361,4 +695,4 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 
 ---
 
-*Etapa 6 dominio comercial — 2026-07-08. Cambios requieren actualizar este doc y acuerdo del responsable. Sin GO explícito: no implementación funcional nueva.*
+*Etapa 6 dominio comercial — 2026-07-08 (v1.1: 6.3 cerrado, 6.1/6.2/6.4 borrador). Cambios requieren actualizar este doc y acuerdo del responsable. Sin GO explícito: no implementación funcional nueva.*

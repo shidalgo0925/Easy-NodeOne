@@ -302,7 +302,7 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 | P | Etapa | Nombre | Estado |
 |---|-------|--------|--------|
 | **P1** | **10** | **Modelo maestro compartido** | **Plan cerrado** — [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
-| P2 | 11 | Servicios compartidos (APIs Core) | Pendiente |
+| **P2** | **11** | **Servicios compartidos (APIs Core)** | **Cerrado en dev** — `nodeone/core/services/` |
 | P3 | 12 | Dominio comercial (pedido, pago, factura, caja, POS) | Pendiente |
 | P4 | 13 | Sincronización offline (cola, reintentos, conflictos) | Pendiente |
 | P5 | 14 | **EPosOne MVP comercial** | Pendiente |
@@ -327,6 +327,24 @@ Consolidar plataforma (10 → 11 → 12 → 13)
 - **OrgUnit** para sucursales/locales/cajas.
 - **Address, Attachment, Audit, Notification, Calendar** como servicios Core.
 - **Sin big bang** en IIUS/Relatic.
+
+### Etapa 11 — resumen
+
+Paquete `backend/nodeone/core/services/` — APIs internas para Apps (sin ORM expuesto):
+
+| Servicio | Estado | Delegación / notas |
+|----------|--------|-------------------|
+| `ContactService` | Activo | `nodeone.modules.contacts.service` → `ContactDTO` |
+| `OrganizationService` | Activo | `resolve_organization_id` + `SaasOrganization` |
+| `AuditService` | Activo | `publish_domain_event` + `HistoryLogger.log_system_action` |
+| `NotificationService` | Activo | `CommunicationEngine.trigger` |
+| `ProductService` | Stub | Pendiente `core_product` (Etapa 10d) |
+| `DocumentService` | Stub | Pendiente `core_attachment` (Etapa 10b) |
+| `CalendarService` | Stub | Pendiente convergencia con EAppointments |
+
+**Consumidor ejemplo:** EPosOne eventos usan `AuditService.publish_domain_event`. Tests: `tests/platform/test_core_services.py`.
+
+---
 
 Detalle completo: [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md).
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from nodeone.core.platform.events import EPOSONE_ORDER_CREATED, EPOSONE_ORDER_PAID, publish_domain_event
+from nodeone.core.platform.events import EPOSONE_ORDER_CREATED, EPOSONE_ORDER_PAID
+from nodeone.core.services.audit import AuditService
 
 
 def publish_order_created(
@@ -19,7 +20,7 @@ def publish_order_created(
         payload['total'] = total
     if extra:
         payload.update(extra)
-    return publish_domain_event(
+    return AuditService.publish_domain_event(
         organization_id,
         EPOSONE_ORDER_CREATED,
         payload,
@@ -31,7 +32,7 @@ def publish_order_paid(organization_id: int, *, order_ref: str, payment_ref: str
     payload: dict[str, Any] = {'order_ref': order_ref, 'status': 'paid'}
     if payment_ref:
         payload['payment_ref'] = payment_ref
-    return publish_domain_event(
+    return AuditService.publish_domain_event(
         organization_id,
         EPOSONE_ORDER_PAID,
         payload,

@@ -57,6 +57,21 @@ def eposone_section(slug: str):
             orders=orders,
             orders_total=orders_total,
         )
+    if key == 'kds':
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.modules.eposone.kds_service import KdsService
+
+        oid = resolve_organization_id()
+        tickets: list = []
+        if oid is not None:
+            tickets = KdsService.list_tickets(int(oid), limit=30)
+        return render_template(
+            'eposone/kds.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            tickets=tickets,
+        )
     return render_template(
         'eposone/section.html',
         section_slug=key,

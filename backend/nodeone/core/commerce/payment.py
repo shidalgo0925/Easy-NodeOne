@@ -81,6 +81,14 @@ class PaymentService:
             order.status = ORDER_STATUS_CONFIRMED
         db.session.commit()
 
+        if order.status == ORDER_STATUS_CONFIRMED:
+            try:
+                from nodeone.modules.eposone.kds_service import KdsService
+
+                KdsService.maybe_enqueue_for_order_status(oid, int(order.id), ORDER_STATUS_CONFIRMED)
+            except Exception:
+                pass
+
         PaymentService.publish_captured(
             oid,
             payment_ref=payment_ref,

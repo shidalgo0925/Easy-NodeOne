@@ -193,6 +193,14 @@ class OrderService:
         row.status = tgt
         row.version = int(row.version or 1) + 1
         db.session.commit()
+
+        from nodeone.modules.eposone.kds_service import KdsService
+
+        try:
+            KdsService.maybe_enqueue_for_order_status(int(organization_id), int(order_id), tgt)
+        except Exception:
+            pass
+
         return order_to_dto(row)
 
     @staticmethod

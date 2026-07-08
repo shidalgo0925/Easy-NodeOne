@@ -154,3 +154,49 @@ def terminals_register():
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'terminal': dto.to_dict()}), 201
+
+
+@eposone_api_bp.route('/kds/tickets', methods=['GET'])
+@login_required
+def kds_tickets_list():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.kds_service import KdsService
+
+    station_type = (request.args.get('station_type') or '').strip() or None
+    status = (request.args.get('status') or '').strip() or None
+    limit = int(request.args.get('limit', 50) or 50)
+    items = KdsService.list_tickets(gate, station_type=station_type, status=status, limit=limit)
+    return jsonify({'tickets': [t.to_dict() for t in items]})
+
+
+@eposone_api_bp.route('/kds/tickets/<int:ticket_id>/status', methods=['POST'])
+@login_required
+def kds_ticket_transition(ticket_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.kds_service import KdsService
+
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = KdsService.transition_ticket(gate, int(ticket_id), str(body.get('status') or ''))
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'ticket': dto.to_dict()})
+
+
+@eposone_api_bp.route('/kds/orders/<int:order_id>/tickets', methods=['POST'])
+@login_required
+def kds_tickets_create_for_order(order_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.kds_service import KdsService
+
+    try:
+        items = KdsService.create_tickets_for_order(gate, int(order_id))
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'tickets': [t.to_dict() for t in items]}), 201

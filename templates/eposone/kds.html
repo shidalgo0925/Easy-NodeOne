@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="mb-3">
+        <h1 class="h4 mb-1">{{ section_title }}</h1>
+        <p class="text-muted small mb-0">{{ section_description }}</p>
+    </div>
+
+    <div class="row g-3">
+        {% if tickets %}
+            {% for ticket in tickets %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
+                        <strong><code>{{ ticket.order_ref }}</code></strong>
+                        <span class="badge bg-warning text-dark">{{ ticket.status }}</span>
+                    </div>
+                    <div class="card-body py-2">
+                        <p class="small text-muted mb-2">{{ ticket.station_type }} · prioridad {{ ticket.priority }}</p>
+                        <ul class="list-unstyled mb-0 small">
+                            {% for line in ticket.lines %}
+                            <li class="mb-1">
+                                <span class="fw-semibold">{{ line.quantity|int if line.quantity == line.quantity|int else line.quantity }}</span>
+                                × {{ line.description }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-muted">
+                    <p class="mb-2">No hay tickets KDS activos.</p>
+                    <p class="small mb-0">
+                        Se generan al confirmar un pedido o cobrarlo. API:
+                        <code>GET /api/eposone/kds/tickets</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -306,7 +306,8 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 | **P3** | **12** | **Dominio comercial (pedido, pago, factura, caja, POS)** | **Cerrado en dev** — `nodeone/core/commerce/` |
 | **P4** | **13** | **Sincronización offline (cola, reintentos, conflictos)** | **Cerrado en dev** — `nodeone/core/sync/` |
 | **P5** | **14** | **EPosOne MVP comercial** | **MVP en dev** — pedidos, pagos, caja, API |
-| — | 15–18 | KDS, Delivery, Menú digital, FE Panamá | Post-MVP POS |
+| — | **15** | **KDS (cocina / bar / runner)** | **Scaffold en dev** — tickets + API + pantalla |
+| — | 16–18 | Delivery, Menú digital, FE Panamá | Post-MVP POS |
 | — | 19 | EPayroll (motor legal) | **Después de EPosOne validado** |
 | — | 20–24 | CRM, Membership, Events, Certificates, Appointments | Migración por app |
 | — | 25–30 | Marketplace, APIs públicas, IA, Observabilidad, Multiempresa, Plataforma ETS | Largo plazo |
@@ -387,6 +388,18 @@ Persistencia comercial Core + API EPosOne:
 | Offline | `eposone/sync_handlers.py` — `create_order`, `capture_payment` |
 
 **Fuera de MVP v1:** inventario POS, hardware, reportes avanzados, reembolsos. Tests: `tests/platform/test_eposone_mvp.py`.
+
+### Etapa 15 — resumen (KDS)
+
+| Entrega | Detalle |
+|---------|---------|
+| Tablas | `eposone_kds_station`, `eposone_kds_ticket`, `_line` |
+| Servicio | `KdsService` — tickets al confirmar/cobrar pedido |
+| API | `GET /api/eposone/kds/tickets`, transiciones de estado |
+| UI | `/admin/eposone/section/kds` — grid de tickets |
+| Eventos | `eposone.kds.ticket.*` vía bus |
+
+Tests: `tests/platform/test_eposone_kds.py`.
 
 ---
 

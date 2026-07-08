@@ -11,6 +11,7 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
     'registers': ('Cajas', 'Apertura, cierre y arqueo de caja.'),
     'shifts': ('Turnos', 'Turnos de operadores y responsables de caja.'),
     'promotions': ('Promociones', 'Descuentos, combos y reglas comerciales POS.'),
+    'kds': ('KDS', 'Pantalla de cocina, bar y runner — tickets en tiempo real.'),
     'settings': ('Configuración', 'Parámetros operativos de EPosOne.'),
 }
 

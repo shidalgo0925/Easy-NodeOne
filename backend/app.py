@@ -3400,6 +3400,13 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_platform_events_schema: {e}')
         try:
+            from nodeone.services.platform_sync_schema import ensure_platform_sync_schema
+
+            ensure_platform_sync_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_platform_sync_schema: {e}')
+        try:
             from nodeone.services.academic_schema import ensure_academic_schema
 
             ensure_academic_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

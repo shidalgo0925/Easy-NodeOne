@@ -29,6 +29,8 @@ def _fake_row(
         payload=payload or {},
         status=status,
         error_message=None,
+        retry_count=0,
+        next_retry_at=None,
         created_at=datetime.utcnow(),
         dispatched_at=None,
     )

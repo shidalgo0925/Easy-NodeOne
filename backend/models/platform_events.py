@@ -29,6 +29,8 @@ class PlatformDomainEvent(db.Model):
     payload = db.Column(db.JSON, nullable=False, default=dict)
     status = db.Column(db.String(32), nullable=False, default=EVENT_STATUS_PENDING)
     error_message = db.Column(db.Text, nullable=True)
+    retry_count = db.Column(db.Integer, nullable=False, default=0)
+    next_retry_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     dispatched_at = db.Column(db.DateTime, nullable=True)
 

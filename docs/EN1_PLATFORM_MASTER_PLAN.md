@@ -304,7 +304,7 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 | **P1** | **10** | **Modelo maestro compartido** | **Plan cerrado** — [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
 | **P2** | **11** | **Servicios compartidos (APIs Core)** | **Cerrado en dev** — `nodeone/core/services/` |
 | **P3** | **12** | **Dominio comercial (pedido, pago, factura, caja, POS)** | **Cerrado en dev** — `nodeone/core/commerce/` |
-| P4 | 13 | Sincronización offline (cola, reintentos, conflictos) | Pendiente |
+| **P4** | **13** | **Sincronización offline (cola, reintentos, conflictos)** | **Cerrado en dev** — `nodeone/core/sync/` |
 | P5 | 14 | **EPosOne MVP comercial** | Pendiente |
 | — | 15–18 | KDS, Delivery, Menú digital, FE Panamá | Post-MVP POS |
 | — | 19 | EPayroll (motor legal) | **Después de EPosOne validado** |
@@ -358,6 +358,21 @@ Paquete `backend/nodeone/core/commerce/` — contratos de negocio para EPosOne y
 | POS | `PosTerminalService` | Stub + eventos (terminal, dispositivo) |
 
 **Estados v1:** `constants.py` (pedido, pago, factura, entrega, caja, terminal). **Eventos:** `commerce.*` vía bus Etapa 8; EPosOne publica `commerce.*` + `eposone.*` en transición. Tests: `tests/platform/test_commerce_domain.py`.
+
+### Etapa 13 — resumen
+
+Paquete `backend/nodeone/core/sync/` — infraestructura offline sobre el outbox Etapa 8:
+
+| Componente | Rol |
+|------------|-----|
+| `SyncOperationService` | Cola de escritura con `idempotency_key` (`platform_sync_operation`) |
+| `IncrementalSyncService` | Pull incremental de `platform_domain_event` (`since_id`) |
+| `SyncCursorService` | Cursores por dominio/cliente (`platform_sync_cursor`) |
+| `retry.py` | Backoff exponencial; `NODEONE_EVENT_BUS_MAX_RETRIES` |
+| `conflicts.py` | Detección `base_version` vs servidor |
+| Bus eventos | `retry_count`, `next_retry_at`, `retry_failed_events()` |
+
+**API:** `GET /api/platform/sync/events`, `POST /api/platform/sync/operations`, cursores `GET/PUT /api/platform/sync/cursors/<domain>`. Tests: `tests/platform/test_sync_offline.py`.
 
 ---
 

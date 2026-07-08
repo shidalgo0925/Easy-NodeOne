@@ -37,6 +37,9 @@ def register_platform_core(app) -> None:
     from nodeone.modules.platform_launcher.routes import register_platform_launcher
 
     register_platform_launcher(app)
+    from nodeone.core.sync.routes import register_platform_sync_blueprint
+
+    register_platform_sync_blueprint(app)
 
 
 def register_platform_apps(app) -> None:

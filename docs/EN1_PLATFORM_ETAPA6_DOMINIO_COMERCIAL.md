@@ -4,7 +4,7 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión doc | **1.1** (6.3 cerrado · 6.1/6.2/6.4 borrador decisión) |
+| Versión doc | **1.2** (6.3–6.9 modelados — pendiente aprobación integral) |
 | Estado | **En definición** — bloques 6.3–6.4 avanzados; pendiente aprobación responsable |
 | Alcance edición | Solo Dev EN1 (`develop`) |
 | Master plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) v3.1 |
@@ -455,25 +455,97 @@ Canal: menú QR / call center / marketplace
 
 **Objetivo:** reglas de stock **sin implementar** tablas ni UI.
 
-#### Preguntas
+**Estado:** borrador decisión v1.
 
-| Momento | Opciones | Decisión |
-|---------|----------|----------|
-| **Reserva** | Al confirmar pedido / al pagar / al despachar | Pendiente |
-| **Descuento** | Al pagar / al entregar / al facturar | Pendiente |
-| **Devolución** | Reingreso automático / inspección / merma | Pendiente |
-| **Negativo** | ¿Permitido? ¿Solo con permiso supervisor? | Pendiente |
-| **Multi-sucursal** | Stock por sucursal, transferencias entre bodegas | Pendiente |
-| **Kit / combo** | Descuento por componentes | Pendiente |
+#### Principios v1
 
-#### Relación con catálogo
+| Principio | Decisión |
+|-----------|----------|
+| Catálogo | `core_product` (Etapa 10) — EPosOne **no** duplica catálogo |
+| Ubicación stock | `org_unit.type = warehouse` bajo sucursal |
+| ¿Todo producto tiene stock? | **No** — flag `tracks_inventory` por producto |
+| Restaurante (insumos / recetas) | **Fuera de v1 POS** — solo productos terminados con stock opcional |
+| Precios / promociones | Dominio comercial (listas por sucursal/POS); no inventario |
 
-- Inventario consume `core_product` (Etapa 10) — no catálogo paralelo en EPosOne.
-- Reglas de precio (lista, promoción) — ¿dominio comercial o app extension?
+#### Modelo conceptual
+
+```text
+core_product (tracks_inventory?)
+    └── StockBalance (warehouse_id + product_id → quantity_on_hand, quantity_reserved)
+            └── StockMovement (ledger inmutable: reserve, release, deduct, return, adjust, transfer)
+```
+
+#### Tabla momento × acción v1
+
+| Momento | Acción inventario | Evento | Retail | Restaurante (plato con stock) |
+|---------|-------------------|--------|:------:|:-----------------------------:|
+| `draft` | — | — | — | — |
+| `confirmed` | **Reservar** cantidad | `commerce.inventory.reserved` | ✓ | Opcional* |
+| `cancelled` | **Liberar** reserva | `commerce.inventory.released` | ✓ | ✓ |
+| `payment_status=paid` | **Descontar** (si política `deduct_on_paid`) | `commerce.inventory.deducted` | ✓** | — |
+| `delivered` | **Descontar** (si política `deduct_on_delivered`) | `commerce.inventory.deducted` | Config | ✓ |
+| `refunded` | **Devolver** a stock | `commerce.inventory.returned` | ✓ | ✓ |
+| Ajuste manual | **Adjust** ± | `commerce.inventory.adjusted` | Supervisor | Supervisor |
+
+\* Restaurante v1: la mayoría de platos **no** llevan stock; excepción botellas/bebidas empaquetadas.
+
+\*\* Retail por defecto: `deduct_on_paid` — el cliente se lleva el producto al pagar.
+
+#### Política por producto v1 (`inventory_policy`)
+
+| Política | Reserva en `confirmed` | Descuento en |
+|----------|:------------------------:|--------------|
+| `none` | — | — (servicios, platos cocinados) |
+| `retail_standard` | ✓ | `paid` |
+| `dispatch_required` | ✓ | `delivered` (ferretería, bodega) |
+| `consignment` | — | `delivered` + factura |
+
+Configurable a nivel org con override por `core_product`.
+
+#### Devoluciones v1
+
+| Tipo | Stock | Regla |
+|------|-------|-------|
+| Devolución íntegra | Reingreso automático a `warehouse` de venta | Con pedido `refunded` |
+| Producto dañado | **No** reingresa — movimiento `waste` | Supervisor + motivo |
+| Cambio por otro producto | Devolución + nueva venta (nuevo pedido o línea) | Retail |
+
+#### Stock negativo v1
+
+| Regla | Valor |
+|-------|-------|
+| Por defecto | **Prohibido** |
+| Con permiso supervisor | Permitido si `org.allow_negative_stock=true` |
+| Auditoría | Todo negativo genera alerta + `commerce.inventory.negative` |
+
+#### Multi-sucursal y transferencias v1
+
+| Operación | Regla |
+|-----------|-------|
+| Stock | Por `warehouse_id` (cada sucursal ≥ 1 bodega) |
+| Venta | Descuenta bodega de la **sucursal del pedido** |
+| Transferencia entre bodegas | Documento `StockTransfer` (fuera del pedido) — supervisor |
+| Transferencia entre sucursales | Igual — no implícita en pedido |
+
+#### Kits / combos v1
+
+- Producto `type=kit` con componentes (`kit_lines`).
+- Al **descontar**: explosión a componentes según cantidad vendida.
+- Reserva: sobre componentes si todos `tracks_inventory`.
+
+#### Relación con pedido (6.3)
+
+- El pedido **no** es documento de inventario; dispara movimientos vía eventos.
+- Línea cancelada libera reserva de esa línea solamente.
 
 #### Criterio de cierre 6.5
 
-Tabla momento × acción × evento + excepciones por vertical (restaurante sin stock estricto vs retail).
+| Ítem | Estado |
+|------|--------|
+| Tabla momento × acción | Hecho (borrador v1) |
+| Políticas por vertical | Hecho (borrador v1) |
+| Kits y multi-sucursal | Hecho (borrador v1) |
+| Aprobación responsable | Pendiente |
 
 ---
 
@@ -554,7 +626,7 @@ Eventos: `commerce.cash_shift.opened`, `.movement_recorded`, `.reconciling`, `.c
 |----------|----------|
 | ¿Un pedido, N pagos? | **Sí** — pagos parciales permitidos |
 | ¿Pago parcial? | `payment_status=partial` hasta cubrir `grand_total` |
-| ¿Propina? | `payment_type=tip` **o** línea `OrderLine` con `product_ref=TIP` — **elegir uno en implementación** (preferencia: línea para KDS limpio) |
+| ¿Propina? | Línea `OrderLine` con `product_ref=TIP` (preferencia v1) — no pago separado |
 | ¿Pago > total? | `overpaid` — diferencia registrada como propina o cambio según medio |
 | ¿Mixto? | Varios `Payment` en secuencia; orden libre |
 | ¿Reembolso? | `Payment` con `status=refunded` vinculado al original; supervisor |
@@ -573,7 +645,7 @@ Eventos: `commerce.payment.initiated`, `.captured`, `.failed`, `.refunded`.
 |------|--------|
 | Catálogo medios | Hecho (borrador v1) |
 | Reglas mixtas y parciales | Hecho (borrador v1) |
-| Propina | Pendiente elección final línea vs pago |
+| Propina | Hecho — línea `TIP` (v1) |
 | Aprobación responsable | Pendiente |
 
 ---
@@ -582,19 +654,98 @@ Eventos: `commerce.payment.initiated`, `.captured`, `.failed`, `.refunded`.
 
 **Objetivo:** cuándo y cómo nace el documento fiscal sin convertirlo en el centro del sistema.
 
-#### Decisiones pendientes
+**Estado:** borrador decisión v1.
 
-- [ ] ¿Factura al cobrar, al entregar, o bajo demanda?
-- [ ] ¿Un pedido = una factura siempre?
-- [ ] ¿Factura consolidada (varios pedidos del día)?
-- [ ] **Sin Internet:** cola local, numeración contingencia, reenvío FE
-- [ ] **FE Panamá:** punto de emisión por sucursal, PAC, anulación
-- [ ] Nota de crédito / débito — trigger y relación con pedido original
-- [ ] Integración con módulo `efactura` existente vs emisión unificada Core
+#### Principios v1
+
+| Principio | Decisión |
+|-----------|----------|
+| Centro del flujo | **Pedido** (6.3) — factura es derivada |
+| Emisión | **Bajo demanda automática** según regla org, no manual obligatoria en POS |
+| Módulo FE Panamá | App **`efactura`** existente — EPosOne invoca `InvoiceService` → delega a `efactura` |
+| Contabilidad | Tabla `invoices` legacy sigue como destino contable; vínculo `order_id` |
+
+#### Cuándo nace la factura v1
+
+| Trigger org (`fiscal_emit_on`) | Cuándo | Vertical típica |
+|-------------------------------|--------|-----------------|
+| `on_paid` | `payment_status` → `paid` | Retail, restaurante consumidor final |
+| `on_delivered` | `operational_status` → `delivered` | Ferretería despacho, mayorista |
+| `manual` | Usuario solicita desde back office | B2B, consolidados |
+| `never` | Solo ticket interno | Org sin obligación FE |
+
+**Default v1:** `on_paid` para POS; configurable por sucursal.
+
+#### Relación pedido ↔ factura v1
+
+```text
+CommercialOrder (1) ──► (0..N) CommercialInvoice
+                              │
+                              ├── kind: fiscal | non_fiscal | proforma
+                              ├── status: draft → posted → (paid) → cancelled
+                              └── external: ElectronicInvoiceDocument (efactura)
+```
+
+| Pregunta | Decisión v1 |
+|----------|-------------|
+| ¿1 pedido = 1 factura? | **Default sí** — excepción: consolidación B2B manual |
+| ¿Factura sin pedido? | **No** en EPosOne — excepciones solo back office contable |
+| ¿Factura antes de cobrar? | **Solo** crédito autorizado (`payment_type=credit`) + config |
+| ¿Proforma? | Cotización o pedido `draft`/`confirmed` — **no** sustituye factura fiscal |
+
+#### Eje `fiscal_status` del pedido (6.3)
+
+| Valor | Significado |
+|-------|-------------|
+| `not_required` | Org/sucursal sin FE obligatoria para esta venta |
+| `pending` | Cobrado/entregado — factura pendiente de emisión |
+| `invoiced` | Al menos una factura `posted` vinculada |
+| `cancelled` | Factura anulada fiscalmente |
+
+#### Sin Internet v1
+
+```text
+Pedido cobrado offline
+    ├─ fiscal_status = pending
+    ├─ Cola local: FiscalOutbox (idempotency_key)
+    ├─ Ticket no fiscal / pre-factura impreso (config)
+    └─ Al reconectar: emisión FE + actualización fiscal_status
+```
+
+| Regla | Decisión |
+|-------|----------|
+| Numeración contingencia | Secuencia local `contingency_*` por sucursal — reemplazada al sincronizar |
+| Reintentos | Misma cola que sync (6.9) — dominio `fiscal` |
+| Fallo PAC | Pedido queda `paid`; `fiscal_status=pending` — reintento manual |
+
+#### FE Panamá v1 (handoff V3 Etapa 10)
+
+| Tema | Decisión |
+|------|----------|
+| Punto de emisión | Por **sucursal** (`branch_id`) — alineado con `efactura` config |
+| RUC cliente | `Contact` fiscal del pedido |
+| Anulación | Nota de crédito vía `efactura`; pedido mantiene historial |
+| Implementación | **V3 Etapa 10** — aquí solo contrato de dominio |
+
+#### Nota de crédito / reembolso v1
+
+| Situación | Acción |
+|-----------|--------|
+| Reembolso con factura `posted` | Emitir **nota de crédito** referenciando factura + pedido |
+| Reembolso sin factura emitida | Cancelar pedido; **no** nota de crédito |
+| Anulación fiscal | Proceso `efactura`; `fiscal_status=cancelled` en pedido |
+
+Eventos: `commerce.invoice.requested`, `.posted`, `.failed`, `.cancelled`.
 
 #### Criterio de cierre 6.8
 
-Diagrama pedido → factura + reglas offline + handoff a Etapa V3 10 (FE Panamá implementación).
+| Ítem | Estado |
+|------|--------|
+| Triggers de emisión | Hecho (borrador v1) |
+| Relación pedido-factura | Hecho (borrador v1) |
+| Reglas offline / contingencia | Hecho (borrador v1) |
+| Handoff efactura + Etapa 10 | Hecho |
+| Aprobación responsable | Pendiente |
 
 ---
 
@@ -602,28 +753,110 @@ Diagrama pedido → factura + reglas offline + handoff a Etapa V3 10 (FE Panamá
 
 **Objetivo:** qué se sincroniza, en qué orden, y cómo se resuelven conflictos.
 
-#### Temas
+**Estado:** borrador decisión v1.
 
-| Tema | Preguntas |
-|------|-----------|
-| **Eventos** | ¿Qué publica el cliente offline vs el servidor? |
-| **Prioridad** | Pedido > pago > inventario > reportes |
-| **Conflictos** | Última escritura, versión, o regla de negocio |
-| **Idempotencia** | Claves por operación (ya scaffold `platform_sync_operation`) |
-| **Alcance offline** | ¿Solo cobro o también catálogo, stock, turnos? |
-| **Multi-terminal** | Dos terminales offline misma sucursal |
+#### Principios v1
 
-#### Relación con scaffold
+| Principio | Decisión |
+|-----------|----------|
+| Fuente de verdad | **Servidor** — cliente offline es caché + cola de escritura |
+| Transporte | Eventos + operaciones idempotentes — **no** sync de tablas entre apps |
+| Identificador offline | `idempotency_key` por operación (UUID generado en terminal) |
+| Versión | Campo `version` en pedido — optimistic locking |
 
-- Bus: `platform_domain_event` (EN1 Etapa 8)
-- Sync: `nodeone/core/sync/` (EN1 Etapa 13)
-- Handlers EPosOne: `eposone/sync_handlers.py`
+#### Alcance offline v1
 
-**Regla:** la implementación (V3 Etapa 8) sigue al modelo aprobado aquí.
+| Dominio | Lectura offline | Escritura offline |
+|---------|:---------------:|:-----------------:|
+| Catálogo / precios | ✓ pull incremental | — |
+| Pedidos (`draft`–`delivered`) | ✓ últimos N | ✓ crear, confirmar, cambiar estado |
+| Pagos | — | ✓ capturar (cola) |
+| Turno caja | Estado último conocido | ✓ abrir/cerrar (cola) |
+| Inventario | Saldo cacheado | — (solo lectura en v1) |
+| Factura FE | — | ✓ encolar emisión (6.8) |
+| Reportes | — | — |
+
+#### Prioridad de sincronización v1
+
+```text
+1. Pagos capturados        (dinero — crítico)
+2. Pedidos / cambios estado
+3. Turnos de caja
+4. Cola fiscal (FE)
+5. Catálogo (pull)
+6. Ajustes inventario (push supervisor)
+```
+
+#### Dominios sync (alineado scaffold)
+
+| Dominio | Código | Contenido |
+|---------|--------|-----------|
+| Eventos | `events` | Pull `platform_domain_event` desde cursor |
+| Pedidos | `orders` | Push operaciones `create_order`, `capture_payment`, `transition_order` |
+| Catálogo | `catalog` | Pull productos/precios desde cursor |
+
+#### Operaciones encoladas v1
+
+| `operation_type` | Idempotente | Handler |
+|------------------|:-----------:|---------|
+| `create_order` | ✓ | `eposone/sync_handlers` |
+| `capture_payment` | ✓ | idem |
+| `transition_order` | ✓ | idem |
+| `open_cash_shift` | ✓ | futuro Etapa 7 |
+| `close_cash_shift` | ✓ | futuro Etapa 7 |
+| `emit_fiscal` | ✓ | delega 6.8 |
+
+#### Resolución de conflictos v1
+
+| Entidad | Estrategia | Regla |
+|---------|------------|-------|
+| Catálogo / precios | `server_wins` | Cliente actualiza cache |
+| Pedido en `draft` | `version_mismatch` → manual | Mesero y caja editando mismo pedido |
+| Pedido post-`confirmed` | **Reglas de negocio** | No merge automático — supervisor |
+| Pago duplicado | Rechazar por `idempotency_key` | Segundo submit ignorado |
+| Stock | `server_wins` | Reserva fallida → alerta en terminal |
+
+Matriz detallada:
+
+| Conflicto | Detección | Resolución |
+|-----------|-----------|------------|
+| Versión pedido | `base_version != server.version` | UI: recargar o forzar con supervisor |
+| Doble cobro | Misma `idempotency_key` | Ignorar segundo — respuesta original |
+| Stock insuficiente al sync | Reserva rechazada | Pedido queda `confirmed` con alerta; supervisor ajusta |
+| Turno ya cerrado en servidor | Operación rechazada | Reabrir turno o transferir a otro |
+
+#### Multi-terminal offline misma sucursal v1
+
+| Regla | Valor |
+|-------|-------|
+| Pedidos | Cada terminal crea con `terminal_id` propio |
+| Mismo pedido dos terminales | Servidor serializa por `version` |
+| Cobro offline mismo pedido | Primera `idempotency_key` gana |
+| Catálogo | Pull compartido; mismo cursor por sucursal |
+
+#### Reintentos v1
+
+| Cola | Backoff | Max reintentos |
+|------|---------|----------------|
+| `platform_sync_operation` | Exponencial desde 30s | 5 (config `NODEONE_EVENT_BUS_MAX_RETRIES`) |
+| Eventos bus | `next_retry_at` en `platform_domain_event` | idem |
+| FE / PAC | Independiente — no bloquea pedido `paid` | manual tras max |
+
+#### Eventos sync v1
+
+`platform.sync.operation.enqueued`, `.applied`, `.conflict`, `.failed`
+
+**Regla:** catálogo completo `commerce.*` y `eposone.*` v2 se publica al cerrar implementación Etapa 7; aquí quedan definidas prioridades y estrategias.
 
 #### Criterio de cierre 6.9
 
-Lista priorizada de entidades offline + matriz de conflictos + catálogo eventos `commerce.*` y `eposone.*` v2.
+| Ítem | Estado |
+|------|--------|
+| Alcance offline | Hecho (borrador v1) |
+| Prioridades | Hecho (borrador v1) |
+| Matriz conflictos | Hecho (borrador v1) |
+| Operaciones idempotentes | Hecho (borrador v1) |
+| Aprobación responsable | Pendiente |
 
 ---
 
@@ -651,19 +884,17 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 | 2 | 6.2 Personas y roles — matriz rol × acción | Borrador v1 |
 | 3 | 6.3 Documento maestro — **Pedido** confirmado como agregado raíz | **Cerrado v1** |
 | 4 | 6.4 Flujos — 5 escenarios con secuencias y eventos | Borrador v1 |
-| 5 | 6.5 Inventario — reglas momento × acción (sin código) | Pendiente |
+| 5 | 6.5 Inventario — reglas momento × acción (sin código) | Borrador v1 |
 | 6 | 6.6 Caja — ciclo turno completo modelado | Borrador v1 |
 | 7 | 6.7 Pagos — medios y reglas mixtas | Borrador v1 |
-| 8 | 6.8 Facturación — nacimiento documento + offline | Pendiente |
-| 9 | 6.9 Sincronización — prioridades y conflictos | Pendiente |
+| 8 | 6.8 Facturación — nacimiento documento + offline | Borrador v1 |
+| 9 | 6.9 Sincronización — prioridades y conflictos | Borrador v1 |
 | 10 | Master Plan V3.1 actualizado y referenciado | Hecho |
 | 11 | Aprobación explícita responsable del proyecto | Pendiente |
 
-**Progreso:** 5/9 bloques de dominio con borrador o cierre v1 (6.1–6.4, 6.6–6.7).
+**Progreso:** **9/9 bloques** modelados (6.3 cerrado v1; 6.1–6.2, 6.4–6.9 borrador v1).
 
-**Siguiente bloque recomendado:** **6.5 Inventario** → **6.8 Facturación** → **6.9 Sincronización**.
-
-**Siguiente fase tras cierre total:** **V3 Etapa 7 — Construcción del dominio**.
+**Siguiente paso:** revisión integral + **aprobación responsable** → desbloquea **V3 Etapa 7 — Construcción**.
 
 ---
 
@@ -695,4 +926,4 @@ El código en dev **implementa suposiciones no aprobadas**. Tras cierre Etapa 6,
 
 ---
 
-*Etapa 6 dominio comercial — 2026-07-08 (v1.1: 6.3 cerrado, 6.1/6.2/6.4 borrador). Cambios requieren actualizar este doc y acuerdo del responsable. Sin GO explícito: no implementación funcional nueva.*
+*Etapa 6 dominio comercial — 2026-07-08 (v1.2: bloques 6.1–6.9 modelados). Cambios requieren actualizar este doc y acuerdo del responsable. Sin GO explícito: no implementación funcional nueva.*

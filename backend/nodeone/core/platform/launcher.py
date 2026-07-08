@@ -15,6 +15,7 @@ NAV_AREA_TO_PLATFORM_APP: dict[str, str] = {
     'certificados': 'ecertificates',
     'agenda': 'eappointments',
     'eposone': 'eposone',
+    'epayroll': 'epayroll',
     'educacion': 'academic',
     'ventas': 'esales',
     'efactura': 'efactura',

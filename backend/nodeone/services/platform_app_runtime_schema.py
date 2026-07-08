@@ -144,3 +144,9 @@ def seed_eposone_platform_runtime(db, organization_ids: list[int], printfn=None)
     """Marca EPosOne como plataforma y habilita módulo SaaS eposone (opt-in)."""
     seed_app_platform_runtime(db, 'eposone', organization_ids, printfn=printfn)
     _ensure_saas_module_for_orgs(db, 'eposone', organization_ids, printfn=printfn)
+
+
+def seed_epayroll_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
+    """Marca EPayroll como plataforma y habilita módulo SaaS epayroll (opt-in)."""
+    seed_app_platform_runtime(db, 'epayroll', organization_ids, printfn=printfn)
+    _ensure_saas_module_for_orgs(db, 'epayroll', organization_ids, printfn=printfn)

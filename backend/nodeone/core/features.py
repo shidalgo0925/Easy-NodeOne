@@ -974,6 +974,16 @@ def register_eposone_blueprints(app):
         print(f'Warning: No se pudo registrar EPosOne: {e}')
 
 
+def register_epayroll_blueprints(app):
+    """EPayroll — app nativa de plataforma (Etapa 9)."""
+    try:
+        from nodeone.modules.epayroll.register import register_epayroll_blueprints as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar EPayroll: {e}')
+
+
 def register_saas_admin_blueprint(app):
     """API JSON módulos SaaS por organización (/api/admin/saas)."""
     if os.environ.get('NODEONE_SKIP_SAAS_ADMIN_API', '').strip().lower() in ('1', 'true', 'yes'):

@@ -18,6 +18,7 @@ PLATFORM_APP_NAV_AREA['esales'] = 'ventas'
 PLATFORM_APP_NAV_AREA['ecommunications'] = 'comunicacion'
 PLATFORM_APP_NAV_AREA['eanalytics'] = 'analitica'
 PLATFORM_APP_NAV_AREA['eposone'] = 'eposone'
+PLATFORM_APP_NAV_AREA['epayroll'] = 'epayroll'
 
 
 def nav_area_to_platform_app_id(nav_area_id: str) -> str:

@@ -182,6 +182,14 @@ def _v_eposone(ctx: NavContext) -> bool:
     )
 
 
+def _v_epayroll(ctx: NavContext) -> bool:
+    return (
+        ctx.saas_module_enabled('epayroll')
+        and ctx.nav_can('users.view')
+        and ctx.has_view_endpoint('epayroll.epayroll_home')
+    )
+
+
 def _v_eposone_compose_sales(ctx: NavContext) -> bool:
     return (
         _v_eposone(ctx)
@@ -1150,6 +1158,24 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_path_prefixes=('/admin/analytics/sales',),
             ),
             _eposone_section_item('configuracion', 'Configuración', 'fas fa-cog', 'settings'),
+        ),
+    ),
+    NavArea(
+        id='epayroll',
+        label='EPayroll',
+        icon='fas fa-money-check-alt',
+        visible=_v_epayroll,
+        zone_blueprints=('epayroll',),
+        zone_path_prefixes=('/admin/epayroll',),
+        items=(
+            NavAreaItem(
+                'inicio',
+                'Inicio',
+                'fas fa-home',
+                'epayroll.epayroll_home',
+                visible=_v_epayroll,
+                active_endpoints=('epayroll.epayroll_home',),
+            ),
         ),
     ),
     NavArea(

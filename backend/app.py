@@ -3351,6 +3351,7 @@ def bootstrap_nodeone_schema():
                 seed_ecertificates_platform_runtime,
                 seed_eappointments_platform_runtime,
                 seed_eposone_platform_runtime,
+                seed_epayroll_platform_runtime,
                 seed_emembership_platform_runtime,
             )
 
@@ -3385,6 +3386,9 @@ def bootstrap_nodeone_schema():
             epos_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS')
             if epos_orgs:
                 seed_eposone_platform_runtime(db, epos_orgs, printfn=lambda m: print(f'📋 {m}'))
+            payroll_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EPAYROLL_ORG_IDS')
+            if payroll_orgs:
+                seed_epayroll_platform_runtime(db, payroll_orgs, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_platform_app_runtime_schema: {e}')

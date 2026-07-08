@@ -287,7 +287,14 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 6. Tests en `tests/platform/`.
 7. Eventos de dominio vía bus (Etapa 8), sin sync de tablas entre apps.
 
-**Estado Etapa 9 (scaffold):** manifest_registry + EPayroll planificada como referencia en dev (2026-07-08).
+**Estado Etapa 9 (scaffold):** manifest_registry + **EPayroll activada** (home, nav, seed) en dev (2026-07-08).
+
+**Activar EPayroll en dev:**
+
+```bash
+export NODEONE_PLATFORM_SEED_EPAYROLL_ORG_IDS=1
+sudo systemctl restart easynodeone-dev
+```
 
 ---
 

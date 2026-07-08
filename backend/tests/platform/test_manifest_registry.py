@@ -24,12 +24,15 @@ class TestManifestRegistry(unittest.TestCase):
         self.assertEqual(validate_manifest(m), [])
 
     def test_validate_planned_without_register(self):
-        from nodeone.core.platform.manifest_registry import load_manifest, validate_manifest
+        from nodeone.core.platform.manifest_registry import validate_manifest
 
-        m = load_manifest('nodeone.modules.epayroll.manifest')
+        m = {
+            'id': 'ehr',
+            'name': 'EHR',
+            'saas_codes': ('ehr',),
+            'lifecycle': 'planned',
+        }
         self.assertEqual(validate_manifest(m), [])
-        self.assertEqual(m.get('lifecycle'), 'planned')
-        self.assertNotIn('register', m)
 
     def test_active_manifest_requires_register(self):
         from nodeone.core.platform.manifest_registry import validate_manifest

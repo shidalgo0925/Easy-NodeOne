@@ -101,6 +101,26 @@ def orders_capture_payment(order_id: int):
     return jsonify({'payment': dto.to_dict()}), 201
 
 
+@eposone_api_bp.route('/payments/<int:payment_id>/refund', methods=['POST'])
+@login_required
+def payments_refund(payment_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = PaymentService.refund(
+            gate,
+            int(payment_id),
+            amount=float(body['amount']) if body.get('amount') is not None else None,
+            approval=body,
+            source_app_id='eposone',
+        )
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'payment': dto.to_dict()})
+
+
 @eposone_api_bp.route('/cash/shifts', methods=['POST'])
 @login_required
 def cash_open_shift():
@@ -164,6 +184,7 @@ def cash_manual_movement(shift_id: int):
             str(body.get('movement_type') or ''),
             float(body.get('amount') or 0),
             notes=body.get('notes'),
+            approval=body,
         )
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400

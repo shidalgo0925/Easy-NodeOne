@@ -37,6 +37,7 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertIn(ev.COMMERCE_INVOICE_REQUESTED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_CASH_MOVEMENT_RECORDED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_CASH_SHIFT_RECONCILING, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_AUTHORIZATION_APPLIED, ev.COMMERCE_EVENT_TYPES)
 
     def test_compute_order_payment_status(self):
         from nodeone.core.commerce.constants import (
@@ -199,6 +200,9 @@ class TestPaymentServiceAxis(unittest.TestCase):
 
 
 class TestPaymentRefund(unittest.TestCase):
+    _approval = {'supervisor_user_id': 100}
+
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
     @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
     @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
@@ -215,6 +219,7 @@ class TestPaymentRefund(unittest.TestCase):
         mock_fiscal_changed,
         mock_status_changed,
         mock_refunded,
+        mock_supervisor,
     ):
         from nodeone.core.commerce.constants import (
             ORDER_FISCAL_STATUS_NOT_REQUIRED,
@@ -258,7 +263,7 @@ class TestPaymentRefund(unittest.TestCase):
         mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
         mock_order_cls.query.filter_by.return_value.first.return_value = order
 
-        result = PaymentService.refund(1, 5)
+        result = PaymentService.refund(1, 5, approval=self._approval)
 
         self.assertEqual(pay_row.status, PAYMENT_STATUS_REFUNDED)
         self.assertEqual(order.amount_paid, 0.0)
@@ -270,6 +275,7 @@ class TestPaymentRefund(unittest.TestCase):
         mock_refunded.assert_called_once()
         self.assertEqual(result.payment_ref, 'PAY-0010')
 
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
     @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
     @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
@@ -284,6 +290,7 @@ class TestPaymentRefund(unittest.TestCase):
         mock_payment_changed,
         mock_status_changed,
         mock_refunded,
+        mock_supervisor,
     ):
         from nodeone.core.commerce.constants import (
             ORDER_PAYMENT_STATUS_PARTIAL,
@@ -318,7 +325,7 @@ class TestPaymentRefund(unittest.TestCase):
         mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
         mock_order_cls.query.filter_by.return_value.first.return_value = order
 
-        PaymentService.refund(1, 6, amount=5.0)
+        PaymentService.refund(1, 6, amount=5.0, approval=self._approval)
 
         self.assertEqual(pay_row.status, PAYMENT_STATUS_PARTIAL_REFUND)
         self.assertEqual(pay_row.refunded_amount, 5.0)
@@ -328,18 +335,44 @@ class TestPaymentRefund(unittest.TestCase):
         mock_payment_changed.assert_called_once()
         mock_refunded.assert_called_once()
 
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
     @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
-    def test_refund_rejects_non_captured(self, mock_payment_cls):
+    def test_refund_rejects_non_captured(self, mock_payment_cls, mock_supervisor):
         from nodeone.core.commerce.order import OrderValidationError
         from nodeone.core.commerce.payment import PaymentService
 
         pay_row = MagicMock()
+        pay_row.id = 99
+        pay_row.order_id = 1
         pay_row.status = 'refunded'
         mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+        mock_order = MagicMock()
+        mock_order.order_ref = 'POS-0099'
+        with patch('nodeone.core.commerce.payment.CoreCommercialOrder') as mock_order_cls:
+            mock_order_cls.query.filter_by.return_value.first.return_value = mock_order
+            with self.assertRaises(OrderValidationError):
+                PaymentService.refund(1, 99, approval=self._approval)
 
-        with self.assertRaises(OrderValidationError):
-            PaymentService.refund(1, 99)
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    def test_refund_rejects_when_nothing_left(self, mock_payment_cls, mock_supervisor):
+        from nodeone.core.commerce.order import OrderValidationError
+        from nodeone.core.commerce.payment import PaymentService
 
+        pay_row = MagicMock()
+        pay_row.id = 50
+        pay_row.order_id = 3
+        pay_row.status = 'partial_refund'
+        pay_row.amount = 10.0
+        pay_row.refunded_amount = 10.0
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+
+        with patch('nodeone.core.commerce.payment.CoreCommercialOrder') as mock_order_cls:
+            mock_order_cls.query.filter_by.return_value.first.return_value = MagicMock(order_ref='POS-0050')
+            with self.assertRaises(OrderValidationError):
+                PaymentService.refund(1, 50, amount=1.0, approval=self._approval)
+
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
     @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
     @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
@@ -354,6 +387,7 @@ class TestPaymentRefund(unittest.TestCase):
         mock_payment_changed,
         mock_status_changed,
         mock_refunded,
+        mock_supervisor,
     ):
         from nodeone.core.commerce.constants import (
             ORDER_PAYMENT_STATUS_PAID,
@@ -394,30 +428,54 @@ class TestPaymentRefund(unittest.TestCase):
         mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
         mock_order_cls.query.filter_by.return_value.first.return_value = order
 
-        PaymentService.refund(1, 7, amount=8.0)
+        PaymentService.refund(1, 7, amount=8.0, approval=self._approval)
         self.assertEqual(pay_row.refunded_amount, 8.0)
         self.assertEqual(pay_row.status, PAYMENT_STATUS_PARTIAL_REFUND)
         self.assertEqual(order.amount_paid, 12.0)
 
-        PaymentService.refund(1, 7, amount=12.0)
+        PaymentService.refund(1, 7, amount=12.0, approval=self._approval)
         self.assertEqual(pay_row.refunded_amount, 20.0)
         self.assertEqual(pay_row.status, PAYMENT_STATUS_REFUNDED)
         self.assertEqual(order.amount_paid, 0.0)
         self.assertEqual(mock_refunded.call_count, 2)
 
-    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
-    def test_refund_rejects_when_nothing_left(self, mock_payment_cls):
-        from nodeone.core.commerce.order import OrderValidationError
-        from nodeone.core.commerce.payment import PaymentService
 
-        pay_row = MagicMock()
-        pay_row.status = 'partial_refund'
-        pay_row.amount = 10.0
-        pay_row.refunded_amount = 10.0
-        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+class TestCommerceAuthorization(unittest.TestCase):
+    @patch('nodeone.core.commerce.authorization.AuditService.publish_domain_event')
+    @patch('models.users.User')
+    def test_assert_supervisor_publishes_event(self, mock_user_cls, mock_publish):
+        from nodeone.core.commerce.authorization import CommerceAuthorizationService
+
+        user = MagicMock()
+        user.id = 42
+        mock_user_cls.query.get.return_value = user
+
+        with patch.object(CommerceAuthorizationService, 'user_is_supervisor', return_value=True):
+            uid = CommerceAuthorizationService.assert_supervisor(
+                1,
+                {'supervisor_user_id': 42, 'reason': 'cliente insatisfecho'},
+                action='payment.refund',
+                payment_id=9,
+            )
+
+        self.assertEqual(uid, 42)
+        mock_publish.assert_called_once()
+        self.assertEqual(mock_publish.call_args[0][1], 'commerce.authorization.applied')
+
+    def test_supervisor_required_raises(self):
+        from nodeone.core.commerce.authorization import CommerceAuthorizationService
+        from nodeone.core.commerce.order import OrderValidationError
 
         with self.assertRaises(OrderValidationError):
-            PaymentService.refund(1, 50, amount=1.0)
+            CommerceAuthorizationService.assert_supervisor(1, {}, action='payment.refund')
+
+    def test_user_is_supervisor_platform_admin(self):
+        from nodeone.core.commerce.authorization import CommerceAuthorizationService
+
+        user = MagicMock()
+        user.id = 1
+        user.is_admin = True
+        self.assertTrue(CommerceAuthorizationService.user_is_supervisor(user, 99))
 
 
 class TestCashRegisterService(unittest.TestCase):

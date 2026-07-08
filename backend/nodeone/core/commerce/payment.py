@@ -175,6 +175,7 @@ class PaymentService:
         payment_id: int,
         *,
         amount: float | None = None,
+        approval: dict | None = None,
         source_app_id: str = 'eposone',
     ) -> PaymentDTO:
         from app import db
@@ -183,6 +184,20 @@ class PaymentService:
         row = CoreCommercialPayment.query.filter_by(organization_id=oid, id=int(payment_id)).first()
         if row is None:
             raise OrderValidationError('payment_not_found')
+
+        from nodeone.core.commerce.authorization import CommerceAuthorizationService
+
+        order = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(row.order_id)).first()
+        CommerceAuthorizationService.assert_supervisor(
+            oid,
+            dict(approval or {}),
+            action='payment.refund',
+            order_id=int(row.order_id) if order else None,
+            order_ref=str(order.order_ref) if order else None,
+            payment_id=int(row.id),
+            source_app_id=source_app_id,
+        )
+
         if str(row.status or '') not in _REFUNDABLE_PAYMENT_STATUSES:
             raise OrderValidationError('payment_not_refundable')
 
@@ -197,7 +212,6 @@ class PaymentService:
 
             CashRegisterService.assert_cash_refund_allowed(oid, int(row.cash_shift_id))
 
-        order = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(row.order_id)).first()
         if order is None:
             raise OrderValidationError('order_not_found')
 

@@ -30,6 +30,8 @@ COMMERCE_CASH_MOVEMENT_RECORDED = 'commerce.cash.movement.recorded'
 
 COMMERCE_POS_TERMINAL_REGISTERED = 'commerce.pos.terminal.registered'
 
+COMMERCE_AUTHORIZATION_APPLIED = 'commerce.authorization.applied'
+
 COMMERCE_EVENT_TYPES = frozenset(
     {
         COMMERCE_ORDER_CREATED,
@@ -55,5 +57,6 @@ COMMERCE_EVENT_TYPES = frozenset(
         COMMERCE_CASH_COUNT_RECORDED,
         COMMERCE_CASH_MOVEMENT_RECORDED,
         COMMERCE_POS_TERMINAL_REGISTERED,
+        COMMERCE_AUTHORIZATION_APPLIED,
     }
 )

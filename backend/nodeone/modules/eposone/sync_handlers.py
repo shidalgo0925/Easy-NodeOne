@@ -38,6 +38,7 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             int(dto.organization_id),
             int(payment_id),
             amount=float(amount) if amount is not None else None,
+            approval=payload,
             source_app_id='eposone',
         )
         return

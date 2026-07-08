@@ -164,8 +164,18 @@ class CashRegisterService:
         amount: float,
         *,
         notes: str | None = None,
+        approval: dict | None = None,
         source_app_id: str = 'eposone',
     ) -> CashShiftDTO:
+        from nodeone.core.commerce.authorization import CommerceAuthorizationService
+
+        CommerceAuthorizationService.assert_supervisor(
+            int(organization_id),
+            dict(approval or {}),
+            action='cash.manual_movement',
+            shift_id=int(shift_id),
+            source_app_id=source_app_id,
+        )
         mtype = (movement_type or '').strip().lower()
         if mtype not in (CASH_MOVEMENT_CASH_IN, CASH_MOVEMENT_CASH_OUT):
             raise OrderValidationError('invalid_manual_cash_movement')

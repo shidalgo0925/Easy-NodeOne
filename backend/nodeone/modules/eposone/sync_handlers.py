@@ -15,6 +15,19 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
     if op == 'capture_payment':
         PaymentService.capture(int(dto.organization_id), dict(dto.payload or {}), source_app_id='eposone')
         return
+    if op == 'emit_fiscal':
+        from nodeone.core.commerce.fiscal import CommerceFiscalService
+
+        payload = dict(dto.payload or {})
+        order_id = payload.get('order_id')
+        if not order_id:
+            raise OrderValidationError('order_id_required')
+        CommerceFiscalService.process_pending_order(
+            int(dto.organization_id),
+            int(order_id),
+            source_app_id='eposone',
+        )
+        return
     raise OrderValidationError(f'unsupported_operation:{op}')
 
 

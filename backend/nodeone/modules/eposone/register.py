@@ -23,5 +23,8 @@ def register_eposone_blueprints(app) -> None:
 
         if 'eposone_public' not in app.blueprints:
             app.register_blueprint(eposone_public_bp)
+        from nodeone.core.commerce.fiscal_handlers import register_commerce_fiscal_handlers
+
+        register_commerce_fiscal_handlers()
     except ImportError as e:
         print(f'Warning: No se pudo registrar eposone_bp: {e}')

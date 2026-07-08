@@ -189,6 +189,46 @@ class TestCommerceFiscalService(unittest.TestCase):
         mock_publish.assert_called_once()
         self.assertEqual(mock_publish.call_args[0][1], COMMERCE_INVOICE_REQUESTED)
 
+    @patch('nodeone.core.commerce.fiscal.CoreCommercialOrder')
+    def test_process_pending_without_contact_stays_pending(self, mock_order_cls):
+        from nodeone.core.commerce.fiscal import CommerceFiscalService
+
+        order = MagicMock()
+        order.id = 4
+        order.order_ref = 'POS-0004'
+        order.fiscal_status = 'pending'
+        order.contact_id = None
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        result = CommerceFiscalService.process_pending_order(1, 4)
+        self.assertEqual(result['status'], 'pending')
+        self.assertEqual(result['reason'], 'no_fiscal_contact')
+
+    @patch('nodeone.core.commerce.fiscal.CommerceFiscalService.process_from_event')
+    def test_invoice_requested_handler_swallows_errors(self, mock_process):
+        from nodeone.core.commerce.fiscal_handlers import _on_invoice_requested
+        from nodeone.core.platform.events import DomainEventMessage
+
+        mock_process.side_effect = RuntimeError('boom')
+        msg = DomainEventMessage(
+            id=1,
+            organization_id=1,
+            event_type='commerce.invoice.requested',
+            payload={'order_id': 9},
+            source_app_id='eposone',
+            created_at=None,
+        )
+        _on_invoice_requested(msg)
+
+    @patch('nodeone.core.commerce.fiscal_handlers.subscribe')
+    def test_register_handlers_once(self, mock_subscribe):
+        import nodeone.core.commerce.fiscal_handlers as mod
+
+        mod._REGISTERED = False
+        mod.register_commerce_fiscal_handlers()
+        mod.register_commerce_fiscal_handlers()
+        self.assertEqual(mock_subscribe.call_count, 1)
+
 
 class TestOrderService(unittest.TestCase):
     @classmethod

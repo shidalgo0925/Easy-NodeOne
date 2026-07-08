@@ -79,7 +79,7 @@ Detalle operativo (tags, ramas, tickets, smoke tests): [`EN1_PLATFORM_CARRILES_Y
 | Rama sugerida `release/iius-maint` | Hotfixes desde tag congelado |
 | Validación | `backend/scripts/go_iius_validate_all.sh` |
 
-**Relatic:** definir tag de congelación equivalente (`relatic-freeze-YYYYMMDD`) desde el commit que corre hoy en el silo `relatic/app`. Ver checklist en documento de carriles.
+**Relatic:** tag `relatic-freeze-20260708` en commit `86b8bca` (estado silo al 2026-07-08). Rama `release/relatic-maint`. Ver [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md).
 
 **Resultado:** IIUS y Relatic en **mantenimiento** con carril de soporte activo.
 

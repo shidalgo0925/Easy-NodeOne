@@ -48,25 +48,27 @@ Define **dónde se hace cada cambio** para no quedar parados ni romper IIUS/Rela
 | Smoke test | `cd backend && bash scripts/go_iius_validate_all.sh` |
 | Manifiesto | `backend/docs/IIUS_RELEASE_MANIFEST.md` |
 
-**Crear rama de mantenimiento (una vez):**
+**Ramas de mantenimiento (creadas Etapa 0):**
 
-```bash
-cd /opt/easynodeone/dev/app
-git fetch origin --tags
-git checkout -b release/iius-maint iius-freeze-20260527
-# push solo cuando el equipo lo pida explícitamente
-```
+| Rama | Base |
+|------|------|
+| `release/iius-maint` | `iius-freeze-20260527` (`5a230e2`) |
+| `release/relatic-maint` | `relatic-freeze-20260708` (`86b8bca`) |
+
+Hotfix: commit en la rama del cliente → tag `*-hotfix-YYYYMMDD` → deploy solo ese silo.
 
 ### Relatic
 
 | Item | Valor |
 |------|-------|
-| Tag congelado | **Pendiente:** `relatic-freeze-YYYYMMDD` |
-| Acción | En silo `relatic/app`: `git describe --tags` o `git rev-parse HEAD` → documentar commit → crear tag anotado en dev desde ese commit |
+| Tag congelado | `relatic-freeze-20260708` |
+| Commit | `86b8bca` (estado del silo `relatic/app` al 2026-07-08) |
 | Rama mantenimiento | `release/relatic-maint` (desde tag congelado) |
 | Smoke test | Login, CRM, membresía, certificados evento, portal usuario (checklist Relatic) |
 
-**No editar** `/opt/easynodeone/relatic/app` manualmente. El tag se crea en `dev/app` apuntando al commit que Relatic ejecuta hoy.
+**Regla a partir de Etapa 0:** Relatic no recibe `develop` hasta cutover por app (Carril 3). Hotfixes solo desde `release/relatic-maint` → tag `relatic-hotfix-YYYYMMDD`.
+
+**No editar** `/opt/easynodeone/relatic/app` manualmente. Tags y ramas se crean en `dev/app`.
 
 ---
 

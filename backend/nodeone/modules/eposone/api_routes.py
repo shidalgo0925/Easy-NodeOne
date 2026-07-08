@@ -200,3 +200,78 @@ def kds_tickets_create_for_order(order_id: int):
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'tickets': [t.to_dict() for t in items]}), 201
+
+
+@eposone_api_bp.route('/deliveries', methods=['GET'])
+@login_required
+def deliveries_list():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+    status = (request.args.get('status') or '').strip() or None
+    limit = int(request.args.get('limit', 50) or 50)
+    items = EposoneDeliveryService.list_deliveries(gate, status=status, limit=limit)
+    return jsonify({'deliveries': [d.to_dict() for d in items]})
+
+
+@eposone_api_bp.route('/deliveries', methods=['POST'])
+@login_required
+def deliveries_create():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+    body = request.get_json(silent=True) or {}
+    order_id = body.get('order_id')
+    if not order_id:
+        return jsonify({'error': 'order_id_required'}), 400
+    try:
+        dto = EposoneDeliveryService.create_for_order(
+            gate,
+            int(order_id),
+            destination_address=body.get('destination_address'),
+            notes=body.get('notes'),
+        )
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'delivery': dto.to_dict()}), 201
+
+
+@eposone_api_bp.route('/deliveries/<int:delivery_id>/assign', methods=['POST'])
+@login_required
+def deliveries_assign(delivery_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = EposoneDeliveryService.assign_driver(
+            gate,
+            int(delivery_id),
+            driver_name=str(body.get('driver_name') or ''),
+            driver_contact_id=body.get('driver_contact_id'),
+        )
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'delivery': dto.to_dict()})
+
+
+@eposone_api_bp.route('/deliveries/<int:delivery_id>/status', methods=['POST'])
+@login_required
+def deliveries_transition(delivery_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = EposoneDeliveryService.transition_status(gate, int(delivery_id), str(body.get('status') or ''))
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'delivery': dto.to_dict()})

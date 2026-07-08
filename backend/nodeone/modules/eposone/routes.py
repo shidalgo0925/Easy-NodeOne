@@ -72,6 +72,28 @@ def eposone_section(slug: str):
             section_description=description,
             tickets=tickets,
         )
+    if key == 'delivery':
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+        from models.eposone_delivery import EposoneDelivery
+
+        oid = resolve_organization_id()
+        deliveries: list = []
+        if oid is not None:
+            rows = (
+                EposoneDelivery.query.filter_by(organization_id=int(oid))
+                .order_by(EposoneDelivery.id.desc())
+                .limit(30)
+                .all()
+            )
+            deliveries = [EposoneDeliveryService.to_detail_dict(r) for r in rows]
+        return render_template(
+            'eposone/delivery.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            deliveries=deliveries,
+        )
     return render_template(
         'eposone/section.html',
         section_slug=key,

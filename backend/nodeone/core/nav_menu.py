@@ -1148,6 +1148,7 @@ APP_AREAS: tuple[NavArea, ...] = (
             _eposone_section_item('turnos', 'Turnos', 'fas fa-user-clock', 'shifts'),
             _eposone_section_item('promociones', 'Promociones', 'fas fa-tags', 'promotions'),
             _eposone_section_item('kds', 'KDS', 'fas fa-utensils', 'kds'),
+            _eposone_section_item('delivery', 'Delivery', 'fas fa-motorcycle', 'delivery'),
             NavAreaItem(
                 'reportes',
                 'Reportes',

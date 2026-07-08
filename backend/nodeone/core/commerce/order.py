@@ -201,6 +201,13 @@ class OrderService:
         except Exception:
             pass
 
+        try:
+            from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+            EposoneDeliveryService.maybe_create_for_order_status(int(organization_id), int(order_id), tgt)
+        except Exception:
+            pass
+
         return order_to_dto(row)
 
     @staticmethod

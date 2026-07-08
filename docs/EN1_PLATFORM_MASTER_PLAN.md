@@ -307,7 +307,8 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 | **P4** | **13** | **Sincronización offline (cola, reintentos, conflictos)** | **Cerrado en dev** — `nodeone/core/sync/` |
 | **P5** | **14** | **EPosOne MVP comercial** | **MVP en dev** — pedidos, pagos, caja, API |
 | — | **15** | **KDS (cocina / bar / runner)** | **Scaffold en dev** — tickets + API + pantalla |
-| — | 16–18 | Delivery, Menú digital, FE Panamá | Post-MVP POS |
+| — | **16** | **Delivery (repartidores / entregas)** | **Scaffold en dev** — `eposone_delivery` + API |
+| — | 17–18 | Menú digital, FE Panamá | Post-MVP POS |
 | — | 19 | EPayroll (motor legal) | **Después de EPosOne validado** |
 | — | 20–24 | CRM, Membership, Events, Certificates, Appointments | Migración por app |
 | — | 25–30 | Marketplace, APIs públicas, IA, Observabilidad, Multiempresa, Plataforma ETS | Largo plazo |
@@ -400,6 +401,18 @@ Persistencia comercial Core + API EPosOne:
 | Eventos | `eposone.kds.ticket.*` vía bus |
 
 Tests: `tests/platform/test_eposone_kds.py`.
+
+### Etapa 16 — resumen (Delivery)
+
+| Entrega | Detalle |
+|---------|---------|
+| Tabla | `eposone_delivery` (1 entrega por pedido) |
+| Servicio | `EposoneDeliveryService` — crear, asignar repartidor, transiciones |
+| Auto | Entrega pendiente al pasar pedido a `ready` |
+| API | `GET/POST /api/eposone/deliveries`, assign, status |
+| UI | `/admin/eposone/section/delivery` |
+
+Tests: `tests/platform/test_eposone_delivery.py`.
 
 ---
 

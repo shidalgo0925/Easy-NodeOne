@@ -68,6 +68,15 @@ class TestAppIntegration(unittest.TestCase):
         self.assertIn('eevents', MODULE['depends_on'])
         self.assertIn('emembership', MODULE['depends_on'])
 
+    def test_eappointments_manifest(self):
+        from nodeone.modules.eappointments.manifest import MODULE
+
+        self.assertEqual(MODULE['id'], 'eappointments')
+        self.assertIn('appointments', MODULE['saas_codes'])
+        self.assertEqual(MODULE['nav_area_id'], 'agenda')
+        self.assertEqual(MODULE['integration_order'], 5)
+        self.assertEqual(MODULE['depends_on'], ())
+
     def test_certificates_hidden_without_dependencies(self):
         from nodeone.core.platform.app_integration import filter_launcher_apps_for_org
 

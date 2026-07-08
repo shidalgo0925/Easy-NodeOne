@@ -102,3 +102,8 @@ def seed_eevents_platform_runtime(db, organization_ids: list[int], printfn=None)
 def seed_ecertificates_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
     """Marca ECertificates como plataforma (requiere EEvents + EMembership integrados)."""
     seed_app_platform_runtime(db, 'ecertificates', organization_ids, printfn=printfn)
+
+
+def seed_eappointments_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
+    """Marca EAppointments como plataforma para orgs indicadas (solo dev / cutover acordado)."""
+    seed_app_platform_runtime(db, 'eappointments', organization_ids, printfn=printfn)

@@ -65,6 +65,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
     else:
         _ensure_order_status_axes(engine, insp, printfn)
         _ensure_order_operational_status_column(engine, insp, printfn)
+        _ensure_order_inventory_deducted_at(engine, insp, printfn)
 
     if 'core_commercial_order_line' not in tables:
         ddl = """
@@ -240,6 +241,26 @@ def _ensure_order_operational_status_column(engine, insp, printfn) -> None:
         conn.execute(text(stmt))
     if printfn:
         printfn('core_commercial_order: columna operational_status añadida')
+
+
+def _ensure_order_inventory_deducted_at(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'inventory_deducted_at' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_order '
+            'ADD COLUMN IF NOT EXISTS inventory_deducted_at TIMESTAMP WITHOUT TIME ZONE'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_order ADD COLUMN inventory_deducted_at DATETIME'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_order: columna inventory_deducted_at añadida')
 
 
 def _ensure_order_line_status_axis(engine, insp, printfn) -> None:

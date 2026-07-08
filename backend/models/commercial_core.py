@@ -27,6 +27,7 @@ class CoreCommercialOrder(db.Model):
     source_app_id = db.Column(db.String(64), nullable=False, default='eposone')
     notes = db.Column(db.Text, nullable=True)
     version = db.Column(db.Integer, nullable=False, default=1)
+    inventory_deducted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

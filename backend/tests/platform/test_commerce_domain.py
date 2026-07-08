@@ -41,6 +41,25 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertIn(ev.COMMERCE_INVENTORY_RESERVED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_INVENTORY_DEDUCTED, ev.COMMERCE_EVENT_TYPES)
 
+    def test_inventory_policy_helpers(self):
+        from nodeone.core.commerce.constants import (
+            INVENTORY_POLICY_CONSIGNMENT,
+            INVENTORY_POLICY_DISPATCH_REQUIRED,
+            INVENTORY_POLICY_NONE,
+            INVENTORY_POLICY_RETAIL_STANDARD,
+            inventory_policy_deducts_on_delivered,
+            inventory_policy_deducts_on_paid,
+            inventory_policy_reserves_on_confirmed,
+        )
+
+        self.assertTrue(inventory_policy_reserves_on_confirmed(INVENTORY_POLICY_RETAIL_STANDARD))
+        self.assertFalse(inventory_policy_reserves_on_confirmed(INVENTORY_POLICY_NONE))
+        self.assertTrue(inventory_policy_deducts_on_paid(INVENTORY_POLICY_RETAIL_STANDARD))
+        self.assertFalse(inventory_policy_deducts_on_paid(INVENTORY_POLICY_DISPATCH_REQUIRED))
+        self.assertTrue(inventory_policy_deducts_on_delivered(INVENTORY_POLICY_DISPATCH_REQUIRED))
+        self.assertTrue(inventory_policy_deducts_on_delivered(INVENTORY_POLICY_CONSIGNMENT))
+        self.assertFalse(inventory_policy_deducts_on_delivered(INVENTORY_POLICY_RETAIL_STANDARD))
+
     def test_compute_order_payment_status(self):
         from nodeone.core.commerce.constants import (
             ORDER_PAYMENT_STATUS_OVERPAID,
@@ -481,8 +500,10 @@ class TestCommerceAuthorization(unittest.TestCase):
 
 
 class TestCommerceInventoryService(unittest.TestCase):
+    @patch('nodeone.core.commerce.inventory.CommerceInventoryService._mark_order_deducted')
+    @patch('nodeone.core.commerce.inventory.CommerceInventoryService._order_already_deducted', return_value=False)
     @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
-    def test_order_confirmed_publishes_reserved(self, mock_publish):
+    def test_order_confirmed_publishes_reserved(self, mock_publish, _dedup, _mark):
         from nodeone.core.commerce.events import COMMERCE_INVENTORY_RESERVED, COMMERCE_ORDER_STATUS_CHANGED
         from nodeone.core.commerce.inventory import CommerceInventoryService
         from nodeone.core.platform.events import DomainEventMessage
@@ -501,8 +522,10 @@ class TestCommerceInventoryService(unittest.TestCase):
         mock_publish.assert_called_once()
         self.assertEqual(mock_publish.call_args[0][1], COMMERCE_INVENTORY_RESERVED)
 
+    @patch('nodeone.core.commerce.inventory.CommerceInventoryService._mark_order_deducted')
+    @patch('nodeone.core.commerce.inventory.CommerceInventoryService._order_already_deducted', return_value=False)
     @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
-    def test_payment_paid_publishes_deducted(self, mock_publish):
+    def test_payment_paid_publishes_deducted(self, mock_publish, _dedup, mock_mark):
         from nodeone.core.commerce.events import COMMERCE_INVENTORY_DEDUCTED
         from nodeone.core.commerce.inventory import CommerceInventoryService
         from nodeone.core.platform.events import DomainEventMessage
@@ -523,6 +546,102 @@ class TestCommerceInventoryService(unittest.TestCase):
         self.assertEqual(result['status'], 'published')
         mock_publish.assert_called_once()
         self.assertEqual(mock_publish.call_args[0][1], COMMERCE_INVENTORY_DEDUCTED)
+        mock_mark.assert_called_once_with(1, 'POS-0101')
+
+    @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
+    def test_dispatch_required_skips_deduct_on_paid(self, mock_publish):
+        from nodeone.core.commerce.constants import INVENTORY_POLICY_DISPATCH_REQUIRED
+        from nodeone.core.commerce.inventory import CommerceInventoryService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=5,
+            organization_id=1,
+            event_type='commerce.order.payment_status_changed',
+            payload={
+                'order_ref': 'POS-0102',
+                'from_payment_status': 'unpaid',
+                'to_payment_status': 'paid',
+                'inventory_policy': INVENTORY_POLICY_DISPATCH_REQUIRED,
+            },
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceInventoryService.process_payment_status_changed(msg)
+        self.assertEqual(result['status'], 'skipped')
+        self.assertEqual(result['reason'], 'deduct_on_paid_disabled')
+        mock_publish.assert_not_called()
+
+    @patch('nodeone.core.commerce.inventory.CommerceInventoryService._mark_order_deducted')
+    @patch('nodeone.core.commerce.inventory.CommerceInventoryService._order_already_deducted', return_value=False)
+    @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
+    def test_dispatch_required_deducts_on_delivered(self, mock_publish, _dedup, mock_mark):
+        from nodeone.core.commerce.constants import INVENTORY_POLICY_DISPATCH_REQUIRED
+        from nodeone.core.commerce.events import COMMERCE_INVENTORY_DEDUCTED
+        from nodeone.core.commerce.inventory import CommerceInventoryService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=6,
+            organization_id=1,
+            event_type='commerce.order.status_changed',
+            payload={
+                'order_ref': 'POS-0103',
+                'from_status': 'ready',
+                'to_status': 'delivered',
+                'inventory_policy': INVENTORY_POLICY_DISPATCH_REQUIRED,
+            },
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceInventoryService.process_order_status_changed(msg)
+        self.assertEqual(result['status'], 'published')
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_INVENTORY_DEDUCTED)
+        mock_mark.assert_called_once_with(1, 'POS-0103')
+
+    @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
+    def test_retail_skips_deduct_on_delivered(self, mock_publish):
+        from nodeone.core.commerce.inventory import CommerceInventoryService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=7,
+            organization_id=1,
+            event_type='commerce.order.status_changed',
+            payload={'order_ref': 'POS-0104', 'from_status': 'ready', 'to_status': 'delivered'},
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceInventoryService.process_order_status_changed(msg)
+        self.assertEqual(result['status'], 'skipped')
+        self.assertEqual(result['reason'], 'deduct_on_delivered_disabled')
+        mock_publish.assert_not_called()
+
+    @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
+    def test_skips_second_deduct(self, mock_publish):
+        from nodeone.core.commerce.inventory import CommerceInventoryService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        with patch(
+            'nodeone.core.commerce.inventory.CommerceInventoryService._order_already_deducted',
+            return_value=True,
+        ):
+            msg = DomainEventMessage(
+                id=8,
+                organization_id=1,
+                event_type='commerce.order.payment_status_changed',
+                payload={
+                    'order_ref': 'POS-0105',
+                    'from_payment_status': 'unpaid',
+                    'to_payment_status': 'paid',
+                },
+                source_app_id='eposone',
+                created_at=None,
+            )
+            result = CommerceInventoryService.process_payment_status_changed(msg)
+        self.assertEqual(result['status'], 'skipped')
+        self.assertEqual(result['reason'], 'already_deducted')
+        mock_publish.assert_not_called()
 
     @patch('nodeone.core.commerce.inventory.CommerceInventoryService.process_order_status_changed')
     def test_handler_swallows_errors(self, mock_process):

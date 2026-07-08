@@ -200,6 +200,44 @@ POS_TERMINAL_STATUSES = frozenset(
     {POS_TERMINAL_ACTIVE, POS_TERMINAL_INACTIVE, POS_TERMINAL_MAINTENANCE}
 )
 
+# --- Inventario (Etapa 8 — dominio 6.5) ---
+INVENTORY_POLICY_NONE = 'none'
+INVENTORY_POLICY_RETAIL_STANDARD = 'retail_standard'
+INVENTORY_POLICY_DISPATCH_REQUIRED = 'dispatch_required'
+INVENTORY_POLICY_CONSIGNMENT = 'consignment'
+
+INVENTORY_POLICIES = frozenset(
+    {
+        INVENTORY_POLICY_NONE,
+        INVENTORY_POLICY_RETAIL_STANDARD,
+        INVENTORY_POLICY_DISPATCH_REQUIRED,
+        INVENTORY_POLICY_CONSIGNMENT,
+    }
+)
+
+DEFAULT_INVENTORY_POLICY = INVENTORY_POLICY_RETAIL_STANDARD
+
+
+def normalize_inventory_policy(value: str | None) -> str:
+    raw = (value or '').strip().lower()
+    if raw in INVENTORY_POLICIES:
+        return raw
+    return DEFAULT_INVENTORY_POLICY
+
+
+def inventory_policy_reserves_on_confirmed(policy: str) -> bool:
+    p = normalize_inventory_policy(policy)
+    return p in {INVENTORY_POLICY_RETAIL_STANDARD, INVENTORY_POLICY_DISPATCH_REQUIRED}
+
+
+def inventory_policy_deducts_on_paid(policy: str) -> bool:
+    return normalize_inventory_policy(policy) == INVENTORY_POLICY_RETAIL_STANDARD
+
+
+def inventory_policy_deducts_on_delivered(policy: str) -> bool:
+    p = normalize_inventory_policy(policy)
+    return p in {INVENTORY_POLICY_DISPATCH_REQUIRED, INVENTORY_POLICY_CONSIGNMENT}
+
 
 def can_transition_order_status(current: str, target: str) -> bool:
     cur = (current or '').strip().lower()

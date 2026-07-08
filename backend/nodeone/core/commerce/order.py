@@ -186,12 +186,22 @@ class OrderService:
         if not OrderService.can_transition(cur, tgt):
             raise OrderValidationError(f'invalid_transition:{cur}->{tgt}')
 
+        if tgt == ORDER_STATUS_CANCELLED:
+            for line in row.lines or []:
+                if str(line.line_status or '') != ORDER_LINE_STATUS_CANCELLED:
+                    line.line_status = ORDER_LINE_STATUS_CANCELLED
+
+        row.status = tgt
+        row.version = int(row.version or 1) + 1
+        db.session.commit()
+
         OrderService.publish_status_changed(
             int(organization_id),
             order_ref=str(row.order_ref),
             from_status=cur,
             to_status=tgt,
             source_app_id=source_app_id,
+            order_id=int(row.id),
         )
         if tgt == ORDER_STATUS_CONFIRMED:
             OrderService.publish_confirmed(
@@ -204,13 +214,6 @@ class OrderService:
                 reason=reason,
                 source_app_id=source_app_id,
             )
-            for line in row.lines or []:
-                if str(line.line_status or '') != ORDER_LINE_STATUS_CANCELLED:
-                    line.line_status = ORDER_LINE_STATUS_CANCELLED
-
-        row.status = tgt
-        row.version = int(row.version or 1) + 1
-        db.session.commit()
 
         from nodeone.modules.eposone.kds_service import KdsService
 
@@ -265,15 +268,22 @@ class OrderService:
         from_status: str,
         to_status: str,
         source_app_id: str = 'eposone',
+        order_id: int | None = None,
+        inventory_policy: str | None = None,
     ):
+        payload: dict[str, Any] = {
+            'order_ref': order_ref,
+            'from_payment_status': from_status,
+            'to_payment_status': to_status,
+        }
+        if order_id is not None:
+            payload['order_id'] = int(order_id)
+        if inventory_policy:
+            payload['inventory_policy'] = inventory_policy
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_ORDER_PAYMENT_STATUS_CHANGED,
-            {
-                'order_ref': order_ref,
-                'from_payment_status': from_status,
-                'to_payment_status': to_status,
-            },
+            payload,
             source_app_id=source_app_id,
         )
 
@@ -305,17 +315,24 @@ class OrderService:
         from_status: str,
         to_status: str,
         source_app_id: str = 'eposone',
+        order_id: int | None = None,
+        inventory_policy: str | None = None,
     ):
+        payload: dict[str, Any] = {
+            'order_ref': order_ref,
+            'from_status': from_status,
+            'to_status': to_status,
+            'from_operational_status': from_status,
+            'to_operational_status': to_status,
+        }
+        if order_id is not None:
+            payload['order_id'] = int(order_id)
+        if inventory_policy:
+            payload['inventory_policy'] = inventory_policy
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_ORDER_STATUS_CHANGED,
-            {
-                'order_ref': order_ref,
-                'from_status': from_status,
-                'to_status': to_status,
-                'from_operational_status': from_status,
-                'to_operational_status': to_status,
-            },
+            payload,
             source_app_id=source_app_id,
         )
 

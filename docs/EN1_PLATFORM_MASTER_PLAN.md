@@ -287,14 +287,48 @@ Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR,
 6. Tests en `tests/platform/`.
 7. Eventos de dominio vía bus (Etapa 8), sin sync de tablas entre apps.
 
-**Estado Etapa 9 (scaffold):** manifest_registry + **EPayroll activada** (home, nav, seed) en dev (2026-07-08).
+**Estado Etapa 9 (scaffold):** manifest_registry + EPayroll scaffold en dev (2026-07-08).
 
-**Activar EPayroll en dev:**
+**Nota estratégica:** EPayroll queda **congelado en producto** hasta cerrar EPosOne MVP (Etapa 14) y validar con clientes. El scaffold en dev no implica desarrollo de nómina legal.
 
-```bash
-export NODEONE_PLATFORM_SEED_EPAYROLL_ORG_IDS=1
-sudo systemctl restart easynodeone-dev
+---
+
+## Fase 2 ETS — Post-plataforma (Etapas 10–30)
+
+**Regla de oro:** no más funcionalidades de producto hasta consolidar base (Etapas 10–13). EPosOne MVP es el primer producto comercial; EPayroll y demás apps **después** de validar la plataforma.
+
+### Prioridades reales
+
+| P | Etapa | Nombre | Estado |
+|---|-------|--------|--------|
+| **P1** | **10** | **Modelo maestro compartido** | **Plan cerrado** — [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
+| P2 | 11 | Servicios compartidos (APIs Core) | Pendiente |
+| P3 | 12 | Dominio comercial (pedido, pago, factura, caja, POS) | Pendiente |
+| P4 | 13 | Sincronización offline (cola, reintentos, conflictos) | Pendiente |
+| P5 | 14 | **EPosOne MVP comercial** | Pendiente |
+| — | 15–18 | KDS, Delivery, Menú digital, FE Panamá | Post-MVP POS |
+| — | 19 | EPayroll (motor legal) | **Después de EPosOne validado** |
+| — | 20–24 | CRM, Membership, Events, Certificates, Appointments | Migración por app |
+| — | 25–30 | Marketplace, APIs públicas, IA, Observabilidad, Multiempresa, Plataforma ETS | Largo plazo |
+
+### Secuencia acordada
+
+```text
+Consolidar plataforma (10 → 11 → 12 → 13)
+    → EPosOne MVP (14)
+    → Validar 1–2 clientes reales
+    → EPayRoll, CRM, Membership, …
 ```
+
+### Etapa 10 — resumen
+
+- **Contact** (`en1_contact`) = maestro de terceros con roles; converger `tenant_crm_contact`.
+- **Un catálogo** producto/servicio (contrato `core_product` — diseño, sin migrar aún).
+- **OrgUnit** para sucursales/locales/cajas.
+- **Address, Attachment, Audit, Notification, Calendar** como servicios Core.
+- **Sin big bang** en IIUS/Relatic.
+
+Detalle completo: [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md).
 
 ---
 
@@ -425,7 +459,7 @@ EMarketing    EPayRoll    EInventory    BI
 | Tema | Archivo |
 |------|---------|
 | Carriles y soporte | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
-| **Etapa 1 Core vs Apps** | [`EN1_PLATFORM_ETAPA1_CORE_APPS.md`](EN1_PLATFORM_ETAPA1_CORE_APPS.md) |
+| **Etapa 10 modelo maestro** | [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
 | Deploy clientes | [`CHECKLIST_ACTUALIZACION_Y_CLIENTES.md`](CHECKLIST_ACTUALIZACION_Y_CLIENTES.md) |
 | Arquitectura EN1 | [`../backend/docs/EN1_ARCHITECTURE.md`](../backend/docs/EN1_ARCHITECTURE.md) |
 | RBAC | [`RBAC_Y_ROLES.md`](RBAC_Y_ROLES.md) |
@@ -435,4 +469,4 @@ EMarketing    EPayRoll    EInventory    BI
 
 ---
 
-*Última actualización: 2026-07-08. Cambios de alcance de etapas requieren acuerdo explícito del responsable del proyecto.*
+*Última actualización: 2026-07-08 (Fase 2 Etapas 10–30 añadidas). Cambios de alcance requieren acuerdo explícito del responsable del proyecto.*

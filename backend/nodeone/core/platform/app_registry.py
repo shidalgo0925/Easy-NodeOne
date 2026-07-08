@@ -34,7 +34,7 @@ APPLICATIONS: tuple[ApplicationDescriptor, ...] = (
     ApplicationDescriptor(
         id='ecrm',
         name='ECRM',
-        saas_codes=('crm',),
+        saas_codes=('crm', 'crm_contacts'),
         depends_on=('contacts',),
         integration_order=2,
     ),
@@ -68,6 +68,13 @@ APPLICATIONS: tuple[ApplicationDescriptor, ...] = (
         id='eposone',
         name='EPosOne',
         saas_codes=('eposone',),
+        depends_on=('contacts',),
+        native_platform=True,
+    ),
+    ApplicationDescriptor(
+        id='epayroll',
+        name='EPayroll',
+        saas_codes=('epayroll',),
         depends_on=('contacts',),
         native_platform=True,
     ),

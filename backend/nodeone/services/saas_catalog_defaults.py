@@ -108,6 +108,12 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'Punto de venta nativo (plataforma). Opt-in por tenant; no aplica a IIUS/Relatic legacy.',
         False,
     ),
+    (
+        'epayroll',
+        'EPayroll',
+        'Nómina nativa (plataforma). Planificada Etapa 9 — opt-in por tenant.',
+        False,
+    ),
 )
 
 

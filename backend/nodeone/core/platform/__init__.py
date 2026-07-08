@@ -28,6 +28,12 @@ from nodeone.core.platform.events import (
     publish_domain_event,
     subscribe,
 )
+from nodeone.core.platform.manifest_registry import (
+    NEW_APP_MANIFEST_TEMPLATE,
+    discover_platform_manifests,
+    get_manifest,
+    manifest_ids,
+)
 from nodeone.core.platform.launcher import (
     get_active_app_id,
     launcher_mode_for_organization,
@@ -49,6 +55,7 @@ __all__ = [
     'app_dependencies_satisfied',
     'build_app_shell_nav_payload',
     'CoreCapability',
+    'discover_platform_manifests',
     'dispatch_pending_events',
     'filter_launcher_apps_for_org',
     'get_active_app_id',
@@ -59,7 +66,10 @@ __all__ = [
     'is_app_shell_enabled',
     'launcher_mode_for_organization',
     'list_applications',
+    'get_manifest',
+    'manifest_ids',
     'merge_app_shell_nav_context',
+    'NEW_APP_MANIFEST_TEMPLATE',
     'organization_has_integrated_apps',
     'post_login_redirect_target',
     'publish_domain_event',

@@ -270,6 +270,25 @@ Pedido creado → Inventario → Facturación → Reportes
 
 Todo producto nuevo nace como app registrada: Payroll, Marketing, Inventory, HR, BI, etc.
 
+| Pieza | Ubicación |
+|-------|-----------|
+| Descubrimiento manifests | `nodeone/core/platform/manifest_registry.py` |
+| Plantilla nueva app | `NEW_APP_MANIFEST_TEMPLATE` en manifest_registry |
+| Ejemplo planificada | `nodeone/modules/epayroll/manifest.py` (`lifecycle: planned`) |
+| Registry + SaaS | `app_registry.py` + `saas_catalog_defaults.py` |
+
+**Checklist nueva app (Carril 2):**
+
+1. Crear `nodeone/modules/<app>/manifest.py` (y `register.py` + rutas si `lifecycle: active`).
+2. Añadir módulo a `PLATFORM_MANIFEST_MODULES`.
+3. Registrar `ApplicationDescriptor` en `app_registry.py`.
+4. Añadir código SaaS opt-in en `saas_catalog_defaults.py` (no toggleable global salvo acuerdo).
+5. Nav + launcher mapping si tiene UI.
+6. Tests en `tests/platform/`.
+7. Eventos de dominio vía bus (Etapa 8), sin sync de tablas entre apps.
+
+**Estado Etapa 9 (scaffold):** manifest_registry + EPayroll planificada como referencia en dev (2026-07-08).
+
 ---
 
 ## Ciclo de vida de una app

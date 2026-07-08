@@ -75,6 +75,20 @@ def sync_operations_enqueue():
     return jsonify({'operation': dto.to_dict()}), 201
 
 
+@platform_sync_bp.route('/operations/process', methods=['POST'])
+@login_required
+def sync_operations_process():
+    gate = _require_sync_access()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    limit = int(body.get('limit', 50) or 50)
+    from nodeone.modules.eposone.sync_handlers import process_eposone_sync_queue
+
+    processed = process_eposone_sync_queue(organization_id=gate, limit=limit)
+    return jsonify({'processed': processed, 'organization_id': gate})
+
+
 @platform_sync_bp.route('/operations/<int:operation_id>', methods=['GET'])
 @login_required
 def sync_operations_get(operation_id: int):

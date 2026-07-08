@@ -12,6 +12,20 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
     if op == 'create_order':
         OrderService.create(int(dto.organization_id), dict(dto.payload or {}), source_app_id='eposone')
         return
+    if op == 'transition_order_status':
+        payload = dict(dto.payload or {})
+        order_id = payload.get('order_id')
+        status = (payload.get('status') or '').strip()
+        if not order_id or not status:
+            raise OrderValidationError('order_id_and_status_required')
+        OrderService.transition_status(
+            int(dto.organization_id),
+            int(order_id),
+            status,
+            source_app_id='eposone',
+            reason=payload.get('reason'),
+        )
+        return
     if op == 'capture_payment':
         PaymentService.capture(int(dto.organization_id), dict(dto.payload or {}), source_app_id='eposone')
         return
@@ -80,7 +94,40 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             source_app_id='eposone',
         )
         return
+    if op == 'manual_cash_movement':
+        from nodeone.core.commerce.cash import CashRegisterService
+
+        payload = dict(dto.payload or {})
+        shift_id = payload.get('shift_id')
+        movement_type = (payload.get('movement_type') or '').strip()
+        if not shift_id or not movement_type:
+            raise OrderValidationError('shift_id_and_movement_type_required')
+        CashRegisterService.record_manual_movement(
+            int(dto.organization_id),
+            int(shift_id),
+            movement_type,
+            float(payload.get('amount') or 0),
+            notes=payload.get('notes'),
+            approval=payload,
+            source_app_id='eposone',
+        )
+        return
     raise OrderValidationError(f'unsupported_operation:{op}')
+
+
+EPOSONE_SYNC_OPERATIONS = frozenset(
+    {
+        'create_order',
+        'transition_order_status',
+        'capture_payment',
+        'refund_payment',
+        'emit_fiscal',
+        'open_cash_shift',
+        'reconcile_cash_shift',
+        'close_cash_shift',
+        'manual_cash_movement',
+    }
+)
 
 
 def process_eposone_sync_queue(*, organization_id: int | None = None, limit: int = 50) -> int:

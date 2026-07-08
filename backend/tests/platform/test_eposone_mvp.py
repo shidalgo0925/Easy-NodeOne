@@ -103,6 +103,86 @@ class TestEPosOneSyncHandler(unittest.TestCase):
         with self.assertRaises(OrderValidationError):
             apply_eposone_sync_operation(dto)
 
+    @patch('nodeone.modules.eposone.sync_handlers.OrderService.transition_status')
+    def test_transition_order_status_operation(self, mock_transition):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=2,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='k2',
+            operation_type='transition_order_status',
+            status='pending',
+            entity_type='order',
+            entity_ref='POS-0001',
+            payload={'order_id': 5, 'status': 'confirmed'},
+            base_version=1,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_transition.assert_called_once_with(
+            1,
+            5,
+            'confirmed',
+            source_app_id='eposone',
+            reason=None,
+        )
+
+    @patch('nodeone.core.commerce.cash.CashRegisterService.record_manual_movement')
+    def test_manual_cash_movement_operation(self, mock_manual):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=3,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='k3',
+            operation_type='manual_cash_movement',
+            status='pending',
+            entity_type='cash_shift',
+            entity_ref='REG-1',
+            payload={
+                'shift_id': 9,
+                'movement_type': 'cash_in',
+                'amount': 50,
+                'supervisor_user_id': 42,
+            },
+            base_version=None,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_manual.assert_called_once()
+        self.assertEqual(mock_manual.call_args[0][1], 9)
+        self.assertEqual(mock_manual.call_args[0][2], 'cash_in')
+
+    def test_supported_operations_catalog(self):
+        from nodeone.modules.eposone.sync_handlers import EPOSONE_SYNC_OPERATIONS
+
+        self.assertIn('refund_payment', EPOSONE_SYNC_OPERATIONS)
+        self.assertIn('manual_cash_movement', EPOSONE_SYNC_OPERATIONS)
+
+
+class TestPlatformSyncAPI(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+
+    def test_sync_process_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.post('/api/platform/sync/operations/process')
+            self.assertIn(r.status_code, (302, 401))
+
 
 if __name__ == '__main__':
     unittest.main()

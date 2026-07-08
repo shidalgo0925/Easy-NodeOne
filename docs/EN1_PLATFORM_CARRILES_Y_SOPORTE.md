@@ -112,6 +112,8 @@ export NODEONE_LAUNCHER_CLASSIC_ORG_IDS=<id_iius>,<id_relatic>
 
 URL: `/platform/apps` · sidebar «Mis aplicaciones» cuando el modo es `apps`.
 
+**Integración por app (Etapa 5):** tabla `platform_org_app_runtime`; ver Master Plan § Etapa 5.
+
 ---
 
 ## Flujo integración (Carril 3)

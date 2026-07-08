@@ -5,6 +5,11 @@ Contratos y registro del núcleo de plataforma. Las apps de negocio viven fuera
 de este paquete y se registran vía ``register_platform_apps``.
 """
 
+from nodeone.core.platform.app_integration import (
+    filter_launcher_apps_for_org,
+    get_app_runtime,
+    organization_has_integrated_apps,
+)
 from nodeone.core.platform.app_registry import (
     APPLICATIONS,
     ApplicationDescriptor,
@@ -36,7 +41,9 @@ __all__ = [
     'ApplicationDescriptor',
     'build_app_shell_nav_payload',
     'CoreCapability',
+    'filter_launcher_apps_for_org',
     'get_active_app_id',
+    'get_app_runtime',
     'get_application',
     'has_permission',
     'has_saas_module',
@@ -44,6 +51,7 @@ __all__ = [
     'launcher_mode_for_organization',
     'list_applications',
     'merge_app_shell_nav_context',
+    'organization_has_integrated_apps',
     'post_login_redirect_target',
     'register_platform_apps',
     'register_platform_core',

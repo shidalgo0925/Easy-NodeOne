@@ -150,23 +150,36 @@ Paquete: `backend/nodeone/core/platform/` · tests: `backend/tests/platform/test
 
 ---
 
-### Etapa 5 — Integración de apps (una por una)
+### Etapa 5 — Integración de apps
 
-**Objetivo:** migrar **apps**, no clientes.
+**Objetivo:** migrar **apps**, no clientes. Primera app: **EMembership**.
 
-| Orden sugerido | App | Notas |
-|----------------|-----|-------|
-| 1 | **EMembership** | Primera integración; base de IIUS |
-| 2 | **ECRM** | Maestro comercial transversal |
-| 3 | **EEvents** | Antes de certificados |
-| 4 | **ECertificates** | `depends_on`: events, membership; la más delicada |
-| 5 | **EAppointments** | Relativamente aislada |
+| Pieza | Ubicación |
+|-------|-----------|
+| Runtime org × app | `platform_org_app_runtime` · `models/platform_app.py` |
+| Servicio | `nodeone/core/platform/app_integration.py` |
+| Manifest EMembership | `nodeone/modules/emembership/manifest.py` |
+| DDL bootstrap | `nodeone/services/platform_app_runtime_schema.py` |
 
-Cada app: desarrollo → staging → validación → cutover prod **solo esa app**.
+**Estados:** `legacy` | `en_migracion` | `plataforma`
 
-**Estado por org × app:** `legacy` | `en_migracion` | `plataforma` (extensión futura de `saas_org_module` o convención por flag).
+**Activar EMembership en dev (sin tocar IIUS/Relatic):**
 
-**Criterio de cierre por app:** manifest completo, shell propio, sin imports cruzados, smoke test cliente en staging, sign-off.
+```bash
+# Opción A — BD (tras bootstrap)
+export NODEONE_PLATFORM_SEED_EMEMBERSHIP_ORG_IDS=1
+sudo systemctl restart easynodeone-dev
+
+# Opción B — solo env
+export NODEONE_APP_RUNTIME_EMEMBERSHIP_ORG_IDS=1
+export NODEONE_APP_RUNTIME_EMEMBERSHIP=plataforma
+```
+
+Con runtime `plataforma`, la org entra en modo apps automáticamente y el launcher muestra solo apps integradas.
+
+**Orden restante:** ECRM → EEvents → ECertificates → EAppointments.
+
+**Criterio cierre EMembership (dev):** manifest + runtime + launcher filtrado + shell. **Estado: cerrada en dev (2026-07-08).** Otras apps: pendientes.
 
 ---
 

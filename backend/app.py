@@ -3344,6 +3344,21 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_contacts_schema: {e}')
         try:
+            from nodeone.services.platform_app_runtime_schema import (
+                ensure_platform_app_runtime_schema,
+                seed_emembership_platform_runtime,
+            )
+
+            ensure_platform_app_runtime_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+            seed_raw = (os.environ.get('NODEONE_PLATFORM_SEED_EMEMBERSHIP_ORG_IDS') or '').strip()
+            if seed_raw:
+                org_ids = [int(x.strip()) for x in seed_raw.split(',') if x.strip()]
+                if org_ids:
+                    seed_emembership_platform_runtime(db, org_ids, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_platform_app_runtime_schema: {e}')
+        try:
             from nodeone.services.academic_schema import ensure_academic_schema
 
             ensure_academic_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

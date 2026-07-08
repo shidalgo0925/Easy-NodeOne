@@ -75,6 +75,12 @@ def launcher_mode_for_organization(organization_id: int | None) -> str:
     if oid is not None and apps_orgs and oid in apps_orgs:
         return 'apps'
 
+    if oid is not None:
+        from nodeone.core.platform.app_integration import organization_has_integrated_apps
+
+        if organization_has_integrated_apps(oid):
+            return 'apps'
+
     return mode
 
 
@@ -129,8 +135,10 @@ def build_nav_context_for_user(user):
     )
 
 
-def visible_launcher_apps(ctx) -> list[dict[str, Any]]:
+def visible_launcher_apps(ctx, organization_id: int | None = None) -> list[dict[str, Any]]:
     """Apps visibles para el usuario (mismas reglas que sidebar ERP)."""
+    from flask import has_request_context
+
     from nodeone.core.nav_menu import visible_areas
 
     apps: list[dict[str, Any]] = []
@@ -148,6 +156,17 @@ def visible_launcher_apps(ctx) -> list[dict[str, Any]]:
                 'url': area.get('url') or '#',
             }
         )
+    if organization_id is None and has_request_context():
+        try:
+            from app import _org_id_for_module_visibility
+
+            organization_id = _org_id_for_module_visibility()
+        except Exception:
+            organization_id = None
+    if organization_id is not None:
+        from nodeone.core.platform.app_integration import filter_launcher_apps_for_org
+
+        apps = filter_launcher_apps_for_org(organization_id, apps)
     return apps
 
 

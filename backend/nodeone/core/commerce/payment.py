@@ -7,10 +7,16 @@ from typing import Any
 
 from models.commercial_core import CoreCommercialOrder, CoreCommercialPayment
 from nodeone.core.commerce.constants import (
+    ORDER_FISCAL_STATUS_NOT_REQUIRED,
     ORDER_FISCAL_STATUS_PENDING,
+    ORDER_FISCAL_STATUS_INVOICED,
     ORDER_PAYMENT_STATUS_PAID,
+    ORDER_STATUS_REFUNDED,
     PAYMENT_STATUS_CAPTURED,
+    PAYMENT_STATUS_PARTIAL_REFUND,
+    PAYMENT_STATUS_REFUNDED,
     PAYMENT_TYPE_CASH,
+    can_transition_order_status,
 )
 from nodeone.core.commerce.dtos import PaymentDTO
 from nodeone.core.commerce.events import (
@@ -138,8 +144,108 @@ class PaymentService:
         return f'{prefix}-{max_seq + 1:04d}'
 
     @staticmethod
-    def refund(organization_id: int, payment_id: int, *, amount: float | None = None) -> PaymentDTO:
-        raise NotImplementedError('PaymentService.refund pendiente post-MVP')
+    def refund(
+        organization_id: int,
+        payment_id: int,
+        *,
+        amount: float | None = None,
+        source_app_id: str = 'eposone',
+    ) -> PaymentDTO:
+        from app import db
+
+        oid = int(organization_id)
+        row = CoreCommercialPayment.query.filter_by(organization_id=oid, id=int(payment_id)).first()
+        if row is None:
+            raise OrderValidationError('payment_not_found')
+        if str(row.status or '') != PAYMENT_STATUS_CAPTURED:
+            raise OrderValidationError('payment_not_refundable')
+
+        order = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(row.order_id)).first()
+        if order is None:
+            raise OrderValidationError('order_not_found')
+
+        refund_amt = round(float(amount if amount is not None else row.amount or 0), 2)
+        captured_amt = round(float(row.amount or 0), 2)
+        if refund_amt <= 0:
+            raise OrderValidationError('amount_required')
+        if refund_amt > captured_amt:
+            raise OrderValidationError('refund_exceeds_payment')
+
+        prev_payment_status = str(order.payment_status or 'unpaid')
+        prev_operational = str(order.status or '')
+        prev_fiscal_status = str(order.fiscal_status or '')
+
+        row.status = (
+            PAYMENT_STATUS_REFUNDED if refund_amt >= captured_amt else PAYMENT_STATUS_PARTIAL_REFUND
+        )
+        order.amount_paid = round(max(0.0, float(order.amount_paid or 0) - refund_amt), 2)
+        order.version = int(order.version or 1) + 1
+        new_payment_status = order.sync_payment_status()
+
+        fiscal_reverted = PaymentService._maybe_revert_fiscal_on_full_refund(order)
+        operational_changed = PaymentService._maybe_transition_refunded(order, prev_operational)
+
+        db.session.commit()
+
+        if new_payment_status != prev_payment_status:
+            OrderService.publish_payment_status_changed(
+                oid,
+                order_ref=str(order.order_ref),
+                from_status=prev_payment_status,
+                to_status=new_payment_status,
+                source_app_id=source_app_id,
+            )
+        if fiscal_reverted is not None:
+            OrderService.publish_fiscal_status_changed(
+                oid,
+                order_ref=str(order.order_ref),
+                from_status=prev_fiscal_status,
+                to_status=str(order.fiscal_status),
+                source_app_id=source_app_id,
+            )
+        if operational_changed:
+            OrderService.publish_status_changed(
+                oid,
+                order_ref=str(order.order_ref),
+                from_status=prev_operational,
+                to_status=ORDER_STATUS_REFUNDED,
+                source_app_id=source_app_id,
+            )
+
+        PaymentService.publish_refunded(
+            oid,
+            payment_ref=str(row.payment_ref),
+            order_ref=str(order.order_ref),
+            amount=refund_amt,
+            source_app_id=source_app_id,
+        )
+        return payment_to_dto(row, order_ref=str(order.order_ref))
+
+    @staticmethod
+    def _maybe_revert_fiscal_on_full_refund(order: CoreCommercialOrder) -> str | None:
+        paid = round(float(order.amount_paid or 0), 2)
+        if paid > 0:
+            return None
+        fs = str(order.fiscal_status or '')
+        if fs == ORDER_FISCAL_STATUS_PENDING:
+            order.fiscal_status = ORDER_FISCAL_STATUS_NOT_REQUIRED
+            return fs
+        if fs == ORDER_FISCAL_STATUS_INVOICED:
+            return None
+        return None
+
+    @staticmethod
+    def _maybe_transition_refunded(order: CoreCommercialOrder, prev_operational: str) -> bool:
+        paid = round(float(order.amount_paid or 0), 2)
+        if paid > 0:
+            return False
+        cur = str(order.status or '')
+        if cur == ORDER_STATUS_REFUNDED:
+            return False
+        if not can_transition_order_status(cur, ORDER_STATUS_REFUNDED):
+            return False
+        order.status = ORDER_STATUS_REFUNDED
+        return True
 
     @staticmethod
     def publish_initiated(

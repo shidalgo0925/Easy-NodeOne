@@ -168,6 +168,144 @@ class TestPaymentServiceAxis(unittest.TestCase):
         mock_fiscal_changed.assert_not_called()
 
 
+class TestPaymentRefund(unittest.TestCase):
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.payment.CoreCommercialOrder')
+    def test_refund_full_reverts_payment_and_order_axes(
+        self,
+        mock_order_cls,
+        mock_payment_cls,
+        mock_db,
+        mock_payment_changed,
+        mock_fiscal_changed,
+        mock_status_changed,
+        mock_refunded,
+    ):
+        from nodeone.core.commerce.constants import (
+            ORDER_FISCAL_STATUS_NOT_REQUIRED,
+            ORDER_FISCAL_STATUS_PENDING,
+            ORDER_PAYMENT_STATUS_PAID,
+            ORDER_PAYMENT_STATUS_UNPAID,
+            ORDER_STATUS_DELIVERED,
+            ORDER_STATUS_REFUNDED,
+            PAYMENT_STATUS_REFUNDED,
+        )
+        from nodeone.core.commerce.payment import PaymentService
+
+        order = MagicMock()
+        order.id = 10
+        order.order_ref = 'POS-0010'
+        order.status = ORDER_STATUS_DELIVERED
+        order.payment_status = ORDER_PAYMENT_STATUS_PAID
+        order.fiscal_status = ORDER_FISCAL_STATUS_PENDING
+        order.amount_paid = 15.0
+        order.grand_total = 15.0
+        order.version = 1
+
+        def _sync():
+            order.payment_status = ORDER_PAYMENT_STATUS_UNPAID
+            return ORDER_PAYMENT_STATUS_UNPAID
+
+        order.sync_payment_status.side_effect = _sync
+
+        pay_row = MagicMock()
+        pay_row.id = 5
+        pay_row.order_id = 10
+        pay_row.payment_ref = 'PAY-0010'
+        pay_row.status = 'captured'
+        pay_row.amount = 15.0
+        pay_row.payment_type = 'cash'
+        pay_row.currency = 'USD'
+        pay_row.captured_at = None
+
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        result = PaymentService.refund(1, 5)
+
+        self.assertEqual(pay_row.status, PAYMENT_STATUS_REFUNDED)
+        self.assertEqual(order.amount_paid, 0.0)
+        self.assertEqual(order.status, ORDER_STATUS_REFUNDED)
+        self.assertEqual(order.fiscal_status, ORDER_FISCAL_STATUS_NOT_REQUIRED)
+        mock_payment_changed.assert_called_once()
+        mock_fiscal_changed.assert_called_once()
+        mock_status_changed.assert_called_once()
+        mock_refunded.assert_called_once()
+        self.assertEqual(result.payment_ref, 'PAY-0010')
+
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.payment.CoreCommercialOrder')
+    def test_refund_partial_does_not_change_operational(
+        self,
+        mock_order_cls,
+        mock_payment_cls,
+        mock_db,
+        mock_payment_changed,
+        mock_status_changed,
+        mock_refunded,
+    ):
+        from nodeone.core.commerce.constants import (
+            ORDER_PAYMENT_STATUS_PARTIAL,
+            ORDER_STATUS_DELIVERED,
+            PAYMENT_STATUS_PARTIAL_REFUND,
+        )
+        from nodeone.core.commerce.payment import PaymentService
+
+        order = MagicMock()
+        order.id = 11
+        order.order_ref = 'POS-0011'
+        order.status = ORDER_STATUS_DELIVERED
+        order.payment_status = 'paid'
+        order.fiscal_status = 'invoiced'
+        order.amount_paid = 20.0
+        order.grand_total = 20.0
+        order.version = 1
+        order.sync_payment_status.return_value = ORDER_PAYMENT_STATUS_PARTIAL
+
+        pay_row = MagicMock()
+        pay_row.id = 6
+        pay_row.order_id = 11
+        pay_row.payment_ref = 'PAY-0011'
+        pay_row.status = 'captured'
+        pay_row.amount = 20.0
+        pay_row.payment_type = 'cash'
+        pay_row.currency = 'USD'
+        pay_row.captured_at = None
+
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        PaymentService.refund(1, 6, amount=5.0)
+
+        self.assertEqual(pay_row.status, PAYMENT_STATUS_PARTIAL_REFUND)
+        self.assertEqual(order.amount_paid, 15.0)
+        self.assertEqual(order.status, ORDER_STATUS_DELIVERED)
+        mock_status_changed.assert_not_called()
+        mock_payment_changed.assert_called_once()
+        mock_refunded.assert_called_once()
+
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    def test_refund_rejects_non_captured(self, mock_payment_cls):
+        from nodeone.core.commerce.order import OrderValidationError
+        from nodeone.core.commerce.payment import PaymentService
+
+        pay_row = MagicMock()
+        pay_row.status = 'refunded'
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+
+        with self.assertRaises(OrderValidationError):
+            PaymentService.refund(1, 99)
+
+
 class TestCommerceFiscalService(unittest.TestCase):
     @patch('nodeone.core.commerce.fiscal.AuditService.publish_domain_event')
     @patch('nodeone.core.commerce.fiscal.CoreCommercialOrder')

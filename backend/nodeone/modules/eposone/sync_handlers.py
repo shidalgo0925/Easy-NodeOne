@@ -28,6 +28,19 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             source_app_id='eposone',
         )
         return
+    if op == 'refund_payment':
+        payload = dict(dto.payload or {})
+        payment_id = payload.get('payment_id')
+        if not payment_id:
+            raise OrderValidationError('payment_id_required')
+        amount = payload.get('amount')
+        PaymentService.refund(
+            int(dto.organization_id),
+            int(payment_id),
+            amount=float(amount) if amount is not None else None,
+            source_app_id='eposone',
+        )
+        return
     raise OrderValidationError(f'unsupported_operation:{op}')
 
 

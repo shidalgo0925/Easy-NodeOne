@@ -407,7 +407,7 @@ def create_payment_intent():
         if ocr_verified:
             initial_status = 'succeeded'
         elif payment_method == 'wire_international':
-            initial_status = 'pending'
+            initial_status = 'pending_receipt'
         elif is_demo_mode and not receipt_url:
             # Demo sin comprobante: por defecto auto-aprobado; con NODEONE_CHECKOUT_NO_DEMO_AUTO_SUCCESS queda pending para QA.
             initial_status = 'pending' if _checkout_no_demo_auto_success() else 'succeeded'
@@ -781,12 +781,12 @@ def payment_success():
                     intl_wire = None
                     banco_general_transfer = None
             from nodeone.services.manual_payment_flow import (
+                is_awaiting_receipt_upload,
                 is_manual_validation_method,
                 method_requires_receipt,
             )
             from nodeone.services.yappy_manual_status import (
                 is_pending_admin_review,
-                is_pending_receipt,
                 yappy_status_label,
             )
 
@@ -800,7 +800,10 @@ def payment_success():
                 banco_general_transfer=banco_general_transfer,
                 manual_validation_payment=mv,
                 manual_can_upload_receipt=mv
-                and (is_pending_receipt(payment.status) or (payment.status or '').strip() == 'rejected'),
+                and (
+                    is_awaiting_receipt_upload(payment.status)
+                    or (payment.status or '').strip() == 'rejected'
+                ),
                 manual_pending_review=mv and is_pending_admin_review(payment.status),
                 manual_receipt_requires=method_requires_receipt(int(oid_pay), payment.payment_method)
                 if mv

@@ -253,7 +253,16 @@ Ejemplo:
 Pedido creado → Inventario → Facturación → Reportes
 ```
 
-Implementación progresiva (cola, outbox, o bus interno). No bloqueante para Etapas 0–7.
+| Pieza | Ubicación |
+|-------|-----------|
+| Outbox | `platform_domain_event` · `models/platform_events.py` |
+| API bus | `nodeone/core/platform/events.py` — `publish_domain_event`, `subscribe`, `dispatch_pending_events` |
+| DDL bootstrap | `nodeone/services/platform_events_schema.py` |
+| EPosOne helpers | `nodeone/modules/eposone/events.py` |
+
+**Env dev:** `NODEONE_EVENT_BUS_SYNC=1` (default) despacha handlers en el mismo proceso tras commit.
+
+**Estado Etapa 8 (scaffold):** outbox + bus in-process + tests en dev (2026-07-08). Cola/worker externo → iteración futura.
 
 ---
 

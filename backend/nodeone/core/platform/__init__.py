@@ -23,6 +23,11 @@ from nodeone.core.platform.app_shell import (
     merge_app_shell_nav_context,
 )
 from nodeone.core.platform.capabilities import CoreCapability
+from nodeone.core.platform.events import (
+    dispatch_pending_events,
+    publish_domain_event,
+    subscribe,
+)
 from nodeone.core.platform.launcher import (
     get_active_app_id,
     launcher_mode_for_organization,
@@ -44,6 +49,7 @@ __all__ = [
     'app_dependencies_satisfied',
     'build_app_shell_nav_payload',
     'CoreCapability',
+    'dispatch_pending_events',
     'filter_launcher_apps_for_org',
     'get_active_app_id',
     'get_app_runtime',
@@ -56,9 +62,11 @@ __all__ = [
     'merge_app_shell_nav_context',
     'organization_has_integrated_apps',
     'post_login_redirect_target',
+    'publish_domain_event',
     'register_platform_apps',
     'register_platform_core',
     'resolve_organization_id',
     'set_active_app_id',
+    'subscribe',
     'visible_launcher_apps',
 ]

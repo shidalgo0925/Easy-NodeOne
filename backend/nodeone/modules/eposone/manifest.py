@@ -17,5 +17,6 @@ MODULE = {
     'notes': (
         'App nativa Carril 2 — no importa Membership, Events ni Certificates.',
         'Back office POS (Etapa 7): menú en nav_menu área eposone; compone Core (sales, contacts, contador).',
+        'Eventos (Etapa 8): publicar vía nodeone.modules.eposone.events — sin sync de tablas.',
     ),
 }

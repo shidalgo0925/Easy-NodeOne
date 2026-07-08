@@ -137,12 +137,16 @@ Paquete: `backend/nodeone/core/platform/` · tests: `backend/tests/platform/test
 
 ### Etapa 4 — Shell de aplicaciones
 
-**Objetivo:** cada app con layout, menú, dashboard y permisos propios.
+**Objetivo:** cada app con layout, menú y subnav propios reutilizando código existente.
 
-- Reutilizar código de negocio existente (`nodeone/modules/*`).
-- **No reescribir** lógica de negocio en esta etapa.
+- Con `NODEONE_LAUNCHER_APPS_ORG_IDS` + app activa en sesión → shell aislado.
+- Sidebar mínimo (`platform_app_shell_sidebar.html`) + banner + subnav horizontal.
+- Sincroniza `platform_active_app_id` con la URL visitada.
+- **Classic** sin cambios para IIUS/Relatic.
 
-**Criterio de cierre:** al menos una app de prueba corre en shell aislado en dev (sin afectar prod).
+**Código:** `nodeone/core/platform/app_shell.py`, partials y `platform-app-shell.css`.
+
+**Criterio de cierre:** al menos una app en shell aislado en dev. **Estado: cerrada (2026-07-08).**
 
 ---
 

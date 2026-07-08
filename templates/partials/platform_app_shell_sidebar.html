@@ -1,0 +1,47 @@
+{# Sidebar mínimo — una app activa (Etapa 4 shell). #}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--platform-launcher">
+    <a class="nav-link" href="{{ url_for('platform_launcher.apps_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Mis aplicaciones">
+        <i class="menu-icon fas fa-th-large"></i>
+        <span class="menu-title-text">Mis aplicaciones</span>
+    </a>
+</li>
+<li class="nav-item sidebar-nav-app sidebar-nav-app--platform-switch">
+    <a class="nav-link" href="{{ url_for('platform_launcher.apps_switch') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Cambiar aplicación">
+        <i class="menu-icon fas fa-exchange-alt"></i>
+        <span class="menu-title-text">Cambiar aplicación</span>
+    </a>
+</li>
+<li class="nav-item sidebar-section-title px-3 pt-2 pb-1">
+    <span class="small text-uppercase text-muted">{{ platform_shell_app_label }}</span>
+</li>
+<li class="nav-item sidebar-nav-app sidebar-nav-app--shell-home">
+    <a class="nav-link {% if request.path == platform_shell_app_home_url %}active{% endif %}" href="{{ platform_shell_app_home_url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Inicio de la aplicación">
+        <i class="menu-icon {{ platform_shell_app_icon }}"></i>
+        <span class="menu-title-text">Inicio</span>
+    </a>
+</li>
+{% if nav_area_children %}
+{% for child in nav_area_children %}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--shell-{{ child.id }}">
+    {% if child.dropdown %}
+    <div class="nav-group shell-sidebar-group{% if child.dropdown_active %} show{% endif %}">
+        <span class="nav-link nav-group-toggle small text-muted py-1">{{ child.label }}</span>
+        <ul class="nav-group-items list-unstyled ms-3 mb-2">
+            {% for sub in child.dropdown %}
+            <li>
+                <a class="nav-link py-1 {% if sub.active %}active{% endif %}" href="{{ sub.url }}">
+                    {% if sub.icon %}<i class="{{ sub.icon }} me-1"></i>{% endif %}{{ sub.label }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <a class="nav-link {% if child.active %}active{% endif %}" href="{{ child.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ child.label }}">
+        {% if child.icon %}<i class="menu-icon {{ child.icon }}"></i>{% else %}<i class="menu-icon fas fa-circle"></i>{% endif %}
+        <span class="menu-title-text">{{ child.label }}</span>
+    </a>
+    {% endif %}
+</li>
+{% endfor %}
+{% endif %}

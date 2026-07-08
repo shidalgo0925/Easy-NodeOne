@@ -1845,6 +1845,12 @@ def inject_admin_nav_context():
                     show_tenant_admin_menu=bool(out.get('show_tenant_admin_menu')),
                 )
             )
+            try:
+                from nodeone.core.platform.app_shell import merge_app_shell_nav_context
+
+                merge_app_shell_nav_context(out, current_user, session)
+            except Exception:
+                pass
     except Exception:
         try:
             from flask import current_app

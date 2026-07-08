@@ -239,6 +239,7 @@ def _ensure_order_operational_status_column(engine, insp, printfn) -> None:
         printfn('core_commercial_order: columna operational_status añadida')
 
 
+def _ensure_order_line_status_axis(engine, insp, printfn) -> None:
     if 'core_commercial_order_line' not in insp.get_table_names():
         return
     cols = {c['name'] for c in insp.get_columns('core_commercial_order_line')}
@@ -388,6 +389,7 @@ def _ensure_payment_cash_shift_column(engine, insp, printfn) -> None:
         printfn('core_commercial_payment: columna cash_shift_id añadida')
 
 
+def _exec(engine, ddl: str, printfn, label: str) -> None:
     with engine.begin() as conn:
         for stmt in ddl.strip().split(';'):
             s = stmt.strip()

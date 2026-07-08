@@ -38,6 +38,8 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertIn(ev.COMMERCE_CASH_MOVEMENT_RECORDED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_CASH_SHIFT_RECONCILING, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_AUTHORIZATION_APPLIED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_INVENTORY_RESERVED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_INVENTORY_DEDUCTED, ev.COMMERCE_EVENT_TYPES)
 
     def test_compute_order_payment_status(self):
         from nodeone.core.commerce.constants import (
@@ -476,6 +478,77 @@ class TestCommerceAuthorization(unittest.TestCase):
         user.id = 1
         user.is_admin = True
         self.assertTrue(CommerceAuthorizationService.user_is_supervisor(user, 99))
+
+
+class TestCommerceInventoryService(unittest.TestCase):
+    @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
+    def test_order_confirmed_publishes_reserved(self, mock_publish):
+        from nodeone.core.commerce.events import COMMERCE_INVENTORY_RESERVED, COMMERCE_ORDER_STATUS_CHANGED
+        from nodeone.core.commerce.inventory import CommerceInventoryService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=1,
+            organization_id=1,
+            event_type=COMMERCE_ORDER_STATUS_CHANGED,
+            payload={'order_ref': 'POS-0100', 'from_status': 'draft', 'to_status': 'confirmed'},
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceInventoryService.process_order_status_changed(msg)
+        self.assertEqual(result['status'], 'published')
+        self.assertEqual(result['movement'], 'reserve')
+        mock_publish.assert_called_once()
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_INVENTORY_RESERVED)
+
+    @patch('nodeone.core.commerce.inventory.AuditService.publish_domain_event')
+    def test_payment_paid_publishes_deducted(self, mock_publish):
+        from nodeone.core.commerce.events import COMMERCE_INVENTORY_DEDUCTED
+        from nodeone.core.commerce.inventory import CommerceInventoryService
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=2,
+            organization_id=1,
+            event_type='commerce.order.payment_status_changed',
+            payload={
+                'order_ref': 'POS-0101',
+                'from_payment_status': 'unpaid',
+                'to_payment_status': 'paid',
+            },
+            source_app_id='eposone',
+            created_at=None,
+        )
+        result = CommerceInventoryService.process_payment_status_changed(msg)
+        self.assertEqual(result['status'], 'published')
+        mock_publish.assert_called_once()
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_INVENTORY_DEDUCTED)
+
+    @patch('nodeone.core.commerce.inventory.CommerceInventoryService.process_order_status_changed')
+    def test_handler_swallows_errors(self, mock_process):
+        from nodeone.core.commerce.inventory_handlers import _on_order_status_changed
+        from nodeone.core.platform.events import DomainEventMessage
+
+        mock_process.side_effect = RuntimeError('boom')
+        _on_order_status_changed(
+            DomainEventMessage(
+                id=3,
+                organization_id=1,
+                event_type='commerce.order.status_changed',
+                payload={'order_ref': 'X', 'to_status': 'confirmed'},
+                source_app_id='eposone',
+                created_at=None,
+            )
+        )
+
+    @patch('nodeone.core.commerce.inventory_handlers.subscribe')
+    def test_register_handlers_once(self, mock_subscribe):
+        import nodeone.core.commerce.inventory_handlers as mod
+
+        mod._REGISTERED = False
+        mod.register_commerce_inventory_handlers()
+        mod.register_commerce_inventory_handlers()
+        self.assertEqual(mock_subscribe.call_count, 2)
 
 
 class TestCashRegisterService(unittest.TestCase):

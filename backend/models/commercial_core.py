@@ -57,6 +57,24 @@ class CoreCommercialOrder(db.Model):
         self.payment_status = ps
         return ps
 
+    def maybe_mark_fiscal_pending(self, *, skip_fiscal: bool = False) -> str | None:
+        """Dominio 6.8 — default on_paid: fiscal_status pending al cobrar completo."""
+        from nodeone.core.commerce.constants import (
+            ORDER_FISCAL_STATUS_NOT_REQUIRED,
+            ORDER_FISCAL_STATUS_PENDING,
+            ORDER_PAYMENT_STATUS_PAID,
+        )
+
+        if skip_fiscal:
+            return None
+        if str(self.payment_status or '') != ORDER_PAYMENT_STATUS_PAID:
+            return None
+        if str(self.fiscal_status or '') != ORDER_FISCAL_STATUS_NOT_REQUIRED:
+            return None
+        prev = str(self.fiscal_status)
+        self.fiscal_status = ORDER_FISCAL_STATUS_PENDING
+        return prev
+
 
 class CoreCommercialOrderLine(db.Model):
     __tablename__ = 'core_commercial_order_line'
@@ -70,6 +88,7 @@ class CoreCommercialOrderLine(db.Model):
     unit_price = db.Column(db.Float, nullable=False, default=0.0)
     line_total = db.Column(db.Float, nullable=False, default=0.0)
     product_ref = db.Column(db.String(128), nullable=True)
+    line_status = db.Column(db.String(32), nullable=False, default='pending')
 
 
 class CoreCommercialPayment(db.Model):

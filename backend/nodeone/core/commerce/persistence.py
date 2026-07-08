@@ -10,6 +10,7 @@ from models.commercial_core import (
 )
 from nodeone.core.commerce.constants import (
     ORDER_FISCAL_STATUS_NOT_REQUIRED,
+    ORDER_LINE_STATUS_PENDING,
     ORDER_PAYMENT_STATUS_UNPAID,
     PAYMENT_STATUS_CAPTURED,
 )
@@ -30,6 +31,7 @@ def order_to_dto(row: CoreCommercialOrder) -> OrderDTO:
             unit_price=float(line.unit_price or 0),
             line_total=float(line.line_total or 0),
             product_ref=(line.product_ref or None),
+            line_status=str(line.line_status or ORDER_LINE_STATUS_PENDING),
         )
         for line in (row.lines or [])
     )

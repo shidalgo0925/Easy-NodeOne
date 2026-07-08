@@ -33,6 +33,7 @@ class TestCommerceConstants(unittest.TestCase):
         self.assertIn(ev.COMMERCE_ORDER_CREATED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_PAYMENT_CAPTURED, ev.COMMERCE_EVENT_TYPES)
         self.assertIn(ev.COMMERCE_ORDER_PAYMENT_STATUS_CHANGED, ev.COMMERCE_EVENT_TYPES)
+        self.assertIn(ev.COMMERCE_ORDER_FISCAL_STATUS_CHANGED, ev.COMMERCE_EVENT_TYPES)
 
     def test_compute_order_payment_status(self):
         from nodeone.core.commerce.constants import (
@@ -50,6 +51,7 @@ class TestCommerceConstants(unittest.TestCase):
 
 
 class TestPaymentServiceAxis(unittest.TestCase):
+    @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
     @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_captured')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_initiated')
@@ -66,6 +68,7 @@ class TestPaymentServiceAxis(unittest.TestCase):
         mock_initiated,
         mock_captured,
         mock_payment_changed,
+        mock_fiscal_changed,
     ):
         from nodeone.core.commerce.constants import ORDER_PAYMENT_STATUS_PAID, ORDER_STATUS_IN_PROGRESS
         from nodeone.core.commerce.payment import PaymentService
@@ -75,6 +78,7 @@ class TestPaymentServiceAxis(unittest.TestCase):
         order.order_ref = 'POS-0001'
         order.status = ORDER_STATUS_IN_PROGRESS
         order.payment_status = 'unpaid'
+        order.fiscal_status = 'not_required'
         order.amount_paid = 0.0
         order.grand_total = 10.0
         order.currency = 'USD'
@@ -85,6 +89,14 @@ class TestPaymentServiceAxis(unittest.TestCase):
             return ORDER_PAYMENT_STATUS_PAID
 
         order.sync_payment_status.side_effect = _sync
+
+        def _fiscal(*, skip_fiscal=False):
+            if skip_fiscal:
+                return None
+            order.fiscal_status = 'pending'
+            return 'not_required'
+
+        order.maybe_mark_fiscal_pending.side_effect = _fiscal
         mock_order_cls.query.filter_by.return_value.first.return_value = order
 
         pay_row = MagicMock()
@@ -102,6 +114,57 @@ class TestPaymentServiceAxis(unittest.TestCase):
 
         self.assertEqual(order.status, ORDER_STATUS_IN_PROGRESS)
         mock_payment_changed.assert_called_once()
+        mock_fiscal_changed.assert_called_once()
+
+    @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_captured')
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_initiated')
+    @patch('nodeone.core.commerce.payment.PaymentService._next_payment_ref', return_value='PAY-0002')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.payment.CoreCommercialOrder')
+    def test_capture_skip_fiscal_opt_out(
+        self,
+        mock_order_cls,
+        mock_payment_cls,
+        mock_db,
+        _next_ref,
+        mock_initiated,
+        mock_captured,
+        mock_payment_changed,
+        mock_fiscal_changed,
+    ):
+        from nodeone.core.commerce.constants import ORDER_PAYMENT_STATUS_PAID
+        from nodeone.core.commerce.payment import PaymentService
+
+        order = MagicMock()
+        order.id = 8
+        order.order_ref = 'POS-0002'
+        order.status = 'confirmed'
+        order.payment_status = 'unpaid'
+        order.fiscal_status = 'not_required'
+        order.amount_paid = 0.0
+        order.grand_total = 5.0
+        order.currency = 'USD'
+        order.version = 1
+        order.sync_payment_status.return_value = ORDER_PAYMENT_STATUS_PAID
+        order.maybe_mark_fiscal_pending.return_value = None
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        pay_row = MagicMock()
+        pay_row.payment_ref = 'PAY-0002'
+        pay_row.status = 'captured'
+        pay_row.payment_type = 'cash'
+        pay_row.amount = 5.0
+        pay_row.currency = 'USD'
+        pay_row.captured_at = None
+        mock_payment_cls.return_value = pay_row
+
+        PaymentService.capture(1, {'order_id': 8, 'amount': 5, 'skip_fiscal': True})
+
+        order.maybe_mark_fiscal_pending.assert_called_once_with(skip_fiscal=True)
+        mock_fiscal_changed.assert_not_called()
 
 
 class TestOrderService(unittest.TestCase):

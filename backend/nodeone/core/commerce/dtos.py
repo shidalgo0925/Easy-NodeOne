@@ -14,6 +14,7 @@ class OrderLineDTO:
     unit_price: float
     line_total: float
     product_ref: str | None = None
+    line_status: str = 'pending'
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -22,6 +23,7 @@ class OrderLineDTO:
             'unit_price': self.unit_price,
             'line_total': self.line_total,
             'product_ref': self.product_ref,
+            'line_status': self.line_status,
         }
 
 

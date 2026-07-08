@@ -73,7 +73,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
             quantity DOUBLE PRECISION NOT NULL DEFAULT 1,
             unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
             line_total DOUBLE PRECISION NOT NULL DEFAULT 0,
-            product_ref VARCHAR(128)
+            product_ref VARCHAR(128),
+            line_status VARCHAR(32) NOT NULL DEFAULT 'pending'
         );
         CREATE INDEX IF NOT EXISTS ix_core_commercial_order_line_order ON core_commercial_order_line (order_id);
         """.format(
@@ -88,11 +89,14 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 quantity DOUBLE PRECISION NOT NULL DEFAULT 1,
                 unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
                 line_total DOUBLE PRECISION NOT NULL DEFAULT 0,
-                product_ref VARCHAR(128)
+                product_ref VARCHAR(128),
+                line_status VARCHAR(32) NOT NULL DEFAULT 'pending'
             );
             CREATE INDEX IF NOT EXISTS ix_core_commercial_order_line_order ON core_commercial_order_line (order_id);
             """
         _exec(engine, ddl, printfn, 'core_commercial_order_line')
+    else:
+        _ensure_order_line_status_axis(engine, insp, printfn)
 
     if 'core_commercial_payment' not in tables:
         if dialect == 'postgresql':
@@ -188,6 +192,29 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
             );
             """
         _exec(engine, ddl, printfn, 'core_pos_terminal')
+
+
+def _ensure_order_line_status_axis(engine, insp, printfn) -> None:
+    if 'core_commercial_order_line' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order_line')}
+    if 'line_status' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            "ALTER TABLE core_commercial_order_line "
+            "ADD COLUMN IF NOT EXISTS line_status VARCHAR(32) NOT NULL DEFAULT 'pending'"
+        )
+    else:
+        stmt = (
+            "ALTER TABLE core_commercial_order_line "
+            "ADD COLUMN line_status VARCHAR(32) NOT NULL DEFAULT 'pending'"
+        )
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_order_line: columna line_status añadida')
 
 
 def _ensure_order_status_axes(engine, insp, printfn) -> None:

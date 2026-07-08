@@ -6,7 +6,12 @@ from datetime import datetime
 from typing import Any
 
 from models.commercial_core import CoreCommercialOrder, CoreCommercialPayment
-from nodeone.core.commerce.constants import PAYMENT_STATUS_CAPTURED, PAYMENT_TYPE_CASH
+from nodeone.core.commerce.constants import (
+    ORDER_FISCAL_STATUS_PENDING,
+    ORDER_PAYMENT_STATUS_PAID,
+    PAYMENT_STATUS_CAPTURED,
+    PAYMENT_TYPE_CASH,
+)
 from nodeone.core.commerce.dtos import PaymentDTO
 from nodeone.core.commerce.events import (
     COMMERCE_PAYMENT_CAPTURED,
@@ -79,6 +84,8 @@ class PaymentService:
         order.amount_paid = round(float(order.amount_paid or 0) + amount, 2)
         order.version = int(order.version or 1) + 1
         new_payment_status = order.sync_payment_status()
+        skip_fiscal = bool(data.get('skip_fiscal'))
+        prev_fiscal_status = order.maybe_mark_fiscal_pending(skip_fiscal=skip_fiscal)
         db.session.commit()
 
         if new_payment_status != prev_payment_status:
@@ -87,6 +94,14 @@ class PaymentService:
                 order_ref=str(order.order_ref),
                 from_status=prev_payment_status,
                 to_status=new_payment_status,
+                source_app_id=source_app_id,
+            )
+        if prev_fiscal_status is not None:
+            OrderService.publish_fiscal_status_changed(
+                oid,
+                order_ref=str(order.order_ref),
+                from_status=prev_fiscal_status,
+                to_status=ORDER_FISCAL_STATUS_PENDING,
                 source_app_id=source_app_id,
             )
 

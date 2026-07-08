@@ -50,6 +50,23 @@ ORDER_FISCAL_STATUSES = frozenset(
     }
 )
 
+# --- Líneas de pedido (Etapa 7) ---
+ORDER_LINE_STATUS_PENDING = 'pending'
+ORDER_LINE_STATUS_IN_PROGRESS = 'in_progress'
+ORDER_LINE_STATUS_READY = 'ready'
+ORDER_LINE_STATUS_SERVED = 'served'
+ORDER_LINE_STATUS_CANCELLED = 'cancelled'
+
+ORDER_LINE_STATUSES = frozenset(
+    {
+        ORDER_LINE_STATUS_PENDING,
+        ORDER_LINE_STATUS_IN_PROGRESS,
+        ORDER_LINE_STATUS_READY,
+        ORDER_LINE_STATUS_SERVED,
+        ORDER_LINE_STATUS_CANCELLED,
+    }
+)
+
 ORDER_STATUSES = frozenset(
     {
         ORDER_STATUS_DRAFT,

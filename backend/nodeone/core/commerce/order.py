@@ -7,7 +7,10 @@ from typing import Any
 from models.commercial_core import CoreCommercialOrder, CoreCommercialOrderLine
 from nodeone.core.commerce.constants import (
     ORDER_FISCAL_STATUS_NOT_REQUIRED,
+    ORDER_LINE_STATUS_CANCELLED,
+    ORDER_LINE_STATUS_PENDING,
     ORDER_PAYMENT_STATUS_UNPAID,
+    ORDER_STATUS_CANCELLED,
     ORDER_STATUS_CONFIRMED,
     ORDER_STATUS_DRAFT,
     can_transition_order_status,
@@ -17,6 +20,7 @@ from nodeone.core.commerce.events import (
     COMMERCE_ORDER_CANCELLED,
     COMMERCE_ORDER_CONFIRMED,
     COMMERCE_ORDER_CREATED,
+    COMMERCE_ORDER_FISCAL_STATUS_CHANGED,
     COMMERCE_ORDER_PAYMENT_STATUS_CHANGED,
     COMMERCE_ORDER_STATUS_CHANGED,
 )
@@ -102,6 +106,7 @@ class OrderService:
                     unit_price=unit,
                     line_total=line_total,
                     product_ref=(str(raw.get('product_ref')).strip()[:128] if raw.get('product_ref') else None),
+                    line_status=ORDER_LINE_STATUS_PENDING,
                 )
             )
         if not line_rows:
@@ -188,13 +193,16 @@ class OrderService:
             OrderService.publish_confirmed(
                 int(organization_id), order_ref=str(row.order_ref), source_app_id=source_app_id
             )
-        if tgt == 'cancelled':
+        if tgt == ORDER_STATUS_CANCELLED:
             OrderService.publish_cancelled(
                 int(organization_id),
                 order_ref=str(row.order_ref),
                 reason=reason,
                 source_app_id=source_app_id,
             )
+            for line in row.lines or []:
+                if str(line.line_status or '') != ORDER_LINE_STATUS_CANCELLED:
+                    line.line_status = ORDER_LINE_STATUS_CANCELLED
 
         row.status = tgt
         row.version = int(row.version or 1) + 1
@@ -257,6 +265,26 @@ class OrderService:
                 'order_ref': order_ref,
                 'from_payment_status': from_status,
                 'to_payment_status': to_status,
+            },
+            source_app_id=source_app_id,
+        )
+
+    @staticmethod
+    def publish_fiscal_status_changed(
+        organization_id: int,
+        *,
+        order_ref: str,
+        from_status: str,
+        to_status: str,
+        source_app_id: str = 'eposone',
+    ):
+        return AuditService.publish_domain_event(
+            organization_id,
+            COMMERCE_ORDER_FISCAL_STATUS_CHANGED,
+            {
+                'order_ref': order_ref,
+                'from_fiscal_status': from_status,
+                'to_fiscal_status': to_status,
             },
             source_app_id=source_app_id,
         )

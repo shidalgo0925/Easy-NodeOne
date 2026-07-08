@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Citas ECalendar — Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-3">
+        <div class="col-12 d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <div>
+                <h1 class="h5 mb-1">
+                    <i class="fas fa-list"></i> Gestionar citas ECalendar
+                </h1>
+                <p class="text-muted small mb-0">
+                    Tenant <strong>{{ ecalendar_tenant_name }}</strong> (org {{ ecalendar_tenant_id }}).
+                    El calendario está en el <a href="{{ url_for('dashboard') }}">dashboard</a>.
+                    Reservas desde <a href="https://easytech.services/agenda.html" target="_blank" rel="noopener">easytech.services</a>.
+                </p>
+                <p class="text-muted small mb-0" id="appointments-summary">
+                    {% if appointments_error %}
+                    <span class="text-danger">{{ appointments_error_message }}</span>
+                    {% elif bookings_only %}
+                    {{ appointments|length }} reserva(s) landing · {{ appointments_bookings }} en Google Calendar ({{ appointments_total }} eventos totales en 30 días)
+                    {% else %}
+                    {{ appointments|length }} evento(s) en Google Calendar (30 días)
+                    {% endif %}
+                </p>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="filter-bookings-only" {% if bookings_only %}checked{% endif %}>
+                    <label class="form-check-label small" for="filter-bookings-only">Solo reservas landing</label>
+                </div>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-calendar-alt me-1"></i> Ir al calendario
+                </a>
+                <a href="{{ url_for('admin_ecalendar_settings_page') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-cog me-1"></i> Configuración
+                </a>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-refresh">
+                    <i class="fas fa-sync-alt me-1"></i> Actualizar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="alert-container">
+        {% if appointments_error %}
+        <div class="alert alert-danger">{{ appointments_error_message }}</div>
+        {% endif %}
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            {% include 'admin/partials/ecalendar_appointments_table.html' %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelModalLabel">Cancelar cita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar esta cita de Google Calendar?</p>
+                <p class="mb-0 small text-muted" id="cancel-modal-summary"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-cancel">
+                    <i class="fas fa-trash-alt me-1"></i> Sí, eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var alertContainer = document.getElementById('alert-container');
+    var tbody = document.getElementById('appointments-body');
+    var summaryEl = document.getElementById('appointments-summary');
+    var filterBookings = document.getElementById('filter-bookings-only');
+    var cancelModalEl = document.getElementById('cancelModal');
+    var cancelModal = cancelModalEl && window.bootstrap ? new bootstrap.Modal(cancelModalEl) : null;
+    var pendingDeleteId = null;
+    var pendingDeleteRow = null;
+
+    function bookingsOnly() {
+        return filterBookings ? filterBookings.checked : true;
+    }
+
+    function showAlert(msg, type) {
+        alertContainer.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show">' +
+            msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function formatDateTime(iso) {
+        if (!iso) return { date: '—', time: '—' };
+        try {
+            var d = new Date(iso);
+            return {
+                date: d.toLocaleDateString('es-PA', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }),
+                time: d.toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' })
+            };
+        } catch (e) {
+            return { date: iso, time: '' };
+        }
+    }
+
+    function renderRows(items) {
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay citas próximas' +
+                (bookingsOnly() ? ' de la landing' : '') + '.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = items.map(function(a) {
+            var dt = formatDateTime(a.start);
+            var contact = [];
+            if (a.email) contact.push('<a href="mailto:' + esc(a.email) + '">' + esc(a.email) + '</a>');
+            if (a.phone) contact.push(esc(a.phone));
+            var gcal = a.google_event_link
+                ? '<a href="' + esc(a.google_event_link) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Abrir en Google Calendar"><i class="fas fa-external-link-alt"></i></a>'
+                : '';
+            return '<tr data-event-id="' + esc(a.event_id) + '">' +
+                '<td>' + esc(a.display_date || dt.date) + '</td>' +
+                '<td>' + esc(a.display_time || dt.time) + '</td>' +
+                '<td>' + esc(a.product || '—') + '</td>' +
+                '<td>' + esc(a.client_name || '—') + (a.company ? '<div class="small text-muted">' + esc(a.company) + '</div>' : '') + '</td>' +
+                '<td class="small">' + (contact.join('<br>') || '—') + '</td>' +
+                '<td class="small">' + esc(a.title) + '</td>' +
+                '<td class="text-end text-nowrap">' + gcal +
+                ' <button type="button" class="btn btn-sm btn-outline-danger btn-cancel" data-event-id="' + esc(a.event_id) + '" data-title="' + esc(a.title) + '">' +
+                '<i class="fas fa-trash-alt"></i></button></td></tr>';
+        }).join('');
+    }
+
+    function loadAppointments() {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-1"></i> Cargando…</td></tr>';
+        var url = '/api/admin/ecalendar/appointments?bookings_only=' + (bookingsOnly() ? '1' : '0');
+        fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function(r) {
+                var ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (ct.indexOf('application/json') === -1) throw new Error('non_json');
+                return r.json().then(function(j) { return { ok: r.ok, status: r.status, j: j }; });
+            })
+            .then(function(res) {
+                if (!res.j || !res.j.success) {
+                    var msg = (res.j && (res.j.message || res.j.error)) || ('Error HTTP ' + res.status);
+                    showAlert(msg, 'danger');
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">' + esc(msg) + '</td></tr>';
+                    return;
+                }
+                if (summaryEl) {
+                    if (res.j.bookings_only) {
+                        summaryEl.textContent = res.j.count + ' reserva(s) landing · ' + res.j.bookings_count +
+                            ' en Google Calendar (' + res.j.total_events + ' eventos totales en 30 días)';
+                    } else {
+                        summaryEl.textContent = res.j.count + ' evento(s) en Google Calendar (30 días)';
+                    }
+                }
+                renderRows(res.j.appointments || []);
+            })
+            .catch(function() {
+                showAlert('No se pudo actualizar. Los datos mostrados son los de la última carga.', 'warning');
+            });
+    }
+
+    document.getElementById('btn-refresh').addEventListener('click', loadAppointments);
+    if (filterBookings) {
+        filterBookings.addEventListener('change', loadAppointments);
+    }
+
+    tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-cancel');
+        if (!btn) return;
+        pendingDeleteId = btn.getAttribute('data-event-id');
+        pendingDeleteRow = btn.closest('tr');
+        document.getElementById('cancel-modal-summary').textContent = btn.getAttribute('data-title') || '';
+        if (cancelModal) cancelModal.show();
+    });
+
+    document.getElementById('btn-confirm-cancel').addEventListener('click', function() {
+        if (!pendingDeleteId) return;
+        var btn = this;
+        btn.disabled = true;
+        fetch('/api/admin/ecalendar/appointments/' + encodeURIComponent(pendingDeleteId), {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        })
+            .then(function(r) {
+                var ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (ct.indexOf('application/json') === -1) throw new Error('non_json');
+                return r.json().then(function(j) { return { ok: r.ok, j: j }; });
+            })
+            .then(function(res) {
+                btn.disabled = false;
+                if (cancelModal) cancelModal.hide();
+                if (res.j && res.j.success) {
+                    showAlert(res.j.message || 'Cita eliminada.', 'success');
+                    if (pendingDeleteRow) pendingDeleteRow.remove();
+                    if (!tbody.querySelector('tr[data-event-id]')) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay citas próximas.</td></tr>';
+                    }
+                } else {
+                    showAlert((res.j && res.j.message) || 'No se pudo eliminar la cita.', 'danger');
+                }
+                pendingDeleteId = null;
+                pendingDeleteRow = null;
+            })
+            .catch(function() {
+                btn.disabled = false;
+                showAlert('Error de conexión al eliminar.', 'danger');
+            });
+    });
+})();
+</script>
+{% endblock %}

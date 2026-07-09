@@ -132,6 +132,62 @@ def eposone_section(slug: str):
             branches=branches,
             branches_total=len(branches),
         )
+    if key == 'inventory':
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_WAREHOUSE
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
+
+        oid = resolve_organization_id()
+        warehouses: list = []
+        if oid is not None:
+            warehouses = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_WAREHOUSE)
+        return render_template(
+            'eposone/warehouses.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            warehouses=warehouses,
+            warehouses_total=len(warehouses),
+        )
+    if key == 'registers':
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
+
+        oid = resolve_organization_id()
+        registers: list = []
+        if oid is not None:
+            registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
+        return render_template(
+            'eposone/registers.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            registers=registers,
+            registers_total=len(registers),
+        )
+    if key == 'terminals':
+        from nodeone.core.commerce.pos import PosTerminalService
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS_TERMINAL
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
+
+        oid = resolve_organization_id()
+        pos_units: list = []
+        devices: list = []
+        if oid is not None:
+            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS_TERMINAL)
+            devices = PosTerminalService.list_terminals(int(oid), limit=50)
+        return render_template(
+            'eposone/terminals.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            pos_units=pos_units,
+            pos_units_total=len(pos_units),
+            devices=devices,
+            devices_total=len(devices),
+        )
     return render_template(
         'eposone/section.html',
         section_slug=key,

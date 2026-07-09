@@ -6,6 +6,7 @@ ORG_UNIT_TYPE_COMPANY = 'company'
 ORG_UNIT_TYPE_BRANCH = 'branch'
 ORG_UNIT_TYPE_WAREHOUSE = 'warehouse'
 ORG_UNIT_TYPE_POS_TERMINAL = 'pos_terminal'
+ORG_UNIT_TYPE_REGISTER = 'register'
 
 ORG_UNIT_TYPES = frozenset(
     {
@@ -13,6 +14,7 @@ ORG_UNIT_TYPES = frozenset(
         ORG_UNIT_TYPE_BRANCH,
         ORG_UNIT_TYPE_WAREHOUSE,
         ORG_UNIT_TYPE_POS_TERMINAL,
+        ORG_UNIT_TYPE_REGISTER,
     }
 )
 

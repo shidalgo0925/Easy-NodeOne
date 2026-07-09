@@ -49,6 +49,16 @@ class PosTerminalService:
         return pos_terminal_to_dto(row)
 
     @staticmethod
+    def list_terminals(organization_id: int, *, limit: int = 100) -> list[PosTerminalDTO]:
+        rows = (
+            CorePosTerminal.query.filter_by(organization_id=int(organization_id))
+            .order_by(CorePosTerminal.terminal_ref.asc(), CorePosTerminal.id.asc())
+            .limit(max(1, int(limit)))
+            .all()
+        )
+        return [pos_terminal_to_dto(row) for row in rows]
+
+    @staticmethod
     def publish_registered(
         organization_id: int,
         *,

@@ -9,10 +9,17 @@ from nodeone.core.commerce.cash import CashRegisterService
 from nodeone.core.commerce.order import OrderService, OrderValidationError
 from nodeone.core.commerce.payment import PaymentService
 from nodeone.core.commerce.pos import PosTerminalService
-from nodeone.core.master.constants import MasterDataError, ORG_UNIT_TYPE_BRANCH
+from nodeone.core.master.constants import (
+    MasterDataError,
+    ORG_UNIT_TYPE_BRANCH,
+    ORG_UNIT_TYPE_POS_TERMINAL,
+    ORG_UNIT_TYPE_REGISTER,
+    ORG_UNIT_TYPE_WAREHOUSE,
+)
 from nodeone.core.platform.runtime import resolve_organization_id
 from nodeone.core.services.org_unit import OrgUnitService
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
+from nodeone.modules.eposone.org_unit_api import org_unit_collection_handler, org_unit_get_handler
 from flask_login import current_user
 
 eposone_api_bp = Blueprint('eposone_api', __name__, url_prefix='/api/eposone')
@@ -193,12 +200,16 @@ def cash_manual_movement(shift_id: int):
     return jsonify({'shift': dto.to_dict()})
 
 
-@eposone_api_bp.route('/terminals', methods=['POST'])
+@eposone_api_bp.route('/terminals', methods=['GET', 'POST'])
 @login_required
-def terminals_register():
+def terminals_collection():
     gate = _org_gate()
     if not isinstance(gate, int):
         return gate
+    if request.method == 'GET':
+        limit = int(request.args.get('limit', 100) or 100)
+        items = PosTerminalService.list_terminals(gate, limit=limit)
+        return jsonify({'terminals': [t.to_dict() for t in items], 'count': len(items)})
     body = request.get_json(silent=True) or {}
     try:
         dto = PosTerminalService.register(
@@ -210,6 +221,75 @@ def terminals_register():
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'terminal': dto.to_dict()}), 201
+
+
+@eposone_api_bp.route('/pos-units', methods=['GET', 'POST'])
+@login_required
+def pos_units_collection():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_collection_handler(
+        gate,
+        unit_type=ORG_UNIT_TYPE_POS_TERMINAL,
+        collection_key='pos_units',
+        item_key='pos_unit',
+    )
+
+
+@eposone_api_bp.route('/pos-units/<unit_ref>', methods=['GET'])
+@login_required
+def pos_units_get(unit_ref: str):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_POS_TERMINAL, item_key='pos_unit')
+
+
+@eposone_api_bp.route('/registers', methods=['GET', 'POST'])
+@login_required
+def registers_collection():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_collection_handler(
+        gate,
+        unit_type=ORG_UNIT_TYPE_REGISTER,
+        collection_key='registers',
+        item_key='register',
+    )
+
+
+@eposone_api_bp.route('/registers/<unit_ref>', methods=['GET'])
+@login_required
+def registers_get(unit_ref: str):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_REGISTER, item_key='register')
+
+
+@eposone_api_bp.route('/warehouses', methods=['GET', 'POST'])
+@login_required
+def warehouses_collection():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_collection_handler(
+        gate,
+        unit_type=ORG_UNIT_TYPE_WAREHOUSE,
+        collection_key='warehouses',
+        item_key='warehouse',
+    )
+
+
+@eposone_api_bp.route('/warehouses/<unit_ref>', methods=['GET'])
+@login_required
+def warehouses_get(unit_ref: str):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_WAREHOUSE, item_key='warehouse')
 
 
 @eposone_api_bp.route('/branches', methods=['GET', 'POST'])

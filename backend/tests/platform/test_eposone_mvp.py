@@ -82,6 +82,32 @@ class TestEPosOneAPI(unittest.TestCase):
             r = c.get('/api/eposone/branches')
             self.assertIn(r.status_code, (302, 401))
 
+    def test_warehouses_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.get('/api/eposone/warehouses')
+            self.assertIn(r.status_code, (302, 401))
+
+    def test_registers_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.get('/api/eposone/registers')
+            self.assertIn(r.status_code, (302, 401))
+
+    @patch('nodeone.core.commerce.pos.CorePosTerminal')
+    def test_list_terminals(self, mock_model):
+        from nodeone.core.commerce.pos import PosTerminalService
+
+        row = MagicMock()
+        row.id = 1
+        row.organization_id = 1
+        row.terminal_ref = 'TAB-01'
+        row.register_ref = 'REG-1'
+        row.status = 'active'
+        row.device_label = 'Tablet mostrador'
+        mock_model.query.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value = [row]
+        items = PosTerminalService.list_terminals(1)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].terminal_ref, 'TAB-01')
+
 
 class TestEPosOneSyncHandler(unittest.TestCase):
     def test_unsupported_operation(self):

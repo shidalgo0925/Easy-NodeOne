@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <span class="badge bg-secondary">{{ devices_total }} dispositivo(s)</span>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h2 class="h6 mb-0">Puntos POS (org_unit)</h2>
+                    <p class="text-muted small mb-0">{{ pos_units_total }} punto(s) lógico(s)</p>
+                </div>
+                <div class="card-body p-0">
+                    {% if pos_units %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ref.</th>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pos_units %}
+                                <tr>
+                                    <td><code>{{ item.unit_ref }}</code></td>
+                                    <td>{{ item.name }}</td>
+                                    <td><span class="badge text-bg-light border">{{ item.status }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted small">
+                        Sin puntos POS — <code>POST /api/eposone/pos-units</code>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h2 class="h6 mb-0">Dispositivos registrados</h2>
+                    <p class="text-muted small mb-0">Captura en piso — <code>core_pos_terminal</code></p>
+                </div>
+                <div class="card-body p-0">
+                    {% if devices %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ref.</th>
+                                    <th>Etiqueta</th>
+                                    <th>Caja</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in devices %}
+                                <tr>
+                                    <td><code>{{ device.terminal_ref }}</code></td>
+                                    <td>{{ device.device_label or '—' }}</td>
+                                    <td class="text-muted small">{{ device.register_ref or '—' }}</td>
+                                    <td><span class="badge text-bg-light border">{{ device.status }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted small">
+                        Sin dispositivos — <code>POST /api/eposone/terminals</code>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

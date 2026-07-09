@@ -11,9 +11,16 @@ sys.path.insert(0, str(backend_dir))
 
 class TestCoreMasterConstants(unittest.TestCase):
     def test_org_unit_types(self):
-        from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH, ORG_UNIT_TYPES
+        from nodeone.core.master.constants import (
+            ORG_UNIT_TYPE_BRANCH,
+            ORG_UNIT_TYPE_REGISTER,
+            ORG_UNIT_TYPE_WAREHOUSE,
+            ORG_UNIT_TYPES,
+        )
 
         self.assertIn(ORG_UNIT_TYPE_BRANCH, ORG_UNIT_TYPES)
+        self.assertIn(ORG_UNIT_TYPE_WAREHOUSE, ORG_UNIT_TYPES)
+        self.assertIn(ORG_UNIT_TYPE_REGISTER, ORG_UNIT_TYPES)
 
 
 class TestOrgUnitService(unittest.TestCase):

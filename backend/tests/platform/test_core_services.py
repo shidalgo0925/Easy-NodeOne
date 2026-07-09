@@ -55,11 +55,46 @@ class TestContactService(unittest.TestCase):
         self.assertEqual(dto.roles, ('Cliente',))
         self.assertEqual(dto.to_dict()['id'], 5)
 
-    def test_product_service_not_ready(self):
-        from nodeone.core.services.product import ProductService, ProductServiceNotReadyError
+    @patch('nodeone.core.services.product.CoreProductService.search', return_value=[])
+    def test_product_service_search(self, mock_search):
+        from nodeone.core.services.product import ProductService
 
-        with self.assertRaises(ProductServiceNotReadyError):
-            ProductService.search(1)
+        items = ProductService.search(1, query='café')
+        self.assertEqual(items, [])
+        mock_search.assert_called_once_with(1, query='café', product_type=None, status=None, limit=50)
+
+    @patch('app.db')
+    @patch('nodeone.core.master.product.CoreProduct')
+    def test_product_service_create(self, mock_model, mock_db):
+        from nodeone.core.services.product import ProductService
+
+        mock_model.query.filter_by.return_value.first.return_value = None
+        row = MagicMock()
+        row.id = 1
+        row.organization_id = 1
+        row.product_ref = 'SKU-001'
+        row.name = 'Café'
+        row.product_type = 'good'
+        row.status = 'active'
+        row.tracks_inventory = True
+        row.unit_price = 3.5
+        row.currency = 'USD'
+        row.description = None
+        row.source_app_id = 'eposone'
+        mock_model.return_value = row
+        dto = ProductService.create(
+            1,
+            {
+                'product_ref': 'SKU-001',
+                'name': 'Café',
+                'product_type': 'good',
+                'tracks_inventory': True,
+                'unit_price': 3.5,
+                'source_app_id': 'eposone',
+            },
+        )
+        self.assertEqual(dto.product_ref, 'SKU-001')
+        self.assertTrue(dto.tracks_inventory)
 
 
 class TestOrganizationService(unittest.TestCase):

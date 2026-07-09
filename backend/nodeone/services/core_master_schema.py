@@ -124,3 +124,47 @@ def ensure_core_master_schema(db, engine, printfn=None) -> None:
             CREATE INDEX IF NOT EXISTS ix_core_attachment_org ON core_attachment (organization_id);
             """
         _exec(engine, ddl, printfn, 'core_attachment')
+
+    if 'core_product' not in tables:
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_product (
+                id SERIAL PRIMARY KEY,
+                organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+                product_ref VARCHAR(64) NOT NULL,
+                name VARCHAR(300) NOT NULL,
+                description TEXT,
+                product_type VARCHAR(32) NOT NULL DEFAULT 'good',
+                tracks_inventory BOOLEAN NOT NULL DEFAULT FALSE,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
+                currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                source_app_id VARCHAR(64),
+                created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                CONSTRAINT uq_core_product_ref UNIQUE (organization_id, product_ref)
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_product_org ON core_product (organization_id);
+            CREATE INDEX IF NOT EXISTS ix_core_product_type ON core_product (organization_id, product_type);
+            """
+        else:
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_product (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organization_id INTEGER NOT NULL,
+                product_ref VARCHAR(64) NOT NULL,
+                name VARCHAR(300) NOT NULL,
+                description TEXT,
+                product_type VARCHAR(32) NOT NULL DEFAULT 'good',
+                tracks_inventory BOOLEAN NOT NULL DEFAULT 0,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                unit_price REAL NOT NULL DEFAULT 0,
+                currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                source_app_id VARCHAR(64),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (organization_id, product_ref)
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_product_org ON core_product (organization_id);
+            """
+        _exec(engine, ddl, printfn, 'core_product')

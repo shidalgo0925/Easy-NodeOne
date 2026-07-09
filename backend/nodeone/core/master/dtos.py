@@ -28,3 +28,33 @@ class OrgUnitDTO:
             'parent_id': self.parent_id,
             'notes': self.notes,
         }
+
+
+@dataclass
+class ProductDTO:
+    id: int
+    organization_id: int
+    product_ref: str
+    name: str
+    product_type: str
+    status: str
+    tracks_inventory: bool = False
+    unit_price: float = 0.0
+    currency: str = 'USD'
+    description: str | None = None
+    source_app_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'id': self.id,
+            'organization_id': self.organization_id,
+            'product_ref': self.product_ref,
+            'name': self.name,
+            'product_type': self.product_type,
+            'status': self.status,
+            'tracks_inventory': self.tracks_inventory,
+            'unit_price': self.unit_price,
+            'currency': self.currency,
+            'description': self.description,
+            'source_app_id': self.source_app_id,
+        }

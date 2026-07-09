@@ -83,11 +83,45 @@ class TestOrgUnitService(unittest.TestCase):
 
 class TestCoreMasterModels(unittest.TestCase):
     def test_model_tables(self):
-        from models.core_master import CoreAddress, CoreAttachment, CoreOrgUnit
+        from models.core_master import CoreAddress, CoreAttachment, CoreOrgUnit, CoreProduct
 
         self.assertEqual(CoreOrgUnit.__tablename__, 'core_org_unit')
         self.assertEqual(CoreAddress.__tablename__, 'core_address')
         self.assertEqual(CoreAttachment.__tablename__, 'core_attachment')
+        self.assertEqual(CoreProduct.__tablename__, 'core_product')
+
+
+class TestCoreProductService(unittest.TestCase):
+    def test_legacy_catalog_map(self):
+        from nodeone.core.master.constants import LEGACY_CATALOG_SOURCES, PRODUCT_TYPE_SERVICE
+
+        self.assertIn(PRODUCT_TYPE_SERVICE, LEGACY_CATALOG_SOURCES)
+
+    @patch('app.db')
+    @patch('nodeone.core.master.product.CoreProduct')
+    def test_create_product(self, mock_model, mock_db):
+        from nodeone.core.master.constants import PRODUCT_TYPE_GOOD
+        from nodeone.core.master.product import CoreProductService
+
+        mock_model.query.filter_by.return_value.first.return_value = None
+        row = MagicMock()
+        row.id = 10
+        row.organization_id = 1
+        row.product_ref = 'SKU-100'
+        row.name = 'Agua'
+        row.product_type = PRODUCT_TYPE_GOOD
+        row.status = 'active'
+        row.tracks_inventory = False
+        row.unit_price = 1.0
+        row.currency = 'USD'
+        row.description = None
+        row.source_app_id = None
+        mock_model.return_value = row
+        dto = CoreProductService.create(
+            1,
+            {'product_ref': 'SKU-100', 'name': 'Agua', 'product_type': PRODUCT_TYPE_GOOD},
+        )
+        self.assertEqual(dto.name, 'Agua')
 
 
 if __name__ == '__main__':

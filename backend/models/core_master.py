@@ -1,4 +1,4 @@
-"""Modelos maestro Core — Etapa 10b."""
+"""Modelos maestro Core — Etapa 10b/10d."""
 
 from __future__ import annotations
 
@@ -59,3 +59,27 @@ class CoreAttachment(db.Model):
     checksum = db.Column(db.String(128), nullable=True)
     uploaded_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class CoreProduct(db.Model):
+    __tablename__ = 'core_product'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    product_ref = db.Column(db.String(64), nullable=False)
+    name = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    product_type = db.Column(db.String(32), nullable=False, default='good')
+    tracks_inventory = db.Column(db.Boolean, nullable=False, default=False)
+    status = db.Column(db.String(32), nullable=False, default='active')
+    unit_price = db.Column(db.Float, nullable=False, default=0.0)
+    currency = db.Column(db.String(8), nullable=False, default='USD')
+    source_app_id = db.Column(db.String(64), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'product_ref', name='uq_core_product_ref'),
+    )

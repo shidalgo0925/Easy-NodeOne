@@ -1,17 +1,39 @@
-"""ProductService — catálogo maestro (Etapa 11 stub → Etapa 10d)."""
+"""ProductService — catálogo maestro (Etapa 10d)."""
 
 from __future__ import annotations
 
+from typing import Any
 
-class ProductServiceNotReadyError(NotImplementedError):
-    pass
+from nodeone.core.master.dtos import ProductDTO
+from nodeone.core.master.product import CoreProductService
+
+ProductServiceNotReadyError = NotImplementedError
 
 
 class ProductService:
-    """Contrato reservado. Hoy los catálogos viven por app (services, plans, events)."""
+    """API Core para catálogo unificado (`core_product`)."""
 
     @staticmethod
-    def search(*_args, **_kwargs):
-        raise ProductServiceNotReadyError(
-            'ProductService pendiente de core_product (Etapa 10d). Usar catálogo de la app hasta entonces.'
+    def search(
+        organization_id: int,
+        *,
+        query: str | None = None,
+        product_type: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> list[ProductDTO]:
+        return CoreProductService.search(
+            int(organization_id),
+            query=query,
+            product_type=product_type,
+            status=status,
+            limit=limit,
         )
+
+    @staticmethod
+    def get_by_ref(organization_id: int, product_ref: str) -> ProductDTO | None:
+        return CoreProductService.get_by_ref(int(organization_id), product_ref)
+
+    @staticmethod
+    def create(organization_id: int, data: dict[str, Any]) -> ProductDTO:
+        return CoreProductService.create(int(organization_id), data)

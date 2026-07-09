@@ -125,6 +125,28 @@ def orders_emit_fiscal(order_id: int):
     return jsonify({'fiscal': result})
 
 
+@eposone_api_bp.route('/orders/<int:order_id>/split', methods=['POST'])
+@login_required
+def orders_split(order_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    line_indexes = body.get('line_indexes')
+    if not isinstance(line_indexes, list) or not line_indexes:
+        return jsonify({'error': 'line_indexes_required'}), 400
+    try:
+        dto = OrderService.split_order(
+            gate,
+            int(order_id),
+            [int(i) for i in line_indexes],
+            source_app_id='eposone',
+        )
+    except (OrderValidationError, ValueError, TypeError) as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'order': dto.to_dict()}), 201
+
+
 @eposone_api_bp.route('/payments/<int:payment_id>/refund', methods=['POST'])
 @login_required
 def payments_refund(payment_id: int):

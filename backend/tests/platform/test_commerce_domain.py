@@ -992,5 +992,67 @@ class TestOrderBranchOrgUnit(unittest.TestCase):
             _resolve_branch_org_unit_id(1, {'branch_org_unit_id': 99})
 
 
+class TestOrderSplitBill(unittest.TestCase):
+    @patch('nodeone.core.commerce.order.OrderService.publish_created')
+    @patch('nodeone.core.commerce.order.OrderService._next_order_ref', return_value='POS-0009')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.order.CoreCommercialOrder')
+    def test_split_moves_lines_to_child(self, mock_order_cls, mock_db, _mock_ref, _mock_publish):
+        from nodeone.core.commerce.order import OrderService
+
+        line_a = MagicMock()
+        line_a.description = 'Café'
+        line_a.quantity = 1.0
+        line_a.unit_price = 3.0
+        line_a.line_total = 3.0
+        line_a.product_ref = None
+        line_a.line_status = 'pending'
+        line_b = MagicMock()
+        line_b.description = 'Agua'
+        line_b.quantity = 2.0
+        line_b.unit_price = 1.0
+        line_b.line_total = 2.0
+        line_b.product_ref = 'SKU-1'
+        line_b.line_status = 'pending'
+
+        parent = MagicMock()
+        parent.id = 5
+        parent.organization_id = 1
+        parent.payment_status = 'unpaid'
+        parent.contact_id = 10
+        parent.branch_org_unit_id = 2
+        parent.currency = 'USD'
+        parent.tax_total = 0.0
+        parent.version = 1
+        parent.lines = [line_a, line_b]
+        parent.operational_status = 'draft'
+
+        mock_order_cls.query.filter_by.return_value.first.return_value = parent
+        child = MagicMock()
+        child.id = 99
+        child.organization_id = 1
+        child.order_ref = 'POS-0009'
+        child.operational_status = 'draft'
+        child.payment_status = 'unpaid'
+        child.fiscal_status = 'not_required'
+        child.contact_id = 10
+        child.branch_org_unit_id = 2
+        child.parent_order_id = 5
+        child.currency = 'USD'
+        child.subtotal = 2.0
+        child.tax_total = 0.0
+        child.grand_total = 2.0
+        child.amount_paid = 0.0
+        child.source_app_id = 'eposone'
+        child.created_at = None
+        child.lines = [line_b]
+        mock_order_cls.return_value = child
+
+        dto = OrderService.split_order(1, 5, [1])
+        self.assertEqual(dto.parent_order_id, 5)
+        mock_db.session.delete.assert_called_with(line_b)
+        mock_db.session.commit.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()

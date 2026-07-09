@@ -51,6 +51,7 @@ def order_to_dto(row: CoreCommercialOrder) -> OrderDTO:
         lines=lines,
         source_app_id=str(row.source_app_id or 'eposone'),
         branch_org_unit_id=int(row.branch_org_unit_id) if getattr(row, 'branch_org_unit_id', None) else None,
+        parent_order_id=int(row.parent_order_id) if getattr(row, 'parent_order_id', None) else None,
         created_at=row.created_at,
     )
 

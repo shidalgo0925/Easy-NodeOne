@@ -55,6 +55,22 @@ def _resolve_branch_org_unit_id(organization_id: int, data: dict[str, Any]) -> i
     return None
 
 
+def _recalculate_order_totals(row: CoreCommercialOrder) -> None:
+    subtotal = round(sum(float(line.line_total or 0) for line in (row.lines or [])), 2)
+    row.subtotal = subtotal
+    row.grand_total = round(subtotal + float(row.tax_total or 0), 2)
+
+
+def _validate_parent_order(organization_id: int, parent_order_id: int) -> CoreCommercialOrder:
+    parent = CoreCommercialOrder.query.filter_by(
+        organization_id=int(organization_id),
+        id=int(parent_order_id),
+    ).first()
+    if parent is None:
+        raise OrderValidationError('parent_order_not_found')
+    return parent
+
+
 class OrderService:
     """API Core de pedidos — persistencia en core_commercial_order."""
 
@@ -134,6 +150,12 @@ class OrderService:
 
         grand_total = round(subtotal + tax_total, 2)
         branch_org_unit_id = _resolve_branch_org_unit_id(oid, data)
+        parent_order_id = None
+        if data.get('parent_order_id') is not None:
+            parent = _validate_parent_order(oid, int(data['parent_order_id']))
+            parent_order_id = int(parent.id)
+            if branch_org_unit_id is None and parent.branch_org_unit_id:
+                branch_org_unit_id = int(parent.branch_org_unit_id)
         op_status = (
             str(data.get('operational_status') or data.get('status') or ORDER_STATUS_DRAFT).strip().lower()
             or ORDER_STATUS_DRAFT
@@ -146,6 +168,7 @@ class OrderService:
             fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
             contact_id=int(data['contact_id']) if data.get('contact_id') else None,
             branch_org_unit_id=branch_org_unit_id,
+            parent_order_id=parent_order_id,
             currency=str(data.get('currency') or 'USD')[:8],
             subtotal=subtotal,
             tax_total=tax_total,
@@ -185,6 +208,84 @@ class OrderService:
             if m:
                 max_seq = max(max_seq, int(m.group(1)))
         return f'{prefix}-{max_seq + 1:04d}'
+
+    @staticmethod
+    def split_order(
+        organization_id: int,
+        parent_order_id: int,
+        line_indexes: list[int],
+        *,
+        source_app_id: str = 'eposone',
+    ) -> OrderDTO:
+        """Split bill v1 — mueve líneas seleccionadas a un sub-pedido (§6.4)."""
+        from app import db
+
+        oid = int(organization_id)
+        parent = _validate_parent_order(oid, int(parent_order_id))
+        if str(parent.payment_status or ORDER_PAYMENT_STATUS_UNPAID) != ORDER_PAYMENT_STATUS_UNPAID:
+            raise OrderValidationError('parent_order_already_paid')
+
+        parent_lines = list(parent.lines or [])
+        if not parent_lines:
+            raise OrderValidationError('parent_order_has_no_lines')
+
+        indexes = sorted({int(i) for i in line_indexes})
+        if not indexes:
+            raise OrderValidationError('line_indexes_required')
+        if any(i < 0 or i >= len(parent_lines) for i in indexes):
+            raise OrderValidationError('invalid_line_indexes')
+
+        moved_lines: list[CoreCommercialOrderLine] = []
+        for idx in reversed(indexes):
+            moved_lines.insert(0, parent_lines.pop(idx))
+
+        child = CoreCommercialOrder(
+            organization_id=oid,
+            order_ref=OrderService._next_order_ref(oid),
+            operational_status=ORDER_STATUS_DRAFT,
+            payment_status=ORDER_PAYMENT_STATUS_UNPAID,
+            fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
+            contact_id=int(parent.contact_id) if parent.contact_id else None,
+            branch_org_unit_id=int(parent.branch_org_unit_id) if parent.branch_org_unit_id else None,
+            parent_order_id=int(parent.id),
+            currency=str(parent.currency or 'USD')[:8],
+            tax_total=0.0,
+            source_app_id=(source_app_id or 'eposone').strip().lower() or 'eposone',
+        )
+        child.lines = [
+            CoreCommercialOrderLine(
+                description=str(line.description or '')[:500],
+                quantity=float(line.quantity or 1),
+                unit_price=float(line.unit_price or 0),
+                line_total=float(line.line_total or 0),
+                product_ref=(str(line.product_ref).strip()[:128] if line.product_ref else None),
+                line_status=str(line.line_status or ORDER_LINE_STATUS_PENDING),
+            )
+            for line in moved_lines
+        ]
+        for line in moved_lines:
+            db.session.delete(line)
+
+        _recalculate_order_totals(child)
+        _recalculate_order_totals(parent)
+        if not parent.lines:
+            parent.operational_status = ORDER_STATUS_CANCELLED
+
+        db.session.add(child)
+        parent.version = int(parent.version or 1) + 1
+        db.session.commit()
+
+        dto = order_to_dto(child)
+        OrderService.publish_created(
+            oid,
+            order_ref=dto.order_ref,
+            status=dto.status,
+            payment_status=dto.payment_status,
+            grand_total=dto.grand_total,
+            source_app_id=source_app_id,
+            extra={'order_id': dto.id, 'parent_order_id': int(parent.id)},
+        )
+        return dto
 
     @staticmethod
     def transition_status(

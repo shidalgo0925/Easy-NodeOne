@@ -109,3 +109,55 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
     ctx = build_nav_context_for_user(user)
     out.update(build_app_shell_nav_payload(active_id, ctx))
     return out
+
+
+def merge_native_app_nav_context(out: dict[str, Any], user, session) -> dict[str, Any]:
+    """UX V3.2 — nav nativa por app (sidebar único + context bar, sin menú horizontal)."""
+    from flask import request
+
+    if getattr(request, 'blueprint', None) == 'platform_launcher':
+        out.setdefault('app_nav_native_active', False)
+        return out
+
+    from app import _org_id_for_module_visibility
+    from nodeone.core.platform.app_nav import (
+        build_app_nav_tree,
+        native_app_nav_enabled,
+        resolve_breadcrumbs,
+        serialize_nav_sidebar,
+    )
+
+    org_id = _org_id_for_module_visibility()
+    area_id = out.get('nav_active_area_id')
+    if not native_app_nav_enabled(org_id, area_id):
+        out.setdefault('app_nav_native_active', False)
+        return out
+
+    ctx = build_nav_context_for_user(user)
+    tree = build_app_nav_tree(str(area_id), ctx)
+    if tree is None:
+        out.setdefault('app_nav_native_active', False)
+        return out
+
+    sidebar = serialize_nav_sidebar(tree, ctx)
+    breadcrumbs = resolve_breadcrumbs(tree, ctx)
+    out.update(
+        {
+            'app_nav_native_active': True,
+            'platform_app_shell_active': True,
+            'platform_shell_app_id': tree.nav_area_id,
+            'platform_shell_app_label': tree.label,
+            'platform_shell_app_icon': tree.icon,
+            'platform_shell_app_home_url': tree.home_url,
+            'nav_app_areas': [],
+            'nav_sidebar_top_areas': [],
+            'nav_sidebar_groups': [],
+            'nav_area_children': [],
+            'nav_show_module_bar': False,
+            'nav_use_context_bar': True,
+            'app_nav_sidebar': sidebar,
+            'app_breadcrumbs': breadcrumbs,
+            'nav_active_area_label': tree.label,
+        }
+    )
+    return out

@@ -1869,9 +1869,10 @@ def inject_admin_nav_context():
                 )
             )
             try:
-                from nodeone.core.platform.app_shell import merge_app_shell_nav_context
+                from nodeone.core.platform.app_shell import merge_app_shell_nav_context, merge_native_app_nav_context
 
                 merge_app_shell_nav_context(out, current_user, session)
+                merge_native_app_nav_context(out, current_user, session)
             except Exception:
                 pass
     except Exception:

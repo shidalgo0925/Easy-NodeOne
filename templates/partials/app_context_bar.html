@@ -1,0 +1,21 @@
+{# Barra de contexto de app (UX V3.2). Breadcrumb + slots — nunca navegación funcional. #}
+{% if nav_use_context_bar and app_breadcrumbs %}
+<nav id="appContextBar" class="app-context-bar" aria-label="Contexto de la aplicación">
+    <div class="app-context-bar__inner container-fluid">
+        <ol class="app-context-bar__breadcrumb breadcrumb mb-0" aria-label="Ruta">
+            {% for crumb in app_breadcrumbs %}
+            <li class="breadcrumb-item{% if loop.last %} active{% endif %}"{% if loop.last %} aria-current="page"{% endif %}>
+                {% if crumb.url and not loop.last %}
+                <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+                {% else %}
+                {{ crumb.label }}
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+        <div class="app-context-bar__actions">
+            {% block app_context_actions %}{% endblock %}
+        </div>
+    </div>
+</nav>
+{% endif %}

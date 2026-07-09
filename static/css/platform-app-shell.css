@@ -30,3 +30,55 @@ body[data-platform-app-shell="1"] .platform-shell-banner {
 body[data-platform-app-shell="1"] .shell-sidebar-group .nav-link {
     font-size: 0.875rem;
 }
+
+body[data-app-nav-native="1"] .left-panel.sidebar-erp {
+    border-right-color: rgba(37, 99, 235, 0.2);
+}
+
+.app-context-bar {
+    background: var(--color-surface, #fff);
+    border-bottom: 1px solid var(--color-border, #e2e8f0);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.app-context-bar__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 1rem;
+}
+
+.app-context-bar__breadcrumb {
+    --bs-breadcrumb-divider: '›';
+    font-size: 0.875rem;
+}
+
+.app-context-bar__breadcrumb .breadcrumb-item a {
+    color: var(--color-primary, #2563eb);
+    text-decoration: none;
+}
+
+.app-context-bar__breadcrumb .breadcrumb-item.active {
+    color: var(--color-text-muted, #64748b);
+}
+
+.app-context-bar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+body[data-app-nav-native="1"] .app-nav-domain > .nav-group-toggle {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--color-text-muted, #64748b);
+}
+

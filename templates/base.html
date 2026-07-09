@@ -197,7 +197,7 @@
         html[data-theme="auto"] .sidebar-section-label { color: #9ca3af; }
     </style>
 </head>
-<body{% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}{% if platform_app_shell_active %} data-platform-app-shell="1"{% endif %}>
+<body{% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}{% if platform_app_shell_active %} data-platform-app-shell="1"{% endif %}{% if app_nav_native_active %} data-app-nav-native="1"{% endif %}>
     <a href="#main-content" class="skip-link visually-hidden-focusable">Saltar al contenido</a>
     <!-- Topbar única: logo + nombre + menú + usuario -->
     <nav class="navbar navbar-expand-lg navbar-landing fixed-top">
@@ -375,7 +375,7 @@
     </nav>
 
     {% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
-    {% if platform_app_shell_active %}
+    {% if platform_app_shell_active and not app_nav_native_active %}
     <div class="platform-shell-banner" role="region" aria-label="Aplicación activa">
         <div class="platform-shell-banner__inner container-fluid">
             <span class="platform-shell-banner__app"><i class="{{ platform_shell_app_icon }}" aria-hidden="true"></i>{{ platform_shell_app_label }}</span>
@@ -383,7 +383,11 @@
         </div>
     </div>
     {% endif %}
+    {% if nav_use_context_bar %}
+    {% include 'partials/app_context_bar.html' %}
+    {% elif nav_show_module_bar and nav_area_children %}
     {% include 'partials/erp_app_subnav.html' %}
+    {% endif %}
     {% endif %}
 
     <!-- Main Content -->
@@ -521,7 +525,17 @@
                             {% endif %}
                         {% endif %}
                         {% elif show_tenant_admin_menu or (show_platform_admin_nav and current_user.is_admin) %}
-                        {% if platform_app_shell_active %}
+                        {% if app_nav_native_active %}
+                        {% if platform_launcher_enabled %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--platform-launcher">
+                            <a class="nav-link {% if request.blueprint == 'platform_launcher' %}active{% endif %}" href="{{ url_for('platform_launcher.apps_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Mis aplicaciones">
+                                <i class="menu-icon fas fa-th-large"></i>
+                                <span class="menu-title-text">Aplicaciones</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% include 'partials/app_nav_sidebar.html' %}
+                        {% elif platform_app_shell_active %}
                         {% include 'partials/platform_app_shell_sidebar.html' %}
                         {% else %}
                         {% if platform_launcher_enabled %}

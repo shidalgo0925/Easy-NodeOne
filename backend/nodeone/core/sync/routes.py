@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
@@ -75,6 +77,50 @@ def sync_events_dispatch():
             'domain': SYNC_DOMAIN_EVENTS,
         }
     )
+
+
+def _authorize_platform_worker() -> bool:
+    token = (os.environ.get('NODEONE_PLATFORM_WORKER_TOKEN') or '').strip()
+    if not token:
+        return False
+    auth = (request.headers.get('Authorization') or '').strip()
+    if auth == f'Bearer {token}':
+        return True
+    return (request.headers.get('X-Worker-Token') or '').strip() == token
+
+
+@platform_sync_bp.route('/worker/cycle', methods=['POST'])
+def sync_worker_cycle():
+    """
+    Ciclo worker sin sesión — para cron HTTP.
+
+    Requiere ``NODEONE_PLATFORM_WORKER_TOKEN`` y header ``Authorization: Bearer <token>``
+  o ``X-Worker-Token``.
+    """
+    if not _authorize_platform_worker():
+        token_configured = bool((os.environ.get('NODEONE_PLATFORM_WORKER_TOKEN') or '').strip())
+        if not token_configured:
+            return jsonify({'error': 'worker_disabled'}), 503
+        return jsonify({'error': 'unauthorized'}), 401
+
+    body = request.get_json(silent=True) or {}
+    event_limit = int(body.get('event_limit', 100) or 100)
+    sync_limit = int(body.get('sync_limit', 50) or 50)
+    organization_id = body.get('organization_id')
+    oid = int(organization_id) if organization_id is not None else None
+    retry_failed = bool(body.get('retry_failed', True))
+    process_sync = bool(body.get('process_sync', True))
+
+    from nodeone.core.platform.worker import run_platform_worker_cycle
+
+    result = run_platform_worker_cycle(
+        event_limit=event_limit,
+        sync_limit=sync_limit,
+        organization_id=oid,
+        retry_failed=retry_failed,
+        process_sync=process_sync,
+    )
+    return jsonify({'result': result.to_dict()})
 
 
 @platform_sync_bp.route('/operations', methods=['POST'])

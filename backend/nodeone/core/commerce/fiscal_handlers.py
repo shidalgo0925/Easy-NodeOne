@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nodeone.core.commerce.events import COMMERCE_INVOICE_REQUESTED
+from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_INVOICE_REQUESTED
 from nodeone.core.commerce.fiscal import CommerceFiscalService
 from nodeone.core.platform.events import DomainEventMessage, subscribe
 
@@ -17,9 +17,17 @@ def _on_invoice_requested(message: DomainEventMessage) -> None:
         pass
 
 
+def _on_credit_note_requested(message: DomainEventMessage) -> None:
+    try:
+        CommerceFiscalService.process_credit_note_from_event(message)
+    except Exception:
+        pass
+
+
 def register_commerce_fiscal_handlers() -> None:
     global _REGISTERED
     if _REGISTERED:
         return
     subscribe(COMMERCE_INVOICE_REQUESTED, _on_invoice_requested)
+    subscribe(COMMERCE_CREDIT_NOTE_REQUESTED, _on_credit_note_requested)
     _REGISTERED = True

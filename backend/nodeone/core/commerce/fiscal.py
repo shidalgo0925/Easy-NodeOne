@@ -124,6 +124,7 @@ class CommerceFiscalService:
             invoice_id,
             order,
             source_app_id=source_app_id,
+            reason='full_refund_credit_note',
         )
         return {'status': 'queued', 'order_ref': str(order.order_ref), 'invoice_number': invoice_number}
 
@@ -132,14 +133,16 @@ class CommerceFiscalService:
         organization_id: int,
         order_id: int,
         invoice_id: int | None,
-        order: CoreCommercialOrder,
+        order: CoreCommercialOrder | None,
         *,
         source_app_id: str,
+        reason: str = 'full_refund_credit_note',
     ) -> bool:
         if invoice_id is None:
             return False
         try:
             from nodeone.modules.efactura.services import config_service as cfg_svc
+            from nodeone.modules.efactura.services.issue import issue_credit_note_from_commercial_invoice
             from nodeone.services.efactura_module import is_efactura_enabled_for_org
 
             if not is_efactura_enabled_for_org(int(organization_id)):
@@ -147,10 +150,14 @@ class CommerceFiscalService:
             config = cfg_svc.get_or_create_provider_config(int(organization_id))
             if not cfg_svc.config_ready(config):
                 return False
-            # Emisión NCR real en efactura — Fase D; aquí solo señal de dominio.
+            doc = issue_credit_note_from_commercial_invoice(
+                int(invoice_id),
+                int(organization_id),
+                reason=reason.replace('_', ' '),
+            )
+            return str(doc.status or '') == 'accepted'
         except Exception:
             return False
-        return False
 
     @staticmethod
     def process_from_event(message: DomainEventMessage) -> dict[str, Any]:
@@ -162,7 +169,32 @@ class CommerceFiscalService:
             int(message.organization_id),
             int(order_id),
             source_app_id=str(message.source_app_id or 'eposone'),
+            force_emit=False,
         )
+
+    @staticmethod
+    def process_credit_note_from_event(message: DomainEventMessage) -> dict[str, Any]:
+        payload = dict(message.payload or {})
+        order_id = payload.get('order_id')
+        invoice_id = payload.get('invoice_id')
+        if invoice_id is None and order_id:
+            invoice_id = CommerceFiscalService.find_invoice_id_for_order(
+                int(message.organization_id),
+                int(order_id),
+            )
+        if not invoice_id:
+            return {'status': 'skipped', 'reason': 'missing_invoice_id'}
+        ok = CommerceFiscalService._try_issue_credit_note_fe(
+            int(message.organization_id),
+            int(order_id or 0),
+            int(invoice_id),
+            None,
+            source_app_id=str(message.source_app_id or 'eposone'),
+            reason=str(payload.get('reason') or 'full_refund_credit_note'),
+        )
+        if ok:
+            return {'status': 'issued', 'invoice_id': int(invoice_id)}
+        return {'status': 'pending', 'reason': 'ncr_not_issued', 'invoice_id': int(invoice_id)}
 
     @staticmethod
     def process_pending_order(
@@ -170,6 +202,7 @@ class CommerceFiscalService:
         order_id: int,
         *,
         source_app_id: str = 'eposone',
+        force_emit: bool = False,
     ) -> dict[str, Any]:
         oid = int(organization_id)
         order = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(order_id)).first()
@@ -185,7 +218,13 @@ class CommerceFiscalService:
         if not invoice_id:
             return {'status': 'pending', 'reason': 'invoice_not_created'}
 
-        issued = CommerceFiscalService._try_issue_fe(oid, int(invoice_id), order, source_app_id=source_app_id)
+        issued = CommerceFiscalService._try_issue_fe(
+            oid,
+            int(invoice_id),
+            order,
+            source_app_id=source_app_id,
+            force_emit=force_emit,
+        )
         if issued:
             return {'status': 'issued', 'order_ref': str(order.order_ref), 'invoice_id': invoice_id}
         return {'status': 'pending', 'reason': 'fe_not_issued', 'invoice_id': invoice_id}
@@ -197,6 +236,7 @@ class CommerceFiscalService:
         order: CoreCommercialOrder,
         *,
         source_app_id: str,
+        force_emit: bool = False,
     ) -> bool:
         try:
             from nodeone.modules.efactura.services import config_service as cfg_svc
@@ -208,10 +248,11 @@ class CommerceFiscalService:
             config = cfg_svc.get_or_create_provider_config(int(organization_id))
             if not cfg_svc.config_ready(config):
                 return False
-            if (config.emission_mode or 'manual') != 'automatic':
-                return False
-            if not config.emit_on_payment_confirmed:
-                return False
+            if not force_emit:
+                if (config.emission_mode or 'manual') != 'automatic':
+                    return False
+                if not config.emit_on_payment_confirmed:
+                    return False
             issue_from_commercial_invoice(int(invoice_id), int(organization_id))
         except Exception:
             return False

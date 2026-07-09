@@ -300,7 +300,9 @@ def eposone_order_emit_fiscal(order_id: int):
     if oid is None:
         abort(400)
     try:
-        result = CommerceFiscalService.process_pending_order(int(oid), int(order_id), source_app_id='eposone')
+        result = CommerceFiscalService.process_pending_order(
+            int(oid), int(order_id), source_app_id='eposone', force_emit=True
+        )
     except OrderValidationError as exc:
         flash(str(exc).replace('_', ' '), 'danger')
         return _redirect_order_detail(order_id)

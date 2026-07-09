@@ -1099,7 +1099,7 @@ class TestCommerceFiscalService(unittest.TestCase):
         mod._REGISTERED = False
         mod.register_commerce_fiscal_handlers()
         mod.register_commerce_fiscal_handlers()
-        self.assertEqual(mock_subscribe.call_count, 1)
+        self.assertEqual(mock_subscribe.call_count, 2)
 
     @patch('nodeone.core.commerce.fiscal.InvoiceService.publish_cancelled')
     @patch('nodeone.core.commerce.fiscal.AuditService.publish_domain_event')

@@ -260,3 +260,26 @@ def build_invoice_payload(
             'totalTodosItems': grand,
         },
     }
+
+
+def build_credit_note_payload(
+    config: ElectronicInvoiceProviderConfig,
+    invoice: Invoice,
+    lines: list[InvoiceLine],
+    contact: Contact | TenantCrmContact,
+    *,
+    parent_cufe: str,
+    reason: str = 'Devolución total',
+) -> dict[str, Any]:
+    """Nota de crédito referenciada a FE aceptada (tipoDocumento 04)."""
+    payload = build_invoice_payload(config, invoice, lines, contact)
+    datos = payload.setdefault('datosGenerales', {})
+    datos['tipoDocumento'] = '04'
+    datos['informacionInteresEmisor'] = f'NCR EN1 {invoice.number} — {reason}'[:500]
+    datos['documentosFiscalesReferenciados'] = [
+        {
+            'cufeFEReferenciado': (parent_cufe or '').strip(),
+            'motivoNotaCredito': (reason or 'Devolución')[:200],
+        }
+    ]
+    return payload

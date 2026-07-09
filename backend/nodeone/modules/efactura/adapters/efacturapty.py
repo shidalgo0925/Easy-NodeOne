@@ -107,3 +107,7 @@ class EFacturaPTYAdapter(EInvoiceProviderAdapter):
         if not out['ok'] and not out['authorization_message']:
             out['authorization_message'] = response.text[:500] if not response.ok else None
         return out
+
+    def emit_credit_note(self, document: ElectronicInvoiceDocument, pac_payload: dict) -> dict[str, Any]:
+        """Mismo endpoint que factura; payload con tipoDocumento 04."""
+        return self.emit_invoice(document, pac_payload)

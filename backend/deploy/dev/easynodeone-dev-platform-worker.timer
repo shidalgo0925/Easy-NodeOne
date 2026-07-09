@@ -1,0 +1,11 @@
+[Unit]
+Description=Timer Easy NodeOne DEV — worker plataforma cada 2 minutos
+Requires=easynodeone-dev-platform-worker.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

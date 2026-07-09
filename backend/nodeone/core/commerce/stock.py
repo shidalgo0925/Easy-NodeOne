@@ -187,7 +187,10 @@ class StockService:
         if not ref:
             raise StockValidationError('product_ref_required')
         qty = float(quantity or 0)
-        if qty <= 0:
+        if movement == STOCK_MOVEMENT_ADJUST:
+            if qty == 0:
+                raise StockValidationError('quantity_required')
+        elif qty <= 0:
             raise StockValidationError('quantity_required')
 
         product = ProductService.get_by_ref(oid, ref)
@@ -285,3 +288,71 @@ class StockService:
             return
 
         raise StockValidationError('invalid_movement')
+
+    @staticmethod
+    def _resolve_warehouse_org_unit_id(organization_id: int, data: dict[str, Any]) -> int:
+        from models.core_master import CoreOrgUnit
+        from nodeone.core.services.org_unit import OrgUnitService
+
+        oid = int(organization_id)
+        if data.get('warehouse_org_unit_id') is not None:
+            wh_id = int(data['warehouse_org_unit_id'])
+            row = CoreOrgUnit.query.filter_by(organization_id=oid, id=wh_id).first()
+            if row is None or str(row.unit_type) != ORG_UNIT_TYPE_WAREHOUSE:
+                raise StockValidationError('invalid_warehouse_org_unit_id')
+            return wh_id
+
+        warehouse_ref = (str(data.get('warehouse_ref') or '')).strip()
+        if warehouse_ref:
+            unit = OrgUnitService.get_by_ref(oid, warehouse_ref)
+            if unit is None or unit.unit_type != ORG_UNIT_TYPE_WAREHOUSE:
+                raise StockValidationError('invalid_warehouse_ref')
+            return int(unit.id)
+
+        raise StockValidationError('warehouse_required')
+
+    @staticmethod
+    def record_manual_adjust(
+        organization_id: int,
+        data: dict[str, Any],
+        *,
+        source_app_id: str = 'eposone',
+    ) -> StockBalanceDTO:
+        from nodeone.core.commerce.authorization import CommerceAuthorizationService
+
+        oid = int(organization_id)
+        CommerceAuthorizationService.assert_supervisor(
+            oid,
+            data,
+            action='inventory.adjust',
+            source_app_id=source_app_id,
+        )
+        warehouse_id = StockService._resolve_warehouse_org_unit_id(oid, data)
+        product_ref = (str(data.get('product_ref') or '')).strip()
+        if not product_ref:
+            raise StockValidationError('product_ref_required')
+        qty = float(data.get('quantity') if data.get('quantity') is not None else 0)
+        if qty == 0:
+            raise StockValidationError('quantity_required')
+
+        result = StockService.apply_movement(
+            oid,
+            warehouse_org_unit_id=warehouse_id,
+            product_ref=product_ref,
+            movement_type=STOCK_MOVEMENT_ADJUST,
+            quantity=qty,
+            idempotency_key=(str(data.get('idempotency_key') or '')).strip() or None,
+            notes=data.get('notes'),
+            allow_negative=bool(data.get('allow_negative')),
+        )
+        if result.get('status') != 'applied':
+            raise StockValidationError(str(result.get('reason') or 'adjust_failed'))
+
+        balance = CoreStockBalance.query.filter_by(
+            organization_id=oid,
+            warehouse_org_unit_id=warehouse_id,
+            product_ref=product_ref,
+        ).first()
+        if balance is None:
+            raise StockValidationError('balance_not_found')
+        return _balance_to_dto(balance)

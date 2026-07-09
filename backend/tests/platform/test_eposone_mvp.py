@@ -92,6 +92,11 @@ class TestEPosOneAPI(unittest.TestCase):
             r = c.get('/api/eposone/stock-balances')
             self.assertIn(r.status_code, (302, 401))
 
+    def test_stock_adjust_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.post('/api/eposone/stock-adjust')
+            self.assertIn(r.status_code, (302, 401))
+
     @patch('nodeone.modules.eposone.product_api.ProductService.search', return_value=[])
     def test_products_api_list(self, mock_search):
         from nodeone.modules.eposone.product_api import product_collection_handler
@@ -269,6 +274,36 @@ class TestEPosOneSyncHandler(unittest.TestCase):
         self.assertIn('refund_payment', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('manual_cash_movement', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('split_order', EPOSONE_SYNC_OPERATIONS)
+        self.assertIn('stock_adjust', EPOSONE_SYNC_OPERATIONS)
+
+    @patch('nodeone.core.commerce.stock.StockService.record_manual_adjust')
+    def test_stock_adjust_operation(self, mock_adjust):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=5,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='k5',
+            operation_type='stock_adjust',
+            status='pending',
+            entity_type='stock',
+            entity_ref='WH-01',
+            payload={
+                'warehouse_ref': 'WH-01',
+                'product_ref': 'SKU-1',
+                'quantity': 20,
+                'supervisor_user_id': 42,
+            },
+            base_version=None,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_adjust.assert_called_once()
 
 
 class TestPlatformSyncAPI(unittest.TestCase):

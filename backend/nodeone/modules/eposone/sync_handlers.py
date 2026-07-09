@@ -127,6 +127,15 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             source_app_id='eposone',
         )
         return
+    if op == 'stock_adjust':
+        from nodeone.core.commerce.stock import StockService
+
+        StockService.record_manual_adjust(
+            int(dto.organization_id),
+            dict(dto.payload or {}),
+            source_app_id='eposone',
+        )
+        return
     raise OrderValidationError(f'unsupported_operation:{op}')
 
 
@@ -142,6 +151,7 @@ EPOSONE_SYNC_OPERATIONS = frozenset(
         'close_cash_shift',
         'manual_cash_movement',
         'split_order',
+        'stock_adjust',
     }
 )
 

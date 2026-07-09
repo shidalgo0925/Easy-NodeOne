@@ -868,6 +868,46 @@ class TestStockService(unittest.TestCase):
         mod.register_commerce_stock_handlers()
         self.assertEqual(mock_subscribe.call_count, 4)
 
+    @patch('nodeone.core.commerce.stock.StockService.apply_movement')
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor', return_value=42)
+    def test_record_manual_adjust(self, _mock_supervisor, mock_apply):
+        from nodeone.core.commerce.stock import StockService
+
+        mock_apply.return_value = {'status': 'applied'}
+        balance = MagicMock()
+        balance.id = 1
+        balance.organization_id = 1
+        balance.warehouse_org_unit_id = 3
+        balance.product_ref = 'SKU-1'
+        balance.quantity_on_hand = 15.0
+        balance.quantity_reserved = 0.0
+        with patch.object(StockService, '_resolve_warehouse_org_unit_id', return_value=3):
+            with patch('nodeone.core.commerce.stock.CoreStockBalance') as mock_balance_cls:
+                mock_balance_cls.query.filter_by.return_value.first.return_value = balance
+                dto = StockService.record_manual_adjust(
+                    1,
+                    {
+                        'warehouse_ref': 'WH-01',
+                        'product_ref': 'SKU-1',
+                        'quantity': 10,
+                        'supervisor_user_id': 42,
+                    },
+                )
+        self.assertEqual(dto.quantity_on_hand, 15.0)
+        mock_apply.assert_called_once()
+
+    def test_mutate_adjust_negative(self):
+        from nodeone.core.commerce.constants import STOCK_MOVEMENT_ADJUST
+        from nodeone.core.commerce.stock import StockService, StockValidationError
+
+        balance = MagicMock()
+        balance.quantity_on_hand = 5.0
+        balance.quantity_reserved = 0.0
+        with self.assertRaises(StockValidationError):
+            StockService._mutate_balance(balance, STOCK_MOVEMENT_ADJUST, -10.0)
+        StockService._mutate_balance(balance, STOCK_MOVEMENT_ADJUST, -3.0)
+        self.assertEqual(balance.quantity_on_hand, 2.0)
+
 
 class TestCashRegisterService(unittest.TestCase):
     @patch('nodeone.core.commerce.cash.CashRegisterService.publish_shift_opened')

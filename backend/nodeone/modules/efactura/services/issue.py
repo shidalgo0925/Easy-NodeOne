@@ -482,6 +482,119 @@ def issue_credit_note_from_commercial_invoice(
     return doc
 
 
+def issue_debit_note_from_commercial_invoice(
+    invoice_id: int,
+    organization_id: int,
+    *,
+    reason: str = 'Cargo adicional',
+) -> ElectronicInvoiceDocument:
+    """Emite ND electrónica referenciada a la FE aceptada de la factura comercial."""
+    if not is_efactura_enabled_for_org(organization_id):
+        raise ValueError('Módulo efactura no habilitado para esta organización.')
+    inv = Invoice.query.filter_by(id=int(invoice_id), organization_id=int(organization_id)).first()
+    if not inv:
+        raise ValueError('Factura no encontrada.')
+    parent_fe = find_accepted_fe_for_invoice(int(inv.id), int(organization_id))
+    if parent_fe is None or not (parent_fe.cufe or '').strip():
+        raise ValueError('No hay factura electrónica aceptada con CUFE para emitir ND.')
+    existing_nd = (
+        ElectronicInvoiceDocument.query.filter(
+            ElectronicInvoiceDocument.organization_id == int(organization_id),
+            ElectronicInvoiceDocument.invoice_id == int(inv.id),
+            ElectronicInvoiceDocument.document_type == 'debit_note',
+            ElectronicInvoiceDocument.status.in_(_ACTIVE_FE_STATUSES),
+        )
+        .order_by(ElectronicInvoiceDocument.id.desc())
+        .first()
+    )
+    if existing_nd is not None:
+        raise ValueError(f'Ya existe una ND activa para esta factura (documento #{existing_nd.id}).')
+
+    cid = getattr(inv, 'contact_id', None) or getattr(inv, 'customer_contact_id', None)
+    if not cid:
+        raise ValueError('La factura no tiene contacto fiscal (contact_id).')
+    contact = get_invoice_fiscal_contact(inv)
+    if not contact:
+        contact = get_partner(organization_id, int(cid))
+    if not contact:
+        raise ValueError('Contacto fiscal no encontrado.')
+    fe_email = contact_fiscal_email(contact) if isinstance(contact, Contact) else fiscal_email(contact)
+    if not fe_email:
+        raise ValueError('El contacto debe tener correo fiscal para efacturapty.')
+    lines = InvoiceLine.query.filter_by(invoice_id=inv.id).order_by(InvoiceLine.id).all()
+    config = cfg_svc.get_or_create_provider_config(organization_id)
+    if not cfg_svc.config_ready(config):
+        raise ValueError('Configure y active el proveedor FE antes de emitir ND.')
+
+    from nodeone.modules.efactura.services.mapper import build_debit_note_payload
+
+    pac_payload = build_debit_note_payload(
+        config,
+        inv,
+        lines,
+        contact,
+        parent_cufe=str(parent_fe.cufe),
+        reason=reason,
+    )
+    en1_request = {
+        'document_type': 'debit_note',
+        'invoice_id': inv.id,
+        'invoice_number': inv.number,
+        'parent_document_id': int(parent_fe.id),
+        'parent_cufe': str(parent_fe.cufe),
+        'reason': reason,
+    }
+    doc = ElectronicInvoiceDocument(
+        organization_id=int(organization_id),
+        invoice_id=int(inv.id),
+        provider=config.provider,
+        environment=config.environment,
+        document_type='debit_note',
+        internal_reference=f'ND-{inv.number}'[:120],
+        source_model='invoice',
+        source_id=int(inv.id),
+        customer_name=fiscal_display_name(contact) if isinstance(contact, Contact) else display_name(contact),
+        customer_tax_id=(getattr(contact, 'tax_id', None) or '').strip() or None,
+        customer_email=fe_email,
+        subtotal=Decimal(str(inv.total or 0)),
+        tax_total=Decimal(str(inv.tax_total or 0)),
+        discount_total=Decimal('0'),
+        total=Decimal(str(inv.grand_total or 0)),
+        currency=getattr(inv, 'currency', None) or config.default_currency or 'USD',
+        status='pending',
+        request_payload=_json_dump(en1_request),
+    )
+    db.session.add(doc)
+    db.session.flush()
+    adapter = _adapter_for(config)
+    _log_event(
+        organization_id,
+        'emit_debit_note',
+        document_id=doc.id,
+        message=f'ND factura {inv.number}',
+        request_payload=pac_payload,
+    )
+    try:
+        result = adapter.emit_debit_note(doc, pac_payload)
+    except Exception as exc:
+        doc.status = 'error'
+        doc.error_message = str(exc)
+        _log_event(organization_id, 'error', document_id=doc.id, message=str(exc))
+        db.session.commit()
+        raise
+    _apply_pac_result(doc, result)
+    _log_event(
+        organization_id,
+        'emit_debit_note',
+        document_id=doc.id,
+        message=doc.authorization_message,
+        http_status=result.get('http_status'),
+        response_payload=result.get('raw_response'),
+    )
+    db.session.commit()
+    return doc
+
+
 def document_to_dict(doc: ElectronicInvoiceDocument, *, include_payloads: bool = False) -> dict[str, Any]:
     out: dict[str, Any] = {
         'id': doc.id,

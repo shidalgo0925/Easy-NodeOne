@@ -111,3 +111,7 @@ class EFacturaPTYAdapter(EInvoiceProviderAdapter):
     def emit_credit_note(self, document: ElectronicInvoiceDocument, pac_payload: dict) -> dict[str, Any]:
         """Mismo endpoint que factura; payload con tipoDocumento 04."""
         return self.emit_invoice(document, pac_payload)
+
+    def emit_debit_note(self, document: ElectronicInvoiceDocument, pac_payload: dict) -> dict[str, Any]:
+        """Mismo endpoint que factura; payload con tipoDocumento 05."""
+        return self.emit_invoice(document, pac_payload)

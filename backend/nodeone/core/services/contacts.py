@@ -107,6 +107,91 @@ class ContactService:
         return None
 
     @staticmethod
+    def find_by_tax_id(
+        organization_id: int,
+        tax_id: str,
+        *,
+        dv: str | None = None,
+        active_only: bool = True,
+    ) -> ContactDTO | None:
+        from models.contact import Contact
+
+        tid = (tax_id or '').strip()
+        if not tid:
+            return None
+        q = Contact.query.filter_by(organization_id=int(organization_id), tax_id=tid)
+        if active_only:
+            q = q.filter(Contact.active.is_(True))
+        dv_norm = (dv or '').strip()
+        if dv_norm:
+            q = q.filter(Contact.dv == dv_norm)
+        row = q.first()
+        return _to_dto(row) if row is not None else None
+
+    @staticmethod
+    def resolve_ref(organization_id: int, contact_ref: str) -> ContactDTO:
+        """Resuelve contact_ref a Contact canónico activo (en1_contact)."""
+        from nodeone.core.master.contact_bridge import ContactBridgeService
+
+        ref = (contact_ref or '').strip()
+        if not ref:
+            raise ContactService.ValidationError('contact_ref_empty')
+
+        oid = int(organization_id)
+        lower = ref.lower()
+
+        def _require_active(dto: ContactDTO) -> ContactDTO:
+            if not dto.active:
+                raise ContactService.ValidationError('contact_inactive')
+            return dto
+
+        if lower.startswith('legacy:'):
+            raw = ref.split(':', 1)[1].strip()
+            if not raw.isdigit():
+                raise ContactService.ValidationError('invalid_contact_ref')
+            resolved = ContactBridgeService.resolve(oid, int(raw))
+            if resolved is None or resolved.canonical_contact_id is None:
+                raise ContactService.ValidationError('invalid_contact_ref')
+            canonical = ContactService.get(oid, int(resolved.canonical_contact_id))
+            if canonical is None:
+                raise ContactService.ValidationError('invalid_contact_ref')
+            return _require_active(canonical)
+
+        if '@' in ref:
+            dto = ContactService.find_by_email(oid, ref)
+            if dto is None:
+                raise ContactService.ValidationError('invalid_contact_ref')
+            return _require_active(dto)
+
+        if lower.startswith('tax:'):
+            tax_part = ref.split(':', 1)[1].strip()
+            tax_id = tax_part
+            dv = None
+            if '-' in tax_part:
+                tax_id, _, dv = tax_part.partition('-')
+                tax_id = tax_id.strip()
+                dv = (dv.strip() or None)
+            dto = ContactService.find_by_tax_id(oid, tax_id, dv=dv)
+            if dto is None:
+                raise ContactService.ValidationError('invalid_contact_ref')
+            return _require_active(dto)
+
+        if ref.isdigit():
+            cid = int(ref)
+            dto = ContactService.get(oid, cid)
+            if dto is not None:
+                return _require_active(dto)
+            resolved = ContactBridgeService.resolve(oid, cid)
+            if resolved is None or resolved.canonical_contact_id is None:
+                raise ContactService.ValidationError('invalid_contact_ref')
+            linked = ContactService.get(oid, int(resolved.canonical_contact_id))
+            if linked is None:
+                raise ContactService.ValidationError('invalid_contact_ref')
+            return _require_active(linked)
+
+        raise ContactService.ValidationError('invalid_contact_ref')
+
+    @staticmethod
     def search(
         organization_id: int,
         *,

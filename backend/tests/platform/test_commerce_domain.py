@@ -974,6 +974,76 @@ class TestInvoiceService(unittest.TestCase):
         self.assertEqual(len(dto.lines), 1)
 
 
+class TestOrderContactRef(unittest.TestCase):
+    @staticmethod
+    def _contact_dto(**kwargs):
+        from nodeone.core.services.contacts import ContactDTO
+
+        defaults = dict(
+            id=10,
+            organization_id=1,
+            display_name='Ana Cliente',
+            email='ana@example.com',
+            phone=None,
+            mobile=None,
+            contact_type='person',
+            identification_type='consumer_final',
+            tax_id=None,
+            dv=None,
+            is_customer=True,
+            is_supplier=False,
+            is_member=False,
+            is_student=False,
+            is_participant=False,
+            is_instructor=False,
+            is_employee=False,
+            active=True,
+            roles=('Cliente',),
+        )
+        defaults.update(kwargs)
+        return ContactDTO(**defaults)
+
+    @patch('nodeone.core.services.contacts.ContactService.resolve_ref')
+    def test_resolve_order_contact_id_from_ref(self, mock_resolve_ref):
+        from nodeone.core.commerce.order import _resolve_order_contact_id
+
+        mock_resolve_ref.return_value = self._contact_dto()
+        contact_id = _resolve_order_contact_id(1, {'contact_ref': 'ana@example.com'})
+        self.assertEqual(contact_id, 10)
+        mock_resolve_ref.assert_called_once_with(1, 'ana@example.com')
+
+    @patch('nodeone.core.services.contacts.ContactService.get')
+    def test_resolve_order_contact_id_direct(self, mock_get):
+        from nodeone.core.commerce.order import _resolve_order_contact_id
+
+        mock_get.return_value = self._contact_dto(id=7)
+        contact_id = _resolve_order_contact_id(1, {'contact_id': 7})
+        self.assertEqual(contact_id, 7)
+
+    @patch('nodeone.core.services.contacts.ContactService.get', return_value=None)
+    def test_resolve_order_contact_id_invalid(self, _mock_get):
+        from nodeone.core.commerce.order import OrderValidationError, _resolve_order_contact_id
+
+        with self.assertRaises(OrderValidationError) as ctx:
+            _resolve_order_contact_id(1, {'contact_id': 404})
+        self.assertEqual(str(ctx.exception), 'invalid_contact_id')
+
+    @patch('nodeone.core.services.contacts.ContactService.resolve_ref')
+    def test_resolve_order_contact_id_inactive_ref(self, mock_resolve_ref):
+        from nodeone.core.services.contacts import ContactService
+        from nodeone.core.commerce.order import OrderValidationError, _resolve_order_contact_id
+
+        mock_resolve_ref.side_effect = ContactService.ValidationError('contact_inactive')
+        with self.assertRaises(OrderValidationError) as ctx:
+            _resolve_order_contact_id(1, {'contact_ref': 'legacy:5'})
+        self.assertIn('inactive_contact_ref:legacy:5', str(ctx.exception))
+
+    def test_resolve_order_contact_id_optional(self):
+        from nodeone.core.commerce.order import _resolve_order_contact_id
+
+        self.assertIsNone(_resolve_order_contact_id(1, {}))
+
+
 class TestOrderLineProductRef(unittest.TestCase):
     @staticmethod
     def _product(**kwargs):

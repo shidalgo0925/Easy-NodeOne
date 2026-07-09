@@ -72,6 +72,29 @@ def _validate_parent_order(organization_id: int, parent_order_id: int) -> CoreCo
     return parent
 
 
+def _resolve_order_contact_id(organization_id: int, data: dict[str, Any]) -> int | None:
+    from nodeone.core.services.contacts import ContactService
+
+    oid = int(organization_id)
+    contact_ref = (str(data.get('contact_ref') or '')).strip() or None
+    if contact_ref:
+        try:
+            contact = ContactService.resolve_ref(oid, contact_ref)
+        except ContactService.ValidationError as exc:
+            reason = str(exc)
+            if reason == 'contact_inactive':
+                raise OrderValidationError(f'inactive_contact_ref:{contact_ref}') from exc
+            raise OrderValidationError(f'invalid_contact_ref:{contact_ref}') from exc
+        return int(contact.id)
+
+    if data.get('contact_id') is not None:
+        contact = ContactService.get(oid, int(data['contact_id']))
+        if contact is None or not contact.active:
+            raise OrderValidationError('invalid_contact_id')
+        return int(contact.id)
+    return None
+
+
 def _build_order_line(organization_id: int, raw: dict[str, Any]) -> CoreCommercialOrderLine:
     from nodeone.core.services.product import ProductService
 
@@ -183,13 +206,14 @@ class OrderService:
             str(data.get('operational_status') or data.get('status') or ORDER_STATUS_DRAFT).strip().lower()
             or ORDER_STATUS_DRAFT
         )
+        contact_id = _resolve_order_contact_id(oid, data)
         row = CoreCommercialOrder(
             organization_id=oid,
             order_ref=order_ref,
             operational_status=op_status,
             payment_status=ORDER_PAYMENT_STATUS_UNPAID,
             fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
-            contact_id=int(data['contact_id']) if data.get('contact_id') else None,
+            contact_id=contact_id,
             branch_org_unit_id=branch_org_unit_id,
             parent_order_id=parent_order_id,
             currency=str(data.get('currency') or 'USD')[:8],

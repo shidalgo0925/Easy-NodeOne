@@ -55,6 +55,70 @@ class TestContactService(unittest.TestCase):
         self.assertEqual(dto.roles, ('Cliente',))
         self.assertEqual(dto.to_dict()['id'], 5)
 
+    @staticmethod
+    def _contact_dto(**kwargs):
+        from nodeone.core.services.contacts import ContactDTO
+
+        defaults = dict(
+            id=10,
+            organization_id=1,
+            display_name='Ana Cliente',
+            email='ana@example.com',
+            phone=None,
+            mobile=None,
+            contact_type='person',
+            identification_type='consumer_final',
+            tax_id=None,
+            dv=None,
+            is_customer=True,
+            is_supplier=False,
+            is_member=False,
+            is_student=False,
+            is_participant=False,
+            is_instructor=False,
+            is_employee=False,
+            active=True,
+            roles=('Cliente',),
+        )
+        defaults.update(kwargs)
+        return ContactDTO(**defaults)
+
+    @patch('nodeone.core.services.contacts.ContactService.get')
+    def test_resolve_ref_numeric_id(self, mock_get):
+        from nodeone.core.services.contacts import ContactService
+
+        mock_get.return_value = self._contact_dto()
+        dto = ContactService.resolve_ref(1, '10')
+        self.assertEqual(dto.id, 10)
+
+    @patch('nodeone.core.services.contacts.ContactService.find_by_email')
+    def test_resolve_ref_email(self, mock_find):
+        from nodeone.core.services.contacts import ContactService
+
+        mock_find.return_value = self._contact_dto()
+        dto = ContactService.resolve_ref(1, 'ana@example.com')
+        self.assertEqual(dto.email, 'ana@example.com')
+
+    @patch('nodeone.core.services.contacts.ContactService.get')
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.resolve')
+    def test_resolve_ref_legacy_linked(self, mock_resolve, mock_get):
+        from types import SimpleNamespace
+
+        from nodeone.core.services.contacts import ContactService
+
+        mock_resolve.return_value = SimpleNamespace(canonical_contact_id=10)
+        mock_get.return_value = self._contact_dto()
+        dto = ContactService.resolve_ref(1, 'legacy:99')
+        self.assertEqual(dto.id, 10)
+
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.resolve', return_value=None)
+    @patch('nodeone.core.services.contacts.ContactService.get', return_value=None)
+    def test_resolve_ref_invalid_contact_id(self, _mock_get, _mock_resolve):
+        from nodeone.core.services.contacts import ContactService
+
+        with self.assertRaises(ContactService.ValidationError):
+            ContactService.resolve_ref(1, '999')
+
     @patch('nodeone.core.services.product.CoreProductService.search', return_value=[])
     def test_product_service_search(self, mock_search):
         from nodeone.core.services.product import ProductService

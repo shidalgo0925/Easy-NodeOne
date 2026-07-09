@@ -735,13 +735,13 @@ _IIUS_BRAND_PRESET_KEYS = frozenset(
     ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
 )
 _EN1_BRAND_PRESET_KEYS = frozenset(('en1', 'easynodeone', 'hubspot'))
-# EN1 plataforma — paleta V3.0
+# EN1 plataforma — paleta corporativa (único acento naranja)
 _EN1_THEME = {
-    'theme_primary': '#FF7A59',
+    'theme_primary': '#FF6B35',
     'theme_primary_dark': '#2D3E50',
-    'theme_accent': '#4A90E2',
-    'theme_accent_gold': '#F4B400',
-    'theme_accent_cyan': '#28A745',
+    'theme_accent': '#9CA3AF',
+    'theme_accent_gold': '#9CA3AF',
+    'theme_accent_cyan': '#9CA3AF',
     'theme_background_cream': '#F7F9FC',
 }
 # IIUS (internationalinstitute.us): morado CTA · marino fondos · dorado emblema · cian copy destacada
@@ -843,11 +843,11 @@ def inject_theme():
         return resolve_theme_tokens()
     except Exception:
         return {
-            'theme_primary': '#FF7A59',
+            'theme_primary': '#FF6B35',
             'theme_primary_dark': '#2D3E50',
-            'theme_accent': '#4A90E2',
-            'theme_accent_gold': '#F4B400',
-            'theme_accent_cyan': '#28A745',
+            'theme_accent': '#9CA3AF',
+            'theme_accent_gold': '#9CA3AF',
+            'theme_accent_cyan': '#9CA3AF',
             'theme_background_cream': '#F7F9FC',
             'brand_preset': 'en1',
             'theme_logo_url': '',

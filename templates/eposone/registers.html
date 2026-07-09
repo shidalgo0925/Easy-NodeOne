@@ -3,35 +3,99 @@
 {% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
+<div class="container-fluid py-3 en1-eposone-page">
     <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
-            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
             <p class="text-muted small mb-0">{{ section_description }}</p>
         </div>
-        <span class="badge bg-secondary">{{ registers_total }} caja(s)</span>
+        <div class="d-flex gap-2 flex-wrap">
+            <span class="badge en1-badge--neutral">{{ registers_total }} caja(s)</span>
+            <span class="badge en1-badge--neutral">{{ open_shifts_total }} turno(s) activo(s)</span>
+        </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-2 border-bottom">
+            <strong>Cajas y turnos</strong>
+        </div>
         <div class="card-body p-0">
-            {% if registers %}
+            {% if register_rows %}
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle">
+                <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
                     <thead class="table-light">
                         <tr>
                             <th>Referencia</th>
                             <th>Nombre</th>
-                            <th>Estado</th>
-                            <th>Notas</th>
+                            <th>Turno</th>
+                            <th class="text-end">Saldo / esperado</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for item in registers %}
+                        {% for row in register_rows %}
+                        {% set reg = row.register %}
+                        {% set shift = row.shift %}
                         <tr>
-                            <td><code>{{ item.unit_ref }}</code></td>
-                            <td>{{ item.name }}</td>
-                            <td><span class="badge text-bg-light border">{{ item.status }}</span></td>
-                            <td class="text-muted small">{{ item.notes or '—' }}</td>
+                            <td><code>{{ reg.unit_ref }}</code></td>
+                            <td>{{ reg.name }}</td>
+                            <td>
+                                {% if shift %}
+                                <span class="badge en1-badge--neutral">{{ shift.status }}</span>
+                                {% if shift.opened_at %}
+                                <div class="small text-muted">desde {{ shift.opened_at.strftime('%d/%m %H:%M') }}</div>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-muted small">Sin turno abierto</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if shift %}
+                                <div>Inicial: {{ '%.2f'|format(shift.opening_balance) }}</div>
+                                {% if row.expected_balance is not none %}
+                                <div class="small text-muted">Esperado: {{ '%.2f'|format(row.expected_balance) }}</div>
+                                {% endif %}
+                                {% if shift.counted_amount is not none %}
+                                <div class="small">Contado: {{ '%.2f'|format(shift.counted_amount) }}</div>
+                                {% endif %}
+                                {% if shift.cash_variance is not none %}
+                                <div class="small {% if shift.cash_variance|abs > 0.01 %}text-warning{% else %}text-muted{% endif %}">
+                                    Dif.: {{ '%.2f'|format(shift.cash_variance) }}
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.can_open %}
+                                <button type="button" class="btn btn-sm btn-primary"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#openShiftModal"
+                                    data-register-ref="{{ reg.unit_ref }}"
+                                    data-register-name="{{ reg.name }}">
+                                    Abrir turno
+                                </button>
+                                {% endif %}
+                                {% if row.can_reconcile and shift %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#reconcileShiftModal"
+                                    data-shift-id="{{ shift.id }}"
+                                    data-register-ref="{{ reg.unit_ref }}"
+                                    data-expected="{{ row.expected_balance or 0 }}">
+                                    Arquear
+                                </button>
+                                {% endif %}
+                                {% if row.can_close and shift %}
+                                <form method="post" action="{{ url_for('eposone.eposone_register_close_shift', shift_id=shift.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('¿Cerrar el turno de {{ reg.unit_ref }}?');">
+                                        Cerrar turno
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -41,12 +105,131 @@
             <div class="p-4 text-muted">
                 <p class="mb-2">No hay cajas registradas todavía.</p>
                 <p class="small mb-0">
-                    Creá cajas vía <code>POST /api/eposone/registers</code> — luego abrí turnos con
-                    <code>POST /api/eposone/cash/shifts</code> usando el mismo <code>register_ref</code>.
+                    Creá cajas vía <code>POST /api/eposone/registers</code> y luego abrí turnos desde esta pantalla.
                 </p>
             </div>
             {% endif %}
         </div>
     </div>
+
+    {% if recent_closed %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-2 border-bottom">
+            <strong>Últimos turnos cerrados</strong>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle en1-data-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Caja</th>
+                            <th>Cerrado</th>
+                            <th class="text-end">Cierre</th>
+                            <th class="text-end">Esperado</th>
+                            <th class="text-end">Diferencia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shift in recent_closed %}
+                        <tr>
+                            <td><code>{{ shift.register_ref }}</code></td>
+                            <td class="small text-muted">
+                                {% if shift.closed_at %}{{ shift.closed_at.strftime('%d/%m/%Y %H:%M') }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end">{{ '%.2f'|format(shift.closing_balance or 0) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(shift.expected_balance or 0) }}</td>
+                            <td class="text-end {% if shift.cash_variance and shift.cash_variance|abs > 0.01 %}text-warning{% endif %}">
+                                {{ '%.2f'|format(shift.cash_variance or 0) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<div class="modal fade" id="openShiftModal" tabindex="-1" aria-labelledby="openShiftModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="{{ url_for('eposone.eposone_register_open_shift') }}" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="openShiftModalLabel">Abrir turno de caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Caja: <strong id="openShiftRegisterName">—</strong> (<code id="openShiftRegisterRef">—</code>)</p>
+                <input type="hidden" name="register_ref" id="openShiftRegisterRefInput" value="">
+                <div class="mb-3">
+                    <label for="opening_balance" class="form-label">Saldo inicial en caja</label>
+                    <input type="number" step="0.01" min="0" class="form-control" name="opening_balance" id="opening_balance" value="0.00" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Abrir turno</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="reconcileShiftModal" tabindex="-1" aria-labelledby="reconcileShiftModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="" id="reconcileShiftForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reconcileShiftModalLabel">Arqueo de caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">Caja: <code id="reconcileRegisterRef">—</code></p>
+                <p class="small mb-3">Saldo esperado según movimientos: <strong id="reconcileExpected">0.00</strong></p>
+                <input type="hidden" name="shift_id" id="reconcileShiftId" value="">
+                <div class="mb-3">
+                    <label for="counted_amount" class="form-label">Efectivo contado</label>
+                    <input type="number" step="0.01" min="0" class="form-control" name="counted_amount" id="counted_amount" required>
+                </div>
+                <p class="small text-muted mb-0">Después del arqueo podrás cerrar el turno desde la tabla.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar arqueo</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    var openModal = document.getElementById('openShiftModal');
+    if (openModal) {
+        openModal.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            var ref = btn.getAttribute('data-register-ref') || '';
+            var name = btn.getAttribute('data-register-name') || ref;
+            document.getElementById('openShiftRegisterRef').textContent = ref;
+            document.getElementById('openShiftRegisterName').textContent = name;
+            document.getElementById('openShiftRegisterRefInput').value = ref;
+        });
+    }
+    var reconcileModal = document.getElementById('reconcileShiftModal');
+    if (reconcileModal) {
+        reconcileModal.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            var shiftId = btn.getAttribute('data-shift-id') || '';
+            var ref = btn.getAttribute('data-register-ref') || '';
+            var expected = btn.getAttribute('data-expected') || '0';
+            document.getElementById('reconcileRegisterRef').textContent = ref;
+            document.getElementById('reconcileExpected').textContent = parseFloat(expected).toFixed(2);
+            document.getElementById('reconcileShiftId').value = shiftId;
+            document.getElementById('counted_amount').value = parseFloat(expected).toFixed(2);
+            document.getElementById('reconcileShiftForm').action =
+                '{{ url_for("eposone.eposone_register_reconcile_shift", shift_id=0) }}'.replace('/0/', '/' + shiftId + '/');
+        });
+    }
+})();
+</script>
 {% endblock %}

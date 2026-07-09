@@ -70,6 +70,14 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/dashboard', rules)
         self.assertIn('/admin/eposone/orders/new', rules)
         self.assertIn('/admin/eposone/contacts/create', rules)
+        self.assertIn('/admin/eposone/orders/<int:order_id>/status', rules)
+        self.assertIn('/admin/eposone/orders/<int:order_id>/capture-payment', rules)
+        self.assertIn('/admin/eposone/orders/<int:order_id>/transfer', rules)
+        self.assertIn('/admin/eposone/orders/<int:order_id>/emit-fiscal', rules)
+        self.assertIn('/admin/eposone/orders/<int:order_id>/refund-payment', rules)
+        self.assertIn('/admin/eposone/registers/open', rules)
+        self.assertIn('/admin/eposone/registers/<int:shift_id>/reconcile', rules)
+        self.assertIn('/admin/eposone/registers/<int:shift_id>/close', rules)
 
     def test_credit_note_event_in_commerce_types(self):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
@@ -168,6 +176,179 @@ class TestEPosOneBackOfficeCreate(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 302)
         mock_create.assert_called_once()
+
+
+class TestEPosOneOrderDetailActions(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.order.OrderService.transition_status')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_order_status_post(self, _oid, mock_transition, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_transition.return_value = SimpleNamespace(status='confirmed')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_order_status', order_id=5)
+        resp = self.client.post(action, data={'status': 'confirmed'}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_transition.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.payment.PaymentService.capture')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_order_capture_payment_post(self, _oid, mock_capture, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_capture.return_value = SimpleNamespace(payment_ref='PAY-0001', amount=10.0)
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_order_capture_payment', order_id=5)
+        resp = self.client.post(
+            action,
+            data={'amount': '10.00', 'payment_type': 'card'},
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_capture.assert_called_once()
+
+
+class TestEPosOneOrderFiscalRefund(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.fiscal.CommerceFiscalService.process_pending_order')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_order_emit_fiscal_post(self, _oid, mock_fiscal, _gate, mock_get_user):
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_fiscal.return_value = {'status': 'issued', 'order_ref': 'POS-0001'}
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_order_emit_fiscal', order_id=5)
+        resp = self.client.post(action, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_fiscal.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.payment.PaymentService.refund')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_order_refund_payment_post(self, _oid, mock_refund, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        user.id = 99
+        mock_get_user.return_value = user
+        mock_refund.return_value = SimpleNamespace(payment_ref='PAY-0009')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_order_refund_payment', order_id=5)
+        resp = self.client.post(
+            action,
+            data={'payment_id': '9', 'amount': '10.00', 'supervisor_user_id': '99'},
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_refund.assert_called_once()
+
+
+class TestEPosOneRegistersActions(unittest.TestCase):
+    """UI back office — apertura, arqueo y cierre de turnos de caja."""
+
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.cash.CashRegisterService.open_shift')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_register_open_shift_post(self, _oid, mock_open, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_open.return_value = SimpleNamespace(register_ref='REG-1', opening_balance=100.0)
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_register_open_shift')
+        resp = self.client.post(
+            action,
+            data={'register_ref': 'REG-1', 'opening_balance': '100.00'},
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_open.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.cash.CashRegisterService.begin_reconcile')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_register_reconcile_shift_post(self, _oid, mock_reconcile, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_reconcile.return_value = SimpleNamespace(register_ref='REG-1')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_register_reconcile_shift', shift_id=3)
+        resp = self.client.post(action, data={'counted_amount': '150.00'}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_reconcile.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.cash.CashRegisterService.close_shift')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_register_close_shift_post(self, _oid, mock_close, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_close.return_value = SimpleNamespace(register_ref='REG-1', cash_variance=0.0)
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_register_close_shift', shift_id=3)
+        resp = self.client.post(action, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_close.assert_called_once()
 
 
 class TestEPosOneDashboardKpis(unittest.TestCase):

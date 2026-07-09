@@ -17,6 +17,143 @@ def _require_eposone_admin():
     return None
 
 
+def _order_detail_context(organization_id: int, order_id: int) -> dict | None:
+    from models.commercial_core import CoreCashShift
+    from nodeone.core.commerce.constants import (
+        CASH_SHIFT_OPEN,
+        ORDER_FISCAL_STATUS_PENDING,
+        ORDER_PAYMENT_STATUS_PAID,
+        ORDER_STATUS_CANCELLED,
+        ORDER_STATUS_REFUNDED,
+        ORDER_STATUS_TRANSITIONS,
+        PAYMENT_STATUS_CAPTURED,
+        PAYMENT_STATUS_PARTIAL_REFUND,
+    )
+    from nodeone.core.commerce.order import OrderService
+    from nodeone.core.commerce.payment import PaymentService
+    from nodeone.core.commerce.pos import PosTerminalService
+
+    oid = int(organization_id)
+    order = OrderService.get(oid, int(order_id))
+    if order is None:
+        return None
+
+    next_statuses = sorted(ORDER_STATUS_TRANSITIONS.get(str(order.status or ''), frozenset()))
+    payments = PaymentService.list_for_order(oid, int(order_id))
+    terminals = PosTerminalService.list_terminals(oid, limit=50)
+    open_shifts = (
+        CoreCashShift.query.filter_by(organization_id=oid, status=CASH_SHIFT_OPEN)
+        .order_by(CoreCashShift.register_ref.asc())
+        .all()
+    )
+    amount_due = round(max(0.0, float(order.grand_total or 0) - float(order.amount_paid or 0)), 2)
+    can_capture = str(order.payment_status) != ORDER_PAYMENT_STATUS_PAID and amount_due > 0
+    can_transfer = (
+        str(order.payment_status) == 'unpaid'
+        and str(order.status) not in {ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}
+    )
+    can_emit_fiscal = str(order.fiscal_status or '') == ORDER_FISCAL_STATUS_PENDING
+
+    refundable_payments: list[dict] = []
+    for pay in payments:
+        if str(pay.status or '') not in {PAYMENT_STATUS_CAPTURED, PAYMENT_STATUS_PARTIAL_REFUND}:
+            continue
+        remaining = round(float(pay.amount or 0) - float(pay.refunded_amount or 0), 2)
+        if remaining > 0:
+            refundable_payments.append({'payment': pay, 'remaining': remaining})
+
+    from nodeone.core.commerce.authorization import CommerceAuthorizationService
+
+    supervisor_ok = CommerceAuthorizationService.user_is_supervisor(current_user, oid)
+
+    return {
+        'order': order,
+        'next_statuses': next_statuses,
+        'payments': payments,
+        'terminals': terminals,
+        'open_shifts': open_shifts,
+        'amount_due': amount_due,
+        'can_capture': can_capture,
+        'can_transfer': can_transfer,
+        'can_emit_fiscal': can_emit_fiscal,
+        'refundable_payments': refundable_payments,
+        'supervisor_ok': supervisor_ok,
+    }
+
+
+def _redirect_order_detail(order_id: int):
+    return redirect(url_for('eposone.eposone_order_detail', order_id=int(order_id)))
+
+
+def _redirect_registers():
+    return redirect(url_for('eposone.eposone_section', slug='registers'))
+
+
+def _registers_page_context(organization_id: int) -> dict:
+    from models.commercial_core import CoreCashShift
+    from nodeone.core.commerce.cash import CashRegisterService
+    from nodeone.core.commerce.constants import CASH_SHIFT_CLOSED, CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
+    from nodeone.core.commerce.persistence import cash_shift_to_dto
+    from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER
+    from nodeone.core.services.org_unit import OrgUnitService
+
+    oid = int(organization_id)
+    registers = OrgUnitService.list_units(oid, unit_type=ORG_UNIT_TYPE_REGISTER)
+    active_shifts = (
+        CoreCashShift.query.filter(
+            CoreCashShift.organization_id == oid,
+            CoreCashShift.status.in_((CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING)),
+        )
+        .order_by(CoreCashShift.register_ref.asc())
+        .all()
+    )
+    shift_by_register = {str(row.register_ref): row for row in active_shifts}
+
+    register_rows: list[dict] = []
+    for reg in registers:
+        ref = str(reg.unit_ref)
+        shift_row = shift_by_register.get(ref)
+        shift_dto = None
+        expected_balance = None
+        can_open = shift_row is None
+        can_reconcile = False
+        can_close = False
+        if shift_row is not None:
+            status = str(shift_row.status or '')
+            shift_dto = cash_shift_to_dto(
+                shift_row,
+                include_variance=(status == CASH_SHIFT_RECONCILING),
+            )
+            if status == CASH_SHIFT_OPEN:
+                expected_balance = CashRegisterService.compute_expected_balance(int(shift_row.id))
+                can_reconcile = True
+            elif status == CASH_SHIFT_RECONCILING:
+                can_close = True
+        register_rows.append(
+            {
+                'register': reg,
+                'shift': shift_dto,
+                'expected_balance': expected_balance,
+                'can_open': can_open,
+                'can_reconcile': can_reconcile,
+                'can_close': can_close,
+            }
+        )
+
+    recent_closed = (
+        CoreCashShift.query.filter_by(organization_id=oid, status=CASH_SHIFT_CLOSED)
+        .order_by(CoreCashShift.closed_at.desc())
+        .limit(10)
+        .all()
+    )
+    return {
+        'register_rows': register_rows,
+        'registers_total': len(registers),
+        'open_shifts_total': len(active_shifts),
+        'recent_closed': [cash_shift_to_dto(row, include_variance=True) for row in recent_closed],
+    }
+
+
 @eposone_bp.route('/')
 @eposone_bp.route('/dashboard')
 @login_required
@@ -47,19 +184,275 @@ def eposone_order_detail(order_id: int):
     denied = _require_eposone_admin()
     if denied is not None:
         return denied
-    from nodeone.core.commerce.order import OrderService
     from nodeone.core.platform.runtime import resolve_organization_id
 
     oid = resolve_organization_id()
     if oid is None:
         abort(400)
-    order = OrderService.get(int(oid), int(order_id))
-    if order is None:
+    ctx = _order_detail_context(int(oid), int(order_id))
+    if ctx is None:
         abort(404)
-    return render_template(
-        'eposone/order_detail.html',
-        order=order,
+    return render_template('eposone/order_detail.html', **ctx)
+
+
+@eposone_bp.route('/orders/<int:order_id>/status', methods=['POST'])
+@login_required
+def eposone_order_status(order_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderService, OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    target = (request.form.get('status') or '').strip().lower()
+    if not target:
+        flash('Seleccioná un estado.', 'warning')
+        return _redirect_order_detail(order_id)
+    try:
+        dto = OrderService.transition_status(int(oid), int(order_id), target, source_app_id='eposone')
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_order_detail(order_id)
+    flash(f'Estado actualizado a {dto.status}.', 'success')
+    return _redirect_order_detail(order_id)
+
+
+@eposone_bp.route('/orders/<int:order_id>/capture-payment', methods=['POST'])
+@login_required
+def eposone_order_capture_payment(order_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.commerce.payment import PaymentService
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        amount = float(request.form.get('amount') or 0)
+    except ValueError:
+        flash('Monto no válido.', 'danger')
+        return _redirect_order_detail(order_id)
+    body = {
+        'order_id': int(order_id),
+        'amount': amount,
+        'payment_type': (request.form.get('payment_type') or 'card').strip().lower(),
+    }
+    register_ref = (request.form.get('register_ref') or '').strip()
+    if register_ref:
+        body['register_ref'] = register_ref
+    try:
+        dto = PaymentService.capture(int(oid), body, source_app_id='eposone')
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_order_detail(order_id)
+    flash(f'Pago {dto.payment_ref} capturado ({dto.amount:.2f}).', 'success')
+    return _redirect_order_detail(order_id)
+
+
+@eposone_bp.route('/orders/<int:order_id>/transfer', methods=['POST'])
+@login_required
+def eposone_order_transfer(order_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderService, OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    terminal_id = (request.form.get('terminal_id') or '').strip()
+    terminal_ref = (request.form.get('terminal_ref') or '').strip()
+    payload: dict = {}
+    if terminal_id:
+        payload['terminal_id'] = int(terminal_id)
+    elif terminal_ref:
+        payload['terminal_ref'] = terminal_ref
+    else:
+        flash('Seleccioná una terminal.', 'warning')
+        return _redirect_order_detail(order_id)
+    try:
+        dto = OrderService.transfer_to_terminal(int(oid), int(order_id), payload, source_app_id='eposone')
+    except (OrderValidationError, ValueError) as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_order_detail(order_id)
+    flash(f'Pedido transferido a terminal {dto.pos_terminal_id}.', 'success')
+    return _redirect_order_detail(order_id)
+
+
+@eposone_bp.route('/orders/<int:order_id>/emit-fiscal', methods=['POST'])
+@login_required
+def eposone_order_emit_fiscal(order_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.fiscal import CommerceFiscalService
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        result = CommerceFiscalService.process_pending_order(int(oid), int(order_id), source_app_id='eposone')
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_order_detail(order_id)
+    status = str(result.get('status') or '')
+    if status == 'issued':
+        flash(f'Factura emitida para {result.get("order_ref", order_id)}.', 'success')
+    elif status == 'skipped':
+        flash(f'Emisión fiscal omitida: {result.get("reason", "—")}.', 'warning')
+    else:
+        flash(f'Emisión fiscal en cola: {result.get("reason", status)}.', 'info')
+    return _redirect_order_detail(order_id)
+
+
+@eposone_bp.route('/orders/<int:order_id>/refund-payment', methods=['POST'])
+@login_required
+def eposone_order_refund_payment(order_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.commerce.payment import PaymentService
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    payment_id = (request.form.get('payment_id') or '').strip()
+    if not payment_id:
+        flash('Seleccioná un pago.', 'warning')
+        return _redirect_order_detail(order_id)
+    supervisor_raw = (request.form.get('supervisor_user_id') or '').strip()
+    if not supervisor_raw and getattr(current_user, 'id', None):
+        supervisor_raw = str(int(current_user.id))
+    approval = {
+        'supervisor_user_id': supervisor_raw,
+        'reason': (request.form.get('reason') or '').strip(),
+    }
+    amount_raw = (request.form.get('amount') or '').strip()
+    amount = float(amount_raw) if amount_raw else None
+    try:
+        dto = PaymentService.refund(
+            int(oid),
+            int(payment_id),
+            amount=amount,
+            approval=approval,
+            source_app_id='eposone',
+        )
+    except (OrderValidationError, ValueError) as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_order_detail(order_id)
+    flash(f'Reembolso registrado en {dto.payment_ref}.', 'success')
+    return _redirect_order_detail(order_id)
+
+
+@eposone_bp.route('/registers/open', methods=['POST'])
+@login_required
+def eposone_register_open_shift():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.cash import CashRegisterService
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    register_ref = (request.form.get('register_ref') or '').strip()
+    if not register_ref:
+        flash('Seleccioná una caja.', 'warning')
+        return _redirect_registers()
+    try:
+        opening_balance = float(request.form.get('opening_balance') or 0)
+    except ValueError:
+        flash('Saldo inicial no válido.', 'danger')
+        return _redirect_registers()
+    try:
+        dto = CashRegisterService.open_shift(
+            int(oid),
+            register_ref=register_ref,
+            opening_balance=opening_balance,
+            source_app_id='eposone',
+        )
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_registers()
+    flash(f'Turno abierto en {dto.register_ref} (saldo inicial {dto.opening_balance:.2f}).', 'success')
+    return _redirect_registers()
+
+
+@eposone_bp.route('/registers/<int:shift_id>/reconcile', methods=['POST'])
+@login_required
+def eposone_register_reconcile_shift(shift_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.cash import CashRegisterService
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        counted_amount = float(request.form.get('counted_amount') or 0)
+    except ValueError:
+        flash('Monto contado no válido.', 'danger')
+        return _redirect_registers()
+    try:
+        dto = CashRegisterService.begin_reconcile(
+            int(oid),
+            int(shift_id),
+            counted_amount=counted_amount,
+            source_app_id='eposone',
+        )
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_registers()
+    flash(
+        f'Arqueo iniciado en {dto.register_ref}. Revisá la diferencia y cerrá el turno.',
+        'info',
     )
+    return _redirect_registers()
+
+
+@eposone_bp.route('/registers/<int:shift_id>/close', methods=['POST'])
+@login_required
+def eposone_register_close_shift(shift_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.cash import CashRegisterService
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        dto = CashRegisterService.close_shift(int(oid), int(shift_id), source_app_id='eposone')
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_registers()
+    variance = dto.cash_variance
+    if variance is not None and abs(variance) > 0.009:
+        flash(
+            f'Turno cerrado en {dto.register_ref} con diferencia de {variance:.2f}.',
+            'warning',
+        )
+    else:
+        flash(f'Turno cerrado en {dto.register_ref}.', 'success')
+    return _redirect_registers()
 
 
 @eposone_bp.route('/contacts/create', methods=['POST'])
@@ -340,21 +733,18 @@ def eposone_section(slug: str):
             stock_balances_total=len(stock_balances),
         )
     if key == 'registers':
-        from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER
         from nodeone.core.platform.runtime import resolve_organization_id
-        from nodeone.core.services.org_unit import OrgUnitService
 
         oid = resolve_organization_id()
-        registers: list = []
+        ctx = {'register_rows': [], 'registers_total': 0, 'open_shifts_total': 0, 'recent_closed': []}
         if oid is not None:
-            registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
+            ctx = _registers_page_context(int(oid))
         return render_template(
             'eposone/registers.html',
             section_slug=key,
             section_title=title,
             section_description=description,
-            registers=registers,
-            registers_total=len(registers),
+            **ctx,
         )
     if key == 'terminals':
         from nodeone.core.commerce.pos import PosTerminalService

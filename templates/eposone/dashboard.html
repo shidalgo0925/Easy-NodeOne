@@ -16,7 +16,7 @@
 
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card en1-kpi-card--sorbet">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Pedidos hoy</div>
                     <div class="en1-kpi-value">{{ kpis.orders_today if kpis else '—' }}</div>
@@ -24,7 +24,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card en1-kpi-card--secondary">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Ventas hoy</div>
                     <div class="en1-kpi-value">
@@ -34,7 +34,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card en1-kpi-card--oz">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Cajas abiertas</div>
                     <div class="en1-kpi-value">{{ kpis.open_registers if kpis else '—' }}</div>
@@ -42,7 +42,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card en1-kpi-card--marigold">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Alertas stock</div>
                     <div class="en1-kpi-value">{{ kpis.stock_alerts if kpis else '—' }}</div>
@@ -72,13 +72,13 @@
                                 <tr>
                                     <td>
                                         {% if row.metric == 'sale' %}
-                                        <span class="badge en1-badge en1-badge--success">Venta</span>
+                                        <span class="badge en1-badge en1-badge--neutral">Venta</span>
                                         {% elif row.metric == 'refund' %}
-                                        <span class="badge en1-badge en1-badge--warning">Reembolso</span>
+                                        <span class="badge en1-badge en1-badge--neutral">Reembolso</span>
                                         {% elif row.metric == 'order_voided' %}
-                                        <span class="badge en1-badge en1-badge--danger">Anulado</span>
+                                        <span class="badge en1-badge en1-badge--neutral">Anulado</span>
                                         {% elif row.metric == 'shift_closed' %}
-                                        <span class="badge en1-badge en1-badge--info">Cierre caja</span>
+                                        <span class="badge en1-badge en1-badge--neutral">Cierre caja</span>
                                         {% else %}
                                         <span class="badge en1-badge en1-badge--neutral">{{ row.metric or row.event_type }}</span>
                                         {% endif %}

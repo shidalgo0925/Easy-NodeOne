@@ -57,7 +57,7 @@
                         <tr>
                             <td><code>{{ order.order_ref }}</code></td>
                             <td><span class="badge en1-badge en1-badge--neutral">{{ order.status }}</span></td>
-                            <td><span class="badge en1-badge en1-badge--info">{{ order.payment_status }}</span></td>
+                            <td><span class="badge en1-badge en1-badge--neutral">{{ order.payment_status }}</span></td>
                             <td><span class="badge en1-badge en1-badge--neutral">{{ order.fiscal_status }}</span></td>
                             <td class="text-end">{{ '%.2f'|format(order.grand_total) }} {{ order.currency }}</td>
                             <td class="small text-muted">{{ order.pos_terminal_id or '—' }}</td>

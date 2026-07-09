@@ -1,92 +1,83 @@
 /**
- * EN1 Color System — Propuesta V3.0
- * Sidebar #2D3E50 · Background #F7F9FC · Primary #FF7A59 · Secondary #4A90E2
+ * EN1 Color System — Corporativo (único acento naranja).
+ * Naranja #FF6B35 · Navy sidebar #2D3E50 · Escala de grises en UI.
  */
 
-/* Tokens fijos cuando data-brand=en1 (no los pisa Identidad visual custom) */
 html[data-brand='en1'] {
-    --color-primary: #ff7a59;
+    --color-primary: #ff6b35;
     --color-primary-dark: #2d3e50;
-    --color-accent: #4a90e2;
+    --color-accent: #9ca3af;
     --color-background-cream: #f7f9fc;
     --color-text: #2c3e50;
-    --color-border: #e2e8f0;
-    --en1-sorbet: #ff7a59;
-    --en1-secondary: #4a90e2;
-    --en1-calypso: #4a90e2;
-    --en1-obsidian: #2c3e50;
-    --en1-ink: #2c3e50;
-    --en1-ink-secondary: #6c757d;
-    --en1-ink-muted: #6c757d;
+    --color-border: #e5e7eb;
+    --en1-accent: #ff6b35;
+    --en1-sorbet: #ff6b35;
+    --en1-sidebar: #2d3e50;
     --en1-canvas: #f7f9fc;
     --en1-surface: #ffffff;
-    --en1-sidebar: #2d3e50;
-    --en1-border: #e2e8f0;
-    --en1-hover: #eef3f8;
-    --en1-success: #28a745;
-    --en1-oz: #28a745;
-    --en1-warning: #f4b400;
-    --en1-marigold: #f4b400;
-    --en1-danger: #e53935;
-    --en1-candy-apple: #e53935;
+    --en1-border: #e5e7eb;
+    --en1-border-strong: #d1d5db;
+    --en1-hover: #f3f4f6;
+    --en1-icon: #9ca3af;
+    --en1-ink: #2c3e50;
+    --en1-ink-secondary: #6b7280;
+    --en1-ink-muted: #9ca3af;
+    --en1-badge-bg: #f3f4f6;
+    --en1-badge-ink: #4b5563;
 }
 
 :root {
-    /* Marca */
-    --en1-sorbet: var(--color-primary, #ff7a59);
-    --en1-secondary: var(--color-accent, #4a90e2);
-    --en1-calypso: var(--en1-secondary);
+    --en1-accent: var(--color-primary, #ff6b35);
+    --en1-sorbet: var(--en1-accent);
     --en1-obsidian: #2c3e50;
 
-    /* Superficies */
     --en1-canvas: var(--color-background-cream, #f7f9fc);
     --en1-surface: #ffffff;
     --en1-sidebar: var(--color-primary-dark, #2d3e50);
-    --en1-hover: #eef3f8;
+    --en1-hover: #f3f4f6;
 
-    /* Acción (CTA) */
-    --en1-action: var(--en1-sorbet);
-    --en1-action-hover: #e6694a;
-    --en1-action-pressed: #cc5a3d;
+    --en1-action: var(--en1-accent);
+    --en1-action-hover: #e85f2f;
+    --en1-action-pressed: #cf5429;
     --en1-on-action: #ffffff;
 
-    /* Texto */
     --en1-ink: var(--color-text, #2c3e50);
-    --en1-ink-secondary: #6c757d;
-    --en1-ink-muted: #6c757d;
+    --en1-ink-secondary: #6b7280;
+    --en1-ink-muted: #9ca3af;
     --en1-on-dark: #ffffff;
+    --en1-icon: #9ca3af;
 
-    /* Bordes */
-    --en1-border: #e2e8f0;
-    --en1-border-strong: #cbd5e1;
-    --en1-disabled: #e2e8f0;
+    --en1-border: #e5e7eb;
+    --en1-border-strong: #d1d5db;
+    --en1-disabled: #e5e7eb;
 
-    /* Semánticos */
-    --en1-success: #28a745;
-    --en1-oz: var(--en1-success);
-    --en1-warning: #f4b400;
-    --en1-marigold: var(--en1-warning);
-    --en1-danger: #e53935;
-    --en1-candy-apple: var(--en1-danger);
-    --en1-info: var(--en1-secondary);
+    /* Alias legacy — semánticos en gris (sin arcoíris) */
+    --en1-secondary: var(--en1-ink-muted);
+    --en1-calypso: var(--en1-ink-muted);
+    --en1-success: var(--en1-ink-secondary);
+    --en1-oz: var(--en1-ink-secondary);
+    --en1-warning: var(--en1-ink-secondary);
+    --en1-marigold: var(--en1-ink-secondary);
+    --en1-danger: var(--en1-ink-secondary);
+    --en1-candy-apple: var(--en1-ink-secondary);
+    --en1-info: var(--en1-ink-muted);
+    --en1-badge-bg: #f3f4f6;
+    --en1-badge-ink: #4b5563;
 
-    /* Radios y sombras */
     --en1-radius-sm: 6px;
     --en1-radius-md: 8px;
-    --en1-radius-lg: 16px;
-    --en1-shadow-soft: 0 1px 3px rgba(45, 62, 80, 0.08);
-    --en1-shadow-card: 0 4px 16px rgba(45, 62, 80, 0.1);
+    --en1-radius-lg: 12px;
+    --en1-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --en1-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08);
 
-    /* Alias legacy */
     --color-background: var(--en1-canvas);
     --color-text: var(--en1-ink);
     --color-border: var(--en1-border);
-    --success-green: var(--en1-oz);
+    --success-green: var(--en1-ink-secondary);
     --gray-600: var(--en1-ink-muted);
     --gray-900: var(--en1-ink);
 }
 
-/* Superficie */
 body {
     background-color: var(--en1-canvas);
     color: var(--en1-ink);
@@ -98,7 +89,11 @@ h1, h2, h3, h4, h5, h6,
     color: var(--en1-ink);
 }
 
-/* CTAs — Sorbet */
+.text-muted {
+    color: var(--en1-ink-secondary) !important;
+}
+
+/* Botones — solo naranja (primario) o gris */
 .btn-primary,
 .btn.btn-primary {
     background-color: var(--en1-action);
@@ -132,19 +127,41 @@ h1, h2, h3, h4, h5, h6,
     color: var(--en1-on-action);
 }
 
-.btn-outline-dark {
-    color: var(--en1-ink);
+.btn-outline-secondary,
+.btn-secondary {
+    color: var(--en1-ink-secondary);
     border-color: var(--en1-border);
+    background-color: var(--en1-surface);
 }
 
-.btn-outline-dark:hover {
-    background-color: var(--en1-ink);
-    border-color: var(--en1-ink);
-    color: var(--en1-on-dark);
+.btn-outline-secondary:hover,
+.btn-secondary:hover {
+    background-color: var(--en1-hover);
+    border-color: var(--en1-border-strong);
+    color: var(--en1-ink);
+}
+
+#main-content .btn-success,
+#main-content .btn-danger,
+#main-content .btn-info,
+#main-content .btn-warning {
+    background-color: var(--en1-surface);
+    border-color: var(--en1-border);
+    color: var(--en1-ink-secondary);
+}
+
+#main-content .btn-success:hover,
+#main-content .btn-danger:hover,
+#main-content .btn-info:hover,
+#main-content .btn-warning:hover {
+    background-color: var(--en1-hover);
+    border-color: var(--en1-border-strong);
+    color: var(--en1-ink);
 }
 
 .text-primary,
-a.text-primary {
+a.text-primary,
+.text-primary i {
     color: var(--en1-action) !important;
 }
 
@@ -153,75 +170,43 @@ a.text-primary {
 }
 
 .badge.bg-primary {
-    background-color: var(--en1-action) !important;
+    background-color: color-mix(in srgb, var(--en1-accent) 12%, var(--en1-badge-bg)) !important;
+    color: var(--en1-badge-ink) !important;
+    border: 1px solid var(--en1-border);
 }
 
-.badge.bg-success,
-.btn-success,
-.alert-success {
-    --bs-success: var(--en1-oz);
-}
-
-.badge.bg-warning,
-.alert-warning {
-    --bs-warning: var(--en1-marigold);
-    color: var(--en1-ink) !important;
-}
-
-.badge.bg-danger,
-.btn-danger,
-.alert-danger {
-    --bs-danger: var(--en1-candy-apple);
-}
-
-.bg-success { background-color: var(--en1-oz) !important; }
-.bg-warning { background-color: var(--en1-marigold) !important; color: var(--en1-ink) !important; }
-.bg-danger { background-color: var(--en1-candy-apple) !important; }
-.bg-info { background-color: var(--en1-calypso) !important; }
-.text-info { color: var(--en1-calypso) !important; }
-
-/* Cards */
+/* Cards — borde gris uniforme */
 .card {
     background-color: var(--en1-surface);
-    border-color: var(--en1-border);
+    border: 1px solid var(--en1-border);
     border-radius: var(--en1-radius-lg);
     box-shadow: var(--en1-shadow-soft);
 }
 
 .card-header.bg-primary {
-    background: var(--en1-action) !important;
+    background: var(--en1-ink) !important;
     border-color: transparent;
+    color: var(--en1-on-dark);
 }
 
-/* Enlaces — Secondary azul (no Sorbet) */
+/* Enlaces — gris; hover naranja sutil */
 #main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card),
 .content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card) {
-    color: var(--en1-secondary);
+    color: var(--en1-ink-secondary);
 }
 
 #main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover,
 .content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover {
-    color: color-mix(in srgb, var(--en1-secondary) 78%, #000);
+    color: var(--en1-action);
 }
 
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--en1-secondary);
-    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-secondary) 22%, transparent);
+    border-color: color-mix(in srgb, var(--en1-accent) 45%, var(--en1-border));
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-accent) 15%, transparent);
 }
 
-.btn-outline-secondary {
-    color: var(--en1-ink-secondary);
-    border-color: var(--en1-border);
-}
-
-.btn-outline-secondary:hover {
-    background-color: var(--en1-hover);
-    border-color: var(--en1-border-strong);
-    color: var(--en1-ink);
-}
-
-/* Sidebar EN1 */
+/* Sidebar */
 html[data-brand='en1'] aside.left-panel.sidebar-erp,
 aside.left-panel.sidebar-erp {
     background: var(--en1-sidebar) !important;
@@ -231,13 +216,23 @@ aside.left-panel.sidebar-erp {
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
-    background: color-mix(in srgb, var(--en1-sorbet) 22%, transparent) !important;
-    border-left: 4px solid var(--en1-sorbet) !important;
+    background: color-mix(in srgb, var(--en1-accent) 14%, transparent) !important;
+    border-left: 4px solid var(--en1-accent) !important;
+    padding-left: calc(0.75rem - 4px);
 }
 
+/* Iconos sidebar — gris; activo naranja */
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon:not(.menu-arrow),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, var(--en1-sorbet) 0%, var(--en1-calypso) 55%, var(--en1-oz) 100%);
+    background: var(--en1-icon) !important;
+    color: #fff !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a .menu-icon {
+    background: var(--en1-accent) !important;
 }
 
 .bg-iius-navy,
@@ -245,154 +240,153 @@ html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sideb
     background-color: var(--en1-sidebar) !important;
 }
 
-/* Portal admin — module cards */
+/* Module cards — sin arcoíris */
 .module-card {
     background: var(--en1-surface);
-    border-color: var(--en1-border);
-    border-left: 4px solid var(--en1-border);
+    border: 1px solid var(--en1-border);
+    border-left: 4px solid var(--en1-border) !important;
 }
 
 .module-card:hover {
-    border-color: var(--en1-secondary);
+    border-color: var(--en1-border-strong) !important;
+    border-left-color: var(--en1-accent) !important;
     background-color: var(--en1-hover);
 }
 
-.module-card .module-icon {
-    color: var(--en1-sorbet);
+.module-card .module-icon,
+.module-card .module-icon i {
+    color: var(--en1-icon) !important;
 }
 
-.module-card--sorbet { border-left-color: var(--en1-sorbet) !important; }
-.module-card--calypso { border-left-color: var(--en1-calypso) !important; }
-.module-card--oz { border-left-color: var(--en1-oz) !important; }
-.module-card--marigold { border-left-color: var(--en1-marigold) !important; }
-.module-card--obsidian { border-left-color: var(--en1-obsidian) !important; }
-.module-card--candy { border-left-color: var(--en1-candy-apple) !important; }
+.module-card:hover .module-icon,
+.module-card:hover .module-icon i {
+    color: var(--en1-accent) !important;
+}
+
+.module-card--sorbet,
+.module-card--calypso,
+.module-card--oz,
+.module-card--marigold,
+.module-card--obsidian,
+.module-card--candy {
+    border-left-color: var(--en1-border) !important;
+}
 
 .portal-welcome .subtitle {
     color: var(--en1-ink-muted);
 }
 
 .en1-setup-banner {
-    background: linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--en1-calypso) 14%, var(--en1-surface)),
-        color-mix(in srgb, var(--en1-sorbet) 10%, var(--en1-surface))
-    ) !important;
+    background: var(--en1-hover) !important;
     color: var(--en1-ink);
+    border: 1px solid var(--en1-border);
 }
 
-/* Banner plataforma */
 body[data-platform-app-shell='1'] .platform-shell-banner {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--en1-calypso) 10%, transparent), transparent);
+    background: var(--en1-hover);
     border-bottom-color: var(--en1-border);
 }
 
 body[data-platform-app-shell='1'] .platform-shell-banner__app {
-    color: var(--en1-sorbet);
+    color: var(--en1-accent);
 }
 
-/* Dashboard service circles — paleta EN1 */
-.bg-purple { background: linear-gradient(135deg, var(--en1-sorbet) 0%, var(--en1-action-hover) 100%); }
-.bg-orange { background: linear-gradient(135deg, var(--en1-sorbet) 0%, var(--en1-action-pressed) 100%); }
+/* Círculos de servicio — gris o naranja único */
+.bg-purple,
+.bg-orange,
 .bg-teal,
-.bg-green { background: linear-gradient(135deg, var(--en1-oz) 0%, #009e8a 100%); }
+.bg-green,
 .bg-blue,
-.bg-cyan { background: linear-gradient(135deg, var(--en1-calypso) 0%, #008da3 100%); }
+.bg-cyan,
 .bg-pink,
-.bg-red { background: linear-gradient(135deg, var(--en1-candy-apple) 0%, #d9444b 100%); }
-.bg-indigo { background: linear-gradient(135deg, var(--en1-obsidian) 0%, var(--en1-sidebar) 100%); }
-.bg-yellow { background: linear-gradient(135deg, var(--en1-marigold) 0%, #e0a84a 100%); }
-.bg-dark-blue { background: linear-gradient(135deg, var(--en1-sorbet) 0%, var(--en1-sidebar) 100%); }
-.bg-secondary { background: linear-gradient(135deg, var(--en1-ink-muted) 0%, var(--en1-obsidian) 100%); }
-
-/* Dark theme */
-html[data-theme='dark'] {
-    --en1-canvas: #1a2332;
-    --en1-surface: #243044;
-    --en1-ink: #eaf0f6;
-    --en1-ink-muted: #99acc2;
-    --en1-border: #3d4f63;
+.bg-red,
+.bg-yellow,
+.bg-indigo,
+.bg-dark-blue,
+.bg-secondary {
+    background: var(--en1-icon) !important;
+    color: #fff !important;
 }
 
-html[data-theme='dark'] body {
-    background-color: var(--en1-canvas);
-    color: var(--en1-ink);
+.rounded-circle.bg-primary {
+    background: var(--en1-accent) !important;
 }
 
-/* --- V3.0 — badges semánticos --- */
+/* Badges — gris con tinte naranja sutil */
 .badge.en1-badge,
-.en1-badge {
+.en1-badge,
+.en1-badge--success,
+.en1-badge--warning,
+.en1-badge--danger,
+.en1-badge--info,
+.en1-badge--neutral,
+.en1-badge--accent,
+.badge.bg-success:not(.btn),
+.badge.bg-warning:not(.btn),
+.badge.bg-danger:not(.btn),
+.badge.bg-info:not(.btn),
+.badge.bg-secondary:not(.btn),
+.badge.text-bg-success,
+.badge.text-bg-info,
+.badge.text-bg-light {
+    background-color: var(--en1-badge-bg) !important;
+    color: var(--en1-badge-ink) !important;
+    border: 1px solid var(--en1-border);
     font-weight: 600;
     letter-spacing: 0.01em;
     border-radius: var(--en1-radius-sm);
     padding: 0.35em 0.65em;
 }
 
-.en1-badge--success,
+.en1-badge--accent,
 .badge.bg-success:not(.btn) {
-    background-color: color-mix(in srgb, var(--en1-success) 14%, #fff) !important;
-    color: #1b5e2f !important;
-}
-
-.en1-badge--warning {
-    background-color: color-mix(in srgb, var(--en1-warning) 22%, #fff) !important;
-    color: #6b5200 !important;
-}
-
-.en1-badge--danger,
-.badge.bg-danger:not(.btn) {
-    background-color: color-mix(in srgb, var(--en1-danger) 12%, #fff) !important;
-    color: #9b1c1c !important;
-}
-
-.en1-badge--info {
-    background-color: color-mix(in srgb, var(--en1-secondary) 14%, #fff) !important;
-    color: #1e4f8a !important;
-}
-
-.en1-badge--neutral,
-.badge.bg-secondary:not(.btn) {
-    background-color: var(--en1-sidebar) !important;
-    color: var(--en1-on-dark) !important;
+    background-color: color-mix(in srgb, var(--en1-accent) 10%, var(--en1-badge-bg)) !important;
+    color: #374151 !important;
 }
 
 .badge.bg-warning.text-dark {
-    background-color: color-mix(in srgb, var(--en1-warning) 30%, #fff) !important;
-    color: #6b5200 !important;
+    background-color: var(--en1-badge-bg) !important;
+    color: var(--en1-badge-ink) !important;
 }
 
-.badge.bg-info:not(.btn) {
-    background-color: color-mix(in srgb, var(--en1-secondary) 14%, #fff) !important;
-    color: #1e4f8a !important;
+.bg-success,
+.bg-warning,
+.bg-danger,
+.bg-info {
+    background-color: var(--en1-badge-bg) !important;
+    color: var(--en1-badge-ink) !important;
 }
 
-/* Toolbar admin — secundarios grises (XLS/PDF) */
+.text-info {
+    color: var(--en1-ink-muted) !important;
+}
+
 .erp-toolbar .btn-success.btn-sm,
 .erp-toolbar .btn-danger.btn-sm {
     background-color: var(--en1-surface);
     border-color: var(--en1-border);
-    color: var(--en1-ink);
+    color: var(--en1-ink-secondary);
 }
 
 .erp-toolbar .btn-success.btn-sm:hover,
 .erp-toolbar .btn-danger.btn-sm:hover {
-    background-color: var(--en1-canvas);
+    background-color: var(--en1-hover);
     border-color: var(--en1-border-strong);
     color: var(--en1-ink);
 }
 
-/* KPI cards EPosOne */
-.en1-kpi-card {
-    border-left: 4px solid var(--en1-border);
-}
-
-.en1-kpi-card--sorbet { border-left-color: var(--en1-sorbet); }
+/* KPI cards — borde gris único */
+.en1-kpi-card,
+.en1-kpi-card--sorbet,
+.en1-kpi-card--neutral,
 .en1-kpi-card--calypso,
-.en1-kpi-card--secondary { border-left-color: var(--en1-secondary); }
+.en1-kpi-card--secondary,
 .en1-kpi-card--oz,
-.en1-kpi-card--success { border-left-color: var(--en1-success); }
+.en1-kpi-card--success,
 .en1-kpi-card--marigold,
-.en1-kpi-card--warning { border-left-color: var(--en1-warning); }
+.en1-kpi-card--warning {
+    border-left: 4px solid var(--en1-border) !important;
+}
 
 .en1-kpi-label {
     color: var(--en1-ink-muted);
@@ -418,7 +412,7 @@ html[data-theme='dark'] body {
 }
 
 .en1-data-table thead th {
-    background: var(--en1-canvas);
+    background: var(--en1-hover);
     border-bottom-color: var(--en1-border);
     color: var(--en1-ink-secondary);
     font-size: 0.75rem;
@@ -428,19 +422,51 @@ html[data-theme='dark'] body {
 }
 
 .en1-data-table tbody td {
-    border-color: color-mix(in srgb, var(--en1-border) 70%, transparent);
+    border-color: var(--en1-border);
 }
 
 .en1-data-table tbody tr:hover {
     background-color: var(--en1-hover);
 }
 
-.text-muted {
-    color: var(--en1-ink-secondary) !important;
+/* Dark theme */
+html[data-theme='dark'] {
+    --en1-canvas: #1a2332;
+    --en1-surface: #243044;
+    --en1-ink: #eaf0f6;
+    --en1-ink-muted: #9ca3af;
+    --en1-border: #3d4f63;
+    --en1-badge-bg: #2d3748;
+    --en1-badge-ink: #e5e7eb;
+    --en1-hover: #2d3748;
+}
+
+html[data-theme='dark'] body {
+    background-color: var(--en1-canvas);
+    color: var(--en1-ink);
+}
+
+/* Sidebar launcher / miembro — sin arcoíris en marca EN1 */
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--comercial > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--operaciones > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--finanzas > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--inteligencia > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--sistema > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member .menu-icon:not(.menu-arrow) {
+    background: var(--en1-icon) !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group.show > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member > a.nav-link.active .menu-icon:not(.menu-arrow) {
+    background: var(--en1-accent) !important;
 }
 
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
-html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
-html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
-    padding-left: calc(0.75rem - 4px);
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle) {
+    border-left-color: var(--en1-accent) !important;
+}
+
+.en1-eposone-page .table-light {
+    background-color: var(--en1-hover) !important;
+    color: var(--en1-ink-secondary);
 }

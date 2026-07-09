@@ -47,6 +47,18 @@ class PaymentService:
         return payment_to_dto(row, order_ref=order_ref)
 
     @staticmethod
+    def list_for_order(organization_id: int, order_id: int) -> list[PaymentDTO]:
+        oid = int(organization_id)
+        order = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(order_id)).first()
+        order_ref = str(order.order_ref) if order else ''
+        rows = (
+            CoreCommercialPayment.query.filter_by(organization_id=oid, order_id=int(order_id))
+            .order_by(CoreCommercialPayment.id.desc())
+            .all()
+        )
+        return [payment_to_dto(row, order_ref=order_ref) for row in rows]
+
+    @staticmethod
     def capture(organization_id: int, data: dict[str, Any], *, source_app_id: str = 'eposone') -> PaymentDTO:
         from app import db
 

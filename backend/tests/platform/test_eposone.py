@@ -79,6 +79,7 @@ class TestEPosOneRoutes(unittest.TestCase):
         from nodeone.modules.eposone.sections import EPOSONE_SECTION_SLUGS
 
         self.assertIn('orders', EPOSONE_SECTION_SLUGS)
+        self.assertIn('products', EPOSONE_SECTION_SLUGS)
         self.assertIn('settings', EPOSONE_SECTION_SLUGS)
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 # slug → (título, descripción corta)
 EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
     'orders': ('Pedidos', 'Órdenes y tickets de venta en punto de venta.'),
+    'products': ('Productos', 'Catálogo maestro de bienes y servicios para el POS.'),
     'inventory': ('Inventario', 'Stock y movimientos vinculados al POS.'),
     'branches': ('Sucursales', 'Locales y puntos de operación comercial.'),
     'terminals': ('Terminales', 'Dispositivos y estaciones de cobro.'),

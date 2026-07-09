@@ -20,6 +20,7 @@ from nodeone.core.platform.runtime import resolve_organization_id
 from nodeone.core.services.org_unit import OrgUnitService
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
 from nodeone.modules.eposone.org_unit_api import org_unit_collection_handler, org_unit_get_handler
+from nodeone.modules.eposone.product_api import product_collection_handler, product_get_handler
 from flask_login import current_user
 
 eposone_api_bp = Blueprint('eposone_api', __name__, url_prefix='/api/eposone')
@@ -327,6 +328,24 @@ def warehouses_get(unit_ref: str):
     if not isinstance(gate, int):
         return gate
     return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_WAREHOUSE, item_key='warehouse')
+
+
+@eposone_api_bp.route('/products', methods=['GET', 'POST'])
+@login_required
+def products_collection():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return product_collection_handler(gate)
+
+
+@eposone_api_bp.route('/products/<product_ref>', methods=['GET'])
+@login_required
+def products_get(product_ref: str):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return product_get_handler(gate, product_ref)
 
 
 @eposone_api_bp.route('/branches', methods=['GET', 'POST'])

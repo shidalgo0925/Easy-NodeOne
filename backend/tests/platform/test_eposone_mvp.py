@@ -82,6 +82,40 @@ class TestEPosOneAPI(unittest.TestCase):
             r = c.get('/api/eposone/branches')
             self.assertIn(r.status_code, (302, 401))
 
+    def test_products_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.get('/api/eposone/products')
+            self.assertIn(r.status_code, (302, 401))
+
+    @patch('nodeone.modules.eposone.product_api.ProductService.search', return_value=[])
+    def test_products_api_list(self, mock_search):
+        from nodeone.modules.eposone.product_api import product_collection_handler
+
+        with self.app.test_request_context('/api/eposone/products'):
+            resp = product_collection_handler(1)
+        self.assertEqual(resp.status_code, 200)
+        mock_search.assert_called_once()
+
+    @patch('nodeone.modules.eposone.product_api.ProductService.create')
+    def test_products_api_create(self, mock_create):
+        from types import SimpleNamespace
+
+        from nodeone.modules.eposone.product_api import product_collection_handler
+
+        mock_create.return_value = SimpleNamespace(
+            to_dict=lambda: {'product_ref': 'SKU-1', 'name': 'Café'},
+        )
+        with self.app.test_request_context(
+            '/api/eposone/products',
+            method='POST',
+            json={'product_ref': 'SKU-1', 'name': 'Café', 'unit_price': 3.5},
+        ):
+            result = product_collection_handler(1)
+        status = result[1] if isinstance(result, tuple) else result.status_code
+        self.assertEqual(status, 201)
+        args = mock_create.call_args[0]
+        self.assertEqual(args[1]['source_app_id'], 'eposone')
+
     def test_warehouses_api_requires_auth(self):
         with self.app.test_client() as c:
             r = c.get('/api/eposone/warehouses')

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <span class="badge bg-secondary">{{ products_total }} producto(s)</span>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if products %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Referencia</th>
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th>Precio</th>
+                            <th>Inventario</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                        <tr>
+                            <td><code>{{ product.product_ref }}</code></td>
+                            <td>{{ product.name }}</td>
+                            <td class="text-muted small">{{ product.product_type }}</td>
+                            <td>{{ '%.2f'|format(product.unit_price) }} {{ product.currency }}</td>
+                            <td>
+                                {% if product.tracks_inventory %}
+                                <span class="badge text-bg-info">Sí</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge text-bg-light border">{{ product.status }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">No hay productos en el catálogo maestro todavía.</p>
+                <p class="small mb-0">
+                    Creá productos vía <code>POST /api/eposone/products</code> con
+                    <code>product_ref</code>, <code>name</code> y <code>unit_price</code>.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -57,6 +57,22 @@ def eposone_section(slug: str):
             orders=orders,
             orders_total=orders_total,
         )
+    if key == 'products':
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.product import ProductService
+
+        oid = resolve_organization_id()
+        products: list = []
+        if oid is not None:
+            products = ProductService.search(int(oid), limit=100)
+        return render_template(
+            'eposone/products.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            products=products,
+            products_total=len(products),
+        )
     if key == 'kds':
         from nodeone.core.platform.runtime import resolve_organization_id
         from nodeone.modules.eposone.kds_service import KdsService
@@ -217,7 +233,11 @@ def _compose_links() -> list[dict[str, str]]:
 
     _add('Clientes', 'contacts_admin.contacts_index', 'contacts')
     _add('Cotizaciones / ventas', 'admin_sales_quotations', 'sales')
-    _add('Productos', 'admin_services_catalog.admin_services', 'sales')
+    try:
+        links.append({'label': 'Catálogo productos', 'url': url_for('eposone.eposone_section', slug='products')})
+    except Exception:
+        pass
+    _add('Productos (legacy)', 'admin_services_catalog.admin_services', 'sales')
     _add('Inventario (contador)', 'contador.contador_index', 'contador')
     _add('Reportes ventas', 'admin_analytics_sales', 'analytics')
     return links

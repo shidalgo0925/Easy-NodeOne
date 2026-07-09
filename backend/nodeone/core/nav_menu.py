@@ -1116,16 +1116,7 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_blueprints=('contacts_admin',),
                 active_path_prefixes=('/admin/contacts',),
             ),
-            NavAreaItem(
-                'productos',
-                'Productos',
-                'fas fa-box-open',
-                'admin_services_catalog.admin_services',
-                url_path='/admin/services',
-                visible=_v_eposone_compose_products,
-                active_endpoints=('admin_services_catalog.admin_services',),
-                active_path_prefixes=('/admin/services', '/admin/service-categories'),
-            ),
+            _eposone_section_item('productos', 'Productos', 'fas fa-box-open', 'products'),
             NavAreaItem(
                 'inventario_core',
                 'Inventario',

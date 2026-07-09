@@ -151,6 +151,8 @@ class TestPlatformMasterAPI(unittest.TestCase):
         rules = {r.rule for r in flask_app.url_map.iter_rules()}
         self.assertIn('/api/eposone/branches', rules)
         self.assertIn('/api/eposone/branches/<unit_ref>', rules)
+        self.assertIn('/api/eposone/products', rules)
+        self.assertIn('/api/eposone/products/<product_ref>', rules)
         self.assertIn('/api/eposone/warehouses', rules)
         self.assertIn('/api/eposone/registers', rules)
         self.assertIn('/api/eposone/pos-units', rules)

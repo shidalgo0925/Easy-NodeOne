@@ -97,6 +97,16 @@ class TestContactService(unittest.TestCase):
         self.assertTrue(dto.tracks_inventory)
 
 
+class TestOrgUnitServiceFacade(unittest.TestCase):
+    @patch('nodeone.core.services.org_unit._CoreOrgUnitService.list_units', return_value=[])
+    def test_list_units_delegates(self, mock_list):
+        from nodeone.core.services.org_unit import OrgUnitService
+
+        items = OrgUnitService.list_units(1, unit_type='branch')
+        self.assertEqual(items, [])
+        mock_list.assert_called_once_with(1, unit_type='branch', status=None)
+
+
 class TestOrganizationService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

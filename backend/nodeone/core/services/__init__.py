@@ -5,7 +5,9 @@ from nodeone.core.services.calendar import CalendarService, CalendarServiceNotRe
 from nodeone.core.services.contacts import ContactDTO, ContactService
 from nodeone.core.services.document import DocumentService, DocumentServiceNotReadyError
 from nodeone.core.services.notification import NotificationService
+from nodeone.core.services.org_unit import OrgUnitService
 from nodeone.core.services.organization import OrganizationDTO, OrganizationService
+from nodeone.core.master.dtos import OrgUnitDTO
 from nodeone.core.services.product import ProductDTO, ProductService, ProductServiceNotReadyError
 
 __all__ = [
@@ -17,6 +19,8 @@ __all__ = [
     'DocumentService',
     'DocumentServiceNotReadyError',
     'NotificationService',
+    'OrgUnitDTO',
+    'OrgUnitService',
     'OrganizationDTO',
     'OrganizationService',
     'ProductDTO',

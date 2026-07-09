@@ -115,6 +115,23 @@ def eposone_section(slug: str):
             section_description=description,
             menus=menus,
         )
+    if key == 'branches':
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
+
+        oid = resolve_organization_id()
+        branches: list = []
+        if oid is not None:
+            branches = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_BRANCH)
+        return render_template(
+            'eposone/branches.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            branches=branches,
+            branches_total=len(branches),
+        )
     return render_template(
         'eposone/section.html',
         section_slug=key,

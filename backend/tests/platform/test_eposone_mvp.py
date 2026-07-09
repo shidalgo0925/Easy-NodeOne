@@ -77,6 +77,11 @@ class TestEPosOneAPI(unittest.TestCase):
             r = c.get('/api/eposone/orders')
             self.assertIn(r.status_code, (302, 401))
 
+    def test_branches_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.get('/api/eposone/branches')
+            self.assertIn(r.status_code, (302, 401))
+
 
 class TestEPosOneSyncHandler(unittest.TestCase):
     def test_unsupported_operation(self):

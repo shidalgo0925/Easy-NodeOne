@@ -9,7 +9,9 @@ from nodeone.core.commerce.cash import CashRegisterService
 from nodeone.core.commerce.order import OrderService, OrderValidationError
 from nodeone.core.commerce.payment import PaymentService
 from nodeone.core.commerce.pos import PosTerminalService
+from nodeone.core.master.constants import MasterDataError, ORG_UNIT_TYPE_BRANCH
 from nodeone.core.platform.runtime import resolve_organization_id
+from nodeone.core.services.org_unit import OrgUnitService
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
 from flask_login import current_user
 
@@ -208,6 +210,37 @@ def terminals_register():
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'terminal': dto.to_dict()}), 201
+
+
+@eposone_api_bp.route('/branches', methods=['GET', 'POST'])
+@login_required
+def branches_collection():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    if request.method == 'GET':
+        status = (request.args.get('status') or '').strip() or None
+        items = OrgUnitService.list_units(gate, unit_type=ORG_UNIT_TYPE_BRANCH, status=status)
+        return jsonify({'branches': [b.to_dict() for b in items], 'count': len(items)})
+    body = request.get_json(silent=True) or {}
+    body['unit_type'] = ORG_UNIT_TYPE_BRANCH
+    try:
+        dto = OrgUnitService.create(gate, body)
+    except MasterDataError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'branch': dto.to_dict()}), 201
+
+
+@eposone_api_bp.route('/branches/<unit_ref>', methods=['GET'])
+@login_required
+def branches_get(unit_ref: str):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    dto = OrgUnitService.get_by_ref(gate, unit_ref)
+    if dto is None or dto.unit_type != ORG_UNIT_TYPE_BRANCH:
+        return jsonify({'error': 'not_found'}), 404
+    return jsonify({'branch': dto.to_dict()})
 
 
 @eposone_api_bp.route('/kds/tickets', methods=['GET'])

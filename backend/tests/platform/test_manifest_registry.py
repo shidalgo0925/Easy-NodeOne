@@ -137,6 +137,18 @@ class TestPlatformAppsAPI(unittest.TestCase):
         self.assertIn('/api/platform/apps/manifests/<app_id>/checklist', rules)
         self.assertIn('/api/platform/apps/health', rules)
         self.assertIn('/api/platform/apps/template', rules)
+        self.assertIn('/api/platform/master/org-units', rules)
+        self.assertIn('/api/platform/master/org-units/<unit_ref>', rules)
+
+
+class TestPlatformMasterAPI(unittest.TestCase):
+    def test_branches_api_route_registered(self):
+        from app import app as flask_app
+
+        rules = {r.rule for r in flask_app.url_map.iter_rules()}
+        self.assertIn('/api/eposone/branches', rules)
+        self.assertIn('/api/eposone/branches/<unit_ref>', rules)
+
 
 if __name__ == '__main__':
     unittest.main()

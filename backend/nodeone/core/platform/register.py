@@ -43,6 +43,9 @@ def register_platform_core(app) -> None:
     from nodeone.core.platform.apps_routes import register_platform_apps_api
 
     register_platform_apps_api(app)
+    from nodeone.core.platform.master_routes import register_platform_master_api
+
+    register_platform_master_api(app)
     from nodeone.core.commerce.register import register_commerce_bus_handlers
 
     register_commerce_bus_handlers()

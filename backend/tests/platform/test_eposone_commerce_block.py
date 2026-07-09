@@ -84,6 +84,9 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/delivery/<int:delivery_id>/status', rules)
         self.assertIn('/admin/eposone/digital-menus/create', rules)
         self.assertIn('/admin/eposone/digital-menus/<int:menu_id>/active', rules)
+        self.assertIn('/admin/eposone/promotions/create', rules)
+        self.assertIn('/admin/eposone/promotions/<int:promotion_id>/active', rules)
+        self.assertIn('/api/eposone/promotions', rules)
 
     def test_credit_note_event_in_commerce_types(self):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
@@ -520,6 +523,62 @@ class TestEPosOneDigitalMenuActions(unittest.TestCase):
         resp = self.client.post(action, data={'active': '0'}, follow_redirects=False)
         self.assertEqual(resp.status_code, 302)
         mock_set_active.assert_called_once_with(1, 4, active=False)
+
+
+class TestEPosOnePromotionActions(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.promotion_service.PromotionService.create_promotion')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_promotion_create_post(self, _oid, mock_create, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_create.return_value = SimpleNamespace(promo_ref='PROMO-0001')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_promotion_create')
+        resp = self.client.post(
+            action,
+            data={
+                'name': 'Happy hour',
+                'promo_type': 'percent',
+                'value': '15',
+                'code': 'HAPPY15',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_create.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.promotion_service.PromotionService.set_active')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_promotion_set_active_post(self, _oid, mock_set_active, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_set_active.return_value = SimpleNamespace(promo_ref='PROMO-0001', active=True)
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_promotion_set_active', promotion_id=2)
+        resp = self.client.post(action, data={'active': '1'}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_set_active.assert_called_once_with(1, 2, active=True)
 
 
 class TestEPosOneDashboardKpis(unittest.TestCase):

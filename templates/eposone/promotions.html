@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <span class="badge en1-badge--neutral">{{ promotions_total }} promoción(es)</span>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <strong>Nueva promoción</strong>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('eposone.eposone_promotion_create') }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold" for="promo_name">Nombre</label>
+                        <input type="text" class="form-control form-control-sm" id="promo_name" name="name"
+                               required maxlength="200" placeholder="Ej. Happy hour 20%">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-semibold" for="promo_type">Tipo</label>
+                        <select class="form-select form-select-sm" id="promo_type" name="promo_type" required>
+                            <option value="percent">Porcentaje (%)</option>
+                            <option value="fixed">Monto fijo</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-semibold" for="promo_value">Valor</label>
+                        <input type="number" class="form-control form-control-sm" id="promo_value" name="value"
+                               required min="0.01" step="0.01" placeholder="20">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-semibold" for="promo_code">Código (opcional)</label>
+                        <input type="text" class="form-control form-control-sm" id="promo_code" name="code"
+                               maxlength="64" placeholder="HAPPY20">
+                    </div>
+                    <div class="col-12 col-md-1">
+                        <button type="submit" class="btn btn-sm btn-primary w-100">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if promotions %}
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ref</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th class="text-end">Valor</th>
+                        <th>Código</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for promo in promotions %}
+                    <tr>
+                        <td><code>{{ promo.promo_ref }}</code></td>
+                        <td>{{ promo.name }}</td>
+                        <td>{{ 'Porcentaje' if promo.promo_type == 'percent' else 'Monto fijo' }}</td>
+                        <td class="text-end">
+                            {% if promo.promo_type == 'percent' %}
+                                {{ '%.2f'|format(promo.value) }}%
+                            {% else %}
+                                {{ '%.2f'|format(promo.value) }}
+                            {% endif %}
+                        </td>
+                        <td>{% if promo.code %}<code>{{ promo.code }}</code>{% else %}—{% endif %}</td>
+                        <td>
+                            <span class="badge {{ 'bg-success' if promo.active else 'bg-secondary' }}">
+                                {{ 'Activa' if promo.active else 'Inactiva' }}
+                            </span>
+                        </td>
+                        <td>
+                            <form method="post" action="{{ url_for('eposone.eposone_promotion_set_active', promotion_id=promo.id) }}" class="d-inline">
+                                <input type="hidden" name="active" value="{{ '0' if promo.active else '1' }}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    {{ 'Desactivar' if promo.active else 'Activar' }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-muted">
+            <p class="mb-2">No hay promociones configuradas.</p>
+            <p class="small mb-0">Creá la primera con el formulario de arriba o vía <code>POST /api/eposone/promotions</code>.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

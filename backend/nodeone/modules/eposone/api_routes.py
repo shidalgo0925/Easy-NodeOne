@@ -627,3 +627,28 @@ def digital_menus_collection():
             'public_url': DigitalMenuService.public_menu_url(dto.public_token),
         }
     ), 201
+
+
+@eposone_api_bp.route('/promotions', methods=['GET', 'POST'])
+@login_required
+def promotions_collection():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.promotion_service import PromotionService
+
+    if request.method == 'GET':
+        promos = PromotionService.list_promotions(gate)
+        return jsonify({'promotions': [p.to_dict() for p in promos]})
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = PromotionService.create_promotion(
+            gate,
+            name=str(body.get('name') or ''),
+            promo_type=str(body.get('promo_type') or 'percent'),
+            value=float(body.get('value') or 0),
+            code=(str(body.get('code')).strip() if body.get('code') else None),
+        )
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'promotion': dto.to_dict()}), 201

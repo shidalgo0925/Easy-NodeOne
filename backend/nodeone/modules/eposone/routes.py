@@ -105,6 +105,10 @@ def _redirect_digital_menu():
     return redirect(url_for('eposone.eposone_section', slug='digital-menu'))
 
 
+def _redirect_promotions():
+    return redirect(url_for('eposone.eposone_section', slug='promotions'))
+
+
 def _parse_digital_menu_items_from_form() -> list[dict]:
     names = request.form.getlist('item_name')
     prices = request.form.getlist('item_price')
@@ -798,6 +802,67 @@ def eposone_digital_menu_set_active(menu_id: int):
     return _redirect_digital_menu()
 
 
+@eposone_bp.route('/promotions/create', methods=['POST'])
+@login_required
+def eposone_promotion_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.promotion_service import PromotionService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    name = (request.form.get('name') or '').strip()
+    promo_type = (request.form.get('promo_type') or 'percent').strip().lower()
+    code = (request.form.get('code') or '').strip() or None
+    try:
+        value = float(request.form.get('value') or 0)
+    except ValueError:
+        flash('Valor de descuento no válido.', 'danger')
+        return _redirect_promotions()
+    try:
+        dto = PromotionService.create_promotion(
+            int(oid),
+            name=name,
+            promo_type=promo_type,
+            value=value,
+            code=code,
+        )
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_promotions()
+    flash(f'Promoción {dto.promo_ref} creada.', 'success')
+    return _redirect_promotions()
+
+
+@eposone_bp.route('/promotions/<int:promotion_id>/active', methods=['POST'])
+@login_required
+def eposone_promotion_set_active(promotion_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.promotion_service import PromotionService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    active_raw = (request.form.get('active') or '').strip().lower()
+    active = active_raw in {'1', 'true', 'yes', 'on'}
+    try:
+        dto = PromotionService.set_active(int(oid), int(promotion_id), active=active)
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_promotions()
+    label = 'activada' if dto.active else 'desactivada'
+    flash(f'Promoción {dto.promo_ref} {label}.', 'success')
+    return _redirect_promotions()
+
+
 @eposone_bp.route('/contacts/create', methods=['POST'])
 @login_required
 def eposone_contact_create():
@@ -1026,6 +1091,22 @@ def eposone_section(slug: str):
             section_title=title,
             section_description=description,
             menus=menus,
+        )
+    if key == 'promotions':
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.modules.eposone.promotion_service import PromotionService
+
+        oid = resolve_organization_id()
+        promotions: list = []
+        if oid is not None:
+            promotions = PromotionService.list_promotions(int(oid))
+        return render_template(
+            'eposone/promotions.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            promotions=promotions,
+            promotions_total=len(promotions),
         )
     if key == 'branches':
         from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH

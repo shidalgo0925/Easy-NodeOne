@@ -287,12 +287,42 @@ class TestEPosOneSyncHandler(unittest.TestCase):
         apply_eposone_sync_operation(dto)
         mock_split.assert_called_once_with(1, 5, [0, 2], source_app_id='eposone')
 
+    @patch('nodeone.modules.eposone.sync_handlers.OrderService.transfer_to_terminal')
+    def test_transfer_order_operation(self, mock_transfer):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=5,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='k5',
+            operation_type='transfer_order',
+            status='pending',
+            entity_type='order',
+            entity_ref='POS-0001',
+            payload={'order_id': 5, 'terminal_ref': 'CAJA-01'},
+            base_version=2,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_transfer.assert_called_once_with(
+            1,
+            5,
+            {'order_id': 5, 'terminal_ref': 'CAJA-01'},
+            source_app_id='eposone',
+        )
+
     def test_supported_operations_catalog(self):
         from nodeone.modules.eposone.sync_handlers import EPOSONE_SYNC_OPERATIONS
 
         self.assertIn('refund_payment', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('manual_cash_movement', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('split_order', EPOSONE_SYNC_OPERATIONS)
+        self.assertIn('transfer_order', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('stock_adjust', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('create_contact', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('promote_legacy_contact', EPOSONE_SYNC_OPERATIONS)

@@ -1324,5 +1324,83 @@ class TestOrderSplitBill(unittest.TestCase):
         mock_db.session.commit.assert_called_once()
 
 
+class TestOrderTransfer(unittest.TestCase):
+    @patch('nodeone.core.commerce.order.OrderService.publish_transferred')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.pos.PosTerminalService.get')
+    @patch('nodeone.core.commerce.pos.PosTerminalService.resolve_id', return_value=7)
+    @patch('nodeone.core.commerce.order.CoreCommercialOrder')
+    def test_transfer_updates_terminal(
+        self,
+        mock_order_cls,
+        mock_resolve,
+        mock_terminal_get,
+        mock_db,
+        mock_publish,
+    ):
+        from nodeone.core.commerce.dtos import PosTerminalDTO
+        from nodeone.core.commerce.order import OrderService
+
+        row = MagicMock()
+        row.id = 5
+        row.organization_id = 1
+        row.order_ref = 'POS-0001'
+        row.payment_status = 'unpaid'
+        row.operational_status = 'ready'
+        row.pos_terminal_id = 3
+        row.version = 2
+        row.contact_id = None
+        row.branch_org_unit_id = None
+        row.parent_order_id = None
+        row.currency = 'USD'
+        row.fiscal_status = 'not_required'
+        row.subtotal = 10.0
+        row.tax_total = 0.0
+        row.grand_total = 10.0
+        row.amount_paid = 0.0
+        row.source_app_id = 'eposone'
+        row.created_at = None
+        row.lines = []
+        mock_order_cls.query.filter_by.return_value.first.return_value = row
+        mock_terminal_get.return_value = PosTerminalDTO(
+            id=7,
+            organization_id=1,
+            terminal_ref='CAJA-01',
+            register_ref='REG-1',
+            status='active',
+            device_label=None,
+        )
+
+        dto = OrderService.transfer_to_terminal(1, 5, {'terminal_ref': 'CAJA-01'})
+        self.assertEqual(dto.pos_terminal_id, 7)
+        self.assertEqual(row.pos_terminal_id, 7)
+        mock_publish.assert_called_once()
+        mock_db.session.commit.assert_called_once()
+
+    @patch('nodeone.core.commerce.pos.PosTerminalService.resolve_id', return_value=7)
+    @patch('nodeone.core.commerce.order.CoreCommercialOrder')
+    def test_transfer_rejects_paid_order(self, mock_order_cls, _mock_resolve):
+        from nodeone.core.commerce.order import OrderService, OrderValidationError
+
+        row = MagicMock()
+        row.payment_status = 'paid'
+        row.operational_status = 'delivered'
+        mock_order_cls.query.filter_by.return_value.first.return_value = row
+
+        with self.assertRaises(OrderValidationError) as ctx:
+            OrderService.transfer_to_terminal(1, 5, {'terminal_id': 7})
+        self.assertEqual(str(ctx.exception), 'order_already_paid')
+
+
+class TestPosTerminalResolve(unittest.TestCase):
+    @patch('nodeone.core.commerce.pos.CorePosTerminal')
+    def test_resolve_by_ref(self, mock_cls):
+        from nodeone.core.commerce.pos import PosTerminalService
+
+        mock_cls.query.filter_by.return_value.first.return_value = MagicMock(id=11)
+        terminal_id = PosTerminalService.resolve_id(1, {'terminal_ref': 'HH-01'})
+        self.assertEqual(terminal_id, 11)
+
+
 if __name__ == '__main__':
     unittest.main()

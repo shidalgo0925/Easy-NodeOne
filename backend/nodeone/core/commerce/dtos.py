@@ -45,6 +45,7 @@ class OrderDTO:
     source_app_id: str
     branch_org_unit_id: int | None = None
     parent_order_id: int | None = None
+    pos_terminal_id: int | None = None
     created_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -59,6 +60,8 @@ class OrderDTO:
             'contact_id': self.contact_id,
             'branch_org_unit_id': self.branch_org_unit_id,
             'parent_order_id': self.parent_order_id,
+            'terminal_id': self.pos_terminal_id,
+            'pos_terminal_id': self.pos_terminal_id,
             'currency': self.currency,
             'subtotal': self.subtotal,
             'tax_total': self.tax_total,

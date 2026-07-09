@@ -25,6 +25,9 @@ class CoreCommercialOrder(db.Model):
     parent_order_id = db.Column(
         db.Integer, db.ForeignKey('core_commercial_order.id', ondelete='SET NULL'), nullable=True, index=True
     )
+    pos_terminal_id = db.Column(
+        db.Integer, db.ForeignKey('core_pos_terminal.id', ondelete='SET NULL'), nullable=True, index=True
+    )
     currency = db.Column(db.String(8), nullable=False, default='USD')
     subtotal = db.Column(db.Float, nullable=False, default=0.0)
     tax_total = db.Column(db.Float, nullable=False, default=0.0)

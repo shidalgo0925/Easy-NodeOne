@@ -59,6 +59,49 @@ class PosTerminalService:
         return [pos_terminal_to_dto(row) for row in rows]
 
     @staticmethod
+    def get(organization_id: int, terminal_id: int) -> PosTerminalDTO | None:
+        row = CorePosTerminal.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(terminal_id),
+        ).first()
+        return pos_terminal_to_dto(row) if row is not None else None
+
+    @staticmethod
+    def get_by_ref(organization_id: int, terminal_ref: str) -> PosTerminalDTO | None:
+        ref = (terminal_ref or '').strip()
+        if not ref:
+            return None
+        row = CorePosTerminal.query.filter_by(
+            organization_id=int(organization_id),
+            terminal_ref=ref,
+        ).first()
+        return pos_terminal_to_dto(row) if row is not None else None
+
+    @staticmethod
+    def resolve_id(organization_id: int, data: dict) -> int | None:
+        """Resuelve terminal_id desde terminal_id o terminal_ref."""
+        oid = int(organization_id)
+        if data.get('terminal_id') is not None:
+            terminal_id = int(data['terminal_id'])
+            row = CorePosTerminal.query.filter_by(organization_id=oid, id=terminal_id).first()
+            if row is None:
+                raise OrderValidationError('invalid_terminal_id')
+            return int(row.id)
+        terminal_ref = (str(data.get('terminal_ref') or '')).strip()
+        if terminal_ref:
+            row = CorePosTerminal.query.filter_by(organization_id=oid, terminal_ref=terminal_ref).first()
+            if row is None:
+                raise OrderValidationError(f'invalid_terminal_ref:{terminal_ref}')
+            return int(row.id)
+        if data.get('pos_terminal_id') is not None:
+            terminal_id = int(data['pos_terminal_id'])
+            row = CorePosTerminal.query.filter_by(organization_id=oid, id=terminal_id).first()
+            if row is None:
+                raise OrderValidationError('invalid_pos_terminal_id')
+            return int(row.id)
+        return None
+
+    @staticmethod
     def publish_registered(
         organization_id: int,
         *,

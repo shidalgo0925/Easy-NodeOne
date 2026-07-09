@@ -9,10 +9,12 @@ from nodeone.core.commerce.constants import (
     ORDER_FISCAL_STATUS_NOT_REQUIRED,
     ORDER_LINE_STATUS_CANCELLED,
     ORDER_LINE_STATUS_PENDING,
+    ORDER_PAYMENT_STATUS_PAID,
     ORDER_PAYMENT_STATUS_UNPAID,
     ORDER_STATUS_CANCELLED,
     ORDER_STATUS_CONFIRMED,
     ORDER_STATUS_DRAFT,
+    ORDER_STATUS_REFUNDED,
     can_transition_order_status,
 )
 from nodeone.core.master.constants import PRODUCT_STATUS_ACTIVE
@@ -24,6 +26,7 @@ from nodeone.core.commerce.events import (
     COMMERCE_ORDER_FISCAL_STATUS_CHANGED,
     COMMERCE_ORDER_PAYMENT_STATUS_CHANGED,
     COMMERCE_ORDER_STATUS_CHANGED,
+    COMMERCE_ORDER_TRANSFERRED,
 )
 from nodeone.core.commerce.persistence import order_to_dto
 from nodeone.core.services.audit import AuditService
@@ -93,6 +96,12 @@ def _resolve_order_contact_id(organization_id: int, data: dict[str, Any]) -> int
             raise OrderValidationError('invalid_contact_id')
         return int(contact.id)
     return None
+
+
+def _resolve_pos_terminal_id(organization_id: int, data: dict[str, Any]) -> int | None:
+    from nodeone.core.commerce.pos import PosTerminalService
+
+    return PosTerminalService.resolve_id(int(organization_id), data)
 
 
 def _build_order_line(organization_id: int, raw: dict[str, Any]) -> CoreCommercialOrderLine:
@@ -207,6 +216,7 @@ class OrderService:
             or ORDER_STATUS_DRAFT
         )
         contact_id = _resolve_order_contact_id(oid, data)
+        pos_terminal_id = _resolve_pos_terminal_id(oid, data)
         row = CoreCommercialOrder(
             organization_id=oid,
             order_ref=order_ref,
@@ -216,6 +226,7 @@ class OrderService:
             contact_id=contact_id,
             branch_org_unit_id=branch_org_unit_id,
             parent_order_id=parent_order_id,
+            pos_terminal_id=pos_terminal_id,
             currency=str(data.get('currency') or 'USD')[:8],
             subtotal=subtotal,
             tax_total=tax_total,
@@ -330,6 +341,61 @@ class OrderService:
         return dto
 
     @staticmethod
+    def transfer_to_terminal(
+        organization_id: int,
+        order_id: int,
+        data: dict[str, Any],
+        *,
+        source_app_id: str = 'eposone',
+    ) -> OrderDTO:
+        """Transferencia a caja v1 — mismo pedido, cambia terminal de cobro (§6.4)."""
+        from app import db
+        from nodeone.core.commerce.constants import POS_TERMINAL_ACTIVE
+        from nodeone.core.commerce.pos import PosTerminalService
+
+        oid = int(organization_id)
+        target_terminal_id = PosTerminalService.resolve_id(oid, data)
+        if target_terminal_id is None:
+            raise OrderValidationError('terminal_ref_or_id_required')
+
+        row = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(order_id)).first()
+        if row is None:
+            raise OrderValidationError('order_not_found')
+
+        if str(row.payment_status or ORDER_PAYMENT_STATUS_UNPAID) != ORDER_PAYMENT_STATUS_UNPAID:
+            raise OrderValidationError('order_already_paid')
+
+        cur_status = str(row.operational_status or ORDER_STATUS_DRAFT)
+        if cur_status in {ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}:
+            raise OrderValidationError(f'order_not_transferable:{cur_status}')
+
+        terminal = PosTerminalService.get(oid, int(target_terminal_id))
+        if terminal is None:
+            raise OrderValidationError('invalid_terminal_id')
+        if str(terminal.status or '') != POS_TERMINAL_ACTIVE:
+            raise OrderValidationError('inactive_terminal')
+
+        from_terminal_id = int(row.pos_terminal_id) if row.pos_terminal_id else None
+        if from_terminal_id == int(target_terminal_id):
+            return order_to_dto(row)
+
+        row.pos_terminal_id = int(target_terminal_id)
+        row.version = int(row.version or 1) + 1
+        db.session.commit()
+
+        dto = order_to_dto(row)
+        OrderService.publish_transferred(
+            oid,
+            order_ref=str(row.order_ref),
+            from_terminal_id=from_terminal_id,
+            to_terminal_id=int(target_terminal_id),
+            to_terminal_ref=str(terminal.terminal_ref),
+            source_app_id=source_app_id,
+            order_id=int(row.id),
+        )
+        return dto
+
+    @staticmethod
     def transition_status(
         organization_id: int,
         order_id: int,
@@ -395,6 +461,32 @@ class OrderService:
             pass
 
         return order_to_dto(row)
+
+    @staticmethod
+    def publish_transferred(
+        organization_id: int,
+        *,
+        order_ref: str,
+        from_terminal_id: int | None,
+        to_terminal_id: int,
+        to_terminal_ref: str,
+        source_app_id: str = 'eposone',
+        order_id: int | None = None,
+    ):
+        payload: dict[str, Any] = {
+            'order_ref': order_ref,
+            'from_terminal_id': from_terminal_id,
+            'to_terminal_id': to_terminal_id,
+            'to_terminal_ref': to_terminal_ref,
+        }
+        if order_id is not None:
+            payload['order_id'] = int(order_id)
+        return AuditService.publish_domain_event(
+            organization_id,
+            COMMERCE_ORDER_TRANSFERRED,
+            payload,
+            source_app_id=source_app_id,
+        )
 
     @staticmethod
     def publish_created(

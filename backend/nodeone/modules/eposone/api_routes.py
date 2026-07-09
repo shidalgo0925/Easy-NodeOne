@@ -155,6 +155,25 @@ def orders_split(order_id: int):
     return jsonify({'order': dto.to_dict()}), 201
 
 
+@eposone_api_bp.route('/orders/<int:order_id>/transfer', methods=['POST'])
+@login_required
+def orders_transfer(order_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = OrderService.transfer_to_terminal(
+            gate,
+            int(order_id),
+            body,
+            source_app_id='eposone',
+        )
+    except (OrderValidationError, ValueError, TypeError) as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'order': dto.to_dict()})
+
+
 @eposone_api_bp.route('/payments/<int:payment_id>/refund', methods=['POST'])
 @login_required
 def payments_refund(payment_id: int):

@@ -68,6 +68,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
         _ensure_order_inventory_deducted_at(engine, insp, printfn)
         _ensure_order_branch_org_unit(engine, insp, printfn)
         _ensure_order_parent_order_id(engine, insp, printfn)
+        _ensure_order_pos_terminal_id(engine, insp, printfn)
 
     if 'core_commercial_order_line' not in tables:
         ddl = """
@@ -401,6 +402,35 @@ def _ensure_order_parent_order_id(engine, insp, printfn) -> None:
             )
     if printfn:
         printfn('core_commercial_order: columna parent_order_id añadida')
+
+
+def _ensure_order_pos_terminal_id(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'pos_terminal_id' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_order '
+            'ADD COLUMN IF NOT EXISTS pos_terminal_id INTEGER '
+            'REFERENCES core_pos_terminal(id) ON DELETE SET NULL'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_order ADD COLUMN pos_terminal_id INTEGER'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if dialect == 'postgresql':
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_core_commercial_order_pos_terminal '
+                    'ON core_commercial_order (pos_terminal_id)'
+                )
+            )
+    if printfn:
+        printfn('core_commercial_order: columna pos_terminal_id añadida')
 
 
 def _ensure_order_line_status_axis(engine, insp, printfn) -> None:

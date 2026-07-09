@@ -127,6 +127,18 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             source_app_id='eposone',
         )
         return
+    if op == 'transfer_order':
+        payload = dict(dto.payload or {})
+        order_id = payload.get('order_id')
+        if not order_id:
+            raise OrderValidationError('order_id_required')
+        OrderService.transfer_to_terminal(
+            int(dto.organization_id),
+            int(order_id),
+            payload,
+            source_app_id='eposone',
+        )
+        return
     if op == 'stock_adjust':
         from nodeone.core.commerce.stock import StockService
 
@@ -173,6 +185,7 @@ EPOSONE_SYNC_OPERATIONS = frozenset(
         'close_cash_shift',
         'manual_cash_movement',
         'split_order',
+        'transfer_order',
         'stock_adjust',
         'create_contact',
         'promote_legacy_contact',

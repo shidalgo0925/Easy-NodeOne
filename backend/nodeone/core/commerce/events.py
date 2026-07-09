@@ -19,6 +19,7 @@ COMMERCE_PAYMENT_REFUNDED = 'commerce.payment.refunded'
 COMMERCE_INVOICE_ISSUED = 'commerce.invoice.issued'
 COMMERCE_INVOICE_REQUESTED = 'commerce.invoice.requested'
 COMMERCE_INVOICE_CANCELLED = 'commerce.invoice.cancelled'
+COMMERCE_CREDIT_NOTE_REQUESTED = 'commerce.credit_note.requested'
 
 COMMERCE_DELIVERY_STARTED = 'commerce.delivery.started'
 COMMERCE_DELIVERY_COMPLETED = 'commerce.delivery.completed'
@@ -62,6 +63,7 @@ COMMERCE_EVENT_TYPES = frozenset(
         COMMERCE_INVOICE_ISSUED,
         COMMERCE_INVOICE_REQUESTED,
         COMMERCE_INVOICE_CANCELLED,
+        COMMERCE_CREDIT_NOTE_REQUESTED,
         COMMERCE_DELIVERY_STARTED,
         COMMERCE_DELIVERY_COMPLETED,
         COMMERCE_CASH_SHIFT_OPENED,

@@ -734,6 +734,16 @@ def _env_brand_hex(key: str):
 _IIUS_BRAND_PRESET_KEYS = frozenset(
     ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
 )
+_EN1_BRAND_PRESET_KEYS = frozenset(('en1', 'easynodeone', 'hubspot'))
+# EN1 plataforma: morado CTA · marino · dorado · cian (EN1_Color_System_HubSpot)
+_EN1_THEME = {
+    'theme_primary': '#8B60AA',
+    'theme_primary_dark': '#00042D',
+    'theme_accent': '#E6BF75',
+    'theme_accent_gold': '#E6BF75',
+    'theme_accent_cyan': '#00B8E0',
+    'theme_background_cream': '#F8F5EE',
+}
 # IIUS (internationalinstitute.us): morado CTA · marino fondos · dorado emblema · cian copy destacada
 _IIUS_THEME = {
     'theme_primary': '#8B60AA',
@@ -750,8 +760,9 @@ def resolve_theme_tokens():
     Design tokens: organization_settings (BD) + capa opcional de marca.
     Orden: preset IIUS (si aplica) → BD → overrides NODEONE_BRAND_*.
     """
-    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
+    preset = (os.environ.get('NODEONE_BRAND_PRESET') or 'en1').strip().lower()
     use_iius = preset in _IIUS_BRAND_PRESET_KEYS
+    use_en1 = preset in _EN1_BRAND_PRESET_KEYS or preset == ''
 
     try:
         s = OrganizationSettings.get_settings_for_session()
@@ -760,6 +771,12 @@ def resolve_theme_tokens():
         if use_iius:
             out = {
                 **_IIUS_THEME,
+                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
+                'theme_favicon_url': s.favicon_url or '',
+            }
+        elif use_en1 and not (s.primary_color or s.primary_color_dark or s.accent_color):
+            out = {
+                **_EN1_THEME,
                 'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
                 'theme_favicon_url': s.favicon_url or '',
             }
@@ -777,6 +794,10 @@ def resolve_theme_tokens():
             'theme_logo_url': '',
             'theme_favicon_url': '',
         } if use_iius else {
+            **_EN1_THEME,
+            'theme_logo_url': '',
+            'theme_favicon_url': '',
+        } if use_en1 else {
             'theme_primary': '#2563EB',
             'theme_primary_dark': '#1E3A8A',
             'theme_accent': '#06B6D4',
@@ -792,6 +813,8 @@ def resolve_theme_tokens():
     ea = _env_brand_hex('NODEONE_BRAND_ACCENT')
     eg = _env_brand_hex('NODEONE_BRAND_ACCENT_GOLD')
     ec = _env_brand_hex('NODEONE_BRAND_ACCENT_CYAN')
+    if use_en1 and not ep and not ed and not ea:
+        out.update(_EN1_THEME)
     if ep:
         out['theme_primary'] = ep
     if ed:
@@ -807,8 +830,8 @@ def resolve_theme_tokens():
         out['theme_accent_cyan'] = ec
     out.setdefault('theme_accent_gold', out.get('theme_accent', '#06B6D4'))
     out.setdefault('theme_accent_cyan', out.get('theme_accent', '#06B6D4'))
-    out.setdefault('theme_background_cream', '#F1F5F9')
-    out['brand_preset'] = preset if use_iius else ''
+    out.setdefault('theme_background_cream', _EN1_THEME['theme_background_cream'] if use_en1 else '#F1F5F9')
+    out['brand_preset'] = preset if (use_iius or use_en1) else ''
     return out
 
 
@@ -820,13 +843,13 @@ def inject_theme():
         return resolve_theme_tokens()
     except Exception:
         return {
-            'theme_primary': '#2563EB',
-            'theme_primary_dark': '#1E3A8A',
-            'theme_accent': '#06B6D4',
-            'theme_accent_gold': '#06B6D4',
-            'theme_accent_cyan': '#06B6D4',
-            'theme_background_cream': '#F1F5F9',
-            'brand_preset': '',
+            'theme_primary': '#8B60AA',
+            'theme_primary_dark': '#00042D',
+            'theme_accent': '#E6BF75',
+            'theme_accent_gold': '#E6BF75',
+            'theme_accent_cyan': '#00B8E0',
+            'theme_background_cream': '#F8F5EE',
+            'brand_preset': 'en1',
             'theme_logo_url': '',
             'theme_favicon_url': '',
         }

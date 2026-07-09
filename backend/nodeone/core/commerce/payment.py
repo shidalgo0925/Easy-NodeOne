@@ -7,6 +7,7 @@ from typing import Any
 
 from models.commercial_core import CoreCommercialOrder, CoreCommercialPayment
 from nodeone.core.commerce.constants import (
+    ORDER_FISCAL_STATUS_CANCELLED,
     ORDER_FISCAL_STATUS_NOT_REQUIRED,
     ORDER_FISCAL_STATUS_PENDING,
     ORDER_FISCAL_STATUS_INVOICED,
@@ -236,7 +237,13 @@ class PaymentService:
         order.version = int(order.version or 1) + 1
         new_payment_status = order.sync_payment_status()
 
-        fiscal_reverted = PaymentService._maybe_revert_fiscal_on_full_refund(order)
+        fiscal_reverted = PaymentService._maybe_revert_fiscal_on_full_refund(
+            oid,
+            order,
+            payment_ref=str(row.payment_ref),
+            refund_amount=refund_amt,
+            source_app_id=source_app_id,
+        )
         operational_changed = PaymentService._maybe_transition_refunded(order, prev_operational)
 
         db.session.commit()
@@ -291,7 +298,14 @@ class PaymentService:
         return payment_to_dto(row, order_ref=str(order.order_ref))
 
     @staticmethod
-    def _maybe_revert_fiscal_on_full_refund(order: CoreCommercialOrder) -> str | None:
+    def _maybe_revert_fiscal_on_full_refund(
+        organization_id: int,
+        order: CoreCommercialOrder,
+        *,
+        payment_ref: str | None = None,
+        refund_amount: float | None = None,
+        source_app_id: str = 'eposone',
+    ) -> str | None:
         paid = round(float(order.amount_paid or 0), 2)
         if paid > 0:
             return None
@@ -300,7 +314,17 @@ class PaymentService:
             order.fiscal_status = ORDER_FISCAL_STATUS_NOT_REQUIRED
             return fs
         if fs == ORDER_FISCAL_STATUS_INVOICED:
-            return None
+            from nodeone.core.commerce.fiscal import CommerceFiscalService
+
+            CommerceFiscalService.request_credit_note_for_order(
+                int(organization_id),
+                int(order.id),
+                payment_ref=payment_ref,
+                refund_amount=refund_amount,
+                source_app_id=source_app_id,
+            )
+            order.fiscal_status = ORDER_FISCAL_STATUS_CANCELLED
+            return fs
         return None
 
     @staticmethod

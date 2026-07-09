@@ -301,6 +301,72 @@ class TestPaymentRefund(unittest.TestCase):
     @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
     @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
     @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
+    @patch('nodeone.core.commerce.fiscal.CommerceFiscalService.request_credit_note_for_order')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.payment.CoreCommercialOrder')
+    def test_refund_full_invoiced_requests_credit_note(
+        self,
+        mock_order_cls,
+        mock_payment_cls,
+        mock_db,
+        mock_credit_note,
+        mock_payment_changed,
+        mock_fiscal_changed,
+        mock_status_changed,
+        mock_refunded,
+        mock_supervisor,
+    ):
+        from nodeone.core.commerce.constants import (
+            ORDER_FISCAL_STATUS_CANCELLED,
+            ORDER_FISCAL_STATUS_INVOICED,
+            ORDER_PAYMENT_STATUS_UNPAID,
+            ORDER_STATUS_DELIVERED,
+            ORDER_STATUS_REFUNDED,
+            PAYMENT_STATUS_REFUNDED,
+        )
+        from nodeone.core.commerce.payment import PaymentService
+
+        order = MagicMock()
+        order.id = 12
+        order.order_ref = 'POS-0012'
+        order.status = ORDER_STATUS_DELIVERED
+        order.payment_status = 'paid'
+        order.fiscal_status = ORDER_FISCAL_STATUS_INVOICED
+        order.amount_paid = 25.0
+        order.grand_total = 25.0
+        order.version = 1
+        order.sync_payment_status.return_value = ORDER_PAYMENT_STATUS_UNPAID
+
+        pay_row = MagicMock()
+        pay_row.id = 8
+        pay_row.order_id = 12
+        pay_row.payment_ref = 'PAY-0012'
+        pay_row.status = 'captured'
+        pay_row.amount = 25.0
+        pay_row.refunded_amount = 0.0
+        pay_row.payment_type = 'card'
+        pay_row.cash_shift_id = None
+        pay_row.currency = 'USD'
+        pay_row.captured_at = None
+
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay_row
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+        mock_credit_note.return_value = {'status': 'queued', 'order_ref': 'POS-0012'}
+
+        PaymentService.refund(1, 8, approval=self._approval)
+
+        self.assertEqual(pay_row.status, PAYMENT_STATUS_REFUNDED)
+        self.assertEqual(order.fiscal_status, ORDER_FISCAL_STATUS_CANCELLED)
+        self.assertEqual(order.status, ORDER_STATUS_REFUNDED)
+        mock_credit_note.assert_called_once()
+        mock_fiscal_changed.assert_called_once()
+
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
     @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
     @patch('app.db')
     @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
@@ -1034,6 +1100,37 @@ class TestCommerceFiscalService(unittest.TestCase):
         mod.register_commerce_fiscal_handlers()
         mod.register_commerce_fiscal_handlers()
         self.assertEqual(mock_subscribe.call_count, 1)
+
+    @patch('nodeone.core.commerce.fiscal.InvoiceService.publish_cancelled')
+    @patch('nodeone.core.commerce.fiscal.AuditService.publish_domain_event')
+    @patch('nodeone.core.commerce.fiscal.CommerceFiscalService.find_invoice_id_for_order', return_value=77)
+    @patch('nodeone.core.commerce.fiscal.CoreCommercialOrder')
+    def test_request_credit_note_for_invoiced_order(
+        self,
+        mock_order_cls,
+        mock_find_inv,
+        mock_publish,
+        mock_cancelled,
+    ):
+        from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED
+        from nodeone.core.commerce.fiscal import CommerceFiscalService
+
+        order = MagicMock()
+        order.id = 9
+        order.order_ref = 'POS-0009'
+        order.fiscal_status = 'invoiced'
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+
+        with patch('nodeone.modules.accounting.models.Invoice') as mock_invoice_cls:
+            inv = MagicMock()
+            inv.number = 'POS-POS-0009'
+            mock_invoice_cls.query.filter_by.return_value.first.return_value = inv
+            result = CommerceFiscalService.request_credit_note_for_order(1, 9, payment_ref='PAY-9')
+
+        self.assertEqual(result['status'], 'queued')
+        mock_publish.assert_called_once()
+        self.assertEqual(mock_publish.call_args[0][1], COMMERCE_CREDIT_NOTE_REQUESTED)
+        mock_cancelled.assert_called_once()
 
 
 class TestOrderService(unittest.TestCase):

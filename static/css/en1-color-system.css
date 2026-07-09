@@ -1,0 +1,176 @@
+/**
+ * EN1 Color System — estructura semántica tipo HubSpot.
+ * Marca inyectada en base.html (--color-primary, --color-primary-dark, --color-accent*).
+ * Referencia: EN1_Color_System_HubSpot.pdf
+ */
+
+:root {
+    /* Superficies */
+    --en1-canvas: var(--color-background-cream, #f8f5ee);
+    --en1-surface: #ffffff;
+    --en1-surface-alt: var(--en1-canvas);
+    --en1-surface-dark: var(--color-primary-dark, #00042d);
+
+    /* Acción (CTA único — morado EN1 por defecto) */
+    --en1-action: var(--color-primary, #8b60aa);
+    --en1-action-hover: color-mix(in srgb, var(--en1-action) 82%, #000000);
+    --en1-action-pressed: color-mix(in srgb, var(--en1-action) 68%, #000000);
+    --en1-on-action: #ffffff;
+
+    /* Texto */
+    --en1-ink: var(--color-text, #0f172a);
+    --en1-ink-secondary: #4a4a4a;
+    --en1-ink-muted: #64748b;
+    --en1-on-dark: #ffffff;
+
+    /* Bordes y estados */
+    --en1-border: var(--color-border, #e2e8f0);
+    --en1-border-strong: #cfcabd;
+    --en1-mist: #cacac8;
+    --en1-disabled: #94a3b8;
+
+    /* Acentos decorativos EN1 */
+    --en1-accent-gold: var(--color-accent-gold, #e6bf75);
+    --en1-accent-cyan: var(--color-accent-cyan, #00b8e0);
+    --en1-tint-gold: color-mix(in srgb, var(--en1-accent-gold) 22%, #ffffff);
+    --en1-tint-cyan: color-mix(in srgb, var(--en1-accent-cyan) 18%, #ffffff);
+    --en1-tint-lilac: color-mix(in srgb, var(--en1-action) 14%, #ffffff);
+
+    /* Semánticos */
+    --en1-success: #10b981;
+    --en1-warning: #f59e0b;
+    --en1-danger: #dc2626;
+    --en1-info: var(--en1-accent-cyan);
+
+    /* Radios y sombras (HubSpot-like) */
+    --en1-radius-sm: 6px;
+    --en1-radius-md: 8px;
+    --en1-radius-lg: 16px;
+    --en1-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --en1-shadow-card: 0 6px 20px rgba(15, 23, 42, 0.09);
+
+    /* Alias → tokens legacy existentes */
+    --color-background: var(--en1-canvas);
+    --color-text: var(--en1-ink);
+    --color-border: var(--en1-border);
+    --light-blue: var(--en1-tint-cyan);
+    --secondary-blue: var(--en1-tint-lilac);
+    --success-green: var(--en1-success);
+}
+
+/* Superficie de página */
+body {
+    background-color: var(--en1-canvas);
+    color: var(--en1-ink);
+}
+
+/* CTAs — un solo color de acción */
+.btn-primary,
+.btn.btn-primary {
+    background-color: var(--en1-action);
+    border-color: var(--en1-action);
+    color: var(--en1-on-action);
+    border-radius: var(--en1-radius-md);
+}
+
+.btn-primary:hover,
+.btn.btn-primary:hover {
+    background-color: var(--en1-action-hover);
+    border-color: var(--en1-action-hover);
+    color: var(--en1-on-action);
+}
+
+.btn-primary:active,
+.btn.btn-primary:active {
+    background-color: var(--en1-action-pressed);
+    border-color: var(--en1-action-pressed);
+}
+
+.btn-outline-primary {
+    color: var(--en1-action);
+    border-color: var(--en1-action);
+    border-radius: var(--en1-radius-md);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--en1-action);
+    border-color: var(--en1-action);
+    color: var(--en1-on-action);
+}
+
+.text-primary,
+a.text-primary {
+    color: var(--en1-action) !important;
+}
+
+.bg-primary {
+    background-color: var(--en1-action) !important;
+}
+
+.badge.bg-primary {
+    background-color: var(--en1-action) !important;
+}
+
+/* Cards sobre canvas cálido */
+.card {
+    background-color: var(--en1-surface);
+    border-color: var(--en1-border);
+    border-radius: var(--en1-radius-lg);
+    box-shadow: var(--en1-shadow-soft);
+}
+
+.card-header.bg-primary {
+    background: linear-gradient(
+        135deg,
+        var(--en1-action) 0%,
+        color-mix(in srgb, var(--en1-action) 55%, var(--color-primary-dark, #00042d)) 100%
+    ) !important;
+    border-color: transparent;
+}
+
+/* Sidebar / secciones oscuras */
+.left-panel.sidebar-erp,
+.bg-iius-navy,
+.bg-dark-blue {
+    background-color: var(--en1-surface-dark) !important;
+}
+
+/* Enlaces y foco */
+a:not(.btn):not(.nav-link) {
+    color: var(--en1-action);
+}
+
+a:not(.btn):not(.nav-link):hover {
+    color: var(--en1-action-hover);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--en1-action);
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-action) 22%, transparent);
+}
+
+/* Banner plataforma */
+body[data-platform-app-shell='1'] .platform-shell-banner {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--en1-action) 10%, transparent), transparent);
+    border-bottom-color: var(--en1-border);
+}
+
+body[data-platform-app-shell='1'] .platform-shell-banner__app {
+    color: var(--en1-action);
+}
+
+/* Dark theme */
+html[data-theme='dark'] {
+    --en1-canvas: #1a1d23;
+    --en1-surface: #252830;
+    --en1-surface-alt: #2d3139;
+    --en1-ink: #e4e6eb;
+    --en1-ink-muted: #9ca3af;
+    --en1-border: #3a3f4b;
+}
+
+html[data-theme='dark'] body {
+    background-color: var(--en1-canvas);
+    color: var(--en1-ink);
+}

@@ -6,8 +6,16 @@ from datetime import datetime
 from typing import Any
 
 from models.commercial_core import CoreCommercialOrder
-from nodeone.core.commerce.constants import ORDER_FISCAL_STATUS_INVOICED, ORDER_FISCAL_STATUS_PENDING
-from nodeone.core.commerce.events import COMMERCE_INVOICE_REQUESTED
+from nodeone.core.commerce.constants import (
+    ORDER_FISCAL_STATUS_CANCELLED,
+    ORDER_FISCAL_STATUS_INVOICED,
+    ORDER_FISCAL_STATUS_NOT_REQUIRED,
+    ORDER_FISCAL_STATUS_PENDING,
+)
+from nodeone.core.commerce.events import (
+    COMMERCE_CREDIT_NOTE_REQUESTED,
+    COMMERCE_INVOICE_REQUESTED,
+)
 from nodeone.core.commerce.invoice import InvoiceService
 from nodeone.core.commerce.order import OrderService, OrderValidationError
 from nodeone.core.platform.events import DomainEventMessage
@@ -44,6 +52,105 @@ class CommerceFiscalService:
             source_app_id=source_app_id,
         )
         return {'status': 'queued', 'order_ref': str(order.order_ref)}
+
+    @staticmethod
+    def find_invoice_id_for_order(organization_id: int, order_id: int) -> int | None:
+        """Localiza factura contable vinculada al pedido comercial."""
+        from nodeone.modules.accounting.models import Invoice
+
+        oid = int(organization_id)
+        marker = f'commercial_order_id={int(order_id)}'
+        existing = (
+            Invoice.query.filter_by(organization_id=oid)
+            .filter(Invoice.notes.like(f'%{marker}%'))
+            .first()
+        )
+        return int(existing.id) if existing is not None else None
+
+    @staticmethod
+    def request_credit_note_for_order(
+        organization_id: int,
+        order_id: int,
+        *,
+        payment_ref: str | None = None,
+        refund_amount: float | None = None,
+        source_app_id: str = 'eposone',
+    ) -> dict[str, Any]:
+        """Reembolso total con factura emitida — encola nota de crédito (§6.8)."""
+        oid = int(organization_id)
+        order = CoreCommercialOrder.query.filter_by(organization_id=oid, id=int(order_id)).first()
+        if order is None:
+            raise OrderValidationError('order_not_found')
+        if str(order.fiscal_status or '') != ORDER_FISCAL_STATUS_INVOICED:
+            return {'status': 'skipped', 'reason': 'fiscal_not_invoiced'}
+
+        invoice_id = CommerceFiscalService.find_invoice_id_for_order(oid, int(order.id))
+        invoice_number = f'POS-{order.order_ref}'[:50]
+        if invoice_id is not None:
+            from nodeone.modules.accounting.models import Invoice
+
+            inv = Invoice.query.filter_by(organization_id=oid, id=int(invoice_id)).first()
+            if inv is not None:
+                invoice_number = str(inv.number or invoice_number)
+
+        payload: dict[str, Any] = {
+            'order_id': int(order.id),
+            'order_ref': str(order.order_ref),
+            'invoice_number': invoice_number,
+            'document_type': 'credit_note',
+        }
+        if invoice_id is not None:
+            payload['invoice_id'] = int(invoice_id)
+        if payment_ref:
+            payload['payment_ref'] = str(payment_ref)
+        if refund_amount is not None:
+            payload['refund_amount'] = float(refund_amount)
+
+        AuditService.publish_domain_event(
+            oid,
+            COMMERCE_CREDIT_NOTE_REQUESTED,
+            payload,
+            source_app_id=source_app_id,
+        )
+        InvoiceService.publish_cancelled(
+            oid,
+            invoice_number=invoice_number,
+            reason='full_refund_credit_note',
+            source_app_id=source_app_id,
+        )
+        CommerceFiscalService._try_issue_credit_note_fe(
+            oid,
+            int(order.id),
+            invoice_id,
+            order,
+            source_app_id=source_app_id,
+        )
+        return {'status': 'queued', 'order_ref': str(order.order_ref), 'invoice_number': invoice_number}
+
+    @staticmethod
+    def _try_issue_credit_note_fe(
+        organization_id: int,
+        order_id: int,
+        invoice_id: int | None,
+        order: CoreCommercialOrder,
+        *,
+        source_app_id: str,
+    ) -> bool:
+        if invoice_id is None:
+            return False
+        try:
+            from nodeone.modules.efactura.services import config_service as cfg_svc
+            from nodeone.services.efactura_module import is_efactura_enabled_for_org
+
+            if not is_efactura_enabled_for_org(int(organization_id)):
+                return False
+            config = cfg_svc.get_or_create_provider_config(int(organization_id))
+            if not cfg_svc.config_ready(config):
+                return False
+            # Emisión NCR real en efactura — Fase D; aquí solo señal de dominio.
+        except Exception:
+            return False
+        return False
 
     @staticmethod
     def process_from_event(message: DomainEventMessage) -> dict[str, Any]:

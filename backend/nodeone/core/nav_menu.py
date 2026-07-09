@@ -1063,25 +1063,11 @@ APP_AREAS: tuple[NavArea, ...] = (
         label='EPosOne',
         icon='fas fa-cash-register',
         visible=_v_eposone,
-        zone_blueprints=('eposone', 'contacts_admin', 'admin_services_catalog', 'contador'),
-        zone_path_prefixes=(
-            '/admin/eposone',
-            '/admin/sales/quotations',
-            '/admin/sales/commercial-contacts',
-            '/admin/contacts',
-            '/admin/services',
-            '/admin/service-categories',
-            '/admin/contador',
-            '/admin/analytics/sales',
-        ),
+        zone_blueprints=('eposone',),
+        zone_path_prefixes=('/admin/eposone',),
         zone_endpoints=(
             'eposone.eposone_home',
             'eposone.eposone_section',
-            'admin_sales_quotations',
-            'contacts_admin.contacts_index',
-            'admin_services_catalog.admin_services',
-            'contador.contador_index',
-            'admin_analytics_sales',
         ),
         items=(
             NavAreaItem(
@@ -1975,6 +1961,24 @@ def nav_launcher_payload(**kwargs) -> dict[str, Any]:
         ctx.show_tenant_admin_menu
         or (active_id == 'plataforma' and ctx.show_platform_admin_nav and ctx.is_platform_admin)
     )
+    try:
+        from nodeone.core.platform.app_nav import NATIVE_APP_NAV_AREA_IDS, request_in_native_app_zone
+
+        if active_id in NATIVE_APP_NAV_AREA_IDS and not request_in_native_app_zone(active_id):
+            zone_id = resolve_active_area_id(ctx)
+            if zone_id and zone_id != active_id:
+                active_id = zone_id
+                sidebar_area_id = sidebar_highlight_area_id(active_id)
+                children = visible_area_children(active_id, ctx)
+                active_child_label = _active_child_label(children)
+                show_bar = bool(children) and (
+                    len(children) > 1 or any(c.get('dropdown') for c in children)
+                ) and ctx.show_tenant_admin_menu
+            else:
+                children = []
+                show_bar = False
+    except Exception:
+        pass
     result = {
         'nav_app_areas': areas,
         'nav_sidebar_top_areas': top_areas,

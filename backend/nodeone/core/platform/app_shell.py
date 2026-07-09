@@ -49,6 +49,7 @@ def sync_active_app_from_request(session, user) -> str | None:
     visible_ids = {a['id'] for a in visible_launcher_apps(ctx)}
     if area_id in visible_ids:
         set_active_app_id(session, area_id)
+        return area_id
     return get_active_app_id(session)
 
 
@@ -99,15 +100,35 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
         return out
 
     from app import _org_id_for_module_visibility
+    from nodeone.core.nav_menu import resolve_active_area_id
 
     org_id = _org_id_for_module_visibility()
-    active_id = sync_active_app_from_request(session, user)
-    if not active_id or not is_app_shell_enabled(org_id, session):
+    if not is_app_shell_enabled(org_id, session):
         out.setdefault('platform_app_shell_active', False)
         return out
 
     ctx = build_nav_context_for_user(user)
-    out.update(build_app_shell_nav_payload(active_id, ctx))
+    request_area = resolve_active_area_id(ctx)
+    active_id = sync_active_app_from_request(session, user)
+    if not active_id:
+        out.setdefault('platform_app_shell_active', False)
+        return out
+
+    from nodeone.core.platform.app_nav import NATIVE_APP_NAV_AREA_IDS, request_in_native_app_zone
+
+    # UX V3.2: no forzar shell EPosOne (u otra app nativa) fuera de sus rutas.
+    if active_id in NATIVE_APP_NAV_AREA_IDS and not request_in_native_app_zone(active_id):
+        out.setdefault('platform_app_shell_active', False)
+        return out
+    if request_area and request_area != active_id and request_area not in NATIVE_APP_NAV_AREA_IDS:
+        out.setdefault('platform_app_shell_active', False)
+        return out
+
+    shell_area = active_id
+    if request_area in NATIVE_APP_NAV_AREA_IDS and request_in_native_app_zone(request_area):
+        shell_area = request_area
+
+    out.update(build_app_shell_nav_payload(shell_area, ctx))
     return out
 
 

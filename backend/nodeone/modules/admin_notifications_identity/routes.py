@@ -107,6 +107,7 @@ def register_admin_notifications_identity_routes(app):
     def admin_company_setup():
         """Wizard de empresa para el tenant activo (fiscal + branding)."""
         from nodeone.services.company_wizard import (
+            enrich_company_wizard_context,
             fiscal_payload_from_form,
             identity_settings_dict,
             resolve_initial_wizard_step,
@@ -127,34 +128,38 @@ def register_admin_notifications_identity_routes(app):
             id_err = save_identity_from_form(request.form, oid)
             if id_err:
                 flash(id_err, 'error')
-                return render_template(
-                    'admin/company_wizard.html',
-                    wizard_mode='tenant',
-                    org=org,
-                    form=request.form,
-                    google_oauth=None,
-                    identity_settings=identity_settings_dict(oid),
-                    initial_step=resolve_initial_wizard_step(mode='tenant', step_arg=step_arg),
-                    show_onboarding_rail=False,
+                ctx = enrich_company_wizard_context(
+                    {
+                        'wizard_mode': 'tenant',
+                        'org': org,
+                        'form': request.form,
+                        'google_oauth': None,
+                        'identity_settings': identity_settings_dict(oid),
+                        'initial_step': resolve_initial_wizard_step(mode='tenant', step_arg=step_arg),
+                        'show_onboarding_rail': False,
+                    }
                 )
+                return render_template('admin/company_wizard.html', **ctx)
             try:
                 db.session.commit()
                 flash('Configuración de empresa guardada.', 'success')
-                return redirect(url_for('admin_company_setup', step='branding'))
+                return redirect(url_for('admin_company_setup', step='opciones'))
             except Exception as exc:
                 db.session.rollback()
                 flash('No se pudo guardar: %s' % (exc,), 'error')
 
-        return render_template(
-            'admin/company_wizard.html',
-            wizard_mode='tenant',
-            org=org,
-            form=None,
-            google_oauth=None,
-            identity_settings=identity_settings_dict(oid),
-            initial_step=resolve_initial_wizard_step(mode='tenant', step_arg=step_arg),
-            show_onboarding_rail=False,
+        ctx = enrich_company_wizard_context(
+            {
+                'wizard_mode': 'tenant',
+                'org': org,
+                'form': None,
+                'google_oauth': None,
+                'identity_settings': identity_settings_dict(oid),
+                'initial_step': resolve_initial_wizard_step(mode='tenant', step_arg=step_arg),
+                'show_onboarding_rail': False,
+            }
         )
+        return render_template('admin/company_wizard.html', **ctx)
 
     @app.route('/api/admin/identity', methods=['GET', 'POST'])
     @admin_required

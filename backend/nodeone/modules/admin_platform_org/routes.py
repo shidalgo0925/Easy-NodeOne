@@ -172,13 +172,17 @@ def register_admin_platform_org_routes(app):
         }
 
     def _wizard_context(*, wizard_mode: str, org=None, form=None, google_oauth=None, step_arg=None):
-        from nodeone.services.company_wizard import identity_settings_dict, resolve_initial_wizard_step
+        from nodeone.services.company_wizard import (
+            enrich_company_wizard_context,
+            identity_settings_dict,
+            resolve_initial_wizard_step,
+        )
 
         oid = int(org.id) if org is not None else None
         identity = identity_settings_dict(oid) if oid is not None else identity_settings_dict(1)
         if wizard_mode == 'create':
             identity = identity_settings_dict(1)
-        return {
+        ctx = {
             'wizard_mode': wizard_mode,
             'org': org,
             'form': form,
@@ -187,6 +191,7 @@ def register_admin_platform_org_routes(app):
             'initial_step': resolve_initial_wizard_step(mode='tenant' if wizard_mode == 'tenant' else 'platform', step_arg=step_arg),
             'show_onboarding_rail': False,
         }
+        return enrich_company_wizard_context(ctx)
 
     def _render_org_wizard(*, wizard_mode: str, org=None, form=None, google_oauth=None, show_onboarding_rail=False, step_arg=None):
         ctx = _wizard_context(

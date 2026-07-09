@@ -58,9 +58,22 @@ def _parse_org_id_list(env_name: str) -> set[int] | None:
     return out or None
 
 
+def request_in_native_app_zone(nav_area_id: str) -> bool:
+    """True si el request HTTP pertenece al shell de la app (no módulos Core compuestos)."""
+    if not has_request_context():
+        return False
+    bp = getattr(request, 'blueprint', None) or ''
+    path = request.path or ''
+    if nav_area_id == 'eposone':
+        return bp == 'eposone' or path.startswith('/admin/eposone')
+    return False
+
+
 def native_app_nav_enabled(organization_id: int | None, nav_area_id: str | None) -> bool:
     """True si la zona activa usa navegación nativa de app (UX V3.2)."""
     if not nav_area_id or nav_area_id not in NATIVE_APP_NAV_AREA_IDS:
+        return False
+    if not request_in_native_app_zone(nav_area_id):
         return False
     oid = None
     if organization_id is not None:

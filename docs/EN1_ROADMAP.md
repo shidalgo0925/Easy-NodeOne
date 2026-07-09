@@ -1,6 +1,6 @@
 # EN1 — Roadmap producto
 
-**Última actualización:** 22 jun 2026  
+**Última actualización:** 9 jul 2026  
 **Edición:** `/opt/easynodeone/dev/app` → rama `develop`
 
 Índice de iniciativas planificadas o en curso en Easy NodeOne. Roadmaps de módulo con detalle propio enlazan desde aquí.
@@ -10,6 +10,48 @@
 | ECalendar | [`ECALENDAR_ROADMAP.md`](ECALENDAR_ROADMAP.md) |
 | Certificados | Este archivo § Certificados |
 | Stripe / tarjetas | Este archivo § Stripe |
+| Plataforma / EPosOne UX | Este archivo § Plataforma — EPosOne (nav) |
+
+---
+
+## Plataforma — EPosOne (nav / UX V3.2)
+
+**Estado:** **error abierto** (9 jul 2026) — los usuarios **no ven las opciones de EPosOne** desde la navegación de plataforma.
+
+### Síntoma
+
+- En módulos de plataforma (p. ej. `/admin/contacts`) no debe aparecer la barra horizontal legacy de EPosOne (correcto tras fix UX V3.2).
+- **Problema:** tampoco hay un punto de entrada claro para entrar a EPosOne y ver su menú (Dashboard, Pedidos, Clientes, Catálogo, etc.).
+- URL directa `/admin/eposone/dashboard` sí muestra el sidebar nativo por dominios; el fallo es de **descubrimiento / acceso**, no de rutas internas.
+
+### Causas identificadas
+
+| Causa | Detalle |
+|-------|---------|
+| Sin ítem en sidebar ERP | El área `eposone` en `nav_menu.py` **no está** en `_SIDEBAR_TOP_LEVEL_AREA_IDS` ni en `_SIDEBAR_LAUNCHER_GROUPS` (Comercial, Operaciones, …). |
+| Modo launcher `classic` | Orgs como Itsmo Brew no tienen «Mis aplicaciones»; solo ven Contactos, Comercial, Finanzas en sidebar. |
+| Shell apps + sesión stale | Con `platform_active_app_id=eposone`, `merge_app_shell_nav_context` podía forzar shell EPosOne fuera de `/admin/eposone/*` (fix parcial en dev, sin commit al cierre de esta nota). |
+| Código duplicado | Menú EPosOne definido en `nav_menu.py` (legacy horizontal) y `modules/eposone/nav.py` (nativo V3.2); pipeline calcula ambos. |
+
+### Fix aplicado (parcial, dev)
+
+- No mostrar barra horizontal EPosOne fuera de `/admin/eposone/*` al navegar Contactos u otros módulos Core.
+- Tests: `test_contacts_module_not_eposone_zone`, `TestMergeAppShellContacts`.
+
+### Pendiente (requiere GO)
+
+- [ ] **Entrada visible a EPosOne** desde plataforma: ítem en sidebar, tarjeta en launcher también en modo `classic`, o enlace en wizard paso Opciones.
+- [ ] Consolidar nav (una fuente: `eposone/nav.py`; retirar ítems duplicados en `nav_menu.py`).
+- [ ] UAT: org con módulo `eposone` → usuario encuentra EP1 sin URL manual → sidebar dominios + context bar en `/admin/eposone/*`.
+
+### Referencias
+
+| Pieza | Ubicación |
+|-------|-----------|
+| Nav nativa V3.2 | `nodeone/modules/eposone/nav.py`, `nodeone/core/platform/app_nav.py` |
+| Shell / merge | `nodeone/core/platform/app_shell.py` |
+| Zona eposone | `nav_menu.py` área `eposone` (`zone_path_prefixes=/admin/eposone`) |
+| Plan maestro | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) § Etapa 6–7 EPosOne |
 
 ---
 

@@ -26,7 +26,115 @@ WIZARD_STEP_SLUGS: dict[str, int] = {
     'fiscal': 2,
     'branding': 3,
     'acceso': 4,
+    'opciones': 5,
 }
+
+IDENTITY_PRESET_LABELS: dict[str, str] = {
+    'en1': 'EN1 Corporativo',
+    'iius': 'IIUS',
+    'azul': 'Azul',
+    'verde': 'Verde',
+    'naranja': 'Naranja',
+    'violeta': 'Violeta',
+    'indigo': 'Índigo',
+    'teal': 'Teal',
+    'rojo': 'Rojo',
+    'rosa': 'Rosa',
+    'slate': 'Slate',
+    'esmeralda': 'Esmeralda',
+    'coral': 'Coral',
+    'custom': 'Personalizado',
+}
+
+WIZARD_IDENTITY_PRESET_ORDER: tuple[str, ...] = (
+    'en1',
+    'iius',
+    'azul',
+    'verde',
+    'naranja',
+    'violeta',
+    'indigo',
+    'teal',
+    'rojo',
+    'rosa',
+    'slate',
+    'esmeralda',
+    'coral',
+    'custom',
+)
+
+
+def wizard_max_step(*, mode: str) -> int:
+    """Pasos del wizard: tenant 4 (sin acceso Google); plataforma 5."""
+    return 4 if mode == 'tenant' else 5
+
+
+def identity_preset_choices_for_wizard() -> tuple[tuple[str, str], ...]:
+    out: list[tuple[str, str]] = []
+    for key in WIZARD_IDENTITY_PRESET_ORDER:
+        if key == 'custom' or key in IDENTITY_PRESETS:
+            out.append((key, IDENTITY_PRESET_LABELS.get(key, key)))
+    return tuple(out)
+
+
+def build_wizard_quick_links(
+    *,
+    wizard_mode: str,
+    org_id: int | None,
+    has_view_endpoint,
+) -> list[dict[str, str]]:
+    """Accesos rápidos al final del wizard (paso Opciones)."""
+    from flask import url_for
+    from werkzeug.routing import BuildError
+
+    links: list[dict[str, str]] = []
+
+    def _add(label: str, icon: str, endpoint: str, **kwargs: object) -> None:
+        if not has_view_endpoint(endpoint):
+            return
+        try:
+            links.append({'label': label, 'icon': icon, 'url': url_for(endpoint, **kwargs)})
+        except (BuildError, RuntimeError):
+            pass
+
+    guide_q = {'guide': '1'} if wizard_mode in ('create', 'edit') else {}
+
+    if wizard_mode == 'tenant':
+        _add('Módulos SaaS', 'fas fa-puzzle-piece', 'admin_saas_modules_page')
+        _add('Usuarios', 'fas fa-users-cog', 'admin_users')
+        _add('Email / SMTP', 'fas fa-envelope', 'admin_email')
+        _add('Impuestos', 'fas fa-percent', 'admin_configuration_taxes')
+        _add('Pagos', 'fas fa-credit-card', 'payments_admin.admin_payments', context='config')
+        _add('Guía de productos', 'fas fa-book-open', 'admin_product_guide')
+        return links
+
+    if org_id:
+        _add('Módulos SaaS', 'fas fa-puzzle-piece', 'admin_saas_modules_page', organization_id=org_id, **guide_q)
+        _add('Usuarios', 'fas fa-users-cog', 'admin_users', **guide_q)
+    else:
+        _add('Usuarios', 'fas fa-users-cog', 'admin_users', **guide_q)
+    _add('Guía de configuración', 'fas fa-route', 'admin_platform_setup', **guide_q)
+    _add('Listado de empresas', 'fas fa-building', 'admin_organizations_list')
+    _add('Catálogo módulos', 'fas fa-list', 'admin_saas_catalog_list')
+    return links
+
+
+def enrich_company_wizard_context(ctx: dict) -> dict:
+    """Añade paso Opciones, presets de branding y enlaces rápidos al contexto del template."""
+    from app import has_view_endpoint
+
+    wizard_mode = str(ctx.get('wizard_mode') or 'tenant')
+    mode = 'tenant' if wizard_mode == 'tenant' else 'platform'
+    org = ctx.get('org')
+    oid = int(org.id) if org is not None else None
+    ctx['wizard_max_step'] = wizard_max_step(mode=mode)
+    ctx['identity_preset_choices'] = identity_preset_choices_for_wizard()
+    ctx['wizard_quick_links'] = build_wizard_quick_links(
+        wizard_mode=wizard_mode,
+        org_id=oid,
+        has_view_endpoint=has_view_endpoint,
+    )
+    return ctx
 
 
 def validate_hex_color(value: str | None) -> bool:
@@ -85,16 +193,19 @@ def save_identity_from_form(form, organization_id: int) -> str | None:
 
 def resolve_initial_wizard_step(*, mode: str, step_arg: str | None) -> int:
     slug = (step_arg or '').strip().lower()
-    if slug in WIZARD_STEP_SLUGS:
+    max_step = wizard_max_step(mode=mode)
+    if slug == 'opciones':
+        return max_step
+    if slug == 'acceso':
+        return 4 if mode == 'platform' else 3
+    if slug in WIZARD_STEP_SLUGS and slug not in ('acceso', 'opciones'):
         n = WIZARD_STEP_SLUGS[slug]
-        if mode == 'tenant' and n == 4:
-            return 3
+        if mode == 'tenant' and n >= 4:
+            return min(n, max_step)
         return n
     try:
         n = int(slug)
-        if mode == 'tenant' and n == 4:
-            return 3
-        if 1 <= n <= 4:
+        if 1 <= n <= max_step:
             return n
     except (TypeError, ValueError):
         pass

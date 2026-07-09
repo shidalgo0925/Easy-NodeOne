@@ -11,11 +11,23 @@ sys.path.insert(0, str(backend_dir))
 
 class TestCompanyWizardService(unittest.TestCase):
     def test_resolve_initial_step_slug(self):
-        from nodeone.services.company_wizard import resolve_initial_wizard_step
+        from nodeone.services.company_wizard import resolve_initial_wizard_step, wizard_max_step
 
         self.assertEqual(resolve_initial_wizard_step(mode='tenant', step_arg='branding'), 3)
         self.assertEqual(resolve_initial_wizard_step(mode='tenant', step_arg='fiscal'), 2)
         self.assertEqual(resolve_initial_wizard_step(mode='tenant', step_arg='acceso'), 3)
+        self.assertEqual(resolve_initial_wizard_step(mode='tenant', step_arg='opciones'), 4)
+        self.assertEqual(resolve_initial_wizard_step(mode='platform', step_arg='opciones'), 5)
+        self.assertEqual(wizard_max_step(mode='tenant'), 4)
+        self.assertEqual(wizard_max_step(mode='platform'), 5)
+
+    def test_identity_preset_choices(self):
+        from nodeone.services.company_wizard import identity_preset_choices_for_wizard
+
+        keys = [k for k, _ in identity_preset_choices_for_wizard()]
+        self.assertIn('en1', keys)
+        self.assertIn('custom', keys)
+        self.assertIn('esmeralda', keys)
 
     def test_validate_hex_color(self):
         from nodeone.services.company_wizard import validate_hex_color

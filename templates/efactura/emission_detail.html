@@ -8,8 +8,13 @@
   <div class="card mb-4">
     <div class="card-body">
       <dl class="row mb-0">
+        <dt class="col-sm-3">Tipo</dt><dd class="col-sm-9"><code>{{ doc.document_type }}</code></dd>
         <dt class="col-sm-3">Estado</dt><dd class="col-sm-9"><span class="badge bg-secondary">{{ doc.status }}</span></dd>
         <dt class="col-sm-3">CUFE</dt><dd class="col-sm-9"><code>{{ doc.cufe or '—' }}</code></dd>
+        {% if invoice_id %}
+        <dt class="col-sm-3">Factura EN1</dt><dd class="col-sm-9"><code>invoice_id={{ invoice_id }}</code></dd>
+        {% endif %}
+        <dt class="col-sm-3">Referencia</dt><dd class="col-sm-9">{{ doc.internal_reference or '—' }}</dd>
         <dt class="col-sm-3">Cliente</dt><dd class="col-sm-9">{{ doc.customer_name }} &lt;{{ doc.customer_email }}&gt;</dd>
         <dt class="col-sm-3">Total</dt><dd class="col-sm-9">{{ doc.currency }} {{ '%.2f'|format(doc.total|float) }}</dd>
         <dt class="col-sm-3">PAC / protocolo</dt><dd class="col-sm-9">{{ doc.pac_reference or '—' }}</dd>
@@ -17,6 +22,73 @@
       </dl>
     </div>
   </div>
+
+  {% if can_emit_credit_note or can_emit_debit_note %}
+  <div class="card mb-4 border-primary">
+    <div class="card-header bg-white">
+      <strong>Documentos de ajuste</strong>
+      <span class="small text-muted ms-2">Referenciados al CUFE de esta factura</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        {% if can_emit_credit_note %}
+        <div class="col-md-6">
+          <h2 class="h6">Nota de crédito (NCR)</h2>
+          <form method="post" action="{{ url_for('efactura_admin.efactura_emit_credit_note', doc_id=doc.id) }}">
+            <div class="mb-2">
+              <label class="form-label small" for="ncr_reason">Motivo</label>
+              <input type="text" class="form-control form-control-sm" name="reason" id="ncr_reason"
+                value="Devolución / anulación" maxlength="200">
+            </div>
+            <button type="submit" class="btn btn-sm btn-outline-danger"
+              onclick="return confirm('¿Emitir nota de crédito total referenciada a esta FE?');">
+              Emitir NCR
+            </button>
+          </form>
+        </div>
+        {% endif %}
+        {% if can_emit_debit_note %}
+        <div class="col-md-6">
+          <h2 class="h6">Nota de débito (ND)</h2>
+          <form method="post" action="{{ url_for('efactura_admin.efactura_emit_debit_note', doc_id=doc.id) }}">
+            <div class="mb-2">
+              <label class="form-label small" for="nd_reason">Motivo</label>
+              <input type="text" class="form-control form-control-sm" name="reason" id="nd_reason"
+                value="Cargo adicional" maxlength="200">
+            </div>
+            <button type="submit" class="btn btn-sm btn-outline-primary"
+              onclick="return confirm('¿Emitir nota de débito referenciada a esta FE?');">
+              Emitir ND
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if related_documents %}
+  <div class="card mb-4">
+    <div class="card-header bg-white"><strong>Documentos relacionados (misma factura)</strong></div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>ID</th><th>Tipo</th><th>Estado</th><th>CUFE</th><th></th></tr></thead>
+        <tbody>
+          {% for rel in related_documents %}
+          <tr>
+            <td>{{ rel.id }}</td>
+            <td><code>{{ rel.document_type }}</code></td>
+            <td>{{ rel.status }}</td>
+            <td class="small text-truncate" style="max-width:12rem">{{ rel.cufe or '—' }}</td>
+            <td><a href="{{ url_for('efactura_admin.efactura_emission_detail', doc_id=rel.id) }}">Ver</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="row">
     <div class="col-lg-6 mb-4">

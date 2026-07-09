@@ -44,6 +44,59 @@ def _can_admin() -> bool:
     return bool(_user_has_any_admin_permission(current_user))
 
 
+def _emission_detail_extras(doc: ElectronicInvoiceDocument, organization_id: int) -> dict:
+    active_statuses = ('pending', 'sent', 'accepted')
+    oid = int(organization_id)
+    invoice_id = getattr(doc, 'invoice_id', None)
+    related_documents: list = []
+    can_emit_credit_note = False
+    can_emit_debit_note = False
+    if invoice_id:
+        related_documents = (
+            ElectronicInvoiceDocument.query.filter(
+                ElectronicInvoiceDocument.organization_id == oid,
+                ElectronicInvoiceDocument.invoice_id == int(invoice_id),
+                ElectronicInvoiceDocument.id != int(doc.id),
+            )
+            .order_by(ElectronicInvoiceDocument.id.desc())
+            .limit(20)
+            .all()
+        )
+    if (
+        str(doc.document_type or '') == 'invoice'
+        and str(doc.status or '') == 'accepted'
+        and invoice_id is not None
+    ):
+        has_ncr = (
+            ElectronicInvoiceDocument.query.filter(
+                ElectronicInvoiceDocument.organization_id == oid,
+                ElectronicInvoiceDocument.invoice_id == int(invoice_id),
+                ElectronicInvoiceDocument.document_type == 'credit_note',
+                ElectronicInvoiceDocument.status.in_(active_statuses),
+            )
+            .first()
+            is not None
+        )
+        has_nd = (
+            ElectronicInvoiceDocument.query.filter(
+                ElectronicInvoiceDocument.organization_id == oid,
+                ElectronicInvoiceDocument.invoice_id == int(invoice_id),
+                ElectronicInvoiceDocument.document_type == 'debit_note',
+                ElectronicInvoiceDocument.status.in_(active_statuses),
+            )
+            .first()
+            is not None
+        )
+        can_emit_credit_note = not has_ncr
+        can_emit_debit_note = not has_nd
+    return {
+        'can_emit_credit_note': can_emit_credit_note,
+        'can_emit_debit_note': can_emit_debit_note,
+        'related_documents': related_documents,
+        'invoice_id': invoice_id,
+    }
+
+
 def _guard_module_html():
     oid = _org_id()
     if not is_efactura_enabled_for_org(oid):
@@ -162,13 +215,65 @@ def efactura_emission_detail(doc_id: int):
         .limit(50)
         .all()
     )
+    extras = _emission_detail_extras(doc, oid)
     return render_template(
         'efactura/emission_detail.html',
         doc=doc,
         request_pretty=req_pretty,
         response_pretty=res_pretty,
         logs=logs,
+        **extras,
     )
+
+
+@efactura_admin_bp.route('/emissions/<int:doc_id>/credit-note', methods=['POST'])
+@login_required
+def efactura_emit_credit_note(doc_id: int):
+    oid = _org_id()
+    doc = ElectronicInvoiceDocument.query.filter_by(id=doc_id, organization_id=oid).first_or_404()
+    if str(doc.document_type or '') != 'invoice' or str(doc.status or '') != 'accepted' or not doc.invoice_id:
+        flash('Solo se puede emitir NCR desde una factura electrónica aceptada.', 'warning')
+        return redirect(url_for('efactura_admin.efactura_emission_detail', doc_id=doc.id))
+    reason = (request.form.get('reason') or 'Devolución / anulación').strip()
+    try:
+        ncr = issue_svc.issue_credit_note_from_commercial_invoice(
+            int(doc.invoice_id),
+            oid,
+            reason=reason,
+        )
+    except Exception as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('efactura_admin.efactura_emission_detail', doc_id=doc.id))
+    if ncr.status == 'accepted':
+        flash(f'Nota de crédito autorizada. CUFE: {ncr.cufe}', 'success')
+    else:
+        flash(ncr.error_message or ncr.authorization_message or 'NCR no autorizada.', 'warning')
+    return redirect(url_for('efactura_admin.efactura_emission_detail', doc_id=ncr.id))
+
+
+@efactura_admin_bp.route('/emissions/<int:doc_id>/debit-note', methods=['POST'])
+@login_required
+def efactura_emit_debit_note(doc_id: int):
+    oid = _org_id()
+    doc = ElectronicInvoiceDocument.query.filter_by(id=doc_id, organization_id=oid).first_or_404()
+    if str(doc.document_type or '') != 'invoice' or str(doc.status or '') != 'accepted' or not doc.invoice_id:
+        flash('Solo se puede emitir ND desde una factura electrónica aceptada.', 'warning')
+        return redirect(url_for('efactura_admin.efactura_emission_detail', doc_id=doc.id))
+    reason = (request.form.get('reason') or 'Cargo adicional').strip()
+    try:
+        nd = issue_svc.issue_debit_note_from_commercial_invoice(
+            int(doc.invoice_id),
+            oid,
+            reason=reason,
+        )
+    except Exception as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('efactura_admin.efactura_emission_detail', doc_id=doc.id))
+    if nd.status == 'accepted':
+        flash(f'Nota de débito autorizada. CUFE: {nd.cufe}', 'success')
+    else:
+        flash(nd.error_message or nd.authorization_message or 'ND no autorizada.', 'warning')
+    return redirect(url_for('efactura_admin.efactura_emission_detail', doc_id=nd.id))
 
 
 @efactura_admin_bp.route('/test-invoice', methods=['GET', 'POST'])

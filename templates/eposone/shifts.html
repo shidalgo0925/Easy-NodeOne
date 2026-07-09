@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <span class="badge en1-badge--neutral">{{ active_total }} activo(s)</span>
+            <span class="badge en1-badge--neutral">{{ closed_total }} cerrado(s) recientes</span>
+            <a href="{{ url_for('eposone.eposone_section', slug='registers') }}" class="btn btn-sm btn-outline-secondary">
+                Ir a Cajas
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-2 border-bottom d-flex justify-content-between align-items-center">
+            <strong>Turnos activos</strong>
+            <span class="small text-muted">Cajeros y responsables de caja</span>
+        </div>
+        <div class="card-body p-0">
+            {% if active_shifts %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Caja</th>
+                            <th>Estado</th>
+                            <th class="text-end">Saldo</th>
+                            <th class="text-end">Mov.</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in active_shifts %}
+                        {% set shift = row.shift %}
+                        <tr>
+                            <td><code>#{{ shift.id }}</code></td>
+                            <td>
+                                <div><code>{{ row.register_ref }}</code></div>
+                                <div class="small text-muted">{{ row.register_name }}</div>
+                            </td>
+                            <td>
+                                <span class="badge en1-badge--neutral">{{ shift.status }}</span>
+                                {% if shift.opened_at %}
+                                <div class="small text-muted">desde {{ shift.opened_at.strftime('%d/%m %H:%M') }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div>Inicial: {{ '%.2f'|format(shift.opening_balance) }}</div>
+                                {% if row.expected_balance is not none %}
+                                <div class="small text-muted">Esperado: {{ '%.2f'|format(row.expected_balance) }}</div>
+                                {% endif %}
+                                {% if shift.counted_amount is not none %}
+                                <div class="small">Contado: {{ '%.2f'|format(shift.counted_amount) }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ row.movement_count }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% if row.can_reconcile %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#reconcileShiftModal"
+                                        data-shift-id="{{ shift.id }}"
+                                        data-register-ref="{{ row.register_ref }}"
+                                        data-expected="{{ row.expected_balance or 0 }}">
+                                        Arquear
+                                    </button>
+                                    {% endif %}
+                                    {% if row.can_close %}
+                                    <form method="post" action="{{ url_for('eposone.eposone_register_close_shift', shift_id=shift.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('¿Cerrar turno #{{ shift.id }}?');">
+                                            Cerrar
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    {% if row.can_move and supervisor_ok %}
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#movementModal"
+                                        data-shift-id="{{ shift.id }}"
+                                        data-register-ref="{{ row.register_ref }}">
+                                        Movimiento
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">No hay turnos abiertos.</p>
+                <p class="small mb-0">
+                    Abrí un turno desde <a href="{{ url_for('eposone.eposone_section', slug='registers') }}">Cajas</a>.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-2 border-bottom">
+            <strong>Historial reciente</strong>
+        </div>
+        <div class="card-body p-0">
+            {% if closed_shifts %}
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle en1-data-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Caja</th>
+                            <th>Cerrado</th>
+                            <th class="text-end">Cierre</th>
+                            <th class="text-end">Esperado</th>
+                            <th class="text-end">Dif.</th>
+                            <th class="text-end">Mov.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in closed_shifts %}
+                        {% set shift = row.shift %}
+                        <tr>
+                            <td><code>#{{ shift.id }}</code></td>
+                            <td><code>{{ row.register_ref }}</code></td>
+                            <td class="small text-muted">
+                                {% if shift.closed_at %}{{ shift.closed_at.strftime('%d/%m/%Y %H:%M') }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end">{{ '%.2f'|format(shift.closing_balance or 0) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(shift.expected_balance or 0) }}</td>
+                            <td class="text-end {% if shift.cash_variance and shift.cash_variance|abs > 0.01 %}text-warning{% endif %}">
+                                {{ '%.2f'|format(shift.cash_variance or 0) }}
+                            </td>
+                            <td class="text-end">{{ row.movement_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted small">Sin turnos cerrados recientes.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="reconcileShiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="" id="reconcileShiftForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Arqueo de turno</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">Caja: <code id="reconcileRegisterRef">—</code></p>
+                <p class="small mb-3">Esperado: <strong id="reconcileExpected">0.00</strong></p>
+                <div class="mb-3">
+                    <label for="counted_amount" class="form-label">Efectivo contado</label>
+                    <input type="number" step="0.01" min="0" class="form-control" name="counted_amount" id="counted_amount" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar arqueo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="movementModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="" id="movementForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Movimiento manual de caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Turno en caja <code id="movementRegisterRef">—</code> — requiere supervisor.</p>
+                <div class="mb-3">
+                    <label for="movement_type" class="form-label">Tipo</label>
+                    <select class="form-select" name="movement_type" id="movement_type" required>
+                        <option value="cash_in">Ingreso de efectivo</option>
+                        <option value="cash_out">Egreso de efectivo</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="movement_amount" class="form-label">Monto</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control" name="amount" id="movement_amount" required>
+                </div>
+                <div class="mb-3">
+                    <label for="movement_reason" class="form-label">Motivo</label>
+                    <input type="text" class="form-control" name="reason" id="movement_reason" maxlength="200">
+                </div>
+                <div class="mb-3">
+                    <label for="movement_notes" class="form-label">Notas</label>
+                    <input type="text" class="form-control" name="notes" id="movement_notes" maxlength="500">
+                </div>
+                <input type="hidden" name="supervisor_user_id" value="{{ current_user.id if current_user.is_authenticated else '' }}">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    var reconcileModal = document.getElementById('reconcileShiftModal');
+    if (reconcileModal) {
+        reconcileModal.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            var shiftId = btn.getAttribute('data-shift-id') || '';
+            var ref = btn.getAttribute('data-register-ref') || '';
+            var expected = btn.getAttribute('data-expected') || '0';
+            document.getElementById('reconcileRegisterRef').textContent = ref;
+            document.getElementById('reconcileExpected').textContent = parseFloat(expected).toFixed(2);
+            document.getElementById('counted_amount').value = parseFloat(expected).toFixed(2);
+            document.getElementById('reconcileShiftForm').action =
+                '{{ url_for("eposone.eposone_register_reconcile_shift", shift_id=0) }}'.replace('/0/', '/' + shiftId + '/');
+        });
+    }
+    var movementModal = document.getElementById('movementModal');
+    if (movementModal) {
+        movementModal.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            var shiftId = btn.getAttribute('data-shift-id') || '';
+            var ref = btn.getAttribute('data-register-ref') || '';
+            document.getElementById('movementRegisterRef').textContent = ref;
+            document.getElementById('movementForm').action =
+                '{{ url_for("eposone.eposone_shift_movement", shift_id=0) }}'.replace('/0/', '/' + shiftId + '/');
+        });
+    }
+})();
+</script>
+{% endblock %}

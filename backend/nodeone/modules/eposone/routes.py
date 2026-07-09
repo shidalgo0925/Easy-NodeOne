@@ -89,6 +89,54 @@ def _redirect_registers():
     return redirect(url_for('eposone.eposone_section', slug='registers'))
 
 
+def _redirect_shifts():
+    return redirect(url_for('eposone.eposone_section', slug='shifts'))
+
+
+def _shift_operational_row(
+    organization_id: int,
+    shift_row,
+    *,
+    registers_by_ref: dict,
+) -> dict:
+    from models.commercial_core import CoreCashMovement
+    from nodeone.core.commerce.cash import CashRegisterService
+    from nodeone.core.commerce.constants import CASH_SHIFT_CLOSED, CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
+    from nodeone.core.commerce.persistence import cash_shift_to_dto
+
+    status = str(shift_row.status or '')
+    shift_dto = cash_shift_to_dto(
+        shift_row,
+        include_variance=(status in (CASH_SHIFT_RECONCILING, CASH_SHIFT_CLOSED)),
+    )
+    expected_balance = None
+    can_reconcile = False
+    can_close = False
+    can_move = False
+    if status == CASH_SHIFT_OPEN:
+        expected_balance = CashRegisterService.compute_expected_balance(int(shift_row.id))
+        can_reconcile = True
+        can_move = True
+    elif status == CASH_SHIFT_RECONCILING:
+        can_close = True
+
+    reg = registers_by_ref.get(str(shift_row.register_ref))
+    movement_count = CoreCashMovement.query.filter_by(
+        organization_id=int(organization_id),
+        shift_id=int(shift_row.id),
+    ).count()
+    return {
+        'shift': shift_dto,
+        'register_ref': str(shift_row.register_ref),
+        'register_name': str(getattr(reg, 'name', None) or shift_row.register_ref),
+        'expected_balance': expected_balance,
+        'movement_count': int(movement_count),
+        'can_reconcile': can_reconcile,
+        'can_close': can_close,
+        'can_move': can_move,
+    }
+
+
 def _registers_page_context(organization_id: int) -> dict:
     from models.commercial_core import CoreCashShift
     from nodeone.core.commerce.cash import CashRegisterService
@@ -151,6 +199,46 @@ def _registers_page_context(organization_id: int) -> dict:
         'registers_total': len(registers),
         'open_shifts_total': len(active_shifts),
         'recent_closed': [cash_shift_to_dto(row, include_variance=True) for row in recent_closed],
+    }
+
+
+def _shifts_page_context(organization_id: int) -> dict:
+    from models.commercial_core import CoreCashShift
+    from nodeone.core.commerce.authorization import CommerceAuthorizationService
+    from nodeone.core.commerce.constants import CASH_SHIFT_CLOSED, CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
+    from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER
+    from nodeone.core.services.org_unit import OrgUnitService
+
+    oid = int(organization_id)
+    registers = OrgUnitService.list_units(oid, unit_type=ORG_UNIT_TYPE_REGISTER)
+    registers_by_ref = {str(reg.unit_ref): reg for reg in registers}
+
+    active_rows_db = (
+        CoreCashShift.query.filter(
+            CoreCashShift.organization_id == oid,
+            CoreCashShift.status.in_((CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING)),
+        )
+        .order_by(CoreCashShift.opened_at.desc())
+        .all()
+    )
+    closed_rows_db = (
+        CoreCashShift.query.filter_by(organization_id=oid, status=CASH_SHIFT_CLOSED)
+        .order_by(CoreCashShift.closed_at.desc())
+        .limit(30)
+        .all()
+    )
+    active_shifts = [
+        _shift_operational_row(oid, row, registers_by_ref=registers_by_ref) for row in active_rows_db
+    ]
+    closed_shifts = [
+        _shift_operational_row(oid, row, registers_by_ref=registers_by_ref) for row in closed_rows_db
+    ]
+    return {
+        'active_shifts': active_shifts,
+        'closed_shifts': closed_shifts,
+        'active_total': len(active_shifts),
+        'closed_total': len(closed_shifts),
+        'supervisor_ok': CommerceAuthorizationService.user_is_supervisor(current_user, oid),
     }
 
 
@@ -457,6 +545,53 @@ def eposone_register_close_shift(shift_id: int):
     return _redirect_registers()
 
 
+@eposone_bp.route('/shifts/<int:shift_id>/movement', methods=['POST'])
+@login_required
+def eposone_shift_movement(shift_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.cash import CashRegisterService
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    movement_type = (request.form.get('movement_type') or '').strip().lower()
+    if movement_type not in {'cash_in', 'cash_out'}:
+        flash('Tipo de movimiento no válido.', 'warning')
+        return _redirect_shifts()
+    try:
+        amount = float(request.form.get('amount') or 0)
+    except ValueError:
+        flash('Monto no válido.', 'danger')
+        return _redirect_shifts()
+    supervisor_raw = (request.form.get('supervisor_user_id') or '').strip()
+    if not supervisor_raw and getattr(current_user, 'id', None):
+        supervisor_raw = str(int(current_user.id))
+    approval = {
+        'supervisor_user_id': supervisor_raw,
+        'reason': (request.form.get('reason') or '').strip(),
+    }
+    try:
+        CashRegisterService.record_manual_movement(
+            int(oid),
+            int(shift_id),
+            movement_type,
+            amount,
+            notes=(request.form.get('notes') or '').strip() or None,
+            approval=approval,
+            source_app_id='eposone',
+        )
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_shifts()
+    label = 'Ingreso' if movement_type == 'cash_in' else 'Egreso'
+    flash(f'{label} de {amount:.2f} registrado en el turno.', 'success')
+    return _redirect_shifts()
+
+
 @eposone_bp.route('/contacts/create', methods=['POST'])
 @login_required
 def eposone_contact_create():
@@ -743,6 +878,26 @@ def eposone_section(slug: str):
             ctx = _registers_page_context(int(oid))
         return render_template(
             'eposone/registers.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            **ctx,
+        )
+    if key == 'shifts':
+        from nodeone.core.platform.runtime import resolve_organization_id
+
+        oid = resolve_organization_id()
+        ctx = {
+            'active_shifts': [],
+            'closed_shifts': [],
+            'active_total': 0,
+            'closed_total': 0,
+            'supervisor_ok': False,
+        }
+        if oid is not None:
+            ctx = _shifts_page_context(int(oid))
+        return render_template(
+            'eposone/shifts.html',
             section_slug=key,
             section_title=title,
             section_description=description,

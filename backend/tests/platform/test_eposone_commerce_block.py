@@ -78,6 +78,7 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/registers/open', rules)
         self.assertIn('/admin/eposone/registers/<int:shift_id>/reconcile', rules)
         self.assertIn('/admin/eposone/registers/<int:shift_id>/close', rules)
+        self.assertIn('/admin/eposone/shifts/<int:shift_id>/movement', rules)
 
     def test_credit_note_event_in_commerce_types(self):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
@@ -349,6 +350,43 @@ class TestEPosOneRegistersActions(unittest.TestCase):
         resp = self.client.post(action, follow_redirects=False)
         self.assertEqual(resp.status_code, 302)
         mock_close.assert_called_once()
+
+
+class TestEPosOneShiftsActions(unittest.TestCase):
+    """UI back office — turnos de caja y movimientos manuales."""
+
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.cash.CashRegisterService.record_manual_movement')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_shift_movement_post(self, _oid, mock_movement, _gate, mock_get_user):
+        user = MagicMock()
+        user.is_authenticated = True
+        user.id = 42
+        mock_get_user.return_value = user
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_shift_movement', shift_id=5)
+        resp = self.client.post(
+            action,
+            data={
+                'movement_type': 'cash_in',
+                'amount': '25.00',
+                'supervisor_user_id': '42',
+                'reason': 'Fondo cambio',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_movement.assert_called_once()
 
 
 class TestEPosOneDashboardKpis(unittest.TestCase):

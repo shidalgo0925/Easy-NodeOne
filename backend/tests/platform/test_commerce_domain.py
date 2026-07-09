@@ -973,5 +973,24 @@ class TestInvoiceService(unittest.TestCase):
         self.assertEqual(len(dto.lines), 1)
 
 
+class TestOrderBranchOrgUnit(unittest.TestCase):
+    @patch('nodeone.core.services.org_unit.OrgUnitService.get_by_ref')
+    def test_resolve_branch_ref(self, mock_get_by_ref):
+        from nodeone.core.commerce.order import _resolve_branch_org_unit_id
+
+        mock_get_by_ref.return_value = MagicMock(id=12, unit_type='branch')
+        branch_id = _resolve_branch_org_unit_id(1, {'branch_ref': 'SUC-01'})
+        self.assertEqual(branch_id, 12)
+
+    @patch('nodeone.core.services.org_unit.OrgUnitService.list_units')
+    def test_resolve_branch_org_unit_id(self, mock_list):
+        from nodeone.core.commerce.order import OrderValidationError, _resolve_branch_org_unit_id
+
+        mock_list.return_value = [MagicMock(id=3, unit_type='branch')]
+        self.assertEqual(_resolve_branch_org_unit_id(1, {'branch_org_unit_id': 3}), 3)
+        with self.assertRaises(OrderValidationError):
+            _resolve_branch_org_unit_id(1, {'branch_org_unit_id': 99})
+
+
 if __name__ == '__main__':
     unittest.main()

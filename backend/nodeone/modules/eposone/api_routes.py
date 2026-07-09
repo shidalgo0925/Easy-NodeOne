@@ -110,6 +110,21 @@ def orders_capture_payment(order_id: int):
     return jsonify({'payment': dto.to_dict()}), 201
 
 
+@eposone_api_bp.route('/orders/<int:order_id>/fiscal', methods=['POST'])
+@login_required
+def orders_emit_fiscal(order_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.core.commerce.fiscal import CommerceFiscalService
+
+    try:
+        result = CommerceFiscalService.process_pending_order(gate, int(order_id), source_app_id='eposone')
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'fiscal': result})
+
+
 @eposone_api_bp.route('/payments/<int:payment_id>/refund', methods=['POST'])
 @login_required
 def payments_refund(payment_id: int):

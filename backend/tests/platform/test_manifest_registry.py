@@ -154,6 +154,7 @@ class TestPlatformMasterAPI(unittest.TestCase):
         self.assertIn('/api/eposone/warehouses', rules)
         self.assertIn('/api/eposone/registers', rules)
         self.assertIn('/api/eposone/pos-units', rules)
+        self.assertIn('/api/eposone/orders/<int:order_id>/fiscal', rules)
 
 
 if __name__ == '__main__':

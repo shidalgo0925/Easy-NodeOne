@@ -35,6 +35,26 @@ class OrderValidationError(ValueError):
     pass
 
 
+def _resolve_branch_org_unit_id(organization_id: int, data: dict[str, Any]) -> int | None:
+    from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH
+    from nodeone.core.services.org_unit import OrgUnitService
+
+    if data.get('branch_org_unit_id') is not None:
+        branch_id = int(data['branch_org_unit_id'])
+        items = OrgUnitService.list_units(int(organization_id), unit_type=ORG_UNIT_TYPE_BRANCH)
+        if not any(u.id == branch_id for u in items):
+            raise OrderValidationError('invalid_branch_org_unit_id')
+        return branch_id
+
+    branch_ref = (str(data.get('branch_ref') or '')).strip()
+    if branch_ref:
+        unit = OrgUnitService.get_by_ref(int(organization_id), branch_ref)
+        if unit is None or unit.unit_type != ORG_UNIT_TYPE_BRANCH:
+            raise OrderValidationError('invalid_branch_ref')
+        return int(unit.id)
+    return None
+
+
 class OrderService:
     """API Core de pedidos — persistencia en core_commercial_order."""
 
@@ -113,6 +133,7 @@ class OrderService:
             raise OrderValidationError('lines_required')
 
         grand_total = round(subtotal + tax_total, 2)
+        branch_org_unit_id = _resolve_branch_org_unit_id(oid, data)
         op_status = (
             str(data.get('operational_status') or data.get('status') or ORDER_STATUS_DRAFT).strip().lower()
             or ORDER_STATUS_DRAFT
@@ -124,6 +145,7 @@ class OrderService:
             payment_status=ORDER_PAYMENT_STATUS_UNPAID,
             fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
             contact_id=int(data['contact_id']) if data.get('contact_id') else None,
+            branch_org_unit_id=branch_org_unit_id,
             currency=str(data.get('currency') or 'USD')[:8],
             subtotal=subtotal,
             tax_total=tax_total,

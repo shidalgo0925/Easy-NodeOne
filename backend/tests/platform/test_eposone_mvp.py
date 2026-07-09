@@ -92,6 +92,11 @@ class TestEPosOneAPI(unittest.TestCase):
             r = c.get('/api/eposone/registers')
             self.assertIn(r.status_code, (302, 401))
 
+    def test_orders_fiscal_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.post('/api/eposone/orders/1/fiscal')
+            self.assertIn(r.status_code, (302, 401))
+
     @patch('nodeone.core.commerce.pos.CorePosTerminal')
     def test_list_terminals(self, mock_model):
         from nodeone.core.commerce.pos import PosTerminalService

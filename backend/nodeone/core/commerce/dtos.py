@@ -43,6 +43,7 @@ class OrderDTO:
     amount_paid: float
     lines: tuple[OrderLineDTO, ...]
     source_app_id: str
+    branch_org_unit_id: int | None = None
     created_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -55,6 +56,7 @@ class OrderDTO:
             'payment_status': self.payment_status,
             'fiscal_status': self.fiscal_status,
             'contact_id': self.contact_id,
+            'branch_org_unit_id': self.branch_org_unit_id,
             'currency': self.currency,
             'subtotal': self.subtotal,
             'tax_total': self.tax_total,

@@ -19,6 +19,9 @@ class CoreCommercialOrder(db.Model):
     payment_status = db.Column(db.String(32), nullable=False, default='unpaid')
     fiscal_status = db.Column(db.String(32), nullable=False, default='not_required')
     contact_id = db.Column(db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True)
+    branch_org_unit_id = db.Column(
+        db.Integer, db.ForeignKey('core_org_unit.id', ondelete='SET NULL'), nullable=True, index=True
+    )
     currency = db.Column(db.String(8), nullable=False, default='USD')
     subtotal = db.Column(db.Float, nullable=False, default=0.0)
     tax_total = db.Column(db.Float, nullable=False, default=0.0)

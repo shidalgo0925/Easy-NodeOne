@@ -124,5 +124,65 @@ class TestCoreProductService(unittest.TestCase):
         self.assertEqual(dto.name, 'Agua')
 
 
+class TestUserContactLinkService(unittest.TestCase):
+    @patch('nodeone.core.services.user_contact.ContactService.get')
+    @patch('app.db')
+    @patch('models.users.User')
+    def test_link_user_to_contact(self, mock_user_cls, mock_db, mock_get_contact):
+        from nodeone.core.services.contacts import ContactDTO
+        from nodeone.core.services.user_contact import UserContactLinkService
+
+        user = MagicMock()
+        user.id = 5
+        user.organization_id = 1
+        user.linked_contact_id = None
+        mock_user_cls.query.get.return_value = user
+
+        contact_dto = ContactDTO(
+            id=99,
+            organization_id=1,
+            display_name='Ana',
+            email='ana@example.com',
+            phone=None,
+            mobile=None,
+            contact_type='person',
+            identification_type='consumer_final',
+            tax_id=None,
+            dv=None,
+            is_customer=False,
+            is_supplier=False,
+            is_member=False,
+            is_student=False,
+            is_participant=False,
+            is_instructor=False,
+            is_employee=True,
+            active=True,
+            roles=('Empleado',),
+        )
+        mock_get_contact.return_value = contact_dto
+
+        def _commit_side_effect():
+            user.linked_contact_id = 99
+
+        mock_db.session.commit.side_effect = _commit_side_effect
+
+        dto = UserContactLinkService.link(5, 1, 99)
+        self.assertEqual(dto.linked_contact_id, 99)
+        self.assertEqual(dto.contact.display_name, 'Ana')
+        mock_db.session.commit.assert_called()
+
+    @patch('models.users.User')
+    def test_link_rejects_org_mismatch(self, mock_user_cls):
+        from nodeone.core.master.constants import MasterDataError
+        from nodeone.core.services.user_contact import UserContactLinkService
+
+        user = MagicMock()
+        user.id = 5
+        user.organization_id = 2
+        mock_user_cls.query.get.return_value = user
+        with self.assertRaises(MasterDataError):
+            UserContactLinkService.link(5, 1, 99)
+
+
 if __name__ == '__main__':
     unittest.main()

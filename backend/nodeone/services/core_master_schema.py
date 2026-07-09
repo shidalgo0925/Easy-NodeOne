@@ -168,3 +168,68 @@ def ensure_core_master_schema(db, engine, printfn=None) -> None:
             CREATE INDEX IF NOT EXISTS ix_core_product_org ON core_product (organization_id);
             """
         _exec(engine, ddl, printfn, 'core_product')
+
+    _ensure_user_linked_contact(db, engine, insp, dialect, printfn)
+
+
+def _ensure_user_linked_contact(db, engine, insp, dialect, printfn) -> None:
+    tables = set(insp.get_table_names())
+    if 'user' not in tables or 'en1_contact' not in tables:
+        return
+
+    user_tbl = 'user'
+    ucols = {c['name'] for c in insp.get_columns(user_tbl)}
+    if 'linked_contact_id' not in ucols:
+        if dialect == 'postgresql':
+            ddl = """
+            ALTER TABLE "user"
+                ADD COLUMN IF NOT EXISTS linked_contact_id INTEGER
+                REFERENCES en1_contact(id) ON DELETE SET NULL;
+            CREATE INDEX IF NOT EXISTS ix_user_linked_contact ON "user" (linked_contact_id);
+            """
+        else:
+            ddl = """
+            ALTER TABLE user ADD COLUMN linked_contact_id INTEGER REFERENCES en1_contact(id);
+            CREATE INDEX IF NOT EXISTS ix_user_linked_contact ON user (linked_contact_id);
+            """
+        try:
+            _exec(engine, ddl, printfn, 'user.linked_contact_id')
+        except Exception as ex:
+            db.session.rollback()
+            if printfn:
+                printfn(f'! user.linked_contact_id DDL: {ex}')
+            return
+
+    try:
+        from sqlalchemy import text
+
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    UPDATE "user" u SET linked_contact_id = (
+                        SELECT c.id FROM en1_contact c
+                        WHERE c.organization_id = u.organization_id
+                          AND c.email IS NOT NULL AND length(trim(c.email)) > 0
+                          AND u.email IS NOT NULL AND length(trim(u.email)) > 0
+                          AND lower(trim(c.email)) = lower(trim(u.email))
+                        ORDER BY c.id ASC LIMIT 1
+                    )
+                    WHERE u.linked_contact_id IS NULL
+                      AND EXISTS (
+                          SELECT 1 FROM en1_contact c2
+                          WHERE c2.organization_id = u.organization_id
+                            AND c2.email IS NOT NULL AND length(trim(c2.email)) > 0
+                            AND u.email IS NOT NULL AND length(trim(u.email)) > 0
+                            AND lower(trim(c2.email)) = lower(trim(u.email))
+                          LIMIT 1
+                      )
+                    """
+                )
+            )
+        if printfn:
+            printfn('user.linked_contact_id backfill')
+    except Exception as ex:
+        db.session.rollback()
+        if printfn:
+            printfn(f'! user.linked_contact_id backfill: {ex}')

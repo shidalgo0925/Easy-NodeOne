@@ -8,6 +8,7 @@ from flask_login import current_user, login_required
 from nodeone.core.master.constants import MasterDataError
 from nodeone.core.platform.runtime import resolve_organization_id
 from nodeone.core.services.org_unit import OrgUnitService
+from nodeone.core.services.user_contact import UserContactLinkService
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
 
 platform_master_bp = Blueprint('platform_master', __name__, url_prefix='/api/platform/master')
@@ -53,6 +54,36 @@ def org_units_get(unit_ref: str):
     if dto is None:
         return jsonify({'error': 'not_found'}), 404
     return jsonify({'org_unit': dto.to_dict()})
+
+
+@platform_master_bp.route('/me/linked-contact', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def me_linked_contact():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    user_id = int(current_user.id)
+    if request.method == 'GET':
+        try:
+            dto = UserContactLinkService.get(user_id, gate)
+        except MasterDataError as exc:
+            return jsonify({'error': str(exc)}), 400
+        return jsonify({'link': dto.to_dict()})
+    if request.method == 'DELETE':
+        try:
+            dto = UserContactLinkService.unlink(user_id, gate)
+        except MasterDataError as exc:
+            return jsonify({'error': str(exc)}), 400
+        return jsonify({'link': dto.to_dict()})
+    body = request.get_json(silent=True) or {}
+    contact_id = body.get('contact_id')
+    if contact_id is None:
+        return jsonify({'error': 'contact_id_required'}), 400
+    try:
+        dto = UserContactLinkService.link(user_id, gate, int(contact_id))
+    except MasterDataError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'link': dto.to_dict()})
 
 
 def register_platform_master_api(app) -> None:

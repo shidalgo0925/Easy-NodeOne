@@ -139,6 +139,7 @@ class TestPlatformAppsAPI(unittest.TestCase):
         self.assertIn('/api/platform/apps/template', rules)
         self.assertIn('/api/platform/master/org-units', rules)
         self.assertIn('/api/platform/master/org-units/<unit_ref>', rules)
+        self.assertIn('/api/platform/master/me/linked-contact', rules)
 
 
 class TestPlatformMasterAPI(unittest.TestCase):

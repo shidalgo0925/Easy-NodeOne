@@ -9,6 +9,7 @@ from nodeone.core.services.org_unit import OrgUnitService
 from nodeone.core.services.organization import OrganizationDTO, OrganizationService
 from nodeone.core.master.dtos import OrgUnitDTO
 from nodeone.core.services.product import ProductDTO, ProductService, ProductServiceNotReadyError
+from nodeone.core.services.user_contact import UserContactLinkDTO, UserContactLinkService
 
 __all__ = [
     'AuditService',
@@ -26,4 +27,6 @@ __all__ = [
     'ProductDTO',
     'ProductService',
     'ProductServiceNotReadyError',
+    'UserContactLinkDTO',
+    'UserContactLinkService',
 ]

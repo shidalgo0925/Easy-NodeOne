@@ -1,38 +1,13 @@
 """Registro de rutas admin notifications + identity en app (endpoints legacy)."""
 
-
-IDENTITY_PRESETS = {
-    'iius': {'primary_color': '#8B60AA', 'primary_color_dark': '#00042D', 'accent_color': '#E6BF75'},
-    'en1': {'primary_color': '#FF6B35', 'primary_color_dark': '#2D3E50', 'accent_color': '#9CA3AF'},
-    'hubspot': {'primary_color': '#FF6B35', 'primary_color_dark': '#2D3E50', 'accent_color': '#9CA3AF'},
-    'azul': {'primary_color': '#2563EB', 'primary_color_dark': '#1E3A8A', 'accent_color': '#06B6D4'},
-    'verde': {'primary_color': '#059669', 'primary_color_dark': '#047857', 'accent_color': '#10B981'},
-    'rojo': {'primary_color': '#DC2626', 'primary_color_dark': '#B91C1C', 'accent_color': '#EF4444'},
-    'violeta': {'primary_color': '#7C3AED', 'primary_color_dark': '#5B21B6', 'accent_color': '#A78BFA'},
-    'indigo': {'primary_color': '#4F46E5', 'primary_color_dark': '#3730A3', 'accent_color': '#818CF8'},
-    'teal': {'primary_color': '#0D9488', 'primary_color_dark': '#0F766E', 'accent_color': '#2DD4BF'},
-    'cyan': {'primary_color': '#0891B2', 'primary_color_dark': '#0E7490', 'accent_color': '#22D3EE'},
-    'naranja': {'primary_color': '#EA580C', 'primary_color_dark': '#C2410C', 'accent_color': '#FB923C'},
-    'ambar': {'primary_color': '#D97706', 'primary_color_dark': '#B45309', 'accent_color': '#FBBF24'},
-    'rosa': {'primary_color': '#DB2777', 'primary_color_dark': '#BE185D', 'accent_color': '#F472B6'},
-    'slate': {'primary_color': '#475569', 'primary_color_dark': '#334155', 'accent_color': '#94A3B8'},
-    'esmeralda': {'primary_color': '#10B981', 'primary_color_dark': '#059669', 'accent_color': '#34D399'},
-    'coral': {'primary_color': '#E11D48', 'primary_color_dark': '#BE123C', 'accent_color': '#FB7185'},
-}
-
-
-def _validate_hex(value):
-    if not value or not isinstance(value, str):
-        return False
-    v = value.strip()
-    return len(v) == 7 and v[0] == '#' and all(c in '0123456789AaBbCcDdEeFf' for c in v[1:])
+from nodeone.services.company_wizard import IDENTITY_PRESETS, validate_hex_color
 
 
 def register_admin_notifications_identity_routes(app):
     import re
     from datetime import datetime
 
-    from flask import jsonify, render_template, request
+    from flask import flash, jsonify, redirect, render_template, request, url_for
 
     from app import SaasOrganization, admin_required, db, NotificationSettings, OrganizationSettings
 
@@ -124,9 +99,62 @@ def register_admin_notifications_identity_routes(app):
     @app.route('/admin/identity')
     @admin_required
     def admin_identity():
-        """Panel de identidad visual (colores y logo por cliente)"""
-        s = OrganizationSettings.get_settings_for_session()
-        return render_template('admin/identity.html', settings=s.to_dict())
+        """Redirige al wizard unificado de empresa (paso branding)."""
+        return redirect(url_for('admin_company_setup', step='branding'))
+
+    @app.route('/admin/company', methods=['GET', 'POST'])
+    @admin_required
+    def admin_company_setup():
+        """Wizard de empresa para el tenant activo (fiscal + branding)."""
+        from nodeone.services.company_wizard import (
+            fiscal_payload_from_form,
+            identity_settings_dict,
+            resolve_initial_wizard_step,
+            save_identity_from_form,
+        )
+        from nodeone.services.org_scope import admin_data_scope_organization_id
+        from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
+
+        ensure_saas_organization_fiscal_columns(db, db.engine)
+        oid = int(admin_data_scope_organization_id())
+        org = SaasOrganization.query.get_or_404(oid)
+        step_arg = request.args.get('step') if request.method == 'GET' else request.form.get('wizard_step')
+
+        if request.method == 'POST':
+            fiscal = fiscal_payload_from_form(request.form)
+            for key, value in fiscal.items():
+                setattr(org, key, value)
+            id_err = save_identity_from_form(request.form, oid)
+            if id_err:
+                flash(id_err, 'error')
+                return render_template(
+                    'admin/company_wizard.html',
+                    wizard_mode='tenant',
+                    org=org,
+                    form=request.form,
+                    google_oauth=None,
+                    identity_settings=identity_settings_dict(oid),
+                    initial_step=resolve_initial_wizard_step(mode='tenant', step_arg=step_arg),
+                    show_onboarding_rail=False,
+                )
+            try:
+                db.session.commit()
+                flash('Configuración de empresa guardada.', 'success')
+                return redirect(url_for('admin_company_setup', step='branding'))
+            except Exception as exc:
+                db.session.rollback()
+                flash('No se pudo guardar: %s' % (exc,), 'error')
+
+        return render_template(
+            'admin/company_wizard.html',
+            wizard_mode='tenant',
+            org=org,
+            form=None,
+            google_oauth=None,
+            identity_settings=identity_settings_dict(oid),
+            initial_step=resolve_initial_wizard_step(mode='tenant', step_arg=step_arg),
+            show_onboarding_rail=False,
+        )
 
     @app.route('/api/admin/identity', methods=['GET', 'POST'])
     @admin_required
@@ -148,7 +176,7 @@ def register_admin_notifications_identity_routes(app):
             primary = (data.get('primary_color') or '').strip()
             primary_dark = (data.get('primary_color_dark') or '').strip()
             accent = (data.get('accent_color') or '').strip()
-            if not all((_validate_hex(primary), _validate_hex(primary_dark), _validate_hex(accent))):
+            if not all((validate_hex_color(primary), validate_hex_color(primary_dark), validate_hex_color(accent))):
                 return jsonify({'success': False, 'error': 'Colores personalizados deben ser HEX válidos (#RRGGBB).'}), 400
             s = OrganizationSettings.get_settings_for_session()
             s.primary_color = primary

@@ -171,6 +171,34 @@ def register_admin_platform_org_routes(app):
             'fiscal_email': (form.get('fiscal_email') or '').strip() or None,
         }
 
+    def _wizard_context(*, wizard_mode: str, org=None, form=None, google_oauth=None, step_arg=None):
+        from nodeone.services.company_wizard import identity_settings_dict, resolve_initial_wizard_step
+
+        oid = int(org.id) if org is not None else None
+        identity = identity_settings_dict(oid) if oid is not None else identity_settings_dict(1)
+        if wizard_mode == 'create':
+            identity = identity_settings_dict(1)
+        return {
+            'wizard_mode': wizard_mode,
+            'org': org,
+            'form': form,
+            'google_oauth': google_oauth,
+            'identity_settings': identity,
+            'initial_step': resolve_initial_wizard_step(mode='tenant' if wizard_mode == 'tenant' else 'platform', step_arg=step_arg),
+            'show_onboarding_rail': False,
+        }
+
+    def _render_org_wizard(*, wizard_mode: str, org=None, form=None, google_oauth=None, show_onboarding_rail=False, step_arg=None):
+        ctx = _wizard_context(
+            wizard_mode=wizard_mode,
+            org=org,
+            form=form,
+            google_oauth=google_oauth,
+            step_arg=step_arg,
+        )
+        ctx['show_onboarding_rail'] = show_onboarding_rail
+        return render_template('admin/company_wizard.html', **ctx)
+
     def _ensure_org_fiscal_columns():
         try:
             from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
@@ -233,30 +261,33 @@ def register_admin_platform_org_routes(app):
             registration_policy = normalize_registration_policy(request.form.get('registration_policy'))
             if not name:
                 flash('El nombre es obligatorio.', 'error')
-                return render_template(
-                    'admin/organization_form.html',
+                return _render_org_wizard(
+                    wizard_mode='create',
                     org=None,
                     form=request.form,
-                    show_onboarding_rail=show_rail,
                     google_oauth=None,
+                    show_onboarding_rail=show_rail,
+                    step_arg=request.form.get('wizard_step'),
                 )
             if sub_raw is False:
                 flash('Subdominio invalido: solo minusculas, numeros y guiones; no empezar ni terminar con guion.', 'error')
-                return render_template(
-                    'admin/organization_form.html',
+                return _render_org_wizard(
+                    wizard_mode='create',
                     org=None,
                     form=request.form,
-                    show_onboarding_rail=show_rail,
                     google_oauth=None,
+                    show_onboarding_rail=show_rail,
+                    step_arg=request.form.get('wizard_step'),
                 )
             if sub_raw and SaasOrganization.query.filter_by(subdomain=sub_raw).first():
                 flash('Ese subdominio ya esta en uso.', 'error')
-                return render_template(
-                    'admin/organization_form.html',
+                return _render_org_wizard(
+                    wizard_mode='create',
                     org=None,
                     form=request.form,
-                    show_onboarding_rail=show_rail,
                     google_oauth=None,
+                    show_onboarding_rail=show_rail,
+                    step_arg=request.form.get('wizard_step'),
                 )
             try:
                 from nodeone.services.pg_sequence_sync import (
@@ -276,6 +307,11 @@ def register_admin_platform_org_routes(app):
             db.session.add(o)
             try:
                 db.session.commit()
+                from nodeone.services.company_wizard import save_identity_from_form
+
+                id_err = save_identity_from_form(request.form, o.id)
+                if id_err:
+                    flash(id_err, 'warning')
                 warn_g = _save_google_oauth_for_organization(request.form, o.id)
                 if warn_g:
                     flash(warn_g, 'warning')
@@ -284,12 +320,13 @@ def register_admin_platform_org_routes(app):
                 except Exception as ex_g:
                     db.session.rollback()
                     flash('No se pudieron guardar las credenciales Google: %s' % (ex_g,), 'error')
-                    return render_template(
-                        'admin/organization_form.html',
+                    return _render_org_wizard(
+                        wizard_mode='create',
                         org=None,
                         form=request.form,
-                        show_onboarding_rail=show_rail,
                         google_oauth=None,
+                        show_onboarding_rail=show_rail,
+                        step_arg=request.form.get('wizard_step'),
                     )
                 try:
                     from nodeone.services.saas_catalog_defaults import (
@@ -322,19 +359,19 @@ def register_admin_platform_org_routes(app):
             except Exception as ex:
                 db.session.rollback()
                 flash('No se pudo guardar: %s' % (ex,), 'error')
-                return render_template(
-                    'admin/organization_form.html',
+                return _render_org_wizard(
+                    wizard_mode='create',
                     org=None,
                     form=request.form,
-                    show_onboarding_rail=show_rail,
                     google_oauth=None,
+                    show_onboarding_rail=show_rail,
                 )
-        return render_template(
-            'admin/organization_form.html',
+        return _render_org_wizard(
+            wizard_mode='create',
             org=None,
             form=None,
-            show_onboarding_rail=show_rail,
             google_oauth=None,
+            show_onboarding_rail=show_rail,
         )
 
     @app.route('/admin/organizations/<int:oid>/edit', methods=['GET', 'POST'])
@@ -350,32 +387,35 @@ def register_admin_platform_org_routes(app):
             fiscal = _org_fiscal_payload_from_form(request.form)
             if not name:
                 flash('El nombre es obligatorio.', 'error')
-                return render_template(
-                    'admin/organization_form.html',
+                return _render_org_wizard(
+                    wizard_mode='edit',
                     org=o,
                     form=request.form,
-                    show_onboarding_rail=show_rail,
                     google_oauth=_google_oauth_row(o.id),
+                    show_onboarding_rail=show_rail,
+                    step_arg=request.form.get('wizard_step'),
                 )
             if sub_raw is False:
                 flash('Subdominio invalido: solo minusculas, numeros y guiones; no empezar ni terminar con guion.', 'error')
-                return render_template(
-                    'admin/organization_form.html',
+                return _render_org_wizard(
+                    wizard_mode='edit',
                     org=o,
                     form=request.form,
-                    show_onboarding_rail=show_rail,
                     google_oauth=_google_oauth_row(o.id),
+                    show_onboarding_rail=show_rail,
+                    step_arg=request.form.get('wizard_step'),
                 )
             if sub_raw:
                 other = SaasOrganization.query.filter(SaasOrganization.subdomain == sub_raw, SaasOrganization.id != oid).first()
                 if other:
                     flash('Ese subdominio ya esta en uso.', 'error')
-                    return render_template(
-                        'admin/organization_form.html',
+                    return _render_org_wizard(
+                        wizard_mode='edit',
                         org=o,
                         form=request.form,
-                        show_onboarding_rail=show_rail,
                         google_oauth=_google_oauth_row(o.id),
+                        show_onboarding_rail=show_rail,
+                        step_arg=request.form.get('wizard_step'),
                     )
             from nodeone.services.registration_policy import normalize_registration_policy
 
@@ -387,6 +427,11 @@ def register_admin_platform_org_routes(app):
                 setattr(o, k, v)
             try:
                 db.session.commit()
+                from nodeone.services.company_wizard import save_identity_from_form
+
+                id_err = save_identity_from_form(request.form, o.id)
+                if id_err:
+                    flash(id_err, 'warning')
                 warn_g = _save_google_oauth_for_organization(request.form, o.id)
                 if warn_g:
                     flash(warn_g, 'warning')
@@ -395,34 +440,34 @@ def register_admin_platform_org_routes(app):
                 except Exception as ex_g:
                     db.session.rollback()
                     flash('No se pudieron guardar las credenciales Google: %s' % (ex_g,), 'error')
-                    goo = _google_oauth_row(o.id)
-                    return render_template(
-                        'admin/organization_form.html',
+                    return _render_org_wizard(
+                        wizard_mode='edit',
                         org=o,
                         form=request.form,
+                        google_oauth=_google_oauth_row(o.id),
                         show_onboarding_rail=show_rail,
-                        google_oauth=goo,
+                        step_arg=request.form.get('wizard_step'),
                     )
                 flash('Empresa actualizada.', 'success')
                 return redirect(url_for('admin_organizations_list'))
             except Exception as ex:
                 db.session.rollback()
                 flash('No se pudo guardar: %s' % (ex,), 'error')
-                goo = _google_oauth_row(o.id)
-                return render_template(
-                    'admin/organization_form.html',
+                return _render_org_wizard(
+                    wizard_mode='edit',
                     org=o,
                     form=request.form,
+                    google_oauth=_google_oauth_row(o.id),
                     show_onboarding_rail=show_rail,
-                    google_oauth=goo,
+                    step_arg=request.form.get('wizard_step'),
                 )
-        goo = _google_oauth_row(o.id)
-        return render_template(
-            'admin/organization_form.html',
+        return _render_org_wizard(
+            wizard_mode='edit',
             org=o,
             form=None,
+            google_oauth=_google_oauth_row(o.id),
             show_onboarding_rail=show_rail,
-            google_oauth=goo,
+            step_arg=request.args.get('step'),
         )
 
     @app.route('/admin/organizations/<int:oid>/deactivate', methods=['POST'])

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}{% if wizard_mode == 'create' %}Nueva empresa{% elif wizard_mode == 'tenant' %}Mi empresa{% else %}Editar empresa{% endif %} - EasyNodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 px-3">
+    <div class="{% if show_onboarding_rail %}d-flex flex-column flex-lg-row gap-4 align-items-start justify-content-lg-center org-onboarding-layout{% else %}row g-4 justify-content-center{% endif %}"{% if show_onboarding_rail %} id="orgOnboardingLayout"{% endif %}>
+        <div class="{% if show_onboarding_rail %}w-100 org-onboarding-main{% else %}col-12 col-xl-10{% endif %}">
+            <div class="mb-3">
+                <h1 class="h4 mb-1">
+                    {% if wizard_mode == 'create' %}Nueva empresa{% elif wizard_mode == 'tenant' %}Configuración de empresa{% else %}Editar empresa{% endif %}
+                </h1>
+                <p class="text-muted small mb-0">Completá los pasos del asistente. Toda la información queda en un solo lugar.</p>
+            </div>
+
+            <ul class="nav nav-pills nav-fill flex-nowrap overflow-auto mb-3 company-wizard-steps" id="companyWizardSteps">
+                <li class="nav-item">
+                    <button type="button" class="nav-link wizard-step-tab" data-step="1">1. Empresa</button>
+                </li>
+                <li class="nav-item">
+                    <button type="button" class="nav-link wizard-step-tab" data-step="2">2. Fiscal</button>
+                </li>
+                <li class="nav-item">
+                    <button type="button" class="nav-link wizard-step-tab" data-step="3">3. Branding</button>
+                </li>
+                {% if wizard_mode != 'tenant' %}
+                <li class="nav-item">
+                    <button type="button" class="nav-link wizard-step-tab" data-step="4">4. Acceso</button>
+                </li>
+                {% endif %}
+            </ul>
+
+            <form method="post" class="card card-body shadow-sm" id="companyWizardForm"
+                  action="{% if wizard_mode == 'tenant' %}{{ url_for('admin_company_setup') }}{% elif wizard_mode == 'create' %}{{ url_for('admin_organization_new') }}{% else %}{{ url_for('admin_organization_edit', oid=org.id) }}{% endif %}{% if show_onboarding_rail %}?guide=1{% endif %}">
+                {% if show_onboarding_rail %}
+                <input type="hidden" name="onboarding_guide" value="1">
+                {% endif %}
+                <input type="hidden" name="wizard_step" id="wizard_step_field" value="{{ initial_step }}">
+                <input type="hidden" name="identity_preset" id="identity_preset_field" value="{{ identity_settings.preset or 'azul' }}">
+
+                {# —— Paso 1: Empresa —— #}
+                <div class="wizard-panel" data-step-panel="1">
+                    {% if wizard_mode == 'tenant' %}
+                    <p class="text-muted small">Datos del tenant activo (solo lectura). Para cambiar nombre o subdominio contactá al administrador de plataforma.</p>
+                    <dl class="row small mb-0">
+                        <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">{{ org.name }}</dd>
+                        <dt class="col-sm-3">Subdominio</dt><dd class="col-sm-9">{{ org.subdomain or '—' }}</dd>
+                        <dt class="col-sm-3">Política registro</dt><dd class="col-sm-9"><code>{{ org.registration_policy or 'free_registration' }}</code></dd>
+                    </dl>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required maxlength="200"
+                               value="{{ form.get('name', '') if form else (org.name if org else '') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subdominio</label>
+                        <input type="text" name="subdomain" class="form-control" maxlength="128" placeholder="ej. acme (vacío = solo acceso por usuario)"
+                               value="{{ form.get('subdomain', '') if form else (org.subdomain if org else '') }}">
+                        <div class="form-text">Minúsculas; <code>subdominio.tudominio.com</code></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Política de registro público</label>
+                        <select name="registration_policy" class="form-select">
+                            {% set rp = (form.get('registration_policy') if form else None) or (org.registration_policy if org else 'free_registration') %}
+                            <option value="free_registration" {% if rp == 'free_registration' %}selected{% endif %}>Abierto — cualquiera puede registrarse</option>
+                            <option value="paid_only" {% if rp == 'paid_only' %}selected{% endif %}>Solo tras pago o invitación</option>
+                            <option value="admin_only" {% if rp == 'admin_only' %}selected{% endif %}>Solo administrador</option>
+                            <option value="invitation_only" {% if rp == 'invitation_only' %}selected{% endif %}>Solo con enlace de invitación</option>
+                            <option value="academic_closed" {% if rp == 'academic_closed' %}selected{% endif %}>Campus académico cerrado</option>
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        {% if org and org.id == 1 %}
+                        <input type="hidden" name="is_active" value="1">
+                        <p class="text-muted small mb-0">La organización por defecto (id=1) permanece siempre activa.</p>
+                        {% else %}
+                        <div class="form-check">
+                            <input type="hidden" name="is_active" value="0">
+                            <input type="checkbox" name="is_active" value="1" class="form-check-input" id="is_active"
+                                   {% if form %}{{ 'checked' if form.get('is_active') == '1' else '' }}{% elif org %}{{ 'checked' if org.is_active else '' }}{% else %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">Empresa activa</label>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# —— Paso 2: Fiscal —— #}
+                <div class="wizard-panel d-none" data-step-panel="2">
+                    <p class="text-muted small">Emisor en cotizaciones, facturas y facturación electrónica.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Razón social</label>
+                        <input type="text" name="legal_name" class="form-control" maxlength="200"
+                               value="{{ form.get('legal_name', '') if form else ((org.legal_name or '') if org else '') }}">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">RUC / NIT / ID fiscal</label>
+                            <input type="text" name="tax_id" class="form-control" maxlength="80"
+                                   value="{{ form.get('tax_id', '') if form else ((org.tax_id or '') if org else '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Régimen fiscal</label>
+                            <input type="text" name="tax_regime" class="form-control" maxlength="120"
+                                   value="{{ form.get('tax_regime', '') if form else ((org.tax_regime or '') if org else '') }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Dirección fiscal</label>
+                            <input type="text" name="fiscal_address" class="form-control" maxlength="255"
+                                   value="{{ form.get('fiscal_address', '') if form else ((org.fiscal_address or '') if org else '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ciudad</label>
+                            <input type="text" name="fiscal_city" class="form-control" maxlength="120"
+                                   value="{{ form.get('fiscal_city', '') if form else ((org.fiscal_city or '') if org else '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Provincia / Estado</label>
+                            <input type="text" name="fiscal_state" class="form-control" maxlength="120"
+                                   value="{{ form.get('fiscal_state', '') if form else ((org.fiscal_state or '') if org else '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">País</label>
+                            <input type="text" name="fiscal_country" class="form-control" maxlength="120"
+                                   value="{{ form.get('fiscal_country', '') if form else ((org.fiscal_country or '') if org else '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Teléfono fiscal</label>
+                            <input type="text" name="fiscal_phone" class="form-control" maxlength="60"
+                                   value="{{ form.get('fiscal_phone', '') if form else ((org.fiscal_phone or '') if org else '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email fiscal</label>
+                            <input type="email" name="fiscal_email" class="form-control" maxlength="200"
+                                   value="{{ form.get('fiscal_email', '') if form else ((org.fiscal_email or '') if org else '') }}">
+                        </div>
+                    </div>
+                </div>
+
+                {# —— Paso 3: Branding —— #}
+                <div class="wizard-panel d-none" data-step-panel="3">
+                    <p class="text-muted small mb-3">Colores de marca para esta empresa. Afecta botones, enlaces y barra lateral.</p>
+                    <div class="d-flex flex-wrap gap-2 mb-3" id="identityPresetButtons">
+                        {% for key, label in [('en1','EN1 Corporativo'),('iius','IIUS'),('azul','Azul'),('verde','Verde'),('naranja','Naranja'),('custom','Personalizado')] %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary identity-preset-btn" data-preset="{{ key }}">{{ label }}</button>
+                        {% endfor %}
+                    </div>
+                    <div class="row g-3 mb-3 d-none" id="identityCustomFields">
+                        <div class="col-md-4">
+                            <label class="form-label" for="identity_primary_color">Primario</label>
+                            <input type="text" class="form-control form-control-sm" name="identity_primary_color" id="identity_primary_color" maxlength="7"
+                                   value="{{ identity_settings.primary_color or '#2563EB' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="identity_primary_color_dark">Primario oscuro</label>
+                            <input type="text" class="form-control form-control-sm" name="identity_primary_color_dark" id="identity_primary_color_dark" maxlength="7"
+                                   value="{{ identity_settings.primary_color_dark or '#1E3A8A' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="identity_accent_color">Acento</label>
+                            <input type="text" class="form-control form-control-sm" name="identity_accent_color" id="identity_accent_color" maxlength="7"
+                                   value="{{ identity_settings.accent_color or '#06B6D4' }}">
+                        </div>
+                    </div>
+                    <div class="border rounded p-3 bg-light">
+                        <span class="small text-muted">Vista previa</span>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button type="button" class="btn btn-primary btn-sm">Botón primario</button>
+                            <span class="badge bg-primary">Badge</span>
+                        </div>
+                    </div>
+                </div>
+
+                {# —— Paso 4: Acceso (solo plataforma) —— #}
+                {% if wizard_mode != 'tenant' %}
+                <div class="wizard-panel d-none" data-step-panel="4">
+                    <p class="text-muted small">Login con Google opcional para este tenant.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Google Client ID</label>
+                        <input type="text" name="google_oauth_client_id" class="form-control font-monospace small" maxlength="256" autocomplete="off"
+                               value="{{ form.get('google_oauth_client_id', '') if form else ((google_oauth.google_client_id if google_oauth else '') or '') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Google Client secret</label>
+                        <input type="password" name="google_oauth_client_secret" class="form-control font-monospace small" maxlength="512" autocomplete="new-password"
+                               placeholder="{% if google_oauth %}Dejar vacío para no cambiar{% else %}Obligatorio si indicás Client ID{% endif %}">
+                    </div>
+                    {% if org %}
+                    <div class="form-check">
+                        <input type="checkbox" name="google_oauth_clear" value="1" class="form-check-input" id="google_oauth_clear">
+                        <label class="form-check-label" for="google_oauth_clear">Quitar credenciales Google de esta empresa</label>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="d-flex flex-wrap justify-content-between gap-2 mt-4 pt-3 border-top">
+                    <button type="button" class="btn btn-outline-secondary" id="wizardBtnPrev" disabled>Anterior</button>
+                    <div class="d-flex gap-2">
+                        {% if wizard_mode == 'tenant' %}
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        {% else %}
+                        <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        {% endif %}
+                        <button type="button" class="btn btn-primary" id="wizardBtnNext">Siguiente</button>
+                        <button type="submit" class="btn btn-success d-none" id="wizardBtnSave">
+                            <i class="fas fa-check me-1"></i> Guardar empresa
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            {% if org and org.id != 1 and wizard_mode == 'edit' %}
+            <div class="card border-danger mt-4">
+                <div class="card-header bg-danger text-white py-2"><i class="fas fa-exclamation-triangle me-1"></i> Zona peligrosa</div>
+                <div class="card-body py-3">
+                    <p class="small text-muted mb-2">Eliminar la empresa no se puede deshacer.</p>
+                    <form method="post" action="{{ url_for('admin_organization_delete', oid=org.id) }}" onsubmit="return confirm('¿Eliminar empresa id={{ org.id }}?');">
+                        <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt me-1"></i> Eliminar empresa</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if show_onboarding_rail %}
+        <div class="w-100 onboarding-rail-outer" id="onboardingRailOuter">
+            {% include 'admin/_onboarding_rail.html' %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    var maxStep = {{ 3 if wizard_mode == 'tenant' else 4 }};
+    var current = Math.min(Math.max(parseInt({{ initial_step }}, 10) || 1, 1), maxStep);
+    var panels = document.querySelectorAll('[data-step-panel]');
+    var tabs = document.querySelectorAll('.wizard-step-tab');
+    var btnPrev = document.getElementById('wizardBtnPrev');
+    var btnNext = document.getElementById('wizardBtnNext');
+    var btnSave = document.getElementById('wizardBtnSave');
+    var stepField = document.getElementById('wizard_step_field');
+    var presetField = document.getElementById('identity_preset_field');
+    var customFields = document.getElementById('identityCustomFields');
+    var presetBtns = document.querySelectorAll('.identity-preset-btn');
+
+    function showStep(n) {
+        current = n;
+        if (stepField) stepField.value = String(n);
+        panels.forEach(function (p) {
+            p.classList.toggle('d-none', parseInt(p.getAttribute('data-step-panel'), 10) !== n);
+        });
+        tabs.forEach(function (t) {
+            var s = parseInt(t.getAttribute('data-step'), 10);
+            t.classList.toggle('active', s === n);
+        });
+        if (btnPrev) btnPrev.disabled = n <= 1;
+        if (btnNext) btnNext.classList.toggle('d-none', n >= maxStep);
+        if (btnSave) btnSave.classList.toggle('d-none', n < maxStep);
+    }
+
+    function setPreset(preset) {
+        if (presetField) presetField.value = preset;
+        presetBtns.forEach(function (b) {
+            var p = b.getAttribute('data-preset');
+            b.classList.toggle('btn-primary', p === preset);
+            b.classList.toggle('btn-outline-secondary', p !== preset);
+        });
+        if (customFields) customFields.classList.toggle('d-none', preset !== 'custom');
+    }
+
+    tabs.forEach(function (t) {
+        t.addEventListener('click', function () {
+            showStep(parseInt(t.getAttribute('data-step'), 10));
+        });
+    });
+    if (btnPrev) btnPrev.addEventListener('click', function () { showStep(current - 1); });
+    if (btnNext) btnNext.addEventListener('click', function () { showStep(current + 1); });
+    presetBtns.forEach(function (b) {
+        b.addEventListener('click', function () { setPreset(b.getAttribute('data-preset')); });
+    });
+
+    setPreset(presetField ? presetField.value : 'azul');
+    showStep(current);
+})();
+</script>
+{% endblock %}

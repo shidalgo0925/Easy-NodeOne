@@ -76,6 +76,7 @@ _CONFIG_EPS = (
     'admin_communications.admin_communications_settings',
     'admin_configuration_taxes',
     'admin_identity',
+    'admin_company_setup',
     'admin_email',
     'media_admin.admin_media',
     'admin_ai',
@@ -817,11 +818,11 @@ _FINANZAS_COBRO_ITEMS: tuple[NavAreaItem, ...] = (
 _CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
     NavAreaItem(
         'branding',
-        'Branding',
-        'fas fa-palette',
-        'admin_identity',
+        'Empresa',
+        'fas fa-building',
+        'admin_company_setup',
         visible=_v_config,
-        active_endpoints=('admin_identity',),
+        active_endpoints=('admin_company_setup', 'admin_identity'),
     ),
     NavAreaItem(
         'smtp',

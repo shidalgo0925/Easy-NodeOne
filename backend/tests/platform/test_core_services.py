@@ -119,6 +119,40 @@ class TestContactService(unittest.TestCase):
         with self.assertRaises(ContactService.ValidationError):
             ContactService.resolve_ref(1, '999')
 
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.link')
+    @patch('nodeone.modules.contacts.service.create_contact')
+    def test_create_with_legacy_link(self, mock_create_contact, mock_link):
+        from nodeone.core.services.contacts import ContactService
+
+        row = MagicMock()
+        row.id = 11
+        row.organization_id = 1
+        row.display_name = 'Nuevo'
+        row.email = 'nuevo@example.com'
+        row.phone = None
+        row.mobile = None
+        row.contact_type = 'person'
+        row.identification_type = 'consumer_final'
+        row.tax_id = None
+        row.dv = None
+        row.is_customer = True
+        row.is_supplier = False
+        row.is_member = False
+        row.is_student = False
+        row.is_participant = False
+        row.is_instructor = False
+        row.is_employee = False
+        row.active = True
+        row.role_labels.return_value = ['Cliente']
+        mock_create_contact.return_value = row
+
+        dto = ContactService.create_with_legacy_link(
+            1,
+            {'display_name': 'Nuevo', 'email': 'nuevo@example.com', 'is_customer': True, 'legacy_contact_id': 7},
+        )
+        self.assertEqual(dto.id, 11)
+        mock_link.assert_called_once_with(1, contact_id=11, legacy_contact_id=7, link_source='eposone_create')
+
     @patch('nodeone.core.services.product.CoreProductService.search', return_value=[])
     def test_product_service_search(self, mock_search):
         from nodeone.core.services.product import ProductService

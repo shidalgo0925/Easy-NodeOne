@@ -280,6 +280,83 @@ class TestContactBridgeService(unittest.TestCase):
         resolved = ContactBridgeService.resolve(1, 9)
         self.assertIsNotNone(resolved)
         self.assertEqual(resolved.source, CONTACT_SOURCE_LEGACY)
+
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.link')
+    @patch('nodeone.core.master.contact_bridge.ContactService.create')
+    @patch('nodeone.core.master.contact_bridge.ContactService.find_by_email', return_value=None)
+    @patch('nodeone.core.master.contact_bridge.ContactService.find_by_tax_id', return_value=None)
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.get_link_by_legacy', return_value=None)
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.get_legacy')
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.resolve')
+    def test_promote_legacy_creates_and_links(
+        self,
+        mock_resolve,
+        mock_legacy,
+        _mock_link_existing,
+        _mock_tax,
+        _mock_email,
+        mock_create,
+        mock_link,
+    ):
+        from nodeone.core.master.contact_bridge import CONTACT_SOURCE_LINKED, ContactBridgeService
+        from nodeone.core.services.contacts import ContactDTO
+
+        legacy_row = MagicMock()
+        legacy_row.id = 9
+        legacy_row.organization_id = 1
+        legacy_row.legal_name = 'Legacy Co'
+        legacy_row.trade_name = None
+        legacy_row.name = 'Legacy'
+        legacy_row.company = None
+        legacy_row.email = 'legacy@example.com'
+        legacy_row.fiscal_email = None
+        legacy_row.phone = None
+        legacy_row.fiscal_phone = None
+        legacy_row.person_type = 'natural'
+        legacy_row.id_type = None
+        legacy_row.tax_id = None
+        legacy_row.tax_dv = None
+        legacy_row.is_customer = True
+        legacy_row.is_supplier = False
+        legacy_row.is_salesperson = False
+        legacy_row.is_active = True
+        mock_legacy.return_value = legacy_row
+
+        created = ContactDTO(
+            id=20,
+            organization_id=1,
+            display_name='Legacy Co',
+            email='legacy@example.com',
+            phone=None,
+            mobile=None,
+            contact_type='person',
+            identification_type='consumer_final',
+            tax_id=None,
+            dv=None,
+            is_customer=True,
+            is_supplier=False,
+            is_member=False,
+            is_student=False,
+            is_participant=False,
+            is_instructor=False,
+            is_employee=False,
+            active=True,
+            roles=('Cliente',),
+        )
+        mock_create.return_value = created
+        from nodeone.core.master.contact_bridge import ResolvedContactDTO
+
+        mock_resolve.return_value = ResolvedContactDTO(
+            contact=created,
+            source=CONTACT_SOURCE_LINKED,
+            canonical_contact_id=20,
+            legacy_crm_contact_id=9,
+        )
+
+        resolved = ContactBridgeService.promote_legacy(1, 9)
+        self.assertEqual(resolved.canonical_contact_id, 20)
+        mock_link.assert_called_once()
+        mock_create.assert_called_once()
         self.assertEqual(resolved.legacy_crm_contact_id, 9)
 
 

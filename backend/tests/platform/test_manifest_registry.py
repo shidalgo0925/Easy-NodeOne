@@ -155,6 +155,8 @@ class TestPlatformMasterAPI(unittest.TestCase):
         self.assertIn('/api/eposone/products/<product_ref>', rules)
         self.assertIn('/api/eposone/stock-balances', rules)
         self.assertIn('/api/eposone/stock-adjust', rules)
+        self.assertIn('/api/eposone/contacts', rules)
+        self.assertIn('/api/eposone/contacts/promote-legacy', rules)
         self.assertIn('/api/eposone/warehouses', rules)
         self.assertIn('/api/eposone/registers', rules)
         self.assertIn('/api/eposone/pos-units', rules)

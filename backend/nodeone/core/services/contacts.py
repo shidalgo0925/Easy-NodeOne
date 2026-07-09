@@ -219,6 +219,27 @@ class ContactService:
         return _to_dto(row)
 
     @staticmethod
+    def create_with_legacy_link(organization_id: int, data: dict[str, Any]) -> ContactDTO:
+        """Crea contacto canónico y opcionalmente enlaza con tenant_crm_contact legacy."""
+        from nodeone.core.master.contact_bridge import ContactBridgeService
+        from nodeone.core.master.constants import MasterDataError
+
+        payload = dict(data or {})
+        legacy_raw = payload.pop('legacy_contact_id', None)
+        dto = ContactService.create(int(organization_id), payload)
+        if legacy_raw is not None:
+            try:
+                ContactBridgeService.link(
+                    int(organization_id),
+                    contact_id=int(dto.id),
+                    legacy_contact_id=int(legacy_raw),
+                    link_source='eposone_create',
+                )
+            except MasterDataError as exc:
+                raise ContactService.ValidationError(str(exc)) from exc
+        return dto
+
+    @staticmethod
     def update(organization_id: int, contact_id: int, data: dict[str, Any]) -> ContactDTO:
         row = _contact_svc.update_contact(int(organization_id), int(contact_id), data)
         return _to_dto(row)

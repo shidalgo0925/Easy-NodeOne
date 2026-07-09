@@ -96,6 +96,26 @@ def legacy_contact_to_dto(row: TenantCrmContact) -> ContactDTO:
     )
 
 
+def _legacy_to_create_payload(row: TenantCrmContact) -> dict[str, Any]:
+    dto = legacy_contact_to_dto(row)
+    payload: dict[str, Any] = {
+        'display_name': dto.display_name,
+        'email': dto.email,
+        'phone': dto.phone,
+        'contact_type': dto.contact_type,
+        'identification_type': dto.identification_type,
+        'tax_id': dto.tax_id,
+        'dv': dto.dv,
+        'is_customer': dto.is_customer,
+        'is_supplier': dto.is_supplier,
+        'is_employee': dto.is_employee,
+        'active': dto.active,
+    }
+    if dto.contact_type == 'company':
+        payload['company_name'] = dto.display_name
+    return payload
+
+
 class ContactBridgeService:
     @staticmethod
     def get_legacy(organization_id: int, legacy_contact_id: int) -> TenantCrmContact | None:
@@ -179,3 +199,63 @@ class ContactBridgeService:
         )
         db.session.add(row)
         db.session.commit()
+
+    @staticmethod
+    def promote_legacy(
+        organization_id: int,
+        legacy_contact_id: int,
+        *,
+        link_source: str = 'promote_legacy',
+    ) -> ResolvedContactDTO:
+        oid = int(organization_id)
+        lid = int(legacy_contact_id)
+
+        existing_link = ContactBridgeService.get_link_by_legacy(oid, lid)
+        if existing_link is not None:
+            resolved = ContactBridgeService.resolve(oid, int(existing_link.contact_id))
+            if resolved is not None:
+                return resolved
+
+        legacy = ContactBridgeService.get_legacy(oid, lid)
+        if legacy is None or not legacy.is_active:
+            raise MasterDataError('legacy_contact_not_found')
+
+        payload = _legacy_to_create_payload(legacy)
+        if payload.get('email'):
+            match = ContactService.find_by_email(oid, str(payload['email']))
+            if match is not None:
+                ContactBridgeService.link(
+                    oid,
+                    contact_id=int(match.id),
+                    legacy_contact_id=lid,
+                    link_source=link_source,
+                )
+                resolved = ContactBridgeService.resolve(oid, int(match.id))
+                if resolved is not None:
+                    return resolved
+
+        tax_id = payload.get('tax_id')
+        if tax_id and payload.get('identification_type') != 'consumer_final':
+            match = ContactService.find_by_tax_id(oid, str(tax_id), dv=payload.get('dv'))
+            if match is not None:
+                ContactBridgeService.link(
+                    oid,
+                    contact_id=int(match.id),
+                    legacy_contact_id=lid,
+                    link_source=link_source,
+                )
+                resolved = ContactBridgeService.resolve(oid, int(match.id))
+                if resolved is not None:
+                    return resolved
+
+        canonical = ContactService.create(oid, payload)
+        ContactBridgeService.link(
+            oid,
+            contact_id=int(canonical.id),
+            legacy_contact_id=lid,
+            link_source=link_source,
+        )
+        resolved = ContactBridgeService.resolve(oid, int(canonical.id))
+        if resolved is None:
+            raise MasterDataError('promote_failed')
+        return resolved

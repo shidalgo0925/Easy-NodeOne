@@ -3,24 +3,33 @@
 {% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
-    <div class="mb-3">
-        <h1 class="h4 mb-1">{{ section_title }}</h1>
-        <p class="text-muted small mb-0">{{ section_description }}</p>
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <span class="badge en1-badge--neutral">{{ tickets_total }} ticket(s) activo(s)</span>
     </div>
 
     <div class="row g-3">
-        {% if tickets %}
-            {% for ticket in tickets %}
+        {% if ticket_rows %}
+            {% for row in ticket_rows %}
+            {% set ticket = row.ticket %}
             <div class="col-md-6 col-lg-4">
                 <div class="card border-0 shadow-sm h-100">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
-                        <strong><code>{{ ticket.order_ref }}</code></strong>
-                        <span class="badge bg-warning text-dark">{{ ticket.status }}</span>
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <div>
+                            <a href="{{ url_for('eposone.eposone_order_detail', order_id=ticket.order_id) }}" class="text-decoration-none">
+                                <code>{{ ticket.order_ref }}</code>
+                            </a>
+                            <div class="small text-muted">#{{ ticket.id }} · {{ ticket.station_type }}</div>
+                        </div>
+                        <span class="badge en1-badge--neutral">{{ ticket.status }}</span>
                     </div>
                     <div class="card-body py-2">
-                        <p class="small text-muted mb-2">{{ ticket.station_type }} · prioridad {{ ticket.priority }}</p>
-                        <ul class="list-unstyled mb-0 small">
+                        <p class="small text-muted mb-2">Prioridad {{ ticket.priority }}</p>
+                        <ul class="list-unstyled mb-3 small">
                             {% for line in ticket.lines %}
                             <li class="mb-1">
                                 <span class="fw-semibold">{{ line.quantity|int if line.quantity == line.quantity|int else line.quantity }}</span>
@@ -28,6 +37,17 @@
                             </li>
                             {% endfor %}
                         </ul>
+                        {% if row.next_statuses %}
+                        <form method="post" action="{{ url_for('eposone.eposone_kds_ticket_status', ticket_id=ticket.id) }}" class="d-flex gap-2 flex-wrap">
+                            <select name="status" class="form-select form-select-sm" style="max-width:10rem" required>
+                                <option value="">Cambiar a…</option>
+                                {% for st in row.next_statuses %}
+                                <option value="{{ st }}">{{ st }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-primary">Actualizar</button>
+                        </form>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -38,8 +58,8 @@
                 <div class="card-body text-muted">
                     <p class="mb-2">No hay tickets KDS activos.</p>
                     <p class="small mb-0">
-                        Se generan al confirmar un pedido o cobrarlo. API:
-                        <code>GET /api/eposone/kds/tickets</code>
+                        Se generan al confirmar un pedido. Creá un pedido y confirmalo desde
+                        <a href="{{ url_for('eposone.eposone_section', slug='orders') }}">Pedidos</a>.
                     </p>
                 </div>
             </div>

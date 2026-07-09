@@ -3,43 +3,70 @@
 {% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
-    <div class="mb-3">
-        <h1 class="h4 mb-1">{{ section_title }}</h1>
-        <p class="text-muted small mb-0">{{ section_description }}</p>
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <span class="badge en1-badge--neutral">{{ deliveries_total }} entrega(s)</span>
     </div>
 
-    {% if deliveries %}
-    <div class="table-responsive card border-0 shadow-sm">
-        <table class="table table-sm table-hover mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Pedido</th>
-                    <th>Estado</th>
-                    <th>Repartidor</th>
-                    <th>Destino</th>
-                    <th class="text-end">Progreso</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for d in deliveries %}
-                <tr>
-                    <td><code>{{ d.order_ref }}</code></td>
-                    <td><span class="badge text-bg-light border">{{ d.status }}</span></td>
-                    <td>{{ d.driver_name or '—' }}</td>
-                    <td class="small text-muted">{{ (d.destination_address or '—')[:60] }}</td>
-                    <td class="text-end small">{{ d.delivered_qty }}/{{ d.total_qty }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% if delivery_rows %}
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Pedido</th>
+                        <th>Estado</th>
+                        <th>Repartidor</th>
+                        <th>Destino</th>
+                        <th class="text-end">Progreso</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in delivery_rows %}
+                    <tr>
+                        <td><code>{{ d.order_ref }}</code></td>
+                        <td><span class="badge en1-badge--neutral">{{ d.status }}</span></td>
+                        <td>{{ d.driver_name or '—' }}</td>
+                        <td class="small text-muted">{{ (d.destination_address or '—')[:50] }}</td>
+                        <td class="text-end small">{{ d.delivered_qty|int }}/{{ d.total_qty|int }}</td>
+                        <td>
+                            <div class="d-flex flex-column gap-1">
+                                {% if d.can_assign %}
+                                <form method="post" action="{{ url_for('eposone.eposone_delivery_assign', delivery_id=d.id) }}" class="d-flex gap-1">
+                                    <input type="text" name="driver_name" class="form-control form-control-sm" placeholder="Repartidor" required maxlength="200">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">Asignar</button>
+                                </form>
+                                {% endif %}
+                                {% if d.next_statuses %}
+                                <form method="post" action="{{ url_for('eposone.eposone_delivery_status', delivery_id=d.id) }}" class="d-flex gap-1">
+                                    <select name="status" class="form-select form-select-sm" required>
+                                        <option value="">Estado…</option>
+                                        {% for st in d.next_statuses %}
+                                        <option value="{{ st }}">{{ st }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-primary">OK</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     {% else %}
     <div class="card border-0 shadow-sm">
         <div class="card-body text-muted">
             <p class="mb-2">No hay entregas registradas.</p>
             <p class="small mb-0">
-                Se crean al marcar un pedido como <code>ready</code> o vía
+                Se crean al marcar un pedido como <code>ready</code> o vía API
                 <code>POST /api/eposone/deliveries</code>.
             </p>
         </div>

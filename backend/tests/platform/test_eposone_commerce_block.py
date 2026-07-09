@@ -79,6 +79,9 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/registers/<int:shift_id>/reconcile', rules)
         self.assertIn('/admin/eposone/registers/<int:shift_id>/close', rules)
         self.assertIn('/admin/eposone/shifts/<int:shift_id>/movement', rules)
+        self.assertIn('/admin/eposone/kds/<int:ticket_id>/status', rules)
+        self.assertIn('/admin/eposone/delivery/<int:delivery_id>/assign', rules)
+        self.assertIn('/admin/eposone/delivery/<int:delivery_id>/status', rules)
 
     def test_credit_note_event_in_commerce_types(self):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
@@ -387,6 +390,74 @@ class TestEPosOneShiftsActions(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 302)
         mock_movement.assert_called_once()
+
+
+class TestEPosOneKdsDeliveryActions(unittest.TestCase):
+    """UI back office — KDS y delivery transaccionales."""
+
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.kds_service.KdsService.transition_ticket')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_kds_ticket_status_post(self, _oid, mock_transition, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_transition.return_value = SimpleNamespace(order_ref='POS-0001', status='preparing')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_kds_ticket_status', ticket_id=7)
+        resp = self.client.post(action, data={'status': 'preparing'}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_transition.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.delivery_service.EposoneDeliveryService.assign_driver')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_delivery_assign_post(self, _oid, mock_assign, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_assign.return_value = SimpleNamespace(order_ref='POS-0002')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_delivery_assign', delivery_id=3)
+        resp = self.client.post(action, data={'driver_name': 'Juan'}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_assign.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.delivery_service.EposoneDeliveryService.transition_status')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_delivery_status_post(self, _oid, mock_transition, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_transition.return_value = SimpleNamespace(order_ref='POS-0002', status='in_transit')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_delivery_status', delivery_id=3)
+        resp = self.client.post(action, data={'status': 'in_transit'}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_transition.assert_called_once()
 
 
 class TestEPosOneDashboardKpis(unittest.TestCase):

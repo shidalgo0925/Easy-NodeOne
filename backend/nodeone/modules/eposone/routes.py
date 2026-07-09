@@ -93,6 +93,60 @@ def _redirect_shifts():
     return redirect(url_for('eposone.eposone_section', slug='shifts'))
 
 
+def _redirect_kds():
+    return redirect(url_for('eposone.eposone_section', slug='kds'))
+
+
+def _redirect_delivery():
+    return redirect(url_for('eposone.eposone_section', slug='delivery'))
+
+
+def _kds_page_context(organization_id: int) -> dict:
+    from nodeone.modules.eposone.kds_service import (
+        KDS_TICKET_CANCELLED,
+        KDS_TICKET_SERVED,
+        KDS_TICKET_TRANSITIONS,
+        KdsService,
+    )
+
+    tickets = KdsService.list_tickets(int(organization_id), limit=50)
+    rows: list[dict] = []
+    for ticket in tickets:
+        if str(ticket.status or '') in {KDS_TICKET_SERVED, KDS_TICKET_CANCELLED}:
+            continue
+        rows.append(
+            {
+                'ticket': ticket,
+                'next_statuses': sorted(KDS_TICKET_TRANSITIONS.get(str(ticket.status or ''), frozenset())),
+            }
+        )
+    return {'ticket_rows': rows, 'tickets_total': len(rows)}
+
+
+def _delivery_page_context(organization_id: int) -> dict:
+    from models.eposone_delivery import DELIVERY_STATUS_PENDING, DELIVERY_TRANSITIONS, EposoneDelivery
+    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+    rows_db = (
+        EposoneDelivery.query.filter_by(organization_id=int(organization_id))
+        .order_by(EposoneDelivery.id.desc())
+        .limit(50)
+        .all()
+    )
+    rows: list[dict] = []
+    for row in rows_db:
+        detail = EposoneDeliveryService.to_detail_dict(row)
+        status = str(detail.get('status') or '')
+        rows.append(
+            {
+                **detail,
+                'next_statuses': sorted(DELIVERY_TRANSITIONS.get(status, frozenset())),
+                'can_assign': status == DELIVERY_STATUS_PENDING,
+            }
+        )
+    return {'delivery_rows': rows, 'deliveries_total': len(rows)}
+
+
 def _shift_operational_row(
     organization_id: int,
     shift_row,
@@ -592,6 +646,84 @@ def eposone_shift_movement(shift_id: int):
     return _redirect_shifts()
 
 
+@eposone_bp.route('/kds/<int:ticket_id>/status', methods=['POST'])
+@login_required
+def eposone_kds_ticket_status(ticket_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.kds_service import KdsService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    target = (request.form.get('status') or '').strip().lower()
+    if not target:
+        flash('Seleccioná un estado.', 'warning')
+        return _redirect_kds()
+    try:
+        dto = KdsService.transition_ticket(int(oid), int(ticket_id), target)
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_kds()
+    flash(f'Ticket {dto.order_ref} → {dto.status}.', 'success')
+    return _redirect_kds()
+
+
+@eposone_bp.route('/delivery/<int:delivery_id>/assign', methods=['POST'])
+@login_required
+def eposone_delivery_assign(delivery_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    driver_name = (request.form.get('driver_name') or '').strip()
+    if not driver_name:
+        flash('Indicá el nombre del repartidor.', 'warning')
+        return _redirect_delivery()
+    try:
+        dto = EposoneDeliveryService.assign_driver(int(oid), int(delivery_id), driver_name=driver_name)
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_delivery()
+    flash(f'Entrega {dto.order_ref} asignada a {driver_name}.', 'success')
+    return _redirect_delivery()
+
+
+@eposone_bp.route('/delivery/<int:delivery_id>/status', methods=['POST'])
+@login_required
+def eposone_delivery_status(delivery_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    target = (request.form.get('status') or '').strip().lower()
+    if not target:
+        flash('Seleccioná un estado.', 'warning')
+        return _redirect_delivery()
+    try:
+        dto = EposoneDeliveryService.transition_status(int(oid), int(delivery_id), target)
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_delivery()
+    flash(f'Entrega {dto.order_ref} → {dto.status}.', 'success')
+    return _redirect_delivery()
+
+
 @eposone_bp.route('/contacts/create', methods=['POST'])
 @login_required
 def eposone_contact_create():
@@ -774,40 +906,31 @@ def eposone_section(slug: str):
         )
     if key == 'kds':
         from nodeone.core.platform.runtime import resolve_organization_id
-        from nodeone.modules.eposone.kds_service import KdsService
 
         oid = resolve_organization_id()
-        tickets: list = []
+        ctx = {'ticket_rows': [], 'tickets_total': 0}
         if oid is not None:
-            tickets = KdsService.list_tickets(int(oid), limit=30)
+            ctx = _kds_page_context(int(oid))
         return render_template(
             'eposone/kds.html',
             section_slug=key,
             section_title=title,
             section_description=description,
-            tickets=tickets,
+            **ctx,
         )
     if key == 'delivery':
         from nodeone.core.platform.runtime import resolve_organization_id
-        from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
-        from models.eposone_delivery import EposoneDelivery
 
         oid = resolve_organization_id()
-        deliveries: list = []
+        ctx = {'delivery_rows': [], 'deliveries_total': 0}
         if oid is not None:
-            rows = (
-                EposoneDelivery.query.filter_by(organization_id=int(oid))
-                .order_by(EposoneDelivery.id.desc())
-                .limit(30)
-                .all()
-            )
-            deliveries = [EposoneDeliveryService.to_detail_dict(r) for r in rows]
+            ctx = _delivery_page_context(int(oid))
         return render_template(
             'eposone/delivery.html',
             section_slug=key,
             section_title=title,
             section_description=description,
-            deliveries=deliveries,
+            **ctx,
         )
     if key == 'digital-menu':
         from nodeone.core.platform.runtime import resolve_organization_id

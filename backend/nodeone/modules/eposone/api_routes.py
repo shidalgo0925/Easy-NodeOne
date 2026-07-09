@@ -174,6 +174,27 @@ def orders_transfer(order_id: int):
     return jsonify({'order': dto.to_dict()})
 
 
+@eposone_api_bp.route('/orders/<int:order_id>/apply-promotion', methods=['POST'])
+@login_required
+def orders_apply_promotion(order_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    code = body.get('code')
+    promotion_id = body.get('promotion_id')
+    try:
+        dto = OrderService.apply_promotion(
+            gate,
+            int(order_id),
+            code=str(code) if code else None,
+            promotion_id=int(promotion_id) if promotion_id is not None else None,
+        )
+    except (OrderValidationError, ValueError, TypeError) as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'order': dto.to_dict()})
+
+
 @eposone_api_bp.route('/payments/<int:payment_id>/refund', methods=['POST'])
 @login_required
 def payments_refund(payment_id: int):

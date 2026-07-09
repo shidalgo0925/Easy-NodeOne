@@ -129,3 +129,50 @@ class PromotionService:
         row.active = bool(active)
         db.session.commit()
         return _to_dto(row)
+
+    @staticmethod
+    def get_by_ref(organization_id: int, promo_ref: str) -> PromotionDTO | None:
+        ref = (promo_ref or '').strip()
+        if not ref:
+            return None
+        row = EposonePromotion.query.filter_by(
+            organization_id=int(organization_id),
+            promo_ref=ref,
+        ).first()
+        return _to_dto(row) if row is not None else None
+
+    @staticmethod
+    def resolve_by_code(organization_id: int, code: str) -> PromotionDTO:
+        code_norm = (code or '').strip().upper()
+        if not code_norm:
+            raise OrderValidationError('promo_code_required')
+        row = EposonePromotion.query.filter_by(
+            organization_id=int(organization_id),
+            code=code_norm,
+        ).first()
+        if row is None:
+            raise OrderValidationError('promo_not_found')
+        if not row.active:
+            raise OrderValidationError('promo_inactive')
+        return _to_dto(row)
+
+    @staticmethod
+    def resolve_by_id(organization_id: int, promotion_id: int) -> PromotionDTO:
+        row = EposonePromotion.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(promotion_id),
+        ).first()
+        if row is None:
+            raise OrderValidationError('promo_not_found')
+        if not row.active:
+            raise OrderValidationError('promo_inactive')
+        return _to_dto(row)
+
+    @staticmethod
+    def compute_discount(promo: PromotionDTO, subtotal: float) -> float:
+        base = max(0.0, float(subtotal or 0))
+        if promo.promo_type == PROMO_TYPE_PERCENT:
+            discount = round(base * float(promo.value) / 100.0, 2)
+        else:
+            discount = round(float(promo.value), 2)
+        return min(discount, base)

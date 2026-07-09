@@ -24,6 +24,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 subtotal DOUBLE PRECISION NOT NULL DEFAULT 0,
                 tax_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+                discount_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+                promotion_ref VARCHAR(64),
                 grand_total DOUBLE PRECISION NOT NULL DEFAULT 0,
                 amount_paid DOUBLE PRECISION NOT NULL DEFAULT 0,
                 source_app_id VARCHAR(64) NOT NULL DEFAULT 'eposone',
@@ -50,6 +52,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 subtotal REAL NOT NULL DEFAULT 0,
                 tax_total REAL NOT NULL DEFAULT 0,
+                discount_total REAL NOT NULL DEFAULT 0,
+                promotion_ref VARCHAR(64),
                 grand_total REAL NOT NULL DEFAULT 0,
                 amount_paid REAL NOT NULL DEFAULT 0,
                 source_app_id VARCHAR(64) NOT NULL DEFAULT 'eposone',
@@ -69,6 +73,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
         _ensure_order_branch_org_unit(engine, insp, printfn)
         _ensure_order_parent_order_id(engine, insp, printfn)
         _ensure_order_pos_terminal_id(engine, insp, printfn)
+        _ensure_order_promotion_columns(engine, insp, printfn)
 
     if 'core_commercial_order_line' not in tables:
         ddl = """
@@ -431,6 +436,39 @@ def _ensure_order_pos_terminal_id(engine, insp, printfn) -> None:
             )
     if printfn:
         printfn('core_commercial_order: columna pos_terminal_id añadida')
+
+
+def _ensure_order_promotion_columns(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    dialect = engine.dialect.name
+    stmts: list[str] = []
+    if 'discount_total' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                'ALTER TABLE core_commercial_order '
+                'ADD COLUMN IF NOT EXISTS discount_total DOUBLE PRECISION NOT NULL DEFAULT 0'
+            )
+        else:
+            stmts.append(
+                'ALTER TABLE core_commercial_order '
+                'ADD COLUMN discount_total REAL NOT NULL DEFAULT 0'
+            )
+    if 'promotion_ref' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                'ALTER TABLE core_commercial_order '
+                'ADD COLUMN IF NOT EXISTS promotion_ref VARCHAR(64)'
+            )
+        else:
+            stmts.append('ALTER TABLE core_commercial_order ADD COLUMN promotion_ref VARCHAR(64)')
+    if stmts:
+        with engine.begin() as conn:
+            for stmt in stmts:
+                conn.execute(text(stmt))
+        if printfn:
+            printfn('core_commercial_order: columnas promoción añadidas')
 
 
 def _ensure_order_line_status_axis(engine, insp, printfn) -> None:

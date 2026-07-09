@@ -31,6 +31,8 @@ class CoreCommercialOrder(db.Model):
     currency = db.Column(db.String(8), nullable=False, default='USD')
     subtotal = db.Column(db.Float, nullable=False, default=0.0)
     tax_total = db.Column(db.Float, nullable=False, default=0.0)
+    discount_total = db.Column(db.Float, nullable=False, default=0.0)
+    promotion_ref = db.Column(db.String(64), nullable=True)
     grand_total = db.Column(db.Float, nullable=False, default=0.0)
     amount_paid = db.Column(db.Float, nullable=False, default=0.0)
     source_app_id = db.Column(db.String(64), nullable=False, default='eposone')

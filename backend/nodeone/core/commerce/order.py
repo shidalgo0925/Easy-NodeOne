@@ -59,10 +59,31 @@ def _resolve_branch_org_unit_id(organization_id: int, data: dict[str, Any]) -> i
     return None
 
 
+def _maybe_reapply_promotion_discount(row: CoreCommercialOrder) -> None:
+    promo_ref = getattr(row, 'promotion_ref', None)
+    if not isinstance(promo_ref, str) or not promo_ref.strip():
+        row.discount_total = float(getattr(row, 'discount_total', 0) or 0)
+        return
+    try:
+        from nodeone.modules.eposone.promotion_service import PromotionService
+
+        promo = PromotionService.get_by_ref(int(row.organization_id), promo_ref.strip())
+    except Exception:
+        return
+    if promo is None or not promo.active:
+        row.promotion_ref = None
+        row.discount_total = 0.0
+        return
+    row.discount_total = PromotionService.compute_discount(promo, float(row.subtotal or 0))
+
+
 def _recalculate_order_totals(row: CoreCommercialOrder) -> None:
     subtotal = round(sum(float(line.line_total or 0) for line in (row.lines or [])), 2)
     row.subtotal = subtotal
-    row.grand_total = round(subtotal + float(row.tax_total or 0), 2)
+    _maybe_reapply_promotion_discount(row)
+    discount = round(min(float(row.discount_total or 0), subtotal), 2)
+    row.discount_total = discount
+    row.grand_total = round(max(0.0, subtotal + float(row.tax_total or 0) - discount), 2)
 
 
 def _validate_parent_order(organization_id: int, parent_order_id: int) -> CoreCommercialOrder:
@@ -474,6 +495,51 @@ class OrderService:
         except Exception:
             pass
 
+        return order_to_dto(row)
+
+    @staticmethod
+    def apply_promotion(
+        organization_id: int,
+        order_id: int,
+        *,
+        code: str | None = None,
+        promotion_id: int | None = None,
+    ) -> OrderDTO:
+        from app import db
+        from nodeone.modules.eposone.promotion_service import PromotionService
+
+        row = CoreCommercialOrder.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(order_id),
+        ).first()
+        if row is None:
+            raise OrderValidationError('order_not_found')
+        if str(row.status or '') in {ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}:
+            raise OrderValidationError('order_not_editable')
+        if str(row.payment_status or ORDER_PAYMENT_STATUS_UNPAID) != ORDER_PAYMENT_STATUS_UNPAID:
+            raise OrderValidationError('order_already_paid')
+
+        if promotion_id is not None:
+            promo = PromotionService.resolve_by_id(int(organization_id), int(promotion_id))
+        elif code and str(code).strip():
+            promo = PromotionService.resolve_by_code(int(organization_id), str(code))
+        else:
+            raise OrderValidationError('promo_code_or_id_required')
+
+        subtotal = round(sum(float(line.line_total or 0) for line in (row.lines or [])), 2)
+        if subtotal <= 0:
+            raise OrderValidationError('order_subtotal_required')
+
+        row.promotion_ref = promo.promo_ref
+        row.discount_total = PromotionService.compute_discount(promo, subtotal)
+        row.subtotal = subtotal
+        row.grand_total = round(
+            max(0.0, subtotal + float(row.tax_total or 0) - float(row.discount_total or 0)),
+            2,
+        )
+        row.sync_payment_status()
+        row.version = int(row.version or 1) + 1
+        db.session.commit()
         return order_to_dto(row)
 
     @staticmethod

@@ -53,6 +53,18 @@ def _order_detail_context(organization_id: int, order_id: int) -> dict | None:
         and str(order.status) not in {ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}
     )
     can_emit_fiscal = str(order.fiscal_status or '') == ORDER_FISCAL_STATUS_PENDING
+    can_apply_promotion = (
+        str(order.payment_status) == ORDER_PAYMENT_STATUS_UNPAID
+        and str(order.status) not in {ORDER_STATUS_CANCELLED, ORDER_STATUS_REFUNDED}
+    )
+    active_promotions: list = []
+    if can_apply_promotion:
+        try:
+            from nodeone.modules.eposone.promotion_service import PromotionService
+
+            active_promotions = [p for p in PromotionService.list_promotions(oid) if p.active]
+        except Exception:
+            active_promotions = []
 
     refundable_payments: list[dict] = []
     for pay in payments:
@@ -83,6 +95,8 @@ def _order_detail_context(organization_id: int, order_id: int) -> dict | None:
         'can_capture': can_capture,
         'can_transfer': can_transfer,
         'can_emit_fiscal': can_emit_fiscal,
+        'can_apply_promotion': can_apply_promotion,
+        'active_promotions': active_promotions,
         'refundable_payments': refundable_payments,
         'supervisor_ok': supervisor_ok,
     }
@@ -541,6 +555,33 @@ def eposone_order_refund_payment(order_id: int):
         flash(str(exc).replace('_', ' '), 'danger')
         return _redirect_order_detail(order_id)
     flash(f'Reembolso registrado en {dto.payment_ref}.', 'success')
+    return _redirect_order_detail(order_id)
+
+
+@eposone_bp.route('/orders/<int:order_id>/apply-promotion', methods=['POST'])
+@login_required
+def eposone_order_apply_promotion(order_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderService, OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    code = (request.form.get('code') or '').strip()
+    promotion_raw = (request.form.get('promotion_id') or '').strip()
+    promotion_id = int(promotion_raw) if promotion_raw.isdigit() else None
+    try:
+        if promotion_id is not None:
+            OrderService.apply_promotion(int(oid), int(order_id), promotion_id=promotion_id)
+        else:
+            OrderService.apply_promotion(int(oid), int(order_id), code=code)
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_order_detail(order_id)
+    flash('Promoción aplicada al pedido.', 'success')
     return _redirect_order_detail(order_id)
 
 

@@ -43,6 +43,8 @@ class OrderDTO:
     amount_paid: float
     lines: tuple[OrderLineDTO, ...]
     source_app_id: str
+    discount_total: float = 0.0
+    promotion_ref: str | None = None
     branch_org_unit_id: int | None = None
     parent_order_id: int | None = None
     pos_terminal_id: int | None = None
@@ -65,6 +67,8 @@ class OrderDTO:
             'currency': self.currency,
             'subtotal': self.subtotal,
             'tax_total': self.tax_total,
+            'discount_total': self.discount_total,
+            'promotion_ref': self.promotion_ref,
             'grand_total': self.grand_total,
             'amount_paid': self.amount_paid,
             'lines': [line.to_dict() for line in self.lines],

@@ -75,6 +75,7 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/orders/<int:order_id>/transfer', rules)
         self.assertIn('/admin/eposone/orders/<int:order_id>/emit-fiscal', rules)
         self.assertIn('/admin/eposone/orders/<int:order_id>/refund-payment', rules)
+        self.assertIn('/admin/eposone/orders/<int:order_id>/apply-promotion', rules)
         self.assertIn('/admin/eposone/registers/open', rules)
         self.assertIn('/admin/eposone/registers/<int:shift_id>/reconcile', rules)
         self.assertIn('/admin/eposone/registers/<int:shift_id>/close', rules)
@@ -87,6 +88,7 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/promotions/create', rules)
         self.assertIn('/admin/eposone/promotions/<int:promotion_id>/active', rules)
         self.assertIn('/api/eposone/promotions', rules)
+        self.assertIn('/api/eposone/orders/<int:order_id>/apply-promotion', rules)
         self.assertIn('/admin/eposone/settings/save', rules)
         self.assertIn('/api/eposone/settings', rules)
 
@@ -94,6 +96,34 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
 
         self.assertIn(COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES)
+
+    def test_order_dto_exposes_discount_fields(self):
+        from nodeone.core.commerce.dtos import OrderDTO
+        from datetime import datetime
+
+        dto = OrderDTO(
+            id=1,
+            organization_id=1,
+            order_ref='POS-0001',
+            status='ready',
+            payment_status='unpaid',
+            fiscal_status='not_required',
+            contact_id=None,
+            currency='USD',
+            subtotal=100.0,
+            tax_total=0.0,
+            grand_total=80.0,
+            amount_paid=0.0,
+            lines=(),
+            source_app_id='eposone',
+            discount_total=20.0,
+            promotion_ref='PROMO-0001',
+            created_at=datetime.utcnow(),
+        )
+        d = dto.to_dict()
+        self.assertEqual(d['discount_total'], 20.0)
+        self.assertEqual(d['promotion_ref'], 'PROMO-0001')
+        self.assertEqual(d['grand_total'], 80.0)
 
     def test_order_dto_exposes_terminal_id(self):
         from nodeone.core.commerce.dtos import OrderDTO

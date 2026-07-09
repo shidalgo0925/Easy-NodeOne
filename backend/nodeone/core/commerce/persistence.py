@@ -50,6 +50,8 @@ def order_to_dto(row: CoreCommercialOrder) -> OrderDTO:
         amount_paid=float(row.amount_paid or 0),
         lines=lines,
         source_app_id=str(row.source_app_id or 'eposone'),
+        discount_total=float(getattr(row, 'discount_total', 0) or 0),
+        promotion_ref=(str(row.promotion_ref).strip() if getattr(row, 'promotion_ref', None) else None),
         branch_org_unit_id=int(row.branch_org_unit_id) if getattr(row, 'branch_org_unit_id', None) else None,
         parent_order_id=int(row.parent_order_id) if getattr(row, 'parent_order_id', None) else None,
         pos_terminal_id=int(row.pos_terminal_id) if getattr(row, 'pos_terminal_id', None) else None,

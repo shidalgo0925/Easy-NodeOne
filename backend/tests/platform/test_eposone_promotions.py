@@ -69,6 +69,81 @@ class TestPromotionService(unittest.TestCase):
         self.assertFalse(row.active)
 
 
+class TestPromotionCompute(unittest.TestCase):
+    def test_compute_discount_percent(self):
+        from nodeone.modules.eposone.promotion_service import PromotionDTO, PromotionService
+
+        promo = PromotionDTO(
+            id=1,
+            organization_id=1,
+            promo_ref='PROMO-0001',
+            name='20% off',
+            promo_type='percent',
+            value=20.0,
+            code='SAVE20',
+            active=True,
+        )
+        self.assertEqual(PromotionService.compute_discount(promo, 100.0), 20.0)
+        self.assertEqual(PromotionService.compute_discount(promo, 50.0), 10.0)
+
+    def test_compute_discount_fixed_capped_at_subtotal(self):
+        from nodeone.modules.eposone.promotion_service import PromotionDTO, PromotionService
+
+        promo = PromotionDTO(
+            id=2,
+            organization_id=1,
+            promo_ref='PROMO-0002',
+            name='$15 off',
+            promo_type='fixed',
+            value=15.0,
+            code=None,
+            active=True,
+        )
+        self.assertEqual(PromotionService.compute_discount(promo, 100.0), 15.0)
+        self.assertEqual(PromotionService.compute_discount(promo, 10.0), 10.0)
+
+
+class TestPromotionApplyToOrder(unittest.TestCase):
+    @patch('app.db')
+    @patch('nodeone.modules.eposone.promotion_service.EposonePromotion')
+    @patch('nodeone.core.commerce.order.CoreCommercialOrder')
+    def test_apply_promotion_by_code(self, mock_order_cls, mock_promo_cls, mock_db):
+        from nodeone.core.commerce.order import OrderService
+
+        line = MagicMock()
+        line.line_total = 100.0
+        row = MagicMock()
+        row.id = 5
+        row.organization_id = 1
+        row.status = 'draft'
+        row.payment_status = 'unpaid'
+        row.tax_total = 0.0
+        row.lines = [line]
+        row.version = 1
+        row.sync_payment_status.return_value = 'unpaid'
+        mock_order_cls.query.filter_by.return_value.first.return_value = row
+
+        promo_row = MagicMock()
+        promo_row.id = 1
+        promo_row.organization_id = 1
+        promo_row.promo_ref = 'PROMO-0001'
+        promo_row.name = 'Happy'
+        promo_row.promo_type = 'percent'
+        promo_row.value = 20.0
+        promo_row.code = 'HAPPY20'
+        promo_row.active = True
+        mock_promo_cls.query.filter_by.return_value.first.return_value = promo_row
+
+        with patch('nodeone.core.commerce.order.order_to_dto') as mock_dto:
+            mock_dto.return_value = MagicMock(discount_total=20.0, grand_total=80.0)
+            dto = OrderService.apply_promotion(1, 5, code='HAPPY20')
+        self.assertEqual(row.promotion_ref, 'PROMO-0001')
+        self.assertEqual(row.discount_total, 20.0)
+        self.assertEqual(row.grand_total, 80.0)
+        mock_db.session.commit.assert_called_once()
+        self.assertIsNotNone(dto)
+
+
 class TestPromotionSections(unittest.TestCase):
     def test_promotions_slug(self):
         from nodeone.modules.eposone.sections import EPOSONE_SECTION_SLUGS

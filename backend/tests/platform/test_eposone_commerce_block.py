@@ -1,0 +1,240 @@
+"""
+Bloque comercio EPosOne — test integrado de registro (sesión jul 2026).
+
+Cubre en un solo módulo los slices desplegados en develop:
+  - GET /api/eposone/contacts + sync contactos
+  - transfer_order (§6.4 transferencia a caja)
+  - credit_note en reembolso total con fiscal invoiced
+  - UI back office: pedidos, detalle, clientes nativos
+
+Ejecutar:
+  cd backend && pytest tests/platform/test_eposone_commerce_block.py -v
+  cd backend && pytest tests/platform/ -q   # suite completa
+"""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+backend_dir = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(backend_dir))
+
+
+class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
+    """Rutas API, sync offline y secciones UI del bloque."""
+
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+
+    def test_sync_operations_block_catalog(self):
+        from nodeone.modules.eposone.sync_handlers import EPOSONE_SYNC_OPERATIONS
+
+        required = frozenset(
+            {
+                'create_order',
+                'transition_order_status',
+                'capture_payment',
+                'refund_payment',
+                'split_order',
+                'transfer_order',
+                'stock_adjust',
+                'create_contact',
+                'promote_legacy_contact',
+            }
+        )
+        self.assertTrue(required.issubset(EPOSONE_SYNC_OPERATIONS))
+
+    def test_api_routes_block_registered(self):
+        rules = {r.rule for r in self.app.url_map.iter_rules()}
+        for path in (
+            '/api/eposone/contacts',
+            '/api/eposone/contacts/<int:contact_id>',
+            '/api/eposone/contacts/resolve/<int:contact_id>',
+            '/api/eposone/orders/<int:order_id>/transfer',
+            '/api/eposone/orders/<int:order_id>/split',
+            '/api/eposone/stock-adjust',
+        ):
+            self.assertIn(path, rules)
+
+    def test_ui_routes_block_registered(self):
+        rules = {r.rule for r in self.app.url_map.iter_rules()}
+        self.assertIn('/admin/eposone/section/<slug>', rules)
+        self.assertIn('/admin/eposone/orders/<int:order_id>', rules)
+
+    def test_credit_note_event_in_commerce_types(self):
+        from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
+
+        self.assertIn(COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES)
+
+    def test_order_dto_exposes_terminal_id(self):
+        from nodeone.core.commerce.dtos import OrderDTO
+        from datetime import datetime
+
+        dto = OrderDTO(
+            id=1,
+            organization_id=1,
+            order_ref='POS-0001',
+            status='ready',
+            payment_status='unpaid',
+            fiscal_status='not_required',
+            contact_id=None,
+            currency='USD',
+            subtotal=10.0,
+            tax_total=0.0,
+            grand_total=10.0,
+            amount_paid=0.0,
+            lines=(),
+            source_app_id='eposone',
+            pos_terminal_id=7,
+            created_at=datetime.utcnow(),
+        )
+        d = dto.to_dict()
+        self.assertEqual(d['terminal_id'], 7)
+        self.assertEqual(d['pos_terminal_id'], 7)
+
+
+class TestEPosOneCommerceBlockFlow(unittest.TestCase):
+    """Flujo encadenado (mocks) — pedido → transfer → reembolso facturado."""
+
+    @patch('nodeone.core.commerce.payment.PaymentService.publish_refunded')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
+    @patch('nodeone.core.commerce.payment.OrderService.publish_payment_status_changed')
+    @patch('nodeone.core.commerce.fiscal.CommerceFiscalService.request_credit_note_for_order')
+    @patch('nodeone.core.commerce.authorization.CommerceAuthorizationService.assert_supervisor')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.payment.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.payment.CoreCommercialOrder')
+    def test_invoiced_full_refund_triggers_credit_note(
+        self,
+        mock_order_cls,
+        mock_payment_cls,
+        mock_db,
+        _supervisor,
+        mock_credit_note,
+        _payment_changed,
+        _fiscal_changed,
+        _status_changed,
+        _refunded,
+    ):
+        from nodeone.core.commerce.constants import (
+            ORDER_FISCAL_STATUS_CANCELLED,
+            ORDER_FISCAL_STATUS_INVOICED,
+            ORDER_STATUS_DELIVERED,
+        )
+        from nodeone.core.commerce.payment import PaymentService
+
+        order = MagicMock()
+        order.id = 20
+        order.order_ref = 'POS-0020'
+        order.status = ORDER_STATUS_DELIVERED
+        order.payment_status = 'paid'
+        order.fiscal_status = ORDER_FISCAL_STATUS_INVOICED
+        order.amount_paid = 30.0
+        order.version = 1
+        order.sync_payment_status.return_value = 'unpaid'
+
+        pay = MagicMock()
+        pay.id = 9
+        pay.order_id = 20
+        pay.payment_ref = 'PAY-0020'
+        pay.status = 'captured'
+        pay.amount = 30.0
+        pay.refunded_amount = 0.0
+        pay.payment_type = 'card'
+        pay.cash_shift_id = None
+        pay.currency = 'USD'
+
+        mock_payment_cls.query.filter_by.return_value.first.return_value = pay
+        mock_order_cls.query.filter_by.return_value.first.return_value = order
+        mock_credit_note.return_value = {'status': 'queued'}
+
+        PaymentService.refund(1, 9, approval={'supervisor_user_id': 1})
+
+        mock_credit_note.assert_called_once()
+        self.assertEqual(order.fiscal_status, ORDER_FISCAL_STATUS_CANCELLED)
+
+    @patch('nodeone.core.commerce.order.OrderService.publish_transferred')
+    @patch('app.db')
+    @patch('nodeone.core.commerce.pos.PosTerminalService.get')
+    @patch('nodeone.core.commerce.pos.PosTerminalService.resolve_id', return_value=3)
+    @patch('nodeone.core.commerce.order.CoreCommercialOrder')
+    def test_transfer_then_ready_for_cashier(
+        self,
+        mock_order_cls,
+        _resolve,
+        mock_terminal_get,
+        mock_db,
+        _published,
+    ):
+        from nodeone.core.commerce.dtos import PosTerminalDTO
+        from nodeone.core.commerce.order import OrderService
+
+        row = MagicMock()
+        row.id = 8
+        row.organization_id = 1
+        row.order_ref = 'POS-0008'
+        row.payment_status = 'unpaid'
+        row.operational_status = 'ready'
+        row.pos_terminal_id = 1
+        row.version = 1
+        row.contact_id = None
+        row.branch_org_unit_id = None
+        row.parent_order_id = None
+        row.currency = 'USD'
+        row.fiscal_status = 'not_required'
+        row.subtotal = 15.0
+        row.tax_total = 0.0
+        row.grand_total = 15.0
+        row.amount_paid = 0.0
+        row.source_app_id = 'eposone'
+        row.created_at = None
+        row.lines = []
+        mock_order_cls.query.filter_by.return_value.first.return_value = row
+        mock_terminal_get.return_value = PosTerminalDTO(
+            id=3,
+            organization_id=1,
+            terminal_ref='CAJA-01',
+            register_ref='REG-1',
+            status='active',
+            device_label=None,
+        )
+
+        dto = OrderService.transfer_to_terminal(1, 8, {'terminal_ref': 'CAJA-01'})
+        self.assertEqual(dto.pos_terminal_id, 3)
+        self.assertEqual(row.pos_terminal_id, 3)
+
+    @patch('nodeone.modules.eposone.sync_handlers.OrderService.transfer_to_terminal')
+    def test_sync_applies_transfer_operation(self, mock_transfer):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=99,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='block-transfer',
+            operation_type='transfer_order',
+            status='pending',
+            entity_type='order',
+            entity_ref='POS-0008',
+            payload={'order_id': 8, 'terminal_ref': 'CAJA-01'},
+            base_version=2,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_transfer.assert_called_once()
+
+
+if __name__ == '__main__':
+    unittest.main()

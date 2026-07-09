@@ -1,4 +1,4 @@
-"""Modelos maestro Core — Etapa 10b/10d."""
+"""Modelos maestro Core — Etapa 10b/10d/10c."""
 
 from __future__ import annotations
 
@@ -82,4 +82,24 @@ class CoreProduct(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('organization_id', 'product_ref', name='uq_core_product_ref'),
+    )
+
+
+class CoreContactLegacyLink(db.Model):
+    """Puente lectura dual tenant_crm_contact ↔ en1_contact (Etapa 10c)."""
+
+    __tablename__ = 'core_contact_legacy_link'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    contact_id = db.Column(db.Integer, db.ForeignKey('en1_contact.id', ondelete='CASCADE'), nullable=False)
+    legacy_contact_id = db.Column(db.Integer, nullable=False)
+    link_source = db.Column(db.String(32), nullable=False, default='manual')
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'contact_id', name='uq_core_contact_legacy_canonical'),
+        db.UniqueConstraint('organization_id', 'legacy_contact_id', name='uq_core_contact_legacy_legacy'),
     )

@@ -140,6 +140,8 @@ class TestPlatformAppsAPI(unittest.TestCase):
         self.assertIn('/api/platform/master/org-units', rules)
         self.assertIn('/api/platform/master/org-units/<unit_ref>', rules)
         self.assertIn('/api/platform/master/me/linked-contact', rules)
+        self.assertIn('/api/platform/master/contacts/resolve/<int:contact_id>', rules)
+        self.assertIn('/api/platform/master/contacts/legacy-links', rules)
 
 
 class TestPlatformMasterAPI(unittest.TestCase):

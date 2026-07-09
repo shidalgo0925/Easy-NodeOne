@@ -86,6 +86,46 @@ def me_linked_contact():
     return jsonify({'link': dto.to_dict()})
 
 
+@platform_master_bp.route('/contacts/resolve/<int:contact_id>', methods=['GET'])
+@login_required
+def contacts_resolve(contact_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.core.master.contact_bridge import ContactBridgeService
+
+    dto = ContactBridgeService.resolve(gate, int(contact_id))
+    if dto is None:
+        return jsonify({'error': 'not_found'}), 404
+    return jsonify({'resolved': dto.to_dict()})
+
+
+@platform_master_bp.route('/contacts/legacy-links', methods=['POST'])
+@login_required
+def contacts_legacy_link():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.core.master.contact_bridge import ContactBridgeService
+
+    body = request.get_json(silent=True) or {}
+    contact_id = body.get('contact_id')
+    legacy_contact_id = body.get('legacy_contact_id')
+    if contact_id is None or legacy_contact_id is None:
+        return jsonify({'error': 'contact_id_and_legacy_contact_id_required'}), 400
+    try:
+        ContactBridgeService.link(
+            gate,
+            contact_id=int(contact_id),
+            legacy_contact_id=int(legacy_contact_id),
+            link_source=str(body.get('link_source') or 'manual'),
+        )
+    except MasterDataError as exc:
+        return jsonify({'error': str(exc)}), 400
+    dto = ContactBridgeService.resolve(gate, int(contact_id))
+    return jsonify({'resolved': dto.to_dict() if dto else None}), 201
+
+
 def register_platform_master_api(app) -> None:
     if 'platform_master' not in app.blueprints:
         app.register_blueprint(platform_master_bp)

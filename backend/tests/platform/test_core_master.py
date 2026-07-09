@@ -90,12 +90,13 @@ class TestOrgUnitService(unittest.TestCase):
 
 class TestCoreMasterModels(unittest.TestCase):
     def test_model_tables(self):
-        from models.core_master import CoreAddress, CoreAttachment, CoreOrgUnit, CoreProduct
+        from models.core_master import CoreAddress, CoreAttachment, CoreContactLegacyLink, CoreOrgUnit, CoreProduct
 
         self.assertEqual(CoreOrgUnit.__tablename__, 'core_org_unit')
         self.assertEqual(CoreAddress.__tablename__, 'core_address')
         self.assertEqual(CoreAttachment.__tablename__, 'core_attachment')
         self.assertEqual(CoreProduct.__tablename__, 'core_product')
+        self.assertEqual(CoreContactLegacyLink.__tablename__, 'core_contact_legacy_link')
 
 
 class TestCoreProductService(unittest.TestCase):
@@ -189,6 +190,97 @@ class TestUserContactLinkService(unittest.TestCase):
         mock_user_cls.query.get.return_value = user
         with self.assertRaises(MasterDataError):
             UserContactLinkService.link(5, 1, 99)
+
+
+class TestContactBridgeService(unittest.TestCase):
+    def test_legacy_contact_to_dto(self):
+        from nodeone.core.master.contact_bridge import CONTACT_SOURCE_LEGACY, legacy_contact_to_dto
+
+        row = MagicMock()
+        row.id = 7
+        row.organization_id = 1
+        row.legal_name = 'Acme SA'
+        row.trade_name = None
+        row.name = 'Acme'
+        row.company = None
+        row.email = 'acme@example.com'
+        row.fiscal_email = None
+        row.phone = '6000'
+        row.fiscal_phone = None
+        row.person_type = 'juridica'
+        row.id_type = 'ruc'
+        row.tax_id = '123'
+        row.tax_dv = '45'
+        row.is_customer = True
+        row.is_supplier = False
+        row.is_salesperson = False
+        row.is_active = True
+        dto = legacy_contact_to_dto(row)
+        self.assertEqual(dto.display_name, 'Acme SA')
+        self.assertEqual(dto.contact_type, 'company')
+        self.assertIn('Cliente', dto.roles)
+
+    @patch('nodeone.core.master.contact_bridge.ContactService.get')
+    def test_resolve_canonical(self, mock_get):
+        from nodeone.core.master.contact_bridge import CONTACT_SOURCE_CANONICAL, ContactBridgeService
+        from nodeone.core.services.contacts import ContactDTO
+
+        mock_get.return_value = ContactDTO(
+            id=3,
+            organization_id=1,
+            display_name='Ana',
+            email='ana@example.com',
+            phone=None,
+            mobile=None,
+            contact_type='person',
+            identification_type='consumer_final',
+            tax_id=None,
+            dv=None,
+            is_customer=True,
+            is_supplier=False,
+            is_member=False,
+            is_student=False,
+            is_participant=False,
+            is_instructor=False,
+            is_employee=False,
+            active=True,
+            roles=('Cliente',),
+        )
+        with patch.object(ContactBridgeService, 'get_link_by_canonical', return_value=None):
+            resolved = ContactBridgeService.resolve(1, 3)
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved.source, CONTACT_SOURCE_CANONICAL)
+
+    @patch('nodeone.core.master.contact_bridge.ContactService.get', return_value=None)
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.get_link_by_legacy', return_value=None)
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.get_legacy')
+    def test_resolve_legacy_projection(self, mock_legacy, _mock_link, _mock_get):
+        from nodeone.core.master.contact_bridge import CONTACT_SOURCE_LEGACY, ContactBridgeService
+
+        row = MagicMock()
+        row.id = 9
+        row.organization_id = 1
+        row.legal_name = 'Legacy Co'
+        row.trade_name = None
+        row.name = 'Legacy'
+        row.company = None
+        row.email = 'legacy@example.com'
+        row.fiscal_email = None
+        row.phone = None
+        row.fiscal_phone = None
+        row.person_type = 'natural'
+        row.id_type = None
+        row.tax_id = None
+        row.tax_dv = None
+        row.is_customer = True
+        row.is_supplier = False
+        row.is_salesperson = False
+        row.is_active = True
+        mock_legacy.return_value = row
+        resolved = ContactBridgeService.resolve(1, 9)
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved.source, CONTACT_SOURCE_LEGACY)
+        self.assertEqual(resolved.legacy_crm_contact_id, 9)
 
 
 if __name__ == '__main__':

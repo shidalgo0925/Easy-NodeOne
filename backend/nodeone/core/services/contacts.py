@@ -147,3 +147,10 @@ class ContactService:
         from nodeone.modules.contacts.invoice_integration import contact_to_api_dict
 
         return contact_to_api_dict(row)
+
+    @staticmethod
+    def resolve(organization_id: int, contact_id: int):
+        """Lectura dual canonical + legacy (Etapa 10c)."""
+        from nodeone.core.master.contact_bridge import ContactBridgeService
+
+        return ContactBridgeService.resolve(int(organization_id), int(contact_id))

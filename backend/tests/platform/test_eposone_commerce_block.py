@@ -87,6 +87,8 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/promotions/create', rules)
         self.assertIn('/admin/eposone/promotions/<int:promotion_id>/active', rules)
         self.assertIn('/api/eposone/promotions', rules)
+        self.assertIn('/admin/eposone/settings/save', rules)
+        self.assertIn('/api/eposone/settings', rules)
 
     def test_credit_note_event_in_commerce_types(self):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
@@ -579,6 +581,43 @@ class TestEPosOnePromotionActions(unittest.TestCase):
         resp = self.client.post(action, data={'active': '1'}, follow_redirects=False)
         self.assertEqual(resp.status_code, 302)
         mock_set_active.assert_called_once_with(1, 2, active=True)
+
+
+class TestEPosOneSettingsActions(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.settings_service.EposoneSettingsService.update_settings')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_settings_save_post(self, _oid, mock_update, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_update.return_value = SimpleNamespace(default_currency='PAB')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_settings_save')
+        resp = self.client.post(
+            action,
+            data={
+                'default_currency': 'PAB',
+                'kds_auto_enqueue': '1',
+                'delivery_auto_create': '1',
+                'fiscal_on_payment': '1',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_update.assert_called_once()
 
 
 class TestEPosOneDashboardKpis(unittest.TestCase):

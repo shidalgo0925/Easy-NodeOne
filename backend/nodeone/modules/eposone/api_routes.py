@@ -652,3 +652,31 @@ def promotions_collection():
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'promotion': dto.to_dict()}), 201
+
+
+@eposone_api_bp.route('/settings', methods=['GET', 'PATCH'])
+@login_required
+def settings_resource():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+    if request.method == 'GET':
+        dto = EposoneSettingsService.get_or_create(gate)
+        return jsonify({'settings': dto.to_dict()})
+    body = request.get_json(silent=True) or {}
+    try:
+        dto = EposoneSettingsService.update_settings(
+            gate,
+            default_currency=body.get('default_currency') if 'default_currency' in body else None,
+            kds_auto_enqueue=body.get('kds_auto_enqueue') if 'kds_auto_enqueue' in body else None,
+            delivery_auto_create=body.get('delivery_auto_create') if 'delivery_auto_create' in body else None,
+            fiscal_on_payment=body.get('fiscal_on_payment') if 'fiscal_on_payment' in body else None,
+            supervisor_approval_required=(
+                body.get('supervisor_approval_required') if 'supervisor_approval_required' in body else None
+            ),
+        )
+    except OrderValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'settings': dto.to_dict()})

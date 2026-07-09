@@ -109,6 +109,10 @@ def _redirect_promotions():
     return redirect(url_for('eposone.eposone_section', slug='promotions'))
 
 
+def _redirect_settings():
+    return redirect(url_for('eposone.eposone_section', slug='settings'))
+
+
 def _parse_digital_menu_items_from_form() -> list[dict]:
     names = request.form.getlist('item_name')
     prices = request.form.getlist('item_price')
@@ -863,6 +867,35 @@ def eposone_promotion_set_active(promotion_id: int):
     return _redirect_promotions()
 
 
+@eposone_bp.route('/settings/save', methods=['POST'])
+@login_required
+def eposone_settings_save():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        dto = EposoneSettingsService.update_settings(
+            int(oid),
+            default_currency=(request.form.get('default_currency') or 'USD').strip(),
+            kds_auto_enqueue=request.form.get('kds_auto_enqueue') == '1',
+            delivery_auto_create=request.form.get('delivery_auto_create') == '1',
+            fiscal_on_payment=request.form.get('fiscal_on_payment') == '1',
+            supervisor_approval_required=request.form.get('supervisor_approval_required') == '1',
+        )
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_settings()
+    flash(f'Configuración guardada (moneda {dto.default_currency}).', 'success')
+    return _redirect_settings()
+
+
 @eposone_bp.route('/contacts/create', methods=['POST'])
 @login_required
 def eposone_contact_create():
@@ -1107,6 +1140,20 @@ def eposone_section(slug: str):
             section_description=description,
             promotions=promotions,
             promotions_total=len(promotions),
+        )
+    if key == 'settings':
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.modules.eposone.settings_service import ALLOWED_CURRENCIES, EposoneSettingsService
+
+        oid = resolve_organization_id()
+        settings = EposoneSettingsService.get_settings(int(oid)) if oid is not None else None
+        return render_template(
+            'eposone/settings.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            settings=settings,
+            allowed_currencies=sorted(ALLOWED_CURRENCIES),
         )
     if key == 'branches':
         from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH

@@ -10,4 +10,7 @@ def register_commerce_bus_handlers() -> None:
 
     register_commerce_fiscal_handlers()
     register_commerce_inventory_handlers()
+    from nodeone.core.commerce.stock_handlers import register_commerce_stock_handlers
+
+    register_commerce_stock_handlers()
     register_commerce_report_handlers()

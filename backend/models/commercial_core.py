@@ -187,3 +187,51 @@ class CorePosTerminal(db.Model):
     __table_args__ = (
         db.UniqueConstraint('organization_id', 'terminal_ref', name='uq_core_pos_terminal_ref'),
     )
+
+
+class CoreStockBalance(db.Model):
+    __tablename__ = 'core_stock_balance'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    warehouse_org_unit_id = db.Column(
+        db.Integer, db.ForeignKey('core_org_unit.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    product_ref = db.Column(db.String(64), nullable=False, index=True)
+    quantity_on_hand = db.Column(db.Float, nullable=False, default=0.0)
+    quantity_reserved = db.Column(db.Float, nullable=False, default=0.0)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'organization_id',
+            'warehouse_org_unit_id',
+            'product_ref',
+            name='uq_core_stock_balance_wh_product',
+        ),
+    )
+
+
+class CoreStockMovement(db.Model):
+    __tablename__ = 'core_stock_movement'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    warehouse_org_unit_id = db.Column(
+        db.Integer, db.ForeignKey('core_org_unit.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    product_ref = db.Column(db.String(64), nullable=False, index=True)
+    movement_type = db.Column(db.String(32), nullable=False)
+    quantity = db.Column(db.Float, nullable=False, default=0.0)
+    order_ref = db.Column(db.String(50), nullable=True, index=True)
+    idempotency_key = db.Column(db.String(128), nullable=True, index=True)
+    notes = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'idempotency_key', name='uq_core_stock_movement_idempotency'),
+    )

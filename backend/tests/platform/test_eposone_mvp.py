@@ -87,6 +87,11 @@ class TestEPosOneAPI(unittest.TestCase):
             r = c.get('/api/eposone/products')
             self.assertIn(r.status_code, (302, 401))
 
+    def test_stock_balances_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.get('/api/eposone/stock-balances')
+            self.assertIn(r.status_code, (302, 401))
+
     @patch('nodeone.modules.eposone.product_api.ProductService.search', return_value=[])
     def test_products_api_list(self, mock_search):
         from nodeone.modules.eposone.product_api import product_collection_handler

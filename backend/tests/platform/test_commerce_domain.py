@@ -763,14 +763,110 @@ class TestCommerceReportService(unittest.TestCase):
 
     @patch('nodeone.core.commerce.fiscal_handlers.register_commerce_fiscal_handlers')
     @patch('nodeone.core.commerce.inventory_handlers.register_commerce_inventory_handlers')
+    @patch('nodeone.core.commerce.stock_handlers.register_commerce_stock_handlers')
     @patch('nodeone.core.commerce.report_handlers.register_commerce_report_handlers')
-    def test_register_commerce_bus_handlers(self, mock_report, mock_inventory, mock_fiscal):
+    def test_register_commerce_bus_handlers(self, mock_report, mock_stock, mock_inventory, mock_fiscal):
         from nodeone.core.commerce.register import register_commerce_bus_handlers
 
         register_commerce_bus_handlers()
         mock_fiscal.assert_called_once()
         mock_inventory.assert_called_once()
+        mock_stock.assert_called_once()
         mock_report.assert_called_once()
+
+
+class TestStockService(unittest.TestCase):
+    @patch('nodeone.core.commerce.stock.CoreStockBalance')
+    def test_list_balances(self, mock_model):
+        from nodeone.core.commerce.stock import StockService
+
+        row = MagicMock()
+        row.id = 1
+        row.organization_id = 1
+        row.warehouse_org_unit_id = 2
+        row.product_ref = 'SKU-1'
+        row.quantity_on_hand = 10.0
+        row.quantity_reserved = 2.0
+        mock_model.query.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            row
+        ]
+        items = StockService.list_balances(1)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].quantity_available, 8.0)
+
+    def test_mutate_reserve_insufficient(self):
+        from nodeone.core.commerce.constants import STOCK_MOVEMENT_RESERVE
+        from nodeone.core.commerce.stock import StockService, StockValidationError
+
+        balance = MagicMock()
+        balance.quantity_on_hand = 1.0
+        balance.quantity_reserved = 0.0
+        with self.assertRaises(StockValidationError):
+            StockService._mutate_balance(balance, STOCK_MOVEMENT_RESERVE, 5.0)
+
+    def test_mutate_deduct_releases_reserve(self):
+        from nodeone.core.commerce.constants import STOCK_MOVEMENT_DEDUCT
+        from nodeone.core.commerce.stock import StockService
+
+        balance = MagicMock()
+        balance.quantity_on_hand = 10.0
+        balance.quantity_reserved = 3.0
+        StockService._mutate_balance(balance, STOCK_MOVEMENT_DEDUCT, 3.0)
+        self.assertEqual(balance.quantity_on_hand, 7.0)
+        self.assertEqual(balance.quantity_reserved, 0.0)
+
+    @patch('app.db')
+    @patch('nodeone.core.commerce.stock.CoreStockMovement')
+    @patch('nodeone.core.commerce.stock.StockService._get_or_create_balance')
+    @patch('nodeone.core.services.product.ProductService.get_by_ref')
+    def test_apply_movement_reserve(self, mock_product, mock_balance_fn, mock_mov, _mock_db):
+        from types import SimpleNamespace
+
+        from nodeone.core.commerce.stock import StockService
+
+        mock_product.return_value = SimpleNamespace(status='active', tracks_inventory=True)
+        balance = MagicMock()
+        balance.quantity_on_hand = 10.0
+        balance.quantity_reserved = 0.0
+        mock_balance_fn.return_value = balance
+        mock_mov.query.filter_by.return_value.first.return_value = None
+
+        result = StockService.apply_movement(
+            1,
+            warehouse_org_unit_id=2,
+            product_ref='SKU-1',
+            movement_type='reserve',
+            quantity=2,
+            idempotency_key='k1',
+        )
+        self.assertEqual(result['status'], 'applied')
+        self.assertEqual(balance.quantity_reserved, 2.0)
+
+    @patch('nodeone.core.commerce.stock_handlers.StockService.apply_order_movement')
+    def test_stock_handler_applies_movement(self, mock_apply):
+        from nodeone.core.commerce.events import COMMERCE_INVENTORY_RESERVED
+        from nodeone.core.commerce.stock_handlers import _on_inventory_movement
+        from nodeone.core.platform.events import DomainEventMessage
+
+        msg = DomainEventMessage(
+            id=1,
+            organization_id=1,
+            event_type=COMMERCE_INVENTORY_RESERVED,
+            payload={'order_ref': 'POS-1', 'movement': 'reserve'},
+            source_app_id='eposone',
+            created_at=None,
+        )
+        _on_inventory_movement(msg)
+        mock_apply.assert_called_once_with(1, 'POS-1', 'reserve')
+
+    @patch('nodeone.core.commerce.stock_handlers.subscribe')
+    def test_register_stock_handlers_once(self, mock_subscribe):
+        import nodeone.core.commerce.stock_handlers as mod
+
+        mod._REGISTERED = False
+        mod.register_commerce_stock_handlers()
+        mod.register_commerce_stock_handlers()
+        self.assertEqual(mock_subscribe.call_count, 4)
 
 
 class TestCashRegisterService(unittest.TestCase):

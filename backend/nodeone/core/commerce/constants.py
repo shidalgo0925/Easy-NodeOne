@@ -239,6 +239,24 @@ def inventory_policy_deducts_on_delivered(policy: str) -> bool:
     return p in {INVENTORY_POLICY_DISPATCH_REQUIRED, INVENTORY_POLICY_CONSIGNMENT}
 
 
+# --- Stock ledger (Etapa 7 slice 14) ---
+STOCK_MOVEMENT_RESERVE = 'reserve'
+STOCK_MOVEMENT_RELEASE = 'release'
+STOCK_MOVEMENT_DEDUCT = 'deduct'
+STOCK_MOVEMENT_RETURN = 'return'
+STOCK_MOVEMENT_ADJUST = 'adjust'
+
+STOCK_MOVEMENT_TYPES = frozenset(
+    {
+        STOCK_MOVEMENT_RESERVE,
+        STOCK_MOVEMENT_RELEASE,
+        STOCK_MOVEMENT_DEDUCT,
+        STOCK_MOVEMENT_RETURN,
+        STOCK_MOVEMENT_ADJUST,
+    }
+)
+
+
 def can_transition_order_status(current: str, target: str) -> bool:
     cur = (current or '').strip().lower()
     tgt = (target or '').strip().lower()

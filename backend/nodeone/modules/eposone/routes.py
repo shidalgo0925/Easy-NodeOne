@@ -149,14 +149,17 @@ def eposone_section(slug: str):
             branches_total=len(branches),
         )
     if key == 'inventory':
+        from nodeone.core.commerce.stock import StockService
         from nodeone.core.master.constants import ORG_UNIT_TYPE_WAREHOUSE
         from nodeone.core.platform.runtime import resolve_organization_id
         from nodeone.core.services.org_unit import OrgUnitService
 
         oid = resolve_organization_id()
         warehouses: list = []
+        stock_balances: list = []
         if oid is not None:
             warehouses = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_WAREHOUSE)
+            stock_balances = StockService.list_balances(int(oid), limit=100)
         return render_template(
             'eposone/warehouses.html',
             section_slug=key,
@@ -164,6 +167,8 @@ def eposone_section(slug: str):
             section_description=description,
             warehouses=warehouses,
             warehouses_total=len(warehouses),
+            stock_balances=stock_balances,
+            stock_balances_total=len(stock_balances),
         )
     if key == 'registers':
         from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER

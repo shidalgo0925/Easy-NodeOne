@@ -48,5 +48,53 @@
             {% endif %}
         </div>
     </div>
+
+    <div class="mt-4 mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h2 class="h5 mb-1">Saldos de stock</h2>
+            <p class="text-muted small mb-0">Cantidades por bodega y producto (movimientos vía eventos de pedido).</p>
+        </div>
+        <span class="badge bg-secondary">{{ stock_balances_total }} saldo(s)</span>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if stock_balances %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Bodega ID</th>
+                            <th>En mano</th>
+                            <th>Reservado</th>
+                            <th>Disponible</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in stock_balances %}
+                        <tr>
+                            <td><code>{{ item.product_ref }}</code></td>
+                            <td class="text-muted small">{{ item.warehouse_org_unit_id }}</td>
+                            <td>{{ '%.2f'|format(item.quantity_on_hand) }}</td>
+                            <td>{{ '%.2f'|format(item.quantity_reserved) }}</td>
+                            <td>{{ '%.2f'|format(item.quantity_available) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">Sin movimientos de stock registrados todavía.</p>
+                <p class="small mb-0">
+                    Los saldos se actualizan al confirmar, cobrar o cancelar pedidos con líneas
+                    <code>product_ref</code> y productos con <code>tracks_inventory</code>.
+                    Consultá <code>GET /api/eposone/stock-balances</code>.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}

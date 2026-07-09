@@ -206,6 +206,86 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
             """
         _exec(engine, ddl, printfn, 'core_pos_terminal')
 
+    _ensure_stock_balance_table(engine, insp, printfn)
+    _ensure_stock_movement_table(engine, insp, printfn)
+
+
+def _ensure_stock_balance_table(engine, insp, printfn) -> None:
+    if 'core_stock_balance' in insp.get_table_names():
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_balance (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+            warehouse_org_unit_id INTEGER NOT NULL REFERENCES core_org_unit(id) ON DELETE CASCADE,
+            product_ref VARCHAR(64) NOT NULL,
+            quantity_on_hand DOUBLE PRECISION NOT NULL DEFAULT 0,
+            quantity_reserved DOUBLE PRECISION NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+            CONSTRAINT uq_core_stock_balance_wh_product
+                UNIQUE (organization_id, warehouse_org_unit_id, product_ref)
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_stock_balance_org ON core_stock_balance (organization_id);
+        CREATE INDEX IF NOT EXISTS ix_core_stock_balance_product ON core_stock_balance (product_ref);
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_balance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            organization_id INTEGER NOT NULL,
+            warehouse_org_unit_id INTEGER NOT NULL,
+            product_ref VARCHAR(64) NOT NULL,
+            quantity_on_hand REAL NOT NULL DEFAULT 0,
+            quantity_reserved REAL NOT NULL DEFAULT 0,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (organization_id, warehouse_org_unit_id, product_ref)
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_stock_balance_org ON core_stock_balance (organization_id);
+        """
+    _exec(engine, ddl, printfn, 'core_stock_balance')
+
+
+def _ensure_stock_movement_table(engine, insp, printfn) -> None:
+    if 'core_stock_movement' in insp.get_table_names():
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_movement (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+            warehouse_org_unit_id INTEGER NOT NULL REFERENCES core_org_unit(id) ON DELETE CASCADE,
+            product_ref VARCHAR(64) NOT NULL,
+            movement_type VARCHAR(32) NOT NULL,
+            quantity DOUBLE PRECISION NOT NULL DEFAULT 0,
+            order_ref VARCHAR(50),
+            idempotency_key VARCHAR(128),
+            notes VARCHAR(500),
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+            CONSTRAINT uq_core_stock_movement_idempotency UNIQUE (organization_id, idempotency_key)
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_stock_movement_order ON core_stock_movement (order_ref);
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_movement (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            organization_id INTEGER NOT NULL,
+            warehouse_org_unit_id INTEGER NOT NULL,
+            product_ref VARCHAR(64) NOT NULL,
+            movement_type VARCHAR(32) NOT NULL,
+            quantity REAL NOT NULL DEFAULT 0,
+            order_ref VARCHAR(50),
+            idempotency_key VARCHAR(128),
+            notes VARCHAR(500),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (organization_id, idempotency_key)
+        );
+        """
+    _exec(engine, ddl, printfn, 'core_stock_movement')
+
 
 def _ensure_order_operational_status_column(engine, insp, printfn) -> None:
     if 'core_commercial_order' not in insp.get_table_names():

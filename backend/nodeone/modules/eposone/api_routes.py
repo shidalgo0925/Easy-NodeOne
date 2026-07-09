@@ -330,6 +330,26 @@ def warehouses_get(unit_ref: str):
     return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_WAREHOUSE, item_key='warehouse')
 
 
+@eposone_api_bp.route('/stock-balances', methods=['GET'])
+@login_required
+def stock_balances_list():
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.core.commerce.stock import StockService
+
+    warehouse_id = request.args.get('warehouse_org_unit_id')
+    product_ref = (request.args.get('product_ref') or '').strip() or None
+    limit = int(request.args.get('limit', 100) or 100)
+    items = StockService.list_balances(
+        gate,
+        warehouse_org_unit_id=int(warehouse_id) if warehouse_id else None,
+        product_ref=product_ref,
+        limit=limit,
+    )
+    return jsonify({'stock_balances': [b.to_dict() for b in items], 'count': len(items)})
+
+
 @eposone_api_bp.route('/products', methods=['GET', 'POST'])
 @login_required
 def products_collection():

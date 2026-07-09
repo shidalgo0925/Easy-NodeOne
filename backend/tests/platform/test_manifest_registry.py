@@ -102,6 +102,32 @@ class TestManifestRegistry(unittest.TestCase):
         self.assertFalse(result['ready'])
 
 
+class TestPlatformAppScaffold(unittest.TestCase):
+    def test_normalize_app_id(self):
+        from nodeone.core.platform.app_scaffold import normalize_app_id
+
+        self.assertEqual(normalize_app_id('My-App'), 'my_app')
+        with self.assertRaises(ValueError):
+            normalize_app_id('1bad')
+
+    def test_scaffold_file_map(self):
+        from nodeone.core.platform.app_scaffold import build_scaffold_spec, scaffold_file_map
+
+        spec = build_scaffold_spec(app_id='demoapp', name='Demo App')
+        root = Path(__file__).resolve().parent.parent.parent.parent
+        files = scaffold_file_map(spec, app_root=root)
+        self.assertIn(root / 'backend' / 'nodeone' / 'modules' / 'demoapp' / 'manifest.py', files)
+        self.assertIn("id': 'demoapp'", files[root / 'backend' / 'nodeone' / 'modules' / 'demoapp' / 'manifest.py'])
+
+    def test_dry_run_no_write(self):
+        from nodeone.core.platform.app_scaffold import build_scaffold_spec, write_scaffold
+
+        spec = build_scaffold_spec(app_id='tmpapp', name='Tmp')
+        result = write_scaffold(spec, app_root=Path('/tmp/en1_scaffold_test'), dry_run=True)
+        self.assertTrue(result['dry_run'])
+        self.assertEqual(len(result['files']), 6)
+
+
 class TestPlatformAppsAPI(unittest.TestCase):
     def test_manifests_route_registered(self):
         from app import app as flask_app

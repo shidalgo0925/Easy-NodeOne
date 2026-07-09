@@ -1,46 +1,47 @@
 /**
- * EN1 Color System — estructura semántica tipo HubSpot.
- * Marca inyectada en base.html (--color-primary, --color-primary-dark, --color-accent*).
+ * EN1 Color System — paleta HubSpot (Sprout Orange + canvas cálido).
+ * Tokens semánticos alineados al design system HubSpot.
  * Referencia: EN1_Color_System_HubSpot.pdf
  */
 
 :root {
-    /* Superficies */
+    /* Superficies HubSpot */
     --en1-canvas: var(--color-background-cream, #f8f5ee);
     --en1-surface: #ffffff;
-    --en1-surface-alt: var(--en1-canvas);
-    --en1-surface-dark: var(--color-primary-dark, #00042d);
+    --en1-surface-alt: #fcfcfa;
+    --en1-surface-dark: var(--color-primary-dark, #042729);
 
-    /* Acción (CTA único — morado EN1 por defecto) */
-    --en1-action: var(--color-primary, #8b60aa);
-    --en1-action-hover: color-mix(in srgb, var(--en1-action) 82%, #000000);
-    --en1-action-pressed: color-mix(in srgb, var(--en1-action) 68%, #000000);
+    /* Acción — Sprout Orange (único CTA) */
+    --en1-action: var(--color-primary, #ff4800);
+    --en1-action-hover: #c93700;
+    --en1-action-pressed: #9f2800;
     --en1-on-action: #ffffff;
 
-    /* Texto */
-    --en1-ink: var(--color-text, #0f172a);
+    /* Texto — ink ladder HubSpot */
+    --en1-ink: var(--color-text, #1f1f1f);
     --en1-ink-secondary: #4a4a4a;
-    --en1-ink-muted: #64748b;
+    --en1-ink-muted: #60605f;
     --en1-on-dark: #ffffff;
 
     /* Bordes y estados */
-    --en1-border: var(--color-border, #e2e8f0);
+    --en1-border: #e6e2d9;
     --en1-border-strong: #cfcabd;
     --en1-mist: #cacac8;
-    --en1-disabled: #94a3b8;
+    --en1-disabled: #cacac8;
 
-    /* Acentos decorativos EN1 */
-    --en1-accent-gold: var(--color-accent-gold, #e6bf75);
-    --en1-accent-cyan: var(--color-accent-cyan, #00b8e0);
-    --en1-tint-gold: color-mix(in srgb, var(--en1-accent-gold) 22%, #ffffff);
-    --en1-tint-cyan: color-mix(in srgb, var(--en1-accent-cyan) 18%, #ffffff);
-    --en1-tint-lilac: color-mix(in srgb, var(--en1-action) 14%, #ffffff);
+    /* Acentos decorativos HubSpot */
+    --en1-accent-peach: var(--color-accent, #fcded2);
+    --en1-accent-navy: #15295a;
+    --en1-tint-peach: #fcded2;
+    --en1-tint-lilac: #d6c2d9;
+    --en1-tint-sage: #b9cdbe;
+    --en1-tint-aqua: #97dadc;
 
     /* Semánticos */
     --en1-success: #10b981;
     --en1-warning: #f59e0b;
     --en1-danger: #dc2626;
-    --en1-info: var(--en1-accent-cyan);
+    --en1-info: var(--en1-tint-aqua);
 
     /* Radios y sombras (HubSpot-like) */
     --en1-radius-sm: 6px;
@@ -53,8 +54,8 @@
     --color-background: var(--en1-canvas);
     --color-text: var(--en1-ink);
     --color-border: var(--en1-border);
-    --light-blue: var(--en1-tint-cyan);
-    --secondary-blue: var(--en1-tint-lilac);
+    --light-blue: var(--en1-tint-aqua);
+    --secondary-blue: var(--en1-tint-peach);
     --success-green: var(--en1-success);
 }
 
@@ -123,7 +124,7 @@ a.text-primary {
     background: linear-gradient(
         135deg,
         var(--en1-action) 0%,
-        color-mix(in srgb, var(--en1-action) 55%, var(--color-primary-dark, #00042d)) 100%
+        var(--en1-action-hover) 100%
     ) !important;
     border-color: transparent;
 }

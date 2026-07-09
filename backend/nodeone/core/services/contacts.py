@@ -131,7 +131,8 @@ class ContactService:
     @staticmethod
     def resolve_ref(organization_id: int, contact_ref: str) -> ContactDTO:
         """Resuelve contact_ref a Contact canónico activo (en1_contact)."""
-        from nodeone.core.master.contact_bridge import ContactBridgeService
+        from nodeone.core.master.constants import MasterDataError
+        from nodeone.core.master.contact_bridge import CONTACT_SOURCE_LEGACY, ContactBridgeService
 
         ref = (contact_ref or '').strip()
         if not ref:
@@ -149,13 +150,18 @@ class ContactService:
             raw = ref.split(':', 1)[1].strip()
             if not raw.isdigit():
                 raise ContactService.ValidationError('invalid_contact_ref')
-            resolved = ContactBridgeService.resolve(oid, int(raw))
-            if resolved is None or resolved.canonical_contact_id is None:
-                raise ContactService.ValidationError('invalid_contact_ref')
-            canonical = ContactService.get(oid, int(resolved.canonical_contact_id))
-            if canonical is None:
-                raise ContactService.ValidationError('invalid_contact_ref')
-            return _require_active(canonical)
+            lid = int(raw)
+            resolved = ContactBridgeService.resolve(oid, lid)
+            if resolved is not None and resolved.canonical_contact_id is not None:
+                canonical = ContactService.get(oid, int(resolved.canonical_contact_id))
+                if canonical is None:
+                    raise ContactService.ValidationError('invalid_contact_ref')
+                return _require_active(canonical)
+            try:
+                promoted = ContactBridgeService.promote_legacy(oid, lid, link_source='eposone_resolve')
+            except MasterDataError as exc:
+                raise ContactService.ValidationError('invalid_contact_ref') from exc
+            return _require_active(promoted.contact)
 
         if '@' in ref:
             dto = ContactService.find_by_email(oid, ref)
@@ -182,14 +188,19 @@ class ContactService:
             if dto is not None:
                 return _require_active(dto)
             resolved = ContactBridgeService.resolve(oid, cid)
-            if resolved is None or resolved.canonical_contact_id is None:
-                raise ContactService.ValidationError('invalid_contact_ref')
-            linked = ContactService.get(oid, int(resolved.canonical_contact_id))
-            if linked is None:
-                raise ContactService.ValidationError('invalid_contact_ref')
-            return _require_active(linked)
+            if resolved is not None and resolved.canonical_contact_id is not None:
+                linked = ContactService.get(oid, int(resolved.canonical_contact_id))
+                if linked is None:
+                    raise ContactService.ValidationError('invalid_contact_ref')
+                return _require_active(linked)
+            if resolved is not None and resolved.source == CONTACT_SOURCE_LEGACY:
+                try:
+                    promoted = ContactBridgeService.promote_legacy(oid, cid, link_source='eposone_resolve')
+                except MasterDataError as exc:
+                    raise ContactService.ValidationError('invalid_contact_ref') from exc
+                return _require_active(promoted.contact)
 
-        raise ContactService.ValidationError('invalid_contact_ref')
+            raise ContactService.ValidationError('invalid_contact_ref')
 
     @staticmethod
     def search(

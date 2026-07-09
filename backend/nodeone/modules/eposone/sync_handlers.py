@@ -136,6 +136,28 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             source_app_id='eposone',
         )
         return
+    if op == 'create_contact':
+        from nodeone.core.services.contacts import ContactService
+
+        payload = dict(dto.payload or {})
+        if payload.get('legacy_contact_id') is not None:
+            ContactService.create_with_legacy_link(int(dto.organization_id), payload)
+        else:
+            ContactService.create(int(dto.organization_id), payload)
+        return
+    if op == 'promote_legacy_contact':
+        from nodeone.core.master.contact_bridge import ContactBridgeService
+
+        payload = dict(dto.payload or {})
+        legacy_contact_id = payload.get('legacy_contact_id')
+        if legacy_contact_id is None:
+            raise OrderValidationError('legacy_contact_id_required')
+        ContactBridgeService.promote_legacy(
+            int(dto.organization_id),
+            int(legacy_contact_id),
+            link_source=str(payload.get('link_source') or 'eposone_sync'),
+        )
+        return
     raise OrderValidationError(f'unsupported_operation:{op}')
 
 
@@ -152,6 +174,8 @@ EPOSONE_SYNC_OPERATIONS = frozenset(
         'manual_cash_movement',
         'split_order',
         'stock_adjust',
+        'create_contact',
+        'promote_legacy_contact',
     }
 )
 

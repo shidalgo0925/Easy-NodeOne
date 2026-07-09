@@ -280,6 +280,56 @@ class TestEPosOneSyncHandler(unittest.TestCase):
         self.assertIn('manual_cash_movement', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('split_order', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('stock_adjust', EPOSONE_SYNC_OPERATIONS)
+        self.assertIn('create_contact', EPOSONE_SYNC_OPERATIONS)
+        self.assertIn('promote_legacy_contact', EPOSONE_SYNC_OPERATIONS)
+
+    @patch('nodeone.core.services.contacts.ContactService.create_with_legacy_link')
+    def test_create_contact_sync_operation(self, mock_create):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=6,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='k6',
+            operation_type='create_contact',
+            status='pending',
+            entity_type='contact',
+            entity_ref=None,
+            payload={'display_name': 'Ana', 'legacy_contact_id': 3},
+            base_version=None,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_create.assert_called_once()
+
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.promote_legacy')
+    def test_promote_legacy_contact_sync_operation(self, mock_promote):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=7,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='k7',
+            operation_type='promote_legacy_contact',
+            status='pending',
+            entity_type='contact',
+            entity_ref='legacy:3',
+            payload={'legacy_contact_id': 3},
+            base_version=None,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_promote.assert_called_once_with(1, 3, link_source='eposone_sync')
 
     @patch('nodeone.core.commerce.stock.StockService.record_manual_adjust')
     def test_stock_adjust_operation(self, mock_adjust):

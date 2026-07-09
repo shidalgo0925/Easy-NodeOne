@@ -119,6 +119,71 @@ class TestContactService(unittest.TestCase):
         with self.assertRaises(ContactService.ValidationError):
             ContactService.resolve_ref(1, '999')
 
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.promote_legacy')
+    @patch('nodeone.core.master.contact_bridge.ContactBridgeService.resolve')
+    def test_resolve_ref_auto_promotes_legacy(self, mock_resolve, mock_promote):
+        from nodeone.core.master.contact_bridge import ResolvedContactDTO
+        from nodeone.core.services.contacts import ContactDTO, ContactService
+
+        legacy_only = ResolvedContactDTO(
+            contact=ContactDTO(
+                id=9,
+                organization_id=1,
+                display_name='Legacy',
+                email='legacy@example.com',
+                phone=None,
+                mobile=None,
+                contact_type='person',
+                identification_type='consumer_final',
+                tax_id=None,
+                dv=None,
+                is_customer=True,
+                is_supplier=False,
+                is_member=False,
+                is_student=False,
+                is_participant=False,
+                is_instructor=False,
+                is_employee=False,
+                active=True,
+                roles=('Cliente',),
+            ),
+            source='legacy',
+            canonical_contact_id=None,
+            legacy_crm_contact_id=9,
+        )
+        promoted_contact = ContactDTO(
+            id=20,
+            organization_id=1,
+            display_name='Legacy',
+            email='legacy@example.com',
+            phone=None,
+            mobile=None,
+            contact_type='person',
+            identification_type='consumer_final',
+            tax_id=None,
+            dv=None,
+            is_customer=True,
+            is_supplier=False,
+            is_member=False,
+            is_student=False,
+            is_participant=False,
+            is_instructor=False,
+            is_employee=False,
+            active=True,
+            roles=('Cliente',),
+        )
+        mock_resolve.return_value = legacy_only
+        mock_promote.return_value = ResolvedContactDTO(
+            contact=promoted_contact,
+            source='linked',
+            canonical_contact_id=20,
+            legacy_crm_contact_id=9,
+        )
+
+        dto = ContactService.resolve_ref(1, 'legacy:9')
+        self.assertEqual(dto.id, 20)
+        mock_promote.assert_called_once_with(1, 9, link_source='eposone_resolve')
+
     @patch('nodeone.core.master.contact_bridge.ContactBridgeService.link')
     @patch('nodeone.modules.contacts.service.create_contact')
     def test_create_with_legacy_link(self, mock_create_contact, mock_link):

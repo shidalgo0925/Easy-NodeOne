@@ -112,6 +112,21 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             source_app_id='eposone',
         )
         return
+    if op == 'split_order':
+        payload = dict(dto.payload or {})
+        order_id = payload.get('order_id')
+        line_indexes = payload.get('line_indexes')
+        if not order_id:
+            raise OrderValidationError('order_id_required')
+        if not isinstance(line_indexes, list) or not line_indexes:
+            raise OrderValidationError('line_indexes_required')
+        OrderService.split_order(
+            int(dto.organization_id),
+            int(order_id),
+            [int(i) for i in line_indexes],
+            source_app_id='eposone',
+        )
+        return
     raise OrderValidationError(f'unsupported_operation:{op}')
 
 
@@ -126,6 +141,7 @@ EPOSONE_SYNC_OPERATIONS = frozenset(
         'reconcile_cash_shift',
         'close_cash_shift',
         'manual_cash_movement',
+        'split_order',
     }
 )
 

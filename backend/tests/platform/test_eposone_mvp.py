@@ -200,11 +200,36 @@ class TestEPosOneSyncHandler(unittest.TestCase):
         self.assertEqual(mock_manual.call_args[0][1], 9)
         self.assertEqual(mock_manual.call_args[0][2], 'cash_in')
 
+    @patch('nodeone.modules.eposone.sync_handlers.OrderService.split_order')
+    def test_split_order_operation(self, mock_split):
+        from nodeone.core.sync.queue import SyncOperationDTO
+        from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
+
+        dto = SyncOperationDTO(
+            id=4,
+            organization_id=1,
+            client_id='t1',
+            idempotency_key='k4',
+            operation_type='split_order',
+            status='pending',
+            entity_type='order',
+            entity_ref='POS-0001',
+            payload={'order_id': 5, 'line_indexes': [0, 2]},
+            base_version=1,
+            retry_count=0,
+            conflict_reason=None,
+            created_at=None,
+            applied_at=None,
+        )
+        apply_eposone_sync_operation(dto)
+        mock_split.assert_called_once_with(1, 5, [0, 2], source_app_id='eposone')
+
     def test_supported_operations_catalog(self):
         from nodeone.modules.eposone.sync_handlers import EPOSONE_SYNC_OPERATIONS
 
         self.assertIn('refund_payment', EPOSONE_SYNC_OPERATIONS)
         self.assertIn('manual_cash_movement', EPOSONE_SYNC_OPERATIONS)
+        self.assertIn('split_order', EPOSONE_SYNC_OPERATIONS)
 
 
 class TestPlatformSyncAPI(unittest.TestCase):

@@ -101,6 +101,28 @@ def _redirect_delivery():
     return redirect(url_for('eposone.eposone_section', slug='delivery'))
 
 
+def _redirect_digital_menu():
+    return redirect(url_for('eposone.eposone_section', slug='digital-menu'))
+
+
+def _parse_digital_menu_items_from_form() -> list[dict]:
+    names = request.form.getlist('item_name')
+    prices = request.form.getlist('item_price')
+    categories = request.form.getlist('item_category')
+    items: list[dict] = []
+    for idx, raw_name in enumerate(names):
+        name = (raw_name or '').strip()
+        if not name:
+            continue
+        try:
+            price = float(prices[idx] if idx < len(prices) else 0)
+        except (TypeError, ValueError):
+            price = 0.0
+        category = (categories[idx] if idx < len(categories) else '').strip() or None
+        items.append({'name': name, 'price': price, 'category': category, 'sort_order': len(items)})
+    return items
+
+
 def _kds_page_context(organization_id: int) -> dict:
     from nodeone.modules.eposone.kds_service import (
         KDS_TICKET_CANCELLED,
@@ -722,6 +744,58 @@ def eposone_delivery_status(delivery_id: int):
         return _redirect_delivery()
     flash(f'Entrega {dto.order_ref} → {dto.status}.', 'success')
     return _redirect_delivery()
+
+
+@eposone_bp.route('/digital-menus/create', methods=['POST'])
+@login_required
+def eposone_digital_menu_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.digital_menu_service import DigitalMenuService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    name = (request.form.get('name') or '').strip()
+    items = _parse_digital_menu_items_from_form()
+    if not items:
+        flash('Agregá al menos un ítem con nombre.', 'warning')
+        return _redirect_digital_menu()
+    try:
+        dto = DigitalMenuService.create_menu(int(oid), name=name, items=items)
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_digital_menu()
+    flash(f'Menú {dto.menu_ref} creado ({len(dto.items)} ítem(s)).', 'success')
+    return _redirect_digital_menu()
+
+
+@eposone_bp.route('/digital-menus/<int:menu_id>/active', methods=['POST'])
+@login_required
+def eposone_digital_menu_set_active(menu_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.digital_menu_service import DigitalMenuService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    active_raw = (request.form.get('active') or '').strip().lower()
+    active = active_raw in {'1', 'true', 'yes', 'on'}
+    try:
+        dto = DigitalMenuService.set_active(int(oid), int(menu_id), active=active)
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_digital_menu()
+    label = 'activado' if dto.active else 'desactivado'
+    flash(f'Menú {dto.menu_ref} {label}.', 'success')
+    return _redirect_digital_menu()
 
 
 @eposone_bp.route('/contacts/create', methods=['POST'])

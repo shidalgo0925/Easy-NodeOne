@@ -82,6 +82,8 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         self.assertIn('/admin/eposone/kds/<int:ticket_id>/status', rules)
         self.assertIn('/admin/eposone/delivery/<int:delivery_id>/assign', rules)
         self.assertIn('/admin/eposone/delivery/<int:delivery_id>/status', rules)
+        self.assertIn('/admin/eposone/digital-menus/create', rules)
+        self.assertIn('/admin/eposone/digital-menus/<int:menu_id>/active', rules)
 
     def test_credit_note_event_in_commerce_types(self):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
@@ -458,6 +460,66 @@ class TestEPosOneKdsDeliveryActions(unittest.TestCase):
         resp = self.client.post(action, data={'status': 'in_transit'}, follow_redirects=False)
         self.assertEqual(resp.status_code, 302)
         mock_transition.assert_called_once()
+
+
+class TestEPosOneDigitalMenuActions(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.digital_menu_service.DigitalMenuService.create_menu')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_digital_menu_create_post(self, _oid, mock_create, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_create.return_value = SimpleNamespace(menu_ref='MENU-0001', items=(SimpleNamespace(),))
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_digital_menu_create')
+        resp = self.client.post(
+            action,
+            data={
+                'name': 'Almuerzo',
+                'item_name': ['Sopa', ''],
+                'item_price': ['5.50', ''],
+                'item_category': ['Entradas', ''],
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args
+        self.assertEqual(call_kwargs[0][0], 1)
+        self.assertEqual(call_kwargs[1]['name'], 'Almuerzo')
+        self.assertEqual(len(call_kwargs[1]['items']), 1)
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.digital_menu_service.DigitalMenuService.set_active')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_digital_menu_set_active_post(self, _oid, mock_set_active, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_set_active.return_value = SimpleNamespace(menu_ref='MENU-0001', active=False)
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_digital_menu_set_active', menu_id=4)
+        resp = self.client.post(action, data={'active': '0'}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+        mock_set_active.assert_called_once_with(1, 4, active=False)
 
 
 class TestEPosOneDashboardKpis(unittest.TestCase):

@@ -54,6 +54,25 @@ class TestDigitalMenuService(unittest.TestCase):
         self.assertEqual(dto.name, 'Almuerzo')
         self.assertEqual(len(dto.items), 1)
 
+    @patch('app.db')
+    @patch('nodeone.modules.eposone.digital_menu_service.EposoneDigitalMenu')
+    def test_set_active(self, mock_menu_cls, mock_db):
+        from nodeone.modules.eposone.digital_menu_service import DigitalMenuService
+
+        row = MagicMock()
+        row.id = 1
+        row.organization_id = 1
+        row.menu_ref = 'MENU-0001'
+        row.name = 'Almuerzo'
+        row.public_token = 'tok123'
+        row.active = True
+        row.items = []
+        mock_menu_cls.query.filter_by.return_value.first.return_value = row
+
+        dto = DigitalMenuService.set_active(1, 1, active=False)
+        self.assertFalse(dto.active)
+        self.assertFalse(row.active)
+
 
 class TestDigitalMenuSections(unittest.TestCase):
     def test_digital_menu_slug(self):

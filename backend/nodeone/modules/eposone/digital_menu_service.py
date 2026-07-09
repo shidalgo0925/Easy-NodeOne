@@ -109,6 +109,28 @@ class DigitalMenuService:
         return [_menu_to_dto(r) for r in rows]
 
     @staticmethod
+    def get_menu(organization_id: int, menu_id: int) -> DigitalMenuDTO | None:
+        row = EposoneDigitalMenu.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(menu_id),
+        ).first()
+        return _menu_to_dto(row) if row is not None else None
+
+    @staticmethod
+    def set_active(organization_id: int, menu_id: int, *, active: bool) -> DigitalMenuDTO:
+        from app import db
+
+        row = EposoneDigitalMenu.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(menu_id),
+        ).first()
+        if row is None:
+            raise OrderValidationError('menu_not_found')
+        row.active = bool(active)
+        db.session.commit()
+        return _menu_to_dto(row)
+
+    @staticmethod
     def create_menu(organization_id: int, *, name: str, items: list[dict[str, Any]] | None = None) -> DigitalMenuDTO:
         from app import db
 

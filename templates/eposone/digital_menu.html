@@ -3,20 +3,81 @@
 {% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
-    <div class="mb-3">
-        <h1 class="h4 mb-1">{{ section_title }}</h1>
-        <p class="text-muted small mb-0">{{ section_description }}</p>
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <span class="badge en1-badge--neutral">{{ menus|length }} menú(s)</span>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <strong>Nuevo menú digital</strong>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('eposone.eposone_digital_menu_create') }}">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold" for="menu_name">Nombre del menú</label>
+                        <input type="text" class="form-control form-control-sm" id="menu_name" name="name"
+                               required maxlength="200" placeholder="Ej. Almuerzo ejecutivo">
+                    </div>
+                </div>
+                <p class="small text-muted mt-3 mb-2">Ítems (al menos uno con nombre)</p>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-2">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th style="width:8rem">Precio</th>
+                                <th style="width:12rem">Categoría</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in range(3) %}
+                            <tr>
+                                <td>
+                                    <input type="text" name="item_name" class="form-control form-control-sm"
+                                           maxlength="200" placeholder="Plato o bebida" {% if row == 0 %}required{% endif %}>
+                                </td>
+                                <td>
+                                    <input type="number" name="item_price" class="form-control form-control-sm"
+                                           min="0" step="0.01" placeholder="0.00">
+                                </td>
+                                <td>
+                                    <input type="text" name="item_category" class="form-control form-control-sm"
+                                           maxlength="120" placeholder="Opcional">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus me-1"></i> Crear menú
+                </button>
+            </form>
+        </div>
     </div>
 
     {% if menus %}
         {% for menu in menus %}
         <div class="card border-0 shadow-sm mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong>{{ menu.name }}</strong>
-                <span class="badge {{ 'bg-success' if menu.active else 'bg-secondary' }}">
-                    {{ 'Activo' if menu.active else 'Inactivo' }}
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge {{ 'bg-success' if menu.active else 'bg-secondary' }}">
+                        {{ 'Activo' if menu.active else 'Inactivo' }}
+                    </span>
+                    <form method="post" action="{{ url_for('eposone.eposone_digital_menu_set_active', menu_id=menu.id) }}" class="d-inline">
+                        <input type="hidden" name="active" value="{{ '0' if menu.active else '1' }}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            {{ 'Desactivar' if menu.active else 'Activar' }}
+                        </button>
+                    </form>
+                </div>
             </div>
             <div class="card-body">
                 <p class="small text-muted mb-2">Ref: <code>{{ menu.menu_ref }}</code> · {{ menu.items|length }} ítem(s)</p>
@@ -27,7 +88,12 @@
                 {% if menu.items %}
                 <ul class="list-unstyled small mb-0">
                     {% for item in menu.items %}
-                    <li class="mb-1">{{ item.name }} — {{ '%.2f'|format(item.price) }}{% if not item.available %} <em>(no disp.)</em>{% endif %}</li>
+                    <li class="mb-1">
+                        {{ item.name }}
+                        {% if item.category %}<span class="text-muted">({{ item.category }})</span>{% endif %}
+                        — {{ '%.2f'|format(item.price) }}
+                        {% if not item.available %}<em>(no disp.)</em>{% endif %}
+                    </li>
                     {% endfor %}
                 </ul>
                 {% endif %}
@@ -38,7 +104,7 @@
     <div class="card border-0 shadow-sm">
         <div class="card-body text-muted">
             <p class="mb-2">No hay menús digitales.</p>
-            <p class="small mb-0">Creá uno con <code>POST /api/eposone/digital-menus</code> (nombre + ítems).</p>
+            <p class="small mb-0">Creá el primero con el formulario de arriba o vía <code>POST /api/eposone/digital-menus</code>.</p>
         </div>
     </div>
     {% endif %}

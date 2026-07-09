@@ -1092,7 +1092,15 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_endpoints=('eposone.eposone_home',),
                 active_path_prefixes=('/admin/eposone/dashboard',),
             ),
-            _eposone_section_item('pedidos', 'Pedidos', 'fas fa-receipt', 'orders'),
+            NavAreaItem(
+                'pedidos',
+                'Pedidos',
+                'fas fa-receipt',
+                'eposone.eposone_section',
+                url_path='/admin/eposone/section/orders',
+                visible=_v_eposone,
+                active_path_prefixes=('/admin/eposone/section/orders', '/admin/eposone/orders'),
+            ),
             NavAreaItem(
                 'ventas',
                 'Ventas',
@@ -1107,15 +1115,7 @@ APP_AREAS: tuple[NavArea, ...] = (
                 ),
                 active_path_prefixes=('/admin/sales/quotations', '/admin/sales/commercial-contacts'),
             ),
-            NavAreaItem(
-                'clientes',
-                'Clientes',
-                'fas fa-address-book',
-                'contacts_admin.contacts_index',
-                visible=_v_eposone_compose_contacts,
-                active_blueprints=('contacts_admin',),
-                active_path_prefixes=('/admin/contacts',),
-            ),
+            _eposone_section_item('clientes', 'Clientes', 'fas fa-address-book', 'contacts'),
             _eposone_section_item('productos', 'Productos', 'fas fa-box-open', 'products'),
             NavAreaItem(
                 'inventario_core',

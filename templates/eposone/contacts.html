@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="badge bg-secondary">{{ contacts_total }} contacto(s)</span>
+            {% if has_view_endpoint('contacts_admin.contacts_index') %}
+            <a href="{{ url_for('contacts_admin.contacts_index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-external-link-alt me-1"></i>CRM completo
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 mb-3">
+        <div class="col-12 col-md-6 col-lg-4">
+            <input type="search" name="q" class="form-control form-control-sm" placeholder="Buscar nombre, email, tax id…" value="{{ search_q }}">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+            {% if search_q %}
+            <a href="{{ url_for('eposone.eposone_section', slug='contacts') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+    </form>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if contacts %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Tipo</th>
+                            <th>RUC / ID</th>
+                            <th>Roles</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in contacts %}
+                        <tr>
+                            <td class="fw-medium">{{ contact.display_name }}</td>
+                            <td class="small">{{ contact.email or '—' }}</td>
+                            <td class="small text-muted">{{ contact.mobile or contact.phone or '—' }}</td>
+                            <td class="small">{{ contact.contact_type }}</td>
+                            <td class="small"><code>{{ contact.tax_id or '—' }}</code></td>
+                            <td class="small text-muted">
+                                {% if contact.roles %}{{ contact.roles|join(', ') }}{% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if contact.active %}
+                                <span class="badge text-bg-success">Activo</span>
+                                {% else %}
+                                <span class="badge text-bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">No hay contactos que coincidan.</p>
+                <p class="small mb-0">
+                    Creá contactos vía <code>POST /api/eposone/contacts</code> o desde el CRM completo.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

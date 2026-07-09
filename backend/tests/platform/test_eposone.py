@@ -79,8 +79,14 @@ class TestEPosOneRoutes(unittest.TestCase):
         from nodeone.modules.eposone.sections import EPOSONE_SECTION_SLUGS
 
         self.assertIn('orders', EPOSONE_SECTION_SLUGS)
+        self.assertIn('contacts', EPOSONE_SECTION_SLUGS)
         self.assertIn('products', EPOSONE_SECTION_SLUGS)
         self.assertIn('settings', EPOSONE_SECTION_SLUGS)
+
+    def test_eposone_order_detail_redirects_anonymous(self):
+        with self.app.test_client() as c:
+            r = c.get('/admin/eposone/orders/1', follow_redirects=False)
+            self.assertIn(r.status_code, (302, 401))
 
 
 if __name__ == '__main__':

@@ -12,6 +12,24 @@
         <span class="badge bg-secondary">{{ orders_total }} pedido(s)</span>
     </div>
 
+    <form method="get" class="row g-2 mb-3 align-items-end">
+        <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label small text-muted mb-1">Estado operativo</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for st in ('draft', 'confirmed', 'in_progress', 'ready', 'delivered', 'cancelled', 'refunded') %}
+                <option value="{{ st }}" {% if status_filter == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+            {% if status_filter %}
+            <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+    </form>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             {% if orders %}
@@ -20,10 +38,13 @@
                     <thead class="table-light">
                         <tr>
                             <th>Referencia</th>
-                            <th>Estado</th>
+                            <th>Operativo</th>
+                            <th>Pago</th>
+                            <th>Fiscal</th>
                             <th class="text-end">Total</th>
-                            <th>Moneda</th>
+                            <th>Terminal</th>
                             <th>Creado</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -31,10 +52,15 @@
                         <tr>
                             <td><code>{{ order.order_ref }}</code></td>
                             <td><span class="badge text-bg-light border">{{ order.status }}</span></td>
-                            <td class="text-end">{{ '%.2f'|format(order.grand_total) }}</td>
-                            <td>{{ order.currency }}</td>
+                            <td><span class="badge text-bg-light border">{{ order.payment_status }}</span></td>
+                            <td><span class="badge text-bg-light border">{{ order.fiscal_status }}</span></td>
+                            <td class="text-end">{{ '%.2f'|format(order.grand_total) }} {{ order.currency }}</td>
+                            <td class="small text-muted">{{ order.pos_terminal_id or '—' }}</td>
                             <td class="text-muted small">
                                 {% if order.created_at %}{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('eposone.eposone_order_detail', order_id=order.id) }}" class="btn btn-sm btn-outline-primary py-0">Ver</a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -43,7 +69,7 @@
             </div>
             {% else %}
             <div class="p-4 text-muted">
-                <p class="mb-2">No hay pedidos POS todavía.</p>
+                <p class="mb-2">No hay pedidos POS{% if status_filter %} con estado <code>{{ status_filter }}</code>{% endif %}.</p>
                 <p class="small mb-0">
                     Creá pedidos vía <code>POST /api/eposone/orders</code> o sincronización offline
                     (<code>operation_type: create_order</code>).

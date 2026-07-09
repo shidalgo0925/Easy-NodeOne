@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, redirect, render_template, url_for
+from flask import Blueprint, abort, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
@@ -30,6 +30,27 @@ def eposone_home():
     )
 
 
+@eposone_bp.route('/orders/<int:order_id>')
+@login_required
+def eposone_order_detail(order_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderService
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    order = OrderService.get(int(oid), int(order_id))
+    if order is None:
+        abort(404)
+    return render_template(
+        'eposone/order_detail.html',
+        order=order,
+    )
+
+
 @eposone_bp.route('/section/<slug>')
 @login_required
 def eposone_section(slug: str):
@@ -47,8 +68,13 @@ def eposone_section(slug: str):
         oid = resolve_organization_id()
         orders: list = []
         orders_total = 0
+        status_filter = (request.args.get('status') or '').strip() or None
         if oid is not None:
-            orders, orders_total = OrderService.search(int(oid), limit=25)
+            orders, orders_total = OrderService.search(
+                int(oid),
+                status=status_filter,
+                limit=50,
+            )
         return render_template(
             'eposone/orders.html',
             section_slug=key,
@@ -56,6 +82,26 @@ def eposone_section(slug: str):
             section_description=description,
             orders=orders,
             orders_total=orders_total,
+            status_filter=status_filter or '',
+        )
+    if key == 'contacts':
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.contacts import ContactService
+
+        oid = resolve_organization_id()
+        contacts: list = []
+        contacts_total = 0
+        q = (request.args.get('q') or '').strip()
+        if oid is not None:
+            contacts, contacts_total = ContactService.search(int(oid), q=q, limit=50)
+        return render_template(
+            'eposone/contacts.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            contacts=contacts,
+            contacts_total=contacts_total,
+            search_q=q,
         )
     if key == 'products':
         from nodeone.core.platform.runtime import resolve_organization_id
@@ -236,7 +282,7 @@ def _compose_links() -> list[dict[str, str]]:
         except Exception:
             pass
 
-    _add('Clientes', 'contacts_admin.contacts_index', 'contacts')
+    _add('Clientes (CRM completo)', 'contacts_admin.contacts_index', 'contacts')
     _add('Cotizaciones / ventas', 'admin_sales_quotations', 'sales')
     try:
         links.append({'label': 'Catálogo productos', 'url': url_for('eposone.eposone_section', slug='products')})

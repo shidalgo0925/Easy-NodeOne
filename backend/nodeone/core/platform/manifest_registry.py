@@ -116,9 +116,7 @@ def get_manifest(app_id: str) -> dict[str, Any] | None:
 
 
 def registry_alignment_errors() -> list[str]:
-    """
-    Comprueba que cada manifest con lifecycle active tenga entrada en app_registry.
-    """
+    """Comprueba manifest active ↔ ApplicationDescriptor en app_registry."""
     from nodeone.core.platform.app_registry import get_application
 
     errors: list[str] = []
@@ -135,6 +133,86 @@ def registry_alignment_errors() -> list[str]:
         if reg_saas != man_saas:
             errors.append(f'{app_id}: saas_codes manifest {man_saas} != registry {reg_saas}')
     return errors
+
+
+def saas_catalog_code_set() -> frozenset[str]:
+    from nodeone.services.saas_catalog_defaults import SAAS_CATALOG_MODULES
+
+    return frozenset(code for code, *_rest in SAAS_CATALOG_MODULES)
+
+
+def saas_catalog_alignment_errors() -> list[str]:
+    """Cada saas_code de manifest active debe existir en SAAS_CATALOG_MODULES."""
+    catalog = saas_catalog_code_set()
+    errors: list[str] = []
+    for app_id, manifest in discover_platform_manifests().items():
+        lifecycle = (manifest.get('lifecycle') or LIFECYCLE_ACTIVE).strip().lower()
+        if lifecycle == LIFECYCLE_PLANNED:
+            continue
+        for code in manifest.get('saas_codes') or ():
+            c = str(code).strip()
+            if c and c not in catalog:
+                errors.append(f'{app_id}: saas_code {c!r} ausente en saas_catalog_defaults')
+    return errors
+
+
+def _manifest_module_listed(app_id: str) -> bool:
+    needle = f'.{app_id.strip().lower()}.manifest'
+    return any(needle in path for path in PLATFORM_MANIFEST_MODULES)
+
+
+def platform_app_checklist(app_id: str) -> dict[str, Any]:
+    """Checklist Etapa 9 para registrar una app de plataforma."""
+    key = (app_id or '').strip().lower()
+    manifest = get_manifest(key)
+    if manifest is None:
+        return {
+            'app_id': key,
+            'found': False,
+            'checklist': {},
+            'errors': ['manifest_not_found'],
+            'ready': False,
+        }
+
+    from nodeone.core.platform.app_registry import get_application
+    from nodeone.core.platform.launcher import NAV_AREA_TO_PLATFORM_APP
+
+    validation_errors = validate_manifest(manifest)
+    registry_desc = get_application(key)
+    saas_codes = {str(c).strip() for c in (manifest.get('saas_codes') or ()) if str(c).strip()}
+    catalog = saas_catalog_code_set()
+    nav_id = (manifest.get('nav_area_id') or '').strip()
+    lifecycle = (manifest.get('lifecycle') or LIFECYCLE_ACTIVE).strip().lower()
+
+    checklist = {
+        'manifest_valid': len(validation_errors) == 0,
+        'listed_in_platform_manifest_modules': _manifest_module_listed(key),
+        'app_registry_descriptor': registry_desc is not None or lifecycle == LIFECYCLE_PLANNED,
+        'saas_catalog_codes': all(c in catalog for c in saas_codes) if saas_codes else False,
+        'launcher_nav_mapping': not nav_id or NAV_AREA_TO_PLATFORM_APP.get(nav_id) == key,
+        'register_hook': bool(manifest.get('register')) or lifecycle == LIFECYCLE_PLANNED,
+    }
+
+    errors: list[str] = list(validation_errors)
+    if not checklist['listed_in_platform_manifest_modules']:
+        errors.append('no listada en PLATFORM_MANIFEST_MODULES')
+    if lifecycle != LIFECYCLE_PLANNED and registry_desc is None:
+        errors.append('sin ApplicationDescriptor en app_registry')
+    if lifecycle != LIFECYCLE_PLANNED:
+        missing_saas = sorted(s for s in saas_codes if s not in catalog)
+        if missing_saas:
+            errors.append(f'saas_codes ausentes en catálogo: {missing_saas}')
+    if nav_id and NAV_AREA_TO_PLATFORM_APP.get(nav_id) != key:
+        errors.append(f'nav_area_id {nav_id!r} no mapea a {key} en launcher')
+
+    return {
+        'app_id': key,
+        'found': True,
+        'lifecycle': lifecycle,
+        'checklist': checklist,
+        'errors': errors,
+        'ready': len(errors) == 0,
+    }
 
 
 def manifest_summary(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -154,21 +232,29 @@ def manifest_summary(manifest: dict[str, Any]) -> dict[str, Any]:
 
 
 def platform_apps_health() -> dict[str, Any]:
-    """Estado de alineación manifest ↔ app_registry (Etapa 9)."""
-    errors = registry_alignment_errors()
+    """Estado de alineación manifest ↔ registry ↔ saas_catalog (Etapa 9)."""
+    registry_errors = registry_alignment_errors()
+    saas_errors = saas_catalog_alignment_errors()
+    errors = registry_errors + saas_errors
     manifests = discover_platform_manifests()
     return {
         'alignment_ok': len(errors) == 0,
+        'registry_ok': len(registry_errors) == 0,
+        'saas_catalog_ok': len(saas_errors) == 0,
         'errors': errors,
+        'registry_errors': registry_errors,
+        'saas_catalog_errors': saas_errors,
         'manifest_count': len(manifests),
         'app_ids': sorted(manifests.keys()),
     }
 
 
 def warn_registry_misalignment() -> None:
-    """Log no fatal al arrancar si manifest y registry divergen."""
+    """Log no fatal al arrancar si manifest, registry o saas_catalog divergen."""
     try:
         for err in registry_alignment_errors():
             print(f'⚠️ platform manifest alignment: {err}')
+        for err in saas_catalog_alignment_errors():
+            print(f'⚠️ platform saas catalog alignment: {err}')
     except Exception as exc:
         print(f'⚠️ platform manifest alignment check: {exc}')

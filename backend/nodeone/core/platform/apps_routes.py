@@ -10,6 +10,7 @@ from nodeone.core.platform.manifest_registry import (
     discover_platform_manifests,
     get_manifest,
     manifest_summary,
+    platform_app_checklist,
     platform_apps_health,
 )
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
@@ -47,6 +48,15 @@ def get_manifest_detail(app_id: str):
     if manifest is None:
         return jsonify({'error': 'not_found'}), 404
     return jsonify({'manifest': dict(manifest)})
+
+
+@platform_apps_bp.route('/manifests/<app_id>/checklist', methods=['GET'])
+@login_required
+def get_manifest_checklist(app_id: str):
+    gate = _require_platform_admin()
+    if gate is not None:
+        return gate
+    return jsonify(platform_app_checklist(app_id))
 
 
 @platform_apps_bp.route('/health', methods=['GET'])

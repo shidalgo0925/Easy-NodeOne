@@ -65,6 +65,8 @@ class TestManifestRegistry(unittest.TestCase):
 
         health = platform_apps_health()
         self.assertTrue(health['alignment_ok'])
+        self.assertTrue(health['registry_ok'])
+        self.assertTrue(health['saas_catalog_ok'])
         self.assertEqual(health['errors'], [])
         self.assertGreaterEqual(health['manifest_count'], 5)
         self.assertIn('eposone', health['app_ids'])
@@ -78,6 +80,27 @@ class TestManifestRegistry(unittest.TestCase):
         self.assertTrue(summary['has_register'])
         self.assertIn('eposone', summary['saas_codes'])
 
+    def test_saas_catalog_alignment(self):
+        from nodeone.core.platform.manifest_registry import saas_catalog_alignment_errors
+
+        self.assertEqual(saas_catalog_alignment_errors(), [])
+
+    def test_eposone_checklist_ready(self):
+        from nodeone.core.platform.manifest_registry import platform_app_checklist
+
+        result = platform_app_checklist('eposone')
+        self.assertTrue(result['found'])
+        self.assertTrue(result['ready'])
+        self.assertTrue(result['checklist']['saas_catalog_codes'])
+        self.assertTrue(result['checklist']['launcher_nav_mapping'])
+
+    def test_checklist_unknown_app(self):
+        from nodeone.core.platform.manifest_registry import platform_app_checklist
+
+        result = platform_app_checklist('no_such_app')
+        self.assertFalse(result['found'])
+        self.assertFalse(result['ready'])
+
 
 class TestPlatformAppsAPI(unittest.TestCase):
     def test_manifests_route_registered(self):
@@ -85,6 +108,7 @@ class TestPlatformAppsAPI(unittest.TestCase):
 
         rules = {r.rule for r in flask_app.url_map.iter_rules()}
         self.assertIn('/api/platform/apps/manifests', rules)
+        self.assertIn('/api/platform/apps/manifests/<app_id>/checklist', rules)
         self.assertIn('/api/platform/apps/health', rules)
         self.assertIn('/api/platform/apps/template', rules)
 

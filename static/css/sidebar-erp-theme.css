@@ -4,7 +4,7 @@
  */
 
 aside.left-panel.sidebar-erp {
-    background: #0f172a !important;
+    background: var(--en1-sidebar, #2d3e50) !important;
     border-right: 1px solid rgba(148, 163, 184, 0.15);
     box-shadow: 4px 0 24px rgba(15, 23, 42, 0.35);
     min-width: 240px;

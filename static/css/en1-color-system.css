@@ -1,71 +1,74 @@
 /**
- * EN1 Color System — paleta HubSpot (Sprout Orange + canvas cálido).
- * Tokens semánticos alineados al design system HubSpot.
- * Referencia: EN1_Color_System_HubSpot.pdf
+ * EN1 Color System — Estilo HubSpot (documentación oficial EN1).
+ * Sorbet · Obsidian · Calypso · Oz · Marigold · Candy Apple
  */
 
 :root {
-    /* Superficies HubSpot */
-    --en1-canvas: var(--color-background-cream, #f8f5ee);
-    --en1-surface: #ffffff;
-    --en1-surface-alt: #fcfcfa;
-    --en1-surface-dark: var(--color-primary-dark, #042729);
+    /* Marca */
+    --en1-sorbet: var(--color-primary, #ff7a59);
+    --en1-obsidian: #33475b;
+    --en1-calypso: var(--color-accent, #00a4bd);
+    --en1-oz: #00bda5;
+    --en1-marigold: #f5c26b;
+    --en1-candy-apple: #f2545b;
 
-    /* Acción — Sprout Orange (único CTA) */
-    --en1-action: var(--color-primary, #ff4800);
-    --en1-action-hover: #c93700;
-    --en1-action-pressed: #9f2800;
+    /* Superficies */
+    --en1-canvas: var(--color-background-cream, #f5f8fa);
+    --en1-surface: #ffffff;
+    --en1-sidebar: var(--color-primary-dark, #2d3e50);
+
+    /* Acción (CTA) */
+    --en1-action: var(--en1-sorbet);
+    --en1-action-hover: #e6694a;
+    --en1-action-pressed: #cc5a3d;
     --en1-on-action: #ffffff;
 
-    /* Texto — ink ladder HubSpot */
-    --en1-ink: var(--color-text, #1f1f1f);
-    --en1-ink-secondary: #4a4a4a;
-    --en1-ink-muted: #60605f;
+    /* Texto */
+    --en1-ink: var(--color-text, #33475b);
+    --en1-ink-secondary: #516f90;
+    --en1-ink-muted: #7c98b6;
     --en1-on-dark: #ffffff;
 
-    /* Bordes y estados */
-    --en1-border: #e6e2d9;
-    --en1-border-strong: #cfcabd;
-    --en1-mist: #cacac8;
-    --en1-disabled: #cacac8;
-
-    /* Acentos decorativos HubSpot */
-    --en1-accent-peach: var(--color-accent, #fcded2);
-    --en1-accent-navy: #15295a;
-    --en1-tint-peach: #fcded2;
-    --en1-tint-lilac: #d6c2d9;
-    --en1-tint-sage: #b9cdbe;
-    --en1-tint-aqua: #97dadc;
+    /* Bordes */
+    --en1-border: #cbd6e2;
+    --en1-border-strong: #99acc2;
+    --en1-disabled: #cbd6e2;
 
     /* Semánticos */
-    --en1-success: #10b981;
-    --en1-warning: #f59e0b;
-    --en1-danger: #dc2626;
-    --en1-info: var(--en1-tint-aqua);
+    --en1-success: var(--en1-oz);
+    --en1-warning: var(--en1-marigold);
+    --en1-danger: var(--en1-candy-apple);
+    --en1-info: var(--en1-calypso);
 
-    /* Radios y sombras (HubSpot-like) */
+    /* Radios y sombras */
     --en1-radius-sm: 6px;
     --en1-radius-md: 8px;
     --en1-radius-lg: 16px;
-    --en1-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.06);
-    --en1-shadow-card: 0 6px 20px rgba(15, 23, 42, 0.09);
+    --en1-shadow-soft: 0 1px 3px rgba(45, 62, 80, 0.08);
+    --en1-shadow-card: 0 4px 16px rgba(45, 62, 80, 0.1);
 
-    /* Alias → tokens legacy existentes */
+    /* Alias legacy */
     --color-background: var(--en1-canvas);
     --color-text: var(--en1-ink);
     --color-border: var(--en1-border);
-    --light-blue: var(--en1-tint-aqua);
-    --secondary-blue: var(--en1-tint-peach);
-    --success-green: var(--en1-success);
+    --success-green: var(--en1-oz);
+    --gray-600: var(--en1-ink-muted);
+    --gray-900: var(--en1-ink);
 }
 
-/* Superficie de página */
+/* Superficie */
 body {
     background-color: var(--en1-canvas);
     color: var(--en1-ink);
 }
 
-/* CTAs — un solo color de acción */
+h1, h2, h3, h4, h5, h6,
+.portal-welcome h1,
+.module-card h3 {
+    color: var(--en1-ink);
+}
+
+/* CTAs — Sorbet */
 .btn-primary,
 .btn.btn-primary {
     background-color: var(--en1-action);
@@ -99,6 +102,17 @@ body {
     color: var(--en1-on-action);
 }
 
+.btn-outline-dark {
+    color: var(--en1-ink);
+    border-color: var(--en1-border);
+}
+
+.btn-outline-dark:hover {
+    background-color: var(--en1-ink);
+    border-color: var(--en1-ink);
+    color: var(--en1-on-dark);
+}
+
 .text-primary,
 a.text-primary {
     color: var(--en1-action) !important;
@@ -112,7 +126,31 @@ a.text-primary {
     background-color: var(--en1-action) !important;
 }
 
-/* Cards sobre canvas cálido */
+.badge.bg-success,
+.btn-success,
+.alert-success {
+    --bs-success: var(--en1-oz);
+}
+
+.badge.bg-warning,
+.alert-warning {
+    --bs-warning: var(--en1-marigold);
+    color: var(--en1-ink) !important;
+}
+
+.badge.bg-danger,
+.btn-danger,
+.alert-danger {
+    --bs-danger: var(--en1-candy-apple);
+}
+
+.bg-success { background-color: var(--en1-oz) !important; }
+.bg-warning { background-color: var(--en1-marigold) !important; color: var(--en1-ink) !important; }
+.bg-danger { background-color: var(--en1-candy-apple) !important; }
+.bg-info { background-color: var(--en1-calypso) !important; }
+.text-info { color: var(--en1-calypso) !important; }
+
+/* Cards */
 .card {
     background-color: var(--en1-surface);
     border-color: var(--en1-border);
@@ -121,54 +159,117 @@ a.text-primary {
 }
 
 .card-header.bg-primary {
-    background: linear-gradient(
-        135deg,
-        var(--en1-action) 0%,
-        var(--en1-action-hover) 100%
-    ) !important;
+    background: var(--en1-action) !important;
     border-color: transparent;
 }
 
-/* Sidebar / secciones oscuras */
-.left-panel.sidebar-erp,
-.bg-iius-navy,
-.bg-dark-blue {
-    background-color: var(--en1-surface-dark) !important;
+/* Enlaces — Calypso (no Sorbet) */
+#main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card),
+.content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card) {
+    color: var(--en1-calypso);
 }
 
-/* Enlaces y foco */
-a:not(.btn):not(.nav-link) {
-    color: var(--en1-action);
-}
-
-a:not(.btn):not(.nav-link):hover {
-    color: var(--en1-action-hover);
+#main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover,
+.content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover {
+    color: color-mix(in srgb, var(--en1-calypso) 80%, #000);
 }
 
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--en1-action);
-    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-action) 22%, transparent);
+    border-color: var(--en1-calypso);
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-calypso) 22%, transparent);
+}
+
+/* Sidebar EN1 */
+html[data-brand='en1'] aside.left-panel.sidebar-erp,
+aside.left-panel.sidebar-erp {
+    background: var(--en1-sidebar) !important;
+    border-right-color: color-mix(in srgb, var(--en1-sidebar) 85%, #fff) !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
+    background: color-mix(in srgb, var(--en1-sorbet) 18%, transparent) !important;
+    border-left-color: var(--en1-sorbet) !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
+    background: linear-gradient(145deg, var(--en1-sorbet) 0%, var(--en1-calypso) 55%, var(--en1-oz) 100%);
+}
+
+.bg-iius-navy,
+.bg-dark-blue {
+    background-color: var(--en1-sidebar) !important;
+}
+
+/* Portal admin — module cards */
+.module-card {
+    background: var(--en1-surface);
+    border-color: var(--en1-border);
+    border-left: 4px solid var(--en1-border);
+}
+
+.module-card:hover {
+    border-color: var(--en1-calypso);
+}
+
+.module-card .module-icon {
+    color: var(--en1-sorbet);
+}
+
+.module-card--sorbet { border-left-color: var(--en1-sorbet) !important; }
+.module-card--calypso { border-left-color: var(--en1-calypso) !important; }
+.module-card--oz { border-left-color: var(--en1-oz) !important; }
+.module-card--marigold { border-left-color: var(--en1-marigold) !important; }
+.module-card--obsidian { border-left-color: var(--en1-obsidian) !important; }
+.module-card--candy { border-left-color: var(--en1-candy-apple) !important; }
+
+.portal-welcome .subtitle {
+    color: var(--en1-ink-muted);
+}
+
+.en1-setup-banner {
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--en1-calypso) 14%, var(--en1-surface)),
+        color-mix(in srgb, var(--en1-sorbet) 10%, var(--en1-surface))
+    ) !important;
+    color: var(--en1-ink);
 }
 
 /* Banner plataforma */
 body[data-platform-app-shell='1'] .platform-shell-banner {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--en1-action) 10%, transparent), transparent);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--en1-calypso) 10%, transparent), transparent);
     border-bottom-color: var(--en1-border);
 }
 
 body[data-platform-app-shell='1'] .platform-shell-banner__app {
-    color: var(--en1-action);
+    color: var(--en1-sorbet);
 }
+
+/* Dashboard service circles — paleta EN1 */
+.bg-purple { background: linear-gradient(135deg, var(--en1-sorbet) 0%, var(--en1-action-hover) 100%); }
+.bg-orange { background: linear-gradient(135deg, var(--en1-sorbet) 0%, var(--en1-action-pressed) 100%); }
+.bg-teal,
+.bg-green { background: linear-gradient(135deg, var(--en1-oz) 0%, #009e8a 100%); }
+.bg-blue,
+.bg-cyan { background: linear-gradient(135deg, var(--en1-calypso) 0%, #008da3 100%); }
+.bg-pink,
+.bg-red { background: linear-gradient(135deg, var(--en1-candy-apple) 0%, #d9444b 100%); }
+.bg-indigo { background: linear-gradient(135deg, var(--en1-obsidian) 0%, var(--en1-sidebar) 100%); }
+.bg-yellow { background: linear-gradient(135deg, var(--en1-marigold) 0%, #e0a84a 100%); }
+.bg-dark-blue { background: linear-gradient(135deg, var(--en1-sorbet) 0%, var(--en1-sidebar) 100%); }
+.bg-secondary { background: linear-gradient(135deg, var(--en1-ink-muted) 0%, var(--en1-obsidian) 100%); }
 
 /* Dark theme */
 html[data-theme='dark'] {
-    --en1-canvas: #1a1d23;
-    --en1-surface: #252830;
-    --en1-surface-alt: #2d3139;
-    --en1-ink: #e4e6eb;
-    --en1-ink-muted: #9ca3af;
-    --en1-border: #3a3f4b;
+    --en1-canvas: #1a2332;
+    --en1-surface: #243044;
+    --en1-ink: #eaf0f6;
+    --en1-ink-muted: #99acc2;
+    --en1-border: #3d4f63;
 }
 
 html[data-theme='dark'] body {

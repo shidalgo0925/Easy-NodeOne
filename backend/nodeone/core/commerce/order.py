@@ -217,6 +217,14 @@ class OrderService:
         )
         contact_id = _resolve_order_contact_id(oid, data)
         pos_terminal_id = _resolve_pos_terminal_id(oid, data)
+        currency = (str(data.get('currency') or '').strip() or '')[:8]
+        if not currency:
+            try:
+                from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+                currency = EposoneSettingsService.runtime_for(oid).default_currency
+            except Exception:
+                currency = 'USD'
         row = CoreCommercialOrder(
             organization_id=oid,
             order_ref=order_ref,
@@ -227,7 +235,7 @@ class OrderService:
             branch_org_unit_id=branch_org_unit_id,
             parent_order_id=parent_order_id,
             pos_terminal_id=pos_terminal_id,
-            currency=str(data.get('currency') or 'USD')[:8],
+            currency=currency,
             subtotal=subtotal,
             tax_total=tax_total,
             grand_total=grand_total,
@@ -449,14 +457,20 @@ class OrderService:
         from nodeone.modules.eposone.kds_service import KdsService
 
         try:
-            KdsService.maybe_enqueue_for_order_status(int(organization_id), int(order_id), tgt)
+            from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+            runtime = EposoneSettingsService.runtime_for(int(organization_id))
+            if runtime.kds_auto_enqueue:
+                KdsService.maybe_enqueue_for_order_status(int(organization_id), int(order_id), tgt)
         except Exception:
             pass
 
         try:
             from nodeone.modules.eposone.delivery_service import EposoneDeliveryService
+            from nodeone.modules.eposone.settings_service import EposoneSettingsService
 
-            EposoneDeliveryService.maybe_create_for_order_status(int(organization_id), int(order_id), tgt)
+            if EposoneSettingsService.runtime_for(int(organization_id)).delivery_auto_create:
+                EposoneDeliveryService.maybe_create_for_order_status(int(organization_id), int(order_id), tgt)
         except Exception:
             pass
 

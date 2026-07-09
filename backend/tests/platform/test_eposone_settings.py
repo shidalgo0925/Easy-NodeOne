@@ -62,6 +62,45 @@ class TestEposoneSettingsService(unittest.TestCase):
             EposoneSettingsService.update_settings(1, default_currency='XYZ')
 
 
+class TestEposoneSettingsRuntime(unittest.TestCase):
+    @patch('nodeone.modules.eposone.kds_service.KdsService.maybe_enqueue_for_order_status')
+    @patch('nodeone.modules.eposone.settings_service.EposoneSettingsService.runtime_for')
+    @patch('nodeone.core.commerce.order.OrderService.publish_confirmed')
+    @patch('nodeone.core.commerce.order.OrderService.publish_status_changed')
+    @patch('nodeone.core.commerce.order.OrderService.can_transition', return_value=True)
+    @patch('app.db')
+    @patch('nodeone.core.commerce.order.CoreCommercialOrder')
+    def test_transition_skips_kds_when_disabled(
+        self, mock_order_cls, mock_db, _can, _pub_status, _pub_conf, mock_runtime, mock_kds
+    ):
+        from types import SimpleNamespace
+
+        from nodeone.core.commerce.constants import ORDER_STATUS_CONFIRMED, ORDER_STATUS_DRAFT
+        from nodeone.core.commerce.order import OrderService
+
+        mock_runtime.return_value = SimpleNamespace(kds_auto_enqueue=False, delivery_auto_create=True)
+        row = MagicMock()
+        row.id = 5
+        row.order_ref = 'POS-0005'
+        row.status = ORDER_STATUS_DRAFT
+        row.version = 1
+        row.lines = []
+        mock_order_cls.query.filter_by.return_value.first.return_value = row
+
+        OrderService.transition_status(1, 5, ORDER_STATUS_CONFIRMED)
+        mock_kds.assert_not_called()
+
+    @patch('nodeone.modules.eposone.settings_service.EposoneSettingsService.runtime_for')
+    def test_assert_supervisor_skipped_when_not_required(self, mock_runtime):
+        from types import SimpleNamespace
+
+        from nodeone.core.commerce.authorization import CommerceAuthorizationService
+
+        mock_runtime.return_value = SimpleNamespace(supervisor_approval_required=False)
+        uid = CommerceAuthorizationService.assert_supervisor(1, {}, action='cash.manual_movement')
+        self.assertEqual(uid, 0)
+
+
 class TestEposoneSettingsSections(unittest.TestCase):
     def test_settings_slug(self):
         from nodeone.modules.eposone.sections import EPOSONE_SECTION_SLUGS

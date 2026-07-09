@@ -65,6 +65,13 @@ def _order_detail_context(organization_id: int, order_id: int) -> dict | None:
     from nodeone.core.commerce.authorization import CommerceAuthorizationService
 
     supervisor_ok = CommerceAuthorizationService.user_is_supervisor(current_user, oid)
+    try:
+        from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+        if not EposoneSettingsService.runtime_for(oid).supervisor_approval_required:
+            supervisor_ok = True
+    except Exception:
+        pass
 
     return {
         'order': order,
@@ -317,6 +324,14 @@ def _shifts_page_context(organization_id: int) -> dict:
     closed_shifts = [
         _shift_operational_row(oid, row, registers_by_ref=registers_by_ref) for row in closed_rows_db
     ]
+    supervisor_ok = CommerceAuthorizationService.user_is_supervisor(current_user, oid)
+    try:
+        from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+        if not EposoneSettingsService.runtime_for(oid).supervisor_approval_required:
+            supervisor_ok = True
+    except Exception:
+        pass
     return {
         'active_shifts': active_shifts,
         'closed_shifts': closed_shifts,

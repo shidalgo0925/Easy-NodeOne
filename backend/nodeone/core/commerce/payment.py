@@ -115,6 +115,13 @@ class PaymentService:
         order.version = int(order.version or 1) + 1
         new_payment_status = order.sync_payment_status()
         skip_fiscal = bool(data.get('skip_fiscal'))
+        if not skip_fiscal:
+            try:
+                from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+                skip_fiscal = not EposoneSettingsService.runtime_for(oid).fiscal_on_payment
+            except Exception:
+                pass
         prev_fiscal_status = order.maybe_mark_fiscal_pending(skip_fiscal=skip_fiscal)
         db.session.commit()
 

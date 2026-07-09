@@ -87,6 +87,7 @@ class TestCommerceConstants(unittest.TestCase):
 
 
 class TestPaymentServiceAxis(unittest.TestCase):
+    @patch('nodeone.modules.eposone.settings_service.EposoneSettingsService.runtime_for')
     @patch('nodeone.core.commerce.cash.CashRegisterService.record_movement')
     @patch('nodeone.core.commerce.cash.CashRegisterService.require_open_shift')
     @patch('nodeone.core.commerce.payment.OrderService.publish_fiscal_status_changed')
@@ -109,9 +110,14 @@ class TestPaymentServiceAxis(unittest.TestCase):
         mock_fiscal_changed,
         mock_require_shift,
         mock_record_movement,
+        mock_runtime,
     ):
+        from types import SimpleNamespace
+
         from nodeone.core.commerce.constants import ORDER_PAYMENT_STATUS_PAID, ORDER_STATUS_IN_PROGRESS
         from nodeone.core.commerce.payment import PaymentService
+
+        mock_runtime.return_value = SimpleNamespace(fiscal_on_payment=True)
 
         shift = MagicMock()
         shift.id = 3

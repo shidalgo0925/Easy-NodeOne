@@ -35,6 +35,21 @@ class CommerceAuthorizationService:
         shift_id: int | None = None,
         source_app_id: str = 'eposone',
     ) -> int:
+        try:
+            from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+            if not EposoneSettingsService.runtime_for(int(organization_id)).supervisor_approval_required:
+                raw_optional = approval.get('supervisor_user_id')
+                if raw_optional:
+                    from models.users import User
+
+                    user = User.query.get(int(raw_optional))
+                    if user is not None:
+                        return int(user.id)
+                return 0
+        except Exception:
+            pass
+
         raw_id = approval.get('supervisor_user_id')
         if not raw_id:
             raise OrderValidationError('supervisor_required')

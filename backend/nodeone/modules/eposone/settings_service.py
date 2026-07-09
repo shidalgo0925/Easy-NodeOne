@@ -63,6 +63,11 @@ class EposoneSettingsService:
         return _to_dto(row)
 
     @staticmethod
+    def runtime_for(organization_id: int) -> EposoneSettingsDTO:
+        """Configuración operativa efectiva (defaults si no hay fila en BD)."""
+        return EposoneSettingsService.get_settings(int(organization_id))
+
+    @staticmethod
     def get_or_create(organization_id: int) -> EposoneSettingsDTO:
         from app import db
 

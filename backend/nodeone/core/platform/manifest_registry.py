@@ -135,3 +135,40 @@ def registry_alignment_errors() -> list[str]:
         if reg_saas != man_saas:
             errors.append(f'{app_id}: saas_codes manifest {man_saas} != registry {reg_saas}')
     return errors
+
+
+def manifest_summary(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Vista resumida para listados API (Etapa 9)."""
+    lifecycle = (manifest.get('lifecycle') or LIFECYCLE_ACTIVE).strip().lower()
+    return {
+        'id': (manifest.get('id') or '').strip().lower(),
+        'name': manifest.get('name'),
+        'saas_codes': list(manifest.get('saas_codes') or ()),
+        'lifecycle': lifecycle,
+        'native_platform': bool(manifest.get('native_platform')),
+        'depends_on': list(manifest.get('depends_on') or ()),
+        'nav_area_id': manifest.get('nav_area_id'),
+        'integration_order': manifest.get('integration_order'),
+        'has_register': bool(manifest.get('register')),
+    }
+
+
+def platform_apps_health() -> dict[str, Any]:
+    """Estado de alineación manifest ↔ app_registry (Etapa 9)."""
+    errors = registry_alignment_errors()
+    manifests = discover_platform_manifests()
+    return {
+        'alignment_ok': len(errors) == 0,
+        'errors': errors,
+        'manifest_count': len(manifests),
+        'app_ids': sorted(manifests.keys()),
+    }
+
+
+def warn_registry_misalignment() -> None:
+    """Log no fatal al arrancar si manifest y registry divergen."""
+    try:
+        for err in registry_alignment_errors():
+            print(f'⚠️ platform manifest alignment: {err}')
+    except Exception as exc:
+        print(f'⚠️ platform manifest alignment check: {exc}')

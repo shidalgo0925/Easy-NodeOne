@@ -40,9 +40,15 @@ def register_platform_core(app) -> None:
     from nodeone.core.sync.routes import register_platform_sync_blueprint
 
     register_platform_sync_blueprint(app)
+    from nodeone.core.platform.apps_routes import register_platform_apps_api
+
+    register_platform_apps_api(app)
     from nodeone.core.commerce.register import register_commerce_bus_handlers
 
     register_commerce_bus_handlers()
+    from nodeone.core.platform.manifest_registry import warn_registry_misalignment
+
+    warn_registry_misalignment()
 
 
 def register_platform_apps(app) -> None:

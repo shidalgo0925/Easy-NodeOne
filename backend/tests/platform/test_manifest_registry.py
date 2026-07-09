@@ -60,6 +60,33 @@ class TestManifestRegistry(unittest.TestCase):
         tpl.pop('register', None)
         self.assertEqual(validate_manifest(tpl), [])
 
+    def test_platform_apps_health(self):
+        from nodeone.core.platform.manifest_registry import platform_apps_health
+
+        health = platform_apps_health()
+        self.assertTrue(health['alignment_ok'])
+        self.assertEqual(health['errors'], [])
+        self.assertGreaterEqual(health['manifest_count'], 5)
+        self.assertIn('eposone', health['app_ids'])
+
+    def test_manifest_summary(self):
+        from nodeone.core.platform.manifest_registry import load_manifest, manifest_summary
+
+        m = load_manifest('nodeone.modules.eposone.manifest')
+        summary = manifest_summary(m)
+        self.assertEqual(summary['id'], 'eposone')
+        self.assertTrue(summary['has_register'])
+        self.assertIn('eposone', summary['saas_codes'])
+
+
+class TestPlatformAppsAPI(unittest.TestCase):
+    def test_manifests_route_registered(self):
+        from app import app as flask_app
+
+        rules = {r.rule for r in flask_app.url_map.iter_rules()}
+        self.assertIn('/api/platform/apps/manifests', rules)
+        self.assertIn('/api/platform/apps/health', rules)
+        self.assertIn('/api/platform/apps/template', rules)
 
 if __name__ == '__main__':
     unittest.main()

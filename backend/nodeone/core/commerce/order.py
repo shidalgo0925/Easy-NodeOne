@@ -15,6 +15,7 @@ from nodeone.core.commerce.constants import (
     ORDER_STATUS_DRAFT,
     can_transition_order_status,
 )
+from nodeone.core.master.constants import PRODUCT_STATUS_ACTIVE
 from nodeone.core.commerce.dtos import OrderDTO
 from nodeone.core.commerce.events import (
     COMMERCE_ORDER_CANCELLED,
@@ -69,6 +70,39 @@ def _validate_parent_order(organization_id: int, parent_order_id: int) -> CoreCo
     if parent is None:
         raise OrderValidationError('parent_order_not_found')
     return parent
+
+
+def _build_order_line(organization_id: int, raw: dict[str, Any]) -> CoreCommercialOrderLine:
+    from nodeone.core.services.product import ProductService
+
+    product_ref = (str(raw.get('product_ref') or '')).strip() or None
+    description = (str(raw.get('description') or '')).strip()
+    qty = float(raw.get('quantity') or 1)
+    unit_specified = raw.get('unit_price') is not None
+    unit = float(raw.get('unit_price') or 0)
+
+    if product_ref:
+        product = ProductService.get_by_ref(int(organization_id), product_ref)
+        if product is None or product.status != PRODUCT_STATUS_ACTIVE:
+            raise OrderValidationError(f'invalid_product_ref:{product_ref}')
+        if not description:
+            description = product.name
+        if not unit_specified:
+            unit = float(product.unit_price or 0)
+        product_ref = product.product_ref
+
+    if not description:
+        description = 'Ítem'
+
+    line_total = round(qty * unit, 2)
+    return CoreCommercialOrderLine(
+        description=description[:500],
+        quantity=qty,
+        unit_price=unit,
+        line_total=line_total,
+        product_ref=product_ref[:128] if product_ref else None,
+        line_status=ORDER_LINE_STATUS_PENDING,
+    )
 
 
 class OrderService:
@@ -131,20 +165,9 @@ class OrderService:
         for raw in lines_in:
             if not isinstance(raw, dict):
                 continue
-            qty = float(raw.get('quantity') or 1)
-            unit = float(raw.get('unit_price') or 0)
-            line_total = round(qty * unit, 2)
-            subtotal += line_total
-            line_rows.append(
-                CoreCommercialOrderLine(
-                    description=str(raw.get('description') or 'Ítem')[:500],
-                    quantity=qty,
-                    unit_price=unit,
-                    line_total=line_total,
-                    product_ref=(str(raw.get('product_ref')).strip()[:128] if raw.get('product_ref') else None),
-                    line_status=ORDER_LINE_STATUS_PENDING,
-                )
-            )
+            line = _build_order_line(oid, raw)
+            subtotal += float(line.line_total or 0)
+            line_rows.append(line)
         if not line_rows:
             raise OrderValidationError('lines_required')
 
@@ -252,17 +275,12 @@ class OrderService:
             tax_total=0.0,
             source_app_id=(source_app_id or 'eposone').strip().lower() or 'eposone',
         )
-        child.lines = [
-            CoreCommercialOrderLine(
-                description=str(line.description or '')[:500],
-                quantity=float(line.quantity or 1),
-                unit_price=float(line.unit_price or 0),
-                line_total=float(line.line_total or 0),
-                product_ref=(str(line.product_ref).strip()[:128] if line.product_ref else None),
-                line_status=str(line.line_status or ORDER_LINE_STATUS_PENDING),
-            )
-            for line in moved_lines
-        ]
+        child.lines = [_build_order_line(oid, {
+            'description': line.description,
+            'quantity': line.quantity,
+            'unit_price': line.unit_price,
+            'product_ref': line.product_ref,
+        }) for line in moved_lines]
         for line in moved_lines:
             db.session.delete(line)
 

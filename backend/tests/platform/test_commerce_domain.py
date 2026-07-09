@@ -3,6 +3,7 @@
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 backend_dir = Path(__file__).resolve().parent.parent.parent
@@ -973,6 +974,62 @@ class TestInvoiceService(unittest.TestCase):
         self.assertEqual(len(dto.lines), 1)
 
 
+class TestOrderLineProductRef(unittest.TestCase):
+    @staticmethod
+    def _product(**kwargs):
+        from types import SimpleNamespace
+
+        defaults = dict(product_ref='SKU-001', name='Café', status='active', unit_price=3.5)
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    @patch('nodeone.core.services.product.ProductService.get_by_ref')
+    def test_build_order_line_resolves_active_product(self, mock_get_by_ref):
+        from nodeone.core.commerce.order import _build_order_line
+
+        mock_get_by_ref.return_value = self._product()
+        line = _build_order_line(1, {'product_ref': 'SKU-001', 'quantity': 2})
+        self.assertEqual(line.description, 'Café')
+        self.assertEqual(line.unit_price, 3.5)
+        self.assertEqual(line.line_total, 7.0)
+        self.assertEqual(line.product_ref, 'SKU-001')
+        mock_get_by_ref.assert_called_once_with(1, 'SKU-001')
+
+    @patch('nodeone.core.services.product.ProductService.get_by_ref')
+    def test_build_order_line_preserves_explicit_unit_price(self, mock_get_by_ref):
+        from nodeone.core.commerce.order import _build_order_line
+
+        mock_get_by_ref.return_value = self._product()
+        line = _build_order_line(1, {'product_ref': 'SKU-001', 'unit_price': 4.0, 'quantity': 1})
+        self.assertEqual(line.unit_price, 4.0)
+        self.assertEqual(line.line_total, 4.0)
+
+    @patch('nodeone.core.services.product.ProductService.get_by_ref', return_value=None)
+    def test_build_order_line_invalid_product_ref(self, _mock_get_by_ref):
+        from nodeone.core.commerce.order import OrderValidationError, _build_order_line
+
+        with self.assertRaises(OrderValidationError) as ctx:
+            _build_order_line(1, {'product_ref': 'MISSING'})
+        self.assertIn('invalid_product_ref:MISSING', str(ctx.exception))
+
+    @patch('nodeone.core.services.product.ProductService.get_by_ref')
+    def test_build_order_line_inactive_product(self, mock_get_by_ref):
+        from nodeone.core.commerce.order import OrderValidationError, _build_order_line
+
+        mock_get_by_ref.return_value = self._product(product_ref='SKU-X', status='archived')
+        with self.assertRaises(OrderValidationError) as ctx:
+            _build_order_line(1, {'product_ref': 'SKU-X'})
+        self.assertIn('invalid_product_ref:SKU-X', str(ctx.exception))
+
+    def test_build_order_line_free_line_without_ref(self):
+        from nodeone.core.commerce.order import _build_order_line
+
+        line = _build_order_line(1, {'description': 'Propina', 'unit_price': 1.0, 'quantity': 1})
+        self.assertEqual(line.description, 'Propina')
+        self.assertEqual(line.unit_price, 1.0)
+        self.assertIsNone(line.product_ref)
+
+
 class TestOrderBranchOrgUnit(unittest.TestCase):
     @patch('nodeone.core.services.org_unit.OrgUnitService.get_by_ref')
     def test_resolve_branch_ref(self, mock_get_by_ref):
@@ -993,13 +1050,20 @@ class TestOrderBranchOrgUnit(unittest.TestCase):
 
 
 class TestOrderSplitBill(unittest.TestCase):
+    @patch('nodeone.core.services.product.ProductService.get_by_ref')
     @patch('nodeone.core.commerce.order.OrderService.publish_created')
     @patch('nodeone.core.commerce.order.OrderService._next_order_ref', return_value='POS-0009')
     @patch('app.db')
     @patch('nodeone.core.commerce.order.CoreCommercialOrder')
-    def test_split_moves_lines_to_child(self, mock_order_cls, mock_db, _mock_ref, _mock_publish):
+    def test_split_moves_lines_to_child(self, mock_order_cls, mock_db, _mock_ref, _mock_publish, mock_get_product):
         from nodeone.core.commerce.order import OrderService
 
+        mock_get_product.return_value = SimpleNamespace(
+            product_ref='SKU-1',
+            name='Agua',
+            status='active',
+            unit_price=1.0,
+        )
         line_a = MagicMock()
         line_a.description = 'Café'
         line_a.quantity = 1.0

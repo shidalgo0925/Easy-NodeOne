@@ -102,6 +102,20 @@ class TestEPosOneAPI(unittest.TestCase):
             r = c.post('/api/eposone/contacts/promote-legacy')
             self.assertIn(r.status_code, (302, 401))
 
+    def test_contacts_list_api_requires_auth(self):
+        with self.app.test_client() as c:
+            r = c.get('/api/eposone/contacts')
+            self.assertIn(r.status_code, (302, 401))
+
+    @patch('nodeone.modules.eposone.contact_api.ContactService.search', return_value=([], 0))
+    def test_contacts_api_list(self, mock_search):
+        from nodeone.modules.eposone.contact_api import contact_collection_handler
+
+        with self.app.test_request_context('/api/eposone/contacts?q=ana'):
+            resp = contact_collection_handler(1)
+        self.assertEqual(resp.status_code, 200)
+        mock_search.assert_called_once()
+
     @patch('nodeone.modules.eposone.product_api.ProductService.search', return_value=[])
     def test_products_api_list(self, mock_search):
         from nodeone.modules.eposone.product_api import product_collection_handler

@@ -19,7 +19,12 @@ from nodeone.core.master.constants import (
 from nodeone.core.platform.runtime import resolve_organization_id
 from nodeone.core.services.org_unit import OrgUnitService
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
-from nodeone.modules.eposone.contact_api import contact_create_handler, contact_promote_legacy_handler
+from nodeone.modules.eposone.contact_api import (
+    contact_collection_handler,
+    contact_get_handler,
+    contact_promote_legacy_handler,
+    contact_resolve_handler,
+)
 from nodeone.modules.eposone.org_unit_api import org_unit_collection_handler, org_unit_get_handler
 from nodeone.modules.eposone.product_api import product_collection_handler, product_get_handler
 from nodeone.modules.eposone.stock_api import stock_adjust_handler
@@ -361,13 +366,31 @@ def stock_adjust():
     return stock_adjust_handler(gate)
 
 
-@eposone_api_bp.route('/contacts', methods=['POST'])
+@eposone_api_bp.route('/contacts', methods=['GET', 'POST'])
 @login_required
-def contacts_create():
+def contacts_collection():
     gate = _org_gate()
     if not isinstance(gate, int):
         return gate
-    return contact_create_handler(gate)
+    return contact_collection_handler(gate)
+
+
+@eposone_api_bp.route('/contacts/<int:contact_id>', methods=['GET'])
+@login_required
+def contacts_get(contact_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return contact_get_handler(gate, contact_id)
+
+
+@eposone_api_bp.route('/contacts/resolve/<int:contact_id>', methods=['GET'])
+@login_required
+def contacts_resolve(contact_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return contact_resolve_handler(gate, contact_id)
 
 
 @eposone_api_bp.route('/contacts/promote-legacy', methods=['POST'])

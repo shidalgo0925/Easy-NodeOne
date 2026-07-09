@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Nuevo pedido | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <h1 class="h4 mb-1 app-page-title"><i class="fas fa-plus-circle me-2 text-primary"></i>Nuevo pedido</h1>
+            <p class="text-muted small mb-0">Crear pedido POS con al menos una línea.</p>
+        </div>
+        <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver a pedidos
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('eposone.eposone_order_new') }}">
+                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Cliente (opcional)</label>
+                                <select name="contact_id" class="form-select form-select-sm">
+                                    <option value="">— Sin cliente —</option>
+                                    {% for c in contacts %}
+                                    <option value="{{ c.id }}" {% if form_data.contact_id == c.id|string %}selected{% endif %}>
+                                        {{ c.display_name }}{% if c.email %} — {{ c.email }}{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-semibold">Producto del catálogo (opcional)</label>
+                                <select name="product_ref" class="form-select form-select-sm" id="eposoneProductRef">
+                                    <option value="">— Línea manual —</option>
+                                    {% for p in products %}
+                                    <option value="{{ p.product_ref }}"
+                                            data-name="{{ p.name }}"
+                                            data-price="{{ p.unit_price }}"
+                                            {% if form_data.product_ref == p.product_ref %}selected{% endif %}>
+                                        {{ p.product_ref }} — {{ p.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-semibold">Descripción <span class="text-danger">*</span></label>
+                                <input type="text" name="description" class="form-control form-control-sm" required
+                                       value="{{ form_data.description }}" placeholder="Nombre del ítem">
+                            </div>
+
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small fw-semibold">Cantidad</label>
+                                <input type="number" name="quantity" class="form-control form-control-sm" min="0.01" step="0.01"
+                                       value="{{ form_data.quantity }}">
+                            </div>
+
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small fw-semibold">Precio unitario</label>
+                                <input type="number" name="unit_price" class="form-control form-control-sm" min="0" step="0.01"
+                                       value="{{ form_data.unit_price }}" placeholder="0.00">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Notas</label>
+                                <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Opcional">{{ form_data.notes }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-check me-1"></i> Crear pedido
+                            </button>
+                            <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    var sel = document.getElementById('eposoneProductRef');
+    if (!sel) return;
+    sel.addEventListener('change', function () {
+        var opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) return;
+        var desc = document.querySelector('input[name="description"]');
+        var price = document.querySelector('input[name="unit_price"]');
+        if (desc && opt.dataset.name) desc.value = opt.dataset.name;
+        if (price && opt.dataset.price) price.value = opt.dataset.price;
+    });
+})();
+</script>
+{% endblock %}

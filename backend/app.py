@@ -735,14 +735,14 @@ _IIUS_BRAND_PRESET_KEYS = frozenset(
     ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
 )
 _EN1_BRAND_PRESET_KEYS = frozenset(('en1', 'easynodeone', 'hubspot'))
-# EN1 plataforma — paleta HubSpot (Sprout Orange · Deep Teal · canvas cálido)
+# EN1 plataforma — paleta V3.0
 _EN1_THEME = {
     'theme_primary': '#FF7A59',
     'theme_primary_dark': '#2D3E50',
-    'theme_accent': '#00A4BD',
-    'theme_accent_gold': '#F5C26B',
-    'theme_accent_cyan': '#00BDA5',
-    'theme_background_cream': '#F5F8FA',
+    'theme_accent': '#4A90E2',
+    'theme_accent_gold': '#F4B400',
+    'theme_accent_cyan': '#28A745',
+    'theme_background_cream': '#F7F9FC',
 }
 # IIUS (internationalinstitute.us): morado CTA · marino fondos · dorado emblema · cian copy destacada
 _IIUS_THEME = {
@@ -845,10 +845,10 @@ def inject_theme():
         return {
             'theme_primary': '#FF7A59',
             'theme_primary_dark': '#2D3E50',
-            'theme_accent': '#00A4BD',
-            'theme_accent_gold': '#F5C26B',
-            'theme_accent_cyan': '#00BDA5',
-            'theme_background_cream': '#F5F8FA',
+            'theme_accent': '#4A90E2',
+            'theme_accent_gold': '#F4B400',
+            'theme_accent_cyan': '#28A745',
+            'theme_background_cream': '#F7F9FC',
             'brand_preset': 'en1',
             'theme_logo_url': '',
             'theme_favicon_url': '',

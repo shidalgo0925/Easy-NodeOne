@@ -3,14 +3,17 @@
 {% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
+<div class="container-fluid py-3 en1-eposone-page">
     <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
-            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
             <p class="text-muted small mb-0">{{ section_description }}</p>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
-            <span class="badge bg-secondary">{{ contacts_total }} contacto(s)</span>
+            <span class="badge en1-badge en1-badge--neutral">{{ contacts_total }} contacto(s)</span>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createContactModal">
+                <i class="fas fa-plus me-1"></i> Crear cliente
+            </button>
             {% if has_view_endpoint('contacts_admin.contacts_index') %}
             <a href="{{ url_for('contacts_admin.contacts_index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fas fa-external-link-alt me-1"></i>CRM completo
@@ -35,8 +38,8 @@
         <div class="card-body p-0">
             {% if contacts %}
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle">
-                    <thead class="table-light">
+                <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                    <thead>
                         <tr>
                             <th>Nombre</th>
                             <th>Email</th>
@@ -60,9 +63,9 @@
                             </td>
                             <td>
                                 {% if contact.active %}
-                                <span class="badge text-bg-success">Activo</span>
+                                <span class="badge en1-badge en1-badge--success">Activo</span>
                                 {% else %}
-                                <span class="badge text-bg-secondary">Inactivo</span>
+                                <span class="badge en1-badge en1-badge--neutral">Inactivo</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -73,11 +76,65 @@
             {% else %}
             <div class="p-4 text-muted">
                 <p class="mb-2">No hay contactos que coincidan.</p>
-                <p class="small mb-0">
-                    Creá contactos vía <code>POST /api/eposone/contacts</code> o desde el CRM completo.
-                </p>
+                <p class="small mb-0">Usá <strong>Crear cliente</strong> o el CRM completo.</p>
             </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createContactModal" tabindex="-1" aria-labelledby="createContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{{ url_for('eposone.eposone_contact_create') }}">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="createContactModalLabel">Nuevo cliente POS</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Tipo</label>
+                            <select name="contact_type" class="form-select form-select-sm">
+                                <option value="person">Persona</option>
+                                <option value="company">Empresa</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Nombre para mostrar <span class="text-danger">*</span></label>
+                            <input type="text" name="display_name" class="form-control form-control-sm" required placeholder="Nombre completo o razón social">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Email</label>
+                            <input type="email" name="email" class="form-control form-control-sm" placeholder="correo@ejemplo.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Teléfono</label>
+                            <input type="text" name="phone" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Móvil</label>
+                            <input type="text" name="mobile" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">RUC / Tax ID</label>
+                            <input type="text" name="tax_id" class="form-control form-control-sm">
+                            <input type="hidden" name="identification_type" value="consumer_final">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_customer" value="1" id="contactIsCustomer" checked>
+                                <label class="form-check-label small" for="contactIsCustomer">Es cliente</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i> Guardar</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

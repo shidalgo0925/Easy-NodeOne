@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
@@ -24,9 +24,20 @@ def eposone_home():
     denied = _require_eposone_admin()
     if denied is not None:
         return denied
+    from nodeone.core.commerce.dashboard import CommerceDashboardService
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    kpis = None
+    recent_reports: list = []
+    oid = resolve_organization_id()
+    if oid is not None:
+        kpis = CommerceDashboardService.get_snapshot(int(oid))
+        recent_reports = CommerceDashboardService.list_recent_report_events(int(oid), limit=8)
     return render_template(
         'eposone/dashboard.html',
         compose_links=_compose_links(),
+        kpis=kpis,
+        recent_reports=recent_reports,
     )
 
 
@@ -48,6 +59,118 @@ def eposone_order_detail(order_id: int):
     return render_template(
         'eposone/order_detail.html',
         order=order,
+    )
+
+
+@eposone_bp.route('/contacts/create', methods=['POST'])
+@login_required
+def eposone_contact_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.contacts import ContactService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    payload = {
+        'contact_type': (request.form.get('contact_type') or 'person').strip(),
+        'display_name': (request.form.get('display_name') or '').strip(),
+        'first_name': (request.form.get('first_name') or '').strip(),
+        'last_name': (request.form.get('last_name') or '').strip(),
+        'email': (request.form.get('email') or '').strip(),
+        'phone': (request.form.get('phone') or '').strip(),
+        'mobile': (request.form.get('mobile') or '').strip(),
+        'tax_id': (request.form.get('tax_id') or '').strip(),
+        'identification_type': (request.form.get('identification_type') or 'consumer_final').strip(),
+        'is_customer': request.form.get('is_customer') == '1',
+        'active': True,
+    }
+    try:
+        dto = ContactService.create(int(oid), payload)
+    except ContactService.ValidationError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='contacts'))
+    flash(f'Cliente {dto.display_name} creado correctamente.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='contacts', q=dto.display_name))
+
+
+@eposone_bp.route('/orders/new', methods=['GET', 'POST'])
+@login_required
+def eposone_order_new():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderService, OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.contacts import ContactService
+    from nodeone.core.services.product import ProductService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    contacts, _ = ContactService.search(int(oid), limit=100)
+    products = ProductService.search(int(oid), limit=100)
+    form_data = {
+        'contact_id': '',
+        'product_ref': '',
+        'description': '',
+        'quantity': '1',
+        'unit_price': '',
+        'notes': '',
+    }
+
+    if request.method == 'POST':
+        form_data = {
+            'contact_id': (request.form.get('contact_id') or '').strip(),
+            'product_ref': (request.form.get('product_ref') or '').strip(),
+            'description': (request.form.get('description') or '').strip(),
+            'quantity': (request.form.get('quantity') or '1').strip(),
+            'unit_price': (request.form.get('unit_price') or '').strip(),
+            'notes': (request.form.get('notes') or '').strip(),
+        }
+        try:
+            qty = float(form_data['quantity'] or 1)
+            unit_price = float(form_data['unit_price'] or 0)
+        except ValueError:
+            flash('Cantidad o precio no válidos.', 'danger')
+            return render_template(
+                'eposone/order_new.html',
+                contacts=contacts,
+                products=products,
+                form_data=form_data,
+            )
+        line: dict = {
+            'description': form_data['description'],
+            'quantity': qty,
+            'unit_price': unit_price,
+        }
+        if form_data['product_ref']:
+            line['product_ref'] = form_data['product_ref']
+        body: dict = {'lines': [line]}
+        if form_data['notes']:
+            body['notes'] = form_data['notes']
+        if form_data['contact_id']:
+            body['contact_id'] = int(form_data['contact_id'])
+        try:
+            dto = OrderService.create(int(oid), body, source_app_id='eposone')
+        except OrderValidationError as exc:
+            flash(str(exc).replace('_', ' '), 'danger')
+            return render_template(
+                'eposone/order_new.html',
+                contacts=contacts,
+                products=products,
+                form_data=form_data,
+            )
+        flash(f'Pedido {dto.order_ref} creado.', 'success')
+        return redirect(url_for('eposone.eposone_order_detail', order_id=dto.id))
+
+    return render_template(
+        'eposone/order_new.html',
+        contacts=contacts,
+        products=products,
+        form_data=form_data,
     )
 
 

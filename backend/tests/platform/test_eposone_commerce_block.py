@@ -67,6 +67,9 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         rules = {r.rule for r in self.app.url_map.iter_rules()}
         self.assertIn('/admin/eposone/section/<slug>', rules)
         self.assertIn('/admin/eposone/orders/<int:order_id>', rules)
+        self.assertIn('/admin/eposone/dashboard', rules)
+        self.assertIn('/admin/eposone/orders/new', rules)
+        self.assertIn('/admin/eposone/contacts/create', rules)
 
     def test_credit_note_event_in_commerce_types(self):
         from nodeone.core.commerce.events import COMMERCE_CREDIT_NOTE_REQUESTED, COMMERCE_EVENT_TYPES
@@ -98,6 +101,113 @@ class TestEPosOneCommerceBlockRegistry(unittest.TestCase):
         d = dto.to_dict()
         self.assertEqual(d['terminal_id'], 7)
         self.assertEqual(d['pos_terminal_id'], 7)
+
+
+class TestEPosOneBackOfficeCreate(unittest.TestCase):
+    """UI back office — crear cliente y pedido desde formularios HTML."""
+
+    @classmethod
+    def setUpClass(cls):
+        from app import app as flask_app
+
+        cls.app = flask_app
+        cls.client = flask_app.test_client()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.services.contacts.ContactService.create')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_contact_create_redirects(self, _oid, mock_create, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_create.return_value = SimpleNamespace(id=9, display_name='Ana POS')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_contact_create')
+        resp = self.client.post(
+            action,
+            data={
+                'display_name': 'Ana POS',
+                'contact_type': 'person',
+                'is_customer': '1',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_create.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.core.commerce.order.OrderService.create')
+    @patch('nodeone.core.services.product.ProductService.search', return_value=[])
+    @patch('nodeone.core.services.contacts.ContactService.search', return_value=([], 0))
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_order_new_post_creates(self, _oid, _contacts, _products, mock_create, _gate, mock_get_user):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        mock_get_user.return_value = user
+        mock_create.return_value = SimpleNamespace(id=12, order_ref='POS-0012')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_order_new')
+        resp = self.client.post(
+            action,
+            data={
+                'description': 'Café',
+                'quantity': '2',
+                'unit_price': '3.50',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_create.assert_called_once()
+
+
+class TestEPosOneDashboardKpis(unittest.TestCase):
+    @patch('nodeone.core.commerce.dashboard.CoreStockBalance')
+    @patch('nodeone.core.commerce.dashboard.CoreCashShift')
+    @patch('nodeone.core.commerce.dashboard.CoreCommercialPayment')
+    @patch('nodeone.core.commerce.dashboard.CoreCommercialOrder')
+    def test_dashboard_snapshot_aggregates(self, mock_order_cls, mock_pay_cls, mock_shift_cls, mock_stock_cls):
+        from nodeone.core.commerce.dashboard import CommerceDashboardService
+
+        col = MagicMock()
+        col.__ge__ = MagicMock(return_value=MagicMock())
+        col.__lt__ = MagicMock(return_value=MagicMock())
+        mock_order_cls.organization_id = col
+        mock_order_cls.created_at = col
+        mock_pay_cls.organization_id = col
+        mock_pay_cls.status = col
+        mock_pay_cls.captured_at = col
+
+        mock_order_cls.query.filter.return_value.count.return_value = 3
+        mock_order_cls.query.filter_by.return_value.order_by.return_value.first.return_value = SimpleNamespace(
+            currency='USD'
+        )
+
+        pay_q = mock_pay_cls.query.filter.return_value
+        pay_q.with_entities.return_value.scalar.return_value = 125.5
+
+        mock_shift_cls.query.filter_by.return_value.count.return_value = 2
+
+        mock_stock_cls.query.filter_by.return_value.all.return_value = [
+            SimpleNamespace(quantity_on_hand=0, quantity_reserved=0),
+            SimpleNamespace(quantity_on_hand=5, quantity_reserved=1),
+        ]
+
+        snap = CommerceDashboardService.get_snapshot(42)
+        self.assertEqual(snap.orders_today, 3)
+        self.assertEqual(snap.sales_today, 125.5)
+        self.assertEqual(snap.open_registers, 2)
+        self.assertEqual(snap.stock_alerts, 1)
+        self.assertEqual(snap.currency, 'USD')
 
 
 class TestEPosOneCommerceBlockFlow(unittest.TestCase):

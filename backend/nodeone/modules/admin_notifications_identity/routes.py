@@ -3,8 +3,8 @@
 
 IDENTITY_PRESETS = {
     'iius': {'primary_color': '#8B60AA', 'primary_color_dark': '#00042D', 'accent_color': '#E6BF75'},
-    'en1': {'primary_color': '#FF7A59', 'primary_color_dark': '#2D3E50', 'accent_color': '#00A4BD'},
-    'hubspot': {'primary_color': '#FF7A59', 'primary_color_dark': '#2D3E50', 'accent_color': '#00A4BD'},
+    'en1': {'primary_color': '#FF7A59', 'primary_color_dark': '#2D3E50', 'accent_color': '#4A90E2'},
+    'hubspot': {'primary_color': '#FF7A59', 'primary_color_dark': '#2D3E50', 'accent_color': '#4A90E2'},
     'azul': {'primary_color': '#2563EB', 'primary_color_dark': '#1E3A8A', 'accent_color': '#06B6D4'},
     'verde': {'primary_color': '#059669', 'primary_color_dark': '#047857', 'accent_color': '#10B981'},
     'rojo': {'primary_color': '#DC2626', 'primary_color_dark': '#B91C1C', 'accent_color': '#EF4444'},

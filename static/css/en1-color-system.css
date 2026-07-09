@@ -1,21 +1,48 @@
 /**
- * EN1 Color System — Estilo HubSpot (documentación oficial EN1).
- * Sorbet · Obsidian · Calypso · Oz · Marigold · Candy Apple
+ * EN1 Color System — Propuesta V3.0
+ * Sidebar #2D3E50 · Background #F7F9FC · Primary #FF7A59 · Secondary #4A90E2
  */
+
+/* Tokens fijos cuando data-brand=en1 (no los pisa Identidad visual custom) */
+html[data-brand='en1'] {
+    --color-primary: #ff7a59;
+    --color-primary-dark: #2d3e50;
+    --color-accent: #4a90e2;
+    --color-background-cream: #f7f9fc;
+    --color-text: #2c3e50;
+    --color-border: #e2e8f0;
+    --en1-sorbet: #ff7a59;
+    --en1-secondary: #4a90e2;
+    --en1-calypso: #4a90e2;
+    --en1-obsidian: #2c3e50;
+    --en1-ink: #2c3e50;
+    --en1-ink-secondary: #6c757d;
+    --en1-ink-muted: #6c757d;
+    --en1-canvas: #f7f9fc;
+    --en1-surface: #ffffff;
+    --en1-sidebar: #2d3e50;
+    --en1-border: #e2e8f0;
+    --en1-hover: #eef3f8;
+    --en1-success: #28a745;
+    --en1-oz: #28a745;
+    --en1-warning: #f4b400;
+    --en1-marigold: #f4b400;
+    --en1-danger: #e53935;
+    --en1-candy-apple: #e53935;
+}
 
 :root {
     /* Marca */
     --en1-sorbet: var(--color-primary, #ff7a59);
-    --en1-obsidian: #33475b;
-    --en1-calypso: var(--color-accent, #00a4bd);
-    --en1-oz: #00bda5;
-    --en1-marigold: #f5c26b;
-    --en1-candy-apple: #f2545b;
+    --en1-secondary: var(--color-accent, #4a90e2);
+    --en1-calypso: var(--en1-secondary);
+    --en1-obsidian: #2c3e50;
 
     /* Superficies */
-    --en1-canvas: var(--color-background-cream, #f5f8fa);
+    --en1-canvas: var(--color-background-cream, #f7f9fc);
     --en1-surface: #ffffff;
     --en1-sidebar: var(--color-primary-dark, #2d3e50);
+    --en1-hover: #eef3f8;
 
     /* Acción (CTA) */
     --en1-action: var(--en1-sorbet);
@@ -24,21 +51,24 @@
     --en1-on-action: #ffffff;
 
     /* Texto */
-    --en1-ink: var(--color-text, #33475b);
-    --en1-ink-secondary: #516f90;
-    --en1-ink-muted: #7c98b6;
+    --en1-ink: var(--color-text, #2c3e50);
+    --en1-ink-secondary: #6c757d;
+    --en1-ink-muted: #6c757d;
     --en1-on-dark: #ffffff;
 
     /* Bordes */
-    --en1-border: #cbd6e2;
-    --en1-border-strong: #99acc2;
-    --en1-disabled: #cbd6e2;
+    --en1-border: #e2e8f0;
+    --en1-border-strong: #cbd5e1;
+    --en1-disabled: #e2e8f0;
 
     /* Semánticos */
-    --en1-success: var(--en1-oz);
-    --en1-warning: var(--en1-marigold);
-    --en1-danger: var(--en1-candy-apple);
-    --en1-info: var(--en1-calypso);
+    --en1-success: #28a745;
+    --en1-oz: var(--en1-success);
+    --en1-warning: #f4b400;
+    --en1-marigold: var(--en1-warning);
+    --en1-danger: #e53935;
+    --en1-candy-apple: var(--en1-danger);
+    --en1-info: var(--en1-secondary);
 
     /* Radios y sombras */
     --en1-radius-sm: 6px;
@@ -163,21 +193,32 @@ a.text-primary {
     border-color: transparent;
 }
 
-/* Enlaces — Calypso (no Sorbet) */
+/* Enlaces — Secondary azul (no Sorbet) */
 #main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card),
 .content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card) {
-    color: var(--en1-calypso);
+    color: var(--en1-secondary);
 }
 
 #main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover,
 .content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover {
-    color: color-mix(in srgb, var(--en1-calypso) 80%, #000);
+    color: color-mix(in srgb, var(--en1-secondary) 78%, #000);
 }
 
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--en1-calypso);
-    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-calypso) 22%, transparent);
+    border-color: var(--en1-secondary);
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-secondary) 22%, transparent);
+}
+
+.btn-outline-secondary {
+    color: var(--en1-ink-secondary);
+    border-color: var(--en1-border);
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--en1-hover);
+    border-color: var(--en1-border-strong);
+    color: var(--en1-ink);
 }
 
 /* Sidebar EN1 */
@@ -190,8 +231,8 @@ aside.left-panel.sidebar-erp {
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
-    background: color-mix(in srgb, var(--en1-sorbet) 18%, transparent) !important;
-    border-left-color: var(--en1-sorbet) !important;
+    background: color-mix(in srgb, var(--en1-sorbet) 22%, transparent) !important;
+    border-left: 4px solid var(--en1-sorbet) !important;
 }
 
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
@@ -212,7 +253,8 @@ html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sideb
 }
 
 .module-card:hover {
-    border-color: var(--en1-calypso);
+    border-color: var(--en1-secondary);
+    background-color: var(--en1-hover);
 }
 
 .module-card .module-icon {
@@ -275,4 +317,130 @@ html[data-theme='dark'] {
 html[data-theme='dark'] body {
     background-color: var(--en1-canvas);
     color: var(--en1-ink);
+}
+
+/* --- V3.0 — badges semánticos --- */
+.badge.en1-badge,
+.en1-badge {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-radius: var(--en1-radius-sm);
+    padding: 0.35em 0.65em;
+}
+
+.en1-badge--success,
+.badge.bg-success:not(.btn) {
+    background-color: color-mix(in srgb, var(--en1-success) 14%, #fff) !important;
+    color: #1b5e2f !important;
+}
+
+.en1-badge--warning {
+    background-color: color-mix(in srgb, var(--en1-warning) 22%, #fff) !important;
+    color: #6b5200 !important;
+}
+
+.en1-badge--danger,
+.badge.bg-danger:not(.btn) {
+    background-color: color-mix(in srgb, var(--en1-danger) 12%, #fff) !important;
+    color: #9b1c1c !important;
+}
+
+.en1-badge--info {
+    background-color: color-mix(in srgb, var(--en1-secondary) 14%, #fff) !important;
+    color: #1e4f8a !important;
+}
+
+.en1-badge--neutral,
+.badge.bg-secondary:not(.btn) {
+    background-color: var(--en1-sidebar) !important;
+    color: var(--en1-on-dark) !important;
+}
+
+.badge.bg-warning.text-dark {
+    background-color: color-mix(in srgb, var(--en1-warning) 30%, #fff) !important;
+    color: #6b5200 !important;
+}
+
+.badge.bg-info:not(.btn) {
+    background-color: color-mix(in srgb, var(--en1-secondary) 14%, #fff) !important;
+    color: #1e4f8a !important;
+}
+
+/* Toolbar admin — secundarios grises (XLS/PDF) */
+.erp-toolbar .btn-success.btn-sm,
+.erp-toolbar .btn-danger.btn-sm {
+    background-color: var(--en1-surface);
+    border-color: var(--en1-border);
+    color: var(--en1-ink);
+}
+
+.erp-toolbar .btn-success.btn-sm:hover,
+.erp-toolbar .btn-danger.btn-sm:hover {
+    background-color: var(--en1-canvas);
+    border-color: var(--en1-border-strong);
+    color: var(--en1-ink);
+}
+
+/* KPI cards EPosOne */
+.en1-kpi-card {
+    border-left: 4px solid var(--en1-border);
+}
+
+.en1-kpi-card--sorbet { border-left-color: var(--en1-sorbet); }
+.en1-kpi-card--calypso,
+.en1-kpi-card--secondary { border-left-color: var(--en1-secondary); }
+.en1-kpi-card--oz,
+.en1-kpi-card--success { border-left-color: var(--en1-success); }
+.en1-kpi-card--marigold,
+.en1-kpi-card--warning { border-left-color: var(--en1-warning); }
+
+.en1-kpi-label {
+    color: var(--en1-ink-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.en1-kpi-value {
+    color: var(--en1-ink);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-top: 0.15rem;
+}
+
+.en1-section-label {
+    color: var(--en1-ink-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.en1-data-table thead th {
+    background: var(--en1-canvas);
+    border-bottom-color: var(--en1-border);
+    color: var(--en1-ink-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.en1-data-table tbody td {
+    border-color: color-mix(in srgb, var(--en1-border) 70%, transparent);
+}
+
+.en1-data-table tbody tr:hover {
+    background-color: var(--en1-hover);
+}
+
+.text-muted {
+    color: var(--en1-ink-secondary) !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
+    padding-left: calc(0.75rem - 4px);
 }

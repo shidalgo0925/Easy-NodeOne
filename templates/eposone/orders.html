@@ -3,13 +3,18 @@
 {% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
+<div class="container-fluid py-3 en1-eposone-page">
     <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
-            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
             <p class="text-muted small mb-0">{{ section_description }}</p>
         </div>
-        <span class="badge bg-secondary">{{ orders_total }} pedido(s)</span>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="badge en1-badge en1-badge--neutral">{{ orders_total }} pedido(s)</span>
+            <a href="{{ url_for('eposone.eposone_order_new') }}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus me-1"></i> Crear pedido
+            </a>
+        </div>
     </div>
 
     <form method="get" class="row g-2 mb-3 align-items-end">
@@ -34,8 +39,8 @@
         <div class="card-body p-0">
             {% if orders %}
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle">
-                    <thead class="table-light">
+                <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                    <thead>
                         <tr>
                             <th>Referencia</th>
                             <th>Operativo</th>
@@ -51,9 +56,9 @@
                         {% for order in orders %}
                         <tr>
                             <td><code>{{ order.order_ref }}</code></td>
-                            <td><span class="badge text-bg-light border">{{ order.status }}</span></td>
-                            <td><span class="badge text-bg-light border">{{ order.payment_status }}</span></td>
-                            <td><span class="badge text-bg-light border">{{ order.fiscal_status }}</span></td>
+                            <td><span class="badge en1-badge en1-badge--neutral">{{ order.status }}</span></td>
+                            <td><span class="badge en1-badge en1-badge--info">{{ order.payment_status }}</span></td>
+                            <td><span class="badge en1-badge en1-badge--neutral">{{ order.fiscal_status }}</span></td>
                             <td class="text-end">{{ '%.2f'|format(order.grand_total) }} {{ order.currency }}</td>
                             <td class="small text-muted">{{ order.pos_terminal_id or '—' }}</td>
                             <td class="text-muted small">
@@ -71,8 +76,7 @@
             <div class="p-4 text-muted">
                 <p class="mb-2">No hay pedidos POS{% if status_filter %} con estado <code>{{ status_filter }}</code>{% endif %}.</p>
                 <p class="small mb-0">
-                    Creá pedidos vía <code>POST /api/eposone/orders</code> o sincronización offline
-                    (<code>operation_type: create_order</code>).
+                    <a href="{{ url_for('eposone.eposone_order_new') }}">Crear el primer pedido</a> desde el back office.
                 </p>
             </div>
             {% endif %}

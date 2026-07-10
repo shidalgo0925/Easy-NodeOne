@@ -631,125 +631,124 @@ def register_public_auth_legacy_routes(app):
 
     @app.route('/forgot-password', methods=['GET', 'POST'])
     def forgot_password():
-        """Solicitar recuperación de contraseña"""
+        """Solicitar recuperación de contraseña (mensaje anti-enumeración)."""
+        from nodeone.services.password_reset_service import (
+            GENERIC_REQUEST_MESSAGE,
+            TOKEN_TTL_MINUTES,
+            build_reset_url,
+            is_rate_limited,
+            issue_reset_token,
+        )
+
         if request.method == 'POST':
             email = request.form.get('email', '').strip().lower()
-        
             if not email:
                 flash('Por favor, ingresa tu correo electrónico.', 'error')
                 return render_template('forgot_password.html')
-        
-            # Buscar usuario por email
+
+            if is_rate_limited(email=email, ip=request.remote_addr):
+                flash(GENERIC_REQUEST_MESSAGE, 'info')
+                return render_template('forgot_password.html')
+
             user = User.query.filter_by(email=email).first()
-        
-            # Por seguridad, siempre mostrar mensaje de éxito aunque el email no exista
-            # Esto previene enumeración de usuarios
             if user and user.is_active:
-                # Generar token de recuperación
-                reset_token = secrets.token_urlsafe(32)
-                expires_at = datetime.utcnow() + timedelta(hours=1)  # Válido por 1 hora
-            
-                # Guardar token en la base de datos
-                user.password_reset_token = reset_token
-                user.password_reset_token_expires = expires_at
-                user.password_reset_sent_at = datetime.utcnow()
-                db.session.commit()
-            
-                # Generar URL de recuperación
-                reset_url = f"{request.url_root.rstrip('/')}/reset-password?token={reset_token}"
-            
-                # Enviar email de recuperación
                 try:
-                    if M.EMAIL_TEMPLATES_AVAILABLE and M.email_service:
-                        html_content = M.get_password_reset_email(user, reset_token, reset_url)
-                        M.email_service.send_email(
-                            to_email=user.email,
-                            subject='Restablecer Contraseña - Easy NodeOne',
+                    raw_token = issue_reset_token(user, request=request)
+                    base = request_base_url_optional() or request.url_root.rstrip('/')
+                    reset_url = build_reset_url(base, raw_token)
+                    ok_smtp, _cfg_id = M.apply_transactional_smtp_for_organization(
+                        int(user.organization_id)
+                    )
+                    if not ok_smtp or not M.email_service:
+                        print(
+                            'password_reset: SMTP transaccional no disponible '
+                            f'(org={user.organization_id} ok_smtp={ok_smtp})'
+                        )
+                    else:
+                        html_content = M.get_password_reset_email(user, raw_token, reset_url)
+                        sent = M.email_service.send_email(
+                            subject='Restablecer contraseña',
+                            recipients=[user.email],
                             html_content=html_content,
                             email_type='password_reset',
+                            related_entity_type='user',
+                            related_entity_id=user.id,
                             recipient_id=user.id,
-                            recipient_email=user.email,
-                            recipient_name=f"{user.first_name} {user.last_name}"
+                            recipient_name=f'{user.first_name} {user.last_name}',
                         )
-                        flash('Se ha enviado un enlace de recuperación a tu correo electrónico. Revisa tu bandeja de entrada y carpeta de spam.', 'success')
-                    else:
-                        flash('Error: El servicio de email no está disponible. Contacta al administrador.', 'error')
+                        if not sent:
+                            print(f'password_reset: send_email devolvió False para {user.email}')
                 except Exception as e:
-                    print(f"Error enviando email de recuperación: {e}")
-                    flash('Error al enviar el email. Por favor, intenta nuevamente o contacta al soporte.', 'error')
-            else:
-                # Mostrar mensaje genérico para no revelar si el email existe
-                flash('Si el correo electrónico existe en nuestro sistema, recibirás un enlace de recuperación.', 'info')
-    
-        return render_template('forgot_password.html')
+                    print(f'Error enviando email de recuperación: {e}')
+
+            flash(GENERIC_REQUEST_MESSAGE, 'info')
+            return render_template('forgot_password.html')
+
+        return render_template('forgot_password.html', token_ttl_minutes=TOKEN_TTL_MINUTES)
 
     @app.route('/reset-password', methods=['GET', 'POST'])
     def reset_password():
-        """Restablecer contraseña con token"""
+        """Restablecer contraseña con token (hash / legacy)."""
+        from flask_login import logout_user as _logout_user
+
+        from nodeone.services.password_reset_service import (
+            MIN_PASSWORD_LENGTH,
+            PasswordResetError,
+            consume_token_and_set_password,
+            find_valid_token_with_legacy,
+        )
+
         token = request.args.get('token') or request.form.get('token')
-    
         if not token:
             flash('Token de recuperación no válido o faltante.', 'error')
             return redirect(url_for('forgot_password'))
-    
-        # Buscar usuario con token válido
-        user = User.query.filter_by(password_reset_token=token).first()
-    
-        if not user:
+
+        resolved = find_valid_token_with_legacy(token)
+        if resolved is None:
             flash('Token de recuperación no válido o expirado.', 'error')
             return redirect(url_for('forgot_password'))
-    
-        # Verificar que el token no haya expirado
-        if user.password_reset_token_expires and user.password_reset_token_expires < datetime.utcnow():
-            flash('El enlace de recuperación ha expirado. Por favor, solicita uno nuevo.', 'error')
-            # Limpiar token expirado
-            user.password_reset_token = None
-            user.password_reset_token_expires = None
-            db.session.commit()
-            return redirect(url_for('forgot_password'))
-    
+        _row, user = resolved
+
         if request.method == 'POST':
-            new_password = request.form.get('password', '').strip()
-            confirm_password = request.form.get('confirm_password', '').strip()
-        
-            # Validaciones
-            if not new_password:
-                flash('Por favor, ingresa una nueva contraseña.', 'error')
+            new_password = request.form.get('password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            try:
+                updated = consume_token_and_set_password(token, new_password, confirm_password)
+            except PasswordResetError as exc:
+                code = str(exc)
+                messages = {
+                    'password_required': 'Por favor, ingresa una nueva contraseña.',
+                    'password_too_short': f'La contraseña debe tener al menos {MIN_PASSWORD_LENGTH} caracteres.',
+                    'password_mismatch': 'Las contraseñas no coinciden.',
+                    'token_invalid': 'Token de recuperación no válido o expirado.',
+                }
+                flash(messages.get(code, code.replace('_', ' ')), 'error')
+                if code == 'token_invalid':
+                    return redirect(url_for('forgot_password'))
                 return render_template('reset_password.html', token=token, user=user)
-        
-            if len(new_password) < 8:
-                flash('La contraseña debe tener al menos 8 caracteres.', 'error')
-                return render_template('reset_password.html', token=token, user=user)
-        
-            if new_password != confirm_password:
-                flash('Las contraseñas no coinciden.', 'error')
-                return render_template('reset_password.html', token=token, user=user)
-        
-            # Actualizar contraseña
-            user.set_password(new_password)
-        
-            # Limpiar token de recuperación
-            user.password_reset_token = None
-            user.password_reset_token_expires = None
-            user.password_reset_sent_at = None
-        
-            db.session.commit()
-        
-            # Registrar en historial
+
+            try:
+                if current_user.is_authenticated:
+                    _logout_user()
+                session.clear()
+            except Exception:
+                pass
+
             try:
                 from history_module import HistoryLogger
+
                 HistoryLogger.log_user_action(
-                    user_id=user.id,
-                    action="Contraseña restablecida",
-                    status="success",
-                    context={"app": "web", "screen": "reset_password", "module": "auth"},
-                    request=request
+                    user_id=updated.id,
+                    action='Contraseña restablecida',
+                    status='success',
+                    context={'app': 'web', 'screen': 'reset_password', 'module': 'auth'},
+                    request=request,
                 )
-            except Exception as e:
+            except Exception:
                 pass
-        
-            flash('Tu contraseña ha sido restablecida exitosamente. Puedes iniciar sesión ahora.', 'success')
+
+            flash('La contraseña fue actualizada correctamente.', 'success')
             return redirect(url_for('auth.login'))
-    
+
         return render_template('reset_password.html', token=token, user=user)
 

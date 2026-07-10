@@ -8,7 +8,7 @@ import re
 import html as html_module
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file, abort, send_from_directory, Response
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user, user_logged_in
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timedelta
@@ -1932,6 +1932,38 @@ if _ym.isdigit():
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
+@user_logged_in.connect_via(app)
+def _store_password_fingerprint(sender, user, **extra):
+    """Permite invalidar otras sesiones cuando cambia el password_hash."""
+    try:
+        from flask import session
+        from nodeone.services.password_reset_service import password_fingerprint
+
+        session['pwd_fp'] = password_fingerprint(user)
+    except Exception:
+        pass
+
+
+@app.before_request
+def _invalidate_session_if_password_changed():
+    try:
+        from flask import session
+        from flask_login import current_user, logout_user
+        from nodeone.services.password_reset_service import password_fingerprint
+
+        if not getattr(current_user, 'is_authenticated', False):
+            return
+        fp = session.get('pwd_fp')
+        if not fp:
+            session['pwd_fp'] = password_fingerprint(current_user)
+            return
+        if fp != password_fingerprint(current_user):
+            logout_user()
+            session.pop('pwd_fp', None)
+    except Exception:
+        pass
+
 # Decoradores
 def email_verified_required(f):
     """Decorador para requerir email verificado"""
@@ -3444,6 +3476,13 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_core_master_schema: {e}')
+        try:
+            from nodeone.services.password_reset_schema import ensure_password_reset_schema
+
+            ensure_password_reset_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_password_reset_schema: {e}')
         try:
             from nodeone.services.eposone_kds_schema import ensure_eposone_kds_schema
 

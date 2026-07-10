@@ -3,7 +3,9 @@
 | Campo | Valor |
 |-------|--------|
 | Hito | **EN1-01** — Servidor de Provisioning |
-| Estado | **Implementación EN1** — jul 2026 |
+| Estado | **Implementado en EN1** (`847a09f`, 10 jul 2026) · **E2E tablet pendiente** |
+| Commit | `847a09f` |
+| Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Nota | El archivo `EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md` del repo Flutter **no** estaba en Easy-NodeOne; este documento es la **referencia oficial en EN1**. Si Flutter difiere, proponer ajuste **antes** de cambiar paths. |
 
 ---

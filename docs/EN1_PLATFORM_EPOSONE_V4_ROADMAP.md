@@ -3,7 +3,8 @@
 | Campo | Valor |
 |-------|--------|
 | Estado | **Aprobado** — 9 jul 2026 |
-| Fase actual | **Etapa 2 — Android (Producto)** · infra EN1 cerrada (`18f6593`) · APK fuera de este servidor |
+| Fase actual | **Hito EN1-01 ✅** (`847a09f`) · **siguiente: E2E APK ↔ provisioning** · sync fino después |
+| Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Dominio comercial | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |
 | Contratos portables | [`EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md`](EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md) |
@@ -15,6 +16,7 @@
 | POS + licenciamiento | [`EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md) |
 | Licenciamiento | [`ADR-005-EPOSONE-LICENSING-POS.md`](ADR-005-EPOSONE-LICENSING-POS.md) |
 | **Etapa 2 Android** | [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) |
+| **Hito EN1-01** | [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) |
 
 ---
 
@@ -69,7 +71,8 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | **6** | Dispositivos POS | ✅ | UUID, perfil, app, empresa, sucursal, caja, flag sync |
 | **7** | Sincronización | ✅ | Bridge política Plataforma sobre `core/sync/` |
 | **—** | Licenciamiento POS | ✅ | ADR-005 + stub `LicensePolicy` (sin cupos) · commit `18f6593` |
-| **Etapa 2** | Android (Producto) | 📋 | Sprints A–F — ver [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) |
+| **EN1-01** | Provisioning APIs | ✅ código | `847a09f` — `/api/v1/devices/register` + `/config` · ⏳ E2E tablet |
+| **Etapa 2** | Android (Producto) | 📋 | Sprints A–F — ver [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 
 ### Etapa 2 — Android (resumen)
 
@@ -113,5 +116,6 @@ El motor `nodeone/core/sync/` permanece; § 6.9 describe **Modo Plataforma**. Mo
 - **GO Sprint 6:** dispositivos — hecho (`devices.py` + `core_pos_terminal` V4).  
 - **GO Sprint 7:** sync — hecho (`platform_sync.py`; motor sin reescritura).  
 - **GO ADR-005 + infra POS:** dominio POS/caja/dispositivo + `LicensePolicy` stub + admin provisionamiento — **cerrado** (`18f6593` en `develop`).  
-- **Etapa 2 Android:** foco producto APK — [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md). Implementación en el repo Android (no en este servidor solo).  
+- **GO EN1-01:** APIs provisioning dispositivos — **cerrado en código** (`847a09f`); E2E tablet = equipo EPosOne. Handoff: [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md).  
+- **Etapa 2 Android:** foco producto APK — [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md).  
 - Sin GO: no push a staging/prod, no sync forzado a flotas, no activar límites.

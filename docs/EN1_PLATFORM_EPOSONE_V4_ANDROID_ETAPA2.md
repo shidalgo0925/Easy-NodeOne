@@ -2,11 +2,13 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Documentado** — 9 jul 2026 · **código APK fuera de este servidor** |
-| Etapa previa | Infra EN1 (POS, LicensePolicy, provisionamiento, sync base) — **cerrada** (`18f6593`) |
+| Estado | **EN1-01 APIs ✅** · siguiente = integración APK + E2E tablet |
+| Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| Etapa previa | Infra EN1 (POS, LicensePolicy, sync base) — **cerrada** (`18f6593`) |
+| Hito EN1-01 | Provisioning — **cerrado en código** (`847a09f`) · contrato [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) |
 | Roadmap V4 | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
 | Primer inicio (dominio EN1) | [`EN1_PLATFORM_EPOSONE_V4_FIRST_START.md`](EN1_PLATFORM_EPOSONE_V4_FIRST_START.md) · `first_start.py` |
-| Foco | Experiencia de la **APK** que ve el cliente — no más infra de servidor en esta etapa |
+| Foco ahora | Equipo **EPosOne**: wizard Conectar EN1 → APIs reales (no stub) |
 
 ---
 
@@ -37,7 +39,7 @@ La implementación de pantallas Android **requiere** abrir ese proyecto en Curso
 | Sprint | Entregable | Estado |
 |--------|------------|--------|
 | **A** | Primer inicio (onboarding) — Bienvenida + Local / Plataforma | 📋 doc · ⏳ APK |
-| **EN1-01** | APIs provisioning (`/api/v1/devices/*`) | ✅ EN1 (contrato + código) · ⏳ E2E tablet |
+| **EN1-01** | APIs provisioning (`/api/v1/devices/*`) | ✅ `847a09f` · ⏳ E2E tablet |
 | **B** | Registro automático del dispositivo (UUID, modelo, POS, caja…) | ⏳ APK contra EN1-01 |
 | **C** | Configuración automática post-registro (catálogo, impuestos, etc.) | ⏳ |
 | **D** | Sync fino (solo empresa → sucursal → POS) | ⏳ |

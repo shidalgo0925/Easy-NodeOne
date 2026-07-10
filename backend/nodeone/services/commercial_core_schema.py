@@ -676,6 +676,8 @@ def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:
         ('pos_ref', 'VARCHAR(64)', 'VARCHAR(64)'),
         ('sync_enabled', 'BOOLEAN NOT NULL DEFAULT TRUE', 'INTEGER NOT NULL DEFAULT 1'),
         ('last_seen_at', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME'),
+        ('access_token_hash', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('config_version', 'INTEGER NOT NULL DEFAULT 1', 'INTEGER NOT NULL DEFAULT 1'),
     ]
     added: list[str] = []
     with engine.begin() as conn:
@@ -688,20 +690,25 @@ def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:
             else:
                 conn.execute(text(f'ALTER TABLE core_pos_terminal ADD COLUMN {name} {col_type}'))
             added.append(name)
-        if 'pos_ref' in added or 'pos_ref' not in cols:
-            # índice para sync por POS (idempotente)
+        if dialect == 'postgresql':
             try:
-                if dialect == 'postgresql':
-                    conn.execute(
-                        text(
-                            'CREATE INDEX IF NOT EXISTS ix_core_pos_terminal_pos_ref '
-                            'ON core_pos_terminal (organization_id, pos_ref)'
-                        )
+                conn.execute(
+                    text(
+                        'CREATE INDEX IF NOT EXISTS ix_core_pos_terminal_pos_ref '
+                        'ON core_pos_terminal (organization_id, pos_ref)'
                     )
+                )
+                conn.execute(
+                    text(
+                        'CREATE INDEX IF NOT EXISTS ix_core_pos_terminal_token '
+                        'ON core_pos_terminal (access_token_hash)'
+                    )
+                )
             except Exception:
                 pass
     if added and printfn:
-        printfn(f'core_pos_terminal: columnas V4 añadidas ({", ".join(added)})')
+        printfn(f'core_pos_terminal: columnas V4/Hito1 añadidas ({", ".join(added)})')
+
 
 
 def _exec(engine, ddl: str, printfn, label: str) -> None:

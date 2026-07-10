@@ -199,6 +199,9 @@ class CorePosTerminal(db.Model):
     sync_enabled = db.Column(db.Boolean, nullable=False, default=True)
     last_seen_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    # Hito EN1-01 — token de dispositivo (hash) + versión de config
+    access_token_hash = db.Column(db.String(64), nullable=True, index=True)
+    config_version = db.Column(db.Integer, nullable=False, default=1)
 
     __table_args__ = (
         db.UniqueConstraint('organization_id', 'terminal_ref', name='uq_core_pos_terminal_ref'),

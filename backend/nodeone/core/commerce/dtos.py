@@ -224,6 +224,8 @@ class PosTerminalDTO:
     pos_ref: str | None = None
     sync_enabled: bool = True
     last_seen_at: datetime | None = None
+    created_at: datetime | None = None
+    config_version: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -244,4 +246,6 @@ class PosTerminalDTO:
             'assigned_pos_id': self.pos_ref,
             'sync_enabled': self.sync_enabled,
             'last_seen_at': self.last_seen_at.isoformat() if self.last_seen_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'config_version': self.config_version,
         }

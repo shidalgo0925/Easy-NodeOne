@@ -379,6 +379,26 @@ def eposone_home():
     )
 
 
+@eposone_bp.route('/devices/rotate-provisioning-code', methods=['POST'])
+@login_required
+def eposone_rotate_provisioning_code():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from flask import flash, redirect, url_for
+
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        flash('Organización no resuelta.', 'warning')
+        return redirect(url_for('eposone.eposone_section', slug='terminals'))
+    DeviceProvisioningService.rotate_provisioning_code(int(oid))
+    flash('Código de provisioning rotado.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='terminals'))
+
+
 @eposone_bp.route('/analytics')
 @login_required
 def eposone_analytics():
@@ -1363,13 +1383,16 @@ def eposone_section(slug: str):
         from nodeone.core.master.constants import ORG_UNIT_TYPE_POS
         from nodeone.core.platform.runtime import resolve_organization_id
         from nodeone.core.services.org_unit import OrgUnitService
+        from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
 
         oid = resolve_organization_id()
         pos_units: list = []
         devices: list = []
+        provisioning_code = None
         if oid is not None:
             pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
-            devices = PosTerminalService.list_terminals(int(oid), limit=50)
+            devices = PosTerminalService.list_terminals(int(oid), limit=100)
+            provisioning_code = DeviceProvisioningService.ensure_provisioning_code(int(oid))
         return render_template(
             'eposone/terminals.html',
             section_slug=key,
@@ -1379,6 +1402,7 @@ def eposone_section(slug: str):
             pos_units_total=len(pos_units),
             devices=devices,
             devices_total=len(devices),
+            provisioning_code=provisioning_code,
         )
     return render_template(
         'eposone/section.html',

@@ -112,4 +112,6 @@ def pos_terminal_to_dto(row: CorePosTerminal) -> PosTerminalDTO:
         pos_ref=(getattr(row, 'pos_ref', None) or None),
         sync_enabled=bool(getattr(row, 'sync_enabled', True)),
         last_seen_at=getattr(row, 'last_seen_at', None),
+        created_at=getattr(row, 'created_at', None),
+        config_version=int(getattr(row, 'config_version', 1) or 1),
     )

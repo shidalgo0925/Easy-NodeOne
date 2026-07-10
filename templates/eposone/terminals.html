@@ -12,12 +12,34 @@
         <span class="badge bg-secondary">{{ devices_total }} dispositivo(s)</span>
     </div>
 
+    {% if provisioning_code %}
+    <div class="alert alert-light border mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <strong class="small">Código de provisioning (Hito EN1-01)</strong>
+                <div class="font-monospace">{{ provisioning_code }}</div>
+                <p class="small text-muted mb-0 mt-1">
+                    Header <code>X-EN1-Provisioning-Code</code> en
+                    <code>POST /api/v1/devices/register</code>
+                </p>
+            </div>
+            <form method="post" action="{{ url_for('eposone.eposone_rotate_provisioning_code') }}">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary"
+                        onclick="return confirm('¿Rotar código? Las tablets nuevas deberán usar el nuevo valor.');">
+                    Rotar código
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row g-3">
-        <div class="col-lg-5">
+        <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 pb-0">
-                    <h2 class="h6 mb-0">Puntos POS (org_unit)</h2>
-                    <p class="text-muted small mb-0">{{ pos_units_total }} punto(s) lógico(s)</p>
+                    <h2 class="h6 mb-0">Puntos POS</h2>
+                    <p class="text-muted small mb-0">{{ pos_units_total }} punto(s)</p>
                 </div>
                 <div class="card-body p-0">
                     {% if pos_units %}
@@ -42,18 +64,16 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="p-4 text-muted small">
-                        Sin puntos POS — <code>POST /api/eposone/pos-units</code>
-                    </div>
+                    <div class="p-4 text-muted small">Sin POS — sección Puntos de Venta</div>
                     {% endif %}
                 </div>
             </div>
         </div>
-        <div class="col-lg-7">
+        <div class="col-lg-8">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 pb-0">
                     <h2 class="h6 mb-0">Dispositivos registrados</h2>
-                    <p class="text-muted small mb-0">UUID estable · perfil · app · caja — <code>POST /api/eposone/terminals</code></p>
+                    <p class="text-muted small mb-0">UUID · POS · Caja · estado · última conexión</p>
                 </div>
                 <div class="card-body p-0">
                     {% if devices %}
@@ -61,29 +81,29 @@
                         <table class="table table-sm table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th>UUID / ref.</th>
                                     <th>Nombre</th>
+                                    <th>UUID</th>
+                                    <th>Sucursal</th>
                                     <th>POS</th>
-                                    <th>Perfil</th>
-                                    <th>Plataforma</th>
                                     <th>Caja</th>
-                                    <th>Sync</th>
-                                    <th>Último visto</th>
                                     <th>Estado</th>
+                                    <th>Registro</th>
+                                    <th>Última conexión</th>
+                                    <th>APK</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for device in devices %}
                                 <tr>
-                                    <td><code class="small">{{ device.terminal_ref }}</code></td>
                                     <td>{{ device.device_label or '—' }}</td>
-                                    <td class="text-muted small">{{ device.pos_ref or '—' }}</td>
-                                    <td><span class="badge text-bg-light border">{{ device.profile or 'fixed' }}</span></td>
-                                    <td class="text-muted small">{{ device.platform or '—' }}{% if device.app_version %} <span class="text-muted">· {{ device.app_version }}</span>{% endif %}</td>
-                                    <td class="text-muted small">{{ device.register_ref or '—' }}</td>
-                                    <td>{% if device.sync_enabled %}<span class="badge text-bg-success-subtle border">on</span>{% else %}<span class="badge text-bg-light border">off</span>{% endif %}</td>
-                                    <td class="text-muted small">{% if device.last_seen_at %}{{ device.last_seen_at }}{% else %}—{% endif %}</td>
+                                    <td><code class="small">{{ device.terminal_ref }}</code></td>
+                                    <td class="small">{{ device.branch_ref or '—' }}</td>
+                                    <td class="small">{{ device.pos_ref or '—' }}</td>
+                                    <td class="small">{{ device.register_ref or '—' }}</td>
                                     <td><span class="badge text-bg-light border">{{ device.status }}</span></td>
+                                    <td class="text-muted small">{% if device.created_at %}{{ device.created_at }}{% else %}—{% endif %}</td>
+                                    <td class="text-muted small">{% if device.last_seen_at %}{{ device.last_seen_at }}{% else %}—{% endif %}</td>
+                                    <td class="text-muted small">{{ device.app_version or '—' }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -91,7 +111,8 @@
                     </div>
                     {% else %}
                     <div class="p-4 text-muted small">
-                        Sin dispositivos — registrá con <code>device_id</code> (UUID), <code>profile</code> (fixed|handheld), sucursal y caja.
+                        Sin dispositivos. La tablet usa
+                        <code>POST /api/v1/devices/register</code>.
                     </div>
                     {% endif %}
                 </div>

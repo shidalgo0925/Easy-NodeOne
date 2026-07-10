@@ -37,7 +37,8 @@ La implementación de pantallas Android **requiere** abrir ese proyecto en Curso
 | Sprint | Entregable | Estado |
 |--------|------------|--------|
 | **A** | Primer inicio (onboarding) — Bienvenida + Local / Plataforma | 📋 doc · ⏳ APK |
-| **B** | Registro automático del dispositivo (UUID, modelo, POS, caja…) | ⏳ |
+| **EN1-01** | APIs provisioning (`/api/v1/devices/*`) | ✅ EN1 (contrato + código) · ⏳ E2E tablet |
+| **B** | Registro automático del dispositivo (UUID, modelo, POS, caja…) | ⏳ APK contra EN1-01 |
 | **C** | Configuración automática post-registro (catálogo, impuestos, etc.) | ⏳ |
 | **D** | Sync fino (solo empresa → sucursal → POS) | ⏳ |
 | **E** | Pantalla «Este dispositivo» | ⏳ |

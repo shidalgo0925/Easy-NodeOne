@@ -19,4 +19,6 @@ class EposoneSettings(db.Model):
     delivery_auto_create = db.Column(db.Boolean, nullable=False, default=True)
     fiscal_on_payment = db.Column(db.Boolean, nullable=False, default=False)
     supervisor_approval_required = db.Column(db.Boolean, nullable=False, default=True)
+    # Hito EN1-01 — código de emparejamiento tablet ↔ org
+    provisioning_code = db.Column(db.String(64), nullable=True)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -3,54 +3,50 @@
 | Campo | Valor |
 |-------|--------|
 | Fecha | **10 jul 2026** |
-| Rama | `develop` (EN1-02 en working tree / próximo commit) |
-| Silo | Solo **Dev EN1** (`appdev.easynodeone.com`) |
+| Rama | `develop` @ **`82c68f7`** |
+| Silo | Solo **Dev EN1** (`https://appdev.easynodeone.com`) |
+| Estado hito | **EN1-02 congelado** · appdev listo para pruebas E2E |
 
 ---
 
 ## Estado en una frase
 
-**Contrato oficial = EN1-02:** el código de provisioning identifica **Caja (destino)** → EN1 resuelve Empresa/Sucursal/POS/Caja.  
-Wizard tablet: solo **URL + código**.
-
-EN1-01 queda como **legacy** (refs en body + código por org).
+**EN1-02 congelado y desplegado en appdev.**  
+Contrato oficial: código = destino (Caja). Wizard: **URL + código**.  
+Turno: equipo **EPosOne** — pruebas E2E contra Dev.
 
 ---
 
-## Hecho en EN1
+## Hecho en EN1 (congelado)
 
-| Entrega | Commit / estado |
-|---------|-----------------|
+| Entrega | Commit |
+|---------|--------|
 | POS + LicensePolicy | `18f6593` |
-| EN1-01 APIs (legacy) | `847a09f` |
-| **EN1-02 código = destino** | Implementado (tabla `eposone_provisioning_code`, register sin refs) |
+| EN1-01 (legacy) | `847a09f` |
+| **EN1-02 código = destino** | **`82c68f7`** ← actual |
 
-### APIs
+### APIs en appdev
 
-| Método | Path | Contrato oficial |
-|--------|------|------------------|
-| `POST` | `/api/v1/devices/register` | Header código + `device_uuid` (+ metadatos). **Sin** org/branch/pos/register en body |
-| `GET` | `/api/v1/devices/config` | `Authorization: Bearer` |
+| Método | Path |
+|--------|------|
+| `POST` | `/api/v1/devices/register` |
+| `GET` | `/api/v1/devices/config` |
 
-Contrato: [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) (documento actualizado a EN1-02).
+Contrato: [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) (EN1-02).
 
-Admin: EPosOne → Dispositivos → **Generar** código por Caja.
-
----
-
-## Siguiente
-
-| Quién | Qué |
-|-------|-----|
-| **EPosOne** | Wizard: URL + código → register EN1-02 → token → config → PIN |
-| **E2E** | Tablet contra appdev |
-| **No ahora** | Sync catálogo/ventas |
+Admin: EPosOne → **Dispositivos** → Generar código por Caja.
 
 ---
 
-## Repos
+## Listo para pruebas
 
-| Pieza | Ubicación |
-|-------|-----------|
-| EN1 | `/opt/easynodeone/dev/app` · `develop` |
-| APK | PC local `…\EPosOne\eposone` |
+1. En appdev: crear/verificar Sucursal → POS → Caja.  
+2. Generar código en Dispositivos.  
+3. APK: URL `https://appdev.easynodeone.com` + código.  
+4. Esperado: register → token → config → PIN.
+
+---
+
+## No tocar sin GO
+
+Sync · catálogo · ventas · licencias · staging/prod/relatic.

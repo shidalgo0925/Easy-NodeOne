@@ -3,9 +3,10 @@
 | Campo | Valor |
 |-------|--------|
 | Hito | **EN1-02** — Código = destino operativo |
-| Estado | **Implementado en EN1** · jul 2026 |
-| Reemplaza como contrato oficial | EN1-01 (queda **legacy** / compatibilidad) |
+| Estado | **Congelado en EN1** (`82c68f7`, 10 jul 2026) · appdev listo E2E |
+| Commit código | `82c68f7` |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| Reemplaza como contrato oficial | EN1-01 (queda **legacy** / compatibilidad) |
 
 ---
 

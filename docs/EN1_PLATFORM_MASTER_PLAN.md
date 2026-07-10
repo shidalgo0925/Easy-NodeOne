@@ -8,7 +8,7 @@
 | Estado | Aprobado — **V3 Etapa 6 Dominio Comercial cerrada** (v1.2) · **EPosOne V4 sprints 1–7** · **ADR-005 congelado** (9 jul 2026) |
 | Alcance edición | Solo `/opt/easynodeone/dev/app` (Dev EN1) |
 | Documento operativo | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
-| EPosOne V4 (ADR + contratos) | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) … [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · contratos / providers / sync en docs `EN1_PLATFORM_EPOSONE_V4_*` |
+| EPosOne V4 (ADR + contratos) | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) … [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · [EN1-02 provisioning](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [handoff](EN1_EPOSONE_HANDOFF_STATUS.md) · contratos / providers / sync en docs `EN1_PLATFORM_EPOSONE_V4_*` |
 
 ---
 

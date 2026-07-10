@@ -1,9 +1,10 @@
-"""Sprint 7 — Sync Modo Plataforma (política sobre motor existente).
+"""Sprint 7 — Sync Modo Plataforma + scope por POS (ADR-005).
 
 No reescribe ``nodeone/core/sync/``. Solo:
 - permite cola/pull en ``operating_mode=platform``;
 - rechaza en Modo Local;
-- usa ``device_id`` como ``client_id`` cuando hay dispositivo;
+- usa ``pos_id`` como ``client_id`` de sync cuando hay POS (unidad comercial);
+- fallback a ``device_id`` si aún no hay POS asignado;
 - respeta ``Device.sync_enabled``.
 """
 
@@ -29,16 +30,31 @@ class SyncClientContext:
     operating_mode: OperatingMode
     organization_id: str | None = None
     device_id: str | None = None
+    pos_id: str | None = None
     device: Device | None = None
 
     @property
     def client_id(self) -> str:
+        """Identidad de cola/cursor: preferir POS (unidad comercial), no dispositivo."""
+        pid = (self.pos_id or '').strip()
+        if not pid and self.device is not None:
+            pid = (self.device.pos_id or '').strip()
+        if pid:
+            return f'pos:{pid}'
         did = (self.device_id or '').strip()
         if did:
             return did
         if self.device is not None:
             return self.device.id
         return 'default'
+
+    @property
+    def sync_scope(self) -> str:
+        """Ámbito lógico de sincronización (catálogo / config por POS)."""
+        pid = (self.pos_id or '').strip()
+        if not pid and self.device is not None:
+            pid = (self.device.pos_id or '').strip()
+        return pid or 'org'
 
 
 def assert_platform_sync_allowed(ctx: SyncClientContext) -> None:
@@ -61,6 +77,7 @@ def resolve_sync_context(
     operating_mode: str | None,
     organization_id: str | int | None = None,
     device_id: str | None = None,
+    pos_id: str | None = None,
     devices: Any | None = None,
     default_mode: OperatingMode = MODE_PLATFORM,
 ) -> SyncClientContext:
@@ -81,11 +98,16 @@ def resolve_sync_context(
     if did and devices is not None:
         device = devices.get(did)
 
+    resolved_pos = (pos_id or '').strip() or None
+    if not resolved_pos and device is not None:
+        resolved_pos = (device.pos_id or '').strip() or None
+
     oid = str(organization_id).strip() if organization_id is not None else None
     return SyncClientContext(
         operating_mode=mode,
         organization_id=oid,
         device_id=did,
+        pos_id=resolved_pos,
         device=device,
     )
 
@@ -111,14 +133,21 @@ class PlatformSyncBridge:
         operating_mode: str | None = None,
         organization_id: str | int | None = None,
         device_id: str | None = None,
+        pos_id: str | None = None,
         client_id: str | None = None,
     ) -> SyncClientContext:
         # client_id legacy = device_id cuando el APK aún no manda device_id
         did = (device_id or client_id or '').strip() or None
+        # Si client_id viene como pos:XXX, usarlo como pos_id
+        explicit_pos = (pos_id or '').strip() or None
+        if not explicit_pos and client_id and str(client_id).startswith('pos:'):
+            explicit_pos = str(client_id)[4:].strip() or None
+            did = (device_id or '').strip() or None
         return resolve_sync_context(
             operating_mode=operating_mode,
             organization_id=organization_id,
             device_id=did,
+            pos_id=explicit_pos,
             devices=self._devices,
             default_mode=self._default_mode,
         )
@@ -132,6 +161,7 @@ class PlatformSyncBridge:
         payload: dict[str, Any] | None = None,
         operating_mode: str | None = None,
         device_id: str | None = None,
+        pos_id: str | None = None,
         client_id: str | None = None,
         entity_type: str | None = None,
         entity_ref: str | None = None,
@@ -143,14 +173,20 @@ class PlatformSyncBridge:
             operating_mode=operating_mode,
             organization_id=organization_id,
             device_id=device_id,
+            pos_id=pos_id,
             client_id=client_id,
         )
         assert_platform_sync_allowed(ctx)
+        body = dict(payload or {})
+        if ctx.pos_id and 'pos_id' not in body:
+            body['pos_id'] = ctx.pos_id
+        if ctx.sync_scope and 'sync_scope' not in body:
+            body['sync_scope'] = ctx.sync_scope
         return SyncOperationService.enqueue(
             int(organization_id),
             idempotency_key=idempotency_key,
             operation_type=operation_type,
-            payload=payload or {},
+            payload=body,
             client_id=ctx.client_id,
             entity_type=entity_type,
             entity_ref=entity_ref,
@@ -174,6 +210,7 @@ class PlatformSyncBridge:
         event_type_prefix: str | None = None,
         operating_mode: str | None = None,
         device_id: str | None = None,
+        pos_id: str | None = None,
         client_id: str | None = None,
     ):
         from nodeone.core.sync.incremental import IncrementalSyncService
@@ -182,9 +219,13 @@ class PlatformSyncBridge:
             operating_mode=operating_mode,
             organization_id=organization_id,
             device_id=device_id,
+            pos_id=pos_id,
             client_id=client_id,
         )
         assert_platform_sync_allowed(ctx)
+        # Cursor/cola ya usan client_id=pos:…; el pull de eventos sigue org-wide
+        # (filtrado fino por POS se activa cuando el catálogo emita eventos scoped).
+        _ = ctx.sync_scope
         return IncrementalSyncService.fetch_events(
             int(organization_id),
             since_id=since_id,

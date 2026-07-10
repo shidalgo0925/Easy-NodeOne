@@ -1251,6 +1251,57 @@ def eposone_section(slug: str):
             branches=branches,
             branches_total=len(branches),
         )
+    if key == 'pos-points':
+        from nodeone.core.commerce.pos import PosTerminalService
+        from nodeone.core.license.policy import policy_for_organization
+        from nodeone.core.master.constants import (
+            ORG_UNIT_TYPE_BRANCH,
+            ORG_UNIT_TYPE_POS,
+            ORG_UNIT_TYPE_REGISTER,
+        )
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
+
+        oid = resolve_organization_id()
+        pos_units: list = []
+        branches: list = []
+        registers: list = []
+        devices: list = []
+        license_info = None
+        if oid is not None:
+            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
+            branches = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_BRANCH)
+            registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
+            devices = PosTerminalService.list_terminals(int(oid), limit=100)
+            policy = policy_for_organization(int(oid))
+            license_info = {
+                'enforcement': 'disabled',
+                'can_create_pos': policy.can_create_pos(),
+                'limits': policy.limits.to_dict(),
+            }
+        devices_by_pos: dict[str, list] = {}
+        registers_by_pos: dict[int, list] = {}
+        for d in devices:
+            pref = getattr(d, 'pos_ref', None) or ''
+            devices_by_pos.setdefault(pref, []).append(d)
+        for reg in registers:
+            pid = getattr(reg, 'parent_id', None)
+            if pid is not None:
+                registers_by_pos.setdefault(int(pid), []).append(reg)
+        return render_template(
+            'eposone/pos_points.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            pos_units=pos_units,
+            pos_units_total=len(pos_units),
+            branches=branches,
+            registers=registers,
+            devices=devices,
+            devices_by_pos=devices_by_pos,
+            registers_by_pos=registers_by_pos,
+            license_info=license_info,
+        )
     if key == 'inventory':
         from nodeone.core.commerce.stock import StockService
         from nodeone.core.master.constants import ORG_UNIT_TYPE_WAREHOUSE
@@ -1309,7 +1360,7 @@ def eposone_section(slug: str):
         )
     if key == 'terminals':
         from nodeone.core.commerce.pos import PosTerminalService
-        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS_TERMINAL
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS
         from nodeone.core.platform.runtime import resolve_organization_id
         from nodeone.core.services.org_unit import OrgUnitService
 
@@ -1317,7 +1368,7 @@ def eposone_section(slug: str):
         pos_units: list = []
         devices: list = []
         if oid is not None:
-            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS_TERMINAL)
+            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
             devices = PosTerminalService.list_terminals(int(oid), limit=50)
         return render_template(
             'eposone/terminals.html',

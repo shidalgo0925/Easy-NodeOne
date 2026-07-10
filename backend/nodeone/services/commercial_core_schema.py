@@ -671,7 +671,9 @@ def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:
         ('platform', 'VARCHAR(32)', 'VARCHAR(32)'),
         ('device_model', 'VARCHAR(120)', 'VARCHAR(120)'),
         ('app_version', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('android_version', 'VARCHAR(64)', 'VARCHAR(64)'),
         ('branch_ref', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('pos_ref', 'VARCHAR(64)', 'VARCHAR(64)'),
         ('sync_enabled', 'BOOLEAN NOT NULL DEFAULT TRUE', 'INTEGER NOT NULL DEFAULT 1'),
         ('last_seen_at', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME'),
     ]
@@ -686,6 +688,18 @@ def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:
             else:
                 conn.execute(text(f'ALTER TABLE core_pos_terminal ADD COLUMN {name} {col_type}'))
             added.append(name)
+        if 'pos_ref' in added or 'pos_ref' not in cols:
+            # índice para sync por POS (idempotente)
+            try:
+                if dialect == 'postgresql':
+                    conn.execute(
+                        text(
+                            'CREATE INDEX IF NOT EXISTS ix_core_pos_terminal_pos_ref '
+                            'ON core_pos_terminal (organization_id, pos_ref)'
+                        )
+                    )
+            except Exception:
+                pass
     if added and printfn:
         printfn(f'core_pos_terminal: columnas V4 añadidas ({", ".join(added)})')
 

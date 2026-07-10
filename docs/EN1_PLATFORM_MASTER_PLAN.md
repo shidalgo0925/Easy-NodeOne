@@ -4,11 +4,11 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión | **3.2** (Roadmap Oficial Platform V3 + **EPosOne V4** arquitectura Standalone/Plataforma) |
-| Estado | Aprobado — **V3 Etapa 6 Dominio Comercial cerrada** (v1.2) · **EPosOne V4 ADR Sprint 1 congelado** (9 jul 2026) |
+| Versión | **3.3** (Platform V3 + **EPosOne V4** + **ADR-005** licenciamiento por POS) |
+| Estado | Aprobado — **V3 Etapa 6 Dominio Comercial cerrada** (v1.2) · **EPosOne V4 sprints 1–7** · **ADR-005 congelado** (9 jul 2026) |
 | Alcance edición | Solo `/opt/easynodeone/dev/app` (Dev EN1) |
 | Documento operativo | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
-| EPosOne V4 (ADR + contratos) | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) … [ADR-004](ADR-004-EPOSONE-MIGRATION.md) · [`EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md`](EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md) |
+| EPosOne V4 (ADR + contratos) | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) … [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · contratos / providers / sync en docs `EN1_PLATFORM_EPOSONE_V4_*` |
 
 ---
 
@@ -35,7 +35,7 @@ EasyNodeOne Platform será la plataforma empresarial de ETS. Solo administrará 
 | **Apps de plataforma** | **EPosOne** · **EMembership** · **ECRM** · **EEvents** · **ECertificates** · **EAppointments** |
 
 **EPosOne** = principal desarrollo funcional bajo la nueva arquitectura.  
-**Arquitectura V4 (congelada):** producto independiente con **Modo Local** (SQLite, sin EN1 obligatorio), **Modo Plataforma** (EN1 fuente de verdad + sync § 6.9) y **Vincular con EN1** (Local → Plataforma sin reinstalar). Una sola APK; un solo dominio; SQLite/EN1 = proveedores. Ver [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md).
+**Arquitectura V4 (congelada):** producto independiente con **Modo Local** (SQLite, sin EN1 obligatorio), **Modo Plataforma** (EN1 fuente de verdad + sync § 6.9) y **Vincular con EN1** (Local → Plataforma sin reinstalar). Una sola APK; un solo dominio; SQLite/EN1 = proveedores. **Licenciamiento por Punto de Venta** en EN1 Core ([ADR-005](ADR-005-EPOSONE-LICENSING-POS.md)) — dominio siempre multi-POS; cupos actuales **ilimitados**. Ver [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md).
 
 **EMembership, ECRM, EEvents, ECertificates, EAppointments** = evolucionan e integran progresivamente (Etapa 5 — migración por app).
 
@@ -94,7 +94,17 @@ EPayRoll, EM+Acción, EClassOne, Odoo  →  fuera, roadmap propio
 | **Plataforma** | EN1 | Sí (offline = caché + cola) |
 | **Vincular con EN1** | Transición Local → Plataforma | Cutover; luego Modo Plataforma |
 
-Detalle: [ADR-003](ADR-003-EPOSONE-SYNC.md). **No implementar** Standalone/vinculación hasta GO de sprints V4 2+.
+Detalle: [ADR-003](ADR-003-EPOSONE-SYNC.md). Sprints V4 1–7 implementados en Dev; APK/tablets = producto aparte.
+
+### EPosOne — tres capas (no mezclar)
+
+| Capa | Qué decide | ADR / doc |
+|------|------------|-----------|
+| **Dominio** | Empresas → sucursales → **POS** → cajas → dispositivos | Etapa 6 · ADR-002 |
+| **Infraestructura** | Sync Local / Plataforma / Vincular | ADR-003 · ADR-004 · Sprint 7 |
+| **Licenciamiento** | Cupos del plan (unidad = **Punto de Venta**; dispositivos no consumen POS) | **[ADR-005](ADR-005-EPOSONE-LICENSING-POS.md)** |
+
+**Ahora:** sin límites activos. **Después:** EN1 Core deniega el N+1 recurso; EPosOne no conoce planes.
 
 ### Mapa implementación EN1 → V3 (referencia)
 
@@ -649,8 +659,9 @@ FUERA: EPayRoll · EM+Acción · EClassOne · Odoo
 3. **Alcance V3:** solo apps de plataforma (EPosOne + cinco apps de integración). EPayRoll, EM+Acción, EClassOne y Odoo **fuera**.
 4. EPosOne es la primera app **nativa** y el foco funcional principal.
 5. **Dominio comercial cerrado antes de features** — V3 Etapa 6; evita rehacer inventario, caja y reportes.
-6. El Core es el activo principal: auth, multiempresa, permisos, API, auditoría, licenciamiento.
+6. El Core es el activo principal: auth, multiempresa, permisos, API, auditoría, **licenciamiento** (cupos POS vía [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md); hoy ilimitado).
 7. La **plataforma** es el producto; las **apps de plataforma** son soluciones sobre el mismo núcleo.
+8. **Dominio ≠ licencia:** el modelo de datos permite N empresas/sucursales/POS/cajas/dispositivos; el plan comercial solo limita vía Core.
 
 ---
 

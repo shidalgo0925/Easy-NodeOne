@@ -758,7 +758,9 @@ class ApiDeviceRepository:
             platform=device.platform,
             device_model=device.device_model,
             app_version=device.app_version,
+            android_version=getattr(device, 'android_version', None),
             branch_ref=device.branch_id,
+            pos_ref=getattr(device, 'pos_id', None),
             sync_enabled=device.sync_enabled,
         )
         return terminal_dto_to_device(dto)
@@ -791,7 +793,9 @@ def terminal_dto_to_device(dto: Any) -> Device:
         business_id=_sid(dto.organization_id) if getattr(dto, 'organization_id', None) else None,
         branch_id=getattr(dto, 'branch_ref', None),
         register_id=getattr(dto, 'register_ref', None),
+        pos_id=getattr(dto, 'pos_ref', None),
         app_version=getattr(dto, 'app_version', None),
+        android_version=getattr(dto, 'android_version', None),
         platform=getattr(dto, 'platform', None),
         device_model=getattr(dto, 'device_model', None),
         status=status,

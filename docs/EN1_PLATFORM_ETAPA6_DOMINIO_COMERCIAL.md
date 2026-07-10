@@ -83,7 +83,7 @@ SaasOrganization (Empresa / tenant)
 | **Empresa** | `SaasOrganization` — un tenant = una empresa fiscal operativa | `saas_organization` |
 | **Sucursal** | Local con dirección, FE y stock propios (si aplica) | `org_unit.type = branch` |
 | **Área** | Zona dentro de la sucursal (no vende sola; enruta a KDS/bodega) | `org_unit.type = area` |
-| **POS** | Punto lógico donde se originan pedidos (config, lista de precios, impresora) | `org_unit.type = pos` |
+| **POS** | Punto lógico donde se originan pedidos (config, lista de precios, impresora). **Unidad de licenciamiento comercial** ([ADR-005](ADR-005-EPOSONE-LICENSING-POS.md)); los dispositivos no consumen cupo POS. | `org_unit.type = pos` |
 | **Caja (register)** | Cuenta lógica de efectivo; N por sucursal | `org_unit.type = register` |
 | **Terminal** | Dispositivo que ejecuta la app; 1..N por POS o sucursal | `core_pos_terminal` |
 | **Turno** | Sesión de operación de un cajero sobre una caja | `core_cash_shift` |

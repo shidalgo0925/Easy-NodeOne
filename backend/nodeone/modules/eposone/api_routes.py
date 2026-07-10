@@ -9,10 +9,11 @@ from nodeone.core.commerce.cash import CashRegisterService
 from nodeone.core.commerce.order import OrderService, OrderValidationError
 from nodeone.core.commerce.payment import PaymentService
 from nodeone.core.commerce.pos import PosTerminalService
+from nodeone.core.license.policy import policy_for_organization
 from nodeone.core.master.constants import (
     MasterDataError,
     ORG_UNIT_TYPE_BRANCH,
-    ORG_UNIT_TYPE_POS_TERMINAL,
+    ORG_UNIT_TYPE_POS,
     ORG_UNIT_TYPE_REGISTER,
     ORG_UNIT_TYPE_WAREHOUSE,
 )
@@ -25,7 +26,12 @@ from nodeone.modules.eposone.contact_api import (
     contact_promote_legacy_handler,
     contact_resolve_handler,
 )
-from nodeone.modules.eposone.org_unit_api import org_unit_collection_handler, org_unit_get_handler
+from nodeone.modules.eposone.org_unit_api import (
+    org_unit_collection_handler,
+    org_unit_deactivate_handler,
+    org_unit_get_handler,
+    org_unit_patch_handler,
+)
 from nodeone.modules.eposone.product_api import product_collection_handler, product_get_handler
 from nodeone.modules.eposone.stock_api import stock_adjust_handler
 from flask_login import current_user
@@ -302,13 +308,17 @@ def terminals_collection():
         dto = PosTerminalService.register(
             gate,
             terminal_ref=terminal_ref,
-            device_label=body.get('device_label') or body.get('name'),
+            device_label=body.get('device_label') or body.get('name') or body.get('device_name'),
             register_ref=body.get('register_ref') or body.get('register_id'),
             profile=body.get('profile'),
             platform=body.get('platform'),
-            device_model=body.get('device_model'),
+            device_model=body.get('device_model') or body.get('model'),
             app_version=body.get('app_version'),
+            android_version=body.get('android_version'),
             branch_ref=body.get('branch_ref') or body.get('branch_id'),
+            pos_ref=body.get('pos_ref')
+            or body.get('pos_id')
+            or body.get('assigned_pos_id'),
             sync_enabled=body.get('sync_enabled'),
         )
     except OrderValidationError as exc:
@@ -342,7 +352,7 @@ def pos_units_collection():
         return gate
     return org_unit_collection_handler(
         gate,
-        unit_type=ORG_UNIT_TYPE_POS_TERMINAL,
+        unit_type=ORG_UNIT_TYPE_POS,
         collection_key='pos_units',
         item_key='pos_unit',
     )
@@ -354,7 +364,49 @@ def pos_units_get(unit_ref: str):
     gate = _org_gate()
     if not isinstance(gate, int):
         return gate
-    return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_POS_TERMINAL, item_key='pos_unit')
+    return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_POS, item_key='pos_unit')
+
+
+@eposone_api_bp.route('/pos-units/by-id/<int:unit_id>', methods=['PATCH'])
+@login_required
+def pos_units_patch(unit_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_patch_handler(gate, unit_id, item_key='pos_unit')
+
+
+@eposone_api_bp.route('/pos-units/by-id/<int:unit_id>/deactivate', methods=['POST'])
+@login_required
+def pos_units_deactivate(unit_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_deactivate_handler(gate, unit_id, item_key='pos_unit')
+
+
+@eposone_api_bp.route('/license-policy', methods=['GET'])
+@login_required
+def license_policy_get():
+    """Contrato LicensePolicy (ADR-005) — hoy siempre ilimitado / permitido."""
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    policy = policy_for_organization(gate)
+    return jsonify(
+        {
+            'limits': policy.limits.to_dict(),
+            'can_create': {
+                'company': policy.can_create_company(),
+                'branch': policy.can_create_branch(),
+                'pos': policy.can_create_pos(),
+                'cash_register': policy.can_create_cash_register(),
+                'device': policy.can_create_device(),
+                'user': policy.can_create_user(),
+            },
+            'enforcement': 'disabled',
+        }
+    )
 
 
 @eposone_api_bp.route('/registers', methods=['GET', 'POST'])

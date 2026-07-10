@@ -181,8 +181,16 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         active_path_prefixes=('/admin/eposone/section/branches',),
                     ),
                     AppNavItem(
+                        'pos-points',
+                        'Puntos de Venta',
+                        'fas fa-map-marker-alt',
+                        url=_section('pos-points'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/pos-points',),
+                    ),
+                    AppNavItem(
                         'terminales',
-                        'Terminales',
+                        'Dispositivos',
                         'fas fa-desktop',
                         url=_section('terminals'),
                         visible=_v_eposone,

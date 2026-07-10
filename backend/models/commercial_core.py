@@ -192,7 +192,10 @@ class CorePosTerminal(db.Model):
     platform = db.Column(db.String(32), nullable=True)  # android | web | ios
     device_model = db.Column(db.String(120), nullable=True)
     app_version = db.Column(db.String(64), nullable=True)
+    android_version = db.Column(db.String(64), nullable=True)
     branch_ref = db.Column(db.String(64), nullable=True)
+    # ADR-005 — vínculo al Punto de Venta (unidad comercial / sync)
+    pos_ref = db.Column(db.String(64), nullable=True, index=True)
     sync_enabled = db.Column(db.Boolean, nullable=False, default=True)
     last_seen_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

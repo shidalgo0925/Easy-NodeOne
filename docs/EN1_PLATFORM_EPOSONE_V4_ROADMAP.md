@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | Estado | **Aprobado** — 9 jul 2026 |
-| Fase actual | **Sprint 7 — Sincronización** (implementado; política Plataforma sobre motor existente) |
+| Fase actual | **Infra POS + LicensePolicy** (sin cupos) · sprints 1–7 ✅ · ADR-005 código stub ✅ |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Dominio comercial | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |
 | Contratos portables | [`EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md`](EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md) |
@@ -12,6 +12,7 @@
 | Vincular EN1 | [`EN1_PLATFORM_EPOSONE_V4_LINK_EN1.md`](EN1_PLATFORM_EPOSONE_V4_LINK_EN1.md) |
 | Dispositivos POS | [`EN1_PLATFORM_EPOSONE_V4_DEVICES.md`](EN1_PLATFORM_EPOSONE_V4_DEVICES.md) |
 | Sync Plataforma | [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) |
+| Licenciamiento | [`ADR-005-EPOSONE-LICENSING-POS.md`](ADR-005-EPOSONE-LICENSING-POS.md) |
 
 ---
 
@@ -34,6 +35,7 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | ADR-002 | [`ADR-002-EPOSONE-DOMAIN.md`](ADR-002-EPOSONE-DOMAIN.md) | Dominio único; SQLite/EN1 = proveedores |
 | ADR-003 | [`ADR-003-EPOSONE-SYNC.md`](ADR-003-EPOSONE-SYNC.md) | Modo Local · Modo Plataforma · Vincular con EN1 |
 | ADR-004 | [`ADR-004-EPOSONE-MIGRATION.md`](ADR-004-EPOSONE-MIGRATION.md) | Asistente Vincular con EasyNodeOne |
+| ADR-005 | [`ADR-005-EPOSONE-LICENSING-POS.md`](ADR-005-EPOSONE-LICENSING-POS.md) | Licenciamiento por Punto de Venta; cupos en Core |
 
 **Sprint 1:** ADRs + Master Plan / § 6.9. **Sin código.** ✅
 
@@ -49,9 +51,11 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 
 **Sprint 7:** sync Plataforma — [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) · `platform_sync.py` + rutas. **Motor intacto.** ✅
 
+**ADR-005:** licenciamiento por POS — [`ADR-005-EPOSONE-LICENSING-POS.md`](ADR-005-EPOSONE-LICENSING-POS.md). **Solo doc; sin cupos activos.** ✅
+
 ---
 
-## Sprints siguientes
+## Sprints / entregables
 
 | Sprint | Nombre | Estado | Resumen |
 |--------|--------|--------|---------|
@@ -62,6 +66,7 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | **5** | Vincular con EN1 | ✅ | Asistente Local → Plataforma (`link_en1.py`) |
 | **6** | Dispositivos POS | ✅ | UUID, perfil, app, empresa, sucursal, caja, flag sync |
 | **7** | Sincronización | ✅ | Bridge política Plataforma sobre `core/sync/` |
+| **—** | Licenciamiento POS | ✅ doc | ADR-005 — unidad = POS; dispositivos no consumen; Core limita después |
 
 ---
 
@@ -75,7 +80,10 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 6. EasyNodeOne **agrega capacidades**; nunca reemplaza EPosOne.
 7. Vincular con EN1 **no cambia la aplicación**; solo el backend.
 8. El usuario **nunca reinstala**, **nunca cambia de producto**, **nunca pierde información**.
-
+9. El dominio **no** se limita por el plan comercial (ADR-005).
+10. El **Punto de Venta** es la unidad de licenciamiento; los **dispositivos** no consumen licencia POS adicional.
+11. EPosOne **no** contiene lógica de planes; los límites viven en **EN1 Core**.
+12. Hoy los cupos están **ilimitados**; la arquitectura queda preparada vía hooks de política Core.
 ---
 
 ## Relación con trabajo Connected actual (appdev)
@@ -96,5 +104,6 @@ El motor `nodeone/core/sync/` permanece; § 6.9 describe **Modo Plataforma**. Mo
 - **GO Sprint 5:** vincular — hecho (`link_en1.py`; dominio; sin sync).  
 - **GO Sprint 6:** dispositivos — hecho (`devices.py` + `core_pos_terminal` V4).  
 - **GO Sprint 7:** sync — hecho (`platform_sync.py`; motor sin reescritura).  
-- Arquitectura V4 sprints 1–7 **cerrada en dominio/docs/API**. APK / tablets = trabajo de producto aparte.  
-- Sin GO: no push a staging/prod, no sync forzado a flotas.
+- **GO ADR-005:** licenciamiento por POS — documentado; **sin** implementar cupos.  
+- Arquitectura V4 sprints 1–7 + ADR-005 **cerrada en docs**. APK / tablets / guards de licencia = GO aparte.  
+- Sin GO: no push a staging/prod, no sync forzado a flotas, no activar límites.

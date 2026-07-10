@@ -241,7 +241,7 @@ class Promotion:
 
 @dataclass(frozen=True)
 class Device:
-    """Terminal POS — Sprint 2 contrato + Sprint 6 (vinculo empresa/caja/sync)."""
+    """Terminal POS — Sprint 2 contrato + Sprint 6 + ADR-005 (vínculo POS)."""
 
     id: str  # UUID estable del dispositivo
     profile: str  # fixed | handheld
@@ -249,7 +249,9 @@ class Device:
     business_id: str | None = None
     branch_id: str | None = None
     register_id: str | None = None
+    pos_id: str | None = None  # unit_ref del Punto de Venta (unidad comercial / sync)
     app_version: str | None = None
+    android_version: str | None = None
     platform: str | None = None  # android | web | ios
     device_model: str | None = None  # hardware / modelo comercial
     status: str = 'active'  # active | inactive

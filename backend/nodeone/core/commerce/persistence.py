@@ -107,7 +107,9 @@ def pos_terminal_to_dto(row: CorePosTerminal) -> PosTerminalDTO:
         platform=(getattr(row, 'platform', None) or None),
         device_model=(getattr(row, 'device_model', None) or None),
         app_version=(getattr(row, 'app_version', None) or None),
+        android_version=(getattr(row, 'android_version', None) or None),
         branch_ref=(getattr(row, 'branch_ref', None) or None),
+        pos_ref=(getattr(row, 'pos_ref', None) or None),
         sync_enabled=bool(getattr(row, 'sync_enabled', True)),
         last_seen_at=getattr(row, 'last_seen_at', None),
     )

@@ -1,6 +1,6 @@
-"""Sprint 6 — Dispositivos POS (registro, perfil, vínculo empresa/caja).
+"""Sprint 6 — Dispositivos POS (registro, perfil, vínculo empresa/POS/caja).
 
-Capa de casos de uso sobre ``DeviceRepository``. No cablea sync (Sprint 7).
+Capa de casos de uso sobre ``DeviceRepository``. Sync por POS: Sprint 7 / ADR-005.
 """
 
 from __future__ import annotations
@@ -36,7 +36,9 @@ class RegisterDeviceInput:
     business_id: str | None = None
     branch_id: str | None = None
     register_id: str | None = None
+    pos_id: str | None = None
     app_version: str | None = None
+    android_version: str | None = None
     platform: str | None = None
     device_model: str | None = None
     sync_enabled: bool = True
@@ -73,8 +75,14 @@ class DeviceRegistry:
                 register_id=(
                     data.register_id if data.register_id is not None else existing.register_id
                 ),
+                pos_id=data.pos_id if data.pos_id is not None else existing.pos_id,
                 app_version=(
                     data.app_version if data.app_version is not None else existing.app_version
+                ),
+                android_version=(
+                    data.android_version
+                    if data.android_version is not None
+                    else existing.android_version
                 ),
                 platform=data.platform if data.platform is not None else existing.platform,
                 device_model=(
@@ -93,7 +101,9 @@ class DeviceRegistry:
             business_id=(data.business_id or '').strip() or None,
             branch_id=(data.branch_id or '').strip() or None,
             register_id=(data.register_id or '').strip() or None,
+            pos_id=(data.pos_id or '').strip() or None,
             app_version=(data.app_version or '').strip() or None,
+            android_version=(data.android_version or '').strip() or None,
             platform=(data.platform or '').strip() or None,
             device_model=(data.device_model or '').strip() or None,
             status='active',
@@ -110,6 +120,7 @@ class DeviceRegistry:
         business_id: str | None = None,
         branch_id: str | None = None,
         register_id: str | None = None,
+        pos_id: str | None = None,
     ) -> Device:
         d = self._devices.get(device_id)
         if d is None:
@@ -119,6 +130,7 @@ class DeviceRegistry:
             business_id=business_id if business_id is not None else d.business_id,
             branch_id=branch_id if branch_id is not None else d.branch_id,
             register_id=register_id if register_id is not None else d.register_id,
+            pos_id=pos_id if pos_id is not None else d.pos_id,
         )
         return self._devices.upsert(saved)
 

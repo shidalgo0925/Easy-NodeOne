@@ -5,7 +5,8 @@ from __future__ import annotations
 ORG_UNIT_TYPE_COMPANY = 'company'
 ORG_UNIT_TYPE_BRANCH = 'branch'
 ORG_UNIT_TYPE_WAREHOUSE = 'warehouse'
-ORG_UNIT_TYPE_POS_TERMINAL = 'pos_terminal'
+ORG_UNIT_TYPE_POS = 'pos'  # Punto de Venta — unidad de licenciamiento (ADR-005)
+ORG_UNIT_TYPE_POS_TERMINAL = 'pos_terminal'  # legado; alias de POS lógico (no dispositivo)
 ORG_UNIT_TYPE_REGISTER = 'register'
 
 ORG_UNIT_TYPES = frozenset(
@@ -13,10 +14,14 @@ ORG_UNIT_TYPES = frozenset(
         ORG_UNIT_TYPE_COMPANY,
         ORG_UNIT_TYPE_BRANCH,
         ORG_UNIT_TYPE_WAREHOUSE,
+        ORG_UNIT_TYPE_POS,
         ORG_UNIT_TYPE_POS_TERMINAL,
         ORG_UNIT_TYPE_REGISTER,
     }
 )
+
+# Tipos que cuentan como Punto de Venta (licencia)
+ORG_UNIT_POS_TYPES = frozenset({ORG_UNIT_TYPE_POS, ORG_UNIT_TYPE_POS_TERMINAL})
 
 ORG_UNIT_STATUS_ACTIVE = 'active'
 ORG_UNIT_STATUS_INACTIVE = 'inactive'

@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">{{ section_description }}</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            {% if license_info %}
+            <span class="badge text-bg-success-subtle border">Licencia: sin cupos (todo permitido)</span>
+            {% endif %}
+            <span class="badge bg-secondary">{{ pos_units_total }} POS</span>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0">Crear Punto de Venta</h2>
+                    <p class="text-muted small mb-0">Empresa → Sucursal → POS (ilimitado)</p>
+                </div>
+                <div class="card-body">
+                    <form id="form-create-pos" class="vstack gap-2">
+                        <div>
+                            <label class="form-label small mb-0" for="pos-code">Código</label>
+                            <input class="form-control form-control-sm" id="pos-code" name="unit_ref" required placeholder="POS-01">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="pos-name">Nombre</label>
+                            <input class="form-control form-control-sm" id="pos-name" name="name" required placeholder="Caja principal / Terraza">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="pos-branch">Sucursal (parent)</label>
+                            <select class="form-select form-select-sm" id="pos-branch" name="parent_id">
+                                <option value="">— sin parent —</option>
+                                {% for b in branches %}
+                                <option value="{{ b.id }}">{{ b.name }} ({{ b.unit_ref }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="pos-notes">Descripción</label>
+                            <input class="form-control form-control-sm" id="pos-notes" name="notes" placeholder="Opcional">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">Crear POS</button>
+                        <p id="pos-create-msg" class="small text-muted mb-0" hidden></p>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0">Puntos de Venta</h2>
+                </div>
+                <div class="card-body p-0">
+                    {% if pos_units %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Tipo</th>
+                                    <th>Estado</th>
+                                    <th>Cajas</th>
+                                    <th>Dispositivos</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pos_units %}
+                                {% set regs = registers_by_pos.get(item.id, []) %}
+                                {% set devs = devices_by_pos.get(item.unit_ref, []) %}
+                                <tr>
+                                    <td><code>{{ item.unit_ref }}</code></td>
+                                    <td>{{ item.name }}</td>
+                                    <td><span class="badge text-bg-light border">{{ item.unit_type }}</span></td>
+                                    <td><span class="badge text-bg-light border">{{ item.status }}</span></td>
+                                    <td class="text-muted small">{{ regs|length }}</td>
+                                    <td class="text-muted small">{{ devs|length }}</td>
+                                    <td class="text-end">
+                                        {% if item.status == 'active' %}
+                                        <button type="button" class="btn btn-outline-secondary btn-sm btn-deactivate-pos" data-id="{{ item.id }}">Desactivar</button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted small">
+                        Sin POS todavía. Creá el primero con el formulario o
+                        <code>POST /api/eposone/pos-units</code>.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0">Cajas (registers)</h2>
+                    <p class="text-muted small mb-0">Asigná parent_id = id del POS vía API</p>
+                </div>
+                <div class="card-body p-0">
+                    {% if registers %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ref.</th>
+                                    <th>Nombre</th>
+                                    <th>Parent POS</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in registers %}
+                                <tr>
+                                    <td><code>{{ r.unit_ref }}</code></td>
+                                    <td>{{ r.name }}</td>
+                                    <td class="text-muted small">{{ r.parent_id or '—' }}</td>
+                                    <td>{{ r.status }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted small">Sin cajas — <code>POST /api/eposone/registers</code></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0">Dispositivos vinculados</h2>
+                    <p class="text-muted small mb-0">pos_ref + register_ref en registro Android</p>
+                </div>
+                <div class="card-body p-0">
+                    {% if devices %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>UUID</th>
+                                    <th>POS</th>
+                                    <th>Caja</th>
+                                    <th>Plataforma</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in devices %}
+                                <tr>
+                                    <td><code class="small">{{ d.terminal_ref }}</code></td>
+                                    <td class="small">{{ d.pos_ref or '—' }}</td>
+                                    <td class="small">{{ d.register_ref or '—' }}</td>
+                                    <td class="small text-muted">{{ d.platform or '—' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted small">Sin dispositivos registrados.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  function csrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    return m ? m.getAttribute('content') : '';
+  }
+  var form = document.getElementById('form-create-pos');
+  var msg = document.getElementById('pos-create-msg');
+  if (form) {
+    form.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      var body = {
+        unit_ref: document.getElementById('pos-code').value.trim(),
+        name: document.getElementById('pos-name').value.trim(),
+        notes: document.getElementById('pos-notes').value.trim() || null,
+        unit_type: 'pos'
+      };
+      var parent = document.getElementById('pos-branch').value;
+      if (parent) body.parent_id = parseInt(parent, 10);
+      msg.hidden = false;
+      msg.textContent = 'Creando…';
+      try {
+        var res = await fetch('/api/eposone/pos-units', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf()
+          },
+          body: JSON.stringify(body)
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        msg.textContent = 'POS creado: ' + (data.pos_unit && data.pos_unit.unit_ref);
+        window.location.reload();
+      } catch (e) {
+        msg.textContent = 'Error: ' + e.message;
+      }
+    });
+  }
+  document.querySelectorAll('.btn-deactivate-pos').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-id');
+      if (!id || !confirm('¿Desactivar este POS?')) return;
+      try {
+        var res = await fetch('/api/eposone/pos-units/by-id/' + id + '/deactivate', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf() }
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        window.location.reload();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

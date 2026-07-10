@@ -219,7 +219,9 @@ class PosTerminalDTO:
     platform: str | None = None
     device_model: str | None = None
     app_version: str | None = None
+    android_version: str | None = None
     branch_ref: str | None = None
+    pos_ref: str | None = None
     sync_enabled: bool = True
     last_seen_at: datetime | None = None
 
@@ -236,7 +238,10 @@ class PosTerminalDTO:
             'platform': self.platform,
             'device_model': self.device_model,
             'app_version': self.app_version,
+            'android_version': self.android_version,
             'branch_ref': self.branch_ref,
+            'pos_ref': self.pos_ref,
+            'assigned_pos_id': self.pos_ref,
             'sync_enabled': self.sync_enabled,
             'last_seen_at': self.last_seen_at.isoformat() if self.last_seen_at else None,
         }

@@ -297,15 +297,41 @@ def terminals_collection():
         return jsonify({'terminals': [t.to_dict() for t in items], 'count': len(items)})
     body = request.get_json(silent=True) or {}
     try:
+        # Sprint 6: device_id (UUID) preferido; terminal_ref sigue válido
+        terminal_ref = str(body.get('device_id') or body.get('terminal_ref') or '').strip()
         dto = PosTerminalService.register(
             gate,
-            terminal_ref=str(body.get('terminal_ref') or ''),
-            device_label=body.get('device_label'),
-            register_ref=body.get('register_ref'),
+            terminal_ref=terminal_ref,
+            device_label=body.get('device_label') or body.get('name'),
+            register_ref=body.get('register_ref') or body.get('register_id'),
+            profile=body.get('profile'),
+            platform=body.get('platform'),
+            device_model=body.get('device_model'),
+            app_version=body.get('app_version'),
+            branch_ref=body.get('branch_ref') or body.get('branch_id'),
+            sync_enabled=body.get('sync_enabled'),
         )
     except OrderValidationError as exc:
         return jsonify({'error': str(exc)}), 400
-    return jsonify({'terminal': dto.to_dict()}), 201
+    return jsonify({'terminal': dto.to_dict(), 'device': dto.to_dict()}), 201
+
+
+@eposone_api_bp.route('/terminals/<terminal_ref>/heartbeat', methods=['POST'])
+@login_required
+def terminals_heartbeat(terminal_ref: str):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    dto = PosTerminalService.heartbeat(
+        gate,
+        terminal_ref,
+        last_seen_at=body.get('last_seen_at'),
+        app_version=body.get('app_version'),
+    )
+    if dto is None:
+        return jsonify({'error': 'terminal_not_found'}), 404
+    return jsonify({'terminal': dto.to_dict()})
 
 
 @eposone_api_bp.route('/pos-units', methods=['GET', 'POST'])

@@ -187,6 +187,14 @@ class CorePosTerminal(db.Model):
     register_ref = db.Column(db.String(64), nullable=True)
     status = db.Column(db.String(32), nullable=False, default='active')
     device_label = db.Column(db.String(200), nullable=True)
+    # Sprint 6 — Dispositivos POS V4
+    profile = db.Column(db.String(32), nullable=False, default='fixed')  # fixed | handheld
+    platform = db.Column(db.String(32), nullable=True)  # android | web | ios
+    device_model = db.Column(db.String(120), nullable=True)
+    app_version = db.Column(db.String(64), nullable=True)
+    branch_ref = db.Column(db.String(64), nullable=True)
+    sync_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    last_seen_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (

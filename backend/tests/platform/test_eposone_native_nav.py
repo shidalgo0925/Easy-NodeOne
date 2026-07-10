@@ -82,6 +82,14 @@ class TestEposoneNavTree(unittest.TestCase):
         self.assertIn('Catálogo', labels)
         self.assertIn('Organización', labels)
         self.assertIn('Sistema', labels)
+        self.assertIn('Inteligencia', labels)
+        inteligencia = next(d for d in tree.domains if d.id == 'inteligencia')
+        child_labels = {c.label for c in inteligencia.children}
+        self.assertIn('Analítica POS', child_labels)
+        reportes = next(c for c in inteligencia.children if c.id == 'reportes')
+        self.assertIn('/admin/eposone/analytics', reportes.url or '')
+        self.assertNotIn('source=eposone', reportes.url or '')
+        self.assertNotIn('/admin/analytics/sales', reportes.url or '')
 
     def test_clientes_not_contactos(self):
         from nodeone.modules.eposone.nav import build_nav_tree
@@ -136,7 +144,24 @@ class TestMergeNativeAppNav(unittest.TestCase):
             self.assertFalse(out.get('nav_show_module_bar'))
             self.assertTrue(out.get('nav_use_context_bar'))
             self.assertEqual(out.get('nav_area_children'), [])
+            self.assertTrue(out.get('platform_shell_show_apps_return'))
+            self.assertEqual(out.get('platform_apps_return_label'), '← Mis aplicaciones')
+            self.assertTrue(out.get('platform_apps_return_url'))
+            self.assertEqual(out.get('platform_shell_app_accent'), 'eposone')
+            self.assertEqual(out.get('platform_shell_app_product_name'), 'EPosOne')
+            self.assertEqual(out.get('platform_shell_app_tagline'), 'Punto de venta')
         os.environ.pop('NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS', None)
+
+    def test_apps_return_payload_copy(self):
+        from nodeone.core.platform.app_shell import _apps_return_payload, _app_identity_payload
+
+        with self.app.test_request_context('/admin/eposone/dashboard'):
+            ret = _apps_return_payload()
+            ident = _app_identity_payload('eposone')
+        self.assertEqual(ret['platform_apps_return_label'], '← Mis aplicaciones')
+        self.assertNotIn('Salir', ret['platform_apps_return_label'])
+        self.assertEqual(ident['platform_shell_app_accent'], 'eposone')
+        self.assertEqual(ident['platform_shell_app_product_name'], 'EPosOne')
 
 
 class TestMergeAppShellContacts(unittest.TestCase):
@@ -185,6 +210,33 @@ class TestMergeAppShellContacts(unittest.TestCase):
             self.assertFalse(out.get('platform_app_shell_active'))
             self.assertFalse(out.get('nav_show_module_bar'))
             self.assertNotEqual(out.get('platform_shell_app_label'), 'EPosOne')
+
+
+class TestEposoneSidebarEntry(unittest.TestCase):
+    def test_eposone_in_sidebar_top_level(self):
+        from nodeone.core.nav_menu import build_nav_context, visible_sidebar_launcher
+
+        ctx = build_nav_context(
+            nav_can=lambda _p: True,
+            saas_module_enabled=lambda code: code == 'eposone',
+            saas_module_enabled_chain=lambda *_c: True,
+            has_view_endpoint=lambda _e: True,
+            show_academic_admin_nav=False,
+            office365_module_enabled=False,
+            show_platform_admin_nav=False,
+            is_platform_admin=False,
+            is_advisor=False,
+            show_tenant_admin_menu=True,
+        )
+        top, _groups = visible_sidebar_launcher(ctx)
+        self.assertIn('eposone', [a['id'] for a in top])
+        epos = next(a for a in top if a['id'] == 'eposone')
+        self.assertTrue(epos.get('temporary_app_shortcut'))
+        self.assertEqual(epos.get('badge'), 'App')
+        self.assertIn('temporal', (epos.get('title') or '').lower())
+        contactos = next((a for a in top if a['id'] == 'contactos'), None)
+        if contactos:
+            self.assertFalse(contactos.get('temporary_app_shortcut'))
 
 
 if __name__ == '__main__':

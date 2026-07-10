@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Analítica POS | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h4 mb-0 app-page-title"><i class="fas fa-chart-bar me-2 text-primary"></i>Analítica POS</h1>
+        </div>
+        <a href="{{ url_for('eposone.eposone_home') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-chart-line me-1"></i> Dashboard
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
+                <div class="card-body py-3">
+                    <div class="en1-kpi-label">Pedidos hoy</div>
+                    <div class="en1-kpi-value">{{ kpis.orders_today if kpis else '0' }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
+                <div class="card-body py-3">
+                    <div class="en1-kpi-label">Ventas hoy</div>
+                    <div class="en1-kpi-value">
+                        {% if kpis %}{{ '%.2f'|format(kpis.sales_today) }} {{ kpis.currency }}{% else %}0.00{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
+                <div class="card-body py-3">
+                    <div class="en1-kpi-label">Cajas abiertas</div>
+                    <div class="en1-kpi-value">{{ kpis.open_registers if kpis else '0' }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
+                <div class="card-body py-3">
+                    <div class="en1-kpi-label">Alertas stock</div>
+                    <div class="en1-kpi-value">{{ kpis.stock_alerts if kpis else '0' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h2 class="h6 text-uppercase en1-section-label mb-3">Movimientos recientes</h2>
+            {% if recent_reports %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Referencia</th>
+                            <th class="text-end">Monto</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in recent_reports %}
+                        <tr>
+                            <td>
+                                {% if row.metric == 'sale' %}
+                                <span class="badge en1-badge en1-badge--neutral">Venta</span>
+                                {% elif row.metric == 'refund' %}
+                                <span class="badge en1-badge en1-badge--neutral">Reembolso</span>
+                                {% elif row.metric == 'order_voided' %}
+                                <span class="badge en1-badge en1-badge--neutral">Anulado</span>
+                                {% elif row.metric == 'shift_closed' %}
+                                <span class="badge en1-badge en1-badge--neutral">Cierre caja</span>
+                                {% else %}
+                                <span class="badge en1-badge en1-badge--neutral">{{ row.metric or row.event_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td><code>{{ row.order_ref or row.register_ref or '—' }}</code></td>
+                            <td class="text-end">
+                                {% if row.amount is not none %}{{ '%.2f'|format(row.amount) }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-muted small">{{ row.created_at[:16]|replace('T', ' ') if row.created_at else '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="mb-0 small text-muted">Sin movimientos aún. Aparecerán al registrar ventas o cerrar caja.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

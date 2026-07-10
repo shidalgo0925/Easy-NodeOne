@@ -23,11 +23,28 @@ def _org_id_for_launcher():
     return _org_id_for_module_visibility()
 
 
+def _org_may_use_launcher(org_id: int | None) -> bool:
+    """
+    Launcher oficial (Mis aplicaciones).
+    Modo ``apps`` siempre; en classic también si la org tiene EPosOne (atajo temporal UX-T1).
+    """
+    if launcher_mode_for_organization(org_id) == 'apps':
+        return True
+    if org_id is None:
+        return False
+    try:
+        from nodeone.services.saas_module_cache import has_saas_module_enabled_cached
+
+        return bool(has_saas_module_enabled_cached(int(org_id), 'eposone'))
+    except Exception:
+        return False
+
+
 def _require_launcher_access():
     if not user_can_see_tenant_admin_menu(current_user):
         return redirect(url_for('dashboard'))
     org_id = _org_id_for_launcher()
-    if launcher_mode_for_organization(org_id) != 'apps':
+    if not _org_may_use_launcher(org_id):
         try:
             return redirect(url_for('admin_dashboard'))
         except Exception:
@@ -117,7 +134,8 @@ def register_platform_launcher(app):
             mode = launcher_mode_for_organization(org_id)
             out['platform_launcher_mode'] = mode
             out['platform_active_app_id'] = get_active_app_id(session)
-            out['platform_launcher_enabled'] = mode == 'apps'
+            # UX-T1: mostrar entrada a Mis aplicaciones también en classic si hay EPosOne.
+            out['platform_launcher_enabled'] = _org_may_use_launcher(org_id)
         except Exception:
             pass
         return out

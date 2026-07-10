@@ -320,7 +320,9 @@ def _render_pdf(
             membership_start = membership_start.strftime('%Y-%m-%d')
         if membership_end and hasattr(membership_end, 'strftime'):
             membership_end = membership_end.strftime('%Y-%m-%d')
-        document_id = getattr(user, 'document_id', None) or getattr(user, 'cedula', None) or ''
+        from nodeone.services.certificate_membership_bulk import user_document_id
+
+        document_id = user_document_id(user)
     event_name = cert_event.name
     sample_data = {
         'participant_name': full_name,
@@ -582,22 +584,40 @@ def request_certificate(event_id):
         certificate_event_id=cert_event.id
     ).first()
     if existing:
-        real_path = resolve_membership_certificate_pdf_path(
-            existing.pdf_path, existing.certificate_code
+        from nodeone.services.certificate_membership_bulk import (
+            ensure_emission_snapshot,
+            refresh_snapshot_document_id,
+            user_document_id,
         )
-        if real_path and (existing.pdf_path or '') != real_path:
-            existing.pdf_path = real_path
-            db.session.commit()
-        if not real_path:
-            from nodeone.services.certificate_membership_bulk import ensure_emission_snapshot
+        import json as _json
 
-            snap = ensure_emission_snapshot(existing, current_user, cert_event, persist=True)
+        snap = ensure_emission_snapshot(existing, current_user, cert_event, persist=True)
+        profile_doc = user_document_id(current_user)
+        snap_doc = (snap.get('document_id') or '').strip()
+        needs_doc_refresh = profile_doc != snap_doc
+        if needs_doc_refresh:
+            snap = refresh_snapshot_document_id(snap, current_user)
+            existing.emission_snapshot = _json.dumps(snap, ensure_ascii=False)
             real_path = _regenerate_membership_certificate_pdf(
                 existing, cert_event, current_user, emission_snapshot=snap, force=True
             )
             if not real_path:
                 return jsonify({'error': 'No se pudo generar el PDF'}), 500
             db.session.commit()
+        else:
+            real_path = resolve_membership_certificate_pdf_path(
+                existing.pdf_path, existing.certificate_code
+            )
+            if real_path and (existing.pdf_path or '') != real_path:
+                existing.pdf_path = real_path
+                db.session.commit()
+            if not real_path:
+                real_path = _regenerate_membership_certificate_pdf(
+                    existing, cert_event, current_user, emission_snapshot=snap, force=True
+                )
+                if not real_path:
+                    return jsonify({'error': 'No se pudo generar el PDF'}), 500
+                db.session.commit()
         return jsonify({
             'certificate_code': existing.certificate_code,
             'download_url': _membership_download_url(existing.certificate_code),
@@ -722,26 +742,55 @@ def _certificates_pdf_dir():
 def download_certificate(certificate_code):
     """Descarga el PDF del certificado si pertenece al usuario."""
     from app import Certificate, CertificateEvent, db
+    import json as _json
+
+    from nodeone.services.certificate_membership_bulk import (
+        ensure_emission_snapshot,
+        refresh_snapshot_document_id,
+        user_document_id,
+    )
+
     cert = Certificate.query.filter_by(certificate_code=certificate_code).first()
     if not cert:
         return jsonify({'error': 'Certificado no encontrado'}), 404
     if cert.user_id != current_user.id:
         return jsonify({'error': 'No autorizado'}), 403
-    real_path = resolve_membership_certificate_pdf_path(cert.pdf_path, cert.certificate_code)
-    if real_path and (cert.pdf_path or '') != real_path:
-        cert.pdf_path = real_path
-        db.session.commit()
-    if not real_path:
-        cert_event = CertificateEvent.query.get(cert.certificate_event_id)
-        if cert_event:
-            from nodeone.services.certificate_membership_bulk import ensure_emission_snapshot
 
-            snap = ensure_emission_snapshot(cert, current_user, cert_event, persist=True)
+    cert_event = CertificateEvent.query.get(cert.certificate_event_id)
+    snap = None
+    if cert_event:
+        snap = ensure_emission_snapshot(cert, current_user, cert_event, persist=True)
+        profile_doc = user_document_id(current_user)
+        snap_doc = (snap.get('document_id') or '').strip()
+        if profile_doc != snap_doc:
+            snap = refresh_snapshot_document_id(snap, current_user)
+            cert.emission_snapshot = _json.dumps(snap, ensure_ascii=False)
             real_path = _regenerate_membership_certificate_pdf(
                 cert, cert_event, current_user, emission_snapshot=snap, force=True
             )
             if real_path:
                 db.session.commit()
+            if not real_path:
+                return jsonify({'error': 'Archivo no disponible'}), 404
+            return send_file(
+                real_path,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=f"certificado_{certificate_code.replace('/', '_')}.pdf",
+            )
+
+    real_path = resolve_membership_certificate_pdf_path(cert.pdf_path, cert.certificate_code)
+    if real_path and (cert.pdf_path or '') != real_path:
+        cert.pdf_path = real_path
+        db.session.commit()
+    if not real_path and cert_event:
+        if snap is None:
+            snap = ensure_emission_snapshot(cert, current_user, cert_event, persist=True)
+        real_path = _regenerate_membership_certificate_pdf(
+            cert, cert_event, current_user, emission_snapshot=snap, force=True
+        )
+        if real_path:
+            db.session.commit()
     if not real_path:
         return jsonify({'error': 'Archivo no disponible'}), 404
     return send_file(

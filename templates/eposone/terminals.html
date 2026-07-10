@@ -13,7 +13,7 @@
     </div>
 
     <div class="row g-3">
-        <div class="col-lg-6">
+        <div class="col-lg-5">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 pb-0">
                     <h2 class="h6 mb-0">Puntos POS (org_unit)</h2>
@@ -49,11 +49,11 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-6">
+        <div class="col-lg-7">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 pb-0">
                     <h2 class="h6 mb-0">Dispositivos registrados</h2>
-                    <p class="text-muted small mb-0">Captura en piso — <code>core_pos_terminal</code></p>
+                    <p class="text-muted small mb-0">UUID estable · perfil · app · caja — <code>POST /api/eposone/terminals</code></p>
                 </div>
                 <div class="card-body p-0">
                     {% if devices %}
@@ -61,18 +61,26 @@
                         <table class="table table-sm table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Ref.</th>
-                                    <th>Etiqueta</th>
+                                    <th>UUID / ref.</th>
+                                    <th>Nombre</th>
+                                    <th>Perfil</th>
+                                    <th>Plataforma</th>
                                     <th>Caja</th>
+                                    <th>Sync</th>
+                                    <th>Último visto</th>
                                     <th>Estado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for device in devices %}
                                 <tr>
-                                    <td><code>{{ device.terminal_ref }}</code></td>
+                                    <td><code class="small">{{ device.terminal_ref }}</code></td>
                                     <td>{{ device.device_label or '—' }}</td>
+                                    <td><span class="badge text-bg-light border">{{ device.profile or 'fixed' }}</span></td>
+                                    <td class="text-muted small">{{ device.platform or '—' }}{% if device.app_version %} <span class="text-muted">· {{ device.app_version }}</span>{% endif %}</td>
                                     <td class="text-muted small">{{ device.register_ref or '—' }}</td>
+                                    <td>{% if device.sync_enabled %}<span class="badge text-bg-success-subtle border">on</span>{% else %}<span class="badge text-bg-light border">off</span>{% endif %}</td>
+                                    <td class="text-muted small">{% if device.last_seen_at %}{{ device.last_seen_at }}{% else %}—{% endif %}</td>
                                     <td><span class="badge text-bg-light border">{{ device.status }}</span></td>
                                 </tr>
                                 {% endfor %}
@@ -81,7 +89,7 @@
                     </div>
                     {% else %}
                     <div class="p-4 text-muted small">
-                        Sin dispositivos — <code>POST /api/eposone/terminals</code>
+                        Sin dispositivos — registrá con <code>device_id</code> (UUID), <code>profile</code> (fixed|handheld), sucursal y caja.
                     </div>
                     {% endif %}
                 </div>

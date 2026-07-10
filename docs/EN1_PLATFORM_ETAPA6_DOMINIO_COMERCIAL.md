@@ -4,10 +4,11 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión doc | **1.2** |
-| Estado | **Cerrada v1.2** — dominio aprobado 2026-07-08; **sin código** hasta GO Etapa 7 en chat nuevo |
+| Versión doc | **1.3** |
+| Estado | **Cerrada v1.2** dominio aprobado 2026-07-08 · **§ 6.9 aclarado v1.3** (modos EPosOne V4, 9 jul 2026) |
 | Alcance edición | Solo Dev EN1 (`develop`) |
-| Master plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) v3.1 |
+| Master plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) v3.2 |
+| EPosOne V4 ADR | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
 | Modelo maestro Core | [`EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md`](EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md) |
 | Scaffold técnico (referencia) | `nodeone/core/commerce/`, EPosOne Etapas EN1 12–17 |
 
@@ -753,13 +754,26 @@ Eventos: `commerce.invoice.requested`, `.posted`, `.failed`, `.cancelled`.
 
 **Objetivo:** qué se sincroniza, en qué orden, y cómo se resuelven conflictos.
 
-**Estado:** borrador decisión v1.
+**Estado:** borrador decisión v1 · **alcance de modos aclarado v1.3** (EPosOne V4 ADR, 9 jul 2026).
 
-#### Principios v1
+#### Alcance por modo operativo (EPosOne V4)
+
+> **Importante:** esta sección § 6.9 describe el **Modo Plataforma** (EN1 como fuente de verdad + offline temporal).  
+> No redefine el dominio comercial (6.1–6.8). Los modos completos están en [ADR-003](ADR-003-EPOSONE-SYNC.md).
+
+| Modo | Fuente de verdad | ¿Aplica § 6.9? |
+|------|------------------|----------------|
+| **Modo Local** | SQLite en el dispositivo | **No** — sin EN1; sin motor sync de plataforma |
+| **Modo Plataforma** | Servidor EN1 | **Sí** — principios, prioridades y conflictos de abajo |
+| **Vincular con EN1** | Transición Local → Plataforma | **No como sync continuo** — asistente de cutover ([ADR-004](ADR-004-EPOSONE-MIGRATION.md)); al terminar entra Modo Plataforma y sí aplica § 6.9 |
+
+**Dominio único:** Producto, Cliente, Pedido, Caja, etc. son el mismo modelo en todos los modos ([ADR-002](ADR-002-EPOSONE-DOMAIN.md)). SQLite y EN1 son **proveedores de datos**, no modelos distintos. El scaffold `nodeone/core/sync/` **no se modifica** en Sprint 1 V4; se conecta al Modo Plataforma en Sprint 7.
+
+#### Principios v1 (Modo Plataforma)
 
 | Principio | Decisión |
 |-----------|----------|
-| Fuente de verdad | **Servidor** — cliente offline es caché + cola de escritura |
+| Fuente de verdad | **Servidor EN1** — cliente offline es caché + cola de escritura |
 | Transporte | Eventos + operaciones idempotentes — **no** sync de tablas entre apps |
 | Identificador offline | `idempotency_key` por operación (UUID generado en terminal) |
 | Versión | Campo `version` en pedido — optimistic locking |
@@ -856,6 +870,7 @@ Matriz detallada:
 | Prioridades | Hecho (borrador v1) |
 | Matriz conflictos | Hecho (borrador v1) |
 | Operaciones idempotentes | Hecho (borrador v1) |
+| Alcance por modo (Local / Plataforma / Vincular) | Hecho (v1.3 — ADR-003) |
 | Aprobación responsable | Pendiente |
 
 ---

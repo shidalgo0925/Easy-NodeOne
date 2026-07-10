@@ -90,6 +90,14 @@ def native_app_nav_enabled(organization_id: int | None, nav_area_id: str | None)
         return True
     if os.environ.get('NODEONE_EPOSONE_NATIVE_NAV', '').strip() == '1':
         return True
+    if nav_area_id == 'eposone' and oid is not None:
+        try:
+            from nodeone.services.saas_module_cache import has_saas_module_enabled_cached
+
+            if has_saas_module_enabled_cached(oid, 'eposone'):
+                return True
+        except Exception:
+            pass
     seed = _parse_org_id_list('NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS')
     if nav_area_id == 'eposone' and oid is not None and seed and oid in seed:
         return True

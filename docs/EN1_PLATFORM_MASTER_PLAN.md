@@ -4,10 +4,11 @@
 
 | Campo | Valor |
 |-------|--------|
-| Versión | **3.1** (Roadmap Oficial Platform V3 — dominio antes de features) |
-| Estado | Aprobado — **V3 Etapa 6 Dominio Comercial cerrada** (v1.2, 2026-07-08) |
+| Versión | **3.2** (Roadmap Oficial Platform V3 + **EPosOne V4** arquitectura Standalone/Plataforma) |
+| Estado | Aprobado — **V3 Etapa 6 Dominio Comercial cerrada** (v1.2) · **EPosOne V4 ADR Sprint 1 congelado** (9 jul 2026) |
 | Alcance edición | Solo `/opt/easynodeone/dev/app` (Dev EN1) |
 | Documento operativo | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
+| EPosOne V4 (ADR + contratos) | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) … [ADR-004](ADR-004-EPOSONE-MIGRATION.md) · [`EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md`](EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md) |
 
 ---
 
@@ -33,7 +34,8 @@ EasyNodeOne Platform será la plataforma empresarial de ETS. Solo administrará 
 |------|------|
 | **Apps de plataforma** | **EPosOne** · **EMembership** · **ECRM** · **EEvents** · **ECertificates** · **EAppointments** |
 
-**EPosOne** = principal desarrollo funcional bajo la nueva arquitectura.
+**EPosOne** = principal desarrollo funcional bajo la nueva arquitectura.  
+**Arquitectura V4 (congelada):** producto independiente con **Modo Local** (SQLite, sin EN1 obligatorio), **Modo Plataforma** (EN1 fuente de verdad + sync § 6.9) y **Vincular con EN1** (Local → Plataforma sin reinstalar). Una sola APK; un solo dominio; SQLite/EN1 = proveedores. Ver [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md).
 
 **EMembership, ECRM, EEvents, ECertificates, EAppointments** = evolucionan e integran progresivamente (Etapa 5 — migración por app).
 
@@ -79,10 +81,20 @@ Los siguientes productos **no forman parte** de EasyNodeOne Platform. Cada uno m
 
 ```text
 EasyNodeOne Platform  →  plataforma empresarial (Core + Apps de plataforma)
-EPosOne               →  principal producto funcional de la plataforma
+EPosOne               →  producto POS (Local y/o Plataforma; una APK; dominio único)
 EMembership … EAppointments  →  integración progresiva
 EPayRoll, EM+Acción, EClassOne, Odoo  →  fuera, roadmap propio
 ```
+
+### EPosOne V4 — modos (ADR Sprint 1)
+
+| Modo | Fuente de verdad | Sync § 6.9 |
+|------|------------------|------------|
+| **Local** | SQLite | No |
+| **Plataforma** | EN1 | Sí (offline = caché + cola) |
+| **Vincular con EN1** | Transición Local → Plataforma | Cutover; luego Modo Plataforma |
+
+Detalle: [ADR-003](ADR-003-EPOSONE-SYNC.md). **No implementar** Standalone/vinculación hasta GO de sprints V4 2+.
 
 ### Mapa implementación EN1 → V3 (referencia)
 
@@ -478,6 +490,8 @@ Paquete `backend/nodeone/core/commerce/` — contratos de negocio para EPosOne y
 **Estados v1:** `constants.py` (pedido, pago, factura, entrega, caja, terminal). **Eventos:** `commerce.*` vía bus Etapa 8; EPosOne publica `commerce.*` + `eposone.*` en transición. Tests: `tests/platform/test_commerce_domain.py`.
 
 ### Etapa 13 — resumen
+
+> **Alcance V4:** este motor aplica al **Modo Plataforma** (y offline temporal). **Modo Local** no lo usa. Ver [ADR-003](ADR-003-EPOSONE-SYNC.md) y § 6.9 actualizado.
 
 Paquete `backend/nodeone/core/sync/` — infraestructura offline sobre el outbox Etapa 8:
 

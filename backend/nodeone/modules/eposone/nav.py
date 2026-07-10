@@ -31,11 +31,8 @@ def _v_contador(ctx: NavContext) -> bool:
 
 
 def _v_analytics(ctx: NavContext) -> bool:
-    return (
-        _v_eposone(ctx)
-        and ctx.saas_module_enabled('analytics')
-        and ctx.has_view_endpoint('admin_analytics_sales')
-    )
+    """Analítica POS vive en EPosOne (UX-T4); no depende del módulo BI plataforma."""
+    return _v_eposone(ctx) and ctx.has_view_endpoint('eposone.eposone_analytics')
 
 
 def _section(slug: str) -> str:
@@ -216,12 +213,12 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 children=(
                     AppNavItem(
                         'reportes',
-                        'Reportes',
+                        'Analítica POS',
                         'fas fa-chart-line',
-                        url=safe_url_for('admin_analytics_sales', source='eposone'),
+                        url=safe_url_for('eposone.eposone_analytics'),
                         visible=_v_analytics,
-                        active_endpoints=('admin_analytics_sales',),
-                        active_path_prefixes=('/admin/analytics/sales',),
+                        active_endpoints=('eposone.eposone_analytics',),
+                        active_path_prefixes=('/admin/eposone/analytics',),
                     ),
                 ),
             ),

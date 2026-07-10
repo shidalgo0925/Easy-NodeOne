@@ -9,7 +9,7 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
     'products': ('Productos', 'Catálogo maestro de bienes y servicios para el POS.'),
     'inventory': ('Inventario', 'Stock y movimientos vinculados al POS.'),
     'branches': ('Sucursales', 'Locales y puntos de operación comercial.'),
-    'terminals': ('Terminales', 'Dispositivos y estaciones de cobro.'),
+    'terminals': ('Dispositivos POS', 'Terminales: UUID, perfil, sucursal, caja y sync.'),
     'registers': ('Cajas', 'Apertura, cierre y arqueo de caja.'),
     'shifts': ('Turnos', 'Turnos de operadores y responsables de caja.'),
     'promotions': ('Promociones', 'Descuentos, combos y reglas comerciales POS.'),

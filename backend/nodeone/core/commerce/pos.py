@@ -1,6 +1,9 @@
-"""PosTerminalService — terminales POS (Etapa 14)."""
+"""PosTerminalService — terminales POS (Etapa 14 + Sprint 6 V4)."""
 
 from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
 
 from models.commercial_core import CorePosTerminal
 from nodeone.core.commerce.constants import POS_TERMINAL_ACTIVE
@@ -9,6 +12,8 @@ from nodeone.core.commerce.order import OrderValidationError
 from nodeone.core.commerce.persistence import pos_terminal_to_dto
 from nodeone.core.commerce.events import COMMERCE_POS_TERMINAL_REGISTERED
 from nodeone.core.services.audit import AuditService
+
+_VALID_PROFILES = frozenset({'fixed', 'handheld'})
 
 
 class PosTerminalService:
@@ -19,17 +24,46 @@ class PosTerminalService:
         terminal_ref: str,
         device_label: str | None = None,
         register_ref: str | None = None,
+        profile: str | None = None,
+        platform: str | None = None,
+        device_model: str | None = None,
+        app_version: str | None = None,
+        branch_ref: str | None = None,
+        sync_enabled: bool | None = None,
     ) -> PosTerminalDTO:
         from app import db
 
         ref = (terminal_ref or '').strip()
         if not ref:
             raise OrderValidationError('terminal_ref_required')
+        prof = (profile or 'fixed').strip().lower() or 'fixed'
+        if prof not in _VALID_PROFILES:
+            raise OrderValidationError(f'invalid_profile:{prof}')
+
         existing = CorePosTerminal.query.filter_by(
             organization_id=int(organization_id),
             terminal_ref=ref,
         ).first()
         if existing is not None:
+            # Re-registro / actualización de metadatos V4
+            if device_label is not None:
+                existing.device_label = (device_label or None)
+            if register_ref is not None:
+                existing.register_ref = (register_ref or None)
+            existing.profile = prof
+            if platform is not None:
+                existing.platform = (platform or None)
+            if device_model is not None:
+                existing.device_model = (device_model or None)
+            if app_version is not None:
+                existing.app_version = (app_version or None)
+            if branch_ref is not None:
+                existing.branch_ref = (branch_ref or None)
+            if sync_enabled is not None:
+                existing.sync_enabled = bool(sync_enabled)
+            existing.status = POS_TERMINAL_ACTIVE
+            existing.last_seen_at = datetime.utcnow()
+            db.session.commit()
             return pos_terminal_to_dto(existing)
 
         row = CorePosTerminal(
@@ -38,6 +72,13 @@ class PosTerminalService:
             register_ref=(register_ref or None),
             status=POS_TERMINAL_ACTIVE,
             device_label=(device_label or None),
+            profile=prof,
+            platform=(platform or None),
+            device_model=(device_model or None),
+            app_version=(app_version or None),
+            branch_ref=(branch_ref or None),
+            sync_enabled=True if sync_enabled is None else bool(sync_enabled),
+            last_seen_at=datetime.utcnow(),
         )
         db.session.add(row)
         db.session.commit()
@@ -46,6 +87,39 @@ class PosTerminalService:
             terminal_ref=ref,
             register_ref=register_ref,
         )
+        return pos_terminal_to_dto(row)
+
+    @staticmethod
+    def heartbeat(
+        organization_id: int,
+        terminal_ref: str,
+        *,
+        last_seen_at: str | None = None,
+        app_version: str | None = None,
+    ) -> PosTerminalDTO | None:
+        from app import db
+
+        ref = (terminal_ref or '').strip()
+        if not ref:
+            return None
+        row = CorePosTerminal.query.filter_by(
+            organization_id=int(organization_id),
+            terminal_ref=ref,
+        ).first()
+        if row is None:
+            return None
+        if last_seen_at:
+            try:
+                # Accept ISO-ish; fallback utcnow
+                ts = last_seen_at.replace('Z', '+00:00')
+                row.last_seen_at = datetime.fromisoformat(ts).replace(tzinfo=None)
+            except ValueError:
+                row.last_seen_at = datetime.utcnow()
+        else:
+            row.last_seen_at = datetime.utcnow()
+        if app_version is not None:
+            row.app_version = (app_version or None)
+        db.session.commit()
         return pos_terminal_to_dto(row)
 
     @staticmethod
@@ -87,7 +161,7 @@ class PosTerminalService:
             if row is None:
                 raise OrderValidationError('invalid_terminal_id')
             return int(row.id)
-        terminal_ref = (str(data.get('terminal_ref') or '')).strip()
+        terminal_ref = (str(data.get('terminal_ref') or data.get('device_id') or '')).strip()
         if terminal_ref:
             row = CorePosTerminal.query.filter_by(organization_id=oid, terminal_ref=terminal_ref).first()
             if row is None:
@@ -109,7 +183,7 @@ class PosTerminalService:
         register_ref: str | None = None,
         source_app_id: str = 'eposone',
     ):
-        payload: dict = {'terminal_ref': terminal_ref}
+        payload: dict[str, Any] = {'terminal_ref': terminal_ref}
         if register_ref:
             payload['register_ref'] = register_ref
         return AuditService.publish_domain_event(

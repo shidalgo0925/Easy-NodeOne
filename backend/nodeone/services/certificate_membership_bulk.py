@@ -26,6 +26,28 @@ def _format_date(value) -> str:
     return str(value)[:10]
 
 
+def user_document_id(user) -> str:
+    """
+    Documento para certificados de membresía.
+    El perfil guarda `cedula_or_passport`; attrs legacy `document_id` / `cedula` por compat.
+    """
+    for attr in ('document_id', 'cedula_or_passport', 'cedula'):
+        val = getattr(user, attr, None)
+        if val is None:
+            continue
+        text = str(val).strip()
+        if text:
+            return text
+    return ''
+
+
+def refresh_snapshot_document_id(snapshot: dict[str, Any] | None, user) -> dict[str, Any]:
+    """Actualiza document_id del snapshot con la cédula vigente del perfil."""
+    snap = dict(snapshot or {})
+    snap['document_id'] = user_document_id(user)
+    return snap
+
+
 def build_emission_snapshot(user, cert_event) -> dict[str, Any]:
     """Snapshot congelado al emitir (nombre, membresía, fecha)."""
     full_name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
@@ -35,7 +57,7 @@ def build_emission_snapshot(user, cert_event) -> dict[str, Any]:
         membership_type = getattr(cert_event.membership_plan, 'slug', None)
     return {
         'participant_name': full_name or getattr(user, 'email', None) or '',
-        'document_id': getattr(user, 'document_id', None) or getattr(user, 'cedula', None) or '',
+        'document_id': user_document_id(user),
         'issue_date': datetime.utcnow().strftime('%Y-%m-%d'),
         'membership_type': (membership_type or '').strip(),
         'membership_start': _format_date(getattr(membership, 'start_date', None) if membership else None),
@@ -52,7 +74,7 @@ def legacy_emission_snapshot(cert, user, cert_event) -> dict[str, Any]:
     issue = cert.generated_at if getattr(cert, 'generated_at', None) else datetime.utcnow()
     return {
         'participant_name': full_name or getattr(user, 'email', None) or '',
-        'document_id': getattr(user, 'document_id', None) or getattr(user, 'cedula', None) or '',
+        'document_id': user_document_id(user),
         'issue_date': _format_date(issue),
         'membership_type': membership_type,
         'membership_start': '',
@@ -90,10 +112,12 @@ def regenerate_one_membership_certificate(
     *,
     force: bool = False,
     persist_snapshot: bool = True,
+    refresh_document: bool = True,
 ) -> tuple[bool, str | None]:
     """
     Reconfecciona un certificado de membresía con plantilla vigente.
     force=True siempre reescribe el PDF (regeneración admin).
+    refresh_document=True actualiza document_id desde el perfil (cedula_or_passport).
     """
     from nodeone.modules.certificates import api_routes as routes
 
@@ -104,6 +128,10 @@ def regenerate_one_membership_certificate(
             return True, None
 
     snapshot = ensure_emission_snapshot(cert, user, cert_event, persist=persist_snapshot)
+    if refresh_document:
+        snapshot = refresh_snapshot_document_id(snapshot, user)
+        if persist_snapshot:
+            cert.emission_snapshot = json.dumps(snapshot, ensure_ascii=False)
     path = routes._regenerate_membership_certificate_pdf(
         cert, cert_event, user, emission_snapshot=snapshot, force=True
     )

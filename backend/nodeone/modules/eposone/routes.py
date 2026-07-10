@@ -379,6 +379,29 @@ def eposone_home():
     )
 
 
+@eposone_bp.route('/analytics')
+@login_required
+def eposone_analytics():
+    """Analítica operativa del POS (UX-T4). Vive en EPosOne, no en /admin/analytics?source=."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.dashboard import CommerceDashboardService
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    kpis = None
+    recent_reports: list = []
+    oid = resolve_organization_id()
+    if oid is not None:
+        kpis = CommerceDashboardService.get_snapshot(int(oid))
+        recent_reports = CommerceDashboardService.list_recent_report_events(int(oid), limit=20)
+    return render_template(
+        'eposone/analytics.html',
+        kpis=kpis,
+        recent_reports=recent_reports,
+    )
+
+
 @eposone_bp.route('/orders/<int:order_id>')
 @login_required
 def eposone_order_detail(order_id: int):
@@ -1315,7 +1338,7 @@ def eposone_section(slug: str):
 
 
 def _compose_links() -> list[dict[str, str]]:
-    """Enlaces a capacidades Core disponibles (sin importar apps académicas)."""
+    """Enlaces opcionales a herramientas de plataforma (UX-T3: sin jerga «Core»)."""
     from flask import current_app
 
     from nodeone.core.platform.runtime import has_saas_module, resolve_organization_id
@@ -1333,13 +1356,7 @@ def _compose_links() -> list[dict[str, str]]:
         except Exception:
             pass
 
-    _add('Clientes (CRM completo)', 'contacts_admin.contacts_index', 'contacts')
-    _add('Cotizaciones / ventas', 'admin_sales_quotations', 'sales')
-    try:
-        links.append({'label': 'Catálogo productos', 'url': url_for('eposone.eposone_section', slug='products')})
-    except Exception:
-        pass
-    _add('Productos (legacy)', 'admin_services_catalog.admin_services', 'sales')
-    _add('Inventario (contador)', 'contador.contador_index', 'contador')
-    _add('Reportes ventas', 'admin_analytics_sales', 'analytics')
+    # Solo extras no duplicados en Accesos rápidos del dashboard.
+    _add('Cotizaciones', 'admin_sales_quotations', 'sales')
+    _add('Inventario contable', 'contador.contador_index', 'contador')
     return links

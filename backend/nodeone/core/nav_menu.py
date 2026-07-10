@@ -908,10 +908,19 @@ _CERTIFICADOS_ZONE_ENDPOINTS: tuple[str, ...] = (
 )
 
 # Launcher lateral: enlaces fijos (Dashboard va en base.html) y grupos colapsables.
+# Top-level en sidebar ERP (modo classic).
+# TEMPORAL — atajo classic hasta cutover launcher (UX-T2 / Sprint UX transición apps).
+# «eposone» NO es un módulo ERP permanente: es acceso temporal a la app-producto EPosOne.
+# Entrada oficial: Login → Plataforma → Mis aplicaciones → EPosOne.
+# No ampliar este atajo a otras apps; no tratarlo como diseño definitivo.
 _SIDEBAR_TOP_LEVEL_AREA_IDS: tuple[str, ...] = (
     'tienda',
     'contactos',
+    'eposone',  # TEMPORAL — atajo classic hasta cutover launcher
 )
+
+# Áreas top-level que son atajos a apps-producto (no módulos ERP).
+_SIDEBAR_TEMPORARY_APP_SHORTCUT_IDS: frozenset[str] = frozenset({'eposone'})
 
 @dataclass(frozen=True)
 class NavLauncherGroup:
@@ -1130,13 +1139,13 @@ APP_AREAS: tuple[NavArea, ...] = (
             _eposone_section_item('menu-digital', 'Menú digital', 'fas fa-qrcode', 'digital-menu'),
             NavAreaItem(
                 'reportes',
-                'Reportes',
+                'Analítica POS',
                 'fas fa-chart-bar',
-                'admin_analytics_sales',
-                url_path='/admin/analytics/sales?source=eposone',
-                visible=_v_eposone_compose_analytics,
-                active_endpoints=('admin_analytics_sales',),
-                active_path_prefixes=('/admin/analytics/sales',),
+                'eposone.eposone_analytics',
+                url_path='/admin/eposone/analytics',
+                visible=_v_eposone,
+                active_endpoints=('eposone.eposone_analytics',),
+                active_path_prefixes=('/admin/eposone/analytics',),
             ),
             _eposone_section_item('configuracion', 'Configuración', 'fas fa-cog', 'settings'),
         ),
@@ -1805,12 +1814,24 @@ def _area_by_id(area_id: str) -> NavArea | None:
 
 
 def _serialize_sidebar_area(area: NavArea, ctx: NavContext) -> dict[str, Any]:
-    return {
+    row: dict[str, Any] = {
         'id': area.id,
         'label': area.label,
         'icon': area.icon,
         'url': area_default_url(area, ctx),
     }
+    # UX-T2: atajo temporal a app-producto (no módulo ERP).
+    if area.id in _SIDEBAR_TEMPORARY_APP_SHORTCUT_IDS:
+        row['temporary_app_shortcut'] = True
+        row['badge'] = 'App'
+        row['title'] = (
+            f'{area.label} — aplicación (acceso temporal). '
+            'Entrada oficial: Mis aplicaciones.'
+        )
+    else:
+        row['temporary_app_shortcut'] = False
+        row['title'] = area.label
+    return row
 
 
 def visible_sidebar_launcher(
@@ -1819,7 +1840,7 @@ def visible_sidebar_launcher(
     active_sidebar_area_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
-    Top-level: Tienda, Contactos (sin grupo).
+    Top-level: Tienda, Contactos; EPosOne solo como atajo TEMPORAL (UX-T2).
     Resto: grupos colapsables Comercial, Operaciones, Finanzas, Inteligencia, Sistema.
     """
     top: list[dict[str, Any]] = []

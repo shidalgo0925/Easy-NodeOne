@@ -1,7 +1,22 @@
 {# Sidebar único de aplicación nativa (UX V3.2). Sin nav ERP ni duplicado horizontal. #}
+{# UX-T1: retorno siempre visible → Mis aplicaciones (no «Salir de EN1»). #}
+{% if platform_shell_show_apps_return and platform_apps_return_url %}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--platform-return">
+    <a class="nav-link app-nav-return-link" href="{{ platform_apps_return_url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Volver al launcher de la plataforma">
+        <i class="menu-icon fas fa-th-large"></i>
+        <span class="menu-title-text">{{ platform_apps_return_label or '← Mis aplicaciones' }}</span>
+    </a>
+</li>
+{% endif %}
 {% if app_nav_sidebar %}
-<li class="nav-item sidebar-section-title px-3 pt-2 pb-1">
-    <span class="small text-uppercase text-muted fw-semibold">{{ platform_shell_app_label or 'App' }}</span>
+<li class="nav-item sidebar-section-title px-3 pt-2 pb-1 app-nav-product-header">
+    <span class="app-nav-product-name">
+        {% if platform_shell_app_icon %}<i class="{{ platform_shell_app_icon }} me-1" aria-hidden="true"></i>{% endif %}
+        {{ platform_shell_app_product_name or platform_shell_app_label or 'App' }}
+    </span>
+    {% if platform_shell_app_tagline %}
+    <span class="app-nav-product-tagline d-block">{{ platform_shell_app_tagline }}</span>
+    {% endif %}
 </li>
 {% for domain in app_nav_sidebar %}
     {% if domain.is_group %}

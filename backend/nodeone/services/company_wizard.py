@@ -100,6 +100,7 @@ def build_wizard_quick_links(
     guide_q = {'guide': '1'} if wizard_mode in ('create', 'edit') else {}
 
     if wizard_mode == 'tenant':
+        _add('EPosOne', 'fas fa-cash-register', 'eposone.eposone_home')
         _add('Módulos SaaS', 'fas fa-puzzle-piece', 'admin_saas_modules_page')
         _add('Usuarios', 'fas fa-users-cog', 'admin_users')
         _add('Email / SMTP', 'fas fa-envelope', 'admin_email')
@@ -109,9 +110,11 @@ def build_wizard_quick_links(
         return links
 
     if org_id:
+        _add('EPosOne', 'fas fa-cash-register', 'eposone.eposone_home')
         _add('Módulos SaaS', 'fas fa-puzzle-piece', 'admin_saas_modules_page', organization_id=org_id, **guide_q)
         _add('Usuarios', 'fas fa-users-cog', 'admin_users', **guide_q)
     else:
+        _add('EPosOne', 'fas fa-cash-register', 'eposone.eposone_home')
         _add('Usuarios', 'fas fa-users-cog', 'admin_users', **guide_q)
     _add('Guía de configuración', 'fas fa-route', 'admin_platform_setup', **guide_q)
     _add('Listado de empresas', 'fas fa-building', 'admin_organizations_list')

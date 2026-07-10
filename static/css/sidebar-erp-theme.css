@@ -910,3 +910,17 @@ html[data-brand="iius"] aside.left-panel.sidebar-erp .nav-group-items .nav-link.
     background: color-mix(in srgb, var(--color-primary, #8b60aa) 22%, transparent) !important;
     border-left: 2px solid var(--color-accent-cyan, #00b8e0);
 }
+
+/* UX-T2 — atajo temporal a app-producto (no módulo ERP) */
+aside.left-panel.sidebar-erp .sidebar-app-temp-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    padding: 0.15em 0.4em;
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, var(--color-primary, #2563eb) 18%, transparent);
+    color: var(--color-primary, #2563eb);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #2563eb) 35%, transparent);
+}

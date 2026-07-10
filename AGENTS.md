@@ -127,7 +127,7 @@ No subir: `.env`, secretos, `venv/`, `logs/`, `uploads/`, dumps. Respetar `.giti
 | Limpieza post-deploy (silos + IIUS) | [`docs/EN1_DEPLOY_LIMPIEZA_CONTEXTO.md`](docs/EN1_DEPLOY_LIMPIEZA_CONTEXTO.md) |
 | Roles RBAC | [`docs/RBAC_Y_ROLES.md`](docs/RBAC_Y_ROLES.md) |
 | Eventos EN1 (módulo) | [`.cursor/rules/easynodeone-events-en1-plan.mdc`](.cursor/rules/easynodeone-events-en1-plan.mdc) |
-| **Plataforma EN1 (Master Plan)** | [`docs/EN1_PLATFORM_MASTER_PLAN.md`](docs/EN1_PLATFORM_MASTER_PLAN.md) · carriles: [`docs/EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](docs/EN1_PLATFORM_CARRILES_Y_SOPORTE.md) · Etapa 1: [`docs/EN1_PLATFORM_ETAPA1_CORE_APPS.md`](docs/EN1_PLATFORM_ETAPA1_CORE_APPS.md) · Core Etapa 2: `backend/nodeone/core/platform/` |
+| **Plataforma EN1 (Master Plan)** | [`docs/EN1_PLATFORM_MASTER_PLAN.md`](docs/EN1_PLATFORM_MASTER_PLAN.md) · carriles: [`docs/EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](docs/EN1_PLATFORM_CARRILES_Y_SOPORTE.md) · Etapa 1: [`docs/EN1_PLATFORM_ETAPA1_CORE_APPS.md`](docs/EN1_PLATFORM_ETAPA1_CORE_APPS.md) · Sprint UX transición apps: [`docs/EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](docs/EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) · **EPosOne V4:** [`docs/EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](docs/EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · contratos · providers · primer inicio · vincular · dispositivos · sync: [`docs/EN1_PLATFORM_EPOSONE_V4_SYNC.md`](docs/EN1_PLATFORM_EPOSONE_V4_SYNC.md) · código: `backend/nodeone/core/eposone_domain/` · Core Etapa 2: `backend/nodeone/core/platform/` |
 | Protocolo legado (`??` / `go`) | [`md/.ai-protocol.md`](md/.ai-protocol.md) → sustituido por §1 de este archivo |
 
 ---

@@ -193,6 +193,13 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 register_ref VARCHAR(64),
                 status VARCHAR(32) NOT NULL DEFAULT 'active',
                 device_label VARCHAR(200),
+                profile VARCHAR(32) NOT NULL DEFAULT 'fixed',
+                platform VARCHAR(32),
+                device_model VARCHAR(120),
+                app_version VARCHAR(64),
+                branch_ref VARCHAR(64),
+                sync_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                last_seen_at TIMESTAMP WITHOUT TIME ZONE,
                 created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
                 CONSTRAINT uq_core_pos_terminal_ref UNIQUE (organization_id, terminal_ref)
             );
@@ -206,11 +213,20 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 register_ref VARCHAR(64),
                 status VARCHAR(32) NOT NULL DEFAULT 'active',
                 device_label VARCHAR(200),
+                profile VARCHAR(32) NOT NULL DEFAULT 'fixed',
+                platform VARCHAR(32),
+                device_model VARCHAR(120),
+                app_version VARCHAR(64),
+                branch_ref VARCHAR(64),
+                sync_enabled INTEGER NOT NULL DEFAULT 1,
+                last_seen_at DATETIME,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE (organization_id, terminal_ref)
             );
             """
         _exec(engine, ddl, printfn, 'core_pos_terminal')
+    else:
+        _ensure_pos_terminal_v4_columns(engine, insp, printfn)
 
     _ensure_stock_balance_table(engine, insp, printfn)
     _ensure_stock_movement_table(engine, insp, printfn)
@@ -642,6 +658,36 @@ def _ensure_payment_refunded_amount_column(engine, insp, printfn) -> None:
         conn.execute(text(stmt))
     if printfn:
         printfn('core_commercial_payment: columna refunded_amount añadida')
+
+
+def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:
+    """Sprint 6 — columnas dispositivo V4 en core_pos_terminal."""
+    if 'core_pos_terminal' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_pos_terminal')}
+    dialect = engine.dialect.name
+    specs: list[tuple[str, str, str]] = [
+        ('profile', "VARCHAR(32) NOT NULL DEFAULT 'fixed'", "VARCHAR(32) NOT NULL DEFAULT 'fixed'"),
+        ('platform', 'VARCHAR(32)', 'VARCHAR(32)'),
+        ('device_model', 'VARCHAR(120)', 'VARCHAR(120)'),
+        ('app_version', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('branch_ref', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('sync_enabled', 'BOOLEAN NOT NULL DEFAULT TRUE', 'INTEGER NOT NULL DEFAULT 1'),
+        ('last_seen_at', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME'),
+    ]
+    added: list[str] = []
+    with engine.begin() as conn:
+        for name, pg_type, sqlite_type in specs:
+            if name in cols:
+                continue
+            col_type = pg_type if dialect == 'postgresql' else sqlite_type
+            if dialect == 'postgresql':
+                conn.execute(text(f'ALTER TABLE core_pos_terminal ADD COLUMN IF NOT EXISTS {name} {col_type}'))
+            else:
+                conn.execute(text(f'ALTER TABLE core_pos_terminal ADD COLUMN {name} {col_type}'))
+            added.append(name)
+    if added and printfn:
+        printfn(f'core_pos_terminal: columnas V4 añadidas ({", ".join(added)})')
 
 
 def _exec(engine, ddl: str, printfn, label: str) -> None:

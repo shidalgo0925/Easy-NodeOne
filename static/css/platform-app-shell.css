@@ -82,3 +82,81 @@ body[data-app-nav-native="1"] .app-nav-domain > .nav-group-toggle {
     color: var(--color-text-muted, #64748b);
 }
 
+/* UX-T1 — retorno al launcher + identidad de producto */
+.app-nav-return-link {
+    font-weight: 600;
+    color: var(--color-text-muted, #64748b) !important;
+    border-bottom: 1px solid var(--color-border, #e2e8f0);
+    margin-bottom: 0.25rem;
+}
+
+.app-nav-return-link:hover {
+    color: var(--app-shell-accent, var(--color-primary, #2563eb)) !important;
+}
+
+.app-nav-product-header {
+    padding-top: 0.75rem !important;
+}
+
+.app-nav-product-name {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--app-shell-accent, var(--color-primary, #2563eb));
+}
+
+.app-nav-product-tagline {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-text-muted, #64748b);
+    margin-top: 0.15rem;
+}
+
+.platform-shell-banner__tag {
+    display: inline-block;
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-muted, #64748b);
+}
+
+.app-context-return {
+    white-space: nowrap;
+}
+
+/* EPosOne — acento propio (producto, no ERP genérico) */
+body[data-platform-app-accent="eposone"] {
+    --app-shell-accent: #c2410c;
+    --app-shell-accent-soft: rgba(194, 65, 12, 0.1);
+}
+
+body[data-platform-app-accent="eposone"][data-platform-app-shell="1"] .left-panel.sidebar-erp,
+body[data-platform-app-accent="eposone"][data-app-nav-native="1"] .left-panel.sidebar-erp {
+    border-right-color: rgba(194, 65, 12, 0.25);
+}
+
+body[data-platform-app-accent="eposone"] .platform-shell-banner {
+    background: linear-gradient(90deg, var(--app-shell-accent-soft), transparent);
+}
+
+body[data-platform-app-accent="eposone"] .platform-shell-banner__app {
+    color: var(--app-shell-accent);
+}
+
+body[data-platform-app-accent="eposone"] .app-context-bar {
+    border-bottom-color: rgba(194, 65, 12, 0.2);
+}
+
+body[data-platform-app-accent="eposone"] .app-context-bar__breadcrumb .breadcrumb-item a {
+    color: var(--app-shell-accent);
+}
+
+body[data-platform-app-accent="eposone"] .sidebar-erp .nav-link.active,
+body[data-platform-app-accent="eposone"] .sidebar-erp .nav-link.active:hover {
+    color: var(--app-shell-accent);
+}
+

@@ -6,12 +6,16 @@
 <div class="container-fluid py-3 en1-eposone-page">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-            <h1 class="h4 mb-1 app-page-title"><i class="fas fa-chart-line me-2 text-primary"></i>Dashboard</h1>
-            <p class="text-muted small mb-0">Resumen operativo del punto de venta.</p>
+            <h1 class="h4 mb-0 app-page-title"><i class="fas fa-chart-line me-2 text-primary"></i>Dashboard</h1>
         </div>
-        <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-primary btn-sm">
-            <i class="fas fa-receipt me-1"></i> Ver pedidos
-        </a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i> Nuevo pedido
+            </a>
+            <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-receipt me-1"></i> Pedidos
+            </a>
+        </div>
     </div>
 
     <div class="row g-3 mb-4">
@@ -19,7 +23,7 @@
             <div class="card border-0 shadow-sm h-100 en1-kpi-card">
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Pedidos hoy</div>
-                    <div class="en1-kpi-value">{{ kpis.orders_today if kpis else '—' }}</div>
+                    <div class="en1-kpi-value">{{ kpis.orders_today if kpis else '0' }}</div>
                 </div>
             </div>
         </div>
@@ -28,7 +32,7 @@
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Ventas hoy</div>
                     <div class="en1-kpi-value">
-                        {% if kpis %}{{ '%.2f'|format(kpis.sales_today) }} {{ kpis.currency }}{% else %}—{% endif %}
+                        {% if kpis %}{{ '%.2f'|format(kpis.sales_today) }} {{ kpis.currency }}{% else %}0.00{% endif %}
                     </div>
                 </div>
             </div>
@@ -37,7 +41,7 @@
             <div class="card border-0 shadow-sm h-100 en1-kpi-card">
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Cajas abiertas</div>
-                    <div class="en1-kpi-value">{{ kpis.open_registers if kpis else '—' }}</div>
+                    <div class="en1-kpi-value">{{ kpis.open_registers if kpis else '0' }}</div>
                 </div>
             </div>
         </div>
@@ -45,7 +49,7 @@
             <div class="card border-0 shadow-sm h-100 en1-kpi-card">
                 <div class="card-body py-3">
                     <div class="en1-kpi-label">Alertas stock</div>
-                    <div class="en1-kpi-value">{{ kpis.stock_alerts if kpis else '—' }}</div>
+                    <div class="en1-kpi-value">{{ kpis.stock_alerts if kpis else '0' }}</div>
                 </div>
             </div>
         </div>
@@ -55,13 +59,13 @@
         <div class="col-12 col-lg-7">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h2 class="h6 text-uppercase en1-section-label mb-3">Actividad comercial (bus Etapa 8)</h2>
+                    <h2 class="h6 text-uppercase en1-section-label mb-3">Últimas ventas</h2>
                     {% if recent_reports %}
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
                             <thead>
                                 <tr>
-                                    <th>Métrica</th>
+                                    <th>Tipo</th>
                                     <th>Referencia</th>
                                     <th class="text-end">Monto</th>
                                     <th>Fecha</th>
@@ -94,10 +98,7 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="mb-0 small text-muted">
-                        Sin métricas derivadas aún. Al capturar pagos, reembolsar o cerrar turnos, el bus publica
-                        eventos <code>commerce.report.*</code> consumidos por analytics.
-                    </p>
+                    <p class="mb-0 small text-muted">Sin movimientos aún. Aparecerán al registrar ventas o cerrar caja.</p>
                     {% endif %}
                 </div>
             </div>
@@ -105,18 +106,31 @@
         <div class="col-12 col-lg-5">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h2 class="h6 text-uppercase en1-section-label mb-3">Core compuesto</h2>
-                    {% if compose_links %}
+                    <h2 class="h6 text-uppercase en1-section-label mb-3">Accesos rápidos</h2>
                     <ul class="list-unstyled small mb-0">
+                        <li class="mb-2">
+                            <a href="{{ url_for('eposone.eposone_section', slug='orders') }}"><i class="fas fa-receipt me-2 text-muted"></i>Pedidos</a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{{ url_for('eposone.eposone_section', slug='products') }}"><i class="fas fa-box-open me-2 text-muted"></i>Productos</a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{{ url_for('eposone.eposone_section', slug='registers') }}"><i class="fas fa-cash-register me-2 text-muted"></i>Cajas</a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{{ url_for('eposone.eposone_section', slug='contacts') }}"><i class="fas fa-address-book me-2 text-muted"></i>Clientes</a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="{{ url_for('eposone.eposone_analytics') }}"><i class="fas fa-chart-bar me-2 text-muted"></i>Analítica POS</a>
+                        </li>
+                        {% if compose_links %}
                         {% for row in compose_links %}
                         <li class="mb-2">
-                            <a href="{{ row.url }}"><i class="fas fa-external-link-alt me-2 text-muted"></i>{{ row.label }}</a>
+                            <a href="{{ row.url }}"><i class="fas fa-link me-2 text-muted"></i>{{ row.label }}</a>
                         </li>
                         {% endfor %}
+                        {% endif %}
                     </ul>
-                    {% else %}
-                    <p class="text-muted small mb-0">Activa módulos Core (contactos, ventas, contador, analítica) para enlaces rápidos.</p>
-                    {% endif %}
                 </div>
             </div>
         </div>

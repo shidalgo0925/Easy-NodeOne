@@ -11,14 +11,18 @@
 | Certificados | Este archivo § Certificados |
 | Stripe / tarjetas | Este archivo § Stripe |
 | Plataforma / EPosOne UX | Este archivo § Plataforma — EPosOne (nav) |
+| Sprint UX transición apps | [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) |
+| **EPosOne V4 (arquitectura)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · sprints 1–7 · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) · `backend/nodeone/core/eposone_domain/` |
 
 ---
 
 ## Plataforma — EPosOne (nav / UX V3.2)
 
-**Estado:** **error abierto** (9 jul 2026) — los usuarios **no ven las opciones de EPosOne** desde la navegación de plataforma.
+**Estado:** **parcialmente resuelto** (9 jul 2026) — entrada **EPosOne** en sidebar plataforma; nav nativa si el módulo está activo en la org.
 
-### Síntoma
+**Siguiente (Fase 2):** especificación aprobada — [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) (tickets UX-T1…T5). Arquitectura dos menús se mantiene; el trabajo es **experiencia de transición** (identidad, retorno al launcher, analítica POS dentro de EP1). Implementar **solo con GO por ticket**.
+
+### Síntoma (histórico)
 
 - En módulos de plataforma (p. ej. `/admin/contacts`) no debe aparecer la barra horizontal legacy de EPosOne (correcto tras fix UX V3.2).
 - **Problema:** tampoco hay un punto de entrada claro para entrar a EPosOne y ver su menú (Dashboard, Pedidos, Clientes, Catálogo, etc.).
@@ -33,16 +37,29 @@
 | Shell apps + sesión stale | Con `platform_active_app_id=eposone`, `merge_app_shell_nav_context` podía forzar shell EPosOne fuera de `/admin/eposone/*` (fix parcial en dev, sin commit al cierre de esta nota). |
 | Código duplicado | Menú EPosOne definido en `nav_menu.py` (legacy horizontal) y `modules/eposone/nav.py` (nativo V3.2); pipeline calcula ambos. |
 
-### Fix aplicado (parcial, dev)
+### Fix aplicado (dev, 9 jul 2026)
 
-- No mostrar barra horizontal EPosOne fuera de `/admin/eposone/*` al navegar Contactos u otros módulos Core.
-- Tests: `test_contacts_module_not_eposone_zone`, `TestMergeAppShellContacts`.
+- Ítem **EPosOne** en sidebar top-level (`_SIDEBAR_TOP_LEVEL_AREA_IDS`) → enlace a `/admin/eposone/dashboard`.
+- **UX-T2:** ese ítem es **atajo temporal** (comentario `TEMPORAL`, badge «App», tooltip); entrada oficial = Launcher / Mis aplicaciones. No ampliar a otras apps.
+- Nav nativa V3.2 si la org tiene módulo `eposone` activo (no solo orgs seed).
+- No mostrar barra horizontal EPosOne fuera de `/admin/eposone/*` en Contactos (commit `a19cc6d`).
+- Enlace EPosOne en wizard empresa → paso Opciones.
+- Tests: `test_eposone_in_sidebar_top_level`, `TestMergeAppShellContacts`.
 
 ### Pendiente (requiere GO)
 
-- [ ] **Entrada visible a EPosOne** desde plataforma: ítem en sidebar, tarjeta en launcher también en modo `classic`, o enlace en wizard paso Opciones.
+**Sprint UX transición (Fase 2)** — ver [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md):
+
+- [x] **UX-T1** Retorno `← Mis aplicaciones` + identidad shell EPosOne (dev, 9 jul 2026)
+- [x] **UX-T2** Atajo ERP classic documentado como **temporal** (dev, 9 jul 2026)
+- [x] **UX-T3** Dashboard: quitar “Core Compuesto”; empty states cortos (dev, 9 jul 2026)
+- [x] **UX-T4** Analítica POS dentro de EPosOne (sin `?source=eposone` como diseño) (dev, 9 jul 2026)
+- [ ] **UX-T5** (Opcional) Micro-transición visual al entrar a la app
+
+Otros:
+
 - [ ] Consolidar nav (una fuente: `eposone/nav.py`; retirar ítems duplicados en `nav_menu.py`).
-- [ ] UAT: org con módulo `eposone` → usuario encuentra EP1 sin URL manual → sidebar dominios + context bar en `/admin/eposone/*`.
+- [ ] UAT en appdev: desde Contactos → clic **EPosOne** en sidebar → menú dominios visible.
 
 ### Referencias
 

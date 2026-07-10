@@ -1,18 +1,27 @@
-{# Sidebar mínimo — una app activa (Etapa 4 shell). #}
+{# Sidebar mínimo — una app activa (Etapa 4 shell). UX-T1: retorno al launcher. #}
+{% if platform_shell_show_apps_return and platform_apps_return_url %}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--platform-return">
+    <a class="nav-link app-nav-return-link" href="{{ platform_apps_return_url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Volver al launcher de la plataforma">
+        <i class="menu-icon fas fa-th-large"></i>
+        <span class="menu-title-text">{{ platform_apps_return_label or '← Mis aplicaciones' }}</span>
+    </a>
+</li>
+{% else %}
 <li class="nav-item sidebar-nav-app sidebar-nav-app--platform-launcher">
     <a class="nav-link" href="{{ url_for('platform_launcher.apps_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Mis aplicaciones">
         <i class="menu-icon fas fa-th-large"></i>
         <span class="menu-title-text">Mis aplicaciones</span>
     </a>
 </li>
-<li class="nav-item sidebar-nav-app sidebar-nav-app--platform-switch">
-    <a class="nav-link" href="{{ url_for('platform_launcher.apps_switch') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Cambiar aplicación">
-        <i class="menu-icon fas fa-exchange-alt"></i>
-        <span class="menu-title-text">Cambiar aplicación</span>
-    </a>
-</li>
-<li class="nav-item sidebar-section-title px-3 pt-2 pb-1">
-    <span class="small text-uppercase text-muted">{{ platform_shell_app_label }}</span>
+{% endif %}
+<li class="nav-item sidebar-section-title px-3 pt-2 pb-1 app-nav-product-header">
+    <span class="app-nav-product-name">
+        {% if platform_shell_app_icon %}<i class="{{ platform_shell_app_icon }} me-1" aria-hidden="true"></i>{% endif %}
+        {{ platform_shell_app_product_name or platform_shell_app_label }}
+    </span>
+    {% if platform_shell_app_tagline %}
+    <span class="app-nav-product-tagline d-block">{{ platform_shell_app_tagline }}</span>
+    {% endif %}
 </li>
 <li class="nav-item sidebar-nav-app sidebar-nav-app--shell-home">
     <a class="nav-link {% if request.path == platform_shell_app_home_url %}active{% endif %}" href="{{ platform_shell_app_home_url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Inicio de la aplicación">

@@ -10,7 +10,6 @@ from flask_login import current_user, login_required
 from nodeone.core.platform.runtime import resolve_organization_id
 from nodeone.core.sync.constants import SYNC_DOMAIN_EVENTS
 from nodeone.core.sync.cursor import SyncCursorService
-from nodeone.core.sync.incremental import IncrementalSyncService
 from nodeone.core.sync.queue import SyncOperationService
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
 
@@ -33,6 +32,28 @@ def _require_sync_access():
     return oid
 
 
+def _request_sync_mode_and_device() -> tuple[str | None, str | None]:
+    """Sprint 7: mode + device desde query/JSON/headers (APK Plataforma)."""
+    body = request.get_json(silent=True) if request.method in ('POST', 'PUT', 'PATCH') else None
+    body = body if isinstance(body, dict) else {}
+    mode = (
+        request.args.get('operating_mode')
+        or body.get('operating_mode')
+        or request.headers.get('X-EPosOne-Mode')
+    )
+    device_id = (
+        request.args.get('device_id')
+        or body.get('device_id')
+        or request.headers.get('X-EPosOne-Device-Id')
+        or body.get('client_id')
+        or request.args.get('client_id')
+    )
+    return (
+        (str(mode).strip() if mode else None),
+        (str(device_id).strip() if device_id else None),
+    )
+
+
 @platform_sync_bp.route('/events', methods=['GET'])
 @login_required
 def sync_events_pull():
@@ -42,14 +63,32 @@ def sync_events_pull():
     since_id = int(request.args.get('since_id', 0) or 0)
     limit = int(request.args.get('limit', 100) or 100)
     prefix = (request.args.get('event_type_prefix') or '').strip() or None
-    items, cursor = IncrementalSyncService.fetch_events(
-        gate, since_id=since_id, limit=limit, event_type_prefix=prefix
-    )
+    mode, device_id = _request_sync_mode_and_device()
+    try:
+        from nodeone.core.eposone_domain.platform_sync import (
+            PlatformSyncError,
+            bridge_for_api_org,
+        )
+
+        bridge = bridge_for_api_org(gate)
+        items, cursor = bridge.pull_events(
+            gate,
+            since_id=since_id,
+            limit=limit,
+            event_type_prefix=prefix,
+            operating_mode=mode,
+            device_id=device_id,
+        )
+        if device_id:
+            bridge.touch_device_seen(device_id, app_version=request.args.get('app_version'))
+    except PlatformSyncError as exc:
+        return jsonify({'error': str(exc), 'mode_policy': 'platform_only'}), 403
     return jsonify(
         {
             'events': [item.to_dict() for item in items],
             'cursor': cursor,
             'domain': SYNC_DOMAIN_EVENTS,
+            'operating_mode': 'platform',
         }
     )
 
@@ -130,20 +169,33 @@ def sync_operations_enqueue():
     if not isinstance(gate, int):
         return gate
     body = request.get_json(silent=True) or {}
+    mode, device_id = _request_sync_mode_and_device()
     try:
-        dto = SyncOperationService.enqueue(
+        from nodeone.core.eposone_domain.platform_sync import (
+            PlatformSyncError,
+            bridge_for_api_org,
+        )
+
+        bridge = bridge_for_api_org(gate)
+        dto = bridge.enqueue(
             gate,
             idempotency_key=str(body.get('idempotency_key') or ''),
             operation_type=str(body.get('operation_type') or ''),
             payload=body.get('payload') if isinstance(body.get('payload'), dict) else {},
-            client_id=str(body.get('client_id') or 'default'),
+            operating_mode=mode,
+            device_id=device_id,
+            client_id=str(body.get('client_id') or '') or None,
             entity_type=body.get('entity_type'),
             entity_ref=body.get('entity_ref'),
             base_version=body.get('base_version'),
         )
+        if device_id:
+            bridge.touch_device_seen(device_id, app_version=body.get('app_version'))
+    except PlatformSyncError as exc:
+        return jsonify({'error': str(exc), 'mode_policy': 'platform_only'}), 403
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
-    return jsonify({'operation': dto.to_dict()}), 201
+    return jsonify({'operation': dto.to_dict(), 'operating_mode': 'platform'}), 201
 
 
 @platform_sync_bp.route('/operations/process', methods=['POST'])

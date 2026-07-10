@@ -215,13 +215,28 @@ class PosTerminalDTO:
     register_ref: str | None
     status: str
     device_label: str | None
+    profile: str = 'fixed'
+    platform: str | None = None
+    device_model: str | None = None
+    app_version: str | None = None
+    branch_ref: str | None = None
+    sync_enabled: bool = True
+    last_seen_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             'id': self.id,
             'organization_id': self.organization_id,
             'terminal_ref': self.terminal_ref,
+            'device_id': self.terminal_ref,
             'register_ref': self.register_ref,
             'status': self.status,
             'device_label': self.device_label,
+            'profile': self.profile,
+            'platform': self.platform,
+            'device_model': self.device_model,
+            'app_version': self.app_version,
+            'branch_ref': self.branch_ref,
+            'sync_enabled': self.sync_enabled,
+            'last_seen_at': self.last_seen_at.isoformat() if self.last_seen_at else None,
         }

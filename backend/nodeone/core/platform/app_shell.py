@@ -12,6 +12,25 @@ from nodeone.core.platform.launcher import (
     visible_launcher_apps,
 )
 
+# Zonas que usan shell de aplicación (no módulos Core del sidebar ERP).
+PLATFORM_APP_SHELL_AREA_IDS: frozenset[str] = frozenset(
+    {
+        'eposone',
+        'crm',
+        'membresias',
+        'eventos',
+        'certificados',
+        'agenda',
+        'epayroll',
+        'educacion',
+        'taller',
+        'contador',
+        'efactura',
+        'comunicacion',
+        'analitica',
+    }
+)
+
 
 def is_app_shell_enabled(organization_id: int | None, session) -> bool:
     """True si el tenant usa launcher apps y hay app activa en sesión."""
@@ -53,6 +72,39 @@ def sync_active_app_from_request(session, user) -> str | None:
     return get_active_app_id(session)
 
 
+def _apps_return_payload() -> dict[str, Any]:
+    """Retorno al launcher (UX-T1). Copy: Mis aplicaciones — no «Salir de EN1»."""
+    from flask import url_for
+
+    try:
+        return_url = url_for('platform_launcher.apps_home')
+    except Exception:
+        return_url = '/platform/apps'
+    return {
+        'platform_apps_return_url': return_url,
+        'platform_apps_return_label': '← Mis aplicaciones',
+        'platform_shell_show_apps_return': True,
+    }
+
+
+def _app_identity_payload(app_id: str) -> dict[str, Any]:
+    """Identidad visual por app (chrome / CSS)."""
+    accents = {
+        'eposone': {
+            'platform_shell_app_accent': 'eposone',
+            'platform_shell_app_product_name': 'EPosOne',
+            'platform_shell_app_tagline': 'Punto de venta',
+        },
+    }
+    base = {
+        'platform_shell_app_accent': app_id or '',
+        'platform_shell_app_product_name': None,
+        'platform_shell_app_tagline': None,
+    }
+    base.update(accents.get(app_id, {}))
+    return base
+
+
 def build_app_shell_nav_payload(active_area_id: str, ctx) -> dict[str, Any]:
     """Navegación restringida a una sola app (subnav horizontal + metadatos)."""
     from nodeone.core.nav_menu import (
@@ -72,7 +124,7 @@ def build_app_shell_nav_payload(active_area_id: str, ctx) -> dict[str, Any]:
     icon = area.icon if area is not None else 'fas fa-th'
     home_url = area_default_url(area, ctx) if area is not None else '#'
 
-    return {
+    payload = {
         'platform_app_shell_active': True,
         'platform_shell_app_id': active_area_id,
         'platform_shell_app_label': label,
@@ -89,6 +141,9 @@ def build_app_shell_nav_payload(active_area_id: str, ctx) -> dict[str, Any]:
         'nav_show_module_bar': bool(children),
         'nav_active_child_label': active_child_label,
     }
+    payload.update(_apps_return_payload())
+    payload.update(_app_identity_payload(active_area_id))
+    return payload
 
 
 def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str, Any]:
@@ -114,13 +169,23 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
         out.setdefault('platform_app_shell_active', False)
         return out
 
+    # Módulos Core (Contactos, Ventas, Finanzas…) no usan shell de app.
+    if request_area and request_area not in PLATFORM_APP_SHELL_AREA_IDS:
+        out.setdefault('platform_app_shell_active', False)
+        return out
+
     from nodeone.core.platform.app_nav import NATIVE_APP_NAV_AREA_IDS, request_in_native_app_zone
 
     # UX V3.2: no forzar shell EPosOne (u otra app nativa) fuera de sus rutas.
     if active_id in NATIVE_APP_NAV_AREA_IDS and not request_in_native_app_zone(active_id):
         out.setdefault('platform_app_shell_active', False)
         return out
-    if request_area and request_area != active_id and request_area not in NATIVE_APP_NAV_AREA_IDS:
+    if (
+        request_area
+        and request_area != active_id
+        and request_area not in NATIVE_APP_NAV_AREA_IDS
+        and active_id not in PLATFORM_APP_SHELL_AREA_IDS
+    ):
         out.setdefault('platform_app_shell_active', False)
         return out
 
@@ -181,4 +246,6 @@ def merge_native_app_nav_context(out: dict[str, Any], user, session) -> dict[str
             'nav_active_area_label': tree.label,
         }
     )
+    out.update(_apps_return_payload())
+    out.update(_app_identity_payload(tree.nav_area_id))
     return out

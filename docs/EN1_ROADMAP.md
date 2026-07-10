@@ -12,7 +12,7 @@
 | Stripe / tarjetas | Este archivo § Stripe |
 | Plataforma / EPosOne UX | Este archivo § Plataforma — EPosOne (nav) |
 | Sprint UX transición apps | [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) |
-| **EPosOne V4 (arquitectura)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · sprints 1–7 · [ADR-005 licenciamiento POS](ADR-005-EPOSONE-LICENSING-POS.md) · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) · `backend/nodeone/core/eposone_domain/` |
+| **EPosOne V4 (arquitectura)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · sprints 1–7 · [POS/licencia](EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md) · [**Etapa 2 Android**](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) · `backend/nodeone/core/eposone_domain/` |
 
 ---
 

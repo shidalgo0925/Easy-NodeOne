@@ -3,11 +3,13 @@
 | Campo | Valor |
 |-------|--------|
 | Sprint | **4 — Primer inicio** |
-| Estado | **Implementado** — 9 jul 2026 (Dev EN1 · dominio; sin APK) |
+| Estado | **Dominio EN1 ✅** · **UI APK = Etapa 2 Sprint A** (pendiente en proyecto Android) |
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
+| Etapa 2 Android | [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) |
 | ADR | [ADR-003](ADR-003-EPOSONE-SYNC.md) |
 | Providers | [`EN1_PLATFORM_EPOSONE_V4_PROVIDERS.md`](EN1_PLATFORM_EPOSONE_V4_PROVIDERS.md) |
-| Código | `backend/nodeone/core/eposone_domain/first_start.py` |
+| Código dominio | `backend/nodeone/core/eposone_domain/first_start.py` |
+| Código APK | Proyecto local `…\EPosOne\eposone` (no en este repo servidor) |
 
 ---
 

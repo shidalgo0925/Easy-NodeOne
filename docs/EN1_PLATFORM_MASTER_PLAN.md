@@ -8,7 +8,7 @@
 | Estado | Aprobado — **V3 Etapa 6 Dominio Comercial cerrada** (v1.2) · **EPosOne V4 sprints 1–7** · **ADR-005 congelado** (9 jul 2026) |
 | Alcance edición | Solo `/opt/easynodeone/dev/app` (Dev EN1) |
 | Documento operativo | [`EN1_PLATFORM_CARRILES_Y_SOPORTE.md`](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) |
-| EPosOne V4 (ADR + contratos) | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) … [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · contratos / providers / sync en docs `EN1_PLATFORM_EPOSONE_V4_*` |
+| EPosOne V4 (ADR + contratos) | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) … [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · contratos / providers / sync en docs `EN1_PLATFORM_EPOSONE_V4_*` |
 
 ---
 
@@ -35,7 +35,7 @@ EasyNodeOne Platform será la plataforma empresarial de ETS. Solo administrará 
 | **Apps de plataforma** | **EPosOne** · **EMembership** · **ECRM** · **EEvents** · **ECertificates** · **EAppointments** |
 
 **EPosOne** = principal desarrollo funcional bajo la nueva arquitectura.  
-**Arquitectura V4 (congelada):** producto independiente con **Modo Local** (SQLite, sin EN1 obligatorio), **Modo Plataforma** (EN1 fuente de verdad + sync § 6.9) y **Vincular con EN1** (Local → Plataforma sin reinstalar). Una sola APK; un solo dominio; SQLite/EN1 = proveedores. **Licenciamiento por Punto de Venta** en EN1 Core ([ADR-005](ADR-005-EPOSONE-LICENSING-POS.md)) — dominio siempre multi-POS; cupos actuales **ilimitados**. Ver [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md).
+**Arquitectura V4 (congelada):** producto independiente con **Modo Local** (SQLite, sin EN1 obligatorio), **Modo Plataforma** (EN1 fuente de verdad + sync § 6.9) y **Vincular con EN1** (Local → Plataforma sin reinstalar). Una sola APK; un solo dominio; SQLite/EN1 = proveedores. **Licenciamiento por Punto de Venta** en EN1 Core ([ADR-005](ADR-005-EPOSONE-LICENSING-POS.md)) — dominio siempre multi-POS; cupos actuales **ilimitados**. Infra servidor POS/LicensePolicy cerrada (`18f6593`). **Fase actual:** Etapa 2 Android (producto) — [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md). Ver [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md).
 
 **EMembership, ECRM, EEvents, ECertificates, EAppointments** = evolucionan e integran progresivamente (Etapa 5 — migración por app).
 

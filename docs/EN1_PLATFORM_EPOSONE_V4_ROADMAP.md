@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | Estado | **Aprobado** — 9 jul 2026 |
-| Fase actual | **Hito EN1-01 ✅** (`847a09f`) · **siguiente: E2E APK ↔ provisioning** · sync fino después |
+| Fase actual | **Hito EN1-02 ✅** (código = destino) · siguiente: E2E APK URL+código · sync después |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Dominio comercial | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |

@@ -3,80 +3,54 @@
 | Campo | Valor |
 |-------|--------|
 | Fecha | **10 jul 2026** |
-| Rama | `develop` @ `847a09f` |
+| Rama | `develop` (EN1-02 en working tree / próximo commit) |
 | Silo | Solo **Dev EN1** (`appdev.easynodeone.com`) |
 
 ---
 
 ## Estado en una frase
 
-**EN1 ya entregó el servidor de provisioning (Hito EN1-01).**  
-La pelota está en **EPosOne (APK Flutter)**: cablear el wizard «Conectar EN1» a esas APIs y probar E2E con tablet.
+**Contrato oficial = EN1-02:** el código de provisioning identifica **Caja (destino)** → EN1 resuelve Empresa/Sucursal/POS/Caja.  
+Wizard tablet: solo **URL + código**.
+
+EN1-01 queda como **legacy** (refs en body + código por org).
 
 ---
 
-## Hecho en EN1 (no reabrir sin GO)
+## Hecho en EN1
 
-| Entrega | Commit | Notas |
-|---------|--------|-------|
-| Dominio V4 + POS + LicensePolicy stub | `18f6593` | Cupos apagados |
-| Docs Etapa 2 Android | `92562a0` | APK en PC local, no en este servidor |
-| **Hito EN1-01** APIs provisioning | **`847a09f`** | Contrato + register/config + token + admin |
+| Entrega | Commit / estado |
+|---------|-----------------|
+| POS + LicensePolicy | `18f6593` |
+| EN1-01 APIs (legacy) | `847a09f` |
+| **EN1-02 código = destino** | Implementado (tabla `eposone_provisioning_code`, register sin refs) |
 
-### APIs listas (appdev)
+### APIs
 
-| Método | Path | Auth |
-|--------|------|------|
-| `POST` | `/api/v1/devices/register` | Header `X-EN1-Provisioning-Code` |
-| `GET` | `/api/v1/devices/config` | `Authorization: Bearer <token>` |
+| Método | Path | Contrato oficial |
+|--------|------|------------------|
+| `POST` | `/api/v1/devices/register` | Header código + `device_uuid` (+ metadatos). **Sin** org/branch/pos/register en body |
+| `GET` | `/api/v1/devices/config` | `Authorization: Bearer` |
 
-Contrato: [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md)
+Contrato: [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) (documento actualizado a EN1-02).
 
-Código: `backend/nodeone/modules/eposone/device_provisioning.py`, `devices_v1_routes.py`
-
-Admin: EPosOne → **Dispositivos** (código de provisioning + listado).
-
-Smoke EN1: unit tests + register/config/reprovision en BD Dev — OK.  
-**E2E tablet:** pendiente (criterio de cierre del hito con APK).
+Admin: EPosOne → Dispositivos → **Generar** código por Caja.
 
 ---
 
-## No hecho (siguiente trabajo)
+## Siguiente
 
 | Quién | Qué |
 |-------|-----|
-| **EPosOne / Flutter** | Quitar stub «Conectar EN1»; llamar register + config; guardar token; ir a PIN |
-| **EPosOne** | Prueba con tablet de demo contra appdev |
-| **Ambos** | Si el contrato Flutter difiere de EN1 → proponer ajuste **antes** de cambiar paths |
-| **Después** | Sync inteligente (productos/ventas) — **no** ahora |
-| **Nunca en este hito** | Licencias, FE, CRM, IA, KDS nuevo, etc. |
+| **EPosOne** | Wizard: URL + código → register EN1-02 → token → config → PIN |
+| **E2E** | Tablet contra appdev |
+| **No ahora** | Sync catálogo/ventas |
 
 ---
 
-## Foco actual del proyecto
-
-```text
-EN1  ████████████░░░░  provisioning APIs ✅  (esperando E2E)
-APK  ████░░░░░░░░░░░░  Core ✅ · wizard EN1 stub → integrar EN1-01
-Sync █░░░░░░░░░░░░░░░  después del E2E provisioning
-```
-
-**No** desarrollar sync de catálogo ni features TPV nuevas hasta cerrar:
-
-Instalar APK → Wizard → Conectar EN1 → Register → Token → Config → PIN.
-
----
-
-## Dónde está cada repo
+## Repos
 
 | Pieza | Ubicación |
 |-------|-----------|
-| EN1 | `/opt/easynodeone/dev/app` · GitHub Easy-NodeOne · `develop` |
-| APK EPosOne | PC: `C:\Users\shidalgo\Documents\0. Tecnologia\EPosOne\eposone` (no en este servidor) |
-
----
-
-## Chat nuevo
-
-Para el prog EN1: solo soporte de contrato / bugs de API si Flutter reporta.  
-Para el prog EPosOne: integración contra `847a09f` + contrato EN1-01.
+| EN1 | `/opt/easynodeone/dev/app` · `develop` |
+| APK | PC local `…\EPosOne\eposone` |

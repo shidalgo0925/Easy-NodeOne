@@ -1,178 +1,113 @@
-# EPosOne ↔ EN1 — Hito 1 Provisioning (contrato EN1)
+# EPosOne ↔ EN1 — Provisioning (contrato oficial EN1-02)
 
 | Campo | Valor |
 |-------|--------|
-| Hito | **EN1-01** — Servidor de Provisioning |
-| Estado | **Implementado en EN1** (`847a09f`, 10 jul 2026) · **E2E tablet pendiente** |
-| Commit | `847a09f` |
+| Hito | **EN1-02** — Código = destino operativo |
+| Estado | **Implementado en EN1** · jul 2026 |
+| Reemplaza como contrato oficial | EN1-01 (queda **legacy** / compatibilidad) |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
-| Nota | El archivo `EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md` del repo Flutter **no** estaba en Easy-NodeOne; este documento es la **referencia oficial en EN1**. Si Flutter difiere, proponer ajuste **antes** de cambiar paths. |
 
 ---
 
-## Base URL
+## Principio
 
-Dev: `https://appdev.easynodeone.com`
+La complejidad vive en el **BackOffice EN1**.  
+El Wizard de la tablet solo pide:
 
-Prefijo: `/api/v1/devices`
+1. URL del servidor  
+2. Código de provisioning  
+
+EN1 resuelve Empresa → Sucursal → POS → Caja a partir del código.
 
 ---
 
-## Auth
+## BackOffice
 
-### Registro (provisioning)
+1. Crear Sucursal → POS → Caja (register con parent = POS).  
+2. EPosOne → **Dispositivos** → **Generar** código para esa Caja.  
+3. Entregar el código al instalador.
 
-Header obligatorio:
-
-```http
-X-EN1-Provisioning-Code: <código de la organización>
-```
-
-El código se genera/almacena por org en `eposone_settings.provisioning_code` (visible en BackOffice EPosOne → Dispositivos).
-
-Fallback Dev (opcional): variable de entorno `EPOSONE_PROVISIONING_CODE` si la org aún no tiene código propio **y** el body trae `organization_id` válido con módulo `eposone` activo.
-
-**No** usar cookie de sesión admin ni credenciales de usuario ERP.
-
-### Config y llamadas posteriores
-
-```http
-Authorization: Bearer <access_token>
-```
-
-El token identifica **un dispositivo**; solo puede leer su propia config.
+Tabla: `eposone_provisioning_code` (un código activo por caja; generar rota el anterior).
 
 ---
 
 ## `POST /api/v1/devices/register`
 
-### Body (JSON)
+### Auth
 
-| Campo | Tipo | Obligatorio | Notas |
-|-------|------|-------------|-------|
-| `device_uuid` | string | sí | UUID estable del dispositivo |
-| `organization_id` | int | sí* | ID tenant EN1 |
-| `organization_ref` | string | sí* | Alternativa a id (subdomain / slug) |
-| `branch_ref` | string | sí | Sucursal (`core_org_unit.unit_ref` type branch) |
-| `pos_ref` | string | sí | Punto de Venta |
-| `register_ref` | string | sí | Caja |
-| `device_name` | string | no | Etiqueta |
-| `platform` | string | no | default `android` |
-| `device_model` | string | no | |
-| `android_version` | string | no | |
-| `app_version` | string | no | |
+```http
+X-EN1-Provisioning-Code: <código de destino>
+```
 
-\*Uno de `organization_id` o `organization_ref`.
+(también body `provisioning_code` o header `X-EPosOne-Provisioning-Code`)
 
-### Comportamiento
-
-- Valida provisioning code + org con EPosOne habilitado.
-- Valida que branch / POS / caja existan (refs) en la org (POS acepta tipo `pos` o legado `pos_terminal`).
-- Si UUID no existe → crea `core_pos_terminal`.
-- Si UUID existe → **reprovisiona** (actualiza vínculos, rota token, bump `config_version`).
-- No duplica filas por UUID.
-
-### Respuesta `201`
+### Body oficial (EN1-02)
 
 ```json
 {
-  "access_token": "<token opaco>",
-  "token_type": "Bearer",
-  "device": {
-    "uuid": "...",
-    "name": "...",
-    "status": "active",
-    "registered_at": "ISO-8601",
-    "last_seen_at": "ISO-8601",
-    "organization_id": 1,
-    "branch_ref": "...",
-    "pos_ref": "...",
-    "register_ref": "..."
-  },
-  "config": { }
+  "device_uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "device_name": "Tablet Mostrador",
+  "platform": "android",
+  "device_model": "Sunmi",
+  "android_version": "13",
+  "app_version": "1.0.0"
 }
 ```
 
-`config` = mismo objeto que `GET .../config`.
+**No** se requieren: `organization_id`, `branch_ref`, `pos_ref`, `register_ref`.
+
+### Respuesta `201`
+
+Igual que EN1-01: `access_token`, `token_type`, `device`, `config` (jerarquía resuelta).
+
+Reprovisionamiento (mismo UUID): reutiliza fila, rota token, bump `config_version`, **201**.
 
 ### Errores
 
-| HTTP | `error` |
-|------|---------|
-| 400 | validación / refs inválidas |
-| 401 | provisioning code inválido o ausente |
-| 403 | módulo eposone no activo / org inactiva |
-| 404 | organización no encontrada |
+```json
+{ "error": "provisioning_code_invalid" }
+```
 
 ---
 
 ## `GET /api/v1/devices/config`
 
-Header: `Authorization: Bearer <access_token>`
-
-### Respuesta `200`
-
-```json
-{
-  "config_version": 1,
-  "business_name": "Nombre org",
-  "currency": "USD",
-  "timezone": "America/Panama",
-  "organization": { "id": 1, "name": "..." },
-  "branch": { "ref": "...", "name": "..." },
-  "pos": { "ref": "...", "name": "..." },
-  "register": { "ref": "...", "name": "..." },
-  "device": {
-    "uuid": "...",
-    "name": "...",
-    "status": "active",
-    "app_version": "...",
-    "last_seen_at": "ISO-8601"
-  }
-}
+```http
+Authorization: Bearer <access_token>
 ```
 
-**No** incluye productos, clientes, inventario ni ventas.
-
-### Errores
-
-| HTTP | `error` |
-|------|---------|
-| 401 | token ausente/inválido |
-| 403 | dispositivo inactivo |
+Sin cambios respecto a EN1-01.
 
 ---
 
-## Persistencia (`core_pos_terminal`)
+## Compatibilidad legacy (EN1-01)
 
-| Campo | Uso |
-|-------|-----|
-| `terminal_ref` | UUID dispositivo |
-| `organization_id` | Empresa (tenant) |
-| `branch_ref` | Sucursal |
-| `pos_ref` | POS |
-| `register_ref` | Caja |
-| `device_label` | Nombre |
-| `status` | active / inactive |
-| `created_at` | Registro |
-| `last_seen_at` | Última conexión |
-| `app_version` | Versión APK |
-| `access_token_hash` | SHA-256 del Bearer |
-| `config_version` | Entero de config |
+Si el código **no** está en `eposone_provisioning_code` pero el body trae
+`organization_id` + `branch_ref` + `pos_ref` + `register_ref` y el código coincide
+con el código **por org** (`eposone_settings.provisioning_code`), el registro sigue
+funcionando. **No** usar este camino en el Wizard de producto.
 
 ---
 
-## Auditoría (eventos)
+## curl DEV (contrato oficial)
 
-| Evento | Cuándo |
-|--------|--------|
-| `eposone.device.registered` | Alta |
-| `eposone.device.reprovisioned` | Re-registro |
-| `eposone.device.auth_failed` | Token/código inválido |
-| `eposone.device.provision_failed` | Error de validación de negocio |
+```bash
+curl -sS -X POST 'https://appdev.easynodeone.com/api/v1/devices/register' \
+  -H 'Content-Type: application/json' \
+  -H 'X-EN1-Provisioning-Code: CODIGO_DE_CAJA' \
+  -d '{
+    "device_uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "device_name": "Tablet Demo",
+    "platform": "android",
+    "app_version": "1.0.0"
+  }'
+
+curl -sS 'https://appdev.easynodeone.com/api/v1/devices/config' \
+  -H 'Authorization: Bearer TOKEN'
+```
 
 ---
 
-## Fuera de alcance (Hito 1)
+## Fuera de alcance
 
-Sync de productos/clientes/ventas/inventario · licencias · FE · CRM · IA.
+Sync catálogo/ventas · licencias · FE · CRM · IA.

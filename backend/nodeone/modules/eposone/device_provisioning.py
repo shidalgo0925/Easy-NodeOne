@@ -1,4 +1,8 @@
-"""Hito EN1-01 — Provisioning de dispositivos EPosOne."""
+"""Provisioning de dispositivos EPosOne — Hito EN1-02 (código = destino).
+
+EN1-01 (código por org + refs en body) queda como compatibilidad legacy.
+Contrato oficial: solo device_uuid + metadatos + código de destino.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +14,7 @@ from typing import Any
 
 from models.commercial_core import CorePosTerminal
 from models.core_master import CoreOrgUnit
+from models.eposone_provisioning import EposoneProvisioningCode
 from models.eposone_settings import EposoneSettings
 from models.saas import SaasOrganization
 from nodeone.core.commerce.constants import POS_TERMINAL_ACTIVE
@@ -24,12 +29,14 @@ EVENT_REGISTERED = 'eposone.device.registered'
 EVENT_REPROVISIONED = 'eposone.device.reprovisioned'
 EVENT_AUTH_FAILED = 'eposone.device.auth_failed'
 EVENT_PROVISION_FAILED = 'eposone.device.provision_failed'
+EVENT_CODE_ISSUED = 'eposone.provisioning_code.issued'
 
 DEFAULT_TIMEZONE = 'America/Panama'
+STATUS_ACTIVE = 'active'
+STATUS_REVOKED = 'revoked'
 
 
 def _audit_publish(organization_id: int, event_type: str, payload: dict[str, Any] | None = None) -> None:
-    """Lazy import para evitar ciclo register → routes → provisioning → audit → app."""
     try:
         from nodeone.core.services.audit import AuditService
 
@@ -41,7 +48,6 @@ def _audit_publish(organization_id: int, event_type: str, payload: dict[str, Any
         )
     except Exception:
         pass
-
 
 
 class DeviceProvisioningError(ValueError):
@@ -70,10 +76,121 @@ def _new_provisioning_code() -> str:
 
 
 class DeviceProvisioningService:
-    """Registro / reprovisioning / config para tablets EPosOne."""
+    """Registro / reprovisioning / config — destino resuelto por código (EN1-02)."""
+
+    # --- EN1-02: códigos por Caja ---
+
+    @staticmethod
+    def issue_code_for_register(
+        organization_id: int,
+        *,
+        register_ref: str,
+        label: str | None = None,
+    ) -> EposoneProvisioningCode:
+        """Genera código activo para una caja; revoca códigos activos previos de esa caja."""
+        from app import db
+
+        oid = int(organization_id)
+        reg = DeviceProvisioningService._get_unit(
+            oid, register_ref, allowed_types=frozenset({ORG_UNIT_TYPE_REGISTER})
+        )
+        # Resolver POS y sucursal desde jerarquía parent
+        pos = None
+        branch = None
+        if reg.parent_id is not None:
+            pos = CoreOrgUnit.query.filter_by(organization_id=oid, id=int(reg.parent_id)).first()
+        if pos is not None and str(pos.unit_type) not in ORG_UNIT_POS_TYPES:
+            # parent no es POS: intentar como branch directo (legado)
+            if str(pos.unit_type) == ORG_UNIT_TYPE_BRANCH:
+                branch = pos
+                pos = None
+            else:
+                pos = None
+        if pos is not None and pos.parent_id is not None:
+            branch = CoreOrgUnit.query.filter_by(organization_id=oid, id=int(pos.parent_id)).first()
+        if pos is None or branch is None or str(branch.unit_type) != ORG_UNIT_TYPE_BRANCH:
+            raise DeviceProvisioningError(
+                'register_hierarchy_incomplete',
+                http_status=400,
+            )
+        if str(pos.status) != ORG_UNIT_STATUS_ACTIVE or str(branch.status) != ORG_UNIT_STATUS_ACTIVE:
+            raise DeviceProvisioningError('destination_inactive', http_status=400)
+
+        # Revocar activos previos de esta caja
+        prev = EposoneProvisioningCode.query.filter_by(
+            organization_id=oid,
+            register_ref=reg.unit_ref,
+            status=STATUS_ACTIVE,
+        ).all()
+        for p in prev:
+            p.status = STATUS_REVOKED
+
+        code = _new_provisioning_code()
+        # Garantizar unicidad global
+        while EposoneProvisioningCode.query.filter_by(code=code).first() is not None:
+            code = _new_provisioning_code()
+
+        row = EposoneProvisioningCode(
+            organization_id=oid,
+            branch_ref=branch.unit_ref,
+            pos_ref=pos.unit_ref,
+            register_ref=reg.unit_ref,
+            code=code,
+            status=STATUS_ACTIVE,
+            label=(label or '').strip() or f'{pos.name} / {reg.name}',
+        )
+        db.session.add(row)
+        db.session.commit()
+        _audit_publish(
+            oid,
+            EVENT_CODE_ISSUED,
+            {
+                'code_id': int(row.id),
+                'branch_ref': row.branch_ref,
+                'pos_ref': row.pos_ref,
+                'register_ref': row.register_ref,
+            },
+        )
+        return row
+
+    @staticmethod
+    def list_codes(organization_id: int, *, active_only: bool = True) -> list[EposoneProvisioningCode]:
+        q = EposoneProvisioningCode.query.filter_by(organization_id=int(organization_id))
+        if active_only:
+            q = q.filter_by(status=STATUS_ACTIVE)
+        return q.order_by(EposoneProvisioningCode.created_at.desc()).all()
+
+    @staticmethod
+    def get_active_code_for_register(
+        organization_id: int, register_ref: str
+    ) -> EposoneProvisioningCode | None:
+        return (
+            EposoneProvisioningCode.query.filter_by(
+                organization_id=int(organization_id),
+                register_ref=(register_ref or '').strip(),
+                status=STATUS_ACTIVE,
+            )
+            .order_by(EposoneProvisioningCode.id.desc())
+            .first()
+        )
+
+    @staticmethod
+    def resolve_destination_by_code(code: str | None) -> EposoneProvisioningCode:
+        provided = (code or '').strip()
+        if not provided:
+            DeviceProvisioningService._audit_auth_failed(None, reason='provisioning_code_missing')
+            raise DeviceProvisioningError('provisioning_code_required', http_status=401)
+        row = EposoneProvisioningCode.query.filter_by(code=provided, status=STATUS_ACTIVE).first()
+        if row is None:
+            DeviceProvisioningService._audit_auth_failed(None, reason='provisioning_code_invalid')
+            raise DeviceProvisioningError('provisioning_code_invalid', http_status=401)
+        return row
+
+    # --- Legacy EN1-01 (org-level code) ---
 
     @staticmethod
     def ensure_provisioning_code(organization_id: int) -> str:
+        """Legacy: código por org (solo compatibilidad / display). Preferir issue_code_for_register."""
         from app import db
 
         oid = int(organization_id)
@@ -119,7 +236,6 @@ class DeviceProvisioningService:
             raise DeviceProvisioningError('organization_required', http_status=400)
         org = SaasOrganization.query.filter_by(subdomain=ref).first()
         if org is None:
-            # fallback por nombre exacto
             org = SaasOrganization.query.filter_by(name=ref).first()
         if org is None:
             raise DeviceProvisioningError('organization_not_found', http_status=404)
@@ -131,7 +247,7 @@ class DeviceProvisioningService:
 
         mod = SaasModule.query.filter_by(code='eposone').first()
         if mod is None:
-            return  # módulo no catalogado: no bloquear Dev
+            return
         link = SaasOrgModule.query.filter_by(
             organization_id=int(organization_id),
             module_id=int(mod.id),
@@ -141,35 +257,28 @@ class DeviceProvisioningService:
             raise DeviceProvisioningError('eposone_not_enabled', http_status=403)
 
     @staticmethod
-    def validate_provisioning_code(organization_id: int, code: str | None) -> None:
+    def _validate_org_level_code(organization_id: int, code: str | None) -> None:
         provided = (code or '').strip()
         if not provided:
-            DeviceProvisioningService._audit_auth_failed(
-                organization_id, reason='provisioning_code_missing'
-            )
             raise DeviceProvisioningError('provisioning_code_required', http_status=401)
-
         row = EposoneSettings.query.filter_by(organization_id=int(organization_id)).first()
         expected = (getattr(row, 'provisioning_code', None) or '').strip() if row else ''
         env_fallback = (os.environ.get('EPOSONE_PROVISIONING_CODE') or '').strip()
-
         ok = False
         if expected and secrets.compare_digest(provided, expected):
             ok = True
         elif not expected and env_fallback and secrets.compare_digest(provided, env_fallback):
             ok = True
-            # materializar código en settings para la org
-            DeviceProvisioningService.ensure_provisioning_code(int(organization_id))
-
         if not ok:
             DeviceProvisioningService._audit_auth_failed(
-                organization_id, reason='provisioning_code_invalid'
+                organization_id, reason='provisioning_code_invalid_legacy'
             )
             raise DeviceProvisioningError('provisioning_code_invalid', http_status=401)
 
     @staticmethod
     def _audit_auth_failed(organization_id: int | None, *, reason: str) -> None:
         _audit_publish(int(organization_id or 0), EVENT_AUTH_FAILED, {'reason': reason})
+
     @staticmethod
     def _get_unit(
         organization_id: int,
@@ -199,9 +308,9 @@ class DeviceProvisioningService:
         device_uuid: str,
         organization_id: int | None = None,
         organization_ref: str | None = None,
-        branch_ref: str,
-        pos_ref: str,
-        register_ref: str,
+        branch_ref: str | None = None,
+        pos_ref: str | None = None,
+        register_ref: str | None = None,
         device_name: str | None = None,
         platform: str | None = None,
         device_model: str | None = None,
@@ -214,34 +323,76 @@ class DeviceProvisioningService:
         if not uuid:
             raise DeviceProvisioningError('device_uuid_required', http_status=400)
 
-        org = DeviceProvisioningService._resolve_organization(
-            organization_id=int(organization_id) if organization_id is not None and str(organization_id).strip() != '' else None,
-            organization_ref=organization_ref,
-        )
-        if not org.is_active:
-            raise DeviceProvisioningError('organization_inactive', http_status=403)
-
-        oid = int(org.id)
-        DeviceProvisioningService._assert_eposone_enabled(oid)
-        DeviceProvisioningService.validate_provisioning_code(oid, provisioning_code)
-
+        dest_code: EposoneProvisioningCode | None = None
+        # Camino oficial EN1-02: código = destino
         try:
-            branch = DeviceProvisioningService._get_unit(
-                oid, branch_ref, allowed_types=frozenset({ORG_UNIT_TYPE_BRANCH})
-            )
-            pos = DeviceProvisioningService._get_unit(
-                oid, pos_ref, allowed_types=ORG_UNIT_POS_TYPES
-            )
-            register = DeviceProvisioningService._get_unit(
-                oid, register_ref, allowed_types=frozenset({ORG_UNIT_TYPE_REGISTER})
-            )
+            dest_code = DeviceProvisioningService.resolve_destination_by_code(provisioning_code)
         except DeviceProvisioningError as exc:
-            _audit_publish(
-                oid,
-                EVENT_PROVISION_FAILED,
-                {'error': exc.code, 'device_uuid': uuid},
+            # Si el body trae jerarquía completa → legacy EN1-01
+            has_legacy = (
+                (organization_id is not None or (organization_ref or '').strip())
+                and (branch_ref or '').strip()
+                and (pos_ref or '').strip()
+                and (register_ref or '').strip()
             )
-            raise
+            if not has_legacy:
+                raise exc
+            dest_code = None
+
+        if dest_code is not None:
+            oid = int(dest_code.organization_id)
+            org = SaasOrganization.query.filter_by(id=oid).first()
+            if org is None or not org.is_active:
+                raise DeviceProvisioningError('organization_inactive', http_status=403)
+            DeviceProvisioningService._assert_eposone_enabled(oid)
+            try:
+                branch = DeviceProvisioningService._get_unit(
+                    oid, dest_code.branch_ref, allowed_types=frozenset({ORG_UNIT_TYPE_BRANCH})
+                )
+                pos = DeviceProvisioningService._get_unit(
+                    oid, dest_code.pos_ref, allowed_types=ORG_UNIT_POS_TYPES
+                )
+                register = DeviceProvisioningService._get_unit(
+                    oid, dest_code.register_ref, allowed_types=frozenset({ORG_UNIT_TYPE_REGISTER})
+                )
+            except DeviceProvisioningError as exc:
+                _audit_publish(
+                    oid,
+                    EVENT_PROVISION_FAILED,
+                    {'error': exc.code, 'device_uuid': uuid},
+                )
+                raise
+            dest_code.last_used_at = datetime.utcnow()
+        else:
+            # Legacy EN1-01
+            org = DeviceProvisioningService._resolve_organization(
+                organization_id=int(organization_id)
+                if organization_id is not None and str(organization_id).strip() != ''
+                else None,
+                organization_ref=organization_ref,
+            )
+            if not org.is_active:
+                raise DeviceProvisioningError('organization_inactive', http_status=403)
+            oid = int(org.id)
+            DeviceProvisioningService._assert_eposone_enabled(oid)
+            DeviceProvisioningService._validate_org_level_code(oid, provisioning_code)
+            try:
+                branch = DeviceProvisioningService._get_unit(
+                    oid, str(branch_ref or ''), allowed_types=frozenset({ORG_UNIT_TYPE_BRANCH})
+                )
+                pos = DeviceProvisioningService._get_unit(
+                    oid, str(pos_ref or ''), allowed_types=ORG_UNIT_POS_TYPES
+                )
+                register = DeviceProvisioningService._get_unit(
+                    oid, str(register_ref or ''), allowed_types=frozenset({ORG_UNIT_TYPE_REGISTER})
+                )
+            except DeviceProvisioningError as exc:
+                _audit_publish(
+                    oid,
+                    EVENT_PROVISION_FAILED,
+                    {'error': exc.code, 'device_uuid': uuid},
+                )
+                raise
 
         existing = CorePosTerminal.query.filter_by(
             organization_id=oid,
@@ -307,6 +458,7 @@ class DeviceProvisioningService:
                 'pos_ref': pos.unit_ref,
                 'register_ref': register.unit_ref,
                 'reprovision': is_reprovision,
+                'contract': 'en1-02' if dest_code is not None else 'en1-01-legacy',
             },
         )
 
@@ -413,7 +565,7 @@ class DeviceProvisioningService:
     def list_devices(organization_id: int, *, limit: int = 100) -> list[CorePosTerminal]:
         return (
             CorePosTerminal.query.filter_by(organization_id=int(organization_id))
-            .order_by(CorePosTerminal.created_at.desc(), CorePosTerminal.id.desc())
+            .order_by(CorePosTerminal.created_at.desc(), CorePosTerminal.id.asc())
             .limit(max(1, int(limit)))
             .all()
         )

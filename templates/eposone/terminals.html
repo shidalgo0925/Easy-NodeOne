@@ -12,68 +12,70 @@
         <span class="badge bg-secondary">{{ devices_total }} dispositivo(s)</span>
     </div>
 
-    {% if provisioning_code %}
-    <div class="alert alert-light border mb-3">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div>
-                <strong class="small">Código de provisioning (Hito EN1-01)</strong>
-                <div class="font-monospace">{{ provisioning_code }}</div>
-                <p class="small text-muted mb-0 mt-1">
-                    Header <code>X-EN1-Provisioning-Code</code> en
-                    <code>POST /api/v1/devices/register</code>
-                </p>
-            </div>
-            <form method="post" action="{{ url_for('eposone.eposone_rotate_provisioning_code') }}">
-                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                <button type="submit" class="btn btn-sm btn-outline-secondary"
-                        onclick="return confirm('¿Rotar código? Las tablets nuevas deberán usar el nuevo valor.');">
-                    Rotar código
-                </button>
-            </form>
-        </div>
+    <div class="alert alert-primary border mb-3">
+        <strong class="small">Hito EN1-02 — Código = destino</strong>
+        <p class="small mb-0 mt-1">
+            Generá un código por <strong>Caja</strong>. La tablet solo necesita
+            <code>URL</code> + <code>código</code>. Header
+            <code>X-EN1-Provisioning-Code</code> en
+            <code>POST /api/v1/devices/register</code>.
+        </p>
     </div>
-    {% endif %}
 
-    <div class="row g-3">
-        <div class="col-lg-4">
+    <div class="row g-3 mb-3">
+        <div class="col-lg-5">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 pb-0">
-                    <h2 class="h6 mb-0">Puntos POS</h2>
-                    <p class="text-muted small mb-0">{{ pos_units_total }} punto(s)</p>
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0">Códigos por Caja</h2>
                 </div>
                 <div class="card-body p-0">
-                    {% if pos_units %}
+                    {% if registers %}
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0 align-middle">
+                        <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Ref.</th>
-                                    <th>Nombre</th>
-                                    <th>Estado</th>
+                                    <th>Caja</th>
+                                    <th>Código activo</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in pos_units %}
+                                {% for r in registers %}
+                                {% set c = code_by_register.get(r.unit_ref) %}
                                 <tr>
-                                    <td><code>{{ item.unit_ref }}</code></td>
-                                    <td>{{ item.name }}</td>
-                                    <td><span class="badge text-bg-light border">{{ item.status }}</span></td>
+                                    <td>
+                                        <div>{{ r.name }}</div>
+                                        <code class="small">{{ r.unit_ref }}</code>
+                                    </td>
+                                    <td class="font-monospace small">
+                                        {% if c %}{{ c.code }}{% else %}<span class="text-muted">—</span>{% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <form method="post" action="{{ url_for('eposone.eposone_issue_provisioning_code') }}" class="d-inline">
+                                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                            <input type="hidden" name="register_ref" value="{{ r.unit_ref }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                {% if c %}Rotar{% else %}Generar{% endif %}
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                     {% else %}
-                    <div class="p-4 text-muted small">Sin POS — sección Puntos de Venta</div>
+                    <div class="p-4 text-muted small">
+                        Sin cajas. Creá POS y cajas (register) con parent POS antes de generar códigos.
+                    </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-        <div class="col-lg-8">
+        <div class="col-lg-7">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 pb-0">
                     <h2 class="h6 mb-0">Dispositivos registrados</h2>
-                    <p class="text-muted small mb-0">UUID · POS · Caja · estado · última conexión</p>
                 </div>
                 <div class="card-body p-0">
                     {% if devices %}
@@ -87,9 +89,7 @@
                                     <th>POS</th>
                                     <th>Caja</th>
                                     <th>Estado</th>
-                                    <th>Registro</th>
                                     <th>Última conexión</th>
-                                    <th>APK</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -101,23 +101,31 @@
                                     <td class="small">{{ device.pos_ref or '—' }}</td>
                                     <td class="small">{{ device.register_ref or '—' }}</td>
                                     <td><span class="badge text-bg-light border">{{ device.status }}</span></td>
-                                    <td class="text-muted small">{% if device.created_at %}{{ device.created_at }}{% else %}—{% endif %}</td>
                                     <td class="text-muted small">{% if device.last_seen_at %}{{ device.last_seen_at }}{% else %}—{% endif %}</td>
-                                    <td class="text-muted small">{{ device.app_version or '—' }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                     {% else %}
-                    <div class="p-4 text-muted small">
-                        Sin dispositivos. La tablet usa
-                        <code>POST /api/v1/devices/register</code>.
-                    </div>
+                    <div class="p-4 text-muted small">Sin dispositivos.</div>
                     {% endif %}
                 </div>
             </div>
         </div>
     </div>
+
+    {% if provisioning_code %}
+    <details class="mb-3">
+        <summary class="small text-muted">Legacy EN1-01 (código por org — no usar en Wizard nuevo)</summary>
+        <div class="alert alert-light border mt-2 mb-0">
+            <code>{{ provisioning_code }}</code>
+            <form method="post" action="{{ url_for('eposone.eposone_rotate_provisioning_code') }}" class="d-inline ms-2">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Rotar legacy</button>
+            </form>
+        </div>
+    </details>
+    {% endif %}
 </div>
 {% endblock %}

@@ -382,6 +382,7 @@ def eposone_home():
 @eposone_bp.route('/devices/rotate-provisioning-code', methods=['POST'])
 @login_required
 def eposone_rotate_provisioning_code():
+    """Legacy EN1-01: rota código a nivel org (no usar para tablets nuevas)."""
     denied = _require_eposone_admin()
     if denied is not None:
         return denied
@@ -395,7 +396,35 @@ def eposone_rotate_provisioning_code():
         flash('Organización no resuelta.', 'warning')
         return redirect(url_for('eposone.eposone_section', slug='terminals'))
     DeviceProvisioningService.rotate_provisioning_code(int(oid))
-    flash('Código de provisioning rotado.', 'success')
+    flash('Código legacy (org) rotado. Preferí códigos por Caja (EN1-02).', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='terminals'))
+
+
+@eposone_bp.route('/devices/issue-provisioning-code', methods=['POST'])
+@login_required
+def eposone_issue_provisioning_code():
+    """EN1-02: genera código de destino para una Caja (register_ref)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from flask import flash, redirect, request, url_for
+
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.device_provisioning import (
+        DeviceProvisioningError,
+        DeviceProvisioningService,
+    )
+
+    oid = resolve_organization_id()
+    register_ref = (request.form.get('register_ref') or '').strip()
+    if oid is None or not register_ref:
+        flash('Falta register_ref (caja).', 'warning')
+        return redirect(url_for('eposone.eposone_section', slug='terminals'))
+    try:
+        row = DeviceProvisioningService.issue_code_for_register(int(oid), register_ref=register_ref)
+        flash(f'Código generado para {register_ref}: {row.code}', 'success')
+    except DeviceProvisioningError as exc:
+        flash(f'No se pudo generar código: {exc.code}', 'danger')
     return redirect(url_for('eposone.eposone_section', slug='terminals'))
 
 
@@ -1380,7 +1409,7 @@ def eposone_section(slug: str):
         )
     if key == 'terminals':
         from nodeone.core.commerce.pos import PosTerminalService
-        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS, ORG_UNIT_TYPE_REGISTER
         from nodeone.core.platform.runtime import resolve_organization_id
         from nodeone.core.services.org_unit import OrgUnitService
         from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
@@ -1388,11 +1417,16 @@ def eposone_section(slug: str):
         oid = resolve_organization_id()
         pos_units: list = []
         devices: list = []
-        provisioning_code = None
+        registers: list = []
+        provisioning_codes: list = []
+        legacy_org_code = None
         if oid is not None:
             pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
+            registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
             devices = PosTerminalService.list_terminals(int(oid), limit=100)
-            provisioning_code = DeviceProvisioningService.ensure_provisioning_code(int(oid))
+            provisioning_codes = DeviceProvisioningService.list_codes(int(oid), active_only=True)
+            legacy_org_code = DeviceProvisioningService.ensure_provisioning_code(int(oid))
+        code_by_register = {c.register_ref: c for c in provisioning_codes}
         return render_template(
             'eposone/terminals.html',
             section_slug=key,
@@ -1402,7 +1436,10 @@ def eposone_section(slug: str):
             pos_units_total=len(pos_units),
             devices=devices,
             devices_total=len(devices),
-            provisioning_code=provisioning_code,
+            registers=registers,
+            provisioning_codes=provisioning_codes,
+            code_by_register=code_by_register,
+            provisioning_code=legacy_org_code,
         )
     return render_template(
         'eposone/section.html',

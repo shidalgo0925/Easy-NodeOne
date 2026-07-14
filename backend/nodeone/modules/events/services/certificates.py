@@ -223,6 +223,22 @@ def _render_event_certificate_pdf_bytes(
     return render_institutional_pdf(ctx)
 
 
+def _blocked_membership_template_for_event(event, org_id: int) -> str | None:
+    """Impide emitir/regenerar si el evento tiene plantilla de membresía vinculada."""
+    from app import CertificateTemplate, db
+
+    from nodeone.services.certificate_assets import membership_template_blocked_for_event
+    from nodeone.services.certificate_visual_templates import (
+        get_fresh_visual_template_for_render,
+        is_visual_template,
+    )
+
+    template = get_fresh_visual_template_for_render(db, CertificateTemplate, event, org_id)
+    if template and is_visual_template(template):
+        return membership_template_blocked_for_event(template)
+    return None
+
+
 def create_event_certificate(
     app,
     event,
@@ -240,12 +256,16 @@ def create_event_certificate(
     if participant_active_certificate(participant.id, event.id):
         return None, 'Ya existe un certificado activo para este participante.'
 
+    org_id = organization_id_for_event(event)
+    blocked = _blocked_membership_template_for_event(event, org_id)
+    if blocked:
+        return None, blocked
+
     prefix = code_prefix_for_participant(participant)
     cert_number = generate_unique_certificate_number_with_prefix(prefix)
     vtoken = generate_verification_token()
     verify_url = build_verification_url(app, cert_number)
 
-    org_id = organization_id_for_event(event)
     folder = certificates_storage_dir(app, org_id, event.id)
     base_fs = os.path.join(folder, cert_number.replace('/', '-'))
 
@@ -337,6 +357,10 @@ def regenerate_event_certificate(
         return None, 'El participante no cumple condiciones para certificado.'
 
     org_id = organization_id_for_event(event)
+    blocked = _blocked_membership_template_for_event(event, org_id)
+    if blocked:
+        return None, blocked
+
     verify_url = build_verification_url(app, cert.certificate_number)
     display_name = (
         (getattr(participant, 'full_name', None) or '').strip()

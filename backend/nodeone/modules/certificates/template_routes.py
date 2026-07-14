@@ -212,6 +212,11 @@ def link_template_to_event(template_id):
     t = CertificateTemplate.query.filter_by(id=template_id, organization_id=coid).first()
     if not t or not is_visual_template(t):
         return jsonify({'error': 'Plantilla visual no encontrada'}), 404
+    from nodeone.services.certificate_assets import membership_template_blocked_for_event
+
+    blocked = membership_template_blocked_for_event(t)
+    if blocked:
+        return jsonify({'error': blocked}), 400
     data = request.get_json() or {}
     event_id = data.get('event_id')
     if not event_id:

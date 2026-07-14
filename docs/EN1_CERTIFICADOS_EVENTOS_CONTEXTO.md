@@ -1,8 +1,8 @@
 # EN1 — Contexto técnico: certificados de eventos
 
 **Para:** IA, programadores y operación en Dev EN1.  
-**Última actualización:** 2026-06-22  
-**Rama / commit de referencia:** `develop` · `33dde91` (`feat(certificates): botón para regenerar todos los certificados del evento`)
+**Última actualización:** 2026-07-13  
+**Rama / commit de referencia:** `develop` · mitigación anti-mezcla plantilla MEM↔evento (`certificate_assets.is_membership_visual_template`)
 
 > Comentario: este archivo es la **fuente de verdad de contexto** para chats y tareas sobre certificados de **eventos** (seminarios). No sustituye `AGENTS.md` ni `REGLAS-DE-TRABAJO.md` para protocolo Git/entornos.
 
@@ -58,6 +58,10 @@ Archivo: `backend/nodeone/modules/events/services/certificates.py` → `_render_
 2. Si no → `render_institutional_pdf` (layout clásico con datos del formato).
 
 **No hay dos plantillas activas a la vez**; hay formato (datos) + plantilla visual (diseño opcional pero habitual).
+
+**Anti-mezcla con membresía (jul 2026):** no vincular plantillas MEM/PLAN a un evento.  
+`is_membership_visual_template` / `membership_template_blocked_for_event` en `certificate_assets.py` filtran el selector y bloquean guardar, link-event, emitir y regenerar.  
+Incidente Relatic: evento «Certificados para revisores» con `visual_template_id` de Membresía PREMIUM → PDF incorrecto; corregido en datos + traba de código.
 
 ---
 

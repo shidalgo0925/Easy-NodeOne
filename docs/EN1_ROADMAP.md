@@ -15,7 +15,7 @@
 
 ## Certificados — eventos y membresía
 
-**Estado:** **operativo en `develop` y Relatic** (jun 2026) — refactor cerrado; fix rutas PDF membresía en `804edf6`.
+**Estado:** **operativo en `develop` y Relatic** — refactor cerrado; mitigación plantilla MEM↔evento (jul 2026).
 
 Hay **dos flujos** (no mezclar):
 
@@ -24,7 +24,7 @@ Hay **dos flujos** (no mezclar):
 | **Eventos** (seminarios) | Mis Certificados → descarga | Eventos → Certificados | Admin genera PDF |
 | **Membresía** (`PLAN-BASIC`, `PLAN-PRO`, …) | Mis Certificados → **Solicitar** / descarga | Certificados → Eventos (formatos MEM/PLAN) | Usuario solicita si cumple plan |
 
-### Entregado (jun 2026)
+### Entregado (jun–jul 2026)
 
 | Entrega | Commit / nota |
 |---------|----------------|
@@ -35,6 +35,7 @@ Hay **dos flujos** (no mezclar):
 | Admin: listar y **eliminar emisiones** MEM/PLAN (re-solicitar con plantilla vigente) | `6b9c17f`, `1911a9f` |
 | Fix rutas PDF membresía (`app/instance/certificates/`) tras refactor | **`804edf6`** — desplegado Relatic |
 | PDF membresía: descarga y regeneración si falta archivo en disco | `certificate_http.py`, `api_routes.py` |
+| **Cerrado jul 2026:** evento no puede usar plantilla de membresía (selector filtra MEM/PLAN; bloqueo al guardar/vincular/emitir/regenerar). Incidente Relatic «revisores» (plantilla PREMIUM mal vinculada) corregido en datos + código | `certificate_assets.is_membership_visual_template` |
 
 ### Reglas de negocio (membresía)
 
@@ -43,12 +44,20 @@ Hay **dos flujos** (no mezclar):
 - Código emitido: `PLAN-PRO-O1-2026-XXXX` (legacy `MEM-O1-…` sigue descargable si existe fila en BD).
 - Sin plan coincidente → tarjeta **Requisitos pendientes** (sin botón Solicitar). Con emisión previa → **Emitido** + Descargar aunque el plan haya cambiado.
 
+### Reglas anti-mezcla (evento ↔ membresía) — jul 2026
+
+- El selector **Plantilla visual** del evento **no lista** plantillas de membresía (nombre MEM/PLAN, vars de layout, o `certificate_events` PLAN).
+- Guardar / link-event / sync / emitir / regenerar **rechazan** plantilla MEM vinculada a un evento.
+- Si un evento quedó mal linkeado: alerta en el form; hay que elegir plantilla de evento y regenerar PDFs.
+
 ### QA mínimo (smoke)
 
 - [ ] Mis Certificados carga `/api/my-certificates` (tarjetas por plan).
 - [ ] Usuario con plan Pro → Solicitar → PDF en `instance/certificates/` → descarga 200.
 - [ ] Admin → formato PLAN → Ver emitidos → Eliminar → usuario puede volver a solicitar.
 - [ ] Evento con participantes → Regenerar todos (N) tras cambio de plantilla.
+- [ ] En form de evento, plantillas «Membresía … MEM/REG» **no** aparecen; forzar id MEM → error al guardar.
+- [ ] Preview/emisión de evento con plantilla de evento (no carátula MEM).
 
 ### Referencias
 

@@ -311,6 +311,11 @@ def sync_event_template_link_from_template(db, template) -> int | None:
     """Al guardar plantilla con meta.event_id, actualiza el vínculo del evento."""
     from app import Event
 
+    from nodeone.services.certificate_assets import membership_template_blocked_for_event
+
+    if membership_template_blocked_for_event(template):
+        return None
+
     layout = parse_visual_layout(getattr(template, 'json_layout', None)) or {}
     meta = layout.get('meta') if isinstance(layout.get('meta'), dict) else {}
     eid = meta.get('event_id')

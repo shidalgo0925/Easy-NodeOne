@@ -3,7 +3,8 @@
 | Campo | Valor |
 |-------|--------|
 | Fecha | **14 jul 2026** |
-| Hito 3B | **Publicado** · **pendiente recepción P2** |
+| Hito 3B | **Publicado** · pendiente recepción P2 |
+| Hito 3C | API OK · BO corregido (`d2cdbd4`) — lista `eposone_order` |
 | Detalle estados | [`EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md`](EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md) |
 | Paquete | [`handoff-eposone/`](handoff-eposone/) · `/opt/handoff-plataformas/eposone-hito3b-Doc/` |
 | Order Domain | **v1.0 CONGELADA** |

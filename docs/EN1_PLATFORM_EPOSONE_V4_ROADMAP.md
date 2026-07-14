@@ -2,9 +2,11 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Aprobado** — 9 jul 2026 |
-| Fase actual | **Hito 2 EN1 API lista** (`b254735`) · siguiente: **E2E APK Sync Down** |
+| Estado | **Aprobado** — 9 jul 2026 · ADR-006 Op/Admin **14 jul 2026** |
+| Fase actual | **Hito 2 E2E APK** 🟡 · luego **Hito 3 Operación del Pedido** (no ventas→stock) |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| **ADR-006** | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
+| **Hito 3** | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Dominio comercial | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |
 | Contratos portables | [`EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md`](EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md) |
@@ -41,6 +43,7 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | ADR-003 | [`ADR-003-EPOSONE-SYNC.md`](ADR-003-EPOSONE-SYNC.md) | Modo Local · Modo Plataforma · Vincular con EN1 |
 | ADR-004 | [`ADR-004-EPOSONE-MIGRATION.md`](ADR-004-EPOSONE-MIGRATION.md) | Asistente Vincular con EasyNodeOne |
 | ADR-005 | [`ADR-005-EPOSONE-LICENSING-POS.md`](ADR-005-EPOSONE-LICENSING-POS.md) | Licenciamiento por Punto de Venta; cupos en Core |
+| ADR-006 | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) | Operación (POS) vs Administración (EN1); modos org; Pedido |
 
 **Sprint 1:** ADRs + Master Plan / § 6.9. **Sin código.** ✅
 
@@ -74,13 +77,14 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | **—** | Licenciamiento POS | ✅ | ADR-005 + stub `LicensePolicy` (sin cupos) · commit `18f6593` |
 | **EN1-01** | Provisioning APIs (legacy) | ✅ | `847a09f` — refs en body + código por org |
 | **EN1-02** | Código = destino | ✅ **CERRADO** | `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo |
-| **Hito 2** | Device Bootstrap Sync Down | ✅ EN1 API · ⏳ E2E APK | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) · commit **`b254735`** |
-| **Etapa 2** | Android (Producto) | 📋 | Consumir bootstrap + E2E tablet |
+| **Hito 2** | Device Bootstrap Sync Down | ✅ EN1 API · ⏳ E2E APK | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) · **`b254735`** · APK debe usar `/api/v1/devices/bootstrap` |
+| **Hito 3** | Operación del Pedido | 📋 brief | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) — **reemplaza** “Ventas → Stock” |
+| **Etapa 2** | Android (Producto) | 📋 | Cerrar H2 E2E → contrato H3 → Pedido offline-first |
 
 ### Etapa 2 — Android (resumen)
 
-Orden: **Hito 1** provisioning ✅ → **Hito 2** bootstrap/catálogo → sync ventas/stock → más tablets.  
-Código APK: máquina local del equipo (no en `/opt/easynodeone/dev/app`). Sin planes/límites/FE/CRM/IA en Hito 2.
+Orden: **Hito 1** ✅ → **Hito 2** bootstrap E2E → **Hito 3** ciclo de vida del Pedido + sync ↔ EN1 → inventario por eventos / caja / FE.  
+Código APK: máquina local del equipo. Una sola APK; modos Solo POS / POS+BO / Corporativo (ADR-006).
 
 ---
 
@@ -98,6 +102,9 @@ Código APK: máquina local del equipo (no en `/opt/easynodeone/dev/app`). Sin p
 10. El **Punto de Venta** es la unidad de licenciamiento; los **dispositivos** no consumen licencia POS adicional.
 11. EPosOne **no** contiene lógica de planes; los límites viven en **EN1 Core**.
 12. Hoy los cupos están **ilimitados**; la arquitectura queda preparada vía hooks de política Core.
+13. **EPosOne opera; EN1 administra** (ADR-006). El POS no escribe tablas de inventario EN1; emite eventos.
+14. **Una APK**; no Lite/Pro. Capacidades por **modo de organización** + nivel de usuario.
+15. El **Pedido** es la entidad principal; el usuario hace acciones, el sistema cambia estados.
 ---
 
 ## Relación con trabajo Connected actual (appdev)
@@ -121,5 +128,6 @@ El motor `nodeone/core/sync/` permanece; § 6.9 describe **Modo Plataforma**. Mo
 - **GO ADR-005 + infra POS:** dominio POS/caja/dispositivo + `LicensePolicy` stub + admin provisionamiento — **cerrado** (`18f6593` en `develop`).  
 - **GO EN1-01:** APIs provisioning (legacy) — `847a09f`.  
 - **GO EN1-02 / Hito 1:** código = destino — **CERRADO** `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo.  
-- **Hito 2 Device Bootstrap:** EN1 API lista · `b254735` · pendiente E2E APK.  
+- **Hito 2 Device Bootstrap:** EN1 API lista · `b254735` · pendiente E2E APK (`bootstrap`, no `/api/eposone/products`).  
+- **ADR-006 + Hito 3 brief:** aprobados 14 jul — **sin código** Hito 3 hasta contrato + GO.  
 - Sin GO: no push staging/prod, no sync a flotas, no reabrir provisioning.

@@ -170,12 +170,12 @@ Tablet limpia (sin depender del seed Istmo):
 
 ---
 
-## Aprobación
+## Aprobación / estado
 
 | Rol | Acción |
 |-----|--------|
-| EN1 | Congelar este contrato tras review; **no** implementar sin GO |
-| EPosOne | Review + implementación consumo en GO APK |
-| Ambos | E2E tablet nueva → cierre hito |
+| EN1 | ✅ API implementada en Dev · commit **`b254735`** |
+| EPosOne | Consumir `GET /api/v1/devices/bootstrap` + E2E tablet |
+| Ambos | E2E tablet nueva → cierre formal Hito 2 |
 
-**Siguiente GO de código:** chat nuevo, título «Hito 2 Device Bootstrap — implementar».
+**Siguiente:** chat APK / Flutter — E2E Sync Down (no reabrir API EN1 sin bug).

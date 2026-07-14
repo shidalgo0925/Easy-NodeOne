@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | Estado | **Aprobado** — 9 jul 2026 |
-| Fase actual | **Hito 1 EN1-02 CERRADO** · siguiente: **Hito 2 Device Bootstrap (Sync Down)** — contrato listo, sin código |
+| Fase actual | **Hito 2 EN1 API lista** (`b254735`) · siguiente: **E2E APK Sync Down** |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Dominio comercial | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |
@@ -74,8 +74,8 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | **—** | Licenciamiento POS | ✅ | ADR-005 + stub `LicensePolicy` (sin cupos) · commit `18f6593` |
 | **EN1-01** | Provisioning APIs (legacy) | ✅ | `847a09f` — refs en body + código por org |
 | **EN1-02** | Código = destino | ✅ **CERRADO** | `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo |
-| **Hito 2** | Device Bootstrap Sync Down | 📋 contrato | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) — **sin implementar** |
-| **Etapa 2** | Android (Producto) | 📋 | Hito 1 hecho · Hito 2 sync down próximo |
+| **Hito 2** | Device Bootstrap Sync Down | ✅ EN1 API · ⏳ E2E APK | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) · commit **`b254735`** |
+| **Etapa 2** | Android (Producto) | 📋 | Consumir bootstrap + E2E tablet |
 
 ### Etapa 2 — Android (resumen)
 
@@ -121,5 +121,5 @@ El motor `nodeone/core/sync/` permanece; § 6.9 describe **Modo Plataforma**. Mo
 - **GO ADR-005 + infra POS:** dominio POS/caja/dispositivo + `LicensePolicy` stub + admin provisionamiento — **cerrado** (`18f6593` en `develop`).  
 - **GO EN1-01:** APIs provisioning (legacy) — `847a09f`.  
 - **GO EN1-02 / Hito 1:** código = destino — **CERRADO** `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo.  
-- **Hito 2 Device Bootstrap:** contrato [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) — **sin código** hasta GO.  
+- **Hito 2 Device Bootstrap:** EN1 API lista · `b254735` · pendiente E2E APK.  
 - Sin GO: no push staging/prod, no sync a flotas, no reabrir provisioning.

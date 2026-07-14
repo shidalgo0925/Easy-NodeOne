@@ -140,6 +140,15 @@ def ensure_core_master_schema(db, engine, printfn=None) -> None:
                 unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 source_app_id VARCHAR(64),
+                barcode VARCHAR(64),
+                cost_price DOUBLE PRECISION,
+                min_stock DOUBLE PRECISION,
+                max_stock DOUBLE PRECISION,
+                category VARCHAR(120),
+                image_url VARCHAR(500),
+                uom VARCHAR(16) DEFAULT 'und',
+                purchase_uom VARCHAR(16),
+                pack_factor DOUBLE PRECISION DEFAULT 1,
                 created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
                 updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
                 CONSTRAINT uq_core_product_ref UNIQUE (organization_id, product_ref)
@@ -161,6 +170,15 @@ def ensure_core_master_schema(db, engine, printfn=None) -> None:
                 unit_price REAL NOT NULL DEFAULT 0,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 source_app_id VARCHAR(64),
+                barcode VARCHAR(64),
+                cost_price REAL,
+                min_stock REAL,
+                max_stock REAL,
+                category VARCHAR(120),
+                image_url VARCHAR(500),
+                uom VARCHAR(16) DEFAULT 'und',
+                purchase_uom VARCHAR(16),
+                pack_factor REAL DEFAULT 1,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE (organization_id, product_ref)
@@ -168,6 +186,8 @@ def ensure_core_master_schema(db, engine, printfn=None) -> None:
             CREATE INDEX IF NOT EXISTS ix_core_product_org ON core_product (organization_id);
             """
         _exec(engine, ddl, printfn, 'core_product')
+
+    _ensure_core_product_standard_columns(engine, insp, dialect, printfn)
 
     if 'core_contact_legacy_link' not in tables:
         if dialect == 'postgresql':
@@ -202,6 +222,37 @@ def ensure_core_master_schema(db, engine, printfn=None) -> None:
 
     _backfill_contact_legacy_links(db, engine, insp, dialect, printfn)
     _ensure_user_linked_contact(db, engine, insp, dialect, printfn)
+
+
+def _ensure_core_product_standard_columns(engine, insp, dialect, printfn) -> None:
+    """Campos standard POS + inventario (UOM, empaque, stock máx.)."""
+    # Re-inspeccionar: la tabla puede haberse creado en este mismo ensure.
+    live = inspect(engine)
+    tables = set(live.get_table_names())
+    if 'core_product' not in tables:
+        return
+    cols = {c['name'] for c in live.get_columns('core_product')}
+    additions: list[tuple[str, str, str]] = [
+        ('barcode', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('cost_price', 'DOUBLE PRECISION', 'REAL'),
+        ('min_stock', 'DOUBLE PRECISION', 'REAL'),
+        ('max_stock', 'DOUBLE PRECISION', 'REAL'),
+        ('category', 'VARCHAR(120)', 'VARCHAR(120)'),
+        ('image_url', 'VARCHAR(500)', 'VARCHAR(500)'),
+        ('uom', 'VARCHAR(16)', 'VARCHAR(16)'),
+        ('purchase_uom', 'VARCHAR(16)', 'VARCHAR(16)'),
+        ('pack_factor', 'DOUBLE PRECISION', 'REAL'),
+    ]
+    for name, pg_type, sqlite_type in additions:
+        if name in cols:
+            continue
+        col_type = pg_type if dialect == 'postgresql' else sqlite_type
+        if dialect == 'postgresql':
+            ddl = f'ALTER TABLE core_product ADD COLUMN IF NOT EXISTS {name} {col_type}'
+        else:
+            ddl = f'ALTER TABLE core_product ADD COLUMN {name} {col_type}'
+        _exec(engine, ddl, printfn, f'core_product.{name}')
+
 
 
 def _backfill_contact_legacy_links(db, engine, insp, dialect, printfn) -> None:

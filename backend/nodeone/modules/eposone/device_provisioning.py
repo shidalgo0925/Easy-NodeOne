@@ -498,6 +498,129 @@ class DeviceProvisioningService:
         return DeviceProvisioningService.build_config(row)
 
     @staticmethod
+    def build_bootstrap_for_terminal(
+        row: CorePosTerminal,
+        *,
+        include: frozenset[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Hito 2 — Device Bootstrap (Sync Down) v1.
+        Snapshot: config + products + stock_balances (sin ventas→stock).
+        """
+        from app import db
+        from models.core_master import CoreProduct
+        from nodeone.core.commerce.stock import StockService
+        from nodeone.core.services.product import ProductService
+
+        include_set = include or frozenset({'config', 'products', 'stock'})
+        oid = int(row.organization_id)
+
+        row.last_seen_at = datetime.utcnow()
+        db.session.commit()
+
+        full_config = DeviceProvisioningService.build_config(row)
+        # Forma compacta del contrato Hito 2 (sin anidar device dentro de config).
+        config_out = {
+            'organization': full_config.get('organization'),
+            'branch': full_config.get('branch'),
+            'pos': full_config.get('pos'),
+            'register': full_config.get('register'),
+            'currency': full_config.get('currency'),
+            'timezone': full_config.get('timezone'),
+            'business_name': full_config.get('business_name'),
+        }
+
+        products_out: list[dict[str, Any]] = []
+        catalog_version = 1
+        if 'products' in include_set:
+            # Activos primero; incluir inactive para que APK pueda ocultar.
+            items = ProductService.search(oid, limit=500)
+            products_out = [
+                {
+                    'product_ref': p.product_ref,
+                    'name': p.name,
+                    'description': p.description,
+                    'product_type': p.product_type,
+                    'status': p.status,
+                    'category': p.category,
+                    'barcode': p.barcode,
+                    'unit_price': float(p.unit_price or 0),
+                    'currency': p.currency or 'USD',
+                    'cost_price': p.cost_price,
+                    'tracks_inventory': bool(p.tracks_inventory),
+                    'uom': p.uom or 'und',
+                    'purchase_uom': p.purchase_uom,
+                    'pack_factor': float(p.pack_factor if p.pack_factor is not None else 1),
+                    'min_stock': p.min_stock,
+                    'max_stock': p.max_stock,
+                    'image_url': p.image_url,
+                }
+                for p in items
+            ]
+            latest = (
+                CoreProduct.query.filter_by(organization_id=oid)
+                .order_by(CoreProduct.updated_at.desc(), CoreProduct.id.desc())
+                .first()
+            )
+            if latest is not None and getattr(latest, 'updated_at', None):
+                catalog_version = int(latest.updated_at.timestamp())
+            elif products_out:
+                catalog_version = len(products_out)
+
+        stock_out: list[dict[str, Any]] = []
+        if 'stock' in include_set:
+            branch_unit = None
+            if row.branch_ref:
+                branch_unit = CoreOrgUnit.query.filter_by(
+                    organization_id=oid, unit_ref=str(row.branch_ref)
+                ).first()
+            warehouse_id = StockService.resolve_warehouse_id(
+                oid,
+                int(branch_unit.id) if branch_unit is not None else None,
+            )
+            balances = StockService.list_balances(
+                oid,
+                warehouse_org_unit_id=warehouse_id,
+                limit=500,
+            )
+            # Si no hay bodega de sucursal, devolver todos los saldos de la org (fallback).
+            if warehouse_id is None:
+                balances = StockService.list_balances(oid, limit=500)
+
+            wh_ref_by_id: dict[int, str] = {}
+            for b in balances:
+                wid = int(b.warehouse_org_unit_id)
+                if wid not in wh_ref_by_id:
+                    wu = CoreOrgUnit.query.filter_by(organization_id=oid, id=wid).first()
+                    wh_ref_by_id[wid] = str(wu.unit_ref) if wu is not None else str(wid)
+                stock_out.append(
+                    {
+                        'product_ref': b.product_ref,
+                        'warehouse_ref': wh_ref_by_id[wid],
+                        'warehouse_org_unit_id': wid,
+                        'quantity_on_hand': float(b.quantity_on_hand),
+                        'quantity_reserved': float(b.quantity_reserved),
+                        'quantity_available': float(b.quantity_available),
+                    }
+                )
+
+        payload: dict[str, Any] = {
+            'schema_version': 1,
+            'generated_at': _iso(datetime.utcnow()),
+            'config_version': int(full_config.get('config_version') or 1),
+            'catalog_version': int(catalog_version),
+        }
+        if 'config' in include_set:
+            payload['config'] = config_out
+        if 'products' in include_set:
+            payload['products'] = products_out
+            payload['products_count'] = len(products_out)
+        if 'stock' in include_set:
+            payload['stock_balances'] = stock_out
+            payload['stock_balances_count'] = len(stock_out)
+        return payload
+
+    @staticmethod
     def device_public_dict(row: CorePosTerminal) -> dict[str, Any]:
         return {
             'uuid': str(row.terminal_ref),

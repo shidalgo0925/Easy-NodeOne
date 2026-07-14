@@ -7,8 +7,8 @@
 | Silo | Solo **Dev EN1** — `https://appdev.easynodeone.com` · `easynodeone-dev` |
 | Modo | **Estricto Dev** — sin staging/prod/relatic |
 | **Hito 1 Provisioning EN1-02** | **CERRADO / CONGELADO** |
-| **Siguiente** | **Hito 2 — Device Bootstrap (Sync Down)** — solo contrato hasta GO de código |
-| Contrato Hito 2 | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) |
+| **Siguiente** | **Hito 2 Bootstrap** — API Dev lista · E2E APK (bajar catálogo/imágenes) |
+| Contrato Hito 2 | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) · `GET /api/v1/devices/bootstrap` |
 | Productos / inventario BO | [`EN1_EPOSONE_HANDOFF_PRODUCTOS_INVENTARIO.md`](EN1_EPOSONE_HANDOFF_PRODUCTOS_INVENTARIO.md) |
 
 ---
@@ -57,15 +57,15 @@
 
 ---
 
-## Hito 2 — siguiente (sin código aún)
+## Hito 2 — Device Bootstrap (EN1 Dev)
 
-Objetivo: tablet recién provisionada **deja de depender del catálogo local Istmo**.
+| Pieza | Estado |
+|-------|--------|
+| Contrato | ✅ |
+| `GET /api/v1/devices/bootstrap` | ✅ Dev / appdev (smoke Itsmo 8 productos + stock) |
+| Consumo APK + E2E tablet | ⏳ equipo EPosOne |
 
-EN1 entrega (v1): config + catálogo + precios + UOM/pack/min/max + `image_url` + saldos on_hand/reserved/available.  
-APK: descargar → guardar local → mostrar.  
-**No:** ventas→stock, transferencias, compras, licencias, FE, CRM, IA.
-
-Detalle: [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md).
+Auth: Bearer del register. Query `include=config,products,stock` opcional.
 
 ---
 

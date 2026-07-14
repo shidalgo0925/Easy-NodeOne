@@ -62,3 +62,24 @@ def devices_config():
     except DeviceProvisioningError as exc:
         return jsonify({'error': exc.code}), int(exc.http_status)
     return jsonify(config)
+
+
+@eposone_devices_v1_bp.route('/bootstrap', methods=['GET'])
+def devices_bootstrap():
+    """Hito 2 — Device Bootstrap / Sync Down v1 (catálogo + stock + config)."""
+    try:
+        row = DeviceProvisioningService.authenticate_bearer(request.headers.get('Authorization'))
+        raw_include = (request.args.get('include') or '').strip().lower()
+        include = None
+        if raw_include:
+            parts = {p.strip() for p in raw_include.split(',') if p.strip()}
+            # alias stock_balances → stock
+            if 'stock_balances' in parts:
+                parts.discard('stock_balances')
+                parts.add('stock')
+            allowed = {'config', 'products', 'stock'}
+            include = frozenset(parts & allowed) or None
+        payload = DeviceProvisioningService.build_bootstrap_for_terminal(row, include=include)
+    except DeviceProvisioningError as exc:
+        return jsonify({'error': exc.code}), int(exc.http_status)
+    return jsonify(payload)

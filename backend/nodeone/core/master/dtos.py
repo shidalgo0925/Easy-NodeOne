@@ -43,6 +43,15 @@ class ProductDTO:
     currency: str = 'USD'
     description: str | None = None
     source_app_id: str | None = None
+    barcode: str | None = None
+    cost_price: float | None = None
+    min_stock: float | None = None
+    max_stock: float | None = None
+    category: str | None = None
+    image_url: str | None = None
+    uom: str | None = 'und'
+    purchase_uom: str | None = None
+    pack_factor: float | None = 1.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -57,4 +66,13 @@ class ProductDTO:
             'currency': self.currency,
             'description': self.description,
             'source_app_id': self.source_app_id,
+            'barcode': self.barcode,
+            'cost_price': self.cost_price,
+            'min_stock': self.min_stock,
+            'max_stock': self.max_stock,
+            'category': self.category,
+            'image_url': self.image_url,
+            'uom': self.uom,
+            'purchase_uom': self.purchase_uom,
+            'pack_factor': self.pack_factor,
         }

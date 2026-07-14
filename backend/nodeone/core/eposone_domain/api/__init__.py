@@ -74,6 +74,19 @@ def product_dto_to_portable(dto: Any) -> Product:
         active=str(getattr(dto, 'status', 'active')).lower() == 'active',
         track_stock=bool(getattr(dto, 'tracks_inventory', False)),
         created_at=_utcnow_iso(),
+        barcode=getattr(dto, 'barcode', None),
+        cost_price=(
+            float(dto.cost_price) if getattr(dto, 'cost_price', None) is not None else None
+        ),
+        min_stock=(float(dto.min_stock) if getattr(dto, 'min_stock', None) is not None else None),
+        max_stock=(float(dto.max_stock) if getattr(dto, 'max_stock', None) is not None else None),
+        category=getattr(dto, 'category', None),
+        image_url=getattr(dto, 'image_url', None),
+        uom=(getattr(dto, 'uom', None) or 'und'),
+        purchase_uom=getattr(dto, 'purchase_uom', None),
+        pack_factor=(
+            float(dto.pack_factor) if getattr(dto, 'pack_factor', None) is not None else 1.0
+        ),
     )
 
 
@@ -233,6 +246,17 @@ class ApiProductRepository:
                 row.status = PRODUCT_STATUS_ACTIVE if product.active else PRODUCT_STATUS_INACTIVE
                 if product.sku:
                     row.product_ref = product.sku[:64]
+                row.barcode = product.barcode
+                row.cost_price = product.cost_price
+                row.min_stock = product.min_stock
+                row.max_stock = product.max_stock
+                row.category = product.category
+                row.image_url = product.image_url
+                row.uom = product.uom or 'und'
+                row.purchase_uom = product.purchase_uom
+                row.pack_factor = (
+                    float(product.pack_factor) if product.pack_factor is not None else 1.0
+                )
                 db.session.commit()
                 from nodeone.core.master.product import product_to_dto
 
@@ -250,6 +274,15 @@ class ApiProductRepository:
                 'currency': product.currency,
                 'source_app_id': 'eposone',
                 'status': PRODUCT_STATUS_ACTIVE if product.active else PRODUCT_STATUS_INACTIVE,
+                'barcode': product.barcode,
+                'cost_price': product.cost_price,
+                'min_stock': product.min_stock,
+                'max_stock': product.max_stock,
+                'category': product.category,
+                'image_url': product.image_url,
+                'uom': product.uom or 'und',
+                'purchase_uom': product.purchase_uom,
+                'pack_factor': product.pack_factor if product.pack_factor is not None else 1.0,
             },
         )
         return product_dto_to_portable(created)

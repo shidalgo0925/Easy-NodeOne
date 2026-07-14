@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | Hito | **Hito 2 — Device Bootstrap (Sync Down) v1** |
-| Estado | **Contrato borrador congelable** — **sin implementación** hasta GO de código |
+| Estado | **Implementado en Dev** (13 jul 2026) — `GET /api/v1/devices/bootstrap` · pendiente E2E APK |
 | Fecha | **13 jul 2026** |
 | Precondición | Hito 1 Provisioning EN1-02 **cerrado / congelado** |
 | Auth | `Authorization: Bearer <access_token>` del register |
@@ -36,27 +36,20 @@ Tras E2E Hito 2: se puede **eliminar dependencia del catálogo local Istmo**; EN
 3. v1 = **snapshot** (full pull) + versión (`config_version` y/o `catalog_version`).  
 4. Imágenes: EN1 entrega `image_url` (relativa o absoluta); APK baja bytes y cachea local.  
 5. Dominio APK no habla SQL de EN1; solo DTO JSON del contrato.  
-6. Sin lógica nueva en EN1 hasta **GO de implementación** tras aprobar este doc.
+6. Contrato aprobado → implementación EN1 Dev (`GET /api/v1/devices/bootstrap`) — E2E APK pendiente.
 
 ---
 
-## Endpoints propuestos (EN1)
+## Endpoints (EN1) — v1 implementado
 
-> Rutas tentativas — fijar en GO de implementación. Preferir prefijo `/api/v1/devices/…` junto a register/config.
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| `GET` | `/api/v1/devices/config` | Bearer | Hito 1 — jerarquía + currency + timezone + `config_version` |
+| `GET` | `/api/v1/devices/bootstrap` | Bearer | **Hito 2** — snapshot: config + products + stock_balances |
 
-| Método | Ruta propuesta | Auth | Descripción |
-|--------|----------------|------|-------------|
-| `GET` | `/api/v1/devices/config` | Bearer | Ya existe (Hito 1) — jerarquía + currency + timezone + `config_version` |
-| `GET` | `/api/v1/devices/bootstrap` **o** `/api/v1/devices/sync/down` | Bearer | Snapshot v1: config resumida + products + stock_balances |
+Query opcional: `include=config,products,stock` (default: los tres).
 
-Alternativa en dos llamadas (también válida en v1):
-
-| Método | Ruta | Contenido |
-|--------|------|-----------|
-| `GET` | `/api/v1/devices/catalog` | productos |
-| `GET` | `/api/v1/devices/stock` | saldos filtrados al destino del device |
-
-**Recomendación contrato:** un **`GET /api/v1/devices/bootstrap`** único para tablets nuevas (menos round-trips).
+> Rutas `/catalog` y `/stock` separadas: no requeridas en v1 (todo en bootstrap).
 
 ### Query opcionales (v1)
 

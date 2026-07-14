@@ -98,6 +98,15 @@ class Product:
     tax_rate_id: str | None = None
     kit_lines: tuple[KitLine, ...] = ()
     updated_at: str | None = None
+    barcode: str | None = None
+    cost_price: float | None = None
+    min_stock: float | None = None
+    max_stock: float | None = None
+    category: str | None = None
+    image_url: str | None = None
+    uom: str | None = 'und'
+    purchase_uom: str | None = None
+    pack_factor: float | None = 1.0
 
     def to_dict(self) -> dict[str, Any]:
         return _clean(asdict(self))

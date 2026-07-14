@@ -4,84 +4,47 @@
 |-------|--------|
 | Fecha | **14 jul 2026** |
 | Roadmap | **V5** — [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
-| Rama | `develop` · Hito 1 tag `eposone-provisioning-v1.0` · Hito 2 API `b254735` |
+| Spec | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) **CONGELADA** |
 | Silo | Solo **Dev EN1** — `https://appdev.easynodeone.com` |
-| **Order Domain Spec** | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) — **CONGELADA** v1.0 |
-| **ADR-006** | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
-| **Hito 1** | ✅ Cerrado / congelado |
-| **Hito 2** | ✅ Cerrado / congelado |
-| **Hito 3** | 📋 Spec congelada · código ⏸ hasta **GO P1** |
-| **Hitos 4–7** | ⏸ Operación · Inventario · Caja · FE |
-| **Quién ahora** | Esperar **GO P1** (EN1 primero) |
+| **Hito 1** | ✅ |
+| **Hito 2** | ✅ |
+| **Hito 3** | ✅ EN1 dominio + `/api/v1/orders*` (Device Bearer) · review/contrato HTTP |
+| **Hito 4** | ⏸ GO P2 — operación APK |
+| **Quién ahora** | Review Hito 3 → congelar contrato HTTP → **GO P2** |
 
 ---
 
 ## Una frase
 
-H1/H2 cerrados. Order Domain Spec v1.0 **CONGELADA**. Código Hito 3 solo con **GO P1**.
+Order Domain Spec congelada e **implementada en EN1 Dev**. Siguiente: review + GO P2 (APK consume APIs).
 
 ---
 
-## Roadmap V5 (resumen)
+## APIs Hito 3 (Device Bearer)
 
-| Hito | Estado |
-|------|--------|
-| 1 Provisioning | ✅ |
-| 2 Bootstrap | ✅ |
-| 3 Dominio Pedido (EN1) | 📋 Spec CONGELADA · ⏸ código |
-| 4 Operación Pedido (APK) | ⏸ |
-| 5 Inventario operativo | ⏸ |
-| 6 Caja y pagos | ⏸ |
-| 7 Facturación | ⏸ |
-
-```text
-Spec CONGELADA ✅ → GO P1 → review contrato → GO P2 → E2E → Inv → Caja → FE
+```http
+POST   /api/v1/orders
+GET    /api/v1/orders
+GET    /api/v1/orders/{id}?include=events
+PATCH  /api/v1/orders/{id}
+POST   /api/v1/orders/{id}/events
+POST   /api/v1/orders/{id}/payments
+POST   /api/v1/orders/{id}/split
 ```
 
----
-
-## Decisiones clave (cerradas)
-
-- Un Pedido; acciones ≠ estados; sync por eventos  
-- Ownership (owner edita; cobro multi-punto)  
-- Mesa: un abierto; agregar; no fusionar; sí dividir  
-- Pago mixto / abonos / parciales (cliente → CxC)  
-- Cocina por línea; entrega parcial; cancelación de línea  
-- Inventario oficial EN1; combos → componentes; recetas después  
-
-Detalle: Order Domain Spec.
+Auth: `Authorization: Bearer <token>` del register (igual Hito 1/2).  
+Tablas: `eposone_order*` · sin inventario/Kardex.
 
 ---
 
-## Congelado (no tocar)
+## Congelado
 
-Provisioning · Bootstrap · Catálogo · Productos · Inventario maestro · POS Core  
-
----
-
-## Hito 2 — recordatorio APK
-
-Catálogo Sync Down = `GET /api/v1/devices/bootstrap` + Device Bearer.  
-No `/api/eposone/products` (401 con token de dispositivo).
-
----
-
-## Instrucciones P1 / P2
-
-| Quién | Ahora |
-|-------|--------|
-| **P1** | Spec CONGELADA · espera **GO P1** · Order\* + APIs Pedido · sin inventario |
-| **P2** | No inventar dominio · espera contrato HTTP post-P1 · H2 cerrado |
-
-Docs: [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md)
+Provisioning · Bootstrap · Catálogo · Inventario maestro · POS Core · no FE  
 
 ---
 
 ## Chat nuevo
 
-1. ~~Arquitectura: congelar Spec~~ ✅  
-2. **GO P1** — implementar Hito 3 en Dev EN1 (`chat nuevo` recomendado)  
-3. Review / tag contrato HTTP  
-4. **GO P2** — Hito 4  
-
-Sin GO P1: no código Hito 3.
+1. Review Hito 3 (contrato HTTP / tag)  
+2. **GO P2** — Hito 4  
+3. No inventario hasta Hito 5  

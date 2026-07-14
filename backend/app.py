@@ -3526,6 +3526,13 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_eposone_provisioning_schema: {e}')
         try:
+            from nodeone.services.eposone_order_schema import ensure_eposone_order_schema
+
+            ensure_eposone_order_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_order_schema: {e}')
+        try:
             from nodeone.services.academic_schema import ensure_academic_schema
 
             ensure_academic_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

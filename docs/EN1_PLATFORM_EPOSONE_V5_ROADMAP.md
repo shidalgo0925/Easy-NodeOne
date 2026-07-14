@@ -17,20 +17,20 @@
 |------|--------|--------|
 | **1** | Provisioning EN1-02 | ✅ Cerrado / congelado |
 | **2** | Device Bootstrap | ✅ Cerrado / congelado (API EN1; consumo APK = contrato `/api/v1/devices/bootstrap`) |
-| **3** | Dominio Operativo del Pedido (Order Domain) | 📋 Spec **CONGELADA** · código ⏸ hasta **GO P1** |
+| **3** | Dominio Operativo del Pedido (Order Domain) | ✅ EN1 implementado · review/contrato → Hito 4 |
 | **4** | Operación del Pedido (APK + E2E) | ⏸ Tras contrato H3 congelado |
 | **5** | Inventario Operativo | ⏸ |
 | **6** | Caja y Pagos | ⏸ |
 | **7** | Facturación | ⏸ |
 
 ```text
-Arquitectura ✅ Spec Order Domain CONGELADA
+Arquitectura ✅ Spec CONGELADA
     ↓
-P1 EN1 — Dominio + APIs Pedido (Hito 3) ← espera GO P1
+P1 EN1 — Dominio + APIs Pedido ✅
     ↓
 Review → congelar contrato HTTP
     ↓
-P2 EPosOne — Operación POS (Hito 4)
+P2 EPosOne — Operación POS (Hito 4) ← siguiente GO
     ↓
 Integración E2E
     ↓
@@ -71,8 +71,8 @@ Pedido → Operación → Pago → Venta → Inventario → Caja → Factura
 | Rol | Ahora |
 |-----|--------|
 | **Arquitectura** | Spec Order Domain **CONGELADA** ✅ |
-| **P1 EN1** | Listo para implementar tras **GO P1** — solo dominio + APIs Pedido (sin inventario) |
-| **P2 EPosOne** | Espera review/contrato post-P1; **no** inventar Order Domain |
+| **P1 EN1** | ✅ Dominio + `/api/v1/orders*` en Dev |
+| **P2 EPosOne** | Esperar review/contrato → **GO P2** Hito 4 |
 
 ---
 

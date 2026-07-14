@@ -7,7 +7,7 @@
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
 | Spec funcional | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) |
 | ADR | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
-| Código | **Prohibido** hasta **GO P1** explícito (solo Dev EN1) |
+| Código | **Implementado en Dev** · commit pendiente review · Spec sigue CONGELADA (cambios = v1.1+) |
 
 Este documento es la **única fuente de verdad** del dominio Pedido. P1 implementa EN1 según él; P2 consume el contrato sin inventar reglas. Cambios solo con nueva versión (v1.1+) y GO de arquitectura.
 

@@ -17,6 +17,81 @@ STATUS_REUSED = 'REUSED'
 STATUS_REPAIRED = 'REPAIRED'
 STATUS_DEACTIVATED = 'DEACTIVATED'
 
+# Señales de plantillas de membresía (no deben usarse en eventos EN1).
+_MEMBERSHIP_TEMPLATE_NAME_MARKERS = (
+    'membres',  # membresía / membresia
+    'mem/reg',
+    'plan-basic',
+    'plan-pro',
+    'plan-premium',
+    'plan-deluxe',
+    'plan-corporat',
+)
+_MEMBERSHIP_LAYOUT_VARS = (
+    'membership_type',
+    'membership_start',
+    'membership_end',
+    'dia_membresia',
+    'mes_membresia',
+    'anio_membresia',
+)
+
+EVENT_MEMBERSHIP_TEMPLATE_BLOCKED_MSG = (
+    'Esa plantilla es de membresía (MEM/PLAN). '
+    'Para eventos usá una plantilla de evento, no una de membresía.'
+)
+
+
+def is_membership_visual_template(template) -> bool:
+    """
+    True si la plantilla pertenece al carril membresía (no eventos).
+    Prioridad: meta.event_id ⇒ plantilla de evento; luego nombre / formato PLAN / vars de layout.
+    """
+    if template is None:
+        return False
+    from nodeone.services.certificate_visual_templates import (
+        event_id_from_visual_template,
+        parse_visual_layout,
+    )
+
+    if event_id_from_visual_template(template) is not None:
+        return False
+
+    name = (getattr(template, 'name', None) or '').strip().lower()
+    if any(marker in name for marker in _MEMBERSHIP_TEMPLATE_NAME_MARKERS):
+        return True
+
+    layout = parse_visual_layout(getattr(template, 'json_layout', None)) or {}
+    for el in layout.get('elements') or []:
+        if not isinstance(el, dict):
+            continue
+        var_name = (el.get('name') or el.get('variable') or '').strip().lower()
+        if any(marker in var_name for marker in _MEMBERSHIP_LAYOUT_VARS):
+            return True
+
+    tid = getattr(template, 'id', None)
+    if tid is None:
+        return False
+    try:
+        from app import CertificateEvent
+
+        linked = (
+            CertificateEvent.query.filter_by(template_id=int(tid))
+            .filter(CertificateEvent.membership_required_id.isnot(None))
+            .filter(CertificateEvent.event_required_id.is_(None))
+            .first()
+        )
+        return linked is not None
+    except Exception:
+        return False
+
+
+def membership_template_blocked_for_event(template) -> str | None:
+    """Mensaje de error si la plantilla no puede vincularse a un evento EN1."""
+    if is_membership_visual_template(template):
+        return EVENT_MEMBERSHIP_TEMPLATE_BLOCKED_MSG
+    return None
+
 
 def _org_layout_defaults(org_id: int) -> dict[str, Any]:
     from nodeone.services.certificate_institutional_pdf import _load_org_layout_defaults
@@ -273,19 +348,42 @@ def apply_certificate_template_from_event_form(
     t = CertificateTemplate.query.filter_by(id=tid, organization_id=int(org_id)).first()
     if not t:
         return 'Plantilla no encontrada para esta organización'
+    blocked = membership_template_blocked_for_event(t)
+    if blocked:
+        return blocked
     link_visual_template_to_event(event, tid)
     return None
 
 
 def list_certificate_templates_for_event_form(CertificateTemplate, org_id: int) -> list[dict]:
+    """Plantillas elegibles para eventos: excluye las de membresía (MEM/PLAN)."""
     rows = CertificateTemplate.query.filter_by(organization_id=int(org_id)).order_by(
         CertificateTemplate.name.asc(),
         CertificateTemplate.id.asc(),
     ).all()
-    return [
-        {'id': int(t.id), 'name': ((t.name or '').strip() or f'Plantilla #{t.id}')}
-        for t in rows
-    ]
+    out = []
+    for t in rows:
+        if is_membership_visual_template(t):
+            continue
+        out.append(
+            {'id': int(t.id), 'name': ((t.name or '').strip() or f'Plantilla #{t.id}')}
+        )
+    return out
+
+
+def validate_event_linked_visual_template(event, org_id: int, CertificateTemplate) -> str | None:
+    """
+    Si el evento ya tiene visual_template_id de membresía, bloquea (evita reincidencia).
+    """
+    from nodeone.services.certificate_visual_templates import visual_template_id_for_event
+
+    tid = visual_template_id_for_event(event)
+    if not tid:
+        return None
+    t = CertificateTemplate.query.filter_by(id=int(tid), organization_id=int(org_id)).first()
+    if t is None:
+        t = CertificateTemplate.query.get(int(tid))
+    return membership_template_blocked_for_event(t)
 
 
 def sync_event_certificate_on_save(
@@ -315,6 +413,9 @@ def sync_event_certificate_on_save(
         org_id,
         CertificateTemplate,
     )
+    if err:
+        return True, err, assets
+    err = validate_event_linked_visual_template(event, org_id, CertificateTemplate)
     return True, err, assets
 
 
@@ -363,14 +464,25 @@ def event_certificate_ui_context(
             fmt = find_event_certificate_format(CertificateEvent, event, org_id)
             certificate_event_id = int(fmt.id) if fmt else None
 
+    selected_tid = visual_template_id_for_event(event) if event else None
+    membership_mislink_msg = None
+    if selected_tid:
+        tpl = CertificateTemplate.query.filter_by(
+            id=int(selected_tid), organization_id=org_id
+        ).first()
+        if tpl is None:
+            tpl = CertificateTemplate.query.get(int(selected_tid))
+        membership_mislink_msg = membership_template_blocked_for_event(tpl)
+        if membership_mislink_msg:
+            selected_tid = None
+
     return {
         'certificate_templates': list_certificate_templates_for_event_form(
             CertificateTemplate, org_id
         ),
-        'selected_certificate_template_id': (
-            visual_template_id_for_event(event) if event else None
-        ),
+        'selected_certificate_template_id': selected_tid,
         'certificate_event_id': certificate_event_id,
+        'certificate_membership_template_error': membership_mislink_msg,
     }
 
 

@@ -4,254 +4,108 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **En diseño** — 14 jul 2026 |
-| Objetivo | Definir el corazón operativo de EPosOne y EN1 **antes** de escribir código |
+| Estado | **Decisiones A–E cerradas** — 14 jul 2026 · dominio en **Order Domain Spec** |
+| Fuente de verdad dominio | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
+| Roadmap | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
 | ADR | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
-| Brief / instructions | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) |
-| Desarrollo | **CONGELADO** hasta congelar esta especificación (preguntas §13 respondidas) |
-| Audiencia ahora | **Solo arquitectura** — no pasar a P1/P2 para implementar |
+| Brief | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) |
+| Desarrollo | **CONGELADO** hasta congelar Order Domain Spec + GO P1 |
+| Audiencia código | Ninguna hasta GO P1 |
+
+Documento histórico de la Spec Funcional. Las respuestas §13 y el contrato de implementación viven en la **Order Domain Spec v1.0**.
 
 ---
 
-## 1. Objetivo
+## 1–12. Resumen
 
-Construir un único modelo operativo que funcione para:
+Ver Order Domain Spec + secciones originales abajo por continuidad.
 
-- Food Truck  
-- Cafeterías  
-- Kioscos  
-- Restaurantes  
-- Bares  
-- Hoteles  
-- Restaurantes VIP  
-- Franquicias  
+### Principios
 
-Sin cambiar el motor del POS.
+- Un solo Pedido · dueño POS en operación / EN1 tras sync · acciones ≠ estados · eventos no tablas · inventario oficial EN1 · caja en POS con eventos  
 
----
+### Acciones
 
-## 2. Principios
+Nuevo Pedido · Guardar · Agregar/Quitar Producto · Modificar Cantidad · Enviar · Cobrar · Entregar · Anular · Devolver · Reimprimir  
 
-### Regla 1 — Un solo Pedido
+### Cancelaciones
 
-No existen “Pedido Food Truck”, “Pedido Restaurante”, “Pedido Express”.  
-Existe únicamente: **Pedido**.
-
-### Regla 2 — El Pedido vive en dos lugares
-
-| Momento | Dueño |
-|---------|--------|
-| Durante la operación | **EPosOne** (puede trabajar offline) |
-| Después del Sync | **EN1** (fuente oficial) |
-
-### Regla 3 — El usuario nunca administra estados
-
-El usuario ejecuta **acciones**. El sistema cambia los **estados**.
-
-Ejemplo: Agregar producto → Enviar → Cobrar → Entregar.
+| Momento | Tratamiento |
+|---------|-------------|
+| Antes de preparar | Modificar |
+| Después de preparar | Anulación (+ motivo) |
+| Después de entregar | Devolución |
 
 ---
 
-## 3. Modelo principal
+## 13. Preguntas A–E — respuestas (cerradas 14 jul)
 
-### Pedido (mínimo)
+### A. Pedido
 
-- Número local  
-- Número EN1 (cuando sincronice)  
-- Empresa  
-- Sucursal  
-- POS  
-- Caja  
-- Usuario  
-- Cliente (opcional)  
-- Fecha  
-- Hora  
-- Estado  
-- Total  
-- Impuestos  
-- Descuentos  
-- Propinas  
-- Observaciones  
-- Líneas  
+| Pregunta | Respuesta |
+|----------|-----------|
+| ¿Más de un pedido abierto por mesa? | **No** — uno abierto; nuevas órdenes se **agregan** |
+| ¿Cambiar de caja? | Cobro desde **cualquier caja autorizada** (etapa cobro) |
+| ¿Cambiar de cajero? | **Sí** |
+| ¿Dividir? | **Sí** |
+| ¿Fusionar? | **No** |
 
-### Cada línea
+### B. Pago
 
-- Producto  
-- Cantidad  
-- Precio  
-- Impuesto  
-- Descuento  
-- Observaciones  
-- Estado  
+| Pregunta | Respuesta |
+|----------|-----------|
+| ¿Varios pagos / mixto? | **Sí** |
+| ¿Abonos / parciales? | **Sí** — solo clientes registrados → **CxC** |
+| ¿Un cierre financiero? | **Sí** |
 
----
+### C. Cocina
 
-## 4. Acciones
+| Pregunta | Respuesta |
+|----------|-----------|
+| ¿Línea lista antes que otra? | **Sí** |
+| ¿Entrega parcial? | **Sí** |
+| ¿Cancelar una línea? | **Sí** |
 
-Únicas acciones visibles para el usuario:
+### D. Inventario
 
-| Acción |
-|--------|
-| Nuevo Pedido |
-| Guardar |
-| Agregar Producto |
-| Quitar Producto |
-| Modificar Cantidad |
-| Enviar |
-| Cobrar |
-| Entregar |
-| Anular |
-| Devolver |
-| Reimprimir |
+| Pregunta | Respuesta |
+|----------|-----------|
+| ¿Quién descuenta? | **EN1** tras eventos; POS no escribe Kardex |
+| ¿Combos? | No descontar combo; descontar **productos/componentes** |
+| ¿Recetas? | Soporte futuro; **no** implementar aún |
+| ¿Cobrar vs entregar? | Decisión de **Hito 5**; dominio emite ambos eventos |
 
-Nada más.
+### E. Sincronización
+
+| Pregunta | Respuesta |
+|----------|-----------|
+| ¿Conflictos POS vs BO? | **Ownership**: no owner → no edita; no hay race de merge |
+| ¿Quién gana? | No aplica: solo el owner escribe en abierto; cobro multi-punto autorizado |
 
 ---
 
-## 5. Eventos
+## Detalle narrativo (V1.0 original)
 
-EN1 recibe **eventos**, no sincronización de tablas.
+### Objetivo
 
-Ejemplos:
+Un modelo para Food Truck, cafeterías, kioscos, restaurantes, bares, hoteles, VIP, franquicias — sin cambiar el motor del POS.
 
-- `pedido.creado`  
-- `pedido.actualizado`  
-- `producto.agregado`  
-- `producto.eliminado`  
-- `cantidad.modificada`  
-- `pedido.enviado`  
-- `pedido.entregado`  
-- `pedido.cobrado`  
-- `pedido.anulado`  
-- `pedido.devuelto`  
-
-Todo auditable.
-
----
-
-## 6. Cancelaciones — decisión oficial
-
-| Caso | Momento | Tratamiento |
-|------|---------|-------------|
-| **1** | Antes de preparar | **No** hay cancelación: se **modifica** el pedido. No afecta inventario. |
-| **2** | Después de preparar | **Anulación**. Registra motivo, usuario, fecha, hora. Puede requerir autorización. |
-| **3** | Después de entregar | **Devolución**. Nunca “Cancelación”. |
-
----
-
-## 7. Comunicación
+### Comunicación
 
 ```text
-POS → Eventos → EN1 → Eventos → Otros POS / BackOffice
+POS → Eventos → EN1 → Eventos → BackOffice / Otros POS
 ```
 
-Nunca sincronización directa de tablas.
-
----
-
-## 8. Operación (mismos Pedido, distintos flujos)
-
-### Food Truck
-
-Pedido → Cobrar → Entregar
-
-### Restaurante
-
-Pedido → Enviar → Listo → Cobrar → Entregar
-
-### Restaurante VIP
-
-Pedido → Preparación → Listo → Entregado → Cobrado → Factura
-
-Todos usan el mismo **Pedido**.
-
----
-
-## 9. Inventario — decisión arquitectónica
-
-- Inventario oficial = **EN1**  
-- EPosOne solo genera **eventos**  
-
-Ejemplo: `pedido.cobrado` → EN1 → Kardex → Stock → Reportes
-
----
-
-## 10. Caja
-
-La caja pertenece al **POS**.  
-Sus eventos también viajan a EN1:
-
-- Caja abierta  
-- Caja cerrada  
-- Ingreso  
-- Retiro  
-- Arqueo  
-
----
-
-## 11. Sincronización
-
-Nunca sincronizar tablas.  
-Siempre sincronizar **eventos**.
-
----
-
-## 12. Offline
-
-Todo debe funcionar sin Internet.
-
-Al volver la conexión:
+### Offline
 
 ```text
 Cola → Eventos → EN1 → Confirmación
 ```
 
----
+### Flujos ejemplo
 
-## 13. Preguntas abiertas (antes de programar)
+- Food Truck: Pedido → Cobrar → Entregar  
+- Restaurante: Pedido → Enviar → Listo → Cobrar → Entregar  
+- VIP: Pedido → Preparación → Listo → Entregado → Cobrado → Factura  
 
-Sesión de arquitectura pendiente. **Nadie inventa reglas** hasta responder.
-
-### A. Pedido
-
-1. ¿Puede existir más de un pedido abierto por mesa?  
-2. ¿Puede un pedido cambiar de caja?  
-3. ¿Puede cambiar de cajero?  
-4. ¿Puede dividirse en dos pedidos?  
-5. ¿Puede fusionarse con otro?  
-
-### B. Pago
-
-1. ¿Un pedido puede tener varios pagos?  
-2. ¿Pago mixto?  
-3. ¿Abonos?  
-4. ¿Pago parcial?  
-
-### C. Cocina
-
-1. ¿Una línea puede estar lista antes que otra?  
-2. ¿Se entrega parcialmente?  
-3. ¿Se cancela una sola línea?  
-
-### D. Inventario
-
-1. ¿Se descuenta al cobrar o al entregar?  
-2. ¿Qué pasa con productos compuestos (combos)?  
-3. ¿Qué pasa con recetas?  
-
-### E. Sincronización
-
-1. ¿Qué ocurre si el POS A modifica un pedido y el BackOffice también?  
-2. ¿Quién gana?  
-3. ¿Cómo se resuelven conflictos?  
-
----
-
-## Próximo paso (solo Arquitectura)
-
-1. Sesión exclusiva para responder §13 (A–E).  
-2. Congelar esta especificación (V1.0 → **congelada**).  
-3. Entonces: P1 dominio/APIs · P2 operación POS · E2E Hito 3.  
-
-**No** pasar aún a programadores para implementar.  
-Este documento, una vez congelado, será el más importante del proyecto después del Roadmap.
+Todos = mismo Pedido.

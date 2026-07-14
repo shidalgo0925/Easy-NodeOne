@@ -2,14 +2,15 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Borrador arquitectónico** — 14 jul 2026 · pendiente **congelar** antes de GO P1 |
-| Fuente de verdad | Hito 3 (Dominio) + contrato para Hito 4 (Operación APK) |
+| Estado | **CONGELADA** — 14 jul 2026 |
+| Versión | **v1.0** (fuente de verdad Hito 3 / contrato Hito 4) |
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
 | Spec funcional | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) |
 | ADR | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
-| Desarrollo | **Prohibido** hasta marcar esta Spec como **CONGELADA** + GO explícito P1 |
+| Código | **Prohibido** hasta **GO P1** explícito (solo Dev EN1) |
 
-Este documento es la **única fuente de verdad** del dominio Pedido. P1 implementa EN1 según él; P2 consume el contrato sin inventar reglas.
+Este documento es la **única fuente de verdad** del dominio Pedido. P1 implementa EN1 según él; P2 consume el contrato sin inventar reglas. Cambios solo con nueva versión (v1.1+) y GO de arquitectura.
+
 
 ---
 
@@ -46,11 +47,7 @@ Pedido → Operación → Pago → Venta → Inventario → Caja → Factura
 | Pedido **abierto** (editable) | Dueño = **POS que lo creó**. Otros dispositivos/BO: **lectura**. No modificación. |
 | Etapa de **cobro** | Puede cobrarse desde **otro POS** o **BackOffice** (cajas/dispositivos autorizados). |
 | Conflictos | No se aplican merges de edición: quien no es owner no escribe líneas/acciones de edición. |
-
-### Pendiente de clavar al congelar (no inventar en código)
-
-- Ownership del **pedido hijo** al **dividir**: ¿hereda POS padre o POS que ejecuta la división? → default propuesto al congelar: **mismo owner_pos** del pedido origen, salvo acción explícita de transferencia.  
-- Ancla sin mesa (food truck / barra): ver §5.
+| **Dividir pedido** | El pedido hijo **hereda** `owner_pos` / `owner_device` del pedido **origen**. Transferencia de ownership = acción explícita futura (fuera de Hito 3 mínimo). |
 
 ---
 
@@ -116,27 +113,28 @@ Order
 
 ---
 
-## 5. Ancla de agrupación (mesa / sin mesa)
+## 5. Ancla de agrupación (mesa / sin mesa) — cerrado
 
-**Cerrado:** un **pedido abierto por mesa**; si llega otra orden de esa mesa → **se agrega al mismo Pedido**.  
-**Cerrado:** no fusionar pedidos.  
-**Cerrado:** dividir pedidos **permitido**.
+| Regla | Valor |
+|-------|--------|
+| Un pedido abierto por mesa | Sí |
+| Nueva orden misma mesa | Se **agrega** al mismo Pedido |
+| Fusionar | No |
+| Dividir | Sí (hijo hereda owner del origen — §3) |
 
 ### Modo con mesa
 
-`table_ref` obligatorio (o equivalente) → a lo sumo **un** Order abierto por `(org, branch, table_ref)`.
+`table_ref` presente → a lo sumo **un** Order abierto por `(organization_id, branch_ref, table_ref)`.
 
-### Modo sin mesa (Solo POS / food truck / barra) — a clavar al congelar
+### Modo sin mesa (Solo POS / food truck / barra) — **opción B**
 
-Misma entidad Order. Ancla candidata (elegir una en congelación):
+Si `table_ref` es **null**:
 
-| Opción | Uso |
-|--------|-----|
-| A | `service_ref` / turno de mostrador |
-| B | Sin ancla: cada “Nuevo Pedido” es un Order nuevo (no hay “mesa”) |
-| C | `counter_ticket` efímero |
+- No hay ancla de agrupación.  
+- Cada acción **Nuevo Pedido** crea un **Order nuevo**.  
+- No existe “agregar a la mesa”.  
 
-**Default propuesto para congelar:** opción **B** cuando `table_ref` es null (negocio sin mesas).
+Misma entidad `Order` en ambos modos.
 
 ---
 
@@ -200,34 +198,43 @@ Nuevo Pedido · Guardar · Agregar Producto · Quitar Producto · Modificar Cant
 
 (+ operar por línea: listo / cancelar línea / entregar parcial — derivadas de decisiones cocina.)
 
-### Eventos hacia EN1 (mínimo)
+### Eventos hacia EN1 (lista definitiva v1.0)
 
-| Evento | Notas |
-|--------|--------|
-| `pedido.creado` | |
-| `pedido.actualizado` | |
-| `producto.agregado` | |
-| `producto.eliminado` | |
-| `cantidad.modificada` | |
-| `pedido.enviado` | |
-| `pedido.listo` / `linea.lista` | según granularidad cocina |
-| `pedido.entregado` / entrega parcial | |
-| `pedido.cobrado` | cierre financiero |
-| `pago.registrado` | mixto / abono / parcial |
-| `pedido.anulado` | |
-| `pedido.devuelto` | |
-| `linea.cancelada` | si aplica |
+| `event.type` | Semántica |
+|--------------|-----------|
+| `pedido.creado` | Alta |
+| `pedido.actualizado` | Metadatos / totales / cajero / notas (sin ítem) |
+| `pedido.dividido` | Split; payload referencia pedido hijo |
+| `producto.agregado` | Línea nueva |
+| `producto.eliminado` | Línea quitada |
+| `cantidad.modificada` | Cambio de qty |
+| `pedido.enviado` | Enviado a preparación |
+| `linea.lista` | Línea lista (cocina independiente) |
+| `pedido.listo` | Pedido completo listo |
+| `linea.entregada` | Entrega parcial de línea |
+| `pedido.entregado` | Entrega total |
+| `pago.registrado` | Pago / abono / parcial / mixto (una fila) |
+| `pedido.cobrado` | Cierre financiero (saldo 0) |
+| `linea.cancelada` | Cancelación de línea (según momento §6) |
+| `pedido.anulado` | Anulación post-preparación |
+| `pedido.devuelto` | Devolución post-entrega |
 
-Nombres finales pueden ajustarse al congelar; la semántica no.
+No agregar tipos en Hito 3 sin versión de Spec.
 
 ---
 
-## 8. APIs EN1 (Hito 3 — solo Pedido)
+## 8. APIs EN1 (Hito 3 — solo Pedido) — cerrado
 
-Auth: **Device Bearer** (mismo esquema Hito 1/2) y/o sesión BO para BackOffice.  
-**No** reutilizar solo `@login_required` de `/api/eposone/*` para el POS.
+**Auth**
 
-Ejemplos (paths finales al congelar; semántica fija):
+| Cliente | Auth |
+|---------|------|
+| POS / tablet | `Authorization: Bearer <device_token>` (mismo esquema Hito 1/2) |
+| BackOffice | Sesión usuario admin (Flask-Login) **o** token de servicio BO acordado |
+
+**No** usar solo `@login_required` de `/api/eposone/*` para el Device Token del POS.
+
+**Paths v1.0** (prefijo `/api/v1`):
 
 ```http
 POST   /api/v1/orders
@@ -236,9 +243,10 @@ GET    /api/v1/orders/{id}
 PATCH  /api/v1/orders/{id}
 POST   /api/v1/orders/{id}/events
 POST   /api/v1/orders/{id}/payments
+POST   /api/v1/orders/{id}/split
 ```
 
-(Endpoints de anulación/devolución pueden ser events tipados o sub-rutas — decidir al congelar.)
+Anulación y devolución: vía `POST .../events` con `type` = `pedido.anulado` | `pedido.devuelto` (y entidades `OrderCancellation` / `OrderReturn` persistidas).
 
 **Prohibido en Hito 3:** lógica de inventario, Kardex, stock reserved, transferencias, FE.
 
@@ -270,30 +278,31 @@ Provisioning · Bootstrap · Catálogo · Productos · Inventario maestro · POS
 
 ---
 
-## 11. Criterio de “Spec congelada”
+## 11. Estado de congelación
 
-Arquitectura marca esta Spec **CONGELADA** cuando:
+| Chequeo | Estado |
+|---------|--------|
+| Ownership al dividir (§3) | ✅ Hijo hereda owner del origen |
+| Ancla sin mesa (§5) | ✅ Opción B (`table_ref` null → Order nuevo) |
+| Paths / auth API (§8) | ✅ |
+| Lista `event.type` (§7) | ✅ |
+| Spec marcada CONGELADA | ✅ 14 jul 2026 |
 
-1. Ownership al dividir + ancla sin mesa (§3 y §5) quedan en una sola opción cada uno.  
-2. Paths/auth API §8 cerrados.  
-3. Lista de `event.type` definitiva.  
-4. GO a P1 emitido en chat (solo Dev EN1).  
-
-Hasta entonces: **nadie escribe código** del dominio Pedido.
+**Código del dominio Pedido:** solo tras **GO P1** en chat (Dev EN1). Este GO de congelación **no** autoriza implementación.
 
 ---
 
 ## 12. Orden de trabajo P1 / P2
 
 ```text
-1. Congelar este documento
-2. GO → P1: entidades + APIs + eventos (sin inventario)
-3. Review → congelar contrato HTTP/eventos (tag o commit)
-4. GO → P2: consumir APIs; no inventar reglas
+1. Spec CONGELADA ✅
+2. GO P1 → entidades + APIs + eventos (sin inventario)
+3. Review → tag/commit de contrato HTTP
+4. GO P2 → consumir APIs; no inventar reglas
 5. E2E (Hito 4)
 ```
 
-P2 implementación de UI (Hito 4) — acciones mínimas:
+P2 (Hito 4) — acciones mínimas UI:
 
 Nuevo Pedido · Agregar/Eliminar producto · Modificar cantidad · Cobrar · Entregar · Sincronizar  
 

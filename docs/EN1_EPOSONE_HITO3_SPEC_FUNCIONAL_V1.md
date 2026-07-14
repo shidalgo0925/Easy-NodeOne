@@ -4,13 +4,13 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Decisiones A–E cerradas** — 14 jul 2026 · dominio en **Order Domain Spec** |
+| Estado | **Decisiones A–E cerradas** · Order Domain Spec **CONGELADA** v1.0 |
 | Fuente de verdad dominio | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
 | ADR | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
 | Brief | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) |
-| Desarrollo | **CONGELADO** hasta congelar Order Domain Spec + GO P1 |
-| Audiencia código | Ninguna hasta GO P1 |
+| Desarrollo | Spec congelada · código solo con **GO P1** |
+| Audiencia código | P1 tras GO |
 
 Documento histórico de la Spec Funcional. Las respuestas §13 y el contrato de implementación viven en la **Order Domain Spec v1.0**.
 

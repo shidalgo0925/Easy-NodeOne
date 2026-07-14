@@ -17,18 +17,18 @@
 |------|--------|--------|
 | **1** | Provisioning EN1-02 | ✅ Cerrado / congelado |
 | **2** | Device Bootstrap | ✅ Cerrado / congelado (API EN1; consumo APK = contrato `/api/v1/devices/bootstrap`) |
-| **3** | Dominio Operativo del Pedido (Order Domain) | 🟡 Arquitectura en curso — **sin código** hasta congelar Spec + GO P1 |
+| **3** | Dominio Operativo del Pedido (Order Domain) | 📋 Spec **CONGELADA** · código ⏸ hasta **GO P1** |
 | **4** | Operación del Pedido (APK + E2E) | ⏸ Tras contrato H3 congelado |
 | **5** | Inventario Operativo | ⏸ |
 | **6** | Caja y Pagos | ⏸ |
 | **7** | Facturación | ⏸ |
 
 ```text
-Arquitectura ✅ (en curso → congelar Order Domain Spec)
+Arquitectura ✅ Spec Order Domain CONGELADA
     ↓
-P1 EN1 — Dominio + APIs Pedido (Hito 3)
+P1 EN1 — Dominio + APIs Pedido (Hito 3) ← espera GO P1
     ↓
-Review → congelar contrato
+Review → congelar contrato HTTP
     ↓
 P2 EPosOne — Operación POS (Hito 4)
     ↓
@@ -70,9 +70,9 @@ Pedido → Operación → Pago → Venta → Inventario → Caja → Factura
 
 | Rol | Ahora |
 |-----|--------|
-| **Arquitectura** | Cerrar / congelar [`Order Domain Spec v1.0`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
-| **P1 EN1** | **Primero** tras GO — solo dominio + APIs Pedido (sin inventario) |
-| **P2 EPosOne** | Espera contrato congelado; puede usar Bootstrap cerrado; **no** inventar Order Domain |
+| **Arquitectura** | Spec Order Domain **CONGELADA** ✅ |
+| **P1 EN1** | Listo para implementar tras **GO P1** — solo dominio + APIs Pedido (sin inventario) |
+| **P2 EPosOne** | Espera review/contrato post-P1; **no** inventar Order Domain |
 
 ---
 

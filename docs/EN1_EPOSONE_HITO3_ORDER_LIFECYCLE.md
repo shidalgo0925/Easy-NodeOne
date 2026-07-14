@@ -5,7 +5,7 @@
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
 | Spec dominio | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
 | Spec funcional | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) |
-| Estado código | **Congelado** hasta Spec CONGELADA + GO |
+| Estado código | Spec **CONGELADA** · implementación ⏸ hasta **GO P1** |
 
 ---
 

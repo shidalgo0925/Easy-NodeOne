@@ -6,19 +6,19 @@
 | Roadmap | **V5** — [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
 | Rama | `develop` · Hito 1 tag `eposone-provisioning-v1.0` · Hito 2 API `b254735` |
 | Silo | Solo **Dev EN1** — `https://appdev.easynodeone.com` |
-| **Order Domain Spec** | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) — borrador · **pendiente congelar** |
+| **Order Domain Spec** | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) — **CONGELADA** v1.0 |
 | **ADR-006** | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
 | **Hito 1** | ✅ Cerrado / congelado |
 | **Hito 2** | ✅ Cerrado / congelado |
-| **Hito 3** | 🟡 Arquitectura — dominio Pedido · **sin código** |
+| **Hito 3** | 📋 Spec congelada · código ⏸ hasta **GO P1** |
 | **Hitos 4–7** | ⏸ Operación · Inventario · Caja · FE |
-| **Quién ahora** | Arquitectura congela Spec → luego **GO P1** (EN1 primero) |
+| **Quién ahora** | Esperar **GO P1** (EN1 primero) |
 
 ---
 
 ## Una frase
 
-H1/H2 cerrados. Corazón = **Pedido** (V5). Order Domain Spec v1.0 registrada; **desarrollo H3 congelado** hasta congelar Spec + GO a Programador 1.
+H1/H2 cerrados. Order Domain Spec v1.0 **CONGELADA**. Código Hito 3 solo con **GO P1**.
 
 ---
 
@@ -28,14 +28,14 @@ H1/H2 cerrados. Corazón = **Pedido** (V5). Order Domain Spec v1.0 registrada; *
 |------|--------|
 | 1 Provisioning | ✅ |
 | 2 Bootstrap | ✅ |
-| 3 Dominio Pedido (EN1) | 🟡 Spec |
+| 3 Dominio Pedido (EN1) | 📋 Spec CONGELADA · ⏸ código |
 | 4 Operación Pedido (APK) | ⏸ |
 | 5 Inventario operativo | ⏸ |
 | 6 Caja y pagos | ⏸ |
 | 7 Facturación | ⏸ |
 
 ```text
-Arquitectura → P1 dominio/APIs → congelar contrato → P2 APK → E2E → Inv → Caja → FE
+Spec CONGELADA ✅ → GO P1 → review contrato → GO P2 → E2E → Inv → Caja → FE
 ```
 
 ---
@@ -70,8 +70,8 @@ No `/api/eposone/products` (401 con token de dispositivo).
 
 | Quién | Ahora |
 |-------|--------|
-| **P1** | Esperar Spec **congelada** + GO · solo Order\* + APIs Pedido · sin inventario |
-| **P2** | No inventar dominio · espera contrato · H2 cerrado |
+| **P1** | Spec CONGELADA · espera **GO P1** · Order\* + APIs Pedido · sin inventario |
+| **P2** | No inventar dominio · espera contrato HTTP post-P1 · H2 cerrado |
 
 Docs: [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md)
 
@@ -79,9 +79,9 @@ Docs: [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE
 
 ## Chat nuevo
 
-1. Arquitectura: clavar ancla sin mesa + ownership al dividir → marcar Spec **CONGELADA**  
-2. **GO P1** — implementar Hito 3 en Dev EN1  
-3. Review / congelar contrato HTTP  
+1. ~~Arquitectura: congelar Spec~~ ✅  
+2. **GO P1** — implementar Hito 3 en Dev EN1 (`chat nuevo` recomendado)  
+3. Review / tag contrato HTTP  
 4. **GO P2** — Hito 4  
 
-Sin GO: no código Hito 3/4.
+Sin GO P1: no código Hito 3.

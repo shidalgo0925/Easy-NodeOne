@@ -3,10 +3,12 @@
 | Campo | Valor |
 |-------|--------|
 | Hito | **Hito 3 — Operación del Pedido** (antes “Ventas → Stock”) |
-| Estado | **Aprobado como dirección** — 14 jul 2026 · **sin implementación** hasta GO + contrato |
+| Estado | **En diseño** · spec V1.0 registrada · **desarrollo CONGELADO** hasta preguntas §13 + congelar spec |
+| Spec funcional | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) |
 | ADR | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
 | Precondición | Hito 1 ✅ · Hito 2 E2E APK cerrado |
 | Ambiente | Solo **Dev EN1** + APK local |
+| Audiencia código | **Ninguna** hasta sesión arquitectura + GO |
 
 ---
 
@@ -89,25 +91,15 @@ pedido.devuelto
 
 ### Congelado (no tocar sin GO)
 
-- Hito 1 provisioning (`/api/v1/devices/register|config`)  
-- Hito 2 bootstrap (`/api/v1/devices/bootstrap`) — salvo bug de auth del contrato  
+- Hito 1 provisioning  
+- Hito 2 bootstrap (salvo bug del contrato)  
+- **Todo desarrollo Hito 3** hasta spec congelada  
 
-### Ahora (docs / diseño)
+### Ahora
 
-1. Leer ADR-006 completo.  
-2. **No** implementar inventario operativo ni FE.  
-3. Preparar (diseño) dominio Order / Order Item / Order Event / Payment / Cancellation / Return.  
-4. EN1 será fuente oficial del **estado del Pedido** una vez sincronizado + historial completo.  
-5. Un pedido iniciado en un POS debe poder consultarse y finalizarse en otro POS o en BO.  
-6. **No** lógica de negocio adicional hasta **contrato Hito 3** acordado + GO.
-
-### Hito 2 (si aún abierto en APK)
-
-Si P2 reporta 401 al “Descargar catálogo”: el token de dispositivo **no** autentica `/api/eposone/products` (`@login_required`). El contrato Hito 2 es solo:
-
-`GET /api/v1/devices/bootstrap` + `Authorization: Bearer <device_token>`
-
-No “arreglar” abriendo device auth en BO API salvo GO explícito que cambie arquitectura.
+1. Leer ADR-006 + [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md).  
+2. **No** implementar dominio Pedido, APIs ni inventario operativo.  
+3. Esperar respuestas §13 y versión **congelada** de la spec + GO.
 
 ---
 
@@ -115,24 +107,14 @@ No “arreglar” abriendo device auth en BO API salvo GO explícito que cambie 
 
 ### Congelado
 
-- POS Core  
-- Provisioning (Hito 1)  
-- Device Bootstrap (contrato Hito 2)  
+- POS Core · Provisioning · contrato Bootstrap  
+- **Operación del Pedido (Hito 3)** hasta spec congelada + GO  
 
-### Ahora — cerrar Hito 2 primero
+### Ahora — puede cerrar Hito 2 (independiente)
 
-1. “Descargar catálogo EN1” → **`GET /api/v1/devices/bootstrap`** (Bearer del register).  
-2. **No** usar `GET /api/eposone/products` para Sync Down (ese endpoint es sesión usuario BO → 401 con device token).  
-3. Persistir catálogo/imágenes/stock de referencia localmente.  
-4. E2E tablet limpia → criterio de cierre Hito 2.
-
-### Después (Hito 3 — sin código hasta GO)
-
-1. Leer ADR-006.  
-2. Flujo operativo del Pedido offline-first.  
-3. Cada acción relevante = **evento** en cola → sync EN1.  
-4. Usuario hace acciones; **sistema** cambia estado (sin picker de estados).  
-5. No inventariar / transferir / comprar / FE en este hito.
+1. “Descargar catálogo” → `GET /api/v1/devices/bootstrap` (Bearer dispositivo).  
+2. No usar `/api/eposone/products` para Sync Down.  
+3. No inventar reglas de negocio del Pedido.
 
 ---
 

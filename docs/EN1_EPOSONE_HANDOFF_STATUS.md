@@ -6,19 +6,20 @@
 | Rama | `develop` · Hito 2 API **`b254735`** · Hito 1 tag **`eposone-provisioning-v1.0`** |
 | Silo | Solo **Dev EN1** — `https://appdev.easynodeone.com` |
 | Modo | **Estricto Dev** — sin staging/prod/relatic |
-| **ADR-006** | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) — Operación vs Administración **aprobado** |
-| **Hito 3 brief** | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) — Pedido (sin código hasta GO) |
+| **ADR-006** | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) — Op vs Admin **aprobado** |
+| **Hito 3 spec** | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) — **En diseño** · desarrollo **congelado** |
+| **Hito 3 brief** | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) |
 | **Hito 1** | **CERRADO / CONGELADO** |
-| **Hito 2** | EN1 API ✅ · E2E APK 🟡 (usar `/api/v1/devices/bootstrap`, no `/api/eposone/products`) |
-| **Siguiente código** | P2 cierra Bootstrap E2E → luego contrato Hito 3 (ambos) |
+| **Hito 2** | EN1 API ✅ · E2E APK 🟡 (`/api/v1/devices/bootstrap`) |
+| **Siguiente código** | P2 puede cerrar Bootstrap E2E · Hito 3 **no** hasta sesión §13 + spec congelada + GO |
 
 ---
 
 ## Una frase
 
 **Hito 1/2 (EN1):** provisionar + bootstrap API listos.  
-**Arquitectura:** EPosOne opera; EN1 administra; una sola APK con modos (ADR-006).  
-**Siguiente hito de producto:** **Operación del Pedido** (no “solo ventas→stock”).
+**Arquitectura:** EPosOne opera; EN1 administra (ADR-006).  
+**Hito 3:** Spec funcional V1.0 **en diseño** — desarrollo congelado; falta sesión de preguntas A–E.
 
 ---
 

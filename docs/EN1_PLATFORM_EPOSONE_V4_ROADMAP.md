@@ -3,10 +3,11 @@
 | Campo | Valor |
 |-------|--------|
 | Estado | **Aprobado** — 9 jul 2026 · ADR-006 Op/Admin **14 jul 2026** |
-| Fase actual | **Hito 2 E2E APK** 🟡 · luego **Hito 3 Operación del Pedido** (no ventas→stock) |
+| Fase actual | **Hito 2 E2E APK** 🟡 · **Hito 3 en diseño** (spec V1.0 · desarrollo congelado) |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | **ADR-006** | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
-| **Hito 3** | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) |
+| **Hito 3 spec** | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) |
+| **Hito 3 brief** | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Dominio comercial | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |
 | Contratos portables | [`EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md`](EN1_PLATFORM_EPOSONE_V4_DOMAIN_CONTRACTS.md) |
@@ -78,7 +79,7 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | **EN1-01** | Provisioning APIs (legacy) | ✅ | `847a09f` — refs en body + código por org |
 | **EN1-02** | Código = destino | ✅ **CERRADO** | `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo |
 | **Hito 2** | Device Bootstrap Sync Down | ✅ EN1 API · ⏳ E2E APK | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) · **`b254735`** · APK debe usar `/api/v1/devices/bootstrap` |
-| **Hito 3** | Operación del Pedido | 📋 brief | [`EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md`](EN1_EPOSONE_HITO3_ORDER_LIFECYCLE.md) — **reemplaza** “Ventas → Stock” |
+| **Hito 3** | Operación del Pedido | 📋 **En diseño** | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) — desarrollo **congelado** hasta §13 + GO |
 | **Etapa 2** | Android (Producto) | 📋 | Cerrar H2 E2E → contrato H3 → Pedido offline-first |
 
 ### Etapa 2 — Android (resumen)
@@ -129,5 +130,5 @@ El motor `nodeone/core/sync/` permanece; § 6.9 describe **Modo Plataforma**. Mo
 - **GO EN1-01:** APIs provisioning (legacy) — `847a09f`.  
 - **GO EN1-02 / Hito 1:** código = destino — **CERRADO** `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo.  
 - **Hito 2 Device Bootstrap:** EN1 API lista · `b254735` · pendiente E2E APK (`bootstrap`, no `/api/eposone/products`).  
-- **ADR-006 + Hito 3 brief:** aprobados 14 jul — **sin código** Hito 3 hasta contrato + GO.  
+- **ADR-006 + Hito 3:** Op/Admin aprobado · spec funcional V1.0 **en diseño** · **sin código** Hito 3 hasta congelar spec + GO.  
 - Sin GO: no push staging/prod, no sync a flotas, no reabrir provisioning.

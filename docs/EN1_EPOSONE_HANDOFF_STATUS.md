@@ -4,47 +4,37 @@
 |-------|--------|
 | Fecha | **14 jul 2026** |
 | Roadmap | **V5** — [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
-| Spec | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) **CONGELADA** |
+| Spec dominio | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) **CONGELADA** |
+| **Contrato HTTP Hito 3** | [`EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`](EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md) **CONGELADO** · commit **`36a0eb1`** |
 | Silo | Solo **Dev EN1** — `https://appdev.easynodeone.com` |
-| **Hito 1** | ✅ |
-| **Hito 2** | ✅ |
-| **Hito 3** | ✅ EN1 dominio + `/api/v1/orders*` (Device Bearer) · review/contrato HTTP |
-| **Hito 4** | ⏸ GO P2 — operación APK |
-| **Quién ahora** | Review Hito 3 → congelar contrato HTTP → **GO P2** |
+| **Hito 1–2** | ✅ |
+| **Hito 3** | ✅ EN1 + contrato HTTP congelado |
+| **Hito 4** | ⏸ **GO P2** — APK consume contrato |
+| **Quién ahora** | **P2** (Flutter) · P1 no reabre H3 sin bug |
 
 ---
 
 ## Una frase
 
-Order Domain Spec congelada e **implementada en EN1 Dev**. Siguiente: review + GO P2 (APK consume APIs).
+Hito 3 cerrado en EN1: dominio + APIs + **contrato HTTP congelado**. Pelota en **P2** (Hito 4).
 
 ---
 
-## APIs Hito 3 (Device Bearer)
+## Para P2 — empezar aquí
 
-```http
-POST   /api/v1/orders
-GET    /api/v1/orders
-GET    /api/v1/orders/{id}?include=events
-PATCH  /api/v1/orders/{id}
-POST   /api/v1/orders/{id}/events
-POST   /api/v1/orders/{id}/payments
-POST   /api/v1/orders/{id}/split
-```
-
-Auth: `Authorization: Bearer <token>` del register (igual Hito 1/2).  
-Tablas: `eposone_order*` · sin inventario/Kardex.
+1. [`EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`](EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md)  
+2. Bearer = token de `POST /api/v1/devices/register`  
+3. Catálogo = `GET /api/v1/devices/bootstrap` (no `/api/eposone/products`)  
 
 ---
 
-## Congelado
+## Congelado EN1
 
-Provisioning · Bootstrap · Catálogo · Inventario maestro · POS Core · no FE  
+Provisioning · Bootstrap · Order Domain Hito 3 · Catálogo · Inventario maestro · POS Core  
 
 ---
 
 ## Chat nuevo
 
-1. Review Hito 3 (contrato HTTP / tag)  
-2. **GO P2** — Hito 4  
-3. No inventario hasta Hito 5  
+**GO P2** — Hito 4 operación Pedido en APK (máquina local Flutter).  
+Sin inventario hasta Hito 5.

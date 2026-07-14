@@ -6,6 +6,7 @@
 | Sucede a | V4 (ADRs 001–006, Hitos 1–2) — V4 docs siguen válidos como historia |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Order Domain Spec | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
+| Contrato HTTP H3 | [`EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`](EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md) **CONGELADO** · `36a0eb1` |
 | Spec funcional Pedido | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) |
 | ADR Op/Admin | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
 
@@ -17,7 +18,7 @@
 |------|--------|--------|
 | **1** | Provisioning EN1-02 | ✅ Cerrado / congelado |
 | **2** | Device Bootstrap | ✅ Cerrado / congelado (API EN1; consumo APK = contrato `/api/v1/devices/bootstrap`) |
-| **3** | Dominio Operativo del Pedido (Order Domain) | ✅ EN1 implementado · review/contrato → Hito 4 |
+| **3** | Dominio Operativo del Pedido (Order Domain) | ✅ EN1 + contrato HTTP congelado · listo P2 |
 | **4** | Operación del Pedido (APK + E2E) | ⏸ Tras contrato H3 congelado |
 | **5** | Inventario Operativo | ⏸ |
 | **6** | Caja y Pagos | ⏸ |
@@ -26,11 +27,9 @@
 ```text
 Arquitectura ✅ Spec CONGELADA
     ↓
-P1 EN1 — Dominio + APIs Pedido ✅
+P1 EN1 — Dominio + APIs + contrato HTTP ✅
     ↓
-Review → congelar contrato HTTP
-    ↓
-P2 EPosOne — Operación POS (Hito 4) ← siguiente GO
+P2 EPosOne — Operación POS (Hito 4) ← GO P2
     ↓
 Integración E2E
     ↓
@@ -71,8 +70,8 @@ Pedido → Operación → Pago → Venta → Inventario → Caja → Factura
 | Rol | Ahora |
 |-----|--------|
 | **Arquitectura** | Spec Order Domain **CONGELADA** ✅ |
-| **P1 EN1** | ✅ Dominio + `/api/v1/orders*` en Dev |
-| **P2 EPosOne** | Esperar review/contrato → **GO P2** Hito 4 |
+| **P1 EN1** | ✅ Hito 3 cerrado (no reabrir sin bug) |
+| **P2 EPosOne** | **GO P2** — consumir [`HITO3_ORDER_HTTP_CONTRACT`](EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md) |
 
 ---
 

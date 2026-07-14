@@ -3,44 +3,37 @@
 | Campo | Valor |
 |-------|--------|
 | Fecha | **14 jul 2026** |
-| Roadmap | **V5** — [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
-| **Hito 3B** | **PUBLICADO** — paquete [`handoff-eposone/`](handoff-eposone/) |
-| Contrato HTTP | [`EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`](EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md) (ejemplos completos) |
-| Spec | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) **v1.0 CONGELADA** |
-| Tag código | `eposone-order-domain-v1.0` → `36a0eb1` |
-| **Quién ahora** | **P2** — copiar a `Doc/` y cablear HTTP (quitar stubs) |
+| Hito 3B | **Publicado** · **pendiente recepción P2** |
+| Detalle estados | [`EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md`](EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md) |
+| Paquete | [`handoff-eposone/`](handoff-eposone/) · `/opt/handoff-plataformas/eposone-hito3b-Doc/` |
+| Order Domain | **v1.0 CONGELADA** |
+| **Cierre handoff** | Solo cuando P2 diga: *Documentos recibidos. Comienzo implementación HTTP.* |
 
 ---
 
 ## Una frase
 
-Hito **3B** entregado: contrato + Spec publicados con ejemplos request/response. P2 deja stubs y implementa HTTP.
+Documentos **publicados**; falta **Recibido → Aceptado** por P2. No más código EN1 Hito 3.
 
 ---
 
-## Paquete para `Doc/` (EPosOne)
+## Estados handoff (regla)
 
-Desde `docs/handoff-eposone/` (o mismos nombres en `docs/`):
+1. Preparado → 2. Publicado → 3. Recibido → 4. Aceptado (= cerrado)
 
-1. `EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`  
-2. `EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`  
-
-Origen Git: `develop` en Easy-NodeOne.
+Ahora: entre **2 y 3**.
 
 ---
 
-## Política permanente — cierre de hito (4 entregables)
+## Archivos `Doc/` (APK)
 
-Ningún hito se considera terminado sin:
-
-1. Código implementado  
-2. Contrato (API/integración) congelado  
-3. Documentación de handoff actualizada  
-4. Ejemplos completos request/response  
+```text
+Doc/EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md
+Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
+```
 
 ---
 
-## Chat nuevo
+## EN1 congelado
 
-**P2** — implementar HTTP real según contrato 3B.  
-EN1: no más código Hito 3 salvo bug.
+H1 · H2 · H3 dominio/API · sin inventariar hasta Hito 5.

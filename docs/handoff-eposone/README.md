@@ -1,10 +1,26 @@
 # Handoff oficial EPosOne — Hito 3B
 
-Copiar estos archivos al repo APK en `Doc/` (nombres exactos):
+## Copiar a `Doc/` del repo Flutter
 
-1. `EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`
-2. `EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`
+```text
+Doc/
+├── EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md
+└── EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
+```
 
-Fuente: Easy-NodeOne `develop` · Order Domain **v1.0 CONGELADA**.
+## Fuentes (Publicado)
 
-Tras copiar: P2 cablea Bearer + `/api/v1/orders*` sin inventar reglas.
+| Canal | Ubicación |
+|-------|-----------|
+| Git `develop` | `docs/handoff-eposone/` |
+| Servidor | `/opt/handoff-plataformas/eposone-hito3b-Doc/` |
+| Tar | `/opt/handoff-plataformas/eposone-hito3b-Doc.tar.gz` |
+| URL | https://appdev.easynodeone.com/static/handoff-eposone/ |
+
+## Confirmación P2 (cierra handoff)
+
+```text
+Documentos recibidos. Comienzo implementación HTTP.
+```
+
+Hasta esa frase: estado **Entregado pendiente de recepción**.

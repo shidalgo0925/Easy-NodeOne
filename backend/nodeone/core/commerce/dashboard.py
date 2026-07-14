@@ -1,4 +1,4 @@
-"""KPIs operativos EPosOne — lectura directa + eventos de reporte (Etapa 8)."""
+"""KPIs operativos EPosOne — Order Domain Hito 3 + stock/caja."""
 
 from __future__ import annotations
 
@@ -8,14 +8,10 @@ from typing import Any
 
 from sqlalchemy import func
 
-from models.commercial_core import (
-    CoreCashShift,
-    CoreCommercialOrder,
-    CoreCommercialPayment,
-    CoreStockBalance,
-)
+from models.commercial_core import CoreCashShift, CoreStockBalance
+from models.eposone_order import EposoneOrder, EposoneOrderPayment
 from models.platform_events import PlatformDomainEvent
-from nodeone.core.commerce.constants import CASH_SHIFT_OPEN, PAYMENT_STATUS_CAPTURED
+from nodeone.core.commerce.constants import CASH_SHIFT_OPEN
 from nodeone.core.commerce.events import (
     COMMERCE_REPORT_ORDER_VOIDED,
     COMMERCE_REPORT_REFUND_RECORDED,
@@ -62,23 +58,26 @@ class CommerceDashboardService:
 
     @staticmethod
     def get_snapshot(organization_id: int) -> DashboardKpiSnapshot:
+        """KPIs del día UTC desde Order Domain (eposone_order*), no commercial_core."""
+        from app import db
+
         oid = int(organization_id)
         start, end = CommerceDashboardService._utc_day_bounds()
 
-        orders_today = CoreCommercialOrder.query.filter(
-            CoreCommercialOrder.organization_id == oid,
-            CoreCommercialOrder.created_at >= start,
-            CoreCommercialOrder.created_at < end,
+        orders_today = EposoneOrder.query.filter(
+            EposoneOrder.organization_id == oid,
+            EposoneOrder.opened_at >= start,
+            EposoneOrder.opened_at < end,
         ).count()
 
         sales_row = (
-            CoreCommercialPayment.query.filter(
-                CoreCommercialPayment.organization_id == oid,
-                CoreCommercialPayment.status == PAYMENT_STATUS_CAPTURED,
-                CoreCommercialPayment.captured_at >= start,
-                CoreCommercialPayment.captured_at < end,
+            db.session.query(func.coalesce(func.sum(EposoneOrderPayment.amount), 0.0))
+            .join(EposoneOrder, EposoneOrder.id == EposoneOrderPayment.order_id)
+            .filter(
+                EposoneOrder.organization_id == oid,
+                EposoneOrderPayment.created_at >= start,
+                EposoneOrderPayment.created_at < end,
             )
-            .with_entities(func.coalesce(func.sum(CoreCommercialPayment.amount), 0.0))
             .scalar()
         )
 
@@ -94,13 +93,15 @@ class CommerceDashboardService:
                 stock_alerts += 1
 
         currency = 'USD'
-        last_order = (
-            CoreCommercialOrder.query.filter_by(organization_id=oid)
-            .order_by(CoreCommercialOrder.id.desc())
+        last_pay = (
+            db.session.query(EposoneOrderPayment)
+            .join(EposoneOrder, EposoneOrder.id == EposoneOrderPayment.order_id)
+            .filter(EposoneOrder.organization_id == oid)
+            .order_by(EposoneOrderPayment.id.desc())
             .first()
         )
-        if last_order is not None and last_order.currency:
-            currency = str(last_order.currency)
+        if last_pay is not None and last_pay.currency:
+            currency = str(last_pay.currency)
 
         return DashboardKpiSnapshot(
             orders_today=int(orders_today),
@@ -109,6 +110,32 @@ class CommerceDashboardService:
             stock_alerts=int(stock_alerts),
             currency=currency,
         )
+
+    @staticmethod
+    def list_recent_domain_orders(organization_id: int, *, limit: int = 12) -> list[dict[str, Any]]:
+        """Últimos pedidos Hito 3 para el dashboard (read-only)."""
+        rows = (
+            EposoneOrder.query.filter_by(organization_id=int(organization_id))
+            .order_by(EposoneOrder.updated_at.desc(), EposoneOrder.id.desc())
+            .limit(max(1, min(int(limit), 50)))
+            .all()
+        )
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            out.append(
+                {
+                    'id': int(row.id),
+                    'en1_number': str(row.en1_number or ''),
+                    'local_number': str(row.local_number or '') or None,
+                    'status': str(row.status or ''),
+                    'payment_status': str(row.payment_status or ''),
+                    'financially_closed': bool(row.financially_closed),
+                    'total': float(row.total or 0),
+                    'amount_paid': float(row.amount_paid or 0),
+                    'updated_at': row.updated_at.isoformat() if row.updated_at else '',
+                }
+            )
+        return out
 
     @staticmethod
     def list_recent_report_events(organization_id: int, *, limit: int = 8) -> list[dict[str, Any]]:

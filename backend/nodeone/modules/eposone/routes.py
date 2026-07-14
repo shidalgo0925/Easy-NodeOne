@@ -366,16 +366,17 @@ def eposone_home():
     from nodeone.core.platform.runtime import resolve_organization_id
 
     kpis = None
-    recent_reports: list = []
+    recent_orders: list = []
     oid = resolve_organization_id()
     if oid is not None:
         kpis = CommerceDashboardService.get_snapshot(int(oid))
-        recent_reports = CommerceDashboardService.list_recent_report_events(int(oid), limit=8)
+        recent_orders = CommerceDashboardService.list_recent_domain_orders(int(oid), limit=12)
     return render_template(
         'eposone/dashboard.html',
         compose_links=_compose_links(),
         kpis=kpis,
-        recent_reports=recent_reports,
+        recent_orders=recent_orders,
+        dashboard_refresh_seconds=30,
     )
 
 

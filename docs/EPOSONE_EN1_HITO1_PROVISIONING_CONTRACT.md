@@ -2,10 +2,11 @@
 
 | Campo | Valor |
 |-------|--------|
-| Hito | **EN1-02** — Código = destino operativo |
-| Estado | **Congelado en EN1** (`82c68f7`, 10 jul 2026) · appdev listo E2E |
+| Hito | **EN1-02 / Hito 1** — Código = destino operativo |
+| Estado | **CERRADO / CONGELADO** (13 jul 2026) · E2E tablet Itsmo · tag `eposone-provisioning-v1.0` |
 | Commit código | `82c68f7` |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| Siguiente hito | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) |
 | Reemplaza como contrato oficial | EN1-01 (queda **legacy** / compatibilidad) |
 
 ---

@@ -2,60 +2,78 @@
 
 | Campo | Valor |
 |-------|--------|
-| Fecha | **10 jul 2026** |
-| Rama | `develop` @ **`9014e21`** (código EN1-02: `82c68f7`) |
-| Silo | Solo **Dev EN1** — `https://appdev.easynodeone.com` · servicio `easynodeone-dev` |
+| Fecha | **13 jul 2026** |
+| Rama | `develop` · código EN1-02: **`82c68f7`** · tag: **`eposone-provisioning-v1.0`** |
+| Silo | Solo **Dev EN1** — `https://appdev.easynodeone.com` · `easynodeone-dev` |
 | Modo | **Estricto Dev** — sin staging/prod/relatic |
-| Estado | **EN1-02 congelado** · appdev **listo para E2E** · turno **EPosOne (APK)** |
+| **Hito 1 Provisioning EN1-02** | **CERRADO / CONGELADO** |
+| **Siguiente** | **Hito 2 — Device Bootstrap (Sync Down)** — solo contrato hasta GO de código |
+| Contrato Hito 2 | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) |
+| Productos / inventario BO | [`EN1_EPOSONE_HANDOFF_PRODUCTOS_INVENTARIO.md`](EN1_EPOSONE_HANDOFF_PRODUCTOS_INVENTARIO.md) |
 
 ---
 
 ## Una frase
 
-EN1 ya no debe desarrollar provisioning: el contrato oficial es **código = destino (Caja)**.  
-La tablet solo envía **URL + código**. Siguiente trabajo = pruebas E2E en la APK contra appdev.
+**Hito 1 cerrado:** la tablet se provisiona solo con URL + código de Caja; EN1 no reabre provisioning sin GO.  
+**Hito 2:** bajar catálogo/imágenes/precios/UOM/stock/config desde EN1 — **contrato listo, sin sync implementado**.
 
 ---
 
-## Congelado en EN1 (no reabrir sin GO)
+## Hito 1 — cierre formal (13 jul 2026)
 
-| Entrega | Commit |
-|---------|--------|
+| Chequeo E2E | Estado |
+|-------------|--------|
+| URL `https://appdev.easynodeone.com` | ✅ |
+| Código de Caja (Itsmo org 5 · `caja-01`) | ✅ |
+| `POST /api/v1/devices/register` → 201 | ✅ (verificado EN1 + tablet) |
+| Token Bearer | ✅ |
+| Empresa → Sucursal → POS → Caja | ✅ |
+| UUID dispositivo | ✅ |
+| Config post-registro | ✅ |
+| Reinicio sin Wizard → PIN | ✅ / bitácora APK (si falta un renglón, no reabre el hito) |
+| Reprovision mismo UUID | **Opcional** — no bloquea cierre |
+
+### Congelado (no reabrir sin GO)
+
+| Entrega | Commit / nota |
+|---------|----------------|
 | Dominio POS + LicensePolicy stub | `18f6593` |
-| EN1-01 APIs (legacy: refs en body) | `847a09f` |
+| EN1-01 APIs (legacy) | `847a09f` |
 | **EN1-02 código = destino** | **`82c68f7`** |
-| Docs handoff “listo E2E” | **`9014e21`** |
+| Docs “listo E2E” | `9014e21` |
+| **Cierre Hito 1 + contrato Hito 2** | tag **`eposone-provisioning-v1.0`** |
 
-### Contrato oficial
+### Contrato oficial Hito 1
 
-[`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) — contenido **EN1-02**.
+[`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md)
 
 | API | Auth | Body mínimo |
 |-----|------|-------------|
-| `POST /api/v1/devices/register` | `X-EN1-Provisioning-Code` | `device_uuid` + metadatos dispositivo |
+| `POST /api/v1/devices/register` | `X-EN1-Provisioning-Code` | `device_uuid` + metadatos |
 | `GET /api/v1/devices/config` | `Authorization: Bearer <token>` | — |
 
-**No** pedir en el Wizard: `organization_id`, `branch_ref`, `pos_ref`, `register_ref`.
-
-Admin: EPosOne → **Dispositivos** → Generar/Rotar código **por Caja**.
+**No** en el Wizard: `organization_id`, `branch_ref`, `pos_ref`, `register_ref`.
 
 ---
 
-## Cómo probar E2E (checklist)
+## Hito 2 — siguiente (sin código aún)
 
-1. appdev: Sucursal → POS → Caja (register con parent = POS).  
-2. Dispositivos → **Generar** código para esa caja.  
-3. APK: URL `https://appdev.easynodeone.com` + código.  
-4. Esperado: register `201` → guardar token → config → pantalla PIN.  
-5. Reprovision (mismo UUID): `201`, token nuevo, `config_version`++.
+Objetivo: tablet recién provisionada **deja de depender del catálogo local Istmo**.
+
+EN1 entrega (v1): config + catálogo + precios + UOM/pack/min/max + `image_url` + saldos on_hand/reserved/available.  
+APK: descargar → guardar local → mostrar.  
+**No:** ventas→stock, transferencias, compras, licencias, FE, CRM, IA.
+
+Detalle: [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md).
 
 ---
 
-## Fuera de alcance (hasta nuevo GO)
+## Fuera de alcance (hasta GO explícito)
 
-- Sync catálogo / ventas / inventario  
-- Licencias / planes  
-- FE, CRM, IA, KDS nuevo  
+- Implementación Sync Down / bootstrap  
+- Sync ventas → stock  
+- Licencias / FE / CRM / IA  
 - Despliegue fuera de Dev  
 
 ---
@@ -64,12 +82,13 @@ Admin: EPosOne → **Dispositivos** → Generar/Rotar código **por Caja**.
 
 | Pieza | Dónde |
 |-------|--------|
-| EN1 | `/opt/easynodeone/dev/app` · GitHub Easy-NodeOne · `develop` |
-| APK EPosOne | PC: `C:\Users\shidalgo\Documents\0. Tecnologia\EPosOne\eposone` |
+| EN1 | `/opt/easynodeone/dev/app` · `develop` · tag `eposone-provisioning-v1.0` |
+| APK EPosOne | PC equipo (Flutter local) |
 
 ---
 
 ## Chat nuevo
 
-- **EPosOne:** integración Wizard + E2E tablet.  
-- **EN1:** solo bugs de API / contrato si la APK reporta desalineación.
+- **Cierre Hito 1:** este handoff + tag. No mezclar sync.  
+- **Hito 2:** chat + **GO** solo para implementar Device Bootstrap tras aprobar contrato.  
+- Bugs de register/config: solo si la APK reporta desalineación del Hito 1.

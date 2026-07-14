@@ -2,13 +2,14 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **EN1-02 congelado** · siguiente = **E2E APK** (URL + código) contra appdev |
+| Estado | **Hito 1 EN1-02 CERRADO** · siguiente = **Hito 2 Device Bootstrap (Sync Down)** |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Etapa previa | Infra EN1 POS/LicensePolicy — `18f6593` |
 | Hito EN1-01 | Legacy — `847a09f` |
-| Hito EN1-02 | **Congelado** — `82c68f7` · contrato [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) |
+| Hito EN1-02 | **Cerrado** — `82c68f7` · tag `eposone-provisioning-v1.0` |
+| Hito 2 Sync Down | Contrato: [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) (**sin código**) |
 | Roadmap V4 | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
-| Foco ahora | Equipo **EPosOne**: Wizard URL+código → register → token → config → PIN |
+| Foco ahora | Aprobar contrato Hito 2 → GO implementación (chat nuevo) |
 
 ---
 
@@ -34,15 +35,16 @@
 
 | Sprint | Entregable | Estado |
 |--------|------------|--------|
-| **EN1-02** | Provisioning código=destino | ✅ `82c68f7` congelado |
-| **A/B** | Wizard URL+código + registro | ⏳ APK E2E |
-| **C** | Config automática post-registro | ⏳ (config mínima ya en `/config`) |
-| **D** | Sync fino | ⏳ después E2E |
-| **E** | Este dispositivo | ⏳ |
+| **EN1-02 / Hito 1** | Provisioning código=destino | ✅ Cerrado · tag `eposone-provisioning-v1.0` |
+| **A/B** | Wizard URL+código + registro | ✅ E2E tablet Itsmo |
+| **C** | Config automática post-registro | ✅ vía `/config` |
+| **Hito 2** | Device Bootstrap Sync Down | 📋 contrato — sin implementar |
+| **D+** | Sync ventas / stock operativo | ⏳ después Hito 2 |
+| **E** | Este dispositivo | ✅ en E2E Hito 1 |
 | **F** | Vincular EN1 (Local) | ⏳ |
 
 ---
 
-## Fuera de alcance
+## Fuera de alcance (Hito 2)
 
-Planes, licencias, FE, CRM, IA, sync de catálogo/ventas — hasta nuevo GO.
+Planes, licencias, FE, CRM, IA, ventas→stock, transferencias — hasta nuevo GO.

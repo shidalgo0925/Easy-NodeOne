@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | Estado | **Aprobado** — 9 jul 2026 |
-| Fase actual | **Hito EN1-02 ✅** (código = destino) · siguiente: E2E APK URL+código · sync después |
+| Fase actual | **Hito 1 EN1-02 CERRADO** · siguiente: **Hito 2 Device Bootstrap (Sync Down)** — contrato listo, sin código |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Dominio comercial | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) |
@@ -73,13 +73,14 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | **7** | Sincronización | ✅ | Bridge política Plataforma sobre `core/sync/` |
 | **—** | Licenciamiento POS | ✅ | ADR-005 + stub `LicensePolicy` (sin cupos) · commit `18f6593` |
 | **EN1-01** | Provisioning APIs (legacy) | ✅ | `847a09f` — refs en body + código por org |
-| **EN1-02** | Código = destino | ✅ **congelado** | `82c68f7` — Wizard solo URL+código · appdev listo E2E |
-| **Etapa 2** | Android (Producto) | 📋 | E2E APK ↔ appdev — handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| **EN1-02** | Código = destino | ✅ **CERRADO** | `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo |
+| **Hito 2** | Device Bootstrap Sync Down | 📋 contrato | [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) — **sin implementar** |
+| **Etapa 2** | Android (Producto) | 📋 | Hito 1 hecho · Hito 2 sync down próximo |
 
 ### Etapa 2 — Android (resumen)
 
-Orden: **A** onboarding → **B** registro dispositivo → **C** config auto → **D** sync fino → **E** Este dispositivo → **F** Vincular EN1.  
-Código APK: máquina local del equipo (no en `/opt/easynodeone/dev/app`). Sin planes/límites/FE/CRM/IA en esta etapa.
+Orden: **Hito 1** provisioning ✅ → **Hito 2** bootstrap/catálogo → sync ventas/stock → más tablets.  
+Código APK: máquina local del equipo (no en `/opt/easynodeone/dev/app`). Sin planes/límites/FE/CRM/IA en Hito 2.
 
 ---
 
@@ -119,6 +120,6 @@ El motor `nodeone/core/sync/` permanece; § 6.9 describe **Modo Plataforma**. Mo
 - **GO Sprint 7:** sync — hecho (`platform_sync.py`; motor sin reescritura).  
 - **GO ADR-005 + infra POS:** dominio POS/caja/dispositivo + `LicensePolicy` stub + admin provisionamiento — **cerrado** (`18f6593` en `develop`).  
 - **GO EN1-01:** APIs provisioning (legacy) — `847a09f`.  
-- **GO EN1-02:** código = destino — **congelado** `82c68f7` · appdev listo E2E · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md).  
-- **Siguiente:** E2E APK (equipo EPosOne). Sin sync/licencias/FE sin GO.  
-- Sin GO: no push a staging/prod, no sync forzado a flotas, no activar límites.
+- **GO EN1-02 / Hito 1:** código = destino — **CERRADO** `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo.  
+- **Hito 2 Device Bootstrap:** contrato [`EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md`](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) — **sin código** hasta GO.  
+- Sin GO: no push staging/prod, no sync a flotas, no reabrir provisioning.

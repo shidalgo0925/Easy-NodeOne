@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Pedidos (Hito 3) | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
+            <p class="text-muted small mb-0">
+                Pedidos del <strong>Order Domain</strong> (tablet / <code>/api/v1/orders</code>).
+                No son el listado legacy de <code>core_commercial_order</code>.
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="badge en1-badge en1-badge--neutral">{{ orders_total }} pedido(s)</span>
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 mb-3 align-items-end">
+        <div class="col-12 col-md-3">
+            <label class="form-label small text-muted mb-1">Estado operativo</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for st in ('open', 'draft', 'sent', 'ready', 'delivered', 'cancelled', 'returned') %}
+                <option value="{{ st }}" {% if status_filter == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-3">
+            <label class="form-label small text-muted mb-1">Pago</label>
+            <select name="payment_status" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for st in ('unpaid', 'partial', 'paid') %}
+                <option value="{{ st }}" {% if payment_filter == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+            {% if status_filter or payment_filter %}
+            <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+    </form>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if orders %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                    <thead>
+                        <tr>
+                            <th>EN1 #</th>
+                            <th>Local</th>
+                            <th>Operativo</th>
+                            <th>Pago</th>
+                            <th>Cierre</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-end">Pagado</th>
+                            <th>Owner device</th>
+                            <th>Actualizado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td><code>{{ order.en1_number }}</code></td>
+                            <td class="small">{{ order.local_number or '—' }}</td>
+                            <td><span class="badge en1-badge en1-badge--neutral">{{ order.status }}</span></td>
+                            <td><span class="badge en1-badge en1-badge--neutral">{{ order.payment_status }}</span></td>
+                            <td class="small">
+                                {% if order.financially_closed %}
+                                <span class="text-success">cerrado</span>
+                                {% else %}
+                                <span class="text-muted">abierto</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ '%.2f'|format(order.total or 0) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(order.amount_paid or 0) }}</td>
+                            <td class="small text-muted"><code class="small">{{ order.owner_device_uuid }}</code></td>
+                            <td class="text-muted small">
+                                {% if order.updated_at %}{{ order.updated_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('eposone.eposone_order_domain_detail', order_id=order.id) }}" class="btn btn-sm btn-outline-primary py-0">Ver</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-0">No hay pedidos Hito 3{% if status_filter or payment_filter %} con ese filtro{% endif %}.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

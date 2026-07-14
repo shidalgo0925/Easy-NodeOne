@@ -468,6 +468,34 @@ def eposone_order_detail(order_id: int):
     return render_template('eposone/order_detail.html', **ctx)
 
 
+@eposone_bp.route('/orders/domain/<int:order_id>')
+@login_required
+def eposone_order_domain_detail(order_id: int):
+    """Detalle read-only Order Domain Hito 3 (eposone_order)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from models.eposone_order import EposoneOrder, EposoneOrderEvent
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    order = EposoneOrder.query.filter_by(id=int(order_id), organization_id=int(oid)).first()
+    if order is None:
+        abort(404)
+    events = (
+        EposoneOrderEvent.query.filter_by(order_id=int(order.id))
+        .order_by(EposoneOrderEvent.sequence.asc())
+        .all()
+    )
+    return render_template(
+        'eposone/order_domain_detail.html',
+        order=order,
+        events=events,
+    )
+
+
 @eposone_bp.route('/orders/<int:order_id>/status', methods=['POST'])
 @login_required
 def eposone_order_status(order_id: int):
@@ -1024,6 +1052,284 @@ def eposone_settings_save():
     return _redirect_settings()
 
 
+@eposone_bp.route('/products/create', methods=['POST'])
+@login_required
+def eposone_product_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.master.constants import MasterDataError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.product import ProductService
+    from nodeone.services.product_image_storage import resolve_product_image_url
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    image_url, img_err = resolve_product_image_url(
+        organization_id=int(oid),
+        file_storage=request.files.get('image_file'),
+        image_url_form=(request.form.get('image_url') or '').strip() or None,
+        clear_image=request.form.get('clear_image') == '1',
+    )
+    if img_err:
+        flash(img_err, 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='products'))
+    payload = {
+        'product_ref': (request.form.get('product_ref') or '').strip(),
+        'name': (request.form.get('name') or '').strip(),
+        'product_type': (request.form.get('product_type') or 'good').strip().lower(),
+        'unit_price': request.form.get('unit_price') or 0,
+        'currency': (request.form.get('currency') or 'USD').strip().upper() or 'USD',
+        'description': (request.form.get('description') or '').strip() or None,
+        'tracks_inventory': request.form.get('tracks_inventory') == '1',
+        'barcode': (request.form.get('barcode') or '').strip() or None,
+        'cost_price': request.form.get('cost_price'),
+        'min_stock': request.form.get('min_stock'),
+        'max_stock': request.form.get('max_stock'),
+        'category': (request.form.get('category') or '').strip() or None,
+        'image_url': image_url,
+        'uom': (request.form.get('uom') or 'und').strip() or 'und',
+        'purchase_uom': (request.form.get('purchase_uom') or '').strip() or None,
+        'pack_factor': request.form.get('pack_factor') or 1,
+        'source_app_id': 'eposone',
+    }
+    try:
+        dto = ProductService.create(int(oid), payload)
+    except MasterDataError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='products'))
+    flash(f'Producto {dto.name} ({dto.product_ref}) creado.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='products'))
+
+
+@eposone_bp.route('/products/<product_ref>/update', methods=['POST'])
+@login_required
+def eposone_product_update(product_ref: str):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.master.constants import MasterDataError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.product import ProductService
+    from nodeone.services.product_image_storage import resolve_product_image_url
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    existing = ProductService.get_by_ref(int(oid), product_ref)
+    if existing is None:
+        flash('Producto no encontrado.', 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='products'))
+    image_url, img_err = resolve_product_image_url(
+        organization_id=int(oid),
+        file_storage=request.files.get('image_file'),
+        image_url_form=(request.form.get('image_url') or '').strip() or None,
+        clear_image=request.form.get('clear_image') == '1',
+        existing_url=existing.image_url,
+    )
+    if img_err:
+        flash(img_err, 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='products'))
+    payload = {
+        'name': (request.form.get('name') or '').strip(),
+        'product_type': (request.form.get('product_type') or 'good').strip().lower(),
+        'unit_price': request.form.get('unit_price') or 0,
+        'currency': (request.form.get('currency') or 'USD').strip().upper() or 'USD',
+        'description': (request.form.get('description') or '').strip() or None,
+        'tracks_inventory': request.form.get('tracks_inventory') == '1',
+        'status': (request.form.get('status') or 'active').strip().lower(),
+        'barcode': (request.form.get('barcode') or '').strip() or None,
+        'cost_price': request.form.get('cost_price'),
+        'min_stock': request.form.get('min_stock'),
+        'max_stock': request.form.get('max_stock'),
+        'category': (request.form.get('category') or '').strip() or None,
+        'image_url': image_url,
+        'uom': (request.form.get('uom') or 'und').strip() or 'und',
+        'purchase_uom': (request.form.get('purchase_uom') or '').strip() or None,
+        'pack_factor': request.form.get('pack_factor') or 1,
+    }
+    try:
+        dto = ProductService.update(int(oid), product_ref, payload)
+    except MasterDataError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='products'))
+    flash(f'Producto {dto.name} actualizado.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='products'))
+
+
+@eposone_bp.route('/products/<product_ref>/delete', methods=['POST'])
+@login_required
+def eposone_product_delete(product_ref: str):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.master.constants import MasterDataError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.product import ProductService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        ProductService.delete(int(oid), product_ref)
+    except MasterDataError as exc:
+        code = str(exc)
+        if code == 'product_has_movements':
+            flash(
+                'No se puede eliminar: tiene movimientos o pedidos. Desactivalo en su lugar.',
+                'warning',
+            )
+        else:
+            flash(code.replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='products'))
+    flash(f'Producto {product_ref} eliminado.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='products'))
+
+
+@eposone_bp.route('/products/<product_ref>/deactivate', methods=['POST'])
+@login_required
+def eposone_product_deactivate(product_ref: str):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.master.constants import MasterDataError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.product import ProductService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        dto = ProductService.deactivate(int(oid), product_ref)
+    except MasterDataError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='products'))
+    flash(f'Producto {dto.name} desactivado.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='products'))
+
+
+@eposone_bp.route('/branches/create', methods=['POST'])
+@login_required
+def eposone_branch_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH, MasterDataError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.org_unit import OrgUnitService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    payload = {
+        'unit_ref': (request.form.get('unit_ref') or '').strip(),
+        'name': (request.form.get('name') or '').strip(),
+        'unit_type': ORG_UNIT_TYPE_BRANCH,
+        'notes': (request.form.get('notes') or '').strip() or None,
+    }
+    try:
+        dto = OrgUnitService.create(int(oid), payload)
+    except MasterDataError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='branches'))
+    flash(f'Sucursal {dto.name} ({dto.unit_ref}) creada.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='branches'))
+
+
+@eposone_bp.route('/registers/create', methods=['POST'])
+@login_required
+def eposone_register_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER, MasterDataError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.org_unit import OrgUnitService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    parent_raw = (request.form.get('parent_id') or '').strip()
+    redirect_slug = (request.form.get('redirect_slug') or 'registers').strip()
+    if redirect_slug not in ('registers', 'pos-points', 'terminals'):
+        redirect_slug = 'registers'
+    payload = {
+        'unit_ref': (request.form.get('unit_ref') or '').strip(),
+        'name': (request.form.get('name') or '').strip(),
+        'unit_type': ORG_UNIT_TYPE_REGISTER,
+        'parent_id': int(parent_raw) if parent_raw.isdigit() else None,
+        'notes': (request.form.get('notes') or '').strip() or None,
+    }
+    try:
+        dto = OrgUnitService.create(int(oid), payload)
+    except MasterDataError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug=redirect_slug))
+    flash(f'Caja {dto.name} ({dto.unit_ref}) creada.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug=redirect_slug))
+
+
+@eposone_bp.route('/warehouses/create', methods=['POST'])
+@login_required
+def eposone_warehouse_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.master.constants import ORG_UNIT_TYPE_WAREHOUSE, MasterDataError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.org_unit import OrgUnitService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    parent_raw = (request.form.get('parent_id') or '').strip()
+    payload = {
+        'unit_ref': (request.form.get('unit_ref') or '').strip(),
+        'name': (request.form.get('name') or '').strip(),
+        'unit_type': ORG_UNIT_TYPE_WAREHOUSE,
+        'parent_id': int(parent_raw) if parent_raw.isdigit() else None,
+        'notes': (request.form.get('notes') or '').strip() or None,
+    }
+    try:
+        dto = OrgUnitService.create(int(oid), payload)
+    except MasterDataError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='inventory'))
+    flash(f'Bodega {dto.name} ({dto.unit_ref}) creada.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='inventory'))
+
+
+@eposone_bp.route('/stock/adjust', methods=['POST'])
+@login_required
+def eposone_stock_adjust():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.commerce.stock import StockService, StockValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    warehouse_raw = (request.form.get('warehouse_org_unit_id') or '').strip()
+    payload = {
+        'warehouse_org_unit_id': int(warehouse_raw) if warehouse_raw.isdigit() else None,
+        'product_ref': (request.form.get('product_ref') or '').strip(),
+        'quantity': request.form.get('quantity') or 0,
+        'notes': (request.form.get('notes') or '').strip() or None,
+        'supervisor_user_id': getattr(current_user, 'id', None),
+    }
+    try:
+        StockService.record_manual_adjust(int(oid), payload, source_app_id='eposone')
+    except (StockValidationError, OrderValidationError) as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='inventory'))
+    flash('Ajuste de stock registrado.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='inventory'))
+
+
 @eposone_bp.route('/contacts/create', methods=['POST'])
 @login_required
 def eposone_contact_create():
@@ -1147,27 +1453,31 @@ def eposone_section(slug: str):
         abort(404)
     title, description = EPOSONE_SECTIONS[key]
     if key == 'orders':
-        from nodeone.core.commerce.order import OrderService
+        from models.eposone_order import EposoneOrder
         from nodeone.core.platform.runtime import resolve_organization_id
 
         oid = resolve_organization_id()
         orders: list = []
         orders_total = 0
         status_filter = (request.args.get('status') or '').strip() or None
+        payment_filter = (request.args.get('payment_status') or '').strip() or None
         if oid is not None:
-            orders, orders_total = OrderService.search(
-                int(oid),
-                status=status_filter,
-                limit=50,
-            )
+            q = EposoneOrder.query.filter_by(organization_id=int(oid))
+            if status_filter:
+                q = q.filter_by(status=status_filter)
+            if payment_filter:
+                q = q.filter_by(payment_status=payment_filter)
+            orders = q.order_by(EposoneOrder.id.desc()).limit(100).all()
+            orders_total = len(orders)
         return render_template(
-            'eposone/orders.html',
+            'eposone/orders_domain.html',
             section_slug=key,
             section_title=title,
             section_description=description,
             orders=orders,
             orders_total=orders_total,
             status_filter=status_filter or '',
+            payment_filter=payment_filter or '',
         )
     if key == 'contacts':
         from nodeone.core.platform.runtime import resolve_organization_id
@@ -1194,8 +1504,17 @@ def eposone_section(slug: str):
 
         oid = resolve_organization_id()
         products: list = []
+        can_delete_by_ref: dict[str, bool] = {}
+        categories: list[str] = []
         if oid is not None:
             products = ProductService.search(int(oid), limit=100)
+            for p in products:
+                can_delete_by_ref[p.product_ref] = not ProductService.has_operational_usage(
+                    int(oid), p.product_ref
+                )
+                if p.category and p.category not in categories:
+                    categories.append(p.category)
+            categories.sort()
         return render_template(
             'eposone/products.html',
             section_slug=key,
@@ -1203,6 +1522,8 @@ def eposone_section(slug: str):
             section_description=description,
             products=products,
             products_total=len(products),
+            can_delete_by_ref=can_delete_by_ref,
+            categories=categories,
         )
     if key == 'kds':
         from nodeone.core.platform.runtime import resolve_organization_id
@@ -1353,16 +1674,35 @@ def eposone_section(slug: str):
         )
     if key == 'inventory':
         from nodeone.core.commerce.stock import StockService
-        from nodeone.core.master.constants import ORG_UNIT_TYPE_WAREHOUSE
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH, ORG_UNIT_TYPE_WAREHOUSE
         from nodeone.core.platform.runtime import resolve_organization_id
         from nodeone.core.services.org_unit import OrgUnitService
+        from nodeone.core.services.product import ProductService
 
         oid = resolve_organization_id()
         warehouses: list = []
         stock_balances: list = []
+        stock_movements: list = []
+        branches: list = []
+        products: list = []
+        warehouse_name_by_id: dict[int, str] = {}
+        product_meta_by_ref: dict[str, dict] = {}
         if oid is not None:
             warehouses = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_WAREHOUSE)
-            stock_balances = StockService.list_balances(int(oid), limit=100)
+            stock_balances = StockService.list_balances(int(oid), limit=200)
+            stock_movements = StockService.list_movements(int(oid), limit=100)
+            branches = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_BRANCH)
+            products = ProductService.search(int(oid), status='active', limit=200)
+            warehouse_name_by_id = {
+                int(w.id): f'{w.name} ({w.unit_ref})' for w in warehouses
+            }
+            for p in products:
+                product_meta_by_ref[p.product_ref] = {
+                    'name': p.name,
+                    'uom': p.uom or 'und',
+                    'min_stock': p.min_stock,
+                    'max_stock': p.max_stock,
+                }
         return render_template(
             'eposone/warehouses.html',
             section_slug=key,
@@ -1372,19 +1712,30 @@ def eposone_section(slug: str):
             warehouses_total=len(warehouses),
             stock_balances=stock_balances,
             stock_balances_total=len(stock_balances),
+            stock_movements=stock_movements,
+            stock_movements_total=len(stock_movements),
+            warehouse_name_by_id=warehouse_name_by_id,
+            product_meta_by_ref=product_meta_by_ref,
+            branches=branches,
+            products=products,
         )
     if key == 'registers':
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS
         from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
 
         oid = resolve_organization_id()
         ctx = {'register_rows': [], 'registers_total': 0, 'open_shifts_total': 0, 'recent_closed': []}
+        pos_units: list = []
         if oid is not None:
             ctx = _registers_page_context(int(oid))
+            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
         return render_template(
             'eposone/registers.html',
             section_slug=key,
             section_title=title,
             section_description=description,
+            pos_units=pos_units,
             **ctx,
         )
     if key == 'shifts':

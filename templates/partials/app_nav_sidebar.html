@@ -20,8 +20,8 @@
 </li>
 {% for domain in app_nav_sidebar %}
     {% if domain.is_group %}
-    <li class="nav-item nav-group app-nav-domain{% if domain.group_active %} show{% endif %}">
-        <a class="nav-link nav-group-toggle sidebar-link" href="#" onclick="return false;" aria-expanded="{{ 'true' if domain.group_active else 'false' }}">
+    <li class="nav-item nav-group app-nav-domain show">
+        <a class="nav-link nav-group-toggle sidebar-link" href="#" onclick="return false;" aria-expanded="true">
             {% if domain.icon %}<i class="menu-icon {{ domain.icon }}"></i>{% endif %}
             <span class="menu-title-text">{{ domain.label }}</span>
             <i class="menu-arrow fas fa-chevron-down"></i>

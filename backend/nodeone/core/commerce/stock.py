@@ -43,6 +43,32 @@ class StockBalanceDTO:
         }
 
 
+@dataclass(frozen=True)
+class StockMovementDTO:
+    id: int
+    organization_id: int
+    warehouse_org_unit_id: int
+    product_ref: str
+    movement_type: str
+    quantity: float
+    order_ref: str | None
+    notes: str | None
+    created_at: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'id': self.id,
+            'organization_id': self.organization_id,
+            'warehouse_org_unit_id': self.warehouse_org_unit_id,
+            'product_ref': self.product_ref,
+            'movement_type': self.movement_type,
+            'quantity': self.quantity,
+            'order_ref': self.order_ref,
+            'notes': self.notes,
+            'created_at': self.created_at,
+        }
+
+
 def _balance_to_dto(row: CoreStockBalance) -> StockBalanceDTO:
     on_hand = float(row.quantity_on_hand or 0)
     reserved = float(row.quantity_reserved or 0)
@@ -54,6 +80,21 @@ def _balance_to_dto(row: CoreStockBalance) -> StockBalanceDTO:
         quantity_on_hand=on_hand,
         quantity_reserved=reserved,
         quantity_available=round(on_hand - reserved, 4),
+    )
+
+
+def _movement_to_dto(row: CoreStockMovement) -> StockMovementDTO:
+    created = getattr(row, 'created_at', None)
+    return StockMovementDTO(
+        id=int(row.id),
+        organization_id=int(row.organization_id),
+        warehouse_org_unit_id=int(row.warehouse_org_unit_id),
+        product_ref=str(row.product_ref),
+        movement_type=str(row.movement_type),
+        quantity=float(row.quantity or 0),
+        order_ref=str(row.order_ref) if row.order_ref else None,
+        notes=str(row.notes) if row.notes else None,
+        created_at=created.isoformat(sep=' ', timespec='seconds') if created else None,
     )
 
 
@@ -80,6 +121,32 @@ class StockService:
             .all()
         )
         return [_balance_to_dto(row) for row in rows]
+
+    @staticmethod
+    def list_movements(
+        organization_id: int,
+        *,
+        warehouse_org_unit_id: int | None = None,
+        product_ref: str | None = None,
+        movement_type: str | None = None,
+        limit: int = 100,
+    ) -> list[StockMovementDTO]:
+        """Kardex: movimientos más recientes primero."""
+        q = CoreStockMovement.query.filter_by(organization_id=int(organization_id))
+        if warehouse_org_unit_id is not None:
+            q = q.filter_by(warehouse_org_unit_id=int(warehouse_org_unit_id))
+        ref = (product_ref or '').strip()
+        if ref:
+            q = q.filter_by(product_ref=ref)
+        mtype = (movement_type or '').strip().lower()
+        if mtype:
+            q = q.filter_by(movement_type=mtype)
+        rows = (
+            q.order_by(CoreStockMovement.created_at.desc(), CoreStockMovement.id.desc())
+            .limit(max(1, min(int(limit), 500)))
+            .all()
+        )
+        return [_movement_to_dto(row) for row in rows]
 
     @staticmethod
     def resolve_warehouse_id(organization_id: int, branch_org_unit_id: int | None) -> int | None:

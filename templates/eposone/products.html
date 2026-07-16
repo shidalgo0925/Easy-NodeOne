@@ -12,6 +12,118 @@
         <span class="badge bg-secondary">{{ products_total }} producto(s)</span>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white border-0">
+            <h2 class="h6 mb-0">Nuevo producto</h2>
+            <p class="small text-muted mb-0">Catálogo POS + inventario básico (UOM, empaque, stock mín/máx, imagen).</p>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('eposone.eposone_product_create') }}"
+                  class="row g-3" enctype="multipart/form-data">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="col-12 col-md-4">
+                    <label class="form-label small mb-0" for="product_name">Nombre *</label>
+                    <input class="form-control form-control-sm" id="product_name" name="name" required maxlength="200" placeholder="Absolut – Botella">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="product_ref">SKU *</label>
+                    <input class="form-control form-control-sm" id="product_ref" name="product_ref" required maxlength="64" placeholder="IST-vod_absolut_bot">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="barcode">Código de barras</label>
+                    <input class="form-control form-control-sm" id="barcode" name="barcode" maxlength="64" placeholder="750123…">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="category">Categoría</label>
+                    <input class="form-control form-control-sm" id="category" name="category" maxlength="120" placeholder="Licores" list="category-suggestions">
+                    <datalist id="category-suggestions">
+                        {% for c in (categories or []) %}
+                        <option value="{{ c }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="product_type">Tipo</label>
+                    <select class="form-select form-select-sm" id="product_type" name="product_type">
+                        <option value="good" selected>Bien</option>
+                        <option value="service">Servicio</option>
+                        <option value="kit">Kit</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small mb-0" for="description">Descripción</label>
+                    <input class="form-control form-control-sm" id="description" name="description" maxlength="500" placeholder="Opcional">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="unit_price">Precio de venta *</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="unit_price" name="unit_price" value="0.00" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="cost_price">Costo</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="cost_price" name="cost_price" placeholder="0.00">
+                </div>
+                <div class="col-6 col-md-1">
+                    <label class="form-label small mb-0" for="currency">Moneda</label>
+                    <input class="form-control form-control-sm" id="currency" name="currency" value="USD" maxlength="8">
+                </div>
+                <div class="col-6 col-md-1">
+                    <label class="form-label small mb-0" for="uom">UOM venta</label>
+                    <input class="form-control form-control-sm" id="uom" name="uom" value="und" maxlength="16" list="uom-suggestions" placeholder="und">
+                </div>
+                <div class="col-6 col-md-1">
+                    <label class="form-label small mb-0" for="purchase_uom">UOM compra</label>
+                    <input class="form-control form-control-sm" id="purchase_uom" name="purchase_uom" maxlength="16" list="uom-suggestions" placeholder="caja">
+                </div>
+                <div class="col-6 col-md-1">
+                    <label class="form-label small mb-0" for="pack_factor">Factor</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="pack_factor" name="pack_factor" value="1" title="Unidades de venta por 1 UOM compra">
+                </div>
+                <datalist id="uom-suggestions">
+                    <option value="und"><option value="caja"><option value="pack">
+                    <option value="kg"><option value="g"><option value="L"><option value="ml">
+                </datalist>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="min_stock">Stock mínimo</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="min_stock" name="min_stock" placeholder="0">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="max_stock">Stock máximo</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="max_stock" name="max_stock" placeholder="opcional">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small mb-0" for="image_file">Foto del producto</label>
+                    <input type="file" class="form-control form-control-sm" id="image_file" name="image_file"
+                           accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+                    <div class="form-text">PNG, JPG, GIF o WebP · máx. 3 MB</div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small mb-0" for="image_url">O URL imagen</label>
+                    <input class="form-control form-control-sm" id="image_url" name="image_url" maxlength="500" placeholder="https://… (opcional si subís archivo)">
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" value="1" id="tracks_inventory" name="tracks_inventory" checked>
+                        <label class="form-check-label small" for="tracks_inventory">Lleva inventario</label>
+                    </div>
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-sm btn-primary w-100">
+                        <i class="fas fa-plus me-1"></i>Crear
+                    </button>
+                </div>
+            </form>
+            {# API help oculto en UI — endpoints siguen vivos en /api/eposone/products*
+            <details class="mt-3">
+                <summary class="small text-muted">API productos (para la app / integraciones)</summary>
+                <pre class="small bg-light border rounded p-2 mb-0 mt-2"><code>GET  /api/eposone/products
+POST /api/eposone/products
+GET|PATCH|DELETE /api/eposone/products/&lt;product_ref&gt;
+POST /api/eposone/products/&lt;product_ref&gt;/image   (multipart: image_file)</code></pre>
+            </details>
+            #}
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             {% if products %}
@@ -19,29 +131,87 @@
                 <table class="table table-sm table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Referencia</th>
+                            <th style="width:48px">Foto</th>
+                            <th>SKU</th>
                             <th>Nombre</th>
-                            <th>Tipo</th>
+                            <th>Categoría</th>
+                            <th>Barcode</th>
                             <th>Precio</th>
-                            <th>Inventario</th>
+                            <th>Costo</th>
+                            <th>UOM</th>
+                            <th>Mín.</th>
+                            <th>Máx.</th>
                             <th>Estado</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for product in products %}
+                        {% set can_delete = can_delete_by_ref.get(product.product_ref, False) %}
                         <tr>
-                            <td><code>{{ product.product_ref }}</code></td>
-                            <td>{{ product.name }}</td>
-                            <td class="text-muted small">{{ product.product_type }}</td>
-                            <td>{{ '%.2f'|format(product.unit_price) }} {{ product.currency }}</td>
-                            <td>
-                                {% if product.tracks_inventory %}
-                                <span class="badge text-bg-info">Sí</span>
+                            <td style="width:48px">
+                                {% if product.image_url %}
+                                <img src="{{ product.image_url }}" alt="{{ product.name }}"
+                                     width="40" height="40"
+                                     class="rounded border bg-light"
+                                     style="object-fit:cover;display:block">
                                 {% else %}
-                                <span class="text-muted">—</span>
+                                <span class="d-inline-flex align-items-center justify-content-center rounded border bg-light text-muted"
+                                      style="width:40px;height:40px" title="Sin foto">
+                                    <i class="fas fa-image fa-sm"></i>
+                                </span>
                                 {% endif %}
                             </td>
+                            <td><code>{{ product.product_ref }}</code></td>
+                            <td>{{ product.name }}</td>
+                            <td class="small text-muted">{{ product.category or '—' }}</td>
+                            <td class="small"><code>{{ product.barcode or '—' }}</code></td>
+                            <td>{{ '%.2f'|format(product.unit_price) }} {{ product.currency }}</td>
+                            <td class="small text-muted">{% if product.cost_price is not none %}{{ '%.2f'|format(product.cost_price) }}{% else %}—{% endif %}</td>
+                            <td class="small text-muted">{{ product.uom or 'und' }}{% if product.purchase_uom %} <span class="text-muted">({{ product.pack_factor or 1 }}× / {{ product.purchase_uom }})</span>{% endif %}</td>
+                            <td class="small text-muted">{% if product.min_stock is not none %}{{ '%.2f'|format(product.min_stock) }}{% else %}—{% endif %}</td>
+                            <td class="small text-muted">{% if product.max_stock is not none %}{{ '%.2f'|format(product.max_stock) }}{% else %}—{% endif %}</td>
                             <td><span class="badge text-bg-light border">{{ product.status }}</span></td>
+                            <td class="text-end text-nowrap">
+                                <button type="button"
+                                    class="btn btn-sm btn-outline-primary btn-edit-product"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editProductModal"
+                                    data-ref="{{ product.product_ref }}"
+                                    data-name="{{ product.name }}"
+                                    data-type="{{ product.product_type }}"
+                                    data-price="{{ '%.2f'|format(product.unit_price) }}"
+                                    data-currency="{{ product.currency }}"
+                                    data-status="{{ product.status }}"
+                                    data-tracks="{{ '1' if product.tracks_inventory else '0' }}"
+                                    data-description="{{ product.description or '' }}"
+                                    data-barcode="{{ product.barcode or '' }}"
+                                    data-cost="{% if product.cost_price is not none %}{{ '%.2f'|format(product.cost_price) }}{% endif %}"
+                                    data-min-stock="{% if product.min_stock is not none %}{{ '%.2f'|format(product.min_stock) }}{% endif %}"
+                                    data-max-stock="{% if product.max_stock is not none %}{{ '%.2f'|format(product.max_stock) }}{% endif %}"
+                                    data-uom="{{ product.uom or 'und' }}"
+                                    data-purchase-uom="{{ product.purchase_uom or '' }}"
+                                    data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
+                                    data-category="{{ product.category or '' }}"
+                                    data-image="{{ product.image_url or '' }}">
+                                    Editar
+                                </button>
+                                {% if can_delete %}
+                                <form method="post" action="{{ url_for('eposone.eposone_product_delete', product_ref=product.product_ref) }}" class="d-inline"
+                                    onsubmit="return confirm('¿Eliminar {{ product.product_ref }}?');">
+                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                </form>
+                                {% elif product.status == 'active' %}
+                                <form method="post" action="{{ url_for('eposone.eposone_product_deactivate', product_ref=product.product_ref) }}" class="d-inline"
+                                    onsubmit="return confirm('Tiene movimientos. ¿Desactivar {{ product.product_ref }}?');">
+                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Desactivar</button>
+                                </form>
+                                {% else %}
+                                <span class="small text-muted">—</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -49,14 +219,166 @@
             </div>
             {% else %}
             <div class="p-4 text-muted">
-                <p class="mb-2">No hay productos en el catálogo maestro todavía.</p>
-                <p class="small mb-0">
-                    Creá productos vía <code>POST /api/eposone/products</code> con
-                    <code>product_ref</code>, <code>name</code> y <code>unit_price</code>.
-                </p>
+                <p class="mb-0">No hay productos todavía. Usá el formulario de arriba para crear el primero.</p>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="" id="editProductForm" class="modal-content" enctype="multipart/form-data">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="editProductModalLabel">Editar producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">SKU: <code id="edit_product_ref_label">—</code> (no editable)</p>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small" for="edit_name">Nombre *</label>
+                        <input class="form-control form-control-sm" id="edit_name" name="name" required maxlength="200">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small" for="edit_barcode">Código de barras</label>
+                        <input class="form-control form-control-sm" id="edit_barcode" name="barcode" maxlength="64">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small" for="edit_category">Categoría</label>
+                        <input class="form-control form-control-sm" id="edit_category" name="category" maxlength="120" list="category-suggestions">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small" for="edit_description">Descripción</label>
+                        <input class="form-control form-control-sm" id="edit_description" name="description" maxlength="500">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small" for="edit_type">Tipo</label>
+                        <select class="form-select form-select-sm" id="edit_type" name="product_type">
+                            <option value="good">Bien</option>
+                            <option value="service">Servicio</option>
+                            <option value="kit">Kit</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small" for="edit_status">Estado</label>
+                        <select class="form-select form-select-sm" id="edit_status" name="status">
+                            <option value="active">Activo</option>
+                            <option value="inactive">Inactivo</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small" for="edit_price">Precio venta *</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_price" name="unit_price" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small" for="edit_cost">Costo</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_cost" name="cost_price">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small" for="edit_currency">Moneda</label>
+                        <input class="form-control form-control-sm" id="edit_currency" name="currency" maxlength="8">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small" for="edit_min_stock">Stock mínimo</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_min_stock" name="min_stock">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small" for="edit_max_stock">Stock máximo</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_max_stock" name="max_stock">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small" for="edit_uom">UOM venta</label>
+                        <input class="form-control form-control-sm" id="edit_uom" name="uom" maxlength="16" list="uom-suggestions">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small" for="edit_purchase_uom">UOM compra</label>
+                        <input class="form-control form-control-sm" id="edit_purchase_uom" name="purchase_uom" maxlength="16" list="uom-suggestions">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small" for="edit_pack_factor">Factor</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="edit_pack_factor" name="pack_factor" title="Unidades de venta por 1 UOM compra">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small" for="edit_image_file">Nueva foto</label>
+                        <input type="file" class="form-control form-control-sm" id="edit_image_file" name="image_file"
+                               accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small" for="edit_image">URL imagen</label>
+                        <input class="form-control form-control-sm" id="edit_image" name="image_url" maxlength="500">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="form-check mb-1">
+                            <input class="form-check-input" type="checkbox" value="1" id="edit_tracks" name="tracks_inventory">
+                            <label class="form-check-label small" for="edit_tracks">Inventario</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check mb-1">
+                            <input class="form-check-input" type="checkbox" value="1" id="edit_clear_image" name="clear_image">
+                            <label class="form-check-label small" for="edit_clear_image">Quitar imagen</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <img id="edit_image_preview" src="" alt="" class="rounded border d-none" style="max-height:80px;object-fit:cover">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    var modal = document.getElementById('editProductModal');
+    if (!modal) return;
+    var updateBase = {{ url_for('eposone.eposone_product_update', product_ref='__REF__')|tojson }};
+    modal.addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        if (!btn) return;
+        var ref = btn.getAttribute('data-ref') || '';
+        document.getElementById('edit_product_ref_label').textContent = ref;
+        document.getElementById('editProductForm').action = updateBase.replace('__REF__', encodeURIComponent(ref));
+        document.getElementById('edit_name').value = btn.getAttribute('data-name') || '';
+        document.getElementById('edit_type').value = btn.getAttribute('data-type') || 'good';
+        document.getElementById('edit_status').value = btn.getAttribute('data-status') || 'active';
+        document.getElementById('edit_price').value = btn.getAttribute('data-price') || '0';
+        document.getElementById('edit_currency').value = btn.getAttribute('data-currency') || 'USD';
+        document.getElementById('edit_tracks').checked = btn.getAttribute('data-tracks') === '1';
+        document.getElementById('edit_description').value = btn.getAttribute('data-description') || '';
+        document.getElementById('edit_barcode').value = btn.getAttribute('data-barcode') || '';
+        document.getElementById('edit_cost').value = btn.getAttribute('data-cost') || '';
+        document.getElementById('edit_min_stock').value = btn.getAttribute('data-min-stock') || '';
+        document.getElementById('edit_max_stock').value = btn.getAttribute('data-max-stock') || '';
+        document.getElementById('edit_uom').value = btn.getAttribute('data-uom') || 'und';
+        document.getElementById('edit_purchase_uom').value = btn.getAttribute('data-purchase-uom') || '';
+        document.getElementById('edit_pack_factor').value = btn.getAttribute('data-pack-factor') || '1';
+        document.getElementById('edit_category').value = btn.getAttribute('data-category') || '';
+        document.getElementById('edit_image').value = btn.getAttribute('data-image') || '';
+        document.getElementById('edit_clear_image').checked = false;
+        var fileInput = document.getElementById('edit_image_file');
+        if (fileInput) fileInput.value = '';
+        var prev = document.getElementById('edit_image_preview');
+        var img = btn.getAttribute('data-image') || '';
+        if (prev) {
+            if (img) {
+                prev.src = img;
+                prev.classList.remove('d-none');
+            } else {
+                prev.removeAttribute('src');
+                prev.classList.add('d-none');
+            }
+        }
+    });
+})();
+</script>
 {% endblock %}

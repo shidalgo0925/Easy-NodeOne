@@ -52,10 +52,33 @@ def _device_from_request():
     raise DeviceProvisioningError('unauthorized', http_status=401)
 
 
+def _bo_actor_user_ref() -> str | None:
+    if not getattr(current_user, 'is_authenticated', False):
+        return None
+    return str(
+        getattr(current_user, 'username', None)
+        or getattr(current_user, 'email', None)
+        or f'user-{getattr(current_user, "id", "")}'
+    )
+
+
 def _err(exc: Exception):
     if isinstance(exc, (DeviceProvisioningError, OrderDomainError)):
         return jsonify({'error': exc.code}), int(exc.http_status)
     raise exc
+
+
+@eposone_orders_v1_bp.route('/payment-methods', methods=['GET'])
+def orders_payment_methods():
+    """Métodos de pago POS configurables (mismo catálogo para tablet y BO)."""
+    try:
+        device = _device_from_request()
+        from nodeone.modules.eposone.order_payment_service import OrderPaymentService
+
+        methods = OrderPaymentService.list_methods(int(device.organization_id), enabled_only=True)
+        return jsonify({'methods': methods, 'count': len(methods)})
+    except (DeviceProvisioningError, OrderDomainError) as exc:
+        return _err(exc)
 
 
 @eposone_orders_v1_bp.route('', methods=['GET'])
@@ -124,7 +147,15 @@ def orders_payments(order_id: int):
     try:
         device = _device_from_request()
         body = request.get_json(silent=True) or {}
-        order = OrderDomainService.add_payment(device, order_id, body)
+        auth = request.headers.get('Authorization') or ''
+        if not auth.strip().lower().startswith('bearer '):
+            actor = _bo_actor_user_ref()
+            if actor and not body.get('actor_user_ref'):
+                body = dict(body)
+                body['actor_user_ref'] = actor
+        from nodeone.modules.eposone.order_payment_service import OrderPaymentService
+
+        order = OrderPaymentService.add_payment(device, order_id, body)
         return jsonify({'order': order_to_dict(order)}), 201
     except (DeviceProvisioningError, OrderDomainError) as exc:
         return _err(exc)

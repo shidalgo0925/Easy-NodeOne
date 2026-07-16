@@ -1,0 +1,14 @@
+{# EPosOne DS — system status card
+   title?, last_sync_label?, pending_count?=0, online?=true
+#}
+<div class="epos-system-status">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="epos-system-status__dot{% if not online|default(true) %} is-down{% elif (pending_count|default(0)) > 0 %} is-warn{% endif %}" aria-hidden="true"></span>
+        <strong class="small mb-0">{{ title|default('EN1 Conectado') }}</strong>
+    </div>
+    <p class="small text-muted mb-1">
+        Última sincronización
+        <span class="d-block text-dark">{{ last_sync_label|default('—') }}</span>
+    </p>
+    <p class="small mb-0">Pendientes: <strong>{{ pending_count|default(0) }}</strong></p>
+</div>

@@ -1,0 +1,43 @@
+{# EPosOne DS — date / preset filter bar (GET form)
+   Expected:
+     filter_action — form action URL
+     range — hoy|ayer|semana|mes|custom
+     date_from, date_to — YYYY-MM-DD
+     show_custom?=true
+     extra_fields — optional HTML string (caller can nest blocks instead)
+#}
+{% set range = range|default('hoy') %}
+<form method="get" action="{{ filter_action }}" class="epos-filter-bar" id="epos-filter-bar">
+    <div class="epos-filter-bar__presets" role="group" aria-label="Rango rápido">
+        {% for key, label in [('hoy','Hoy'),('ayer','Ayer'),('semana','Esta semana'),('mes','Este mes'),('custom','Personalizado')] %}
+        <a class="epos-filter-chip{% if range == key %} is-active{% endif %}"
+           href="{{ filter_action }}?range={{ key }}{% if key == 'custom' and date_from %}&from={{ date_from }}{% endif %}{% if key == 'custom' and date_to %}&to={{ date_to }}{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
+    {% if show_custom|default(true) %}
+    <div class="epos-filter-field">
+        <label for="epos-date-from">Desde</label>
+        <input class="form-control" type="date" id="epos-date-from" name="from" value="{{ date_from|default('') }}">
+    </div>
+    <div class="epos-filter-field">
+        <label for="epos-date-to">Hasta</label>
+        <input class="form-control" type="date" id="epos-date-to" name="to" value="{{ date_to|default('') }}">
+    </div>
+    <input type="hidden" name="range" id="epos-filter-range" value="{{ range }}">
+    {% endif %}
+
+    <div class="epos-filter-bar__actions">
+        <button type="submit" class="btn btn-sm btn-primary" id="epos-filter-apply">Aplicar</button>
+    </div>
+</form>
+<script>
+(function () {
+  var form = document.getElementById('epos-filter-bar');
+  var rangeInput = document.getElementById('epos-filter-range');
+  if (!form || !rangeInput) return;
+  form.addEventListener('submit', function () {
+    rangeInput.value = 'custom';
+  });
+})();
+</script>

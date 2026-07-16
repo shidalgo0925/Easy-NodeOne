@@ -1078,6 +1078,7 @@ APP_AREAS: tuple[NavArea, ...] = (
             'eposone.eposone_home',
             'eposone.eposone_section',
         ),
+        # Sprint 7 UX — menú operativo corto; técnico bajo Configuración.
         items=(
             NavAreaItem(
                 'dashboard',
@@ -1097,21 +1098,6 @@ APP_AREAS: tuple[NavArea, ...] = (
                 visible=_v_eposone,
                 active_path_prefixes=('/admin/eposone/section/orders', '/admin/eposone/orders'),
             ),
-            NavAreaItem(
-                'ventas',
-                'Ventas',
-                'fas fa-file-invoice-dollar',
-                'admin_sales_quotations',
-                url_path='/admin/sales/quotations',
-                visible=_v_eposone_compose_sales,
-                active_endpoints=(
-                    'admin_sales_quotations',
-                    'admin_sales_quotation_form',
-                    'admin_sales_commercial_contacts',
-                ),
-                active_path_prefixes=('/admin/sales/quotations', '/admin/sales/commercial-contacts'),
-            ),
-            _eposone_section_item('clientes', 'Clientes', 'fas fa-address-book', 'contacts'),
             _eposone_section_item('productos', 'Productos', 'fas fa-box-open', 'products'),
             NavAreaItem(
                 'inventario_core',
@@ -1129,17 +1115,20 @@ APP_AREAS: tuple[NavArea, ...] = (
                 'inventory',
                 visible=lambda c: _v_eposone(c) and not _v_eposone_compose_contador(c),
             ),
-            _eposone_section_item('sucursales', 'Sucursales', 'fas fa-store', 'branches'),
-            _eposone_section_item('terminales', 'Terminales', 'fas fa-desktop', 'terminals'),
-            _eposone_section_item('cajas', 'Cajas', 'fas fa-cash-register', 'registers'),
-            _eposone_section_item('turnos', 'Turnos', 'fas fa-user-clock', 'shifts'),
-            _eposone_section_item('promociones', 'Promociones', 'fas fa-tags', 'promotions'),
-            _eposone_section_item('kds', 'KDS', 'fas fa-utensils', 'kds'),
-            _eposone_section_item('delivery', 'Delivery', 'fas fa-motorcycle', 'delivery'),
-            _eposone_section_item('menu-digital', 'Menú digital', 'fas fa-qrcode', 'digital-menu'),
+            _eposone_section_item('clientes', 'Clientes', 'fas fa-address-book', 'contacts'),
+            _nav_menu_dropdown(
+                'caja',
+                'Caja',
+                'fas fa-cash-register',
+                (
+                    _eposone_section_item('cajas', 'Cajas', 'fas fa-cash-register', 'registers'),
+                    _eposone_section_item('turnos', 'Turnos', 'fas fa-user-clock', 'shifts'),
+                ),
+                visible=_v_eposone,
+            ),
             NavAreaItem(
                 'reportes',
-                'Analítica POS',
+                'Reportes',
                 'fas fa-chart-bar',
                 'eposone.eposone_analytics',
                 url_path='/admin/eposone/analytics',
@@ -1147,7 +1136,26 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_endpoints=('eposone.eposone_analytics',),
                 active_path_prefixes=('/admin/eposone/analytics',),
             ),
-            _eposone_section_item('configuracion', 'Configuración', 'fas fa-cog', 'settings'),
+            _nav_menu_dropdown(
+                'configuracion',
+                'Configuración',
+                'fas fa-cog',
+                (
+                    _eposone_section_item('ajustes', 'Ajustes generales', 'fas fa-sliders-h', 'settings'),
+                    _eposone_section_item('sucursales', 'Sucursales', 'fas fa-store', 'branches'),
+                    _eposone_section_item(
+                        'pos-points', 'Puntos de venta', 'fas fa-map-marker-alt', 'pos-points'
+                    ),
+                    _eposone_section_item('terminales', 'Dispositivos', 'fas fa-desktop', 'terminals'),
+                    _eposone_section_item('promociones', 'Promociones', 'fas fa-tags', 'promotions'),
+                    _eposone_section_item('kds', 'KDS', 'fas fa-utensils', 'kds'),
+                    _eposone_section_item('delivery', 'Delivery', 'fas fa-motorcycle', 'delivery'),
+                    _eposone_section_item(
+                        'menu-digital', 'Menú digital', 'fas fa-qrcode', 'digital-menu'
+                    ),
+                ),
+                visible=_v_eposone,
+            ),
         ),
     ),
     NavArea(

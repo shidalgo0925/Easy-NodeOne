@@ -93,6 +93,36 @@ class EposoneOrderPayment(db.Model):
     kind = db.Column(db.String(32), nullable=False, default='payment')  # payment|deposit|partial
     currency = db.Column(db.String(8), nullable=False, default='USD')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    payment_method_id = db.Column(
+        db.Integer, db.ForeignKey('eposone_payment_method.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    reference = db.Column(db.String(128), nullable=True)
+    authorization_code = db.Column(db.String(64), nullable=True)
+    received_by = db.Column(db.String(64), nullable=True)
+    paid_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(32), nullable=False, default='captured')
+    exchange_rate = db.Column(db.Float, nullable=True)
+
+
+class EposonePaymentMethod(db.Model):
+    """Métodos de pago POS configurables por organización (Order Domain)."""
+
+    __tablename__ = 'eposone_payment_method'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, nullable=False, index=True)
+    method_key = db.Column(db.String(40), nullable=False)
+    label = db.Column(db.String(120), nullable=False)
+    enabled = db.Column(db.Boolean, nullable=False, default=True)
+    display_order = db.Column(db.Integer, nullable=False, default=100)
+    requires_reference = db.Column(db.Boolean, nullable=False, default=False)
+    requires_authorization = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'method_key', name='uq_eposone_payment_method_org_key'),
+    )
 
 
 class EposoneOrderEvent(db.Model):

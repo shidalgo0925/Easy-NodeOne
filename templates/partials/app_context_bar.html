@@ -1,7 +1,8 @@
-{# Barra de contexto de app (UX V3.2). Breadcrumb + retorno — nunca navegación funcional. #}
-{% if nav_use_context_bar and app_breadcrumbs %}
+{# Barra de contexto de app (UX V3.2). Solo si hay zona media útil (evita franja vacía de ~40px). #}
+{% if nav_use_context_bar and context_bar_middle is defined and context_bar_middle %}
 <nav id="appContextBar" class="app-context-bar" aria-label="Contexto de la aplicación">
     <div class="app-context-bar__inner container-fluid">
+        {% if app_breadcrumbs %}
         <ol class="app-context-bar__breadcrumb breadcrumb mb-0" aria-label="Ruta">
             {% for crumb in app_breadcrumbs %}
             <li class="breadcrumb-item{% if loop.last %} active{% endif %}"{% if loop.last %} aria-current="page"{% endif %}>
@@ -13,6 +14,10 @@
             </li>
             {% endfor %}
         </ol>
+        {% endif %}
+        <div class="app-context-bar__middle">
+            {{ context_bar_middle }}
+        </div>
         <div class="app-context-bar__actions">
             {% if platform_shell_show_apps_return and platform_apps_return_url %}
             <a class="btn btn-sm btn-outline-secondary app-context-return" href="{{ platform_apps_return_url }}">{{ platform_apps_return_label or '← Mis aplicaciones' }}</a>

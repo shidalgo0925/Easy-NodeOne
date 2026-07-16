@@ -1,4 +1,4 @@
-"""Navegación nativa EPosOne — UX V3.2 (única nav principal de la app)."""
+"""Navegación nativa EPosOne — UX Roadmap V1.0 Sprint 7 (operativa)."""
 
 from __future__ import annotations
 
@@ -14,14 +14,6 @@ def _v_eposone(ctx: NavContext) -> bool:
     )
 
 
-def _v_sales(ctx: NavContext) -> bool:
-    return (
-        _v_eposone(ctx)
-        and ctx.saas_module_enabled('sales')
-        and ctx.has_view_endpoint('admin_sales_quotations')
-    )
-
-
 def _v_contador(ctx: NavContext) -> bool:
     return (
         _v_eposone(ctx)
@@ -31,7 +23,7 @@ def _v_contador(ctx: NavContext) -> bool:
 
 
 def _v_analytics(ctx: NavContext) -> bool:
-    """Analítica POS vive en EPosOne (UX-T4); no depende del módulo BI plataforma."""
+    """Analítica POS vive en EPosOne; no depende del módulo BI plataforma."""
     return _v_eposone(ctx) and ctx.has_view_endpoint('eposone.eposone_analytics')
 
 
@@ -40,10 +32,19 @@ def _section(slug: str) -> str:
 
 
 def build_nav_tree(ctx: NavContext) -> AppNavTree:
+    """Menú operativo corto — elementos técnicos bajo Configuración."""
     orders_prefixes = (
         '/admin/eposone/section/orders',
         '/admin/eposone/orders',
     )
+    use_contador = _v_contador(ctx)
+    inventario_url = (
+        safe_url_for('contador.contador_index') if use_contador else _section('inventory')
+    )
+    inventario_prefixes = (
+        ('/admin/contador',) if use_contador else ('/admin/eposone/section/inventory',)
+    )
+
     return AppNavTree(
         app_id='eposone',
         nav_area_id='eposone',
@@ -61,38 +62,114 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 active_path_prefixes=('/admin/eposone/dashboard',),
             ),
             AppNavItem(
-                'comercial',
-                'Comercial',
+                'pedidos',
+                'Pedidos',
                 'fas fa-receipt',
+                url=_section('orders'),
+                visible=_v_eposone,
+                active_path_prefixes=orders_prefixes,
+            ),
+            AppNavItem(
+                'productos',
+                'Productos',
+                'fas fa-box-open',
+                url=_section('products'),
+                visible=_v_eposone,
+                active_path_prefixes=('/admin/eposone/section/products',),
+            ),
+            AppNavItem(
+                'inventario',
+                'Inventario',
+                'fas fa-warehouse',
+                url=inventario_url,
+                visible=_v_eposone,
+                active_blueprints=('contador',) if use_contador else (),
+                active_path_prefixes=inventario_prefixes,
+            ),
+            AppNavItem(
+                'clientes',
+                'Clientes',
+                'fas fa-user-friends',
+                url=_section('contacts'),
+                visible=_v_eposone,
+                active_path_prefixes=('/admin/eposone/section/contacts',),
+            ),
+            AppNavItem(
+                'caja',
+                'Caja',
+                'fas fa-cash-register',
                 children=(
                     AppNavItem(
-                        'pedidos',
-                        'Pedidos',
-                        'fas fa-shopping-basket',
-                        url=_section('orders'),
+                        'cajas',
+                        'Cajas',
+                        'fas fa-cash-register',
+                        url=_section('registers'),
                         visible=_v_eposone,
-                        active_path_prefixes=orders_prefixes,
+                        active_path_prefixes=('/admin/eposone/section/registers',),
                     ),
                     AppNavItem(
-                        'ventas',
-                        'Ventas',
-                        'fas fa-file-invoice-dollar',
-                        url=safe_url_for('admin_sales_quotations'),
-                        visible=_v_sales,
-                        active_endpoints=(
-                            'admin_sales_quotations',
-                            'admin_sales_quotation_form',
-                            'admin_sales_commercial_contacts',
-                        ),
-                        active_path_prefixes=('/admin/sales/quotations', '/admin/sales/commercial-contacts'),
+                        'turnos',
+                        'Turnos',
+                        'fas fa-user-clock',
+                        url=_section('shifts'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/shifts',),
+                    ),
+                ),
+            ),
+            AppNavItem(
+                'reportes',
+                'Reportes',
+                'fas fa-chart-bar',
+                url=safe_url_for('eposone.eposone_analytics'),
+                visible=_v_analytics,
+                active_endpoints=('eposone.eposone_analytics',),
+                active_path_prefixes=('/admin/eposone/analytics',),
+            ),
+            AppNavItem(
+                'configuracion',
+                'Configuración',
+                'fas fa-cog',
+                children=(
+                    AppNavItem(
+                        'ajustes',
+                        'Ajustes generales',
+                        'fas fa-sliders-h',
+                        url=_section('settings'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/settings',),
                     ),
                     AppNavItem(
-                        'clientes',
-                        'Clientes',
-                        'fas fa-user-friends',
-                        url=_section('contacts'),
+                        'sucursales',
+                        'Sucursales',
+                        'fas fa-store',
+                        url=_section('branches'),
                         visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/contacts',),
+                        active_path_prefixes=('/admin/eposone/section/branches',),
+                    ),
+                    AppNavItem(
+                        'pos-points',
+                        'Puntos de venta',
+                        'fas fa-map-marker-alt',
+                        url=_section('pos-points'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/pos-points',),
+                    ),
+                    AppNavItem(
+                        'terminales',
+                        'Dispositivos',
+                        'fas fa-desktop',
+                        url=_section('terminals'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/terminals',),
+                    ),
+                    AppNavItem(
+                        'promociones',
+                        'Promociones',
+                        'fas fa-tags',
+                        url=_section('promotions'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/promotions',),
                     ),
                     AppNavItem(
                         'kds',
@@ -117,131 +194,6 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         url=_section('digital-menu'),
                         visible=_v_eposone,
                         active_path_prefixes=('/admin/eposone/section/digital-menu',),
-                    ),
-                ),
-            ),
-            AppNavItem(
-                'catalogo',
-                'Catálogo',
-                'fas fa-box-open',
-                children=(
-                    AppNavItem(
-                        'productos',
-                        'Productos',
-                        'fas fa-box',
-                        url=_section('products'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/products',),
-                    ),
-                    AppNavItem(
-                        'promociones',
-                        'Promociones',
-                        'fas fa-tags',
-                        url=_section('promotions'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/promotions',),
-                    ),
-                ),
-            ),
-            AppNavItem(
-                'inventario',
-                'Inventario',
-                'fas fa-warehouse',
-                children=(
-                    AppNavItem(
-                        'existencias',
-                        'Existencias',
-                        'fas fa-boxes',
-                        url=_section('inventory'),
-                        visible=lambda c: _v_eposone(c) and not _v_contador(c),
-                        active_path_prefixes=('/admin/eposone/section/inventory',),
-                    ),
-                    AppNavItem(
-                        'contador',
-                        'Inventario',
-                        'fas fa-boxes',
-                        url=safe_url_for('contador.contador_index'),
-                        visible=_v_contador,
-                        active_blueprints=('contador',),
-                        active_path_prefixes=('/admin/contador',),
-                    ),
-                ),
-            ),
-            AppNavItem(
-                'organizacion',
-                'Organización',
-                'fas fa-sitemap',
-                children=(
-                    AppNavItem(
-                        'sucursales',
-                        'Sucursales',
-                        'fas fa-store',
-                        url=_section('branches'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/branches',),
-                    ),
-                    AppNavItem(
-                        'pos-points',
-                        'Puntos de Venta',
-                        'fas fa-map-marker-alt',
-                        url=_section('pos-points'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/pos-points',),
-                    ),
-                    AppNavItem(
-                        'terminales',
-                        'Dispositivos',
-                        'fas fa-desktop',
-                        url=_section('terminals'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/terminals',),
-                    ),
-                    AppNavItem(
-                        'cajas',
-                        'Cajas',
-                        'fas fa-cash-register',
-                        url=_section('registers'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/registers',),
-                    ),
-                    AppNavItem(
-                        'turnos',
-                        'Turnos',
-                        'fas fa-user-clock',
-                        url=_section('shifts'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/shifts',),
-                    ),
-                ),
-            ),
-            AppNavItem(
-                'inteligencia',
-                'Inteligencia',
-                'fas fa-chart-bar',
-                children=(
-                    AppNavItem(
-                        'reportes',
-                        'Analítica POS',
-                        'fas fa-chart-line',
-                        url=safe_url_for('eposone.eposone_analytics'),
-                        visible=_v_analytics,
-                        active_endpoints=('eposone.eposone_analytics',),
-                        active_path_prefixes=('/admin/eposone/analytics',),
-                    ),
-                ),
-            ),
-            AppNavItem(
-                'sistema',
-                'Sistema',
-                'fas fa-cog',
-                children=(
-                    AppNavItem(
-                        'configuracion',
-                        'Configuración',
-                        'fas fa-sliders-h',
-                        url=_section('settings'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/settings',),
                     ),
                 ),
             ),

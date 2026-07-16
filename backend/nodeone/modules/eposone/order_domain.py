@@ -132,6 +132,12 @@ def order_to_dict(order: EposoneOrder, *, include_events: bool = False) -> dict[
                 'kind': p.kind,
                 'currency': p.currency,
                 'created_at': _iso(p.created_at),
+                'payment_method_id': p.payment_method_id,
+                'reference': getattr(p, 'reference', None),
+                'authorization_code': getattr(p, 'authorization_code', None),
+                'received_by': getattr(p, 'received_by', None),
+                'paid_at': _iso(getattr(p, 'paid_at', None)),
+                'status': getattr(p, 'status', None) or 'captured',
             }
             for p in (order.payments or [])
         ],
@@ -449,51 +455,9 @@ class OrderDomainService:
 
     @staticmethod
     def add_payment(device: CorePosTerminal, order_id: int, body: dict[str, Any]) -> EposoneOrder:
-        from app import db
+        from nodeone.modules.eposone.order_payment_service import OrderPaymentService
 
-        order = OrderDomainService.get_order(device, order_id)
-        OrderDomainService._require_owner(order, device, for_payment=True)
-        amount = float(body.get('amount') or 0)
-        if amount <= 0:
-            raise OrderDomainError('amount_invalid', http_status=400)
-        kind = str(body.get('kind') or 'payment').strip().lower()
-        if kind in ('deposit', 'partial', 'abono') and not (order.customer_ref or body.get('customer_ref')):
-            raise OrderDomainError('customer_required_for_partial', http_status=400)
-        if body.get('customer_ref'):
-            order.customer_ref = str(body.get('customer_ref')).strip()
-        payment_ref = str(body.get('payment_ref') or f'pay-{secrets.token_hex(4)}')
-        pay = EposoneOrderPayment(
-            order_id=order.id,
-            payment_ref=payment_ref,
-            amount=amount,
-            method=str(body.get('method') or 'cash'),
-            kind=kind if kind in ('payment', 'deposit', 'partial', 'abono') else 'payment',
-            currency=str(body.get('currency') or 'USD'),
-        )
-        db.session.add(pay)
-        order.amount_paid = float(order.amount_paid or 0) + amount
-        _recalc(order)
-        event_id = str(body.get('event_id') or uuid.uuid4())
-        OrderDomainService._append_event(
-            order,
-            event_id=event_id,
-            event_type='pago.registrado',
-            device=device,
-            user_ref=order.user_ref,
-            payload={'payment_ref': payment_ref, 'amount': amount, 'method': pay.method, 'kind': pay.kind},
-        )
-        if order.financially_closed:
-            OrderDomainService._append_event(
-                order,
-                event_id=str(uuid.uuid4()),
-                event_type='pedido.cobrado',
-                device=device,
-                user_ref=order.user_ref,
-                payload={'total': float(order.total), 'amount_paid': float(order.amount_paid)},
-            )
-        order.updated_at = datetime.utcnow()
-        db.session.commit()
-        return order
+        return OrderPaymentService.add_payment(device, order_id, body)
 
     @staticmethod
     def split_order(device: CorePosTerminal, order_id: int, body: dict[str, Any]) -> dict[str, Any]:

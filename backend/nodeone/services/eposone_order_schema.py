@@ -275,3 +275,106 @@ def ensure_eposone_order_schema(db, engine, printfn=None) -> None:
                 """,
             )
         log('eposone_order_return: tabla creada')
+
+    # ——— Catálogo de métodos POS + columnas extendidas de pago ———
+    tables = set(inspect(engine).get_table_names())
+    if 'eposone_payment_method' not in tables:
+        if is_pg:
+            _exec(
+                engine,
+                """
+                CREATE TABLE IF NOT EXISTS eposone_payment_method (
+                    id SERIAL PRIMARY KEY,
+                    organization_id INTEGER NOT NULL,
+                    method_key VARCHAR(40) NOT NULL,
+                    label VARCHAR(120) NOT NULL,
+                    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                    display_order INTEGER NOT NULL DEFAULT 100,
+                    requires_reference BOOLEAN NOT NULL DEFAULT FALSE,
+                    requires_authorization BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                    CONSTRAINT uq_eposone_payment_method_org_key UNIQUE (organization_id, method_key)
+                );
+                CREATE INDEX IF NOT EXISTS ix_eposone_payment_method_org ON eposone_payment_method (organization_id);
+                """,
+            )
+        else:
+            _exec(
+                engine,
+                """
+                CREATE TABLE IF NOT EXISTS eposone_payment_method (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    organization_id INTEGER NOT NULL,
+                    method_key VARCHAR(40) NOT NULL,
+                    label VARCHAR(120) NOT NULL,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    display_order INTEGER NOT NULL DEFAULT 100,
+                    requires_reference INTEGER NOT NULL DEFAULT 0,
+                    requires_authorization INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (organization_id, method_key)
+                );
+                """,
+            )
+        log('eposone_payment_method: tabla creada')
+
+    if 'eposone_order_payment' in set(inspect(engine).get_table_names()):
+        cols = {c['name'] for c in inspect(engine).get_columns('eposone_order_payment')}
+        alters: list[str] = []
+        if is_pg:
+            if 'payment_method_id' not in cols:
+                alters.append(
+                    'ALTER TABLE eposone_order_payment ADD COLUMN IF NOT EXISTS payment_method_id INTEGER'
+                )
+            if 'reference' not in cols:
+                alters.append(
+                    'ALTER TABLE eposone_order_payment ADD COLUMN IF NOT EXISTS reference VARCHAR(128)'
+                )
+            if 'authorization_code' not in cols:
+                alters.append(
+                    'ALTER TABLE eposone_order_payment ADD COLUMN IF NOT EXISTS authorization_code VARCHAR(64)'
+                )
+            if 'received_by' not in cols:
+                alters.append(
+                    'ALTER TABLE eposone_order_payment ADD COLUMN IF NOT EXISTS received_by VARCHAR(64)'
+                )
+            if 'paid_at' not in cols:
+                alters.append(
+                    'ALTER TABLE eposone_order_payment ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITHOUT TIME ZONE'
+                )
+            if 'status' not in cols:
+                alters.append(
+                    "ALTER TABLE eposone_order_payment ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'captured'"
+                )
+            if 'exchange_rate' not in cols:
+                alters.append(
+                    'ALTER TABLE eposone_order_payment ADD COLUMN IF NOT EXISTS exchange_rate DOUBLE PRECISION'
+                )
+        else:
+            mapping = {
+                'payment_method_id': 'INTEGER',
+                'reference': 'VARCHAR(128)',
+                'authorization_code': 'VARCHAR(64)',
+                'received_by': 'VARCHAR(64)',
+                'paid_at': 'DATETIME',
+                'status': "VARCHAR(32) DEFAULT 'captured'",
+                'exchange_rate': 'FLOAT',
+            }
+            for name, typ in mapping.items():
+                if name not in cols:
+                    alters.append(f'ALTER TABLE eposone_order_payment ADD COLUMN {name} {typ}')
+        for stmt in alters:
+            _exec(engine, stmt)
+        if alters:
+            log(f'eposone_order_payment: +{len(alters)} columna(s)')
+        if is_pg and alters:
+            _exec(
+                engine,
+                """
+                UPDATE eposone_order_payment SET paid_at = created_at WHERE paid_at IS NULL;
+                CREATE INDEX IF NOT EXISTS ix_eposone_order_payment_method
+                    ON eposone_order_payment (payment_method_id);
+                """,
+            )

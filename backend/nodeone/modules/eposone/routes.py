@@ -11,6 +11,14 @@ from nodeone.modules.eposone.sections import EPOSONE_SECTIONS, EPOSONE_SECTION_S
 eposone_bp = Blueprint('eposone', __name__, url_prefix='/admin/eposone')
 
 
+@eposone_bp.app_template_filter('epos_local')
+def _epos_local_filter(value, fmt='%d/%m %H:%M'):
+    """UTC naive → hora de negocio (America/Panama) para templates EPosOne."""
+    from nodeone.modules.eposone.timefmt import format_business_dt
+
+    return format_business_dt(value, fmt=fmt)
+
+
 def _require_eposone_admin():
     if not user_can_see_tenant_admin_menu(current_user):
         return redirect(url_for('dashboard'))
@@ -365,18 +373,29 @@ def eposone_home():
     from nodeone.core.commerce.dashboard import CommerceDashboardService
     from nodeone.core.platform.runtime import resolve_organization_id
 
-    kpis = None
-    recent_orders: list = []
+    board = None
     oid = resolve_organization_id()
+    range_key = (request.args.get('range') or 'hoy').strip().lower()
+    date_from = (request.args.get('from') or '').strip() or None
+    date_to = (request.args.get('to') or '').strip() or None
     if oid is not None:
-        kpis = CommerceDashboardService.get_snapshot(int(oid))
-        recent_orders = CommerceDashboardService.list_recent_domain_orders(int(oid), limit=12)
+        board = CommerceDashboardService.build_operational_dashboard(
+            int(oid),
+            range_key=range_key,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    kpis = board['kpis'] if board else None
     return render_template(
         'eposone/dashboard.html',
-        compose_links=_compose_links(),
+        board=board,
         kpis=kpis,
-        recent_orders=recent_orders,
+        recent_orders=(board or {}).get('orders') or [],
+        dash_range=(board or {}).get('range') or range_key,
+        dash_from=(board or {}).get('date_from') or date_from or '',
+        dash_to=(board or {}).get('date_to') or date_to or '',
         dashboard_refresh_seconds=30,
+        filter_action=url_for('eposone.eposone_home'),
     )
 
 
@@ -472,10 +491,11 @@ def eposone_order_detail(order_id: int):
 @eposone_bp.route('/orders/domain/<int:order_id>')
 @login_required
 def eposone_order_domain_detail(order_id: int):
-    """Detalle read-only Order Domain Hito 3 (eposone_order)."""
+    """Detalle Order Domain Hito 3 (eposone_order) — cobro BO vía /api/v1/orders/{id}/payments."""
     denied = _require_eposone_admin()
     if denied is not None:
         return denied
+    from models.core_master import CoreProduct
     from models.eposone_order import EposoneOrder, EposoneOrderEvent
     from nodeone.core.platform.runtime import resolve_organization_id
 
@@ -490,10 +510,85 @@ def eposone_order_domain_detail(order_id: int):
         .order_by(EposoneOrderEvent.sequence.asc())
         .all()
     )
+
+    refs = {str(it.product_ref) for it in (order.items or []) if it.product_ref}
+    product_names: dict[str, str] = {}
+    if refs:
+        for row in CoreProduct.query.filter(
+            CoreProduct.organization_id == int(oid),
+            CoreProduct.product_ref.in_(list(refs)),
+        ).all():
+            product_names[str(row.product_ref)] = str(row.name)
+
+    _EVENT_TITLES = {
+        'pedido.creado': 'Pedido creado',
+        'pedido.actualizado': 'Pedido actualizado',
+        'pedido.dividido': 'Pedido dividido',
+        'producto.agregado': 'Producto agregado',
+        'producto.eliminado': 'Producto quitado',
+        'cantidad.modificada': 'Cantidad modificada',
+        'pedido.enviado': 'Enviado a cocina',
+        'linea.lista': 'Línea lista',
+        'pedido.listo': 'Listo',
+        'linea.entregada': 'Línea entregada',
+        'pedido.entregado': 'Entregado',
+        'pago.registrado': 'Pago',
+        'pedido.cobrado': 'Cobrado',
+        'linea.cancelada': 'Línea cancelada',
+        'pedido.anulado': 'Anulado',
+        'pedido.devuelto': 'Devuelto',
+    }
+    from nodeone.modules.eposone.timefmt import format_business_dt
+
+    timeline: list[dict] = []
+    if order.opened_at:
+        timeline.append(
+            {
+                'title': 'Pedido creado',
+                'at': format_business_dt(order.opened_at, '%Y-%m-%d %H:%M:%S'),
+                'meta': order.en1_number,
+            }
+        )
+    for ev in events:
+        etype = str(ev.type or '')
+        title = _EVENT_TITLES.get(etype) or etype.replace('.', ' · ').replace('_', ' ')
+        # Evitar duplicar "Pedido creado" si el primer evento lo repite
+        if etype in {'pedido.creado'} and timeline:
+            continue
+        timeline.append(
+            {
+                'title': title,
+                'at': format_business_dt(ev.occurred_at, '%Y-%m-%d %H:%M:%S') if ev.occurred_at else '',
+                'meta': ev.actor_user_ref or ev.actor_device_uuid or '',
+            }
+        )
+    if order.financially_closed and not any('Cerrado' in (s.get('title') or '') for s in timeline):
+        timeline.append(
+            {
+                'title': 'Cerrado',
+                'at': format_business_dt(order.updated_at, '%Y-%m-%d %H:%M:%S') if order.updated_at else '',
+                'meta': '',
+            }
+        )
+
+    payment_methods: list[dict] = []
+    payment_method_labels: dict[str, str] = {}
+    try:
+        from nodeone.modules.eposone.order_payment_service import OrderPaymentService
+
+        payment_methods = OrderPaymentService.list_methods(int(oid), enabled_only=True)
+        payment_method_labels = {m['method_key']: m['label'] for m in payment_methods}
+    except Exception:
+        payment_methods = []
+
     return render_template(
         'eposone/order_domain_detail.html',
         order=order,
         events=events,
+        product_names=product_names,
+        timeline=timeline,
+        payment_methods=payment_methods,
+        payment_method_labels=payment_method_labels,
     )
 
 
@@ -1368,79 +1463,144 @@ def eposone_contact_create():
 @eposone_bp.route('/orders/new', methods=['GET', 'POST'])
 @login_required
 def eposone_order_new():
+    """POS ligero BO → Order Domain (sin contrato tablet nuevo)."""
     denied = _require_eposone_admin()
     if denied is not None:
         return denied
-    from nodeone.core.commerce.order import OrderService, OrderValidationError
+    import json
+    import uuid
+
+    from models.commercial_core import CorePosTerminal
+    from nodeone.core.commerce.constants import POS_TERMINAL_ACTIVE
     from nodeone.core.platform.runtime import resolve_organization_id
-    from nodeone.core.services.contacts import ContactService
     from nodeone.core.services.product import ProductService
+    from nodeone.modules.eposone.order_domain import OrderDomainError, OrderDomainService
 
     oid = resolve_organization_id()
     if oid is None:
         abort(400)
-    contacts, _ = ContactService.search(int(oid), limit=100)
-    products = ProductService.search(int(oid), limit=100)
-    form_data = {
-        'contact_id': '',
-        'product_ref': '',
-        'description': '',
-        'quantity': '1',
-        'unit_price': '',
-        'notes': '',
-    }
 
-    if request.method == 'POST':
-        form_data = {
-            'contact_id': (request.form.get('contact_id') or '').strip(),
-            'product_ref': (request.form.get('product_ref') or '').strip(),
-            'description': (request.form.get('description') or '').strip(),
-            'quantity': (request.form.get('quantity') or '1').strip(),
-            'unit_price': (request.form.get('unit_price') or '').strip(),
-            'notes': (request.form.get('notes') or '').strip(),
+    products = ProductService.search(int(oid), status='active', limit=500)
+    categories = sorted({(p.category or '').strip() for p in products if (p.category or '').strip()})
+    catalog = [
+        {
+            'product_ref': p.product_ref,
+            'name': p.name,
+            'category': p.category or '',
+            'unit_price': float(p.unit_price or 0),
+            'image_url': p.image_url,
         }
-        try:
-            qty = float(form_data['quantity'] or 1)
-            unit_price = float(form_data['unit_price'] or 0)
-        except ValueError:
-            flash('Cantidad o precio no válidos.', 'danger')
-            return render_template(
-                'eposone/order_new.html',
-                contacts=contacts,
-                products=products,
-                form_data=form_data,
-            )
-        line: dict = {
-            'description': form_data['description'],
-            'quantity': qty,
-            'unit_price': unit_price,
-        }
-        if form_data['product_ref']:
-            line['product_ref'] = form_data['product_ref']
-        body: dict = {'lines': [line]}
-        if form_data['notes']:
-            body['notes'] = form_data['notes']
-        if form_data['contact_id']:
-            body['contact_id'] = int(form_data['contact_id'])
-        try:
-            dto = OrderService.create(int(oid), body, source_app_id='eposone')
-        except OrderValidationError as exc:
-            flash(str(exc).replace('_', ' '), 'danger')
-            return render_template(
-                'eposone/order_new.html',
-                contacts=contacts,
-                products=products,
-                form_data=form_data,
-            )
-        flash(f'Pedido {dto.order_ref} creado.', 'success')
-        return redirect(url_for('eposone.eposone_order_detail', order_id=dto.id))
+        for p in products
+    ]
 
-    return render_template(
-        'eposone/order_new.html',
-        contacts=contacts,
-        products=products,
-        form_data=form_data,
+    def _render(**extra):
+        return render_template(
+            'eposone/order_new.html',
+            catalog=catalog,
+            categories=categories,
+            **extra,
+        )
+
+    if request.method == 'GET':
+        return _render()
+
+    device = (
+        CorePosTerminal.query.filter_by(organization_id=int(oid), status=POS_TERMINAL_ACTIVE)
+        .order_by(CorePosTerminal.id.asc())
+        .first()
     )
+    if device is None:
+        flash('No hay terminal POS activo. Provisioná una caja/tablet primero.', 'warning')
+        return redirect(url_for('eposone.eposone_section', slug='terminals'))
+
+    service_mode = (request.form.get('service_mode') or 'mesa').strip().lower()
+    table_raw = (request.form.get('table_ref') or '').strip()
+    guest_name = (request.form.get('guest_name') or '').strip()
+    notes = (request.form.get('notes') or '').strip() or None
+    lines_raw = (request.form.get('lines_json') or '[]').strip()
+    try:
+        lines = json.loads(lines_raw)
+        if not isinstance(lines, list):
+            raise ValueError('lines')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        flash('Ticket inválido. Agregá al menos un producto.', 'danger')
+        return _render()
+
+    clean_lines: list[dict] = []
+    for row in lines:
+        if not isinstance(row, dict):
+            continue
+        pref = str(row.get('product_ref') or '').strip()
+        if not pref:
+            continue
+        try:
+            qty = float(row.get('qty') or 1)
+            price = float(row.get('unit_price') or 0)
+        except (TypeError, ValueError):
+            continue
+        if qty <= 0:
+            continue
+        clean_lines.append(
+            {
+                'product_ref': pref,
+                'qty': qty,
+                'unit_price': price,
+                'notes': (str(row.get('notes') or '').strip() or None),
+            }
+        )
+    if not clean_lines:
+        flash('Agregá al menos un producto al ticket.', 'danger')
+        return _render()
+
+    table_ref = None
+    local_number = None
+    customer_ref = None
+    if service_mode == 'mesa':
+        if not table_raw:
+            flash('Indicá el número/nombre de mesa.', 'danger')
+            return _render()
+        table_ref = table_raw if table_raw.lower().startswith('mesa') else f'mesa-{table_raw}'
+        local_number = guest_name or None
+    elif service_mode == 'llevar':
+        # table_ref único: evita reutilizar un único pedido "llevar" abierto
+        table_ref = f"llevar-{uuid.uuid4().hex[:8]}"
+        local_number = guest_name or 'Llevar'
+        customer_ref = guest_name or None
+    else:  # delivery
+        table_ref = f"delivery-{uuid.uuid4().hex[:8]}"
+        local_number = guest_name or 'Delivery'
+        customer_ref = guest_name or None
+
+    try:
+        order = OrderDomainService.create_order(
+            device,
+            {
+                'table_ref': table_ref,
+                'local_number': local_number,
+                'customer_ref': customer_ref,
+                'notes': notes,
+                'user_ref': getattr(current_user, 'email', None)
+                or getattr(current_user, 'username', None)
+                or str(getattr(current_user, 'id', '')),
+                'event_id': str(uuid.uuid4()),
+            },
+        )
+        for line in clean_lines:
+            OrderDomainService.apply_event(
+                device,
+                int(order.id),
+                {
+                    'type': 'producto.agregado',
+                    'event_id': str(uuid.uuid4()),
+                    'payload': line,
+                },
+            )
+    except OrderDomainError as exc:
+        flash(f'No se pudo crear el pedido: {exc.code}', 'danger')
+        return _render()
+
+    flash(f'Pedido {order.en1_number} creado.', 'success')
+    return redirect(url_for('eposone.eposone_order_domain_detail', order_id=int(order.id)))
 
 
 @eposone_bp.route('/section/<slug>')
@@ -1454,21 +1614,66 @@ def eposone_section(slug: str):
         abort(404)
     title, description = EPOSONE_SECTIONS[key]
     if key == 'orders':
+        from datetime import datetime, timedelta
+
+        from sqlalchemy import or_
+
         from models.eposone_order import EposoneOrder
         from nodeone.core.platform.runtime import resolve_organization_id
 
         oid = resolve_organization_id()
         orders: list = []
         orders_total = 0
+        q_text = (request.args.get('q') or '').strip()
         status_filter = (request.args.get('status') or '').strip() or None
         payment_filter = (request.args.get('payment_status') or '').strip() or None
+        table_filter = (request.args.get('table') or '').strip() or None
+        register_filter = (request.args.get('register') or '').strip() or None
+        pos_filter = (request.args.get('pos') or '').strip() or None
+        cashier_filter = (request.args.get('cashier') or '').strip() or None
+        customer_filter = (request.args.get('customer') or '').strip() or None
+        date_from = (request.args.get('from') or '').strip() or None
+        date_to = (request.args.get('to') or '').strip() or None
         if oid is not None:
             q = EposoneOrder.query.filter_by(organization_id=int(oid))
             if status_filter:
                 q = q.filter_by(status=status_filter)
             if payment_filter:
                 q = q.filter_by(payment_status=payment_filter)
-            orders = q.order_by(EposoneOrder.id.desc()).limit(100).all()
+            if table_filter:
+                q = q.filter(EposoneOrder.table_ref.ilike(f'%{table_filter}%'))
+            if register_filter:
+                q = q.filter(EposoneOrder.register_ref.ilike(f'%{register_filter}%'))
+            if pos_filter:
+                q = q.filter(EposoneOrder.pos_ref.ilike(f'%{pos_filter}%'))
+            if cashier_filter:
+                q = q.filter(EposoneOrder.user_ref.ilike(f'%{cashier_filter}%'))
+            if customer_filter:
+                q = q.filter(EposoneOrder.customer_ref.ilike(f'%{customer_filter}%'))
+            if q_text:
+                like = f'%{q_text}%'
+                q = q.filter(
+                    or_(
+                        EposoneOrder.en1_number.ilike(like),
+                        EposoneOrder.local_number.ilike(like),
+                        EposoneOrder.customer_ref.ilike(like),
+                        EposoneOrder.table_ref.ilike(like),
+                        EposoneOrder.user_ref.ilike(like),
+                    )
+                )
+            if date_from:
+                try:
+                    start = datetime.strptime(date_from[:10], '%Y-%m-%d')
+                    q = q.filter(EposoneOrder.opened_at >= start)
+                except ValueError:
+                    pass
+            if date_to:
+                try:
+                    end = datetime.strptime(date_to[:10], '%Y-%m-%d') + timedelta(days=1)
+                    q = q.filter(EposoneOrder.opened_at < end)
+                except ValueError:
+                    pass
+            orders = q.order_by(EposoneOrder.opened_at.desc(), EposoneOrder.id.desc()).limit(200).all()
             orders_total = len(orders)
         return render_template(
             'eposone/orders_domain.html',
@@ -1477,8 +1682,16 @@ def eposone_section(slug: str):
             section_description=description,
             orders=orders,
             orders_total=orders_total,
+            q=q_text,
             status_filter=status_filter or '',
             payment_filter=payment_filter or '',
+            table_filter=table_filter or '',
+            register_filter=register_filter or '',
+            pos_filter=pos_filter or '',
+            cashier_filter=cashier_filter or '',
+            customer_filter=customer_filter or '',
+            date_from=date_from or '',
+            date_to=date_to or '',
         )
     if key == 'contacts':
         from nodeone.core.platform.runtime import resolve_organization_id

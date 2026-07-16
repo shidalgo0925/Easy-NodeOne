@@ -12,7 +12,92 @@
         <span class="badge bg-secondary">{{ warehouses_total }} bodega(s)</span>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0">Nueva bodega</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('eposone.eposone_warehouse_create') }}" class="vstack gap-2">
+                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                        <div>
+                            <label class="form-label small mb-0" for="wh_ref">Referencia</label>
+                            <input class="form-control form-control-sm" id="wh_ref" name="unit_ref" required maxlength="64" placeholder="bodega-centro">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="wh_name">Nombre</label>
+                            <input class="form-control form-control-sm" id="wh_name" name="name" required maxlength="200" placeholder="Bodega principal">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="wh_parent">Sucursal (opcional)</label>
+                            <select class="form-select form-select-sm" id="wh_parent" name="parent_id">
+                                <option value="">— sin parent —</option>
+                                {% for b in branches %}
+                                <option value="{{ b.id }}">{{ b.name }} ({{ b.unit_ref }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="wh_notes">Notas</label>
+                            <input class="form-control form-control-sm" id="wh_notes" name="notes" maxlength="500" placeholder="Opcional">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">Crear bodega</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0">Ajuste de stock</h2>
+                    <p class="text-muted small mb-0">Cantidad positiva suma; negativa resta.</p>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('eposone.eposone_stock_adjust') }}" class="vstack gap-2">
+                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                        <div>
+                            <label class="form-label small mb-0" for="adj_wh">Bodega</label>
+                            <select class="form-select form-select-sm" id="adj_wh" name="warehouse_org_unit_id" required>
+                                <option value="">— elegir —</option>
+                                {% for w in warehouses %}
+                                <option value="{{ w.id }}">{{ w.name }} ({{ w.unit_ref }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="adj_prod">Producto</label>
+                            <select class="form-select form-select-sm" id="adj_prod" name="product_ref" required>
+                                <option value="">— elegir —</option>
+                                {% for p in products %}
+                                <option value="{{ p.product_ref }}">{{ p.name }} ({{ p.product_ref }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="adj_qty">Cantidad</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm" id="adj_qty" name="quantity" required placeholder="10">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="adj_notes">Notas</label>
+                            <input class="form-control form-control-sm" id="adj_notes" name="notes" maxlength="500" placeholder="Opcional">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-outline-primary" {% if not warehouses or not products %}disabled{% endif %}>
+                            Registrar ajuste
+                        </button>
+                        {% if not warehouses or not products %}
+                        <p class="small text-muted mb-0">Necesitás al menos una bodega y un producto.</p>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0">
+            <h2 class="h6 mb-0">Bodegas</h2>
+        </div>
         <div class="card-body p-0">
             {% if warehouses %}
             <div class="table-responsive">
@@ -39,25 +124,21 @@
             </div>
             {% else %}
             <div class="p-4 text-muted">
-                <p class="mb-2">No hay bodegas registradas todavía.</p>
-                <p class="small mb-0">
-                    Creá bodegas vía <code>POST /api/eposone/warehouses</code> con
-                    <code>unit_ref</code>, <code>name</code> y opcional <code>parent_id</code> (sucursal).
-                </p>
+                <p class="mb-0">No hay bodegas. Creá la primera con el formulario de arriba.</p>
             </div>
             {% endif %}
         </div>
     </div>
 
-    <div class="mt-4 mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
             <h2 class="h5 mb-1">Saldos de stock</h2>
-            <p class="text-muted small mb-0">Cantidades por bodega y producto (movimientos vía eventos de pedido).</p>
+            <p class="text-muted small mb-0">En mano − reservado = disponible. Alerta si disponible &lt; stock mínimo del producto.</p>
         </div>
         <span class="badge bg-secondary">{{ stock_balances_total }} saldo(s)</span>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-0">
             {% if stock_balances %}
             <div class="table-responsive">
@@ -65,20 +146,36 @@
                     <thead class="table-light">
                         <tr>
                             <th>Producto</th>
-                            <th>Bodega ID</th>
-                            <th>En mano</th>
-                            <th>Reservado</th>
-                            <th>Disponible</th>
+                            <th>Bodega</th>
+                            <th>UOM</th>
+                            <th class="text-end">En mano</th>
+                            <th class="text-end">Reservado</th>
+                            <th class="text-end">Disponible</th>
+                            <th>Alerta</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in stock_balances %}
-                        <tr>
-                            <td><code>{{ item.product_ref }}</code></td>
-                            <td class="text-muted small">{{ item.warehouse_org_unit_id }}</td>
-                            <td>{{ '%.2f'|format(item.quantity_on_hand) }}</td>
-                            <td>{{ '%.2f'|format(item.quantity_reserved) }}</td>
-                            <td>{{ '%.2f'|format(item.quantity_available) }}</td>
+                        {% set meta = (product_meta_by_ref or {}).get(item.product_ref, {}) %}
+                        {% set min_s = meta.get('min_stock') %}
+                        {% set max_s = meta.get('max_stock') %}
+                        {% set low = min_s is not none and item.quantity_available < min_s %}
+                        {% set high = max_s is not none and item.quantity_on_hand > max_s %}
+                        <tr class="{% if low %}table-warning{% elif high %}table-info{% endif %}">
+                            <td>
+                                <div class="fw-medium">{{ meta.get('name') or item.product_ref }}</div>
+                                <code class="small">{{ item.product_ref }}</code>
+                            </td>
+                            <td class="small">{{ (warehouse_name_by_id or {}).get(item.warehouse_org_unit_id, item.warehouse_org_unit_id) }}</td>
+                            <td class="small text-muted">{{ meta.get('uom') or 'und' }}</td>
+                            <td class="text-end">{{ '%.2f'|format(item.quantity_on_hand) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(item.quantity_reserved) }}</td>
+                            <td class="text-end fw-semibold">{{ '%.2f'|format(item.quantity_available) }}</td>
+                            <td class="small">
+                                {% if low %}<span class="badge text-bg-warning">Bajo mín. ({{ '%.2f'|format(min_s) }})</span>
+                                {% elif high %}<span class="badge text-bg-info">Sobre máx. ({{ '%.2f'|format(max_s) }})</span>
+                                {% else %}<span class="text-muted">—</span>{% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -86,13 +183,58 @@
             </div>
             {% else %}
             <div class="p-4 text-muted">
-                <p class="mb-2">Sin movimientos de stock registrados todavía.</p>
-                <p class="small mb-0">
-                    Los saldos se actualizan al confirmar, cobrar o cancelar pedidos con líneas
-                    <code>product_ref</code> y productos con <code>tracks_inventory</code>.
-                    Ajuste manual (supervisor): <code>POST /api/eposone/stock-adjust</code>.
-                    Consultá <code>GET /api/eposone/stock-balances</code>.
-                </p>
+                <p class="mb-0">Sin saldos todavía. Usá el ajuste de stock o confirmá pedidos con productos que llevan inventario.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h2 class="h5 mb-1">Kardex (movimientos)</h2>
+            <p class="text-muted small mb-0">Últimos movimientos: ajuste, reserva, liberación, deducción, devolución.</p>
+        </div>
+        <span class="badge bg-secondary">{{ stock_movements_total|default(0) }} movimiento(s)</span>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if stock_movements %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Producto</th>
+                            <th>Bodega</th>
+                            <th class="text-end">Cantidad</th>
+                            <th>Pedido</th>
+                            <th>Notas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in stock_movements %}
+                        {% set meta = (product_meta_by_ref or {}).get(m.product_ref, {}) %}
+                        <tr>
+                            <td class="small text-nowrap">{{ m.created_at or '—' }}</td>
+                            <td><span class="badge text-bg-light border">{{ m.movement_type }}</span></td>
+                            <td>
+                                <div class="small">{{ meta.get('name') or m.product_ref }}</div>
+                                <code class="small">{{ m.product_ref }}</code>
+                            </td>
+                            <td class="small">{{ (warehouse_name_by_id or {}).get(m.warehouse_org_unit_id, m.warehouse_org_unit_id) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(m.quantity) }} <span class="text-muted small">{{ meta.get('uom') or 'und' }}</span></td>
+                            <td class="small"><code>{{ m.order_ref or '—' }}</code></td>
+                            <td class="small text-muted">{{ m.notes or '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-0">Sin movimientos aún. Los ajustes y las ventas con inventario aparecen aquí.</p>
             </div>
             {% endif %}
         </div>

@@ -12,6 +12,34 @@
         <span class="badge bg-secondary">{{ branches_total }} sucursal(es)</span>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white border-0">
+            <h2 class="h6 mb-0">Nueva sucursal</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('eposone.eposone_branch_create') }}" class="row g-3 align-items-end">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="col-6 col-md-3">
+                    <label class="form-label small mb-0" for="branch_ref">Referencia</label>
+                    <input class="form-control form-control-sm" id="branch_ref" name="unit_ref" required maxlength="64" placeholder="centro">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small mb-0" for="branch_name">Nombre</label>
+                    <input class="form-control form-control-sm" id="branch_name" name="name" required maxlength="200" placeholder="Sucursal Centro">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small mb-0" for="branch_notes">Notas</label>
+                    <input class="form-control form-control-sm" id="branch_notes" name="notes" maxlength="500" placeholder="Opcional">
+                </div>
+                <div class="col-12 col-md-2">
+                    <button type="submit" class="btn btn-sm btn-primary w-100">
+                        <i class="fas fa-plus me-1"></i>Crear
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             {% if branches %}
@@ -39,12 +67,7 @@
             </div>
             {% else %}
             <div class="p-4 text-muted">
-                <p class="mb-2">No hay sucursales registradas todavía.</p>
-                <p class="small mb-0">
-                    Creá sucursales vía <code>POST /api/eposone/branches</code> o
-                    <code>POST /api/platform/master/org-units</code> con
-                    <code>unit_type: branch</code>.
-                </p>
+                <p class="mb-0">No hay sucursales. Creá la primera con el formulario de arriba.</p>
             </div>
             {% endif %}
         </div>

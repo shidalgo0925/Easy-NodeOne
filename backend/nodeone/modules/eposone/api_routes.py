@@ -32,7 +32,13 @@ from nodeone.modules.eposone.org_unit_api import (
     org_unit_get_handler,
     org_unit_patch_handler,
 )
-from nodeone.modules.eposone.product_api import product_collection_handler, product_get_handler
+from nodeone.modules.eposone.product_api import (
+    product_collection_handler,
+    product_deactivate_handler,
+    product_delete_handler,
+    product_get_handler,
+    product_update_handler,
+)
 from nodeone.modules.eposone.stock_api import stock_adjust_handler
 from flask_login import current_user
 
@@ -475,6 +481,29 @@ def stock_balances_list():
     return jsonify({'stock_balances': [b.to_dict() for b in items], 'count': len(items)})
 
 
+@eposone_api_bp.route('/stock-movements', methods=['GET'])
+@login_required
+def stock_movements_list():
+    """Kardex de movimientos de inventario."""
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from nodeone.core.commerce.stock import StockService
+
+    warehouse_id = request.args.get('warehouse_org_unit_id')
+    product_ref = (request.args.get('product_ref') or '').strip() or None
+    movement_type = (request.args.get('movement_type') or '').strip() or None
+    limit = int(request.args.get('limit', 100) or 100)
+    items = StockService.list_movements(
+        gate,
+        warehouse_org_unit_id=int(warehouse_id) if warehouse_id else None,
+        product_ref=product_ref,
+        movement_type=movement_type,
+        limit=limit,
+    )
+    return jsonify({'stock_movements': [m.to_dict() for m in items], 'count': len(items)})
+
+
 @eposone_api_bp.route('/stock-adjust', methods=['POST'])
 @login_required
 def stock_adjust():
@@ -529,13 +558,52 @@ def products_collection():
     return product_collection_handler(gate)
 
 
-@eposone_api_bp.route('/products/<product_ref>', methods=['GET'])
+@eposone_api_bp.route('/products/<product_ref>', methods=['GET', 'PATCH', 'DELETE'])
 @login_required
-def products_get(product_ref: str):
+def products_item(product_ref: str):
     gate = _org_gate()
     if not isinstance(gate, int):
         return gate
-    return product_get_handler(gate, product_ref)
+    if request.method == 'GET':
+        return product_get_handler(gate, product_ref)
+    if request.method == 'PATCH':
+        return product_update_handler(gate, product_ref)
+    return product_delete_handler(gate, product_ref)
+
+
+@eposone_api_bp.route('/products/<product_ref>/deactivate', methods=['POST'])
+@login_required
+def products_deactivate(product_ref: str):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return product_deactivate_handler(gate, product_ref)
+
+
+@eposone_api_bp.route('/products/<product_ref>/image', methods=['POST'])
+@login_required
+def products_image_upload(product_ref: str):
+    """Subir imagen de producto (multipart field: image_file)."""
+    from nodeone.core.master.constants import MasterDataError
+    from nodeone.core.services.product import ProductService
+    from nodeone.services.product_image_storage import save_product_image_upload
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    existing = ProductService.get_by_ref(gate, product_ref)
+    if existing is None:
+        return jsonify({'error': 'not_found'}), 404
+    url, err = save_product_image_upload(request.files.get('image_file'), organization_id=gate)
+    if err:
+        return jsonify({'error': err}), 400
+    if not url:
+        return jsonify({'error': 'image_file_required'}), 400
+    try:
+        dto = ProductService.update(gate, product_ref, {'image_url': url})
+    except MasterDataError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'product': dto.to_dict()}), 200
 
 
 @eposone_api_bp.route('/branches', methods=['GET', 'POST'])

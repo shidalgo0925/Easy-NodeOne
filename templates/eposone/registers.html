@@ -17,6 +17,43 @@
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-white py-2 border-bottom">
+            <strong>Nueva caja</strong>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('eposone.eposone_register_create') }}" class="row g-2 align-items-end">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <input type="hidden" name="redirect_slug" value="registers">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small mb-0" for="new_reg_ref">Referencia</label>
+                    <input class="form-control form-control-sm" id="new_reg_ref" name="unit_ref" required maxlength="64" placeholder="caja-01">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small mb-0" for="new_reg_name">Nombre</label>
+                    <input class="form-control form-control-sm" id="new_reg_name" name="name" required maxlength="200" placeholder="Caja 1">
+                </div>
+                <div class="col-8 col-md-4">
+                    <label class="form-label small mb-0" for="new_reg_pos">POS padre</label>
+                    <select class="form-select form-select-sm" id="new_reg_pos" name="parent_id" required>
+                        <option value="">— elegir POS —</option>
+                        {% for p in pos_units %}
+                        <option value="{{ p.id }}">{{ p.name }} ({{ p.unit_ref }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-4 col-md-2">
+                    <button type="submit" class="btn btn-sm btn-primary w-100" {% if not pos_units %}disabled{% endif %}>Crear</button>
+                </div>
+                {% if not pos_units %}
+                <div class="col-12">
+                    <p class="small text-muted mb-0">Primero creá un POS en Organización → Puntos de Venta.</p>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-2 border-bottom">
             <strong>Cajas y turnos</strong>
         </div>
         <div class="card-body p-0">
@@ -103,10 +140,7 @@
             </div>
             {% else %}
             <div class="p-4 text-muted">
-                <p class="mb-2">No hay cajas registradas todavía.</p>
-                <p class="small mb-0">
-                    Creá cajas vía <code>POST /api/eposone/registers</code> y luego abrí turnos desde esta pantalla.
-                </p>
+                <p class="mb-0">No hay cajas. Creá una con el formulario de arriba y luego abrí turnos aquí.</p>
             </div>
             {% endif %}
         </div>

@@ -3,105 +3,113 @@
 {% block title %}EPosOne — {{ order.en1_number }} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3 en1-eposone-page">
-    <div class="mb-3">
-        <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary mb-2">
+{% set st = (order.status or '')|lower %}
+{% set pay = (order.payment_status or '')|lower %}
+{% set balance = ((order.total or 0) - (order.amount_paid or 0))|float %}
+{% set can_collect = st not in ('cancelled', 'returned') and pay in ('unpaid', 'partial') and not order.financially_closed and balance > 0.001 %}
+<div class="container-fluid py-2 en1-eposone-page" id="epos-order-domain-detail"
+     data-order-id="{{ order.id }}"
+     data-en1="{{ order.en1_number }}"
+     data-total="{{ '%.2f'|format(order.total or 0) }}"
+     data-paid="{{ '%.2f'|format(order.amount_paid or 0) }}"
+     data-balance="{{ '%.2f'|format(balance if balance > 0 else 0) }}"
+     data-payment-methods='{{ payment_methods|default([])|tojson }}'>
+    <div class="mb-2">
+        <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i>Volver a pedidos
         </a>
-        <h1 class="h4 mb-1 app-page-title"><code>{{ order.en1_number }}</code></h1>
-        <p class="text-muted small mb-0">
-            Order Domain · ID {{ order.id }}
-            {% if order.local_number %} · Local <code>{{ order.local_number }}</code>{% endif %}
-        </p>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
-                <div class="card-body py-3">
-                    <div class="en1-kpi-label">Operativo</div>
-                    <div class="en1-kpi-value fs-6">{{ order.status }}</div>
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                <h2 class="epos-section-label mb-0">Resumen</h2>
+                <div class="epos-btn-row">
+                    {% if can_collect %}
+                    <button type="button" class="btn btn-sm btn-primary" id="epos-btn-collect"
+                            data-bs-toggle="modal" data-bs-target="#eposCollectModal">
+                        <i class="fas fa-cash-register me-1"></i>Cobrar pedido
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i>Imprimir
+                    </button>
+                    <a href="{{ request.full_path }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-sync-alt me-1"></i>Actualizar
+                    </a>
                 </div>
             </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
-                <div class="card-body py-3">
-                    <div class="en1-kpi-label">Pago</div>
-                    <div class="en1-kpi-value fs-6">{{ order.payment_status }}</div>
+            <div class="row g-3 align-items-start">
+                <div class="col-12 col-lg-4">
+                    <div class="epos-page-title mb-1">Pedido <code>{{ order.en1_number }}</code></div>
+                    {% if order.local_number %}<div class="small text-muted mb-2">Local {{ order.local_number }}</div>{% endif %}
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        {% if st in ('open', 'draft') %}{% with text=order.status, tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% elif st in ('sent', 'preparing') %}{% with text=order.status, tone='preparing' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% elif st == 'ready' %}{% with text=order.status, tone='ready' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% elif order.financially_closed %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% else %}{% with text=order.status, tone='neutral' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% endif %}
+                        {% if pay == 'paid' %}{% with text='paid', tone='paid' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% elif pay == 'partial' %}{% with text='partial', tone='preparing' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% else %}{% with text=order.payment_status or 'unpaid', tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-4 col-md-2">
+                    {% with label='Total', value=('%.2f'|format(order.total or 0)), accent=true %}{% include 'eposone/partials/kpi_card.html' %}{% endwith %}
+                </div>
+                <div class="col-4 col-md-2">
+                    {% with label='Pagado', value=('%.2f'|format(order.amount_paid or 0)) %}{% include 'eposone/partials/kpi_card.html' %}{% endwith %}
+                </div>
+                <div class="col-4 col-md-2">
+                    {% with label='Saldo', value=('%.2f'|format(balance if balance > 0 else 0)), accent=can_collect %}{% include 'eposone/partials/kpi_card.html' %}{% endwith %}
+                </div>
+                <div class="col-12 col-md-6 col-lg-2">
+                    <div class="small">
+                        <div><span class="text-muted">Mesa:</span> <strong>{{ order.table_ref or '—' }}</strong></div>
+                        <div><span class="text-muted">Caja:</span> <strong>{{ order.register_ref or '—' }}</strong></div>
+                        <div><span class="text-muted">Cliente:</span> <strong>{{ order.customer_ref or '—' }}</strong></div>
+                        <div><span class="text-muted">Cajero:</span> {{ order.user_ref or '—' }}</div>
+                        <div><span class="text-muted">POS:</span> {{ order.pos_ref or '—' }}</div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
-                <div class="card-body py-3">
-                    <div class="en1-kpi-label">Cierre financiero</div>
-                    <div class="en1-kpi-value fs-6">{% if order.financially_closed %}sí{% else %}no{% endif %}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 en1-kpi-card">
-                <div class="card-body py-3">
-                    <div class="en1-kpi-label">Total / pagado</div>
-                    <div class="en1-kpi-value fs-6">{{ '%.2f'|format(order.total or 0) }}</div>
-                    <div class="small text-muted">Pagado: {{ '%.2f'|format(order.amount_paid or 0) }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-3 mb-3">
-        <div class="col-12 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white py-2 border-bottom"><strong>Contexto</strong></div>
-                <div class="card-body small">
-                    <div><span class="text-muted">Sucursal:</span> {{ order.branch_ref or '—' }}</div>
-                    <div><span class="text-muted">POS:</span> {{ order.pos_ref or '—' }}</div>
-                    <div><span class="text-muted">Caja:</span> {{ order.register_ref or '—' }}</div>
-                    <div><span class="text-muted">Mesa:</span> {{ order.table_ref or '—' }}</div>
-                    <div><span class="text-muted">Cajero:</span> {{ order.user_ref or '—' }}</div>
-                    <div><span class="text-muted">Cliente:</span> {{ order.customer_ref or '—' }}</div>
-                    <div class="mt-2"><span class="text-muted">Owner device:</span> <code>{{ order.owner_device_uuid }}</code></div>
-                    {% if order.notes %}<div class="mt-2"><span class="text-muted">Notas:</span> {{ order.notes }}</div>{% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white py-2 border-bottom"><strong>Tiempos</strong></div>
-                <div class="card-body small">
-                    <div><span class="text-muted">Abierto:</span> {% if order.opened_at %}{{ order.opened_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC{% else %}—{% endif %}</div>
-                    <div><span class="text-muted">Actualizado:</span> {% if order.updated_at %}{{ order.updated_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC{% else %}—{% endif %}</div>
-                </div>
-            </div>
+            {% if not can_collect and pay == 'paid' %}
+            <p class="small text-muted mb-0 mt-2"><i class="fas fa-lock me-1"></i>Pedido liquidado — no se admiten más cobros.</p>
+            {% endif %}
         </div>
     </div>
 
     <div class="row g-3">
-        <div class="col-12 col-lg-6">
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white py-2 border-bottom"><strong>Líneas</strong></div>
-                <div class="card-body p-0">
+        <div class="col-12 col-lg-7">
+            <div class="epos-card mb-3">
+                <div class="epos-card-body">
+                    <h2 class="epos-section-label">Productos</h2>
                     {% if order.items %}
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0 align-middle en1-data-table">
+                        <table class="table table-sm mb-0 align-middle epos-table">
                             <thead>
                                 <tr>
-                                    <th>Ref</th>
                                     <th>Producto</th>
                                     <th class="text-end">Cant.</th>
                                     <th class="text-end">P. unit.</th>
+                                    <th class="text-end">Importe</th>
                                     <th>Estado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for line in order.items %}
+                                {% set line_total = (line.qty or 0) * (line.unit_price or 0) - (line.discount or 0) %}
                                 <tr>
-                                    <td><code>{{ line.line_ref }}</code></td>
-                                    <td>{{ line.product_ref }}</td>
+                                    <td>
+                                        <div>{{ product_names.get(line.product_ref, line.product_ref) if product_names is defined else line.product_ref }}</div>
+                                        <div class="small text-muted"><code>{{ line.product_ref }}</code></div>
+                                        {% if line.notes %}<div class="small text-muted">{{ line.notes }}</div>{% endif %}
+                                    </td>
                                     <td class="text-end">{{ '%.2f'|format(line.qty or 0) }}</td>
                                     <td class="text-end">{{ '%.2f'|format(line.unit_price or 0) }}</td>
+                                    <td class="text-end">{{ '%.2f'|format(line_total) }}</td>
                                     <td class="small">{{ line.line_status }}</td>
                                 </tr>
                                 {% endfor %}
@@ -109,79 +117,484 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="p-3 text-muted small">Sin líneas.</div>
+                        {% with title='Sin productos', text='Este pedido no tiene líneas.', icon='fa-box-open' %}
+                        {% include 'eposone/partials/empty_state.html' %}
+                        {% endwith %}
                     {% endif %}
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white py-2 border-bottom"><strong>Pagos</strong></div>
-                <div class="card-body p-0">
+            <div class="epos-card mb-3">
+                <div class="epos-card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <h2 class="epos-section-label mb-0">Pagos</h2>
+                        {% if can_collect %}
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#eposCollectModal">
+                            <i class="fas fa-cash-register me-1"></i>Cobrar pedido
+                        </button>
+                        {% endif %}
+                    </div>
                     {% if order.payments %}
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0 align-middle en1-data-table">
+                        <table class="table table-sm mb-0 align-middle epos-table">
                             <thead>
                                 <tr>
-                                    <th>Ref</th>
                                     <th>Método</th>
-                                    <th>Tipo</th>
+                                    <th>Referencia</th>
                                     <th class="text-end">Monto</th>
-                                    <th>Cuándo</th>
+                                    <th>Hora</th>
+                                    <th>Por</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for pay in order.payments %}
+                                {% for pay_row in order.payments %}
                                 <tr>
-                                    <td class="small"><code>{{ pay.payment_ref }}</code></td>
-                                    <td>{{ pay.method }}</td>
-                                    <td>{{ pay.kind }}</td>
-                                    <td class="text-end">{{ '%.2f'|format(pay.amount or 0) }} {{ pay.currency }}</td>
-                                    <td class="small text-muted">{% if pay.created_at %}{{ pay.created_at.strftime('%H:%M:%S') }}{% endif %}</td>
+                                    <td>{{ payment_method_labels.get(pay_row.method, pay_row.method) if payment_method_labels is defined else pay_row.method }}</td>
+                                    <td class="small">{{ pay_row.reference or '—' }}</td>
+                                    <td class="text-end">{{ '%.2f'|format(pay_row.amount or 0) }}</td>
+                                    <td class="small text-muted">{{ pay_row.created_at|epos_local('%d/%m %H:%M:%S') }}</td>
+                                    <td class="small">{{ pay_row.received_by or '—' }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="2">Total pagado</th>
+                                    <th class="text-end">{{ '%.2f'|format(order.amount_paid or 0) }}</th>
+                                    <th colspan="2"></th>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                     {% else %}
-                    <div class="p-3 text-muted small">Sin pagos.</div>
+                        {% with title='Sin pagos', text='Agregá un pago para liquidar el saldo.', icon='fa-credit-card' %}
+                        {% include 'eposone/partials/empty_state.html' %}
+                        {% endwith %}
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-lg-6">
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white py-2 border-bottom"><strong>Eventos</strong></div>
-                <div class="card-body p-0">
-                    {% if events %}
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0 align-middle en1-data-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Tipo</th>
-                                    <th>Cuándo</th>
-                                    <th>Actor</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for ev in events %}
-                                <tr>
-                                    <td>{{ ev.sequence }}</td>
-                                    <td><code class="small">{{ ev.type }}</code></td>
-                                    <td class="small text-muted">{% if ev.occurred_at %}{{ ev.occurred_at.strftime('%H:%M:%S') }}{% endif %}</td>
-                                    <td class="small text-muted">{{ ev.actor_user_ref or ev.actor_device_uuid or '—' }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+        <div class="col-12 col-lg-5">
+            <div class="epos-card mb-3">
+                <div class="epos-card-body">
+                    <h2 class="epos-section-label">Timeline</h2>
+                    {% if timeline %}
+                    <ul class="epos-timeline">
+                        {% for step in timeline %}
+                        <li class="epos-timeline__item">
+                            <p class="epos-timeline__title">{{ step.title }}</p>
+                            <div class="epos-timeline__meta">
+                                {% if step.at %}{{ step.at }}{% endif %}
+                                {% if step.meta %} · {{ step.meta }}{% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="small text-muted mb-0 mt-2">Horas en America/Panama</p>
                     {% else %}
-                    <div class="p-3 text-muted small">Sin eventos.</div>
+                        {% with title='Sin eventos', text='El historial aparecerá al sincronizar.', icon='fa-stream' %}
+                        {% include 'eposone/partials/empty_state.html' %}
+                        {% endwith %}
                     {% endif %}
+                </div>
+            </div>
+
+            <div class="epos-card mb-3">
+                <div class="epos-card-body">
+                    <button class="btn btn-sm btn-outline-secondary w-100 text-start" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#epos-order-tech" aria-expanded="false">
+                        <i class="fas fa-code me-1"></i>Información técnica
+                    </button>
+                    <div class="collapse mt-3" id="epos-order-tech">
+                        <div class="small">
+                            <div><span class="text-muted">ID:</span> {{ order.id }}</div>
+                            <div><span class="text-muted">Owner device:</span> <code>{{ order.owner_device_uuid }}</code></div>
+                            <div><span class="text-muted">Owner POS:</span> {{ order.owner_pos_ref or '—' }}</div>
+                            <div><span class="text-muted">Sucursal:</span> {{ order.branch_ref or '—' }}</div>
+                            <div><span class="text-muted">Abierto:</span> {{ order.opened_at|epos_local('%Y-%m-%d %H:%M:%S') }} (Panamá)</div>
+                            <div><span class="text-muted">Actualizado:</span> {{ order.updated_at|epos_local('%Y-%m-%d %H:%M:%S') }} (Panamá)</div>
+                            <div><span class="text-muted">Cierre financiero:</span> {% if order.financially_closed %}sí{% else %}no{% endif %}</div>
+                            {% if order.notes %}<div class="mt-2"><span class="text-muted">Notas:</span> {{ order.notes }}</div>{% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+{% if can_collect %}
+{# Cobro dinámico: solo métodos usados + resumen en vivo. Misma API OrderPaymentService. #}
+<style>
+#eposCollectModal .epos-collect-summary { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem 1rem; }
+#eposCollectModal .epos-collect-summary dl { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 1rem; margin: 0; }
+#eposCollectModal .epos-collect-summary dt { color: #64748b; font-size: 0.8125rem; }
+#eposCollectModal .epos-collect-summary dd { margin: 0; text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+#eposCollectModal .epos-saldo-pending { color: #b91c1c; }
+#eposCollectModal .epos-saldo-ok { color: #15803d; }
+#eposCollectModal .epos-pay-lines { min-height: 2rem; }
+#eposCollectModal .epos-pay-line { display: grid; grid-template-columns: 7.5rem 6.5rem 1fr auto; gap: 0.4rem; align-items: center; margin-bottom: 0.45rem; }
+@media (max-width: 575.98px) {
+  #eposCollectModal .epos-pay-line { grid-template-columns: 1fr 1fr; }
+  #eposCollectModal .epos-pay-line .epos-pay-ref-wrap { grid-column: 1 / -1; }
+}
+#eposCollectModal .epos-method-picker { max-height: 14rem; overflow: auto; }
+</style>
+<div class="modal fade" id="eposCollectModal" tabindex="-1" aria-labelledby="eposCollectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eposCollectModalLabel">Cobrar pedido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-none" id="epos-collect-error" role="alert"></div>
+
+                <div class="epos-collect-summary mb-3" aria-live="polite">
+                    <div class="fw-semibold mb-2">Pedido: <code id="epos-collect-en1">{{ order.en1_number }}</code></div>
+                    <dl>
+                        <dt>Total pedido</dt>
+                        <dd id="epos-collect-total">B/. {{ '%.2f'|format(order.total or 0) }}</dd>
+                        <dt>Pagado</dt>
+                        <dd id="epos-collect-paid">B/. {{ '%.2f'|format(order.amount_paid or 0) }}</dd>
+                        <dt>Saldo pendiente</dt>
+                        <dd id="epos-collect-balance" class="epos-saldo-pending">B/. {{ '%.2f'|format(balance) }}</dd>
+                        <dt>Total ingresado</dt>
+                        <dd id="epos-collect-entered">B/. 0.00</dd>
+                        <dt>Saldo restante</dt>
+                        <dd id="epos-collect-remain" class="epos-saldo-pending">B/. {{ '%.2f'|format(balance) }}</dd>
+                    </dl>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="epos-collect-full-cash">
+                        <i class="fas fa-money-bill-wave me-1"></i>Cobrar saldo completo
+                    </button>
+                </div>
+
+                <h3 class="h6 text-muted text-uppercase mb-2" style="letter-spacing:.04em;font-size:.7rem;">Métodos seleccionados</h3>
+                <div id="epos-pay-lines" class="epos-pay-lines mb-2"></div>
+                <p class="small text-muted d-none mb-2" id="epos-pay-empty">Todavía no agregaste un método.</p>
+
+                <div class="dropdown mb-2">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="epos-add-method-btn"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-plus me-1"></i>Agregar método de pago
+                    </button>
+                    <ul class="dropdown-menu epos-method-picker" id="epos-method-picker" aria-labelledby="epos-add-method-btn"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="epos-collect-submit" disabled>
+                    <i class="fas fa-check me-1"></i>Confirmar cobro
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+  var root = document.getElementById('epos-order-domain-detail');
+  if (!root) return;
+
+  var orderId = root.getAttribute('data-order-id');
+  var balance = parseFloat(root.getAttribute('data-balance') || '0') || 0;
+
+  var methods = [];
+  try { methods = JSON.parse(root.getAttribute('data-payment-methods') || '[]') || []; } catch (e) { methods = []; }
+  if (!methods.length) {
+    methods = [{ id: null, method_key: 'cash', label: 'Efectivo', requires_reference: false }];
+  }
+
+  var submitBtn = document.getElementById('epos-collect-submit');
+  var errEl = document.getElementById('epos-collect-error');
+  var linesEl = document.getElementById('epos-pay-lines');
+  var emptyEl = document.getElementById('epos-pay-empty');
+  var pickerEl = document.getElementById('epos-method-picker');
+  var fullCashBtn = document.getElementById('epos-collect-full-cash');
+  var enteredEl = document.getElementById('epos-collect-entered');
+  var remainEl = document.getElementById('epos-collect-remain');
+  var balanceEl = document.getElementById('epos-collect-balance');
+  if (!submitBtn || !linesEl || !pickerEl) return;
+
+  var selectedKeys = {};
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'bo-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+  function money(n) { return (Math.round(n * 100) / 100).toFixed(2); }
+  function round2(n) { return Math.round(n * 100) / 100; }
+  function showErr(msg) { errEl.textContent = msg; errEl.classList.remove('d-none'); }
+  function hideErr() { errEl.classList.add('d-none'); }
+
+  function sumEntered() {
+    var sum = 0;
+    linesEl.querySelectorAll('.epos-pay-line').forEach(function (row) {
+      var inp = row.querySelector('.epos-pay-amount');
+      sum += parseFloat(inp && inp.value ? inp.value : '0') || 0;
+    });
+    return round2(sum);
+  }
+
+  function remainingSaldo() { return round2(balance - sumEntered()); }
+
+  function setSaldoClass(el, value) {
+    el.classList.remove('epos-saldo-pending', 'epos-saldo-ok');
+    el.classList.add(Math.abs(value) <= 0.01 ? 'epos-saldo-ok' : 'epos-saldo-pending');
+  }
+
+  function refreshSummary() {
+    var entered = sumEntered();
+    var remain = round2(balance - entered);
+    enteredEl.textContent = 'B/. ' + money(entered);
+    if (remain < -0.01) {
+      remainEl.textContent = 'Excede B/. ' + money(Math.abs(remain));
+    } else {
+      remainEl.textContent = 'B/. ' + money(Math.max(remain, 0));
+    }
+    setSaldoClass(remainEl, remain < -0.01 ? 1 : remain);
+    setSaldoClass(balanceEl, balance);
+    balanceEl.textContent = 'B/. ' + money(balance);
+
+    var lines = linesEl.querySelectorAll('.epos-pay-line');
+    emptyEl.classList.toggle('d-none', lines.length > 0);
+
+    var ok = lines.length > 0 && Math.abs(entered - balance) <= 0.01;
+    if (ok) {
+      lines.forEach(function (row) {
+        var req = row.getAttribute('data-requires-reference') === '1';
+        var refInp = row.querySelector('.epos-pay-ref');
+        var amt = parseFloat((row.querySelector('.epos-pay-amount') || {}).value || '0') || 0;
+        if (req && amt > 0 && !(refInp && String(refInp.value || '').trim())) ok = false;
+      });
+    }
+    if (entered > balance + 0.01) ok = false;
+    submitBtn.disabled = !ok;
+
+    if (entered > balance + 0.01) {
+      showErr('Excede el saldo por B/. ' + money(entered - balance));
+    } else {
+      hideErr();
+    }
+    rebuildPicker();
+  }
+
+  function methodByKey(key) {
+    for (var i = 0; i < methods.length; i++) {
+      if (methods[i].method_key === key) return methods[i];
+    }
+    return null;
+  }
+
+  function rebuildPicker() {
+    pickerEl.innerHTML = '';
+    methods.forEach(function (m) {
+      if (selectedKeys[m.method_key]) return;
+      var li = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dropdown-item';
+      btn.textContent = m.label;
+      btn.addEventListener('click', function () { addLine(m); });
+      li.appendChild(btn);
+      pickerEl.appendChild(li);
+    });
+    if (!pickerEl.children.length) {
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="dropdown-item-text text-muted small">Todos los métodos ya están agregados</span>';
+      pickerEl.appendChild(li);
+    }
+  }
+
+  function addLine(m, presetAmount) {
+    if (selectedKeys[m.method_key]) return;
+    selectedKeys[m.method_key] = 1;
+    var remain = remainingSaldo();
+    var amount = presetAmount != null ? presetAmount : (m.method_key === 'cash' ? Math.max(remain, 0) : 0);
+    if (amount < 0) amount = 0;
+
+    var row = document.createElement('div');
+    row.className = 'epos-pay-line';
+    row.setAttribute('data-method-key', m.method_key);
+    row.setAttribute('data-method-id', m.id != null ? String(m.id) : '');
+    row.setAttribute('data-requires-reference', m.requires_reference ? '1' : '0');
+    row.setAttribute('data-label', m.label);
+
+    var label = document.createElement('div');
+    label.className = 'fw-semibold small';
+    label.textContent = m.label;
+
+    var amtWrap = document.createElement('div');
+    var amt = document.createElement('input');
+    amt.type = 'number';
+    amt.className = 'form-control form-control-sm epos-pay-amount';
+    amt.min = '0';
+    amt.step = '0.01';
+    amt.inputMode = 'decimal';
+    amt.placeholder = '0.00';
+    amt.value = amount > 0 ? money(amount) : '';
+    amt.addEventListener('input', refreshSummary);
+    amtWrap.appendChild(amt);
+
+    var refWrap = document.createElement('div');
+    refWrap.className = 'epos-pay-ref-wrap';
+    if (m.requires_reference) {
+      var ref = document.createElement('input');
+      ref.type = 'text';
+      ref.className = 'form-control form-control-sm epos-pay-ref';
+      ref.placeholder = 'Referencia';
+      ref.autocomplete = 'off';
+      ref.addEventListener('input', refreshSummary);
+      refWrap.appendChild(ref);
+    } else {
+      refWrap.innerHTML = '<span class="small text-muted">—</span>';
+    }
+
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'btn btn-sm btn-outline-danger';
+    rm.setAttribute('aria-label', 'Quitar');
+    rm.innerHTML = '&times;';
+    rm.addEventListener('click', function () {
+      delete selectedKeys[m.method_key];
+      row.remove();
+      refreshSummary();
+    });
+
+    row.appendChild(label);
+    row.appendChild(amtWrap);
+    row.appendChild(refWrap);
+    row.appendChild(rm);
+    linesEl.appendChild(row);
+    refreshSummary();
+    amt.focus();
+    amt.select();
+  }
+
+  fullCashBtn.addEventListener('click', function () {
+    hideErr();
+    linesEl.innerHTML = '';
+    selectedKeys = {};
+    var cash = methodByKey('cash') || { id: null, method_key: 'cash', label: 'Efectivo', requires_reference: false };
+    addLine(cash, balance);
+  });
+
+  function collectRows() {
+    var rows = [];
+    linesEl.querySelectorAll('.epos-pay-line').forEach(function (row) {
+      var amtInput = row.querySelector('.epos-pay-amount');
+      var refInput = row.querySelector('.epos-pay-ref');
+      var amount = round2(parseFloat(amtInput && amtInput.value ? amtInput.value : '0') || 0);
+      if (!(amount > 0)) return;
+      rows.push({
+        label: row.getAttribute('data-label') || row.getAttribute('data-method-key'),
+        method: row.getAttribute('data-method-key') || 'cash',
+        payment_method_id: row.getAttribute('data-method-id') ? parseInt(row.getAttribute('data-method-id'), 10) : undefined,
+        requires_reference: row.getAttribute('data-requires-reference') === '1',
+        amount: amount,
+        reference: (refInput && refInput.value ? refInput.value : '').trim() || null,
+        refInput: refInput
+      });
+    });
+    return rows;
+  }
+
+  function postPayment(payload) {
+    return fetch('/api/v1/orders/' + encodeURIComponent(orderId) + '/payments', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        return { ok: res.ok, status: res.status, data: data };
+      });
+    });
+  }
+
+  function mapError(result) {
+    var code = (result.data && result.data.error) || '';
+    if (result.status === 409) {
+      if (code === 'already_paid') return 'El pedido ya está liquidado. Actualizá la pantalla.';
+      if (code === 'amount_exceeds_balance') return 'Un monto supera el saldo restante.';
+      if (code === 'order_not_payable') return 'El pedido no admite cobro.';
+      return 'Conflicto (409): el pedido cambió. Actualizá e intentá de nuevo.';
+    }
+    if (result.status === 400) {
+      if (code === 'reference_required') return 'Falta una referencia en un método que la exige.';
+      if (code === 'payment_method_invalid') return 'Método de pago no válido.';
+      if (code) return 'Error: ' + code;
+    }
+    if (code === 'no_active_terminal') return 'No hay terminal POS activo para cobros desde BackOffice.';
+    if (result.status === 500) return 'Error interno al registrar el pago.';
+    if (code) return 'Error: ' + code;
+    return 'No se pudo registrar el pago.';
+  }
+
+  submitBtn.addEventListener('click', function () {
+    hideErr();
+    var rows = collectRows();
+    if (!rows.length) {
+      showErr('Agregá al menos un método de pago.');
+      return;
+    }
+    var entered = sumEntered();
+    if (Math.abs(entered - balance) > 0.01) {
+      if (entered < balance - 0.01) showErr('Falta B/. ' + money(balance - entered) + ' para completar el saldo.');
+      else showErr('Excede el saldo por B/. ' + money(entered - balance) + '.');
+      return;
+    }
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].requires_reference && !rows[i].reference) {
+        showErr(rows[i].label + ' requiere referencia.');
+        if (rows[i].refInput) rows[i].refInput.focus();
+        return;
+      }
+    }
+
+    submitBtn.disabled = true;
+    var chain = Promise.resolve();
+    rows.forEach(function (row, idx) {
+      chain = chain.then(function () {
+        return postPayment({
+          amount: row.amount,
+          method: row.method,
+          payment_method_id: row.payment_method_id,
+          reference: row.reference,
+          kind: 'payment',
+          currency: 'USD',
+          payment_ref: 'bo-' + orderId + '-' + Date.now().toString(36) + '-' + idx,
+          event_id: uuid()
+        }).then(function (result) {
+          if (!result.ok) throw new Error(mapError(result));
+        });
+      });
+    });
+    chain.then(function () {
+      window.location.reload();
+    }).catch(function (err) {
+      showErr(err && err.message ? err.message : 'Error al registrar el cobro.');
+      submitBtn.disabled = false;
+      refreshSummary();
+    });
+  });
+
+  var modalEl = document.getElementById('eposCollectModal');
+  if (modalEl) {
+    modalEl.addEventListener('show.bs.modal', function () {
+      linesEl.innerHTML = '';
+      selectedKeys = {};
+      hideErr();
+      refreshSummary();
+    });
+  }
+
+  rebuildPicker();
+  refreshSummary();
+})();
+</script>
+{% endif %}
 {% endblock %}

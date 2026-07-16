@@ -37,3 +37,20 @@ class ProductService:
     @staticmethod
     def create(organization_id: int, data: dict[str, Any]) -> ProductDTO:
         return CoreProductService.create(int(organization_id), data)
+
+    @staticmethod
+    def update(organization_id: int, product_ref: str, data: dict[str, Any]) -> ProductDTO:
+        return CoreProductService.update(int(organization_id), product_ref, data)
+
+    @staticmethod
+    def deactivate(organization_id: int, product_ref: str) -> ProductDTO:
+        return CoreProductService.deactivate(int(organization_id), product_ref)
+
+    @staticmethod
+    def delete(organization_id: int, product_ref: str) -> None:
+        CoreProductService.delete(int(organization_id), product_ref)
+
+    @staticmethod
+    def has_operational_usage(organization_id: int, product_ref: str) -> bool:
+        return CoreProductService.has_operational_usage(int(organization_id), product_ref)
+

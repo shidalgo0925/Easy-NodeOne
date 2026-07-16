@@ -1,6 +1,6 @@
 # EN1 — Roadmap producto
 
-**Última actualización:** 9 jul 2026  
+**Última actualización:** 15 jul 2026  
 **Edición:** `/opt/easynodeone/dev/app` → rama `develop`
 
 Índice de iniciativas planificadas o en curso en Easy NodeOne. Roadmaps de módulo con detalle propio enlazan desde aquí.
@@ -12,15 +12,18 @@
 | Stripe / tarjetas | Este archivo § Stripe |
 | Plataforma / EPosOne UX | Este archivo § Plataforma — EPosOne (nav) |
 | Sprint UX transición apps | [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) |
-| **EPosOne V4 (arquitectura)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [handoff](EN1_EPOSONE_HANDOFF_STATUS.md) · [EN1-01](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [POS/licencia](EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) |
+| **EPosOne V5 (activo)** | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) · [handoff](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| **EPosOne V4 (historia)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [EN1-01](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [POS/licencia](EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) |
 
 ---
 
 ## Plataforma — EPosOne (nav / UX V3.2)
 
-**Estado:** **parcialmente resuelto** (9 jul 2026) — entrada **EPosOne** en sidebar plataforma; nav nativa si el módulo está activo en la org.
+**Estado:** **avanzado** (15 jul 2026) — nav nativa, dashboard operativo, pedidos Order Domain, POS BO, **cobro mixto 3C** (`97f6d52`).
 
-**Siguiente (Fase 2):** especificación aprobada — [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) (tickets UX-T1…T5). Arquitectura dos menús se mantiene; el trabajo es **experiencia de transición** (identidad, retorno al launcher, analítica POS dentro de EP1). Implementar **solo con GO por ticket**.
+**Fuente de verdad hitos:** [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md).
+
+**Siguiente:** P2 EPosOne Hito 4 (tablet consume HTTP H3 + `/payments`). En EN1: bugs / soporte P2.
 
 ### Síntoma (histórico)
 
@@ -37,7 +40,7 @@
 | Shell apps + sesión stale | Con `platform_active_app_id=eposone`, `merge_app_shell_nav_context` podía forzar shell EPosOne fuera de `/admin/eposone/*` (fix parcial en dev, sin commit al cierre de esta nota). |
 | Código duplicado | Menú EPosOne definido en `nav_menu.py` (legacy horizontal) y `modules/eposone/nav.py` (nativo V3.2); pipeline calcula ambos. |
 
-### Fix aplicado (dev, 9 jul 2026)
+### Fix aplicado (dev, 9–15 jul 2026)
 
 - Ítem **EPosOne** en sidebar top-level (`_SIDEBAR_TOP_LEVEL_AREA_IDS`) → enlace a `/admin/eposone/dashboard`.
 - **UX-T2:** ese ítem es **atajo temporal** (comentario `TEMPORAL`, badge «App», tooltip); entrada oficial = Launcher / Mis aplicaciones. No ampliar a otras apps.
@@ -45,6 +48,7 @@
 - No mostrar barra horizontal EPosOne fuera de `/admin/eposone/*` en Contactos (commit `a19cc6d`).
 - Enlace EPosOne en wizard empresa → paso Opciones.
 - Tests: `test_eposone_in_sidebar_top_level`, `TestMergeAppShellContacts`.
+- **15 jul:** UX operativa BO (dashboard, pedidos, POS nuevo, shell) + **Hito 3C cobro multi-pago** BO.
 
 ### Pendiente (requiere GO)
 
@@ -60,6 +64,7 @@ Otros:
 
 - [ ] Consolidar nav (una fuente: `eposone/nav.py`; retirar ítems duplicados en `nav_menu.py`).
 - [ ] UAT en appdev: desde Contactos → clic **EPosOne** en sidebar → menú dominios visible.
+- [ ] Hito 4 P2: tablet consume cobro `/api/v1/orders/{id}/payments`.
 
 ### Referencias
 
@@ -67,6 +72,7 @@ Otros:
 |-------|-----------|
 | Nav nativa V3.2 | `nodeone/modules/eposone/nav.py`, `nodeone/core/platform/app_nav.py` |
 | Shell / merge | `nodeone/core/platform/app_shell.py` |
+| Cobro 3C | `order_payment_service.py`, detalle `order_domain_detail.html` |
 | Zona eposone | `nav_menu.py` área `eposone` (`zone_path_prefixes=/admin/eposone`) |
 | Plan maestro | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) § Etapa 6–7 EPosOne |
 

@@ -19,6 +19,10 @@ class EposoneSettingsDTO:
     delivery_auto_create: bool
     fiscal_on_payment: bool
     supervisor_approval_required: bool
+    trial_days_default: int = 45
+    trial_start_policy: str = 'on_first_provision'
+    provisioning_code_ttl_minutes: int = 30
+    offline_grace_days: int = 7
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -28,6 +32,10 @@ class EposoneSettingsDTO:
             'delivery_auto_create': self.delivery_auto_create,
             'fiscal_on_payment': self.fiscal_on_payment,
             'supervisor_approval_required': self.supervisor_approval_required,
+            'trial_days_default': self.trial_days_default,
+            'trial_start_policy': self.trial_start_policy,
+            'provisioning_code_ttl_minutes': self.provisioning_code_ttl_minutes,
+            'offline_grace_days': self.offline_grace_days,
         }
 
 
@@ -39,6 +47,12 @@ def _to_dto(row: EposoneSettings) -> EposoneSettingsDTO:
         delivery_auto_create=bool(row.delivery_auto_create),
         fiscal_on_payment=bool(row.fiscal_on_payment),
         supervisor_approval_required=bool(row.supervisor_approval_required),
+        trial_days_default=int(getattr(row, 'trial_days_default', 45) or 45),
+        trial_start_policy=str(
+            getattr(row, 'trial_start_policy', 'on_first_provision') or 'on_first_provision'
+        ),
+        provisioning_code_ttl_minutes=int(getattr(row, 'provisioning_code_ttl_minutes', 30) or 30),
+        offline_grace_days=int(getattr(row, 'offline_grace_days', 7) or 7),
     )
 
 
@@ -59,6 +73,10 @@ class EposoneSettingsService:
                 delivery_auto_create=True,
                 fiscal_on_payment=False,
                 supervisor_approval_required=True,
+                trial_days_default=45,
+                trial_start_policy='on_first_provision',
+                provisioning_code_ttl_minutes=30,
+                offline_grace_days=7,
             )
         return _to_dto(row)
 

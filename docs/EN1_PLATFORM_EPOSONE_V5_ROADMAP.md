@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Aprobado** — actualizado **15 jul 2026** |
+| Estado | **Aprobado** — actualizado **16 jul 2026** |
 | Sucede a | V4 (ADRs 001–006, Hitos 1–2) — V4 docs siguen válidos como historia |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Order Domain Spec | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
@@ -13,7 +13,7 @@
 
 ---
 
-## Estado actual (15 jul 2026)
+## Estado actual (16 jul 2026)
 
 | Hito | Nombre | Estado |
 |------|--------|--------|
@@ -21,6 +21,7 @@
 | **2** | Device Bootstrap | ✅ Cerrado / congelado (API EN1; consumo APK = contrato `/api/v1/devices/bootstrap`) |
 | **3** | Dominio Pedido + contrato HTTP | ✅ **3B publicado** (ejemplos + handoff-eposone) |
 | **3C** | Cobro Order Domain (EN1 BO + API) | ✅ **EN1 listo** (`97f6d52`) — mixto 1:N, `OrderPaymentService`, UI Confirmar cobro |
+| **TZ-1** | Time Zone oficial (plataforma + EPosOne) | ✅ **Fase 1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning |
 | **4** | Operación del Pedido (APK + E2E) | ⏸ P2 · cablear HTTP H3 + cobro tablet (mismo endpoint) |
 | **5** | Inventario Operativo | ⏸ |
 | **6** | Caja y Pagos extendidos | ⏸ (catálogo métodos POS ya seedado en 3C; turno/caja profunda = H6) |
@@ -52,6 +53,7 @@ Hito 5 Inventario → Hito 6 Caja → Hito 7 Facturación
 6. Sync solo por **eventos**, nunca tablas.  
 7. Inventario oficial = **EN1**; POS emite eventos; EN1 decide Kardex/stock (Hito 5).  
 8. **Pagos 1:N**: un pedido admite múltiples métodos (efectivo + tarjeta + Yappy, …); POS y BO usan el **mismo** servicio de dominio.
+9. **Time Zone**: persistencia y APIs en **UTC**; presentación/filtros en zona IANA del usuario (o de la empresa); conversiones solo vía `TimeZoneService`.
 
 Cadena:
 

@@ -1,0 +1,186 @@
+{# Detección / confirmación de zona horaria (política oficial EN1). #}
+{% if current_user.is_authenticated and timezone_prompt %}
+<div class="modal fade" id="en1TimezonePromptModal" tabindex="-1" aria-labelledby="en1TimezonePromptTitle" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="en1TimezonePromptTitle">Zona horaria</h5>
+      </div>
+      <div class="modal-body">
+        <div id="en1TzFirstPrompt">
+          <p class="mb-2">Detectamos la siguiente zona horaria:</p>
+          <p class="fw-semibold mb-3" id="en1TzDetectedLabel">—</p>
+          <p class="text-muted small mb-0">¿Desea utilizar esta configuración?</p>
+          <div id="en1TzChangeWrap" class="mt-3 d-none">
+            <label class="form-label" for="en1TzChangeSelect">Elegir zona horaria</label>
+            <select class="form-select" id="en1TzChangeSelect">
+              <option value="America/Panama">America/Panama</option>
+              <option value="America/Bogota">America/Bogota</option>
+              <option value="America/Lima">America/Lima</option>
+              <option value="America/Mexico_City">America/Mexico_City</option>
+              <option value="America/New_York">America/New_York</option>
+              <option value="America/Chicago">America/Chicago</option>
+              <option value="America/Los_Angeles">America/Los_Angeles</option>
+              <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+              <option value="Europe/Madrid">Europe/Madrid</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </div>
+        </div>
+        <div id="en1TzDevicePrompt" class="d-none">
+          <p class="mb-2">Su dispositivo indica una nueva zona horaria.</p>
+          <p class="mb-1"><span class="text-muted">Anterior</span><br><strong id="en1TzPrevLabel">—</strong></p>
+          <p class="mb-0"><span class="text-muted">Nueva</span><br><strong id="en1TzNewLabel">—</strong></p>
+          <p class="mt-3 mb-0">¿Actualizar?</p>
+        </div>
+        <div id="en1TzError" class="alert alert-danger mt-3 d-none py-2" role="alert"></div>
+      </div>
+      <div class="modal-footer" id="en1TzFirstFooter">
+        <button type="button" class="btn btn-outline-secondary" id="en1TzBtnChange">Cambiar</button>
+        <button type="button" class="btn btn-primary" id="en1TzBtnUse">Usar</button>
+        <button type="button" class="btn btn-primary d-none" id="en1TzBtnConfirmChange">Guardar</button>
+      </div>
+      <div class="modal-footer d-none" id="en1TzDeviceFooter">
+        <button type="button" class="btn btn-outline-secondary" id="en1TzBtnDeclineDevice">No</button>
+        <button type="button" class="btn btn-primary" id="en1TzBtnAcceptDevice">Sí</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var prompt = {{ timezone_prompt|tojson }};
+  if (!prompt) return;
+
+  function browserTz() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function postConfirm(body) {
+    return fetch('/api/user/timezone/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+  }
+
+  function showError(msg) {
+    var el = document.getElementById('en1TzError');
+    if (!el) return;
+    el.textContent = msg || 'No se pudo guardar.';
+    el.classList.remove('d-none');
+  }
+
+  function ensureOption(sel, value) {
+    if (!value || !sel) return;
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === value) { found = true; break; }
+    }
+    if (!found) {
+      var opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = value;
+      sel.appendChild(opt);
+    }
+    sel.value = value;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var detected = browserTz();
+    if (!detected) return;
+
+    var modalEl = document.getElementById('en1TimezonePromptModal');
+    if (!modalEl || typeof bootstrap === 'undefined') return;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    var firstPrompt = document.getElementById('en1TzFirstPrompt');
+    var devicePrompt = document.getElementById('en1TzDevicePrompt');
+    var firstFooter = document.getElementById('en1TzFirstFooter');
+    var deviceFooter = document.getElementById('en1TzDeviceFooter');
+    var changeWrap = document.getElementById('en1TzChangeWrap');
+    var changeSel = document.getElementById('en1TzChangeSelect');
+    var btnUse = document.getElementById('en1TzBtnUse');
+    var btnChange = document.getElementById('en1TzBtnChange');
+    var btnConfirmChange = document.getElementById('en1TzBtnConfirmChange');
+
+    function finishOk() {
+      modal.hide();
+    }
+
+    if (!prompt.confirmed) {
+      document.getElementById('en1TzDetectedLabel').textContent = detected;
+      ensureOption(changeSel, detected);
+      firstPrompt.classList.remove('d-none');
+      devicePrompt.classList.add('d-none');
+      firstFooter.classList.remove('d-none');
+      deviceFooter.classList.add('d-none');
+      modal.show();
+
+      btnUse.addEventListener('click', function () {
+        postConfirm({ action: 'use', browser_timezone: detected })
+          .then(function (res) {
+            if (res.ok && res.j.success) finishOk();
+            else showError(res.j && res.j.error);
+          })
+          .catch(function () { showError('Error de conexión'); });
+      });
+
+      btnChange.addEventListener('click', function () {
+        changeWrap.classList.remove('d-none');
+        btnUse.classList.add('d-none');
+        btnChange.classList.add('d-none');
+        btnConfirmChange.classList.remove('d-none');
+      });
+
+      btnConfirmChange.addEventListener('click', function () {
+        postConfirm({
+          action: 'change',
+          browser_timezone: detected,
+          timezone: changeSel.value
+        })
+          .then(function (res) {
+            if (res.ok && res.j.success) finishOk();
+            else showError(res.j && res.j.error);
+          })
+          .catch(function () { showError('Error de conexión'); });
+      });
+      return;
+    }
+
+    var last = prompt.last_browser_timezone || '';
+    if (last && last !== detected) {
+      document.getElementById('en1TzPrevLabel').textContent = prompt.current_timezone || last;
+      document.getElementById('en1TzNewLabel').textContent = detected;
+      firstPrompt.classList.add('d-none');
+      devicePrompt.classList.remove('d-none');
+      firstFooter.classList.add('d-none');
+      deviceFooter.classList.remove('d-none');
+      modal.show();
+
+      document.getElementById('en1TzBtnAcceptDevice').addEventListener('click', function () {
+        postConfirm({ action: 'accept_device', browser_timezone: detected })
+          .then(function (res) {
+            if (res.ok && res.j.success) finishOk();
+            else showError(res.j && res.j.error);
+          })
+          .catch(function () { showError('Error de conexión'); });
+      });
+      document.getElementById('en1TzBtnDeclineDevice').addEventListener('click', function () {
+        postConfirm({ action: 'decline_device', browser_timezone: detected })
+          .then(function (res) {
+            if (res.ok && res.j.success) finishOk();
+            else showError(res.j && res.j.error);
+          })
+          .catch(function () { showError('Error de conexión'); });
+      });
+    }
+  });
+})();
+</script>
+{% endif %}

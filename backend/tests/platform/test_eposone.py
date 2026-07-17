@@ -59,21 +59,20 @@ class TestEPosOneRoutes(unittest.TestCase):
 
         area = next(a for a in APP_AREAS if a.id == 'eposone')
         labels = {item.label for item in area.items}
+        # Operación + Infraestructura + Más
         for expected in (
             'Dashboard',
             'Pedidos',
-            'Ventas',
-            'Clientes',
             'Productos',
-            'Sucursales',
-            'Terminales',
-            'Cajas',
-            'Turnos',
-            'Promociones',
-            'Reportes',
-            'Configuración',
+            'Inventario',
+            'Clientes',
+            'Caja',
+            'Infraestructura',
+            'Más',
         ):
             self.assertIn(expected, labels)
+        self.assertNotIn('Reportes', labels)
+        self.assertNotIn('Configuración', labels)
 
     def test_eposone_sections_catalog(self):
         from nodeone.modules.eposone.sections import EPOSONE_SECTION_SLUGS
@@ -81,7 +80,8 @@ class TestEPosOneRoutes(unittest.TestCase):
         self.assertIn('orders', EPOSONE_SECTION_SLUGS)
         self.assertIn('contacts', EPOSONE_SECTION_SLUGS)
         self.assertIn('products', EPOSONE_SECTION_SLUGS)
-        self.assertIn('settings', EPOSONE_SECTION_SLUGS)
+        self.assertIn('licenses', EPOSONE_SECTION_SLUGS)
+        self.assertNotIn('settings', EPOSONE_SECTION_SLUGS)
 
     def test_eposone_order_detail_redirects_anonymous(self):
         with self.app.test_client() as c:

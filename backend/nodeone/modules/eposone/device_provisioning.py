@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from models.commercial_core import CorePosTerminal
@@ -34,6 +34,8 @@ EVENT_CODE_ISSUED = 'eposone.provisioning_code.issued'
 DEFAULT_TIMEZONE = 'America/Panama'
 STATUS_ACTIVE = 'active'
 STATUS_REVOKED = 'revoked'
+STATUS_USED = 'used'
+STATUS_EXPIRED = 'expired'
 
 
 def _audit_publish(organization_id: int, event_type: str, payload: dict[str, Any] | None = None) -> None:
@@ -130,6 +132,11 @@ class DeviceProvisioningService:
         while EposoneProvisioningCode.query.filter_by(code=code).first() is not None:
             code = _new_provisioning_code()
 
+        from nodeone.modules.eposone.register_license_service import RegisterLicenseService
+
+        ttl_min = int(RegisterLicenseService._policy(oid)['provisioning_code_ttl_minutes'] or 30)
+        expires_at = datetime.utcnow() + timedelta(minutes=max(1, ttl_min))
+
         row = EposoneProvisioningCode(
             organization_id=oid,
             branch_ref=branch.unit_ref,
@@ -138,6 +145,7 @@ class DeviceProvisioningService:
             code=code,
             status=STATUS_ACTIVE,
             label=(label or '').strip() or f'{pos.name} / {reg.name}',
+            expires_at=expires_at,
         )
         db.session.add(row)
         db.session.commit()
@@ -149,6 +157,7 @@ class DeviceProvisioningService:
                 'branch_ref': row.branch_ref,
                 'pos_ref': row.pos_ref,
                 'register_ref': row.register_ref,
+                'expires_at': expires_at.isoformat(sep=' ', timespec='seconds'),
             },
         )
         return row
@@ -164,7 +173,7 @@ class DeviceProvisioningService:
     def get_active_code_for_register(
         organization_id: int, register_ref: str
     ) -> EposoneProvisioningCode | None:
-        return (
+        row = (
             EposoneProvisioningCode.query.filter_by(
                 organization_id=int(organization_id),
                 register_ref=(register_ref or '').strip(),
@@ -173,6 +182,15 @@ class DeviceProvisioningService:
             .order_by(EposoneProvisioningCode.id.desc())
             .first()
         )
+        if row is None:
+            return None
+        if row.expires_at is not None and row.expires_at < datetime.utcnow():
+            from app import db
+
+            row.status = STATUS_EXPIRED
+            db.session.commit()
+            return None
+        return row
 
     @staticmethod
     def resolve_destination_by_code(code: str | None) -> EposoneProvisioningCode:
@@ -184,6 +202,15 @@ class DeviceProvisioningService:
         if row is None:
             DeviceProvisioningService._audit_auth_failed(None, reason='provisioning_code_invalid')
             raise DeviceProvisioningError('provisioning_code_invalid', http_status=401)
+        if row.expires_at is not None and row.expires_at < datetime.utcnow():
+            from app import db
+
+            row.status = STATUS_EXPIRED
+            db.session.commit()
+            DeviceProvisioningService._audit_auth_failed(
+                int(row.organization_id), reason='provisioning_code_expired'
+            )
+            raise DeviceProvisioningError('provisioning_code_expired', http_status=401)
         return row
 
     # --- Legacy EN1-01 (org-level code) ---
@@ -363,6 +390,7 @@ class DeviceProvisioningService:
                 )
                 raise
             dest_code.last_used_at = datetime.utcnow()
+            dest_code.status = STATUS_USED
         else:
             # Legacy EN1-01
             org = DeviceProvisioningService._resolve_organization(
@@ -448,6 +476,14 @@ class DeviceProvisioningService:
             event = EVENT_REPROVISIONED
 
         db.session.commit()
+
+        if dest_code is not None and event == EVENT_REGISTERED:
+            try:
+                from nodeone.modules.eposone.register_license_service import RegisterLicenseService
+
+                RegisterLicenseService.on_first_device_provisioned(oid, str(register.unit_ref))
+            except Exception:
+                pass
 
         _audit_publish(
             oid,
@@ -642,6 +678,7 @@ class DeviceProvisioningService:
         org: SaasOrganization | None = None,
     ) -> dict[str, Any]:
         from nodeone.modules.eposone.settings_service import EposoneSettingsService
+        from nodeone.core.timezone_service import TimeZoneService
 
         oid = int(row.organization_id)
         if org is None:
@@ -658,7 +695,13 @@ class DeviceProvisioningService:
             'config_version': int(getattr(row, 'config_version', 1) or 1),
             'business_name': str(org.name) if org is not None else '',
             'currency': str(settings.default_currency or 'USD'),
-            'timezone': (os.environ.get('EPOSONE_DEFAULT_TIMEZONE') or DEFAULT_TIMEZONE).strip(),
+            'timezone': (
+                TimeZoneService.org_timezone_name(org)
+                if org is not None
+                else TimeZoneService.validate_iana(
+                    (os.environ.get('EPOSONE_DEFAULT_TIMEZONE') or DEFAULT_TIMEZONE)
+                )
+            ),
             'organization': {
                 'id': oid,
                 'name': str(org.name) if org is not None else '',
@@ -682,6 +725,7 @@ class DeviceProvisioningService:
                 'app_version': row.app_version,
                 'last_seen_at': _iso(row.last_seen_at),
             },
+            'license': _license_block_for_register(oid, str(row.register_ref or '')),
         }
 
     @staticmethod
@@ -692,3 +736,34 @@ class DeviceProvisioningService:
             .limit(max(1, int(limit)))
             .all()
         )
+
+
+def _license_block_for_register(organization_id: int, register_ref: str) -> dict[str, Any]:
+    try:
+        from nodeone.modules.eposone.register_license_service import RegisterLicenseService
+
+        snap = RegisterLicenseService.snapshot(int(organization_id), register_ref)
+        try:
+            from app import db
+            from models.eposone_register_license import EposoneRegisterLicense
+
+            lic_row = EposoneRegisterLicense.query.filter_by(
+                organization_id=int(organization_id), register_ref=register_ref
+            ).first()
+            if lic_row is not None:
+                lic_row.last_validated_at = datetime.utcnow()
+                db.session.commit()
+        except Exception:
+            pass
+        return snap.to_device_payload()
+    except Exception:
+        return {
+            'status': 'unlicensed',
+            'plan': 'eposone',
+            'can_operate': False,
+            'reason': 'license_unavailable',
+            'days_remaining': None,
+            'starts_at': None,
+            'expires_at': None,
+            'trial_used': False,
+        }

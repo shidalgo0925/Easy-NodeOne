@@ -123,6 +123,8 @@ class SaasOrganization(db.Model):
     subdomain = db.Column(db.String(128), unique=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     registration_policy = db.Column(db.String(30), nullable=False, default='free_registration')
+    # IANA timezone oficial del tenant (presentación / filtros). Persistencia de eventos = UTC.
+    timezone = db.Column(db.String(64), nullable=False, default='America/Panama')
 
 
 class SaasModule(db.Model):

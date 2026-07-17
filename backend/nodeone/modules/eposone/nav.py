@@ -1,4 +1,4 @@
-"""Navegación nativa EPosOne — UX Roadmap V1.0 Sprint 7 (operativa)."""
+"""Navegación nativa EPosOne — Operación vs Infraestructura (V1.0)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ def _v_eposone(ctx: NavContext) -> bool:
 
 
 def _v_contador(ctx: NavContext) -> bool:
+    """Conteo físico (módulo Contador) — no reemplaza Inventario operativo."""
     return (
         _v_eposone(ctx)
         and ctx.saas_module_enabled('contador')
@@ -22,27 +23,22 @@ def _v_contador(ctx: NavContext) -> bool:
     )
 
 
-def _v_analytics(ctx: NavContext) -> bool:
-    """Analítica POS vive en EPosOne; no depende del módulo BI plataforma."""
-    return _v_eposone(ctx) and ctx.has_view_endpoint('eposone.eposone_analytics')
-
-
 def _section(slug: str) -> str:
     return safe_url_for('eposone.eposone_section', slug=slug)
 
 
 def build_nav_tree(ctx: NavContext) -> AppNavTree:
-    """Menú operativo corto — elementos técnicos bajo Configuración."""
+    """Operación diaria arriba · Infraestructura y módulos auxiliares aparte."""
     orders_prefixes = (
         '/admin/eposone/section/orders',
         '/admin/eposone/orders',
     )
-    use_contador = _v_contador(ctx)
-    inventario_url = (
-        safe_url_for('contador.contador_index') if use_contador else _section('inventory')
-    )
-    inventario_prefixes = (
-        ('/admin/contador',) if use_contador else ('/admin/eposone/section/inventory',)
+    infra_prefixes = (
+        '/admin/eposone/section/branches',
+        '/admin/eposone/section/pos-points',
+        '/admin/eposone/section/registers',
+        '/admin/eposone/section/terminals',
+        '/admin/eposone/section/licenses',
     )
 
     return AppNavTree(
@@ -81,10 +77,9 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 'inventario',
                 'Inventario',
                 'fas fa-warehouse',
-                url=inventario_url,
+                url=_section('inventory'),
                 visible=_v_eposone,
-                active_blueprints=('contador',) if use_contador else (),
-                active_path_prefixes=inventario_prefixes,
+                active_path_prefixes=('/admin/eposone/section/inventory',),
             ),
             AppNavItem(
                 'clientes',
@@ -98,47 +93,15 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 'caja',
                 'Caja',
                 'fas fa-cash-register',
-                children=(
-                    AppNavItem(
-                        'cajas',
-                        'Cajas',
-                        'fas fa-cash-register',
-                        url=_section('registers'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/registers',),
-                    ),
-                    AppNavItem(
-                        'turnos',
-                        'Turnos',
-                        'fas fa-user-clock',
-                        url=_section('shifts'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/shifts',),
-                    ),
-                ),
+                url=_section('shifts'),
+                visible=_v_eposone,
+                active_path_prefixes=('/admin/eposone/section/shifts',),
             ),
             AppNavItem(
-                'reportes',
-                'Reportes',
-                'fas fa-chart-bar',
-                url=safe_url_for('eposone.eposone_analytics'),
-                visible=_v_analytics,
-                active_endpoints=('eposone.eposone_analytics',),
-                active_path_prefixes=('/admin/eposone/analytics',),
-            ),
-            AppNavItem(
-                'configuracion',
-                'Configuración',
-                'fas fa-cog',
+                'infraestructura',
+                'Infraestructura',
+                'fas fa-server',
                 children=(
-                    AppNavItem(
-                        'ajustes',
-                        'Ajustes generales',
-                        'fas fa-sliders-h',
-                        url=_section('settings'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/settings',),
-                    ),
                     AppNavItem(
                         'sucursales',
                         'Sucursales',
@@ -156,6 +119,14 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         active_path_prefixes=('/admin/eposone/section/pos-points',),
                     ),
                     AppNavItem(
+                        'cajas',
+                        'Cajas',
+                        'fas fa-cash-register',
+                        url=_section('registers'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/registers',),
+                    ),
+                    AppNavItem(
                         'terminales',
                         'Dispositivos',
                         'fas fa-desktop',
@@ -163,6 +134,22 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         visible=_v_eposone,
                         active_path_prefixes=('/admin/eposone/section/terminals',),
                     ),
+                    AppNavItem(
+                        'licencias',
+                        'Licencias',
+                        'fas fa-key',
+                        url=_section('licenses'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/licenses',),
+                    ),
+                ),
+                active_path_prefixes=infra_prefixes,
+            ),
+            AppNavItem(
+                'mas',
+                'Más',
+                'fas fa-ellipsis-h',
+                children=(
                     AppNavItem(
                         'promociones',
                         'Promociones',
@@ -173,7 +160,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                     ),
                     AppNavItem(
                         'kds',
-                        'KDS',
+                        'Cocina (KDS)',
                         'fas fa-utensils',
                         url=_section('kds'),
                         visible=_v_eposone,
@@ -194,6 +181,15 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         url=_section('digital-menu'),
                         visible=_v_eposone,
                         active_path_prefixes=('/admin/eposone/section/digital-menu',),
+                    ),
+                    AppNavItem(
+                        'conteo-fisico',
+                        'Conteo físico',
+                        'fas fa-clipboard-list',
+                        url=safe_url_for('contador.contador_index'),
+                        visible=_v_contador,
+                        active_blueprints=('contador',),
+                        active_path_prefixes=('/admin/contador',),
                     ),
                 ),
             ),

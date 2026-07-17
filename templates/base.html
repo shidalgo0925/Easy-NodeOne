@@ -21,12 +21,12 @@
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-9-dropdown" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/en1-color-system.css') }}?v=7" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=27-launcher-icons" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/platform-app-shell.css') }}?v=5" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/platform-app-shell.css') }}?v=6" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
     {% if platform_shell_app_accent == 'eposone' or (request.endpoint and request.endpoint.startswith('eposone.')) %}
-    <link href="{{ url_for('static', filename='css/eposone-ui.css') }}?v=2" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/eposone-ui.css') }}?v=infra-v1-20260717a" rel="stylesheet">
     {% endif %}
     {% block head_extra %}{% endblock %}
     <style>
@@ -1180,6 +1180,8 @@
     </div>
 
     {% block scripts %}{% endblock %}
+
+    {% include 'partials/timezone_prompt.html' %}
     
 <script>
 function refreshNavbarBadges() {

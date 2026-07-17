@@ -71,22 +71,97 @@ def api_user_settings_get():
 @user_api_bp.route('/settings', methods=['POST'])
 @login_required
 def api_user_settings_post():
-    """Guardar preferencias de configuración del usuario."""
+    """Guardar preferencias de configuración del usuario (merge con existentes)."""
     from app import UserSettings, _default_user_preferences, db
+    from nodeone.core.timezone_service import TimeZoneService
 
     data = request.get_json()
     if not data or not isinstance(data.get('preferences'), dict):
         return jsonify({'success': False, 'error': 'Datos no válidos'}), 400
     try:
-        prefs = {k: v for k, v in data['preferences'].items() if k in _default_user_preferences()}
+        defaults = _default_user_preferences()
+        prefs = dict(defaults)
         row = UserSettings.query.filter_by(user_id=current_user.id).first()
+        if row and row.preferences:
+            try:
+                existing = json.loads(row.preferences)
+                if isinstance(existing, dict):
+                    prefs.update(existing)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        incoming = {k: v for k, v in data['preferences'].items() if k in defaults}
+        if 'timezone' in incoming:
+            incoming['timezone'] = TimeZoneService.validate_iana(incoming.get('timezone'))
+            incoming['timezone_confirmed'] = True
+        prefs.update(incoming)
+        payload = json.dumps(prefs)
         if not row:
-            row = UserSettings(user_id=current_user.id, preferences=json.dumps(prefs))
+            row = UserSettings(user_id=current_user.id, preferences=payload)
             db.session.add(row)
         else:
-            row.preferences = json.dumps(prefs)
+            row.preferences = payload
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Configuración guardada'})
+        TimeZoneService.sync_session_timezone(user=current_user, prefs=prefs)
+        return jsonify({'success': True, 'message': 'Configuración guardada', 'preferences': prefs})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@user_api_bp.route('/timezone/confirm', methods=['POST'])
+@login_required
+def api_user_timezone_confirm():
+    """Confirmar detección de TZ (primer acceso) o cambio de dispositivo."""
+    from app import UserSettings, _default_user_preferences, db
+    from nodeone.core.timezone_service import TimeZoneService
+
+    data = request.get_json(silent=True) or {}
+    action = (data.get('action') or '').strip().lower()
+    browser_tz = TimeZoneService.validate_iana(data.get('browser_timezone'))
+    chosen = data.get('timezone')
+
+    if action not in ('use', 'change', 'accept_device', 'decline_device'):
+        return jsonify({'success': False, 'error': 'action inválida'}), 400
+
+    try:
+        defaults = _default_user_preferences()
+        prefs = dict(defaults)
+        row = UserSettings.query.filter_by(user_id=current_user.id).first()
+        if row and row.preferences:
+            try:
+                existing = json.loads(row.preferences)
+                if isinstance(existing, dict):
+                    prefs.update(existing)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+
+        if action == 'use':
+            prefs['timezone'] = browser_tz
+            prefs['timezone_confirmed'] = True
+            prefs['last_browser_timezone'] = browser_tz
+        elif action == 'change':
+            prefs['timezone'] = TimeZoneService.validate_iana(chosen or browser_tz)
+            prefs['timezone_confirmed'] = True
+            prefs['last_browser_timezone'] = browser_tz
+        elif action == 'accept_device':
+            prefs['timezone'] = browser_tz
+            prefs['timezone_confirmed'] = True
+            prefs['last_browser_timezone'] = browser_tz
+        elif action == 'decline_device':
+            # No cambia timezone del usuario; solo evita repreguntar en este dispositivo.
+            prefs['timezone_confirmed'] = True
+            prefs['last_browser_timezone'] = browser_tz
+
+        prefs['timezone'] = TimeZoneService.validate_iana(prefs.get('timezone'))
+        payload = json.dumps(prefs)
+        if not row:
+            row = UserSettings(user_id=current_user.id, preferences=payload)
+            db.session.add(row)
+        else:
+            row.preferences = payload
+        db.session.commit()
+        TimeZoneService.sync_session_timezone(user=current_user, prefs=prefs)
+        return jsonify({'success': True, 'preferences': prefs})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500

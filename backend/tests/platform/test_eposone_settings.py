@@ -102,10 +102,11 @@ class TestEposoneSettingsRuntime(unittest.TestCase):
 
 
 class TestEposoneSettingsSections(unittest.TestCase):
-    def test_settings_slug(self):
+    def test_settings_slug_removed_from_catalog(self):
+        """Opciones viven en cada módulo; no hay sección settings en el catálogo."""
         from nodeone.modules.eposone.sections import EPOSONE_SECTION_SLUGS
 
-        self.assertIn('settings', EPOSONE_SECTION_SLUGS)
+        self.assertNotIn('settings', EPOSONE_SECTION_SLUGS)
 
 
 if __name__ == '__main__':

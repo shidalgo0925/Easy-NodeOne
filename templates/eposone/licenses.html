@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Licencias | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page epos-licenses-v2" id="epos-licenses-page">
+
+    <div class="epos-page-header">
+        <div>
+            <h1 class="epos-page-title">
+                <i class="fas fa-key me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Licencias
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Estado comercial por caja · la licencia no es del usuario ni de la tablet
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <span class="badge text-bg-light border">{{ licenses_total }} caja(s)</span>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='registers') }}">
+                Administrar en Cajas
+            </a>
+        </div>
+    </div>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body p-0">
+            {% if license_rows %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table">
+                    <thead>
+                        <tr>
+                            <th>Caja</th>
+                            <th>POS</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Plan</th>
+                            <th>Inicio</th>
+                            <th>Vencimiento</th>
+                            <th>Días</th>
+                            <th>Puede operar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in license_rows %}
+                        {% set reg = row.register %}
+                        {% set lic = row.license %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">{{ reg.name }}</div>
+                                <code class="epos-code-plain">{{ reg.unit_ref }}</code>
+                            </td>
+                            <td class="small">{{ row.pos_name or '—' }}</td>
+                            <td class="small">{{ lic.license_type if lic else '—' }}</td>
+                            <td>
+                                {% if lic %}
+                                <span class="badge text-bg-light border">{{ lic.commercial_ui }}</span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="small">{{ lic.plan_code if lic and lic.plan_code else '—' }}</td>
+                            <td class="small text-muted">
+                                {% if lic and lic.starts_at %}{{ lic.starts_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}
+                            </td>
+                            <td class="small text-muted">
+                                {% if lic and lic.expires_at %}{{ lic.expires_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}
+                            </td>
+                            <td class="small">
+                                {% if lic and lic.days_remaining is not none %}{{ lic.days_remaining }}{% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if lic and lic.can_operate %}
+                                <span class="badge text-bg-success-subtle border border-success-subtle text-success-emphasis">Sí</span>
+                                {% else %}
+                                <span class="badge text-bg-secondary-subtle border">No</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-muted">
+                No hay cajas todavía. Creá cajas en
+                <a href="{{ url_for('eposone.eposone_section', slug='registers') }}">Infraestructura → Cajas</a>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <p class="small text-muted mb-0">
+        Para emitir trial/cortesía/extender usá las acciones de cada caja. Esta vista es el índice comercial.
+    </p>
+</div>
+{% endblock %}

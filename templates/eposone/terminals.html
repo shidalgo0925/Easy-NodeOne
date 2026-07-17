@@ -1,131 +1,110 @@
 {% extends "base.html" %}
 
-{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+{% block title %}EPosOne — Dispositivos | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
-    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div class="container-fluid py-3 en1-eposone-page epos-devices-v2" id="epos-devices-page">
+
+    <div class="epos-page-header">
         <div>
-            <h1 class="h4 mb-1">{{ section_title }}</h1>
-            <p class="text-muted small mb-0">{{ section_description }}</p>
+            <h1 class="epos-page-title">
+                <i class="fas fa-desktop me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Dispositivos
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Tablets vinculadas a una caja · el provisioning se gestiona en Cajas
+            </p>
         </div>
-        <span class="badge bg-secondary">{{ devices_total }} dispositivo(s)</span>
-    </div>
-
-    <div class="alert alert-primary border mb-3">
-        <strong class="small">Hito EN1-02 — Código = destino</strong>
-        <p class="small mb-0 mt-1">
-            Generá un código por <strong>Caja</strong>. La tablet solo necesita
-            <code>URL</code> + <code>código</code>. Header
-            <code>X-EN1-Provisioning-Code</code> en
-            <code>POST /api/v1/devices/register</code>.
-        </p>
-    </div>
-
-    <div class="row g-3 mb-3">
-        <div class="col-lg-5">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <h2 class="h6 mb-0">Códigos por Caja</h2>
-                </div>
-                <div class="card-body p-0">
-                    {% if registers %}
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0 align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Caja</th>
-                                    <th>Código activo</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for r in registers %}
-                                {% set c = code_by_register.get(r.unit_ref) %}
-                                <tr>
-                                    <td>
-                                        <div>{{ r.name }}</div>
-                                        <code class="small">{{ r.unit_ref }}</code>
-                                    </td>
-                                    <td class="font-monospace small">
-                                        {% if c %}{{ c.code }}{% else %}<span class="text-muted">—</span>{% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        <form method="post" action="{{ url_for('eposone.eposone_issue_provisioning_code') }}" class="d-inline">
-                                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                                            <input type="hidden" name="register_ref" value="{{ r.unit_ref }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary">
-                                                {% if c %}Rotar{% else %}Generar{% endif %}
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="p-4 text-muted small">
-                        Sin cajas. Creá POS y cajas (register) con parent POS antes de generar códigos.
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-7">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 pb-0">
-                    <h2 class="h6 mb-0">Dispositivos registrados</h2>
-                </div>
-                <div class="card-body p-0">
-                    {% if devices %}
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0 align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>UUID</th>
-                                    <th>Sucursal</th>
-                                    <th>POS</th>
-                                    <th>Caja</th>
-                                    <th>Estado</th>
-                                    <th>Última conexión</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for device in devices %}
-                                <tr>
-                                    <td>{{ device.device_label or '—' }}</td>
-                                    <td><code class="small">{{ device.terminal_ref }}</code></td>
-                                    <td class="small">{{ device.branch_ref or '—' }}</td>
-                                    <td class="small">{{ device.pos_ref or '—' }}</td>
-                                    <td class="small">{{ device.register_ref or '—' }}</td>
-                                    <td><span class="badge text-bg-light border">{{ device.status }}</span></td>
-                                    <td class="text-muted small">{% if device.last_seen_at %}{{ device.last_seen_at }}{% else %}—{% endif %}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="p-4 text-muted small">Sin dispositivos.</div>
-                    {% endif %}
-                </div>
-            </div>
+        <div class="epos-btn-row">
+            <span class="badge text-bg-light border">{{ devices_total }} dispositivo(s)</span>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='registers') }}">
+                <i class="fas fa-cash-register me-1"></i>Ir a Cajas
+            </a>
         </div>
     </div>
 
-    {% if provisioning_code %}
-    <details class="mb-3">
-        <summary class="small text-muted">Legacy EN1-01 (código por org — no usar en Wizard nuevo)</summary>
-        <div class="alert alert-light border mt-2 mb-0">
-            <code>{{ provisioning_code }}</code>
-            <form method="post" action="{{ url_for('eposone.eposone_rotate_provisioning_code') }}" class="d-inline ms-2">
-                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                <button type="submit" class="btn btn-sm btn-outline-secondary">Rotar legacy</button>
-            </form>
-        </div>
-    </details>
+    {% if hidden_test_devices and not show_all_devices %}
+    <p class="small text-muted mb-3">
+        Se ocultaron {{ hidden_test_devices }} registro(s) de prueba/diagnóstico.
+        <a href="{{ url_for('eposone.eposone_section', slug='terminals', all=1) }}">Mostrar todos ({{ devices_all_total }})</a>
+    </p>
+    {% elif show_all_devices %}
+    <p class="small text-muted mb-3">
+        Mostrando todos los registros (incluye pruebas).
+        <a href="{{ url_for('eposone.eposone_section', slug='terminals') }}">Solo operativos</a>
+    </p>
     {% endif %}
+
+    <form class="epos-filter-bar mb-3" id="epos-dev-filters" onsubmit="return false;">
+        <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
+            <label for="dev-q">Buscar</label>
+            <input class="form-control" type="search" id="dev-q" placeholder="Nombre, UUID, caja…" autocomplete="off">
+        </div>
+        <div class="epos-filter-bar__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="dev-clear">Limpiar</button>
+        </div>
+    </form>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body p-0">
+            {% if devices %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table" id="epos-devices-table">
+                    <thead>
+                        <tr>
+                            <th>Dispositivo</th>
+                            <th>UUID</th>
+                            <th>Plataforma</th>
+                            <th>Caja</th>
+                            <th>POS</th>
+                            <th>Estado</th>
+                            <th>Última sync</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device in devices %}
+                        <tr class="epos-dev-row"
+                            data-q="{{ ((device.device_label or '') ~ ' ' ~ (device.terminal_ref or '') ~ ' ' ~ (device.register_ref or '') ~ ' ' ~ (device.pos_ref or ''))|lower }}">
+                            <td class="fw-semibold">{{ device.device_label or 'Tablet' }}</td>
+                            <td><code class="epos-code-plain small">{{ device.terminal_ref }}</code></td>
+                            <td class="small">{{ device.platform or '—' }}</td>
+                            <td class="small">{{ device.register_ref or '—' }}</td>
+                            <td class="small">{{ device.pos_ref or '—' }}</td>
+                            <td><span class="badge text-bg-light border">{{ device.status }}</span></td>
+                            <td class="text-muted small">{% if device.last_seen_at %}{{ device.last_seen_at }}{% else %}—{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 text-muted d-none" id="dev-empty-filter">Ningún dispositivo coincide.</div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">Sin dispositivos operativos.</p>
+                <p class="small mb-0">Generá el código de provisioning desde <a href="{{ url_for('eposone.eposone_section', slug='registers') }}">Cajas</a>.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<script>
+(function () {
+  var qEl = document.getElementById('dev-q');
+  var clearBtn = document.getElementById('dev-clear');
+  var empty = document.getElementById('dev-empty-filter');
+  function apply() {
+    var q = (qEl && qEl.value || '').trim().toLowerCase();
+    var rows = document.querySelectorAll('#epos-devices-table .epos-dev-row');
+    var n = 0;
+    rows.forEach(function (tr) {
+      var ok = !q || (tr.getAttribute('data-q') || '').indexOf(q) !== -1;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) n += 1;
+    });
+    if (empty) empty.classList.toggle('d-none', n !== 0 || !rows.length);
+  }
+  if (qEl) qEl.addEventListener('input', apply);
+  if (clearBtn) clearBtn.addEventListener('click', function () { if (qEl) qEl.value = ''; apply(); });
+})();
+</script>
 {% endblock %}

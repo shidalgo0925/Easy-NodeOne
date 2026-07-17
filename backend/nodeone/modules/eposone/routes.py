@@ -10,6 +10,119 @@ from nodeone.modules.eposone.sections import EPOSONE_SECTIONS, EPOSONE_SECTION_S
 
 eposone_bp = Blueprint('eposone', __name__, url_prefix='/admin/eposone')
 
+# Query params del listado Pedidos que se preservan al abrir/volver del detalle.
+_ORDERS_LIST_FILTER_KEYS = (
+    'q',
+    'from',
+    'to',
+    'status',
+    'payment_status',
+    'table',
+    'register',
+    'pos',
+    'cashier',
+    'customer',
+    'page',
+    'per_page',
+)
+
+_ORDERS_PER_PAGE_CHOICES = (15, 25, 50, 100)
+_ORDERS_PER_PAGE_DEFAULT = 15
+
+
+def _orders_list_filter_args(args=None) -> dict[str, str]:
+    src = args if args is not None else request.args
+    out: dict[str, str] = {}
+    for key in _ORDERS_LIST_FILTER_KEYS:
+        val = (src.get(key) or '').strip()
+        if val:
+            out[key] = val
+    return out
+
+
+def _orders_list_url(filter_args: dict[str, str] | None = None) -> str:
+    params = filter_args if filter_args is not None else _orders_list_filter_args()
+    return url_for('eposone.eposone_section', slug='orders', **params)
+
+
+def _user_prefs_dict(user) -> dict:
+    import json
+
+    from app import UserSettings, _default_user_preferences
+
+    prefs = dict(_default_user_preferences())
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return prefs
+    try:
+        row = UserSettings.query.filter_by(user_id=int(user.id)).first()
+        if row and row.preferences:
+            loaded = json.loads(row.preferences)
+            if isinstance(loaded, dict):
+                prefs.update(loaded)
+    except Exception:
+        pass
+    return prefs
+
+
+def _resolve_orders_per_page(user) -> tuple[int, bool]:
+    """Devuelve (per_page, should_persist). Preferencia usuario; query ?per_page= gana y se guarda."""
+    raw = (request.args.get('per_page') or '').strip()
+    from_query = False
+    if raw:
+        try:
+            candidate = int(raw)
+            if candidate in _ORDERS_PER_PAGE_CHOICES:
+                from_query = True
+                return candidate, True
+        except (TypeError, ValueError):
+            pass
+    prefs = _user_prefs_dict(user)
+    try:
+        saved = int(prefs.get('eposone_orders_per_page') or _ORDERS_PER_PAGE_DEFAULT)
+    except (TypeError, ValueError):
+        saved = _ORDERS_PER_PAGE_DEFAULT
+    if saved not in _ORDERS_PER_PAGE_CHOICES:
+        saved = _ORDERS_PER_PAGE_DEFAULT
+    return saved, from_query
+
+
+def _persist_orders_per_page(user, per_page: int) -> None:
+    import json
+
+    from app import UserSettings, _default_user_preferences, db
+
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return
+    if per_page not in _ORDERS_PER_PAGE_CHOICES:
+        return
+    prefs = _user_prefs_dict(user)
+    if int(prefs.get('eposone_orders_per_page') or 0) == int(per_page):
+        return
+    prefs['eposone_orders_per_page'] = int(per_page)
+    # Solo keys conocidas + merge ya hecho
+    defaults = _default_user_preferences()
+    clean = {k: prefs.get(k, defaults.get(k)) for k in defaults}
+    clean['eposone_orders_per_page'] = int(per_page)
+    payload = json.dumps(clean)
+    row = UserSettings.query.filter_by(user_id=int(user.id)).first()
+    if not row:
+        row = UserSettings(user_id=int(user.id), preferences=payload)
+        db.session.add(row)
+    else:
+        # merge con existentes para no perder keys extras
+        try:
+            existing = json.loads(row.preferences) if row.preferences else {}
+            if not isinstance(existing, dict):
+                existing = {}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            existing = {}
+        existing.update(clean)
+        row.preferences = json.dumps(existing)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 @eposone_bp.app_template_filter('epos_local')
 def _epos_local_filter(value, fmt='%d/%m %H:%M'):
@@ -138,8 +251,13 @@ def _redirect_promotions():
     return redirect(url_for('eposone.eposone_section', slug='promotions'))
 
 
-def _redirect_settings():
-    return redirect(url_for('eposone.eposone_section', slug='settings'))
+def _redirect_settings_module(slug: str = 'kds'):
+    """Tras guardar opciones operativas, volver al módulo dueño (no a un hub)."""
+    allowed = {'kds', 'registers', 'orders'}
+    target = (slug or 'kds').strip()
+    if target not in allowed:
+        target = 'kds'
+    return redirect(url_for('eposone.eposone_section', slug=target))
 
 
 def _parse_digital_menu_items_from_form() -> list[dict]:
@@ -251,15 +369,44 @@ def _shift_operational_row(
 
 
 def _registers_page_context(organization_id: int) -> dict:
-    from models.commercial_core import CoreCashShift
+    from models.commercial_core import CoreCashShift, CorePosTerminal
     from nodeone.core.commerce.cash import CashRegisterService
     from nodeone.core.commerce.constants import CASH_SHIFT_CLOSED, CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
     from nodeone.core.commerce.persistence import cash_shift_to_dto
-    from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER
+    from nodeone.core.master.constants import (
+        ORG_UNIT_TYPE_BRANCH,
+        ORG_UNIT_TYPE_POS,
+        ORG_UNIT_TYPE_REGISTER,
+    )
     from nodeone.core.services.org_unit import OrgUnitService
+    from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
 
     oid = int(organization_id)
     registers = OrgUnitService.list_units(oid, unit_type=ORG_UNIT_TYPE_REGISTER)
+    pos_units = OrgUnitService.list_units(oid, unit_type=ORG_UNIT_TYPE_POS)
+    branches = OrgUnitService.list_units(oid, unit_type=ORG_UNIT_TYPE_BRANCH)
+    pos_by_id = {int(p.id): p for p in pos_units}
+    branch_by_id = {int(b.id): b for b in branches}
+
+    devices = (
+        CorePosTerminal.query.filter_by(organization_id=oid)
+        .order_by(CorePosTerminal.id.desc())
+        .all()
+    )
+    device_by_register: dict[str, object] = {}
+    for d in devices:
+        ref = (d.register_ref or '').strip()
+        if ref and ref not in device_by_register:
+            device_by_register[ref] = d
+
+    try:
+        codes = DeviceProvisioningService.list_codes(oid, active_only=True)
+    except Exception:
+        codes = []
+    code_by_register = {
+        str(c.register_ref): c for c in codes if getattr(c, 'register_ref', None)
+    }
+
     active_shifts = (
         CoreCashShift.query.filter(
             CoreCashShift.organization_id == oid,
@@ -270,13 +417,17 @@ def _registers_page_context(organization_id: int) -> dict:
     )
     shift_by_register = {str(row.register_ref): row for row in active_shifts}
 
+    from nodeone.modules.eposone.register_license_service import RegisterLicenseService
+
     register_rows: list[dict] = []
     for reg in registers:
         ref = str(reg.unit_ref)
         shift_row = shift_by_register.get(ref)
         shift_dto = None
         expected_balance = None
-        can_open = shift_row is None
+        device = device_by_register.get(ref)
+        has_device = device is not None
+        can_open = shift_row is None and has_device
         can_reconcile = False
         can_close = False
         if shift_row is not None:
@@ -290,6 +441,25 @@ def _registers_page_context(organization_id: int) -> dict:
                 can_reconcile = True
             elif status == CASH_SHIFT_RECONCILING:
                 can_close = True
+
+        pos = pos_by_id.get(int(reg.parent_id)) if reg.parent_id is not None else None
+        branch = None
+        if pos is not None and pos.parent_id is not None:
+            branch = branch_by_id.get(int(pos.parent_id))
+
+        prov = DeviceProvisioningService.get_active_code_for_register(oid, ref)
+
+        if shift_row is not None:
+            ui_status = 'open' if str(shift_row.status) == CASH_SHIFT_OPEN else 'reconciling'
+        elif not has_device:
+            ui_status = 'code_pending' if prov is not None else 'no_device'
+        elif str(getattr(reg, 'status', '') or '') not in ('', 'active'):
+            ui_status = 'blocked'
+        else:
+            last_seen = getattr(device, 'last_seen_at', None) if device else None
+            ui_status = 'assigned' if last_seen else 'disconnected'
+
+        lic = RegisterLicenseService.snapshot(oid, ref)
         register_rows.append(
             {
                 'register': reg,
@@ -298,6 +468,18 @@ def _registers_page_context(organization_id: int) -> dict:
                 'can_open': can_open,
                 'can_reconcile': can_reconcile,
                 'can_close': can_close,
+                'has_device': has_device,
+                'ui_status': ui_status,
+                'pos_name': pos.name if pos is not None else None,
+                'pos_ref': pos.unit_ref if pos is not None else None,
+                'branch_name': branch.name if branch is not None else None,
+                'device': device,
+                'provisioning_code': getattr(prov, 'code', None) if prov is not None else None,
+                'provisioning_expires_at': getattr(prov, 'expires_at', None) if prov is not None else None,
+                'license': lic,
+                'commercial_ui': lic.commercial_ui,
+                'commercial_key': lic.commercial_ui_key(),
+                'can_operate': lic.can_operate,
             }
         )
 
@@ -390,7 +572,6 @@ def eposone_home():
         'eposone/dashboard.html',
         board=board,
         kpis=kpis,
-        recent_orders=(board or {}).get('orders') or [],
         dash_range=(board or {}).get('range') or range_key,
         dash_from=(board or {}).get('date_from') or date_from or '',
         dash_to=(board or {}).get('date_to') or date_to or '',
@@ -437,38 +618,110 @@ def eposone_issue_provisioning_code():
 
     oid = resolve_organization_id()
     register_ref = (request.form.get('register_ref') or '').strip()
+    redirect_slug = (request.form.get('redirect_slug') or 'terminals').strip()
+    if redirect_slug not in ('terminals', 'registers', 'pos-points'):
+        redirect_slug = 'terminals'
     if oid is None or not register_ref:
         flash('Falta register_ref (caja).', 'warning')
-        return redirect(url_for('eposone.eposone_section', slug='terminals'))
+        return redirect(url_for('eposone.eposone_section', slug=redirect_slug))
     try:
         row = DeviceProvisioningService.issue_code_for_register(int(oid), register_ref=register_ref)
-        flash(f'Código generado para {register_ref}: {row.code}', 'success')
+        exp = row.expires_at.strftime('%H:%M') if row.expires_at else '—'
+        flash(
+            f'Código de provisioning para {register_ref}: {row.code} · expira ~{exp} UTC. '
+            f'Úsalo una sola vez en el APK.',
+            'success',
+        )
     except DeviceProvisioningError as exc:
         flash(f'No se pudo generar código: {exc.code}', 'danger')
-    return redirect(url_for('eposone.eposone_section', slug='terminals'))
+    return redirect(url_for('eposone.eposone_section', slug=redirect_slug))
+
+
+@eposone_bp.route('/registers/<register_ref>/license', methods=['POST'])
+@login_required
+def eposone_register_license_set(register_ref: str):
+    """Admin: activar/extender licencia comercial de una Caja (no es provisioning)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from flask import flash, redirect, request, url_for
+
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.register_license_service import (
+        LICENSE_TYPE_COURTESY,
+        LICENSE_TYPE_PERPETUAL,
+        LICENSE_TYPE_SUBSCRIPTION,
+        LICENSE_TYPE_TRIAL,
+        RegisterLicenseService,
+    )
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    action = (request.form.get('action') or 'activate').strip().lower()
+    uid = getattr(current_user, 'id', None)
+    try:
+        if action == 'extend':
+            days = int(request.form.get('days') or 30)
+            RegisterLicenseService.extend(
+                int(oid), register_ref, days=days, notes=request.form.get('notes'), user_id=uid
+            )
+            flash(f'Licencia de {register_ref} extendida {days} día(s).', 'success')
+        elif action == 'courtesy':
+            days_raw = (request.form.get('days') or '').strip()
+            RegisterLicenseService.activate(
+                int(oid),
+                register_ref,
+                license_type=LICENSE_TYPE_COURTESY,
+                duration_days=int(days_raw) if days_raw.isdigit() else None,
+                notes=request.form.get('notes'),
+                reason=request.form.get('reason') or 'courtesy',
+                user_id=uid,
+            )
+            flash(f'Cortesía aplicada a {register_ref}.', 'success')
+        elif action == 'perpetual':
+            RegisterLicenseService.activate(
+                int(oid),
+                register_ref,
+                license_type=LICENSE_TYPE_PERPETUAL,
+                notes=request.form.get('notes'),
+                reason='admin_perpetual',
+                user_id=uid,
+            )
+            flash(f'Licencia permanente en {register_ref}.', 'success')
+        else:
+            ltype = (request.form.get('license_type') or LICENSE_TYPE_TRIAL).strip()
+            days_raw = (request.form.get('days') or '').strip()
+            days = int(days_raw) if days_raw.isdigit() else None
+            RegisterLicenseService.activate(
+                int(oid),
+                register_ref,
+                license_type=ltype if ltype != 'active' else LICENSE_TYPE_SUBSCRIPTION,
+                duration_days=days,
+                notes=request.form.get('notes'),
+                reason=request.form.get('reason') or 'admin_activate',
+                user_id=uid,
+                mark_trial_used=(ltype == LICENSE_TYPE_TRIAL),
+            )
+            flash(f'Licencia actualizada en {register_ref}.', 'success')
+    except Exception as exc:
+        flash(f'No se pudo actualizar licencia: {exc}', 'danger')
+    return redirect(url_for('eposone.eposone_section', slug='registers'))
 
 
 @eposone_bp.route('/analytics')
 @login_required
 def eposone_analytics():
-    """Analítica operativa del POS (UX-T4). Vive en EPosOne, no en /admin/analytics?source=."""
+    """Legacy UX-T4: redirige al Dashboard V2 (una sola pantalla operativa)."""
     denied = _require_eposone_admin()
     if denied is not None:
         return denied
-    from nodeone.core.commerce.dashboard import CommerceDashboardService
-    from nodeone.core.platform.runtime import resolve_organization_id
-
-    kpis = None
-    recent_reports: list = []
-    oid = resolve_organization_id()
-    if oid is not None:
-        kpis = CommerceDashboardService.get_snapshot(int(oid))
-        recent_reports = CommerceDashboardService.list_recent_report_events(int(oid), limit=20)
-    return render_template(
-        'eposone/analytics.html',
-        kpis=kpis,
-        recent_reports=recent_reports,
-    )
+    # Conserva querystring por si llega con filtros futuros.
+    qs = request.query_string.decode('utf-8') if request.query_string else ''
+    target = url_for('eposone.eposone_home')
+    if qs:
+        target = f'{target}?{qs}'
+    return redirect(target)
 
 
 @eposone_bp.route('/orders/<int:order_id>')
@@ -589,6 +842,7 @@ def eposone_order_domain_detail(order_id: int):
         timeline=timeline,
         payment_methods=payment_methods,
         payment_method_labels=payment_method_labels,
+        orders_back_url=_orders_list_url(_orders_list_filter_args()),
     )
 
 
@@ -797,6 +1051,20 @@ def eposone_register_open_shift():
     register_ref = (request.form.get('register_ref') or '').strip()
     if not register_ref:
         flash('Seleccioná una caja.', 'warning')
+        return _redirect_registers()
+    # UX/arquitectura EN1-02: no abrir turno sin tablet vinculada a la caja.
+    from models.commercial_core import CorePosTerminal
+
+    has_device = (
+        CorePosTerminal.query.filter_by(organization_id=int(oid), register_ref=register_ref).first()
+        is not None
+    )
+    if not has_device:
+        flash(
+            'Esta caja no tiene un dispositivo asignado. '
+            'Registrá una tablet con el código de provisioning antes de abrir un turno.',
+            'warning',
+        )
         return _redirect_registers()
     try:
         opening_balance = float(request.form.get('opening_balance') or 0)
@@ -1132,20 +1400,40 @@ def eposone_settings_save():
     oid = resolve_organization_id()
     if oid is None:
         abort(400)
+    panel = (request.form.get('settings_panel') or '').strip()
+    redirect_slug = (request.form.get('redirect_slug') or '').strip()
+    # Moneda no se edita desde EPosOne (herencia EN1). Opciones por módulo dueño.
+    update_kwargs: dict = {}
+    label = 'Opciones'
+    if panel == 'kds':
+        update_kwargs = {
+            'kds_auto_enqueue': request.form.get('kds_auto_enqueue') == '1',
+            'delivery_auto_create': request.form.get('delivery_auto_create') == '1',
+        }
+        label = 'Cocina (KDS)'
+        redirect_slug = redirect_slug or 'kds'
+    elif panel == 'fe':
+        update_kwargs = {
+            'fiscal_on_payment': request.form.get('fiscal_on_payment') == '1',
+        }
+        label = 'Facturación'
+        redirect_slug = redirect_slug or 'orders'
+    elif panel == 'seguridad':
+        update_kwargs = {
+            'supervisor_approval_required': request.form.get('supervisor_approval_required') == '1',
+        }
+        label = 'Caja'
+        redirect_slug = redirect_slug or 'registers'
+    else:
+        flash('Opciones no válidas.', 'warning')
+        return _redirect_settings_module(redirect_slug or 'kds')
     try:
-        dto = EposoneSettingsService.update_settings(
-            int(oid),
-            default_currency=(request.form.get('default_currency') or 'USD').strip(),
-            kds_auto_enqueue=request.form.get('kds_auto_enqueue') == '1',
-            delivery_auto_create=request.form.get('delivery_auto_create') == '1',
-            fiscal_on_payment=request.form.get('fiscal_on_payment') == '1',
-            supervisor_approval_required=request.form.get('supervisor_approval_required') == '1',
-        )
+        EposoneSettingsService.update_settings(int(oid), **update_kwargs)
     except OrderValidationError as exc:
         flash(str(exc).replace('_', ' '), 'danger')
-        return _redirect_settings()
-    flash(f'Configuración guardada (moneda {dto.default_currency}).', 'success')
-    return _redirect_settings()
+        return _redirect_settings_module(redirect_slug or 'kds')
+    flash(f'{label}: cambios guardados.', 'success')
+    return _redirect_settings_module(redirect_slug or 'kds')
 
 
 @eposone_bp.route('/products/create', methods=['POST'])
@@ -1171,9 +1459,18 @@ def eposone_product_create():
     if img_err:
         flash(img_err, 'danger')
         return redirect(url_for('eposone.eposone_section', slug='products'))
+    # UX: SKU opcional en el formulario; el dominio sigue exigiendo product_ref.
+    product_ref = (request.form.get('product_ref') or '').strip()
+    name = (request.form.get('name') or '').strip()
+    if not product_ref and name:
+        import re
+        import time
+
+        base = re.sub(r'[^a-z0-9]+', '_', name.lower())[:40].strip('_') or 'prod'
+        product_ref = f'{base}_{int(time.time()) % 100000:05d}'
     payload = {
-        'product_ref': (request.form.get('product_ref') or '').strip(),
-        'name': (request.form.get('name') or '').strip(),
+        'product_ref': product_ref,
+        'name': name,
         'product_type': (request.form.get('product_type') or 'good').strip().lower(),
         'unit_price': request.form.get('unit_price') or 0,
         'currency': (request.form.get('currency') or 'USD').strip().upper() or 'USD',
@@ -1391,9 +1688,10 @@ def eposone_warehouse_create():
         dto = OrgUnitService.create(int(oid), payload)
     except MasterDataError as exc:
         flash(str(exc).replace('_', ' '), 'danger')
-        return redirect(url_for('eposone.eposone_section', slug='inventory'))
+        return redirect(url_for('eposone.eposone_section', slug='inventory', tab='bodegas'))
     flash(f'Bodega {dto.name} ({dto.unit_ref}) creada.', 'success')
-    return redirect(url_for('eposone.eposone_section', slug='inventory'))
+    tab = (request.form.get('redirect_tab') or 'bodegas').strip() or 'bodegas'
+    return redirect(url_for('eposone.eposone_section', slug='inventory', tab=tab))
 
 
 @eposone_bp.route('/stock/adjust', methods=['POST'])
@@ -1417,13 +1715,14 @@ def eposone_stock_adjust():
         'notes': (request.form.get('notes') or '').strip() or None,
         'supervisor_user_id': getattr(current_user, 'id', None),
     }
+    tab = (request.form.get('redirect_tab') or 'ajustes').strip() or 'ajustes'
     try:
         StockService.record_manual_adjust(int(oid), payload, source_app_id='eposone')
     except (StockValidationError, OrderValidationError) as exc:
         flash(str(exc).replace('_', ' '), 'danger')
-        return redirect(url_for('eposone.eposone_section', slug='inventory'))
+        return redirect(url_for('eposone.eposone_section', slug='inventory', tab=tab))
     flash('Ajuste de stock registrado.', 'success')
-    return redirect(url_for('eposone.eposone_section', slug='inventory'))
+    return redirect(url_for('eposone.eposone_section', slug='inventory', tab=tab))
 
 
 @eposone_bp.route('/contacts/create', methods=['POST'])
@@ -1438,19 +1737,37 @@ def eposone_contact_create():
     oid = resolve_organization_id()
     if oid is None:
         abort(400)
+    profile = (request.form.get('client_profile') or 'pos').strip().lower()
+    contact_type = (request.form.get('contact_type') or 'person').strip()
+    identification_type = (request.form.get('identification_type') or 'cedula').strip()
+    # UX: Cliente POS nunca usa consumer_final (eso es el registro del sistema).
+    if profile == 'pos':
+        contact_type = 'person'
+        identification_type = 'cedula'
     payload = {
-        'contact_type': (request.form.get('contact_type') or 'person').strip(),
+        'contact_type': contact_type,
         'display_name': (request.form.get('display_name') or '').strip(),
         'first_name': (request.form.get('first_name') or '').strip(),
         'last_name': (request.form.get('last_name') or '').strip(),
+        'company_name': (request.form.get('company_name') or '').strip(),
+        'commercial_name': (request.form.get('commercial_name') or '').strip(),
         'email': (request.form.get('email') or '').strip(),
         'phone': (request.form.get('phone') or '').strip(),
         'mobile': (request.form.get('mobile') or '').strip(),
         'tax_id': (request.form.get('tax_id') or '').strip(),
-        'identification_type': (request.form.get('identification_type') or 'consumer_final').strip(),
+        'dv': (request.form.get('dv') or '').strip(),
+        'identification_type': identification_type,
+        'province': (request.form.get('province') or '').strip(),
+        'district': (request.form.get('district') or '').strip(),
+        'township': (request.form.get('township') or '').strip(),
+        'fiscal_address': (request.form.get('fiscal_address') or '').strip(),
+        'country': (request.form.get('country') or 'PA').strip() or 'PA',
         'is_customer': request.form.get('is_customer') == '1',
         'active': True,
     }
+    # Empresa: company_name obligatorio en el maestro — reutilizar display_name si falta.
+    if payload['contact_type'] == 'company' and not payload['company_name']:
+        payload['company_name'] = payload['display_name']
     try:
         dto = ContactService.create(int(oid), payload)
     except ContactService.ValidationError as exc:
@@ -1610,12 +1927,13 @@ def eposone_section(slug: str):
     if denied is not None:
         return denied
     key = (slug or '').strip().lower()
+    # Legacy: Centro de Configuración eliminado — opciones viven en cada módulo.
+    if key == 'settings':
+        return redirect(url_for('eposone.eposone_home'))
     if key not in EPOSONE_SECTION_SLUGS:
         abort(404)
     title, description = EPOSONE_SECTIONS[key]
     if key == 'orders':
-        from datetime import datetime, timedelta
-
         from sqlalchemy import or_
 
         from models.eposone_order import EposoneOrder
@@ -1634,6 +1952,14 @@ def eposone_section(slug: str):
         customer_filter = (request.args.get('customer') or '').strip() or None
         date_from = (request.args.get('from') or '').strip() or None
         date_to = (request.args.get('to') or '').strip() or None
+        per_page, persist_pp = _resolve_orders_per_page(current_user)
+        if persist_pp:
+            _persist_orders_per_page(current_user, per_page)
+        try:
+            page = max(1, int((request.args.get('page') or '1').strip()))
+        except (TypeError, ValueError):
+            page = 1
+        pages_total = 1
         if oid is not None:
             q = EposoneOrder.query.filter_by(organization_id=int(oid))
             if status_filter:
@@ -1661,20 +1987,64 @@ def eposone_section(slug: str):
                         EposoneOrder.user_ref.ilike(like),
                     )
                 )
-            if date_from:
-                try:
-                    start = datetime.strptime(date_from[:10], '%Y-%m-%d')
-                    q = q.filter(EposoneOrder.opened_at >= start)
-                except ValueError:
-                    pass
-            if date_to:
-                try:
-                    end = datetime.strptime(date_to[:10], '%Y-%m-%d') + timedelta(days=1)
-                    q = q.filter(EposoneOrder.opened_at < end)
-                except ValueError:
-                    pass
-            orders = q.order_by(EposoneOrder.opened_at.desc(), EposoneOrder.id.desc()).limit(200).all()
-            orders_total = len(orders)
+            from datetime import datetime as _dt
+
+            from models.saas import SaasOrganization
+            from nodeone.core.timezone_service import TimeZoneService
+
+            org = SaasOrganization.query.filter_by(id=int(oid)).first()
+            zone = TimeZoneService.effective_timezone(
+                user=current_user if getattr(current_user, 'is_authenticated', False) else None,
+                organization=org,
+            )
+            today_local = _dt.now(zone).strftime('%Y-%m-%d')
+            if date_from or date_to:
+                if date_from:
+                    try:
+                        start, _ = TimeZoneService.day_bounds_utc_naive(date_from[:10], zone)
+                        q = q.filter(EposoneOrder.opened_at >= start)
+                    except ValueError:
+                        pass
+                if date_to:
+                    try:
+                        _, end = TimeZoneService.day_bounds_utc_naive(date_to[:10], zone)
+                        q = q.filter(EposoneOrder.opened_at < end)
+                    except ValueError:
+                        pass
+            orders_total = int(q.count())
+            pages_total = max(1, (orders_total + per_page - 1) // per_page)
+            if page > pages_total:
+                page = pages_total
+            offset = (page - 1) * per_page
+            orders = (
+                q.order_by(EposoneOrder.opened_at.desc(), EposoneOrder.id.desc())
+                .offset(offset)
+                .limit(per_page)
+                .all()
+            )
+            showing_from = (offset + 1) if orders_total else 0
+            showing_to = offset + len(orders)
+        else:
+            today_local = ''
+            showing_from = 0
+            showing_to = 0
+        # Query string para Ver/detalle: filtros + paginación actual
+        from urllib.parse import urlencode
+
+        detail_params = _orders_list_filter_args()
+        detail_params['per_page'] = str(per_page)
+        detail_params['page'] = str(page)
+        orders_detail_qs = urlencode(detail_params)
+        pager_params = {k: v for k, v in detail_params.items() if k != 'page'}
+        orders_pager_qs = urlencode(pager_params)
+        settings = None
+        fe_module_enabled = False
+        if oid is not None:
+            from nodeone.modules.eposone.settings_service import EposoneSettingsService
+            from nodeone.services.org_scope import has_saas_module_enabled
+
+            settings = EposoneSettingsService.get_settings(int(oid))
+            fe_module_enabled = bool(has_saas_module_enabled(int(oid), 'efactura'))
         return render_template(
             'eposone/orders_domain.html',
             section_slug=key,
@@ -1692,6 +2062,17 @@ def eposone_section(slug: str):
             customer_filter=customer_filter or '',
             date_from=date_from or '',
             date_to=date_to or '',
+            today_local=today_local,
+            orders_detail_qs=orders_detail_qs,
+            orders_pager_qs=orders_pager_qs,
+            page=page,
+            per_page=per_page,
+            pages_total=pages_total,
+            per_page_choices=_ORDERS_PER_PAGE_CHOICES,
+            showing_from=showing_from,
+            showing_to=showing_to,
+            settings=settings,
+            fe_module_enabled=fe_module_enabled,
         )
     if key == 'contacts':
         from nodeone.core.platform.runtime import resolve_organization_id
@@ -1702,7 +2083,7 @@ def eposone_section(slug: str):
         contacts_total = 0
         q = (request.args.get('q') or '').strip()
         if oid is not None:
-            contacts, contacts_total = ContactService.search(int(oid), q=q, limit=50)
+            contacts, contacts_total = ContactService.search(int(oid), q=q, limit=200)
         return render_template(
             'eposone/contacts.html',
             section_slug=key,
@@ -1721,7 +2102,8 @@ def eposone_section(slug: str):
         can_delete_by_ref: dict[str, bool] = {}
         categories: list[str] = []
         if oid is not None:
-            products = ProductService.search(int(oid), limit=100)
+            # Catálogo BO: más filas para filtros client-side (UX); no cambia API/dominio.
+            products = ProductService.search(int(oid), limit=500)
             for p in products:
                 can_delete_by_ref[p.product_ref] = not ProductService.has_operational_usage(
                     int(oid), p.product_ref
@@ -1741,16 +2123,20 @@ def eposone_section(slug: str):
         )
     if key == 'kds':
         from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.modules.eposone.settings_service import EposoneSettingsService
 
         oid = resolve_organization_id()
         ctx = {'ticket_rows': [], 'tickets_total': 0}
+        settings = None
         if oid is not None:
             ctx = _kds_page_context(int(oid))
+            settings = EposoneSettingsService.get_settings(int(oid))
         return render_template(
             'eposone/kds.html',
             section_slug=key,
             section_title=title,
             section_description=description,
+            settings=settings,
             **ctx,
         )
     if key == 'delivery':
@@ -1804,40 +2190,7 @@ def eposone_section(slug: str):
             promotions=promotions,
             promotions_total=len(promotions),
         )
-    if key == 'settings':
-        from nodeone.core.platform.runtime import resolve_organization_id
-        from nodeone.modules.eposone.settings_service import ALLOWED_CURRENCIES, EposoneSettingsService
-
-        oid = resolve_organization_id()
-        settings = EposoneSettingsService.get_settings(int(oid)) if oid is not None else None
-        return render_template(
-            'eposone/settings.html',
-            section_slug=key,
-            section_title=title,
-            section_description=description,
-            settings=settings,
-            allowed_currencies=sorted(ALLOWED_CURRENCIES),
-        )
     if key == 'branches':
-        from nodeone.core.master.constants import ORG_UNIT_TYPE_BRANCH
-        from nodeone.core.platform.runtime import resolve_organization_id
-        from nodeone.core.services.org_unit import OrgUnitService
-
-        oid = resolve_organization_id()
-        branches: list = []
-        if oid is not None:
-            branches = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_BRANCH)
-        return render_template(
-            'eposone/branches.html',
-            section_slug=key,
-            section_title=title,
-            section_description=description,
-            branches=branches,
-            branches_total=len(branches),
-        )
-    if key == 'pos-points':
-        from nodeone.core.commerce.pos import PosTerminalService
-        from nodeone.core.license.policy import policy_for_organization
         from nodeone.core.master.constants import (
             ORG_UNIT_TYPE_BRANCH,
             ORG_UNIT_TYPE_POS,
@@ -1847,44 +2200,125 @@ def eposone_section(slug: str):
         from nodeone.core.services.org_unit import OrgUnitService
 
         oid = resolve_organization_id()
+        branch_rows: list = []
+        if oid is not None:
+            branches = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_BRANCH)
+            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
+            registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
+            pos_by_branch: dict[int, list] = {}
+            for pos in pos_units:
+                pid = getattr(pos, 'parent_id', None)
+                if pid is not None:
+                    pos_by_branch.setdefault(int(pid), []).append(pos)
+            reg_by_pos: dict[int, int] = {}
+            for reg in registers:
+                pp = getattr(reg, 'parent_id', None)
+                if pp is not None:
+                    reg_by_pos[int(pp)] = reg_by_pos.get(int(pp), 0) + 1
+            for branch in branches:
+                pos_list = pos_by_branch.get(int(branch.id), [])
+                pos_n = len(pos_list)
+                reg_n = sum(reg_by_pos.get(int(p.id), 0) for p in pos_list)
+                branch_rows.append(
+                    {
+                        'branch': branch,
+                        'pos_count': pos_n,
+                        'register_count': reg_n,
+                    }
+                )
+        return render_template(
+            'eposone/branches.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            branch_rows=branch_rows,
+            branches_total=len(branch_rows),
+        )
+    if key == 'pos-points':
+        from nodeone.core.commerce.pos import PosTerminalService
+        from nodeone.core.master.constants import (
+            ORG_UNIT_TYPE_BRANCH,
+            ORG_UNIT_TYPE_POS,
+            ORG_UNIT_TYPE_REGISTER,
+        )
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
+        from nodeone.modules.eposone.register_license_service import RegisterLicenseService
+
+        oid = resolve_organization_id()
         pos_units: list = []
         branches: list = []
         registers: list = []
         devices: list = []
-        license_info = None
         if oid is not None:
             pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
             branches = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_BRANCH)
             registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
-            devices = PosTerminalService.list_terminals(int(oid), limit=100)
-            policy = policy_for_organization(int(oid))
-            license_info = {
-                'enforcement': 'disabled',
-                'can_create_pos': policy.can_create_pos(),
-                'limits': policy.limits.to_dict(),
-            }
-        devices_by_pos: dict[str, list] = {}
+            devices = PosTerminalService.list_terminals(int(oid), limit=500)
+
+        branch_by_id = {int(b.id): b for b in branches}
         registers_by_pos: dict[int, list] = {}
-        for d in devices:
-            pref = getattr(d, 'pos_ref', None) or ''
-            devices_by_pos.setdefault(pref, []).append(d)
         for reg in registers:
             pid = getattr(reg, 'parent_id', None)
             if pid is not None:
                 registers_by_pos.setdefault(int(pid), []).append(reg)
+
+        device_by_register: dict[str, object] = {}
+        for d in devices:
+            ref = (getattr(d, 'register_ref', None) or '').strip()
+            if ref and ref not in device_by_register:
+                device_by_register[ref] = d
+
+        pos_rows: list[dict] = []
+        for item in pos_units:
+            regs = registers_by_pos.get(int(item.id), [])
+            with_dev = sum(1 for r in regs if str(r.unit_ref) in device_by_register)
+            branch = branch_by_id.get(int(item.parent_id)) if item.parent_id is not None else None
+            pos_rows.append(
+                {
+                    'pos': item,
+                    'branch_name': branch.name if branch is not None else None,
+                    'register_count': len(regs),
+                    'registers_with_device': with_dev,
+                }
+            )
+
+        pos_ref = (request.args.get('pos') or '').strip()
+        active_pos = None
+        active_branch_name = None
+        active_register_rows: list[dict] = []
+        if pos_ref:
+            active_pos = next((p for p in pos_units if str(p.unit_ref) == pos_ref), None)
+            if active_pos is None:
+                return redirect(url_for('eposone.eposone_section', slug='pos-points'))
+            branch = (
+                branch_by_id.get(int(active_pos.parent_id))
+                if active_pos.parent_id is not None
+                else None
+            )
+            active_branch_name = branch.name if branch is not None else None
+            for reg in registers_by_pos.get(int(active_pos.id), []):
+                lic = None
+                if oid is not None:
+                    lic = RegisterLicenseService.snapshot(int(oid), str(reg.unit_ref))
+                active_register_rows.append(
+                    {
+                        'register': reg,
+                        'device': device_by_register.get(str(reg.unit_ref)),
+                        'license': lic,
+                    }
+                )
+
         return render_template(
             'eposone/pos_points.html',
             section_slug=key,
             section_title=title,
             section_description=description,
-            pos_units=pos_units,
-            pos_units_total=len(pos_units),
             branches=branches,
-            registers=registers,
-            devices=devices,
-            devices_by_pos=devices_by_pos,
-            registers_by_pos=registers_by_pos,
-            license_info=license_info,
+            pos_rows=pos_rows,
+            active_pos=active_pos,
+            active_branch_name=active_branch_name,
+            active_register_rows=active_register_rows,
         )
     if key == 'inventory':
         from nodeone.core.commerce.stock import StockService
@@ -1899,16 +2333,22 @@ def eposone_section(slug: str):
         stock_movements: list = []
         branches: list = []
         products: list = []
+        categories: list[str] = []
         warehouse_name_by_id: dict[int, str] = {}
+        branch_name_by_id: dict[int, str] = {}
         product_meta_by_ref: dict[str, dict] = {}
         if oid is not None:
             warehouses = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_WAREHOUSE)
-            stock_balances = StockService.list_balances(int(oid), limit=200)
-            stock_movements = StockService.list_movements(int(oid), limit=100)
+            # UX: más filas para filtros client-side; no cambia API/dominio.
+            stock_balances = StockService.list_balances(int(oid), limit=500)
+            stock_movements = StockService.list_movements(int(oid), limit=200)
             branches = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_BRANCH)
-            products = ProductService.search(int(oid), status='active', limit=200)
+            products = ProductService.search(int(oid), status='active', limit=500)
             warehouse_name_by_id = {
                 int(w.id): f'{w.name} ({w.unit_ref})' for w in warehouses
+            }
+            branch_name_by_id = {
+                int(b.id): f'{b.name} ({b.unit_ref})' for b in branches
             }
             for p in products:
                 product_meta_by_ref[p.product_ref] = {
@@ -1916,9 +2356,30 @@ def eposone_section(slug: str):
                     'uom': p.uom or 'und',
                     'min_stock': p.min_stock,
                     'max_stock': p.max_stock,
+                    'category': (p.category or '').strip(),
+                    'unit_price': float(p.unit_price or 0),
+                }
+                cat = (p.category or '').strip()
+                if cat and cat not in categories:
+                    categories.append(cat)
+            categories.sort()
+            # Completar meta de productos con saldo pero fuera del search activo.
+            for bal in stock_balances:
+                if bal.product_ref in product_meta_by_ref:
+                    continue
+                dto = ProductService.get_by_ref(int(oid), bal.product_ref)
+                if dto is None:
+                    continue
+                product_meta_by_ref[dto.product_ref] = {
+                    'name': dto.name,
+                    'uom': dto.uom or 'und',
+                    'min_stock': dto.min_stock,
+                    'max_stock': dto.max_stock,
+                    'category': (dto.category or '').strip(),
+                    'unit_price': float(dto.unit_price or 0),
                 }
         return render_template(
-            'eposone/warehouses.html',
+            'eposone/inventory.html',
             section_slug=key,
             section_title=title,
             section_description=description,
@@ -1929,9 +2390,11 @@ def eposone_section(slug: str):
             stock_movements=stock_movements,
             stock_movements_total=len(stock_movements),
             warehouse_name_by_id=warehouse_name_by_id,
+            branch_name_by_id=branch_name_by_id,
             product_meta_by_ref=product_meta_by_ref,
             branches=branches,
             products=products,
+            categories=categories,
         )
     if key == 'registers':
         from nodeone.core.master.constants import ORG_UNIT_TYPE_POS
@@ -1941,15 +2404,20 @@ def eposone_section(slug: str):
         oid = resolve_organization_id()
         ctx = {'register_rows': [], 'registers_total': 0, 'open_shifts_total': 0, 'recent_closed': []}
         pos_units: list = []
+        settings = None
         if oid is not None:
+            from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
             ctx = _registers_page_context(int(oid))
             pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
+            settings = EposoneSettingsService.get_settings(int(oid))
         return render_template(
             'eposone/registers.html',
             section_slug=key,
             section_title=title,
             section_description=description,
             pos_units=pos_units,
+            settings=settings,
             **ctx,
         )
     if key == 'shifts':
@@ -1974,37 +2442,68 @@ def eposone_section(slug: str):
         )
     if key == 'terminals':
         from nodeone.core.commerce.pos import PosTerminalService
-        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS, ORG_UNIT_TYPE_REGISTER
         from nodeone.core.platform.runtime import resolve_organization_id
-        from nodeone.core.services.org_unit import OrgUnitService
-        from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
 
         oid = resolve_organization_id()
-        pos_units: list = []
         devices: list = []
-        registers: list = []
-        provisioning_codes: list = []
-        legacy_org_code = None
         if oid is not None:
-            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
-            registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
-            devices = PosTerminalService.list_terminals(int(oid), limit=100)
-            provisioning_codes = DeviceProvisioningService.list_codes(int(oid), active_only=True)
-            legacy_org_code = DeviceProvisioningService.ensure_provisioning_code(int(oid))
-        code_by_register = {c.register_ref: c for c in provisioning_codes}
+            devices = PosTerminalService.list_terminals(int(oid), limit=500)
+
+        def _is_ops_device(d) -> bool:
+            ref = str(getattr(d, 'terminal_ref', None) or '').lower()
+            label = str(getattr(d, 'device_label', None) or '').lower()
+            blob = f'{ref} {label}'
+            if ref.startswith(('diag-', 'e2e-', 'test-')):
+                return False
+            if 'bootstrap-check' in blob or 'http-check' in blob:
+                return False
+            return True
+
+        show_all = (request.args.get('all') or '').strip() == '1'
+        ops_devices = [d for d in devices if _is_ops_device(d)]
+        hidden_n = len(devices) - len(ops_devices)
+        view_devices = devices if show_all else ops_devices
+
         return render_template(
             'eposone/terminals.html',
             section_slug=key,
             section_title=title,
             section_description=description,
-            pos_units=pos_units,
-            pos_units_total=len(pos_units),
-            devices=devices,
-            devices_total=len(devices),
-            registers=registers,
-            provisioning_codes=provisioning_codes,
-            code_by_register=code_by_register,
-            provisioning_code=legacy_org_code,
+            devices=view_devices,
+            devices_total=len(view_devices),
+            devices_all_total=len(devices),
+            hidden_test_devices=hidden_n,
+            show_all_devices=show_all,
+        )
+    if key == 'licenses':
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_POS, ORG_UNIT_TYPE_REGISTER
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.core.services.org_unit import OrgUnitService
+        from nodeone.modules.eposone.register_license_service import RegisterLicenseService
+
+        oid = resolve_organization_id()
+        license_rows: list = []
+        if oid is not None:
+            registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
+            pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
+            pos_by_id = {int(p.id): p for p in pos_units}
+            for reg in registers:
+                snap = RegisterLicenseService.snapshot(int(oid), str(reg.unit_ref))
+                pos = pos_by_id.get(int(reg.parent_id)) if reg.parent_id is not None else None
+                license_rows.append(
+                    {
+                        'register': reg,
+                        'pos_name': pos.name if pos is not None else None,
+                        'license': snap,
+                    }
+                )
+        return render_template(
+            'eposone/licenses.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            license_rows=license_rows,
+            licenses_total=len(license_rows),
         )
     return render_template(
         'eposone/section.html',

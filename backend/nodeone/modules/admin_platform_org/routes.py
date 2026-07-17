@@ -217,6 +217,12 @@ def register_admin_platform_org_routes(app):
             ensure_saas_organization_registration_policy_column(db, db.engine)
         except Exception:
             current_app.logger.exception('ensure_saas_organization_registration_policy_column en admin_platform_org')
+        try:
+            from nodeone.services.saas_org_timezone_schema import ensure_saas_organization_timezone_column
+
+            ensure_saas_organization_timezone_column(db, db.engine)
+        except Exception:
+            current_app.logger.exception('ensure_saas_organization_timezone_column en admin_platform_org')
 
     @app.route('/admin/guide-img/<filename>')
     @admin_required
@@ -264,6 +270,9 @@ def register_admin_platform_org_routes(app):
             from nodeone.services.registration_policy import normalize_registration_policy
 
             registration_policy = normalize_registration_policy(request.form.get('registration_policy'))
+            from nodeone.core.timezone_service import TimeZoneService
+
+            org_timezone = TimeZoneService.validate_iana(request.form.get('timezone'))
             if not name:
                 flash('El nombre es obligatorio.', 'error')
                 return _render_org_wizard(
@@ -307,6 +316,7 @@ def register_admin_platform_org_routes(app):
                 subdomain=sub_raw,
                 is_active=is_active,
                 registration_policy=registration_policy,
+                timezone=org_timezone,
                 **fiscal,
             )
             db.session.add(o)
@@ -423,11 +433,13 @@ def register_admin_platform_org_routes(app):
                         step_arg=request.form.get('wizard_step'),
                     )
             from nodeone.services.registration_policy import normalize_registration_policy
+            from nodeone.core.timezone_service import TimeZoneService
 
             o.name = name
             o.subdomain = sub_raw
             o.is_active = is_active
             o.registration_policy = normalize_registration_policy(request.form.get('registration_policy'))
+            o.timezone = TimeZoneService.validate_iana(request.form.get('timezone'))
             for k, v in fiscal.items():
                 setattr(o, k, v)
             try:

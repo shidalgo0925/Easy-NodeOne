@@ -1,141 +1,519 @@
 {% extends "base.html" %}
 
-{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+{% block title %}EPosOne — Clientes | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3 en1-eposone-page">
-    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div class="container-fluid py-3 en1-eposone-page epos-contacts-v2" id="epos-contacts-page">
+
+    <div class="epos-page-header">
         <div>
-            <h1 class="h4 mb-1 app-page-title">{{ section_title }}</h1>
-            <p class="text-muted small mb-0">{{ section_description }}</p>
+            <h1 class="epos-page-title">
+                <i class="fas fa-user-friends me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Clientes
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Contactos del POS (maestro EN1) · {{ contacts_total }} registro(s)
+                <span class="badge text-bg-light border ms-1">V2</span>
+            </p>
         </div>
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            <span class="badge en1-badge en1-badge--neutral">{{ contacts_total }} contacto(s)</span>
-            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createContactModal">
-                <i class="fas fa-plus me-1"></i> Crear cliente
+        <div class="epos-btn-row">
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#chooseContactTypeModal">
+                <i class="fas fa-plus me-1"></i>Nuevo Cliente
             </button>
-            {% if has_view_endpoint('contacts_admin.contacts_index') %}
+            {% if has_view_endpoint is defined and has_view_endpoint('contacts_admin.contacts_index') %}
             <a href="{{ url_for('contacts_admin.contacts_index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-external-link-alt me-1"></i>CRM completo
+                <i class="fas fa-external-link-alt me-1"></i>CRM EN1
             </a>
             {% endif %}
         </div>
     </div>
 
-    <form method="get" class="row g-2 mb-3">
-        <div class="col-12 col-md-6 col-lg-4">
-            <input type="search" name="q" class="form-control form-control-sm" placeholder="Buscar nombre, email, tax id…" value="{{ search_q }}">
+    <form class="epos-filter-bar mb-3" id="epos-contact-filters" method="get" action="{{ url_for('eposone.eposone_section', slug='contacts') }}">
+        <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
+            <label for="ct-q">Buscar</label>
+            <input class="form-control" type="search" id="ct-q" name="q" value="{{ search_q or '' }}"
+                   placeholder="Nombre, email, documento…" autocomplete="off">
         </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-            {% if search_q %}
-            <a href="{{ url_for('eposone.eposone_section', slug='contacts') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
-            {% endif %}
+        <div class="epos-filter-field">
+            <label for="ct-kind">Tipo</label>
+            <select class="form-select" id="ct-kind">
+                <option value="">Todos</option>
+                <option value="cf">Consumidor Final</option>
+                <option value="pos">Cliente POS</option>
+                <option value="fiscal">Cliente Fiscal</option>
+                <option value="company">Empresa</option>
+            </select>
+        </div>
+        <div class="epos-filter-field">
+            <label for="ct-fiscal">Cliente Fiscal</label>
+            <select class="form-select" id="ct-fiscal">
+                <option value="">Todos</option>
+                <option value="1">Sí</option>
+                <option value="0">No</option>
+            </select>
+        </div>
+        <div class="epos-filter-field">
+            <label for="ct-status">Estado</label>
+            <select class="form-select" id="ct-status">
+                <option value="">Todos</option>
+                <option value="1">Activo</option>
+                <option value="0">Inactivo</option>
+            </select>
+        </div>
+        <div class="epos-filter-bar__actions">
+            <button type="submit" class="btn btn-sm btn-outline-primary">Buscar</button>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='contacts') }}">Limpiar</a>
         </div>
     </form>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
-            {% if contacts %}
+    <div class="epos-card">
+        <div class="epos-card-body p-0">
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle en1-data-table">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table" id="epos-contacts-table">
                     <thead>
                         <tr>
                             <th>Nombre</th>
-                            <th>Email</th>
-                            <th>Teléfono</th>
                             <th>Tipo</th>
-                            <th>RUC / ID</th>
-                            <th>Roles</th>
+                            <th>Documento</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Fiscal</th>
                             <th>Estado</th>
+                            <th class="text-end" style="width:3rem"></th>
                         </tr>
                     </thead>
                     <tbody>
+                        {# Consumidor Final — registro de sistema (siempre visible) #}
+                        <tr class="epos-ct-row epos-ct-row--system"
+                            data-name="consumidor final"
+                            data-kind="cf"
+                            data-fiscal="0"
+                            data-status="1"
+                            data-type="consumer_final">
+                            <td>
+                                <div class="fw-semibold">Consumidor Final</div>
+                                <div class="small text-muted">Registro del sistema · ventas sin FE</div>
+                            </td>
+                            <td><span class="epos-ct-pill epos-ct-pill--cf">Consumidor Final</span></td>
+                            <td class="small text-muted">—</td>
+                            <td class="small text-muted">—</td>
+                            <td class="small text-muted">—</td>
+                            <td><span class="badge text-bg-light border">No</span></td>
+                            <td><span class="badge border text-success bg-light">Activo</span></td>
+                            <td class="text-end">
+                                <span class="small text-muted" title="No editable">🔒</span>
+                            </td>
+                        </tr>
+
                         {% for contact in contacts %}
-                        <tr>
-                            <td class="fw-medium">{{ contact.display_name }}</td>
-                            <td class="small">{{ contact.email or '—' }}</td>
+                        {% set is_cf = contact.contact_type == 'consumer_final' or contact.identification_type == 'consumer_final' %}
+                        {% set is_fiscal = (not is_cf) and (contact.tax_id is not none and contact.tax_id != '') %}
+                        {% set is_company = contact.contact_type == 'company' %}
+                        {% set kind = 'cf' if is_cf else ('fiscal' if is_fiscal else 'pos') %}
+                        {% if not is_cf %}
+                        <tr class="epos-ct-row"
+                            data-name="{{ (contact.display_name or '')|lower }}"
+                            data-kind="{{ kind }}"
+                            data-fiscal="{{ '1' if is_fiscal else '0' }}"
+                            data-status="{{ '1' if contact.active else '0' }}"
+                            data-type="{{ contact.contact_type }}">
+                            <td>
+                                <div class="fw-semibold">{{ contact.display_name }}</div>
+                                {% if contact.roles %}
+                                <div class="small text-muted">{{ contact.roles|join(', ') }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if kind == 'fiscal' and is_company %}
+                                <span class="epos-ct-pill epos-ct-pill--company">Empresa</span>
+                                {% elif kind == 'fiscal' %}
+                                <span class="epos-ct-pill epos-ct-pill--fiscal">Cliente Fiscal</span>
+                                {% else %}
+                                <span class="epos-ct-pill epos-ct-pill--pos">Cliente POS</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">
+                                {% if contact.tax_id %}
+                                <code>{{ contact.tax_id }}{% if contact.dv %}-{{ contact.dv }}{% endif %}</code>
+                                <div class="text-muted">{{ contact.identification_type }}</div>
+                                {% else %}—{% endif %}
+                            </td>
                             <td class="small text-muted">{{ contact.mobile or contact.phone or '—' }}</td>
-                            <td class="small">{{ contact.contact_type }}</td>
-                            <td class="small"><code>{{ contact.tax_id or '—' }}</code></td>
-                            <td class="small text-muted">
-                                {% if contact.roles %}{{ contact.roles|join(', ') }}{% else %}—{% endif %}
+                            <td class="small">{{ contact.email or '—' }}</td>
+                            <td>
+                                {% if is_fiscal %}
+                                <span class="badge border text-success bg-light">Sí</span>
+                                {% else %}
+                                <span class="badge text-bg-light border">No</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if contact.active %}
-                                <span class="badge en1-badge en1-badge--accent">Activo</span>
+                                <span class="badge border text-success bg-light">Activo</span>
                                 {% else %}
-                                <span class="badge en1-badge en1-badge--neutral">Inactivo</span>
+                                <span class="badge text-bg-light border text-muted">Inactivo</span>
                                 {% endif %}
                             </td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button"
+                                            data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <button type="button" class="dropdown-item" disabled title="Próximamente">
+                                                <i class="fas fa-pen me-2 text-muted"></i>Editar
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item" disabled title="Próximamente">
+                                                <i class="fas fa-history me-2 text-muted"></i>Ver historial
+                                            </button>
+                                        </li>
+                                        {% if not is_fiscal %}
+                                        <li>
+                                            <button type="button" class="dropdown-item btn-upgrade-fiscal"
+                                                    data-bs-toggle="modal" data-bs-target="#createFiscalModal"
+                                                    data-name="{{ contact.display_name }}"
+                                                    data-email="{{ contact.email or '' }}"
+                                                    data-phone="{{ contact.phone or '' }}"
+                                                    data-mobile="{{ contact.mobile or '' }}">
+                                                <i class="fas fa-file-invoice me-2 text-muted"></i>Convertir en Cliente Fiscal
+                                            </button>
+                                        </li>
+                                        {% endif %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <button type="button" class="dropdown-item" disabled title="Próximamente">
+                                                <i class="fas fa-ban me-2 text-muted"></i>Desactivar
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item text-danger" disabled title="Próximamente">
+                                                <i class="fas fa-trash me-2"></i>Eliminar
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
                         </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            {% else %}
-            <div class="p-4 text-muted">
-                <p class="mb-2">No hay contactos que coincidan.</p>
-                <p class="small mb-0">Usá <strong>Crear cliente</strong> o el CRM completo.</p>
+            <div class="p-4 text-muted d-none" id="ct-empty-filter">Ningún cliente coincide con los filtros.</div>
+            {% if not contacts %}
+            <div class="px-4 pb-4 text-muted small">
+                Todavía no hay clientes POS/fiscales. Usá <strong>+ Nuevo Cliente</strong> o el CRM EN1.
             </div>
             {% endif %}
         </div>
     </div>
+
+    <p class="small text-muted mt-3 mb-0">
+        El maestro oficial vive en EN1. EPosOne solo consulta y crea contactos en ese maestro.
+        El flujo de cobro con FE se preparará en un sprint posterior.
+    </p>
 </div>
 
-<div class="modal fade" id="createContactModal" tabindex="-1" aria-labelledby="createContactModalLabel" aria-hidden="true">
+{# ——— Elegir tipo ——— #}
+<div class="modal fade" id="chooseContactTypeModal" tabindex="-1" aria-labelledby="chooseContactTypeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form method="post" action="{{ url_for('eposone.eposone_contact_create') }}">
-                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                <div class="modal-header">
-                    <h2 class="modal-title h5" id="createContactModalLabel">Nuevo cliente POS</h2>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold">Tipo</label>
-                            <select name="contact_type" class="form-select form-select-sm">
-                                <option value="person">Persona</option>
-                                <option value="company">Empresa</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold">Nombre para mostrar <span class="text-danger">*</span></label>
-                            <input type="text" name="display_name" class="form-control form-control-sm" required placeholder="Nombre completo o razón social">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Email</label>
-                            <input type="email" name="email" class="form-control form-control-sm" placeholder="correo@ejemplo.com">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Teléfono</label>
-                            <input type="text" name="phone" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Móvil</label>
-                            <input type="text" name="mobile" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold">RUC / Tax ID</label>
-                            <input type="text" name="tax_id" class="form-control form-control-sm">
-                            <input type="hidden" name="identification_type" value="consumer_final">
-                        </div>
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="is_customer" value="1" id="contactIsCustomer" checked>
-                                <label class="form-check-label small" for="contactIsCustomer">Es cliente</label>
-                            </div>
-                        </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="chooseContactTypeModalLabel">¿Qué desea crear?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <button type="button" class="epos-ct-choice w-100 text-start" data-open-modal="#createPosModal">
+                            <strong>Cliente POS</strong>
+                            <span class="d-block small text-muted">Nombre + teléfono. Ideal para venta rápida (&lt; 10 s).</span>
+                        </button>
+                    </div>
+                    <div class="col-12">
+                        <button type="button" class="epos-ct-choice w-100 text-start" data-open-modal="#createFiscalModal">
+                            <strong>Cliente Fiscal</strong>
+                            <span class="d-block small text-muted">Datos para Facturación Electrónica (FE Panamá). Formulario preparado.</span>
+                        </button>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i> Guardar</button>
-                </div>
-            </form>
+                <p class="small text-muted mt-3 mb-0">
+                    <strong>Consumidor Final</strong> ya existe como registro del sistema — no se crea ni se edita.
+                </p>
+            </div>
         </div>
     </div>
 </div>
+
+{# ——— Cliente POS ——— #}
+<div class="modal fade" id="createPosModal" tabindex="-1" aria-labelledby="createPosModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="{{ url_for('eposone.eposone_contact_create') }}" class="modal-content">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <input type="hidden" name="contact_type" value="person">
+            <input type="hidden" name="identification_type" value="cedula">
+            <input type="hidden" name="is_customer" value="1">
+            <input type="hidden" name="client_profile" value="pos">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createPosModalLabel">Nuevo Cliente POS</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Solo lo esencial para identificar al cliente en caja.</p>
+                <div class="vstack gap-3">
+                    <div>
+                        <label class="form-label" for="pos_name">Nombre <span class="text-danger">*</span></label>
+                        <input class="form-control" id="pos_name" name="display_name" required maxlength="300"
+                               placeholder="Ej. Juan Pérez / Mesa 4" autofocus>
+                    </div>
+                    <div>
+                        <label class="form-label" for="pos_phone">Teléfono</label>
+                        <input class="form-control" id="pos_phone" name="phone" maxlength="50" placeholder="Opcional">
+                    </div>
+                    <div>
+                        <label class="form-label" for="pos_email">Email</label>
+                        <input type="email" class="form-control" id="pos_email" name="email" maxlength="255" placeholder="Opcional">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ——— Cliente Fiscal (FE Panamá — UI preparada) ——— #}
+<div class="modal fade" id="createFiscalModal" tabindex="-1" aria-labelledby="createFiscalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form method="post" action="{{ url_for('eposone.eposone_contact_create') }}" class="modal-content" id="createFiscalForm">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <input type="hidden" name="is_customer" value="1">
+            <input type="hidden" name="client_profile" value="fiscal">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createFiscalModalLabel">Nuevo Cliente Fiscal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">
+                    Formulario preparado para FE Panamá. Las validaciones DGI se habilitarán en un sprint posterior.
+                </p>
+
+                <div class="epos-prod-section mb-3">
+                    <h3 class="epos-prod-section__title">Información general</h3>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_kind">Persona / Empresa <span class="text-danger">*</span></label>
+                            <select class="form-select" id="fis_kind" name="contact_type">
+                                <option value="person" selected>Persona Natural</option>
+                                <option value="company">Persona Jurídica (Empresa)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="fis_name">Nombre / Razón social <span class="text-danger">*</span></label>
+                            <input class="form-control" id="fis_name" name="display_name" required maxlength="300"
+                                   placeholder="Nombre completo o razón social">
+                        </div>
+                        <div class="col-12 d-none" id="fis_company_wrap">
+                            <label class="form-label" for="fis_company">Razón social (company)</label>
+                            <input class="form-control" id="fis_company" name="company_name" maxlength="300"
+                                   placeholder="Se usa si es empresa">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="fis_commercial">Nombre comercial</label>
+                            <input class="form-control" id="fis_commercial" name="commercial_name" maxlength="300" placeholder="Opcional">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="epos-prod-section mb-3">
+                    <h3 class="epos-prod-section__title">Información fiscal</h3>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_id_type">Tipo de documento <span class="text-danger">*</span></label>
+                            <select class="form-select" id="fis_id_type" name="identification_type">
+                                <option value="cedula">Cédula</option>
+                                <option value="ruc" selected>RUC</option>
+                                <option value="passport">Pasaporte (extranjero)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label" for="fis_tax">RUC / Documento <span class="text-danger">*</span></label>
+                            <input class="form-control" id="fis_tax" name="tax_id" required maxlength="80" placeholder="Sin DV">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="fis_dv">DV</label>
+                            <input class="form-control" id="fis_dv" name="dv" maxlength="10" placeholder="Cuando aplique">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_province">Provincia</label>
+                            <input class="form-control" id="fis_province" name="province" maxlength="120" placeholder="Ej. Panamá">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_district">Distrito</label>
+                            <input class="form-control" id="fis_district" name="district" maxlength="120" placeholder="Ej. Panamá">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_township">Corregimiento</label>
+                            <input class="form-control" id="fis_township" name="township" maxlength="120" placeholder="Opcional">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="fis_addr">Dirección fiscal</label>
+                            <input class="form-control" id="fis_addr" name="fiscal_address" maxlength="500" placeholder="Calle, edificio, local…">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="epos-prod-section mb-3">
+                    <h3 class="epos-prod-section__title">Contacto</h3>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="fis_email">Email para FE</label>
+                            <input type="email" class="form-control" id="fis_email" name="email" maxlength="255"
+                                   placeholder="correo@empresa.com">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="fis_phone">Teléfono</label>
+                            <input class="form-control" id="fis_phone" name="phone" maxlength="50">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="fis_mobile">Celular</label>
+                            <input class="form-control" id="fis_mobile" name="mobile" maxlength="50">
+                        </div>
+                    </div>
+                </div>
+
+                <details class="epos-prod-details">
+                    <summary>Información comercial (preparado)</summary>
+                    <div class="row g-2 pt-2">
+                        <div class="col-12">
+                            <label class="form-label" for="fis_notes">Observaciones</label>
+                            <textarea class="form-control" id="fis_notes" rows="2" disabled
+                                      placeholder="Se habilitará cuando el maestro exponga notas"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Crédito</label>
+                            <input class="form-control" disabled placeholder="Próximamente">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Lista de precios</label>
+                            <input class="form-control" disabled placeholder="Próximamente">
+                        </div>
+                    </div>
+                </details>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cliente fiscal</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+  var qEl = document.getElementById('ct-q');
+  var kindEl = document.getElementById('ct-kind');
+  var fisEl = document.getElementById('ct-fiscal');
+  var stEl = document.getElementById('ct-status');
+  var empty = document.getElementById('ct-empty-filter');
+
+  function applyFilters() {
+    var q = (qEl && qEl.value || '').trim().toLowerCase();
+    var kind = (kindEl && kindEl.value) || '';
+    var fiscal = (fisEl && fisEl.value) || '';
+    var st = (stEl && stEl.value) || '';
+    var rows = document.querySelectorAll('#epos-contacts-table .epos-ct-row');
+    var n = 0;
+    rows.forEach(function (tr) {
+      var ok = true;
+      if (q && (tr.getAttribute('data-name') || '').indexOf(q) === -1) ok = false;
+      if (ok && kind) {
+        if (kind === 'company') ok = tr.getAttribute('data-type') === 'company';
+        else ok = tr.getAttribute('data-kind') === kind;
+      }
+      if (ok && fiscal && tr.getAttribute('data-fiscal') !== fiscal) ok = false;
+      if (ok && st && tr.getAttribute('data-status') !== st) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) n += 1;
+    });
+    if (empty) empty.classList.toggle('d-none', n !== 0);
+  }
+
+  [kindEl, fisEl, stEl].forEach(function (el) {
+    if (el) el.addEventListener('change', applyFilters);
+  });
+  if (qEl) qEl.addEventListener('input', applyFilters);
+
+  var kindSel = document.getElementById('fis_kind');
+  var companyWrap = document.getElementById('fis_company_wrap');
+  var companyInput = document.getElementById('fis_company');
+  var nameInput = document.getElementById('fis_name');
+  var idType = document.getElementById('fis_id_type');
+
+  function syncFiscalKind() {
+    var isCompany = kindSel && kindSel.value === 'company';
+    if (companyWrap) companyWrap.classList.toggle('d-none', !isCompany);
+    if (isCompany && companyInput && nameInput && !companyInput.value) {
+      companyInput.value = nameInput.value;
+    }
+    if (idType && isCompany) idType.value = 'ruc';
+  }
+  if (kindSel) kindSel.addEventListener('change', syncFiscalKind);
+  if (nameInput) {
+    nameInput.addEventListener('blur', function () {
+      if (kindSel && kindSel.value === 'company' && companyInput && !companyInput.value) {
+        companyInput.value = nameInput.value;
+      }
+    });
+  }
+
+  var fiscalModal = document.getElementById('createFiscalModal');
+  if (fiscalModal) {
+    fiscalModal.addEventListener('show.bs.modal', function (ev) {
+      var btn = ev.relatedTarget;
+      if (btn && btn.classList.contains('btn-upgrade-fiscal')) {
+        var n = document.getElementById('fis_name');
+        var e = document.getElementById('fis_email');
+        var p = document.getElementById('fis_phone');
+        var m = document.getElementById('fis_mobile');
+        if (n) n.value = btn.getAttribute('data-name') || '';
+        if (e) e.value = btn.getAttribute('data-email') || '';
+        if (p) p.value = btn.getAttribute('data-phone') || '';
+        if (m) m.value = btn.getAttribute('data-mobile') || '';
+      }
+    });
+  }
+
+  // Encadenar: cerrar "elegir tipo" → abrir formulario
+  document.querySelectorAll('[data-open-modal]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = btn.getAttribute('data-open-modal');
+      var choose = document.getElementById('chooseContactTypeModal');
+      if (!target || !window.bootstrap) return;
+      var chooseModal = choose ? window.bootstrap.Modal.getOrCreateInstance(choose) : null;
+      var openTarget = function () {
+        var el = document.querySelector(target);
+        if (el) window.bootstrap.Modal.getOrCreateInstance(el).show();
+      };
+      if (chooseModal) {
+        choose.addEventListener('hidden.bs.modal', function once() {
+          choose.removeEventListener('hidden.bs.modal', once);
+          openTarget();
+        });
+        chooseModal.hide();
+      } else {
+        openTarget();
+      }
+    });
+  });
+})();
+</script>
 {% endblock %}

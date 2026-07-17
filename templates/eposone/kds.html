@@ -12,6 +12,37 @@
         <span class="badge en1-badge--neutral">{{ tickets_total }} ticket(s) activo(s)</span>
     </div>
 
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <div class="epos-section-label">Opciones de cocina</div>
+            <form method="post" action="{{ url_for('eposone.eposone_settings_save') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="settings_panel" value="kds">
+                <input type="hidden" name="redirect_slug" value="kds">
+                <div class="col-12 col-lg-8">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="kds_auto_enqueue" name="kds_auto_enqueue" value="1"
+                               {% if not settings or settings.kds_auto_enqueue %}checked{% endif %}>
+                        <label class="form-check-label" for="kds_auto_enqueue">
+                            Encolar tickets KDS al confirmar pedido
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="delivery_auto_create" name="delivery_auto_create" value="1"
+                               {% if not settings or settings.delivery_auto_create %}checked{% endif %}>
+                        <label class="form-check-label" for="delivery_auto_create">
+                            Crear entrega automática cuando el pedido queda listo
+                        </label>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4 text-lg-end">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-save me-1"></i>Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-3">
         {% if ticket_rows %}
             {% for row in ticket_rows %}

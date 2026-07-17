@@ -87,18 +87,25 @@ class TestEposoneNavTree(unittest.TestCase):
                 'Inventario',
                 'Clientes',
                 'Caja',
-                'Reportes',
-                'Configuración',
+                'Infraestructura',
+                'Más',
             ],
         )
-        reportes = next(d for d in tree.domains if d.id == 'reportes')
-        self.assertIn('/admin/eposone/analytics', reportes.url or '')
-        self.assertNotIn('source=eposone', reportes.url or '')
-        self.assertNotIn('/admin/analytics/sales', reportes.url or '')
-        config = next(d for d in tree.domains if d.id == 'configuracion')
-        config_labels = {c.label for c in config.children}
-        self.assertIn('Dispositivos', config_labels)
-        self.assertIn('Ajustes generales', config_labels)
+        inventario = next(d for d in tree.domains if d.id == 'inventario')
+        self.assertIn('/admin/eposone/section/inventory', inventario.url or '')
+        self.assertNotIn('/admin/contador', inventario.url or '')
+        self.assertNotIn('Reportes', labels)
+        self.assertNotIn('Configuración', labels)
+        infra = next(d for d in tree.domains if d.id == 'infraestructura')
+        infra_labels = {c.label for c in infra.children}
+        self.assertEqual(
+            infra_labels,
+            {'Sucursales', 'Puntos de venta', 'Cajas', 'Dispositivos', 'Licencias'},
+        )
+        mas = next(d for d in tree.domains if d.id == 'mas')
+        mas_labels = {c.label for c in mas.children}
+        self.assertIn('Cocina (KDS)', mas_labels)
+        self.assertNotIn('Centro de configuración', mas_labels)
         self.assertNotIn('Sistema', labels)
         self.assertNotIn('Comercial', labels)
 
@@ -118,8 +125,9 @@ class TestEposoneNavTree(unittest.TestCase):
         with self.app.test_request_context('/admin/eposone/dashboard'):
             tree = build_nav_tree(self._ctx())
             rows = serialize_nav_sidebar(tree, self._ctx())
-        self.assertTrue(any(r['is_group'] and r['id'] == 'configuracion' for r in rows))
-        self.assertTrue(any(r['is_group'] and r['id'] == 'caja' for r in rows))
+        self.assertTrue(any(r['is_group'] and r['id'] == 'infraestructura' for r in rows))
+        self.assertTrue(any(r['is_group'] and r['id'] == 'mas' for r in rows))
+        self.assertTrue(any((not r.get('is_group')) and r['id'] == 'caja' for r in rows))
         self.assertTrue(any((not r.get('is_group')) and r['id'] == 'pedidos' for r in rows))
 
 class TestMergeNativeAppNav(unittest.TestCase):

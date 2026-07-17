@@ -126,11 +126,12 @@ body[data-app-nav-native="1"] .en1-eposone-page.container-fluid {
 }
 
 body[data-app-nav-native="1"] .app-nav-domain > .nav-group-toggle {
-    font-weight: 600;
-    font-size: 0.8125rem;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    color: var(--color-text-muted, #64748b);
+    /* Misma tipografía que Dashboard / Pedidos (sin ALL CAPS). */
+    font-weight: inherit;
+    font-size: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+    color: inherit;
 }
 
 /* UX-T1 — retorno al launcher + identidad de producto */

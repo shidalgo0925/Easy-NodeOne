@@ -117,6 +117,10 @@ except ImportError:
 
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
+# Dev: siempre releer Jinja (evita pantallas viejas tras deploy sin restart completo).
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 # Detrás de Nginx/Cloudflare: confiar en X-Forwarded-Proto y X-Forwarded-For
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1, x_host=1)
 
@@ -864,16 +868,47 @@ def inject_membership_plans():
 # Context processor: apariencia del usuario (tema y tamaño de fuente) para aplicar en <html>
 @app.context_processor
 def inject_user_appearance():
-    out = {'user_theme': 'light', 'user_font_size': 'medium'}
+    out = {
+        'user_theme': 'light',
+        'user_font_size': 'medium',
+        'user_timezone': 'America/Panama',
+        'user_utc_offset': '-05:00',
+        'timezone_prompt': None,
+    }
     if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
         try:
+            from nodeone.core.timezone_service import TimeZoneService
+
+            prefs = dict(_default_user_preferences())
             row = UserSettings.query.filter_by(user_id=current_user.id).first()
             if row and row.preferences:
-                prefs = json.loads(row.preferences)
-                if prefs.get('theme') in ('light', 'dark', 'auto'):
-                    out['user_theme'] = prefs['theme']
-                if prefs.get('font_size') in ('small', 'medium', 'large'):
-                    out['user_font_size'] = prefs['font_size']
+                try:
+                    loaded = json.loads(row.preferences)
+                    if isinstance(loaded, dict):
+                        prefs.update(loaded)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    pass
+            if prefs.get('theme') in ('light', 'dark', 'auto'):
+                out['user_theme'] = prefs['theme']
+            if prefs.get('font_size') in ('small', 'medium', 'large'):
+                out['user_font_size'] = prefs['font_size']
+            if 'timezone' not in session:
+                TimeZoneService.sync_session_timezone(user=current_user, prefs=prefs)
+            out['user_timezone'] = session.get('timezone') or TimeZoneService.effective_timezone_name(
+                user=current_user, prefs=prefs
+            )
+            out['user_utc_offset'] = session.get('utc_offset') or TimeZoneService.offset_iso(
+                out['user_timezone']
+            )
+            confirmed = bool(prefs.get('timezone_confirmed'))
+            last_browser = (prefs.get('last_browser_timezone') or '').strip() or None
+            out['timezone_prompt'] = {
+                'confirmed': confirmed,
+                'current_timezone': TimeZoneService.validate_iana(prefs.get('timezone')),
+                'last_browser_timezone': last_browser,
+                'date_format': prefs.get('date_format') or 'DD/MM/YYYY',
+                'time_format': prefs.get('time_format') or '24h',
+            }
         except Exception:
             pass
     return out
@@ -2713,8 +2748,13 @@ def _default_user_preferences():
         'privacy_activity': True,
         'language': 'es',
         'timezone': 'America/Panama',
+        'date_format': 'DD/MM/YYYY',
+        'time_format': '24h',
+        'timezone_confirmed': False,
+        'last_browser_timezone': None,
         'theme': 'light',
         'font_size': 'medium',
+        'eposone_orders_per_page': 15,
     }
 
 
@@ -3217,6 +3257,12 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_registration_policy_column: {e}')
         try:
+            from nodeone.services.saas_org_timezone_schema import ensure_saas_organization_timezone_column
+
+            ensure_saas_organization_timezone_column(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_timezone_column: {e}')
+        try:
             from nodeone.services.tenant_email_logo_storage import migrate_legacy_tenant_email_logos_to_uploads
 
             migrate_legacy_tenant_email_logos_to_uploads(db, printfn=lambda m: print(f'📋 {m}'))
@@ -3525,6 +3571,15 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_eposone_provisioning_schema: {e}')
+        try:
+            from nodeone.services.eposone_register_license_schema import (
+                ensure_eposone_register_license_schema,
+            )
+
+            ensure_eposone_register_license_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_register_license_schema: {e}')
         try:
             from nodeone.services.eposone_order_schema import ensure_eposone_order_schema
 

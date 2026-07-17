@@ -639,15 +639,20 @@ class TestEPosOneSettingsActions(unittest.TestCase):
         resp = self.client.post(
             action,
             data={
-                'default_currency': 'PAB',
+                'settings_panel': 'kds',
+                'redirect_slug': 'kds',
                 'kds_auto_enqueue': '1',
                 'delivery_auto_create': '1',
-                'fiscal_on_payment': '1',
             },
             follow_redirects=False,
         )
         self.assertEqual(resp.status_code, 302)
+        self.assertIn('/admin/eposone/section/kds', resp.headers.get('Location', ''))
         mock_update.assert_called_once()
+        kwargs = mock_update.call_args.kwargs
+        self.assertTrue(kwargs.get('kds_auto_enqueue'))
+        self.assertTrue(kwargs.get('delivery_auto_create'))
+        self.assertNotIn('default_currency', kwargs)
 
 
 class TestEPosOneDashboardKpis(unittest.TestCase):

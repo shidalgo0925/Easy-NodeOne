@@ -21,4 +21,10 @@ class EposoneSettings(db.Model):
     supervisor_approval_required = db.Column(db.Boolean, nullable=False, default=True)
     # Hito EN1-01 — código de emparejamiento tablet ↔ org
     provisioning_code = db.Column(db.String(64), nullable=True)
+    # Licenciamiento comercial V1 (por Caja; configurable por admin)
+    trial_days_default = db.Column(db.Integer, nullable=False, default=45)
+    # on_create | on_activate | on_first_provision
+    trial_start_policy = db.Column(db.String(40), nullable=False, default='on_first_provision')
+    provisioning_code_ttl_minutes = db.Column(db.Integer, nullable=False, default=30)
+    offline_grace_days = db.Column(db.Integer, nullable=False, default=7)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

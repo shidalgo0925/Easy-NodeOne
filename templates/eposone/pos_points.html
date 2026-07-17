@@ -1,208 +1,334 @@
 {% extends "base.html" %}
 
-{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+{% block title %}EPosOne — Puntos de Venta{% if active_pos %} · {{ active_pos.name }}{% endif %} | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
-    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+{% set list_url = url_for('eposone.eposone_section', slug='pos-points') %}
+<div class="container-fluid py-3 en1-eposone-page epos-pos-v2" id="epos-pos-page">
+
+{% if not active_pos %}
+    {# ——— Lista de POS ——— #}
+    <div class="epos-page-header">
         <div>
-            <h1 class="h4 mb-1">{{ section_title }}</h1>
-            <p class="text-muted small mb-0">{{ section_description }}</p>
+            <h1 class="epos-page-title">
+                <i class="fas fa-map-marker-alt me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Puntos de Venta
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Sucursal → POS → Caja · solo administra POS
+            </p>
         </div>
-        <div class="d-flex gap-2 align-items-center">
-            {% if license_info %}
-            <span class="badge text-bg-success-subtle border">Licencia: sin cupos (todo permitido)</span>
-            {% endif %}
-            <span class="badge bg-secondary">{{ pos_units_total }} POS</span>
+        <div class="epos-btn-row">
+            <span class="badge text-bg-light border">{{ pos_rows|length }} POS</span>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newPosModal"
+                    {% if not branches %}disabled title="Creá una sucursal primero"{% endif %}>
+                <i class="fas fa-plus me-1"></i>Nuevo POS
+            </button>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='branches') }}">Sucursales</a>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='registers') }}">Cajas</a>
         </div>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0">
-                    <h2 class="h6 mb-0">Crear Punto de Venta</h2>
-                    <p class="text-muted small mb-0">Empresa → Sucursal → POS (ilimitado)</p>
-                </div>
-                <div class="card-body">
-                    <form id="form-create-pos" class="vstack gap-2">
-                        <div>
-                            <label class="form-label small mb-0" for="pos-code">Código</label>
-                            <input class="form-control form-control-sm" id="pos-code" name="unit_ref" required placeholder="POS-01">
-                        </div>
-                        <div>
-                            <label class="form-label small mb-0" for="pos-name">Nombre</label>
-                            <input class="form-control form-control-sm" id="pos-name" name="name" required placeholder="Caja principal / Terraza">
-                        </div>
-                        <div>
-                            <label class="form-label small mb-0" for="pos-branch">Sucursal (parent)</label>
-                            <select class="form-select form-select-sm" id="pos-branch" name="parent_id">
-                                <option value="">— sin parent —</option>
-                                {% for b in branches %}
-                                <option value="{{ b.id }}">{{ b.name }} ({{ b.unit_ref }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label small mb-0" for="pos-notes">Descripción</label>
-                            <input class="form-control form-control-sm" id="pos-notes" name="notes" placeholder="Opcional">
-                        </div>
-                        <button type="submit" class="btn btn-sm btn-primary">Crear POS</button>
-                        <p id="pos-create-msg" class="small text-muted mb-0" hidden></p>
-                    </form>
-                </div>
-            </div>
+    {% if not branches %}
+    <div class="epos-settings-callout mb-3" style="font-size:0.8125rem;color:var(--epos-ink-2);background:var(--epos-surface);border:1px solid var(--epos-border);border-radius:8px;padding:0.65rem 0.9rem;">
+        Necesitás al menos una <a href="{{ url_for('eposone.eposone_section', slug='branches') }}">sucursal</a> antes de crear un POS.
+    </div>
+    {% endif %}
+
+    <form class="epos-filter-bar mb-3" id="epos-pos-filters" onsubmit="return false;">
+        <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
+            <label for="pos-q">Buscar</label>
+            <input class="form-control" type="search" id="pos-q" placeholder="Código, nombre, sucursal…" autocomplete="off">
         </div>
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0">
-                    <h2 class="h6 mb-0">Puntos de Venta</h2>
-                </div>
-                <div class="card-body p-0">
-                    {% if pos_units %}
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0 align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Nombre</th>
-                                    <th>Tipo</th>
-                                    <th>Estado</th>
-                                    <th>Cajas</th>
-                                    <th>Dispositivos</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in pos_units %}
-                                {% set regs = registers_by_pos.get(item.id, []) %}
-                                {% set devs = devices_by_pos.get(item.unit_ref, []) %}
-                                <tr>
-                                    <td><code>{{ item.unit_ref }}</code></td>
-                                    <td>{{ item.name }}</td>
-                                    <td><span class="badge text-bg-light border">{{ item.unit_type }}</span></td>
-                                    <td><span class="badge text-bg-light border">{{ item.status }}</span></td>
-                                    <td class="text-muted small">{{ regs|length }}</td>
-                                    <td class="text-muted small">{{ devs|length }}</td>
-                                    <td class="text-end">
-                                        {% if item.status == 'active' %}
-                                        <button type="button" class="btn btn-outline-secondary btn-sm btn-deactivate-pos" data-id="{{ item.id }}">Desactivar</button>
+        <div class="epos-filter-field">
+            <label for="pos-status">Estado</label>
+            <select class="form-select" id="pos-status">
+                <option value="">Todos</option>
+                <option value="active">Activo</option>
+                <option value="inactive">Inactivo</option>
+            </select>
+        </div>
+        <div class="epos-filter-bar__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="pos-clear">Limpiar</button>
+        </div>
+    </form>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body p-0">
+            {% if pos_rows %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table" id="epos-pos-table">
+                    <thead>
+                        <tr>
+                            <th>POS</th>
+                            <th>Código</th>
+                            <th>Sucursal</th>
+                            <th>Estado</th>
+                            <th>Cajas</th>
+                            <th>Con dispositivo</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in pos_rows %}
+                        {% set p = row.pos %}
+                        {% set st = (p.status or 'active')|lower %}
+                        <tr class="epos-pos-row"
+                            data-q="{{ (p.name ~ ' ' ~ p.unit_ref ~ ' ' ~ (row.branch_name or ''))|lower }}"
+                            data-status="{{ st }}">
+                            <td>
+                                <a class="fw-semibold text-decoration-none" href="{{ list_url }}?pos={{ p.unit_ref|urlencode }}">{{ p.name }}</a>
+                            </td>
+                            <td><code class="epos-code-plain">{{ p.unit_ref }}</code></td>
+                            <td class="small">{{ row.branch_name or '—' }}</td>
+                            <td>
+                                {% if st == 'active' %}
+                                <span class="badge text-bg-success-subtle border border-success-subtle text-success-emphasis">Activo</span>
+                                {% else %}
+                                <span class="badge text-bg-secondary-subtle border">{{ p.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-semibold">{{ row.register_count }}</td>
+                            <td>
+                                {% if row.registers_with_device %}
+                                <span class="fw-semibold">{{ row.registers_with_device }}</span>
+                                <span class="small text-muted">/ {{ row.register_count }}</span>
+                                {% else %}
+                                <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="dropdown d-inline-block">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="dropdown" aria-expanded="false"
+                                            data-bs-popper-config='{"strategy":"fixed"}'>
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" href="{{ list_url }}?pos={{ p.unit_ref|urlencode }}">
+                                                <i class="fas fa-eye me-2"></i>Abrir
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('eposone.eposone_section', slug='registers') }}">
+                                                <i class="fas fa-cash-register me-2"></i>Ver cajas
+                                            </a>
+                                        </li>
+                                        {% if st == 'active' %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <button type="button" class="dropdown-item text-danger btn-deactivate-pos" data-id="{{ p.id }}">
+                                                <i class="fas fa-ban me-2"></i>Desactivar
+                                            </button>
+                                        </li>
                                         {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="p-4 text-muted small">
-                        Sin POS todavía. Creá el primero con el formulario o
-                        <code>POST /api/eposone/pos-units</code>.
-                    </div>
-                    {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 text-muted d-none" id="pos-empty-filter">Ningún POS coincide con el filtro.</div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">Todavía no hay puntos de venta.</p>
+                <p class="small mb-0">Creá el primero con <strong>+ Nuevo POS</strong>.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+{% else %}
+    {# ——— Detalle POS ——— #}
+    {% set tab = (request.args.get('tab') or 'info')|lower %}
+    <div class="epos-page-header">
+        <div>
+            <nav class="small mb-1" aria-label="Miga">
+                <a href="{{ list_url }}" class="text-decoration-none text-muted">Puntos de Venta</a>
+                <span class="text-muted mx-1">/</span>
+                <span>{{ active_pos.name }}</span>
+            </nav>
+            <h1 class="epos-page-title">{{ active_pos.name }}</h1>
+            <p class="epos-page-subtitle mb-0">
+                <code class="epos-code-plain">{{ active_pos.unit_ref }}</code>
+                · {{ active_branch_name or 'Sin sucursal' }}
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ list_url }}"><i class="fas fa-arrow-left me-1"></i>Volver</a>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('eposone.eposone_section', slug='registers') }}">
+                <i class="fas fa-plus me-1"></i>Nueva Caja
+            </a>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'info' %}active{% endif %}" href="{{ list_url }}?pos={{ active_pos.unit_ref|urlencode }}&tab=info">Información</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'cajas' %}active{% endif %}" href="{{ list_url }}?pos={{ active_pos.unit_ref|urlencode }}&tab=cajas">Cajas ({{ active_register_rows|length }})</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'licencias' %}active{% endif %}" href="{{ list_url }}?pos={{ active_pos.unit_ref|urlencode }}&tab=licencias">Licencias</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'historial' %}active{% endif %}" href="{{ list_url }}?pos={{ active_pos.unit_ref|urlencode }}&tab=historial">Historial</a>
+        </li>
+    </ul>
+
+    {% if tab == 'info' %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <div class="small text-muted">Código</div>
+                    <div class="fw-semibold"><code class="epos-code-plain">{{ active_pos.unit_ref }}</code></div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="small text-muted">Sucursal</div>
+                    <div class="fw-semibold">{{ active_branch_name or '—' }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="small text-muted">Estado</div>
+                    <div class="fw-semibold">{{ active_pos.status }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="small text-muted">Cajas</div>
+                    <div class="fw-semibold">{{ active_register_rows|length }}</div>
+                </div>
+                <div class="col-12">
+                    <div class="small text-muted">Descripción</div>
+                    <div>{{ active_pos.notes or '—' }}</div>
                 </div>
             </div>
         </div>
     </div>
-
+    {% elif tab == 'cajas' %}
     <div class="row g-3">
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <h2 class="h6 mb-0">Cajas (registers)</h2>
-                    <p class="text-muted small mb-0">Parent = POS al que pertenece la caja</p>
-                </div>
-                <div class="card-body border-bottom">
-                    <form method="post" action="{{ url_for('eposone.eposone_register_create') }}" class="row g-2 align-items-end">
-                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                        <input type="hidden" name="redirect_slug" value="pos-points">
-                        <div class="col-6 col-md-3">
-                            <label class="form-label small mb-0" for="reg_ref">Código</label>
-                            <input class="form-control form-control-sm" id="reg_ref" name="unit_ref" required placeholder="caja-01">
+        {% if active_register_rows %}
+            {% for crow in active_register_rows %}
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="epos-card h-100">
+                    <div class="epos-card-body">
+                        <div class="fw-semibold mb-1">{{ crow.register.name }}</div>
+                        <div class="small text-muted mb-2"><code class="epos-code-plain">{{ crow.register.unit_ref }}</code></div>
+                        {% if crow.device %}
+                        <div class="small mb-1">
+                            <i class="fas fa-tablet-alt me-1 text-muted"></i>
+                            {{ crow.device.device_label or 'Tablet' }}
+                            <span class="text-muted">· {{ crow.device.platform or '—' }}</span>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <label class="form-label small mb-0" for="reg_name">Nombre</label>
-                            <input class="form-control form-control-sm" id="reg_name" name="name" required placeholder="Caja 1">
+                        <div class="small text-muted mb-2">
+                            {% if crow.device.last_seen_at %}Última sync: {{ crow.device.last_seen_at }}{% else %}Sin sync{% endif %}
                         </div>
-                        <div class="col-8 col-md-4">
-                            <label class="form-label small mb-0" for="reg_pos">POS padre</label>
-                            <select class="form-select form-select-sm" id="reg_pos" name="parent_id" required>
-                                <option value="">— elegir POS —</option>
-                                {% for p in pos_units %}
-                                <option value="{{ p.id }}">{{ p.name }} ({{ p.unit_ref }})</option>
-                                {% endfor %}
-                            </select>
+                        <span class="badge text-bg-success-subtle border border-success-subtle text-success-emphasis">Con dispositivo</span>
+                        {% else %}
+                        <div class="small text-muted mb-2">Sin dispositivo asignado</div>
+                        <span class="badge text-bg-light border">Sin tablet</span>
+                        {% endif %}
+                        <div class="mt-3">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eposone.eposone_section', slug='registers') }}">Administrar en Cajas</a>
                         </div>
-                        <div class="col-4 col-md-2">
-                            <button type="submit" class="btn btn-sm btn-primary w-100" {% if not pos_units %}disabled{% endif %}>Crear</button>
-                        </div>
-                    </form>
-                </div>
-                <div class="card-body p-0">
-                    {% if registers %}
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0 align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Ref.</th>
-                                    <th>Nombre</th>
-                                    <th>Parent POS</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for r in registers %}
-                                <tr>
-                                    <td><code>{{ r.unit_ref }}</code></td>
-                                    <td>{{ r.name }}</td>
-                                    <td class="text-muted small">{{ r.parent_id or '—' }}</td>
-                                    <td>{{ r.status }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
                     </div>
-                    {% else %}
-                    <div class="p-4 text-muted small">Sin cajas. Creá un POS y luego una caja con el formulario.</div>
-                    {% endif %}
                 </div>
             </div>
+            {% endfor %}
+        {% else %}
+        <div class="col-12">
+            <div class="epos-card"><div class="epos-card-body text-muted">
+                Este POS aún no tiene cajas.
+                <a href="{{ url_for('eposone.eposone_section', slug='registers') }}">Crear caja</a>
+            </div></div>
         </div>
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <h2 class="h6 mb-0">Dispositivos vinculados</h2>
-                    <p class="text-muted small mb-0">pos_ref + register_ref en registro Android</p>
-                </div>
-                <div class="card-body p-0">
-                    {% if devices %}
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0 align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>UUID</th>
-                                    <th>POS</th>
-                                    <th>Caja</th>
-                                    <th>Plataforma</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for d in devices %}
-                                <tr>
-                                    <td><code class="small">{{ d.terminal_ref }}</code></td>
-                                    <td class="small">{{ d.pos_ref or '—' }}</td>
-                                    <td class="small">{{ d.register_ref or '—' }}</td>
-                                    <td class="small text-muted">{{ d.platform or '—' }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="p-4 text-muted small">Sin dispositivos registrados.</div>
-                    {% endif %}
-                </div>
+        {% endif %}
+    </div>
+    {% elif tab == 'licencias' %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body p-0">
+            {% if active_register_rows %}
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle epos-table">
+                    <thead>
+                        <tr>
+                            <th>Caja</th>
+                            <th>Estado comercial</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for crow in active_register_rows %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">{{ crow.register.name }}</div>
+                                <code class="epos-code-plain">{{ crow.register.unit_ref }}</code>
+                            </td>
+                            <td>{{ crow.license.commercial_ui if crow.license else '—' }}</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='licenses') }}">Ver licencias</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+            {% else %}
+            <div class="p-4 text-muted">Sin cajas — no hay licencias que mostrar.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body text-muted small">
+            Historial de cambios del POS — próximamente.
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+</div>
+
+{# Modal Nuevo POS #}
+<div class="modal fade" id="newPosModal" tabindex="-1" aria-labelledby="newPosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="form-create-pos">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-6" id="newPosModalLabel">Nuevo Punto de Venta</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="pos-name">Nombre</label>
+                        <input class="form-control" id="pos-name" name="name" required maxlength="200" placeholder="POS Centro" autocomplete="off">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="pos-code">Código</label>
+                        <input class="form-control" id="pos-code" name="unit_ref" required maxlength="64" placeholder="pos-centro" pattern="[a-zA-Z0-9_\-]+" autocomplete="off">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="pos-branch">Sucursal</label>
+                        <select class="form-select" id="pos-branch" name="parent_id" required>
+                            <option value="">— elegir sucursal —</option>
+                            {% for b in branches %}
+                            <option value="{{ b.id }}">{{ b.name }} ({{ b.unit_ref }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="pos-notes">Descripción</label>
+                        <input class="form-control" id="pos-notes" name="notes" maxlength="500" placeholder="Opcional">
+                    </div>
+                    <p id="pos-create-msg" class="small text-muted mt-3 mb-0" hidden></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus me-1"></i>Crear POS
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -217,6 +343,19 @@
   }
   var form = document.getElementById('form-create-pos');
   var msg = document.getElementById('pos-create-msg');
+  var nameEl = document.getElementById('pos-name');
+  var codeEl = document.getElementById('pos-code');
+  var codeTouched = false;
+  function slugify(s) {
+    return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+  }
+  if (nameEl && codeEl) {
+    codeEl.addEventListener('input', function () { codeTouched = true; });
+    nameEl.addEventListener('input', function () {
+      if (!codeTouched || !codeEl.value) { codeEl.value = slugify(nameEl.value); codeTouched = false; }
+    });
+  }
   if (form) {
     form.addEventListener('submit', async function (ev) {
       ev.preventDefault();
@@ -228,23 +367,18 @@
       };
       var parent = document.getElementById('pos-branch').value;
       if (parent) body.parent_id = parseInt(parent, 10);
-      msg.hidden = false;
-      msg.textContent = 'Creando…';
+      if (msg) { msg.hidden = false; msg.textContent = 'Creando…'; }
       try {
         var res = await fetch('/api/eposone/pos-units', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrf()
-          },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
           body: JSON.stringify(body)
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);
-        msg.textContent = 'POS creado: ' + (data.pos_unit && data.pos_unit.unit_ref);
         window.location.reload();
       } catch (e) {
-        msg.textContent = 'Error: ' + e.message;
+        if (msg) msg.textContent = 'Error: ' + e.message;
       }
     });
   }
@@ -264,6 +398,31 @@
         alert('Error: ' + e.message);
       }
     });
+  });
+  var qEl = document.getElementById('pos-q');
+  var stEl = document.getElementById('pos-status');
+  var clearBtn = document.getElementById('pos-clear');
+  var empty = document.getElementById('pos-empty-filter');
+  function applyFilters() {
+    var q = (qEl && qEl.value || '').trim().toLowerCase();
+    var st = (stEl && stEl.value) || '';
+    var rows = document.querySelectorAll('#epos-pos-table .epos-pos-row');
+    var n = 0;
+    rows.forEach(function (tr) {
+      var ok = true;
+      if (q && (tr.getAttribute('data-q') || '').indexOf(q) === -1) ok = false;
+      if (ok && st && tr.getAttribute('data-status') !== st) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) n += 1;
+    });
+    if (empty) empty.classList.toggle('d-none', n !== 0 || !rows.length);
+  }
+  if (qEl) qEl.addEventListener('input', applyFilters);
+  if (stEl) stEl.addEventListener('change', applyFilters);
+  if (clearBtn) clearBtn.addEventListener('click', function () {
+    if (qEl) qEl.value = '';
+    if (stEl) stEl.value = '';
+    applyFilters();
   });
 })();
 </script>

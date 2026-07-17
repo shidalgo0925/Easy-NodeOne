@@ -58,6 +58,34 @@
                     </select>
                     <div class="form-text">Afecta <code>/register</code> y campus miembro; no bloquea alta desde panel admin.</div>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label">Zona horaria</label>
+                    {% set tz_val = (form.get('timezone') if form else None) or (org.timezone if org else 'America/Panama') %}
+                    {% set tz_codes = [
+                        'America/Panama', 'America/Bogota', 'America/Lima', 'America/Mexico_City',
+                        'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+                        'America/Sao_Paulo', 'America/Argentina/Buenos_Aires', 'Europe/Madrid', 'Europe/London', 'UTC'
+                    ] %}
+                    <select name="timezone" class="form-select" id="orgTimezoneSelect">
+                        <option value="America/Panama" {% if tz_val == 'America/Panama' %}selected{% endif %}>América/Panamá (UTC−5)</option>
+                        <option value="America/Bogota" {% if tz_val == 'America/Bogota' %}selected{% endif %}>América/Bogotá (UTC−5)</option>
+                        <option value="America/Lima" {% if tz_val == 'America/Lima' %}selected{% endif %}>América/Lima (UTC−5)</option>
+                        <option value="America/Mexico_City" {% if tz_val == 'America/Mexico_City' %}selected{% endif %}>América/Ciudad de México</option>
+                        <option value="America/New_York" {% if tz_val == 'America/New_York' %}selected{% endif %}>América/Nueva York</option>
+                        <option value="America/Chicago" {% if tz_val == 'America/Chicago' %}selected{% endif %}>América/Chicago</option>
+                        <option value="America/Denver" {% if tz_val == 'America/Denver' %}selected{% endif %}>América/Denver</option>
+                        <option value="America/Los_Angeles" {% if tz_val == 'America/Los_Angeles' %}selected{% endif %}>América/Los Ángeles</option>
+                        <option value="America/Sao_Paulo" {% if tz_val == 'America/Sao_Paulo' %}selected{% endif %}>América/São Paulo</option>
+                        <option value="America/Argentina/Buenos_Aires" {% if tz_val == 'America/Argentina/Buenos_Aires' %}selected{% endif %}>América/Buenos Aires</option>
+                        <option value="Europe/Madrid" {% if tz_val == 'Europe/Madrid' %}selected{% endif %}>Europa/Madrid</option>
+                        <option value="Europe/London" {% if tz_val == 'Europe/London' %}selected{% endif %}>Europa/Londres</option>
+                        <option value="UTC" {% if tz_val == 'UTC' %}selected{% endif %}>UTC</option>
+                        {% if tz_val and tz_val not in tz_codes %}
+                        <option value="{{ tz_val }}" selected>{{ tz_val }} (actual)</option>
+                        {% endif %}
+                    </select>
+                    <div class="form-text">Zona IANA por defecto del tenant. Los eventos se almacenan en UTC; esta zona se usa para mostrar y filtrar días locales.</div>
+                </div>
                 <hr>
                 <h6 class="mb-3">Perfil fiscal (emisor en cotizaciones y facturas)</h6>
                 <div class="mb-3">

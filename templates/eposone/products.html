@@ -1,334 +1,410 @@
 {% extends "base.html" %}
 
-{% block title %}EPosOne — {{ section_title }} | {{ get_nav_brand_name() }}{% endblock %}
+{% block title %}EPosOne — Productos | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
-    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div class="container-fluid py-3 en1-eposone-page epos-products-v2" id="epos-products-page"
+     data-update-url="{{ url_for('eposone.eposone_product_update', product_ref='__REF__') }}"
+     data-create-url="{{ url_for('eposone.eposone_product_create') }}"
+     data-delete-url="{{ url_for('eposone.eposone_product_delete', product_ref='__REF__') }}"
+     data-deactivate-url="{{ url_for('eposone.eposone_product_deactivate', product_ref='__REF__') }}">
+
+    <div class="epos-page-header">
         <div>
-            <h1 class="h4 mb-1">{{ section_title }}</h1>
-            <p class="text-muted small mb-0">{{ section_description }}</p>
+            <h1 class="epos-page-title">
+                <i class="fas fa-box-open me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Productos
+            </h1>
+            <p class="epos-page-subtitle mb-0">Catálogo maestro del POS · {{ products_total }} producto(s)</p>
         </div>
-        <span class="badge bg-secondary">{{ products_total }} producto(s)</span>
-    </div>
-
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-white border-0">
-            <h2 class="h6 mb-0">Nuevo producto</h2>
-            <p class="small text-muted mb-0">Catálogo POS + inventario básico (UOM, empaque, stock mín/máx, imagen).</p>
-        </div>
-        <div class="card-body">
-            <form method="post" action="{{ url_for('eposone.eposone_product_create') }}"
-                  class="row g-3" enctype="multipart/form-data">
-                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                <div class="col-12 col-md-4">
-                    <label class="form-label small mb-0" for="product_name">Nombre *</label>
-                    <input class="form-control form-control-sm" id="product_name" name="name" required maxlength="200" placeholder="Absolut – Botella">
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="product_ref">SKU *</label>
-                    <input class="form-control form-control-sm" id="product_ref" name="product_ref" required maxlength="64" placeholder="IST-vod_absolut_bot">
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="barcode">Código de barras</label>
-                    <input class="form-control form-control-sm" id="barcode" name="barcode" maxlength="64" placeholder="750123…">
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="category">Categoría</label>
-                    <input class="form-control form-control-sm" id="category" name="category" maxlength="120" placeholder="Licores" list="category-suggestions">
-                    <datalist id="category-suggestions">
-                        {% for c in (categories or []) %}
-                        <option value="{{ c }}">
-                        {% endfor %}
-                    </datalist>
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="product_type">Tipo</label>
-                    <select class="form-select form-select-sm" id="product_type" name="product_type">
-                        <option value="good" selected>Bien</option>
-                        <option value="service">Servicio</option>
-                        <option value="kit">Kit</option>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="form-label small mb-0" for="description">Descripción</label>
-                    <input class="form-control form-control-sm" id="description" name="description" maxlength="500" placeholder="Opcional">
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="unit_price">Precio de venta *</label>
-                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="unit_price" name="unit_price" value="0.00" required>
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="cost_price">Costo</label>
-                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="cost_price" name="cost_price" placeholder="0.00">
-                </div>
-                <div class="col-6 col-md-1">
-                    <label class="form-label small mb-0" for="currency">Moneda</label>
-                    <input class="form-control form-control-sm" id="currency" name="currency" value="USD" maxlength="8">
-                </div>
-                <div class="col-6 col-md-1">
-                    <label class="form-label small mb-0" for="uom">UOM venta</label>
-                    <input class="form-control form-control-sm" id="uom" name="uom" value="und" maxlength="16" list="uom-suggestions" placeholder="und">
-                </div>
-                <div class="col-6 col-md-1">
-                    <label class="form-label small mb-0" for="purchase_uom">UOM compra</label>
-                    <input class="form-control form-control-sm" id="purchase_uom" name="purchase_uom" maxlength="16" list="uom-suggestions" placeholder="caja">
-                </div>
-                <div class="col-6 col-md-1">
-                    <label class="form-label small mb-0" for="pack_factor">Factor</label>
-                    <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="pack_factor" name="pack_factor" value="1" title="Unidades de venta por 1 UOM compra">
-                </div>
-                <datalist id="uom-suggestions">
-                    <option value="und"><option value="caja"><option value="pack">
-                    <option value="kg"><option value="g"><option value="L"><option value="ml">
-                </datalist>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="min_stock">Stock mínimo</label>
-                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="min_stock" name="min_stock" placeholder="0">
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small mb-0" for="max_stock">Stock máximo</label>
-                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="max_stock" name="max_stock" placeholder="opcional">
-                </div>
-                <div class="col-12 col-md-4">
-                    <label class="form-label small mb-0" for="image_file">Foto del producto</label>
-                    <input type="file" class="form-control form-control-sm" id="image_file" name="image_file"
-                           accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-                    <div class="form-text">PNG, JPG, GIF o WebP · máx. 3 MB</div>
-                </div>
-                <div class="col-12 col-md-4">
-                    <label class="form-label small mb-0" for="image_url">O URL imagen</label>
-                    <input class="form-control form-control-sm" id="image_url" name="image_url" maxlength="500" placeholder="https://… (opcional si subís archivo)">
-                </div>
-                <div class="col-6 col-md-2">
-                    <div class="form-check mt-4">
-                        <input class="form-check-input" type="checkbox" value="1" id="tracks_inventory" name="tracks_inventory" checked>
-                        <label class="form-check-label small" for="tracks_inventory">Lleva inventario</label>
-                    </div>
-                </div>
-                <div class="col-12 col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-sm btn-primary w-100">
-                        <i class="fas fa-plus me-1"></i>Crear
-                    </button>
-                </div>
-            </form>
-            {# API help oculto en UI — endpoints siguen vivos en /api/eposone/products*
-            <details class="mt-3">
-                <summary class="small text-muted">API productos (para la app / integraciones)</summary>
-                <pre class="small bg-light border rounded p-2 mb-0 mt-2"><code>GET  /api/eposone/products
-POST /api/eposone/products
-GET|PATCH|DELETE /api/eposone/products/&lt;product_ref&gt;
-POST /api/eposone/products/&lt;product_ref&gt;/image   (multipart: image_file)</code></pre>
-            </details>
-            #}
+        <div class="epos-btn-row">
+            <button type="button" class="btn btn-sm btn-primary" id="epos-btn-new-product"
+                    data-bs-toggle="modal" data-bs-target="#productFormModal">
+                <i class="fas fa-plus me-1"></i>Nuevo Producto
+            </button>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
+    <form class="epos-filter-bar mb-3" id="epos-products-filters" onsubmit="return false;">
+        <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
+            <label for="epos-prod-q">Buscar</label>
+            <input class="form-control" type="search" id="epos-prod-q" placeholder="Nombre, SKU, barcode…" autocomplete="off">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-prod-cat">Categoría</label>
+            <select class="form-select" id="epos-prod-cat">
+                <option value="">Todas</option>
+                {% for c in (categories or []) %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-prod-status">Estado</label>
+            <select class="form-select" id="epos-prod-status">
+                <option value="">Todos</option>
+                <option value="active">Activo</option>
+                <option value="inactive">Inactivo</option>
+            </select>
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-prod-type">Tipo</label>
+            <select class="form-select" id="epos-prod-type">
+                <option value="">Todos</option>
+                <option value="good">Bien</option>
+                <option value="service">Servicio</option>
+                <option value="kit">Kit</option>
+            </select>
+        </div>
+        <div class="epos-filter-bar__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="epos-prod-clear">Limpiar</button>
+        </div>
+    </form>
+
+    <div class="epos-card">
+        <div class="epos-card-body p-0">
             {% if products %}
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle">
-                    <thead class="table-light">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table" id="epos-products-table">
+                    <thead>
                         <tr>
                             <th style="width:48px">Foto</th>
-                            <th>SKU</th>
                             <th>Nombre</th>
+                            <th>SKU</th>
+                            <th>Código</th>
                             <th>Categoría</th>
-                            <th>Barcode</th>
-                            <th>Precio</th>
-                            <th>Costo</th>
-                            <th>UOM</th>
-                            <th>Mín.</th>
-                            <th>Máx.</th>
+                            <th class="text-end">Precio</th>
+                            <th>Stock</th>
                             <th>Estado</th>
-                            <th class="text-end">Acciones</th>
+                            <th class="text-end" style="width:3rem"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for product in products %}
                         {% set can_delete = can_delete_by_ref.get(product.product_ref, False) %}
-                        <tr>
-                            <td style="width:48px">
+                        <tr class="epos-prod-row"
+                            data-name="{{ (product.name or '')|lower }}"
+                            data-ref="{{ (product.product_ref or '')|lower }}"
+                            data-barcode="{{ (product.barcode or '')|lower }}"
+                            data-category="{{ product.category or '' }}"
+                            data-status="{{ product.status or '' }}"
+                            data-type="{{ product.product_type or '' }}">
+                            <td>
                                 {% if product.image_url %}
-                                <img src="{{ product.image_url }}" alt="{{ product.name }}"
-                                     width="40" height="40"
-                                     class="rounded border bg-light"
-                                     style="object-fit:cover;display:block">
+                                <img src="{{ product.image_url }}" alt="" width="40" height="40"
+                                     class="rounded border bg-light" style="object-fit:cover;display:block">
                                 {% else %}
-                                <span class="d-inline-flex align-items-center justify-content-center rounded border bg-light text-muted"
-                                      style="width:40px;height:40px" title="Sin foto">
-                                    <i class="fas fa-image fa-sm"></i>
-                                </span>
+                                <span class="epos-prod-thumb-empty" title="Sin foto"><i class="fas fa-image"></i></span>
                                 {% endif %}
                             </td>
-                            <td><code>{{ product.product_ref }}</code></td>
-                            <td>{{ product.name }}</td>
-                            <td class="small text-muted">{{ product.category or '—' }}</td>
-                            <td class="small"><code>{{ product.barcode or '—' }}</code></td>
-                            <td>{{ '%.2f'|format(product.unit_price) }} {{ product.currency }}</td>
-                            <td class="small text-muted">{% if product.cost_price is not none %}{{ '%.2f'|format(product.cost_price) }}{% else %}—{% endif %}</td>
-                            <td class="small text-muted">{{ product.uom or 'und' }}{% if product.purchase_uom %} <span class="text-muted">({{ product.pack_factor or 1 }}× / {{ product.purchase_uom }})</span>{% endif %}</td>
-                            <td class="small text-muted">{% if product.min_stock is not none %}{{ '%.2f'|format(product.min_stock) }}{% else %}—{% endif %}</td>
-                            <td class="small text-muted">{% if product.max_stock is not none %}{{ '%.2f'|format(product.max_stock) }}{% else %}—{% endif %}</td>
-                            <td><span class="badge text-bg-light border">{{ product.status }}</span></td>
-                            <td class="text-end text-nowrap">
-                                <button type="button"
-                                    class="btn btn-sm btn-outline-primary btn-edit-product"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#editProductModal"
-                                    data-ref="{{ product.product_ref }}"
-                                    data-name="{{ product.name }}"
-                                    data-type="{{ product.product_type }}"
-                                    data-price="{{ '%.2f'|format(product.unit_price) }}"
-                                    data-currency="{{ product.currency }}"
-                                    data-status="{{ product.status }}"
-                                    data-tracks="{{ '1' if product.tracks_inventory else '0' }}"
-                                    data-description="{{ product.description or '' }}"
-                                    data-barcode="{{ product.barcode or '' }}"
-                                    data-cost="{% if product.cost_price is not none %}{{ '%.2f'|format(product.cost_price) }}{% endif %}"
-                                    data-min-stock="{% if product.min_stock is not none %}{{ '%.2f'|format(product.min_stock) }}{% endif %}"
-                                    data-max-stock="{% if product.max_stock is not none %}{{ '%.2f'|format(product.max_stock) }}{% endif %}"
-                                    data-uom="{{ product.uom or 'und' }}"
-                                    data-purchase-uom="{{ product.purchase_uom or '' }}"
-                                    data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
-                                    data-category="{{ product.category or '' }}"
-                                    data-image="{{ product.image_url or '' }}">
-                                    Editar
-                                </button>
-                                {% if can_delete %}
-                                <form method="post" action="{{ url_for('eposone.eposone_product_delete', product_ref=product.product_ref) }}" class="d-inline"
-                                    onsubmit="return confirm('¿Eliminar {{ product.product_ref }}?');">
-                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                                </form>
-                                {% elif product.status == 'active' %}
-                                <form method="post" action="{{ url_for('eposone.eposone_product_deactivate', product_ref=product.product_ref) }}" class="d-inline"
-                                    onsubmit="return confirm('Tiene movimientos. ¿Desactivar {{ product.product_ref }}?');">
-                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Desactivar</button>
-                                </form>
-                                {% else %}
-                                <span class="small text-muted">—</span>
+                            <td>
+                                <span class="fw-semibold">{{ product.name }}</span>
+                                {% if product.product_type and product.product_type != 'good' %}
+                                <div class="small text-muted">{{ product.product_type }}</div>
                                 {% endif %}
+                            </td>
+                            <td><code class="small">{{ product.product_ref }}</code></td>
+                            <td class="small text-muted">{{ product.barcode or '—' }}</td>
+                            <td class="small">{{ product.category or '—' }}</td>
+                            <td class="text-end">{{ '%.2f'|format(product.unit_price) }} <span class="small text-muted">{{ product.currency }}</span></td>
+                            <td class="small text-muted">
+                                {% if product.tracks_inventory %}
+                                    {% if product.min_stock is not none %}mín {{ '%.0f'|format(product.min_stock) }}{% else %}Sí{% endif %}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if product.status == 'active' %}
+                                <span class="badge border text-success bg-light">Activo</span>
+                                {% else %}
+                                <span class="badge text-bg-light border text-muted">{{ product.status or '—' }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button"
+                                            data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <button type="button" class="dropdown-item btn-edit-product"
+                                                data-bs-toggle="modal" data-bs-target="#productFormModal"
+                                                data-mode="edit"
+                                                data-ref="{{ product.product_ref }}"
+                                                data-name="{{ product.name }}"
+                                                data-type="{{ product.product_type }}"
+                                                data-price="{{ '%.2f'|format(product.unit_price) }}"
+                                                data-currency="{{ product.currency }}"
+                                                data-status="{{ product.status }}"
+                                                data-tracks="{{ '1' if product.tracks_inventory else '0' }}"
+                                                data-description="{{ product.description or '' }}"
+                                                data-barcode="{{ product.barcode or '' }}"
+                                                data-cost="{% if product.cost_price is not none %}{{ '%.2f'|format(product.cost_price) }}{% endif %}"
+                                                data-min-stock="{% if product.min_stock is not none %}{{ '%.2f'|format(product.min_stock) }}{% endif %}"
+                                                data-max-stock="{% if product.max_stock is not none %}{{ '%.2f'|format(product.max_stock) }}{% endif %}"
+                                                data-uom="{{ product.uom or 'und' }}"
+                                                data-purchase-uom="{{ product.purchase_uom or '' }}"
+                                                data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
+                                                data-category="{{ product.category or '' }}"
+                                                data-image="{{ product.image_url or '' }}">
+                                                <i class="fas fa-pen me-2 text-muted"></i>Editar
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item btn-edit-product"
+                                                data-bs-toggle="modal" data-bs-target="#productFormModal"
+                                                data-mode="duplicate"
+                                                data-ref="{{ product.product_ref }}"
+                                                data-name="{{ product.name }} (copia)"
+                                                data-type="{{ product.product_type }}"
+                                                data-price="{{ '%.2f'|format(product.unit_price) }}"
+                                                data-currency="{{ product.currency }}"
+                                                data-status="active"
+                                                data-tracks="{{ '1' if product.tracks_inventory else '0' }}"
+                                                data-description="{{ product.description or '' }}"
+                                                data-barcode=""
+                                                data-cost="{% if product.cost_price is not none %}{{ '%.2f'|format(product.cost_price) }}{% endif %}"
+                                                data-min-stock="{% if product.min_stock is not none %}{{ '%.2f'|format(product.min_stock) }}{% endif %}"
+                                                data-max-stock="{% if product.max_stock is not none %}{{ '%.2f'|format(product.max_stock) }}{% endif %}"
+                                                data-uom="{{ product.uom or 'und' }}"
+                                                data-purchase-uom="{{ product.purchase_uom or '' }}"
+                                                data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
+                                                data-category="{{ product.category or '' }}"
+                                                data-image="{{ product.image_url or '' }}">
+                                                <i class="fas fa-copy me-2 text-muted"></i>Duplicar
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item btn-edit-product"
+                                                data-bs-toggle="modal" data-bs-target="#productFormModal"
+                                                data-mode="edit" data-focus="price"
+                                                data-ref="{{ product.product_ref }}"
+                                                data-name="{{ product.name }}"
+                                                data-type="{{ product.product_type }}"
+                                                data-price="{{ '%.2f'|format(product.unit_price) }}"
+                                                data-currency="{{ product.currency }}"
+                                                data-status="{{ product.status }}"
+                                                data-tracks="{{ '1' if product.tracks_inventory else '0' }}"
+                                                data-description="{{ product.description or '' }}"
+                                                data-barcode="{{ product.barcode or '' }}"
+                                                data-cost="{% if product.cost_price is not none %}{{ '%.2f'|format(product.cost_price) }}{% endif %}"
+                                                data-min-stock="{% if product.min_stock is not none %}{{ '%.2f'|format(product.min_stock) }}{% endif %}"
+                                                data-max-stock="{% if product.max_stock is not none %}{{ '%.2f'|format(product.max_stock) }}{% endif %}"
+                                                data-uom="{{ product.uom or 'und' }}"
+                                                data-purchase-uom="{{ product.purchase_uom or '' }}"
+                                                data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
+                                                data-category="{{ product.category or '' }}"
+                                                data-image="{{ product.image_url or '' }}">
+                                                <i class="fas fa-tag me-2 text-muted"></i>Cambiar precio
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('eposone.eposone_section', slug='inventory') }}">
+                                                <i class="fas fa-warehouse me-2 text-muted"></i>Ajustar inventario
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        {% if product.status == 'active' %}
+                                        <li>
+                                            <form method="post" action="{{ url_for('eposone.eposone_product_deactivate', product_ref=product.product_ref) }}"
+                                                  onsubmit="return confirm('¿Desactivar {{ product.name }}?');">
+                                                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                <button type="submit" class="dropdown-item">
+                                                    <i class="fas fa-ban me-2 text-muted"></i>Desactivar
+                                                </button>
+                                            </form>
+                                        </li>
+                                        {% endif %}
+                                        {% if can_delete %}
+                                        <li>
+                                            <form method="post" action="{{ url_for('eposone.eposone_product_delete', product_ref=product.product_ref) }}"
+                                                  onsubmit="return confirm('¿Eliminar {{ product.name }}?');">
+                                                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                <button type="submit" class="dropdown-item text-danger">
+                                                    <i class="fas fa-trash me-2"></i>Eliminar
+                                                </button>
+                                            </form>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            <div class="p-4 text-muted d-none" id="epos-prod-empty-filter">
+                Ningún producto coincide con los filtros.
+            </div>
             {% else %}
-            <div class="p-4 text-muted">
-                <p class="mb-0">No hay productos todavía. Usá el formulario de arriba para crear el primero.</p>
+            <div class="p-4 text-center text-muted">
+                <p class="mb-2">Todavía no hay productos en el catálogo.</p>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#productFormModal">
+                    <i class="fas fa-plus me-1"></i>Crear el primero
+                </button>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <form method="post" action="" id="editProductForm" class="modal-content" enctype="multipart/form-data">
+{# ——— Modal único: crear / editar / duplicar ——— #}
+<div class="modal fade" id="productFormModal" tabindex="-1" aria-labelledby="productFormModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form method="post" action="{{ url_for('eposone.eposone_product_create') }}" id="productForm"
+              class="modal-content" enctype="multipart/form-data">
             {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
             <div class="modal-header">
-                <h5 class="modal-title" id="editProductModalLabel">Editar producto</h5>
+                <h5 class="modal-title" id="productFormModalLabel">Nuevo producto</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-muted mb-3">SKU: <code id="edit_product_ref_label">—</code> (no editable)</p>
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label small" for="edit_name">Nombre *</label>
-                        <input class="form-control form-control-sm" id="edit_name" name="name" required maxlength="200">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small" for="edit_barcode">Código de barras</label>
-                        <input class="form-control form-control-sm" id="edit_barcode" name="barcode" maxlength="64">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small" for="edit_category">Categoría</label>
-                        <input class="form-control form-control-sm" id="edit_category" name="category" maxlength="120" list="category-suggestions">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small" for="edit_description">Descripción</label>
-                        <input class="form-control form-control-sm" id="edit_description" name="description" maxlength="500">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small" for="edit_type">Tipo</label>
-                        <select class="form-select form-select-sm" id="edit_type" name="product_type">
-                            <option value="good">Bien</option>
-                            <option value="service">Servicio</option>
-                            <option value="kit">Kit</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small" for="edit_status">Estado</label>
-                        <select class="form-select form-select-sm" id="edit_status" name="status">
-                            <option value="active">Activo</option>
-                            <option value="inactive">Inactivo</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small" for="edit_price">Precio venta *</label>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_price" name="unit_price" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small" for="edit_cost">Costo</label>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_cost" name="cost_price">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small" for="edit_currency">Moneda</label>
-                        <input class="form-control form-control-sm" id="edit_currency" name="currency" maxlength="8">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small" for="edit_min_stock">Stock mínimo</label>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_min_stock" name="min_stock">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small" for="edit_max_stock">Stock máximo</label>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="edit_max_stock" name="max_stock">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small" for="edit_uom">UOM venta</label>
-                        <input class="form-control form-control-sm" id="edit_uom" name="uom" maxlength="16" list="uom-suggestions">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small" for="edit_purchase_uom">UOM compra</label>
-                        <input class="form-control form-control-sm" id="edit_purchase_uom" name="purchase_uom" maxlength="16" list="uom-suggestions">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small" for="edit_pack_factor">Factor</label>
-                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="edit_pack_factor" name="pack_factor" title="Unidades de venta por 1 UOM compra">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small" for="edit_image_file">Nueva foto</label>
-                        <input type="file" class="form-control form-control-sm" id="edit_image_file" name="image_file"
-                               accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small" for="edit_image">URL imagen</label>
-                        <input class="form-control form-control-sm" id="edit_image" name="image_url" maxlength="500">
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <div class="form-check mb-1">
-                            <input class="form-check-input" type="checkbox" value="1" id="edit_tracks" name="tracks_inventory">
-                            <label class="form-check-label small" for="edit_tracks">Inventario</label>
+                <p class="small text-muted mb-3 d-none" id="product-sku-locked">SKU: <code id="product-ref-label">—</code></p>
+
+                <div class="epos-prod-section">
+                    <h3 class="epos-prod-section__title">Información general</h3>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-7">
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <label class="form-label" for="pf_name">Nombre <span class="text-danger">*</span></label>
+                                    <input class="form-control" id="pf_name" name="name" required maxlength="200" placeholder="Ej. Cerveza Balboa">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="pf_category">Categoría <span class="text-danger">*</span></label>
+                                    <input class="form-control" id="pf_category" name="category" required maxlength="120"
+                                           list="category-suggestions" placeholder="Ej. Bebidas">
+                                    <datalist id="category-suggestions">
+                                        {% for c in (categories or []) %}
+                                        <option value="{{ c }}">
+                                        {% endfor %}
+                                    </datalist>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="pf_type">Tipo</label>
+                                    <select class="form-select" id="pf_type" name="product_type">
+                                        <option value="good" selected>Bien</option>
+                                        <option value="service">Servicio</option>
+                                        <option value="kit">Kit</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="pf_price">Precio de venta <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" min="0.01" class="form-control" id="pf_price" name="unit_price" value="0.00" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="pf_barcode">Código de barras</label>
+                                    <input class="form-control" id="pf_barcode" name="barcode" maxlength="64" placeholder="Opcional">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label" for="pf_description">Descripción</label>
+                                    <input class="form-control" id="pf_description" name="description" maxlength="500" placeholder="Opcional">
+                                </div>
+                                <div class="col-md-6 d-none" id="pf_status_wrap">
+                                    <label class="form-label" for="pf_status">Estado</label>
+                                    <select class="form-select" id="pf_status" name="status">
+                                        <option value="active">Activo</option>
+                                        <option value="inactive">Inactivo</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-end">
-                        <div class="form-check mb-1">
-                            <input class="form-check-input" type="checkbox" value="1" id="edit_clear_image" name="clear_image">
-                            <label class="form-check-label small" for="edit_clear_image">Quitar imagen</label>
+                        <div class="col-12 col-md-5">
+                            <label class="form-label">Imagen</label>
+                            <label class="epos-prod-dropzone" for="pf_image_file" id="pf_dropzone">
+                                <input type="file" class="d-none" id="pf_image_file" name="image_file"
+                                       accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+                                <img id="pf_image_preview" class="epos-prod-dropzone__preview d-none" alt="">
+                                <span class="epos-prod-dropzone__placeholder" id="pf_image_ph">
+                                    <i class="fas fa-camera fa-lg mb-2 d-block"></i>
+                                    + Agregar fotografía<br>
+                                    <span class="small">Arrastrar aquí o seleccionar</span>
+                                </span>
+                            </label>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" value="1" id="pf_clear_image" name="clear_image">
+                                <label class="form-check-label small" for="pf_clear_image">Quitar imagen</label>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-12">
-                        <img id="edit_image_preview" src="" alt="" class="rounded border d-none" style="max-height:80px;object-fit:cover">
                     </div>
                 </div>
+
+                <details class="epos-prod-details mt-3">
+                    <summary>Inventario</summary>
+                    <div class="row g-2 pt-2">
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="1" id="pf_tracks" name="tracks_inventory" checked>
+                                <label class="form-check-label" for="pf_tracks">Controlar inventario</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="pf_uom">Se vende por</label>
+                            <select class="form-select" id="pf_uom" name="uom">
+                                <option value="und" selected>Unidad</option>
+                                <option value="caja">Caja</option>
+                                <option value="botella">Botella</option>
+                                <option value="lata">Lata</option>
+                                <option value="kg">Kg</option>
+                                <option value="g">Gramo</option>
+                                <option value="L">Litro</option>
+                                <option value="ml">ml</option>
+                                <option value="pack">Pack</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="pf_min_stock">Stock mínimo</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="pf_min_stock" name="min_stock" placeholder="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="pf_max_stock">Stock máximo</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="pf_max_stock" name="max_stock" placeholder="Opcional">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="epos-prod-details mt-2">
+                    <summary>Información comercial</summary>
+                    <div class="row g-2 pt-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="pf_cost">Costo</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="pf_cost" name="cost_price" placeholder="0.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="pf_currency">Moneda</label>
+                            <input class="form-control" id="pf_currency" name="currency" value="USD" maxlength="8">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="epos-prod-details mt-2" id="pf_advanced">
+                    <summary>Información avanzada</summary>
+                    <div class="row g-2 pt-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="pf_ref">SKU</label>
+                            <input class="form-control" id="pf_ref" name="product_ref" maxlength="64"
+                                   placeholder="Se genera solo si lo dejás vacío">
+                            <div class="form-text">Solo necesario si querés un código propio.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="pf_purchase_uom">Unidad de compra</label>
+                            <input class="form-control" id="pf_purchase_uom" name="purchase_uom" maxlength="16" placeholder="caja">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="pf_pack_factor">Factor</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control" id="pf_pack_factor" name="pack_factor" value="1"
+                                   title="Unidades de venta por 1 unidad de compra">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="pf_image_url">URL de imagen</label>
+                            <input class="form-control" id="pf_image_url" name="image_url" maxlength="500" placeholder="https://… (opcional)">
+                        </div>
+                    </div>
+                </details>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="productFormSubmit">Guardar</button>
             </div>
         </form>
     </div>
@@ -339,46 +415,203 @@ POST /api/eposone/products/&lt;product_ref&gt;/image   (multipart: image_file)</
 {{ super() }}
 <script>
 (function () {
-    var modal = document.getElementById('editProductModal');
-    if (!modal) return;
-    var updateBase = {{ url_for('eposone.eposone_product_update', product_ref='__REF__')|tojson }};
-    modal.addEventListener('show.bs.modal', function (event) {
-        var btn = event.relatedTarget;
-        if (!btn) return;
-        var ref = btn.getAttribute('data-ref') || '';
-        document.getElementById('edit_product_ref_label').textContent = ref;
-        document.getElementById('editProductForm').action = updateBase.replace('__REF__', encodeURIComponent(ref));
-        document.getElementById('edit_name').value = btn.getAttribute('data-name') || '';
-        document.getElementById('edit_type').value = btn.getAttribute('data-type') || 'good';
-        document.getElementById('edit_status').value = btn.getAttribute('data-status') || 'active';
-        document.getElementById('edit_price').value = btn.getAttribute('data-price') || '0';
-        document.getElementById('edit_currency').value = btn.getAttribute('data-currency') || 'USD';
-        document.getElementById('edit_tracks').checked = btn.getAttribute('data-tracks') === '1';
-        document.getElementById('edit_description').value = btn.getAttribute('data-description') || '';
-        document.getElementById('edit_barcode').value = btn.getAttribute('data-barcode') || '';
-        document.getElementById('edit_cost').value = btn.getAttribute('data-cost') || '';
-        document.getElementById('edit_min_stock').value = btn.getAttribute('data-min-stock') || '';
-        document.getElementById('edit_max_stock').value = btn.getAttribute('data-max-stock') || '';
-        document.getElementById('edit_uom').value = btn.getAttribute('data-uom') || 'und';
-        document.getElementById('edit_purchase_uom').value = btn.getAttribute('data-purchase-uom') || '';
-        document.getElementById('edit_pack_factor').value = btn.getAttribute('data-pack-factor') || '1';
-        document.getElementById('edit_category').value = btn.getAttribute('data-category') || '';
-        document.getElementById('edit_image').value = btn.getAttribute('data-image') || '';
-        document.getElementById('edit_clear_image').checked = false;
-        var fileInput = document.getElementById('edit_image_file');
-        if (fileInput) fileInput.value = '';
-        var prev = document.getElementById('edit_image_preview');
-        var img = btn.getAttribute('data-image') || '';
-        if (prev) {
-            if (img) {
-                prev.src = img;
-                prev.classList.remove('d-none');
-            } else {
-                prev.removeAttribute('src');
-                prev.classList.add('d-none');
-            }
-        }
+  var page = document.getElementById('epos-products-page');
+  if (!page) return;
+
+  var qEl = document.getElementById('epos-prod-q');
+  var catEl = document.getElementById('epos-prod-cat');
+  var stEl = document.getElementById('epos-prod-status');
+  var tyEl = document.getElementById('epos-prod-type');
+  var clearBtn = document.getElementById('epos-prod-clear');
+  var emptyFilter = document.getElementById('epos-prod-empty-filter');
+
+  function applyFilters() {
+    var q = (qEl && qEl.value || '').trim().toLowerCase();
+    var cat = (catEl && catEl.value) || '';
+    var st = (stEl && stEl.value) || '';
+    var ty = (tyEl && tyEl.value) || '';
+    var rows = document.querySelectorAll('#epos-products-table .epos-prod-row');
+    var visible = 0;
+    rows.forEach(function (tr) {
+      var ok = true;
+      if (q) {
+        var hay = (tr.getAttribute('data-name') || '') + ' ' +
+                  (tr.getAttribute('data-ref') || '') + ' ' +
+                  (tr.getAttribute('data-barcode') || '');
+        ok = hay.indexOf(q) !== -1;
+      }
+      if (ok && cat && tr.getAttribute('data-category') !== cat) ok = false;
+      if (ok && st && tr.getAttribute('data-status') !== st) ok = false;
+      if (ok && ty && tr.getAttribute('data-type') !== ty) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) visible += 1;
     });
+    if (emptyFilter) emptyFilter.classList.toggle('d-none', visible !== 0 || !rows.length);
+  }
+  [qEl, catEl, stEl, tyEl].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('input', applyFilters);
+    el.addEventListener('change', applyFilters);
+  });
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (qEl) qEl.value = '';
+      if (catEl) catEl.value = '';
+      if (stEl) stEl.value = '';
+      if (tyEl) tyEl.value = '';
+      applyFilters();
+    });
+  }
+
+  function slugSku(name) {
+    var base = String(name || 'prod')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 40);
+    if (!base) base = 'prod';
+    return base + '_' + String(Date.now()).slice(-5);
+  }
+
+  var modal = document.getElementById('productFormModal');
+  var form = document.getElementById('productForm');
+  var createUrl = page.getAttribute('data-create-url');
+  var updateTpl = page.getAttribute('data-update-url');
+
+  function setPreview(url) {
+    var img = document.getElementById('pf_image_preview');
+    var ph = document.getElementById('pf_image_ph');
+    if (!img || !ph) return;
+    if (url) {
+      img.src = url;
+      img.classList.remove('d-none');
+      ph.classList.add('d-none');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('d-none');
+      ph.classList.remove('d-none');
+    }
+  }
+
+  function resetCreateForm() {
+    form.reset();
+    form.action = createUrl;
+    document.getElementById('productFormModalLabel').textContent = 'Nuevo producto';
+    document.getElementById('productFormSubmit').textContent = 'Guardar';
+    document.getElementById('product-sku-locked').classList.add('d-none');
+    document.getElementById('pf_status_wrap').classList.add('d-none');
+    document.getElementById('pf_ref').readOnly = false;
+    document.getElementById('pf_ref').value = '';
+    document.getElementById('pf_tracks').checked = true;
+    document.getElementById('pf_currency').value = 'USD';
+    document.getElementById('pf_uom').value = 'und';
+    document.getElementById('pf_pack_factor').value = '1';
+    document.getElementById('pf_clear_image').checked = false;
+    setPreview('');
+  }
+
+  function fillFromButton(btn, mode) {
+    var ref = btn.getAttribute('data-ref') || '';
+    document.getElementById('pf_name').value = btn.getAttribute('data-name') || '';
+    document.getElementById('pf_type').value = btn.getAttribute('data-type') || 'good';
+    document.getElementById('pf_status').value = btn.getAttribute('data-status') || 'active';
+    document.getElementById('pf_price').value = btn.getAttribute('data-price') || '0';
+    document.getElementById('pf_currency').value = btn.getAttribute('data-currency') || 'USD';
+    document.getElementById('pf_tracks').checked = btn.getAttribute('data-tracks') === '1';
+    document.getElementById('pf_description').value = btn.getAttribute('data-description') || '';
+    document.getElementById('pf_barcode').value = btn.getAttribute('data-barcode') || '';
+    document.getElementById('pf_cost').value = btn.getAttribute('data-cost') || '';
+    document.getElementById('pf_min_stock').value = btn.getAttribute('data-min-stock') || '';
+    document.getElementById('pf_max_stock').value = btn.getAttribute('data-max-stock') || '';
+    var uom = btn.getAttribute('data-uom') || 'und';
+    var uomSel = document.getElementById('pf_uom');
+    if (![].some.call(uomSel.options, function (o) { return o.value === uom; })) {
+      var opt = document.createElement('option');
+      opt.value = uom;
+      opt.textContent = uom;
+      uomSel.appendChild(opt);
+    }
+    uomSel.value = uom;
+    document.getElementById('pf_purchase_uom').value = btn.getAttribute('data-purchase-uom') || '';
+    document.getElementById('pf_pack_factor').value = btn.getAttribute('data-pack-factor') || '1';
+    document.getElementById('pf_category').value = btn.getAttribute('data-category') || '';
+    document.getElementById('pf_image_url').value = btn.getAttribute('data-image') || '';
+    document.getElementById('pf_clear_image').checked = false;
+    var fileInput = document.getElementById('pf_image_file');
+    if (fileInput) fileInput.value = '';
+    setPreview(btn.getAttribute('data-image') || '');
+
+    if (mode === 'edit') {
+      form.action = updateTpl.replace('__REF__', encodeURIComponent(ref));
+      document.getElementById('productFormModalLabel').textContent = 'Editar producto';
+      document.getElementById('productFormSubmit').textContent = 'Guardar cambios';
+      document.getElementById('product-sku-locked').classList.remove('d-none');
+      document.getElementById('product-ref-label').textContent = ref;
+      document.getElementById('pf_status_wrap').classList.remove('d-none');
+      document.getElementById('pf_ref').value = ref;
+      document.getElementById('pf_ref').readOnly = true;
+    } else {
+      form.action = createUrl;
+      document.getElementById('productFormModalLabel').textContent = mode === 'duplicate' ? 'Duplicar producto' : 'Nuevo producto';
+      document.getElementById('productFormSubmit').textContent = 'Guardar';
+      document.getElementById('product-sku-locked').classList.add('d-none');
+      document.getElementById('pf_status_wrap').classList.add('d-none');
+      document.getElementById('pf_ref').readOnly = false;
+      document.getElementById('pf_ref').value = '';
+    }
+
+    if (btn.getAttribute('data-focus') === 'price') {
+      setTimeout(function () {
+        var el = document.getElementById('pf_price');
+        if (el) { el.focus(); el.select(); }
+      }, 350);
+    }
+  }
+
+  if (modal) {
+    modal.addEventListener('show.bs.modal', function (ev) {
+      var btn = ev.relatedTarget;
+      if (btn && btn.classList.contains('btn-edit-product')) {
+        fillFromButton(btn, btn.getAttribute('data-mode') || 'edit');
+      } else {
+        resetCreateForm();
+      }
+    });
+  }
+
+  var fileInput = document.getElementById('pf_image_file');
+  if (fileInput) {
+    fileInput.addEventListener('change', function () {
+      var f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      var url = URL.createObjectURL(f);
+      setPreview(url);
+    });
+  }
+
+  if (form) {
+    form.addEventListener('submit', function (ev) {
+      var price = parseFloat(document.getElementById('pf_price').value || '0');
+      if (!(price > 0)) {
+        ev.preventDefault();
+        alert('El precio debe ser mayor que cero.');
+        document.getElementById('pf_price').focus();
+        return;
+      }
+      var cat = (document.getElementById('pf_category').value || '').trim();
+      if (!cat) {
+        ev.preventDefault();
+        alert('La categoría es obligatoria.');
+        document.getElementById('pf_category').focus();
+        return;
+      }
+      var refEl = document.getElementById('pf_ref');
+      if (!refEl.readOnly && !(refEl.value || '').trim()) {
+        refEl.value = slugSku(document.getElementById('pf_name').value);
+      }
+    });
+  }
 })();
 </script>
 {% endblock %}

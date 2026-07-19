@@ -2,12 +2,14 @@
 
 | Campo | Valor |
 |-------|--------|
-| Fecha | **16 jul 2026** |
+| Fecha | **18 jul 2026** |
 | Hito 3B | **Publicado** · pendiente recepción P2 |
 | Hito 3C | **Avanzado en EN1** (`97f6d52`) — lista/detalle Order Domain + **cobro BO multi-pago** |
+| **Hito 2.5** | **EN1 listo** — cajero POS · contrato + PIN hash + bootstrap `cashiers` + Sync Up |
 | **TZ Fase 1** | **Hecho en EN1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning TZ de org |
 | Detalle estados | [`EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md`](EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md) |
 | Roadmap V5 | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
+| Contrato cajero | [`EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) |
 | Paquete | [`handoff-eposone/`](handoff-eposone/) · `/opt/handoff-plataformas/eposone-hito3b-Doc/` |
 | Order Domain | **v1.0 CONGELADA** |
 | **Cierre handoff 3B docs** | Solo cuando P2 diga: *Documentos recibidos. Comienzo implementación HTTP.* |
@@ -16,7 +18,7 @@
 
 ## Una frase
 
-Contrato **3B publicado** (pendiente recepción P2). En EN1, **3C operativo** + **política oficial de zona horaria (Fase 1)**: UTC en persistencia/API; presentación y filtros por IANA (usuario → empresa → `America/Panama`).
+Contrato **3B publicado** (pendiente recepción P2). En EN1: **3C operativo**, **Hito 2.5 cajero listo** (bootstrap + PIN verificador + atribución Sync Up) y **TZ Fase 1**.
 
 ---
 
@@ -72,13 +74,27 @@ Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
 
 ---
 
+## Hito 2.5 — Cajero (18 jul 2026)
+
+| Capacidad | Estado |
+|-----------|--------|
+| Contrato congelado | ✅ [`EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) |
+| CRUD cajeros EPosOne + PIN | ✅ (hash PBKDF2; nunca plano) |
+| Bootstrap `cashiers` / `cashiers_version` | ✅ mismo `GET /api/v1/devices/bootstrap` |
+| Sync Up con `cashier_contact_id` | ✅ turno / pedido / pago / reembolso / movimiento |
+| Login local APK + Keystore | ⏸ P2 |
+| Apertura de turno desde tablet | ⏸ P2 (BO sigue para excepciones) |
+
+---
+
 ## EN1 congelado / siguiente
 
 | Bloque | Estado |
 |--------|--------|
 | H1 · H2 | Congelado |
+| H2.5 Cajero | EN1 listo · contrato congelado · APK = Hito 4 |
 | H3 dominio/API + contrato HTTP | Congelado (docs) |
 | H3C BO cobro | Hecho en EN1 · E2E multi-POS = Hito 4 |
 | TZ Fase 1 | Hecho en EN1 |
 | Inventario | No hasta Hito 5 |
-| P2 | Cablear HTTP H3 + cobro tablet |
+| P2 | Cablear HTTP H3 + cobro tablet + cajero H2.5 |

@@ -15,6 +15,9 @@
             <a href="{{ url_for('eposone.eposone_section', slug='registers') }}" class="btn btn-sm btn-outline-secondary">
                 Ir a Cajas
             </a>
+            <a href="{{ url_for('eposone.eposone_section', slug='cashiers') }}" class="btn btn-sm btn-outline-secondary">
+                Administrar cajeros
+            </a>
         </div>
     </div>
 
@@ -31,6 +34,7 @@
                         <tr>
                             <th>ID</th>
                             <th>Caja</th>
+                            <th>Cajero</th>
                             <th>Estado</th>
                             <th class="text-end">Saldo</th>
                             <th class="text-end">Mov.</th>
@@ -45,6 +49,18 @@
                             <td>
                                 <div><code>{{ row.register_ref }}</code></div>
                                 <div class="small text-muted">{{ row.register_name }}</div>
+                            </td>
+                            <td>
+                                {% if shift.cashier_name %}
+                                <div class="fw-semibold">
+                                    <i class="fas fa-user me-1 text-muted"></i>{{ shift.cashier_name }}
+                                </div>
+                                {% if shift.cashier_contact_id %}
+                                <div class="small text-muted">CJR-{{ '%04d'|format(shift.cashier_contact_id) }}</div>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-warning">Sin cajero asignado</span>
+                                {% endif %}
                             </td>
                             <td>
                                 <span class="badge en1-badge--neutral">{{ shift.status }}</span>
@@ -121,6 +137,7 @@
                         <tr>
                             <th>ID</th>
                             <th>Caja</th>
+                            <th>Cajero</th>
                             <th>Cerrado</th>
                             <th class="text-end">Cierre</th>
                             <th class="text-end">Esperado</th>
@@ -134,6 +151,13 @@
                         <tr>
                             <td><code>#{{ shift.id }}</code></td>
                             <td><code>{{ row.register_ref }}</code></td>
+                            <td>
+                                {% if shift.cashier_name %}
+                                {{ shift.cashier_name }}
+                                {% else %}
+                                <span class="text-muted">Sin asignar</span>
+                                {% endif %}
+                            </td>
                             <td class="small text-muted">
                                 {% if shift.closed_at %}{{ shift.closed_at.strftime('%d/%m/%Y %H:%M') }}{% else %}—{% endif %}
                             </td>
@@ -155,28 +179,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="reconcileShiftModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <form method="post" action="" id="reconcileShiftForm" class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Arqueo de turno</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <p class="small text-muted mb-2">Caja: <code id="reconcileRegisterRef">—</code></p>
-                <p class="small mb-3">Esperado: <strong id="reconcileExpected">0.00</strong></p>
-                <div class="mb-3">
-                    <label for="counted_amount" class="form-label">Efectivo contado</label>
-                    <input type="number" step="0.01" min="0" class="form-control" name="counted_amount" id="counted_amount" required>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Registrar arqueo</button>
-            </div>
-        </form>
-    </div>
-</div>
+{% include 'eposone/partials/reconcile_shift_modal.html' %}
 
 <div class="modal fade" id="movementModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -221,20 +224,7 @@
 {{ super() }}
 <script>
 (function () {
-    var reconcileModal = document.getElementById('reconcileShiftModal');
-    if (reconcileModal) {
-        reconcileModal.addEventListener('show.bs.modal', function (event) {
-            var btn = event.relatedTarget;
-            var shiftId = btn.getAttribute('data-shift-id') || '';
-            var ref = btn.getAttribute('data-register-ref') || '';
-            var expected = btn.getAttribute('data-expected') || '0';
-            document.getElementById('reconcileRegisterRef').textContent = ref;
-            document.getElementById('reconcileExpected').textContent = parseFloat(expected).toFixed(2);
-            document.getElementById('counted_amount').value = parseFloat(expected).toFixed(2);
-            document.getElementById('reconcileShiftForm').action =
-                '{{ url_for("eposone.eposone_register_reconcile_shift", shift_id=0) }}'.replace('/0/', '/' + shiftId + '/');
-        });
-    }
+    {% include 'eposone/partials/reconcile_shift_script.html' %}
     var movementModal = document.getElementById('movementModal');
     if (movementModal) {
         movementModal.addEventListener('show.bs.modal', function (event) {

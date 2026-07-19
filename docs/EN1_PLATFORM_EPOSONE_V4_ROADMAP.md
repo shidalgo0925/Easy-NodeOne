@@ -80,13 +80,14 @@ con **un único modelo de dominio** y **una sola aplicación Android**.
 | **EN1-01** | Provisioning APIs (legacy) | ✅ | `847a09f` — refs en body + código por org |
 | **EN1-02** | Código = destino | ✅ **CERRADO** | `82c68f7` · tag `eposone-provisioning-v1.0` · E2E tablet Itsmo |
 | **Hito 2** | Device Bootstrap Sync Down | ✅ Cerrado | V5 · contrato bootstrap |
-| **Hito 3** | Dominio Pedido (EN1) | 🟡 Spec | V5 · [`ORDER_DOMAIN_SPEC`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
+| **Hito 2.5** | Cajero POS (EN1) | ✅ EN1 listo | V5 · [`HITO2_5_CASHIER`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) · APK pendiente |
+| **Hito 3** | Dominio Pedido (EN1) | ✅ 3B/3C | V5 · [`ORDER_DOMAIN_SPEC`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
 | **Hito 4+** | Operación / Inv / Caja / FE | ⏸ | Ver V5 roadmap |
 | **Etapa 2** | Android (Producto) | 📋 | Ver V5 · Hito 4 tras P1 |
 
 ### Etapa 2 — Android (resumen)
 
-Orden: **Hito 1** ✅ → **Hito 2** bootstrap E2E → **Hito 3** ciclo de vida del Pedido + sync ↔ EN1 → inventario por eventos / caja / FE.  
+Orden: **Hito 1** ✅ → **Hito 2** bootstrap ✅ → **Hito 2.5** cajero (EN1 ✅ · APK ⏸) → **Hito 3** Pedido ✅ → **Hito 4** operación APK → inventario / caja / FE.  
 Código APK: máquina local del equipo. Una sola APK; modos Solo POS / POS+BO / Corporativo (ADR-006).
 
 ---

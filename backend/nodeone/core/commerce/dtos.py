@@ -48,6 +48,7 @@ class OrderDTO:
     branch_org_unit_id: int | None = None
     parent_order_id: int | None = None
     pos_terminal_id: int | None = None
+    cashier_contact_id: int | None = None
     created_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -64,6 +65,7 @@ class OrderDTO:
             'parent_order_id': self.parent_order_id,
             'terminal_id': self.pos_terminal_id,
             'pos_terminal_id': self.pos_terminal_id,
+            'cashier_contact_id': self.cashier_contact_id,
             'currency': self.currency,
             'subtotal': self.subtotal,
             'tax_total': self.tax_total,
@@ -88,6 +90,8 @@ class PaymentDTO:
     currency: str
     order_ref: str | None = None
     refunded_amount: float = 0.0
+    cashier_contact_id: int | None = None
+    refunded_by_cashier_contact_id: int | None = None
     captured_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -101,6 +105,8 @@ class PaymentDTO:
             'refunded_amount': self.refunded_amount,
             'currency': self.currency,
             'order_ref': self.order_ref,
+            'cashier_contact_id': self.cashier_contact_id,
+            'refunded_by_cashier_contact_id': self.refunded_by_cashier_contact_id,
             'captured_at': self.captured_at.isoformat() if self.captured_at else None,
         }
 
@@ -186,6 +192,8 @@ class CashShiftDTO:
     counted_amount: float | None = None
     expected_balance: float | None = None
     cash_variance: float | None = None
+    cashier_contact_id: int | None = None
+    cashier_name: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -197,6 +205,8 @@ class CashShiftDTO:
             'closed_at': self.closed_at.isoformat() if self.closed_at else None,
             'opening_balance': self.opening_balance,
             'closing_balance': self.closing_balance,
+            'cashier_contact_id': self.cashier_contact_id,
+            'cashier_name': self.cashier_name,
         }
         if self.counted_amount is not None:
             data['counted_amount'] = self.counted_amount

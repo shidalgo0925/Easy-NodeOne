@@ -231,6 +231,30 @@ def _redirect_registers():
     return redirect(url_for('eposone.eposone_section', slug='registers'))
 
 
+def _redirect_cashiers():
+    return redirect(url_for('eposone.eposone_section', slug='cashiers'))
+
+
+def _cashier_contacts_for_org(organization_id: int, *, active_only: bool | None = True) -> list:
+    from nodeone.modules.eposone.cashier_service import CashierService
+
+    return CashierService.list_cashiers(int(organization_id), active_only=active_only)
+
+
+def _cashier_from_form(organization_id: int):
+    from nodeone.modules.eposone.cashier_service import CashierService
+
+    raw = (request.form.get('cashier_contact_id') or '').strip()
+    try:
+        cashier_id = int(raw)
+    except (TypeError, ValueError):
+        return None
+    cashier = CashierService.get(int(organization_id), cashier_id)
+    if cashier is None or not cashier.active:
+        return None
+    return cashier
+
+
 def _redirect_shifts():
     return redirect(url_for('eposone.eposone_section', slug='shifts'))
 
@@ -324,13 +348,7 @@ def _delivery_page_context(organization_id: int) -> dict:
     return {'delivery_rows': rows, 'deliveries_total': len(rows)}
 
 
-def _shift_operational_row(
-    organization_id: int,
-    shift_row,
-    *,
-    registers_by_ref: dict,
-) -> dict:
-    from models.commercial_core import CoreCashMovement
+def _cash_shift_state(shift_row) -> dict:
     from nodeone.core.commerce.cash import CashRegisterService
     from nodeone.core.commerce.constants import CASH_SHIFT_CLOSED, CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
     from nodeone.core.commerce.persistence import cash_shift_to_dto
@@ -350,27 +368,39 @@ def _shift_operational_row(
         can_move = True
     elif status == CASH_SHIFT_RECONCILING:
         can_close = True
-
-    reg = registers_by_ref.get(str(shift_row.register_ref))
-    movement_count = CoreCashMovement.query.filter_by(
-        organization_id=int(organization_id),
-        shift_id=int(shift_row.id),
-    ).count()
     return {
         'shift': shift_dto,
-        'register_ref': str(shift_row.register_ref),
-        'register_name': str(getattr(reg, 'name', None) or shift_row.register_ref),
         'expected_balance': expected_balance,
-        'movement_count': int(movement_count),
         'can_reconcile': can_reconcile,
         'can_close': can_close,
         'can_move': can_move,
     }
 
 
+def _shift_operational_row(
+    organization_id: int,
+    shift_row,
+    *,
+    registers_by_ref: dict,
+) -> dict:
+    from models.commercial_core import CoreCashMovement
+
+    state = _cash_shift_state(shift_row)
+    reg = registers_by_ref.get(str(shift_row.register_ref))
+    movement_count = CoreCashMovement.query.filter_by(
+        organization_id=int(organization_id),
+        shift_id=int(shift_row.id),
+    ).count()
+    return {
+        **state,
+        'register_ref': str(shift_row.register_ref),
+        'register_name': str(getattr(reg, 'name', None) or shift_row.register_ref),
+        'movement_count': int(movement_count),
+    }
+
+
 def _registers_page_context(organization_id: int) -> dict:
     from models.commercial_core import CoreCashShift, CorePosTerminal
-    from nodeone.core.commerce.cash import CashRegisterService
     from nodeone.core.commerce.constants import CASH_SHIFT_CLOSED, CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
     from nodeone.core.commerce.persistence import cash_shift_to_dto
     from nodeone.core.master.constants import (
@@ -431,16 +461,11 @@ def _registers_page_context(organization_id: int) -> dict:
         can_reconcile = False
         can_close = False
         if shift_row is not None:
-            status = str(shift_row.status or '')
-            shift_dto = cash_shift_to_dto(
-                shift_row,
-                include_variance=(status == CASH_SHIFT_RECONCILING),
-            )
-            if status == CASH_SHIFT_OPEN:
-                expected_balance = CashRegisterService.compute_expected_balance(int(shift_row.id))
-                can_reconcile = True
-            elif status == CASH_SHIFT_RECONCILING:
-                can_close = True
+            shift_state = _cash_shift_state(shift_row)
+            shift_dto = shift_state['shift']
+            expected_balance = shift_state['expected_balance']
+            can_reconcile = shift_state['can_reconcile']
+            can_close = shift_state['can_close']
 
         pos = pos_by_id.get(int(reg.parent_id)) if reg.parent_id is not None else None
         branch = None
@@ -494,6 +519,7 @@ def _registers_page_context(organization_id: int) -> dict:
         'registers_total': len(registers),
         'open_shifts_total': len(active_shifts),
         'recent_closed': [cash_shift_to_dto(row, include_variance=True) for row in recent_closed],
+        'cashier_contacts': _cashier_contacts_for_org(oid),
     }
 
 
@@ -541,7 +567,7 @@ def _shifts_page_context(organization_id: int) -> dict:
         'closed_shifts': closed_shifts,
         'active_total': len(active_shifts),
         'closed_total': len(closed_shifts),
-        'supervisor_ok': CommerceAuthorizationService.user_is_supervisor(current_user, oid),
+        'supervisor_ok': supervisor_ok,
     }
 
 
@@ -626,11 +652,12 @@ def eposone_issue_provisioning_code():
         return redirect(url_for('eposone.eposone_section', slug=redirect_slug))
     try:
         row = DeviceProvisioningService.issue_code_for_register(int(oid), register_ref=register_ref)
-        exp = row.expires_at.strftime('%H:%M') if row.expires_at else '—'
         flash(
-            f'Código de provisioning para {register_ref}: {row.code} · expira ~{exp} UTC. '
-            f'Úsalo una sola vez en el APK.',
+            f'Código generado para {register_ref}. Cópialo desde el panel de la caja (válido una sola vez).',
             'success',
+        )
+        return redirect(
+            url_for('eposone.eposone_section', slug=redirect_slug, issued=register_ref)
         )
     except DeviceProvisioningError as exc:
         flash(f'No se pudo generar código: {exc.code}', 'danger')
@@ -1035,6 +1062,90 @@ def eposone_order_apply_promotion(order_id: int):
     return _redirect_order_detail(order_id)
 
 
+@eposone_bp.route('/cashiers/create', methods=['POST'])
+@login_required
+def eposone_cashier_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.cashier_service import CashierService, CashierValidationError
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        dto = CashierService.create(
+            int(oid),
+            {
+                'display_name': request.form.get('display_name'),
+                'email': request.form.get('email'),
+                'phone': request.form.get('phone'),
+                'pin': request.form.get('pin'),
+            },
+        )
+    except CashierValidationError as exc:
+        flash(str(exc), 'danger')
+        return _redirect_cashiers()
+    flash(f'Cajero {dto.display_name} creado.', 'success')
+    return _redirect_cashiers()
+
+
+@eposone_bp.route('/cashiers/<int:cashier_id>/update', methods=['POST'])
+@login_required
+def eposone_cashier_update(cashier_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.cashier_service import CashierService, CashierValidationError
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    try:
+        dto = CashierService.update(
+            int(oid),
+            int(cashier_id),
+            {
+                'display_name': request.form.get('display_name'),
+                'email': request.form.get('email'),
+                'phone': request.form.get('phone'),
+                'pin': request.form.get('pin'),
+            },
+        )
+    except CashierValidationError as exc:
+        flash(str(exc), 'danger')
+        return _redirect_cashiers()
+    flash(f'Cajero {dto.display_name} actualizado.', 'success')
+    return _redirect_cashiers()
+
+
+@eposone_bp.route('/cashiers/<int:cashier_id>/status', methods=['POST'])
+@login_required
+def eposone_cashier_status(cashier_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.cashier_service import CashierService, CashierValidationError
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    active = (request.form.get('active') or '').strip() == '1'
+    try:
+        dto = CashierService.set_active(int(oid), int(cashier_id), active=active)
+    except CashierValidationError as exc:
+        flash(str(exc), 'danger')
+        return _redirect_cashiers()
+    flash(
+        f'Cajero {dto.display_name} {"activado" if dto.active else "desactivado"}.',
+        'success',
+    )
+    return _redirect_cashiers()
+
+
 @eposone_bp.route('/registers/open', methods=['POST'])
 @login_required
 def eposone_register_open_shift():
@@ -1071,17 +1182,61 @@ def eposone_register_open_shift():
     except ValueError:
         flash('Saldo inicial no válido.', 'danger')
         return _redirect_registers()
+    cashier = _cashier_from_form(int(oid))
+    if cashier is None:
+        flash('Seleccioná un cajero activo de esta empresa.', 'warning')
+        return _redirect_registers()
     try:
         dto = CashRegisterService.open_shift(
             int(oid),
             register_ref=register_ref,
             opening_balance=opening_balance,
+            cashier_contact_id=int(cashier.id),
+            cashier_name=cashier.display_name,
+            assigned_by_user_id=int(current_user.id),
             source_app_id='eposone',
         )
     except OrderValidationError as exc:
         flash(str(exc).replace('_', ' '), 'danger')
         return _redirect_registers()
-    flash(f'Turno abierto en {dto.register_ref} (saldo inicial {dto.opening_balance:.2f}).', 'success')
+    flash(
+        f'Turno abierto en {dto.register_ref} para {dto.cashier_name} '
+        f'(saldo inicial {dto.opening_balance:.2f}).',
+        'success',
+    )
+    return _redirect_registers()
+
+
+@eposone_bp.route('/registers/<int:shift_id>/cashier', methods=['POST'])
+@login_required
+def eposone_register_change_cashier(shift_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.cash import CashRegisterService
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    cashier = _cashier_from_form(int(oid))
+    if cashier is None:
+        flash('Seleccioná un cajero activo de esta empresa.', 'warning')
+        return _redirect_registers()
+    try:
+        CashRegisterService.change_cashier(
+            int(oid),
+            int(shift_id),
+            cashier_contact_id=int(cashier.id),
+            cashier_name=cashier.display_name,
+            changed_by_user_id=int(current_user.id),
+            source_app_id='eposone',
+        )
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_registers()
+    flash(f'Cajero actual: {cashier.display_name}.', 'success')
     return _redirect_registers()
 
 
@@ -2402,7 +2557,13 @@ def eposone_section(slug: str):
         from nodeone.core.services.org_unit import OrgUnitService
 
         oid = resolve_organization_id()
-        ctx = {'register_rows': [], 'registers_total': 0, 'open_shifts_total': 0, 'recent_closed': []}
+        ctx = {
+            'register_rows': [],
+            'registers_total': 0,
+            'open_shifts_total': 0,
+            'recent_closed': [],
+            'cashier_contacts': [],
+        }
         pos_units: list = []
         settings = None
         if oid is not None:
@@ -2411,6 +2572,7 @@ def eposone_section(slug: str):
             ctx = _registers_page_context(int(oid))
             pos_units = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_POS)
             settings = EposoneSettingsService.get_settings(int(oid))
+        issued_register_ref = (request.args.get('issued') or '').strip() or None
         return render_template(
             'eposone/registers.html',
             section_slug=key,
@@ -2418,7 +2580,25 @@ def eposone_section(slug: str):
             section_description=description,
             pos_units=pos_units,
             settings=settings,
+            issued_register_ref=issued_register_ref,
+            en1_api_base_url=request.url_root.rstrip('/'),
             **ctx,
+        )
+    if key == 'cashiers':
+        from nodeone.core.platform.runtime import resolve_organization_id
+
+        oid = resolve_organization_id()
+        cashiers: list = []
+        if oid is not None:
+            cashiers = _cashier_contacts_for_org(int(oid), active_only=None)
+        return render_template(
+            'eposone/cashiers.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            cashiers=cashiers,
+            cashiers_total=len(cashiers),
+            active_cashiers_total=sum(1 for row in cashiers if row.active),
         )
     if key == 'shifts':
         from nodeone.core.platform.runtime import resolve_organization_id

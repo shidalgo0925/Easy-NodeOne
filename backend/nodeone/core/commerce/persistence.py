@@ -55,6 +55,11 @@ def order_to_dto(row: CoreCommercialOrder) -> OrderDTO:
         branch_org_unit_id=int(row.branch_org_unit_id) if getattr(row, 'branch_org_unit_id', None) else None,
         parent_order_id=int(row.parent_order_id) if getattr(row, 'parent_order_id', None) else None,
         pos_terminal_id=int(row.pos_terminal_id) if getattr(row, 'pos_terminal_id', None) else None,
+        cashier_contact_id=(
+            int(row.cashier_contact_id)
+            if getattr(row, 'cashier_contact_id', None) is not None
+            else None
+        ),
         created_at=row.created_at,
     )
 
@@ -70,6 +75,16 @@ def payment_to_dto(row: CoreCommercialPayment, *, order_ref: str) -> PaymentDTO:
         refunded_amount=float(getattr(row, 'refunded_amount', 0) or 0),
         currency=str(row.currency or 'USD'),
         order_ref=order_ref,
+        cashier_contact_id=(
+            int(row.cashier_contact_id)
+            if getattr(row, 'cashier_contact_id', None) is not None
+            else None
+        ),
+        refunded_by_cashier_contact_id=(
+            int(row.refunded_by_cashier_contact_id)
+            if getattr(row, 'refunded_by_cashier_contact_id', None) is not None
+            else None
+        ),
         captured_at=row.captured_at,
     )
 
@@ -92,6 +107,12 @@ def cash_shift_to_dto(row: CoreCashShift, *, include_variance: bool = True) -> C
         counted_amount=counted,
         expected_balance=expected if include_variance else None,
         cash_variance=variance,
+        cashier_contact_id=(
+            int(row.cashier_contact_id)
+            if getattr(row, 'cashier_contact_id', None) is not None
+            else None
+        ),
+        cashier_name=(getattr(row, 'cashier_name', None) or None),
     )
 
 

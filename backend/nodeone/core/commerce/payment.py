@@ -108,6 +108,11 @@ class PaymentService:
             currency=str(order.currency or 'USD'),
             captured_at=datetime.utcnow(),
             cash_shift_id=cash_shift_id,
+            cashier_contact_id=(
+                int(data['cashier_contact_id'])
+                if data.get('cashier_contact_id') is not None
+                else None
+            ),
         )
         db.session.add(row)
         prev_payment_status = str(order.payment_status or 'unpaid')
@@ -167,6 +172,11 @@ class PaymentService:
                     CASH_MOVEMENT_SALE_CASH,
                     amount,
                     payment_id=int(row.id),
+                    cashier_contact_id=(
+                        int(data['cashier_contact_id'])
+                        if data.get('cashier_contact_id') is not None
+                        else None
+                    ),
                     source_app_id=source_app_id,
                 )
             except Exception:
@@ -247,6 +257,9 @@ class PaymentService:
         prev_fiscal_status = str(order.fiscal_status or '')
 
         row.refunded_amount = round(already_refunded + refund_amt, 2)
+        cashier_contact_id = (approval or {}).get('cashier_contact_id')
+        if cashier_contact_id is not None:
+            row.refunded_by_cashier_contact_id = int(cashier_contact_id)
         row.status = (
             PAYMENT_STATUS_REFUNDED
             if row.refunded_amount >= captured_amt
@@ -310,6 +323,9 @@ class PaymentService:
                     CASH_MOVEMENT_REFUND_CASH,
                     refund_amt,
                     payment_id=int(row.id),
+                    cashier_contact_id=(
+                        int(cashier_contact_id) if cashier_contact_id is not None else None
+                    ),
                     source_app_id=source_app_id,
                 )
             except Exception:

@@ -77,9 +77,18 @@ def devices_bootstrap():
             if 'stock_balances' in parts:
                 parts.discard('stock_balances')
                 parts.add('stock')
-            allowed = {'config', 'products', 'stock'}
+            allowed = {'config', 'products', 'stock', 'cashiers'}
             include = frozenset(parts & allowed) or None
-        payload = DeviceProvisioningService.build_bootstrap_for_terminal(row, include=include)
+        raw_cashiers_version = (request.args.get('cashiers_version') or '').strip()
+        try:
+            known_cashiers_version = int(raw_cashiers_version) if raw_cashiers_version else None
+        except ValueError:
+            return jsonify({'error': 'invalid_cashiers_version'}), 400
+        payload = DeviceProvisioningService.build_bootstrap_for_terminal(
+            row,
+            include=include,
+            known_cashiers_version=known_cashiers_version,
+        )
     except DeviceProvisioningError as exc:
         return jsonify({'error': exc.code}), int(exc.http_status)
     return jsonify(payload)

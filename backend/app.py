@@ -3446,6 +3446,13 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_contacts_schema: {e}')
         try:
+            from nodeone.services.eposone_cashier_schema import ensure_eposone_cashier_schema
+
+            ensure_eposone_cashier_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_cashier_schema: {e}')
+        try:
             from nodeone.services.platform_app_runtime_schema import (
                 ensure_platform_app_runtime_schema,
                 seed_ecrm_platform_runtime,

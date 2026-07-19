@@ -4,13 +4,14 @@
 |-------|--------|
 | Hito | **Hito 2 — Device Bootstrap (Sync Down) v1** |
 | Estado | **Implementado en Dev** (13 jul 2026) — `GET /api/v1/devices/bootstrap` · pendiente E2E APK |
-| Fecha | **13 jul 2026** |
+| Fecha | **13 jul 2026** · extensión cajero **18 jul 2026** (Hito 2.5) |
 | Precondición | Hito 1 Provisioning EN1-02 **cerrado / congelado** |
 | Auth | `Authorization: Bearer <access_token>` del register |
 | Destino | El de la Caja provisionada (**no** reenviar org/branch/pos/caja en el Wizard) |
 | Ambiente Dev | `https://appdev.easynodeone.com` |
 | Handoff productos BO | [`EN1_EPOSONE_HANDOFF_PRODUCTOS_INVENTARIO.md`](EN1_EPOSONE_HANDOFF_PRODUCTOS_INVENTARIO.md) |
 | Hito 1 | [`EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md`](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| **Extensión Hito 2.5** | Catálogo `cashiers` en el mismo bootstrap — [`EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) |
 
 ---
 
@@ -47,14 +48,15 @@ Tras E2E Hito 2: se puede **eliminar dependencia del catálogo local Istmo**; EN
 | `GET` | `/api/v1/devices/config` | Bearer | Hito 1 — jerarquía + currency + timezone + `config_version` |
 | `GET` | `/api/v1/devices/bootstrap` | Bearer | **Hito 2** — snapshot: config + products + stock_balances |
 
-Query opcional: `include=config,products,stock` (default: los tres).
+Query opcional: `include=config,products,stock,cashiers` (default: los cuatro desde Hito 2.5).
 
 > Rutas `/catalog` y `/stock` separadas: no requeridas en v1 (todo en bootstrap).
 
 ### Query opcionales (v1)
 
 - `since` / `catalog_version` — si EN1 aún no versiona, ignorar y devolver full.  
-- `include=products,stock,config` — default todos.
+- `include=products,stock,config,cashiers` — default todos (incl. cajeros desde Hito 2.5).  
+- `cashiers_version` — si coincide, EN1 omite el array `cashiers` (`cashiers_changed=false`). Ver contrato Hito 2.5.
 
 ### Respuesta `200` (forma lógica)
 

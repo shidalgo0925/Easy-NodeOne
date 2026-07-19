@@ -21,6 +21,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
                 fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
                 contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 subtotal DOUBLE PRECISION NOT NULL DEFAULT 0,
                 tax_total DOUBLE PRECISION NOT NULL DEFAULT 0,
@@ -49,6 +50,7 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
                 fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
                 contact_id INTEGER,
+                cashier_contact_id INTEGER,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
                 subtotal REAL NOT NULL DEFAULT 0,
                 tax_total REAL NOT NULL DEFAULT 0,
@@ -122,6 +124,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 amount DOUBLE PRECISION NOT NULL DEFAULT 0,
                 refunded_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                refunded_by_cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
                 captured_at TIMESTAMP WITHOUT TIME ZONE,
                 created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
                 CONSTRAINT uq_core_commercial_payment_ref UNIQUE (organization_id, payment_ref)
@@ -140,6 +144,8 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 amount REAL NOT NULL DEFAULT 0,
                 refunded_amount REAL NOT NULL DEFAULT 0,
                 currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                cashier_contact_id INTEGER,
+                refunded_by_cashier_contact_id INTEGER,
                 captured_at DATETIME,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE (organization_id, payment_ref)
@@ -155,10 +161,15 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
                 register_ref VARCHAR(64) NOT NULL,
                 status VARCHAR(32) NOT NULL DEFAULT 'open',
+                cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                cashier_name VARCHAR(120),
+                cashier_changed_at TIMESTAMP WITHOUT TIME ZONE,
+                cashier_changed_by_user_id INTEGER REFERENCES "user"(id) ON DELETE SET NULL,
                 opening_balance DOUBLE PRECISION NOT NULL DEFAULT 0,
                 closing_balance DOUBLE PRECISION,
                 opened_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-                closed_at TIMESTAMP WITHOUT TIME ZONE
+                closed_at TIMESTAMP WITHOUT TIME ZONE,
+                closed_by_cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL
             );
             CREATE INDEX IF NOT EXISTS ix_core_cash_shift_org ON core_cash_shift (organization_id, register_ref);
             """
@@ -169,19 +180,27 @@ def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
                 organization_id INTEGER NOT NULL,
                 register_ref VARCHAR(64) NOT NULL,
                 status VARCHAR(32) NOT NULL DEFAULT 'open',
+                cashier_contact_id INTEGER,
+                cashier_name VARCHAR(120),
+                cashier_changed_at DATETIME,
+                cashier_changed_by_user_id INTEGER,
                 opening_balance REAL NOT NULL DEFAULT 0,
                 closing_balance REAL,
                 opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                closed_at DATETIME
+                closed_at DATETIME,
+                closed_by_cashier_contact_id INTEGER
             );
             """
         _exec(engine, ddl, printfn, 'core_cash_shift')
     else:
         _ensure_cash_shift_arqueo_columns(engine, insp, printfn)
+        _ensure_cash_shift_cashier_columns(engine, insp, printfn)
+        _drop_legacy_cashier_user_column(engine, insp, printfn)
 
     _ensure_cash_movement_table(engine, insp, printfn)
     _ensure_payment_cash_shift_column(engine, insp, printfn)
     _ensure_payment_refunded_amount_column(engine, insp, printfn)
+    _ensure_cashier_attribution_columns(engine, insp, printfn)
 
     if 'core_pos_terminal' not in tables:
         if dialect == 'postgresql':
@@ -582,6 +601,63 @@ def _ensure_cash_shift_arqueo_columns(engine, insp, printfn) -> None:
             printfn('core_cash_shift: columnas arqueo añadidas')
 
 
+def _ensure_cash_shift_cashier_columns(engine, insp, printfn) -> None:
+    if 'core_cash_shift' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_cash_shift')}
+    dialect = engine.dialect.name
+    specs: list[tuple[str, str, str]] = [
+        (
+            'cashier_contact_id',
+            'INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL',
+            'INTEGER',
+        ),
+        ('cashier_name', 'VARCHAR(120)', 'VARCHAR(120)'),
+        (
+            'cashier_changed_at',
+            'TIMESTAMP WITHOUT TIME ZONE',
+            'DATETIME',
+        ),
+        (
+            'cashier_changed_by_user_id',
+            'INTEGER REFERENCES "user"(id) ON DELETE SET NULL',
+            'INTEGER',
+        ),
+    ]
+    added: list[str] = []
+    with engine.begin() as conn:
+        for name, pg_type, sqlite_type in specs:
+            if name in cols:
+                continue
+            col_type = pg_type if dialect == 'postgresql' else sqlite_type
+            clause = 'ADD COLUMN IF NOT EXISTS' if dialect == 'postgresql' else 'ADD COLUMN'
+            conn.execute(text(f'ALTER TABLE core_cash_shift {clause} {name} {col_type}'))
+            added.append(name)
+        if dialect == 'postgresql':
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_core_cash_shift_cashier_contact '
+                    'ON core_cash_shift (cashier_contact_id)'
+                )
+            )
+    if added and printfn:
+        printfn(f'core_cash_shift: columnas cajero añadidas ({", ".join(added)})')
+
+
+def _drop_legacy_cashier_user_column(engine, insp, printfn) -> None:
+    """Retira el identificador duplicado del primer prototipo User=Cajero."""
+    if 'core_cash_shift' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_cash_shift')}
+    if 'cashier_user_id' not in cols:
+        return
+    clause = 'DROP COLUMN IF EXISTS' if engine.dialect.name == 'postgresql' else 'DROP COLUMN'
+    with engine.begin() as conn:
+        conn.execute(text(f'ALTER TABLE core_cash_shift {clause} cashier_user_id'))
+    if printfn:
+        printfn('core_cash_shift: columna legacy cashier_user_id eliminada')
+
+
 def _ensure_cash_movement_table(engine, insp, printfn) -> None:
     if 'core_cash_movement' in insp.get_table_names():
         return
@@ -595,6 +671,7 @@ def _ensure_cash_movement_table(engine, insp, printfn) -> None:
             movement_type VARCHAR(32) NOT NULL,
             amount DOUBLE PRECISION NOT NULL DEFAULT 0,
             payment_id INTEGER REFERENCES core_commercial_payment(id) ON DELETE SET NULL,
+            cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
             notes VARCHAR(500),
             created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
         );
@@ -609,6 +686,7 @@ def _ensure_cash_movement_table(engine, insp, printfn) -> None:
             movement_type VARCHAR(32) NOT NULL,
             amount REAL NOT NULL DEFAULT 0,
             payment_id INTEGER,
+            cashier_contact_id INTEGER,
             notes VARCHAR(500),
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
@@ -658,6 +736,45 @@ def _ensure_payment_refunded_amount_column(engine, insp, printfn) -> None:
         conn.execute(text(stmt))
     if printfn:
         printfn('core_commercial_payment: columna refunded_amount añadida')
+
+
+def _ensure_cashier_attribution_columns(engine, insp, printfn) -> None:
+    dialect = engine.dialect.name
+    specs = {
+        'core_commercial_order': ('cashier_contact_id',),
+        'core_commercial_payment': (
+            'cashier_contact_id',
+            'refunded_by_cashier_contact_id',
+        ),
+        'core_cash_shift': ('closed_by_cashier_contact_id',),
+        'core_cash_movement': ('cashier_contact_id',),
+    }
+    added: list[str] = []
+    with engine.begin() as conn:
+        for table, names in specs.items():
+            if table not in insp.get_table_names():
+                continue
+            cols = {c['name'] for c in inspect(engine).get_columns(table)}
+            for name in names:
+                if name in cols:
+                    continue
+                if dialect == 'postgresql':
+                    col_type = 'INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL'
+                    clause = 'ADD COLUMN IF NOT EXISTS'
+                else:
+                    col_type = 'INTEGER'
+                    clause = 'ADD COLUMN'
+                conn.execute(text(f'ALTER TABLE {table} {clause} {name} {col_type}'))
+                added.append(f'{table}.{name}')
+            if dialect == 'postgresql' and 'cashier_contact_id' in names:
+                conn.execute(
+                    text(
+                        f'CREATE INDEX IF NOT EXISTS ix_{table}_cashier_contact '
+                        f'ON {table} (cashier_contact_id)'
+                    )
+                )
+    if added and printfn:
+        printfn(f'atribución cajero: {", ".join(added)}')
 
 
 def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:

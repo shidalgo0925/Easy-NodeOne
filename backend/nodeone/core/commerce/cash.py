@@ -19,6 +19,7 @@ from nodeone.core.commerce.dtos import CashShiftDTO
 from nodeone.core.commerce.order import OrderValidationError
 from nodeone.core.commerce.persistence import cash_shift_to_dto
 from nodeone.core.commerce.events import (
+    COMMERCE_CASH_CASHIER_CHANGED,
     COMMERCE_CASH_COUNT_RECORDED,
     COMMERCE_CASH_MOVEMENT_RECORDED,
     COMMERCE_CASH_SHIFT_CLOSED,
@@ -56,6 +57,9 @@ class CashRegisterService:
         *,
         register_ref: str,
         opening_balance: float,
+        cashier_contact_id: int | None = None,
+        cashier_name: str | None = None,
+        assigned_by_user_id: int | None = None,
         source_app_id: str = 'eposone',
     ) -> CashShiftDTO:
         from app import db
@@ -70,11 +74,20 @@ class CashRegisterService:
         ).first()
         if open_row is not None:
             raise OrderValidationError('shift_already_open')
+        name = (cashier_name or '').strip() or None
 
         row = CoreCashShift(
             organization_id=int(organization_id),
             register_ref=ref,
             status=CASH_SHIFT_OPEN,
+            cashier_contact_id=(
+                int(cashier_contact_id) if cashier_contact_id is not None else None
+            ),
+            cashier_name=name,
+            cashier_changed_at=datetime.utcnow(),
+            cashier_changed_by_user_id=(
+                int(assigned_by_user_id) if assigned_by_user_id is not None else None
+            ),
             opening_balance=float(opening_balance or 0),
             opened_at=datetime.utcnow(),
         )
@@ -84,6 +97,59 @@ class CashRegisterService:
             int(organization_id),
             register_ref=ref,
             opening_balance=float(opening_balance or 0),
+            cashier_contact_id=(
+                int(cashier_contact_id) if cashier_contact_id is not None else None
+            ),
+            cashier_name=name,
+            assigned_by_user_id=(
+                int(assigned_by_user_id) if assigned_by_user_id is not None else None
+            ),
+            source_app_id=source_app_id,
+        )
+        return cash_shift_to_dto(row)
+
+    @staticmethod
+    def change_cashier(
+        organization_id: int,
+        shift_id: int,
+        *,
+        cashier_contact_id: int,
+        cashier_name: str | None,
+        changed_by_user_id: int,
+        source_app_id: str = 'eposone',
+    ) -> CashShiftDTO:
+        from app import db
+
+        row = CoreCashShift.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(shift_id),
+        ).first()
+        if row is None:
+            raise OrderValidationError('cash_shift_not_found')
+        if str(row.status or '') not in (CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING):
+            raise OrderValidationError('cash_shift_not_active')
+        name = (cashier_name or '').strip()
+        if not name:
+            raise OrderValidationError('cashier_required')
+
+        previous_contact_id = row.cashier_contact_id
+        previous_name = row.cashier_name
+        row.cashier_contact_id = int(cashier_contact_id)
+        row.cashier_name = name
+        row.cashier_changed_at = datetime.utcnow()
+        row.cashier_changed_by_user_id = int(changed_by_user_id)
+        db.session.commit()
+        CashRegisterService.publish_cashier_changed(
+            int(organization_id),
+            shift_id=int(row.id),
+            register_ref=str(row.register_ref),
+            previous_cashier_contact_id=(
+                int(previous_contact_id) if previous_contact_id is not None else None
+            ),
+            previous_cashier_name=previous_name,
+            cashier_contact_id=int(cashier_contact_id),
+            cashier_name=name,
+            changed_by_user_id=int(changed_by_user_id),
             source_app_id=source_app_id,
         )
         return cash_shift_to_dto(row)
@@ -116,6 +182,7 @@ class CashRegisterService:
         *,
         payment_id: int | None = None,
         notes: str | None = None,
+        cashier_contact_id: int | None = None,
         source_app_id: str = 'eposone',
     ) -> None:
         from app import db
@@ -142,6 +209,9 @@ class CashRegisterService:
             movement_type=mtype,
             amount=amt,
             payment_id=int(payment_id) if payment_id else None,
+            cashier_contact_id=(
+                int(cashier_contact_id) if cashier_contact_id is not None else None
+            ),
             notes=(notes or None),
         )
         db.session.add(mv)
@@ -153,6 +223,7 @@ class CashRegisterService:
             amount=amt,
             shift_id=int(shift_id),
             payment_id=payment_id,
+            cashier_contact_id=cashier_contact_id,
             source_app_id=source_app_id,
         )
 
@@ -165,6 +236,7 @@ class CashRegisterService:
         *,
         notes: str | None = None,
         approval: dict | None = None,
+        cashier_contact_id: int | None = None,
         source_app_id: str = 'eposone',
     ) -> CashShiftDTO:
         from nodeone.core.commerce.authorization import CommerceAuthorizationService
@@ -185,6 +257,7 @@ class CashRegisterService:
             mtype,
             amount,
             notes=notes,
+            cashier_contact_id=cashier_contact_id,
             source_app_id=source_app_id,
         )
         row = CoreCashShift.query.filter_by(organization_id=int(organization_id), id=int(shift_id)).first()
@@ -199,6 +272,7 @@ class CashRegisterService:
         *,
         counted_amount: float,
         source_app_id: str = 'eposone',
+        cashier_contact_id: int | None = None,
     ) -> CashShiftDTO:
         from app import db
 
@@ -223,6 +297,7 @@ class CashRegisterService:
             int(organization_id),
             register_ref=str(row.register_ref),
             counted_amount=counted,
+            cashier_contact_id=cashier_contact_id,
             source_app_id=source_app_id,
         )
         CashRegisterService.publish_shift_reconciling(
@@ -231,6 +306,7 @@ class CashRegisterService:
             counted_amount=counted,
             expected_balance=expected,
             variance=variance,
+            cashier_contact_id=cashier_contact_id,
             source_app_id=source_app_id,
         )
         return cash_shift_to_dto(row, include_variance=False)
@@ -241,6 +317,7 @@ class CashRegisterService:
         shift_id: int,
         *,
         source_app_id: str = 'eposone',
+        cashier_contact_id: int | None = None,
     ) -> CashShiftDTO:
         from app import db
 
@@ -261,6 +338,9 @@ class CashRegisterService:
         row.status = CASH_SHIFT_CLOSED
         row.closing_balance = closing
         row.closed_at = datetime.utcnow()
+        row.closed_by_cashier_contact_id = (
+            int(cashier_contact_id) if cashier_contact_id is not None else None
+        )
         db.session.commit()
         CashRegisterService.publish_shift_closed(
             int(organization_id),
@@ -268,6 +348,7 @@ class CashRegisterService:
             closing_balance=closing,
             expected_balance=expected,
             variance=variance,
+            cashier_contact_id=cashier_contact_id,
             source_app_id=source_app_id,
         )
         return cash_shift_to_dto(row, include_variance=True)
@@ -289,6 +370,9 @@ class CashRegisterService:
         *,
         register_ref: str,
         opening_balance: float,
+        cashier_contact_id: int | None,
+        cashier_name: str | None,
+        assigned_by_user_id: int | None,
         source_app_id: str = 'eposone',
     ):
         return AuditService.publish_domain_event(
@@ -297,6 +381,37 @@ class CashRegisterService:
             {
                 'register_ref': register_ref,
                 'opening_balance': opening_balance,
+                'cashier_contact_id': cashier_contact_id,
+                'cashier_name': cashier_name,
+                'assigned_by_user_id': assigned_by_user_id,
+            },
+            source_app_id=source_app_id,
+        )
+
+    @staticmethod
+    def publish_cashier_changed(
+        organization_id: int,
+        *,
+        shift_id: int,
+        register_ref: str,
+        previous_cashier_contact_id: int | None,
+        previous_cashier_name: str | None,
+        cashier_contact_id: int,
+        cashier_name: str,
+        changed_by_user_id: int,
+        source_app_id: str = 'eposone',
+    ):
+        return AuditService.publish_domain_event(
+            organization_id,
+            COMMERCE_CASH_CASHIER_CHANGED,
+            {
+                'shift_id': shift_id,
+                'register_ref': register_ref,
+                'previous_cashier_contact_id': previous_cashier_contact_id,
+                'previous_cashier_name': previous_cashier_name,
+                'cashier_contact_id': cashier_contact_id,
+                'cashier_name': cashier_name,
+                'changed_by_user_id': changed_by_user_id,
             },
             source_app_id=source_app_id,
         )
@@ -309,17 +424,21 @@ class CashRegisterService:
         counted_amount: float,
         expected_balance: float,
         variance: float,
+        cashier_contact_id: int | None = None,
         source_app_id: str = 'eposone',
     ):
+        payload = {
+            'register_ref': register_ref,
+            'counted_amount': counted_amount,
+            'expected_balance': expected_balance,
+            'variance': variance,
+        }
+        if cashier_contact_id is not None:
+            payload['cashier_contact_id'] = int(cashier_contact_id)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_CASH_SHIFT_RECONCILING,
-            {
-                'register_ref': register_ref,
-                'counted_amount': counted_amount,
-                'expected_balance': expected_balance,
-                'variance': variance,
-            },
+            payload,
             source_app_id=source_app_id,
         )
 
@@ -331,6 +450,7 @@ class CashRegisterService:
         closing_balance: float,
         expected_balance: float | None = None,
         variance: float | None = None,
+        cashier_contact_id: int | None = None,
         source_app_id: str = 'eposone',
     ):
         payload: dict = {
@@ -341,6 +461,8 @@ class CashRegisterService:
             payload['expected_balance'] = expected_balance
         if variance is not None:
             payload['variance'] = variance
+        if cashier_contact_id is not None:
+            payload['cashier_contact_id'] = int(cashier_contact_id)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_CASH_SHIFT_CLOSED,
@@ -354,15 +476,19 @@ class CashRegisterService:
         *,
         register_ref: str,
         counted_amount: float,
+        cashier_contact_id: int | None = None,
         source_app_id: str = 'eposone',
     ):
+        payload = {
+            'register_ref': register_ref,
+            'counted_amount': counted_amount,
+        }
+        if cashier_contact_id is not None:
+            payload['cashier_contact_id'] = int(cashier_contact_id)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_CASH_COUNT_RECORDED,
-            {
-                'register_ref': register_ref,
-                'counted_amount': counted_amount,
-            },
+            payload,
             source_app_id=source_app_id,
         )
 
@@ -375,6 +501,7 @@ class CashRegisterService:
         amount: float,
         shift_id: int,
         payment_id: int | None = None,
+        cashier_contact_id: int | None = None,
         source_app_id: str = 'eposone',
     ):
         payload: dict = {
@@ -385,6 +512,8 @@ class CashRegisterService:
         }
         if payment_id is not None:
             payload['payment_id'] = payment_id
+        if cashier_contact_id is not None:
+            payload['cashier_contact_id'] = int(cashier_contact_id)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_CASH_MOVEMENT_RECORDED,

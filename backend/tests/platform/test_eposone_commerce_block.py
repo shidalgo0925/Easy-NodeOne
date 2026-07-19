@@ -332,26 +332,63 @@ class TestEPosOneRegistersActions(unittest.TestCase):
 
     @patch('flask_login.utils._get_user')
     @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.routes._cashier_from_form')
     @patch('nodeone.core.commerce.cash.CashRegisterService.open_shift')
+    @patch('models.commercial_core.CorePosTerminal')
     @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
-    def test_register_open_shift_post(self, _oid, mock_open, _gate, mock_get_user):
+    def test_register_open_shift_post(
+        self, _oid, mock_terminal_cls, mock_open, _cashier, _gate, mock_get_user
+    ):
         from types import SimpleNamespace
 
         user = MagicMock()
         user.is_authenticated = True
         mock_get_user.return_value = user
-        mock_open.return_value = SimpleNamespace(register_ref='REG-1', opening_balance=100.0)
+        _cashier.return_value = SimpleNamespace(id=7, display_name='Ana Pérez')
+        mock_terminal_cls.query.filter_by.return_value.first.return_value = SimpleNamespace()
+        mock_open.return_value = SimpleNamespace(
+            register_ref='REG-1',
+            opening_balance=100.0,
+            cashier_name='Ana Pérez',
+        )
         with self.app.test_request_context():
             from flask import url_for
 
             action = url_for('eposone.eposone_register_open_shift')
         resp = self.client.post(
             action,
-            data={'register_ref': 'REG-1', 'opening_balance': '100.00'},
+            data={'register_ref': 'REG-1', 'opening_balance': '100.00', 'cashier_contact_id': '7'},
             follow_redirects=False,
         )
         self.assertEqual(resp.status_code, 302)
         mock_open.assert_called_once()
+
+    @patch('flask_login.utils._get_user')
+    @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
+    @patch('nodeone.modules.eposone.routes._cashier_from_form')
+    @patch('nodeone.core.commerce.cash.CashRegisterService.change_cashier')
+    @patch('nodeone.core.platform.runtime.resolve_organization_id', return_value=1)
+    def test_register_change_cashier_post(
+        self, _oid, mock_change, _cashier, _gate, mock_get_user
+    ):
+        from types import SimpleNamespace
+
+        user = MagicMock()
+        user.is_authenticated = True
+        user.id = 99
+        mock_get_user.return_value = user
+        _cashier.return_value = SimpleNamespace(id=8, display_name='Luis Gómez')
+        with self.app.test_request_context():
+            from flask import url_for
+
+            action = url_for('eposone.eposone_register_change_cashier', shift_id=3)
+        resp = self.client.post(
+            action,
+            data={'cashier_contact_id': '8'},
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_change.assert_called_once()
 
     @patch('flask_login.utils._get_user')
     @patch('nodeone.modules.eposone.routes.user_can_see_tenant_admin_menu', return_value=True)
@@ -806,11 +843,13 @@ class TestEPosOneCommerceBlockFlow(unittest.TestCase):
         self.assertEqual(dto.pos_terminal_id, 3)
         self.assertEqual(row.pos_terminal_id, 3)
 
+    @patch('nodeone.modules.eposone.cashier_service.CashierService.require_cashier')
     @patch('nodeone.modules.eposone.sync_handlers.OrderService.transfer_to_terminal')
-    def test_sync_applies_transfer_operation(self, mock_transfer):
+    def test_sync_applies_transfer_operation(self, mock_transfer, mock_require_cashier):
         from nodeone.core.sync.queue import SyncOperationDTO
         from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation
 
+        mock_require_cashier.return_value = SimpleNamespace(id=27, display_name='Juan Pérez')
         dto = SyncOperationDTO(
             id=99,
             organization_id=1,
@@ -820,7 +859,11 @@ class TestEPosOneCommerceBlockFlow(unittest.TestCase):
             status='pending',
             entity_type='order',
             entity_ref='POS-0008',
-            payload={'order_id': 8, 'terminal_ref': 'CAJA-01'},
+            payload={
+                'order_id': 8,
+                'terminal_ref': 'CAJA-01',
+                'cashier_contact_id': 27,
+            },
             base_version=2,
             retry_count=0,
             conflict_reason=None,

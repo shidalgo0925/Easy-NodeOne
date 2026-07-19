@@ -19,6 +19,9 @@ class CoreCommercialOrder(db.Model):
     payment_status = db.Column(db.String(32), nullable=False, default='unpaid')
     fiscal_status = db.Column(db.String(32), nullable=False, default='not_required')
     contact_id = db.Column(db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True)
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
     branch_org_unit_id = db.Column(
         db.Integer, db.ForeignKey('core_org_unit.id', ondelete='SET NULL'), nullable=True, index=True
     )
@@ -124,6 +127,12 @@ class CoreCommercialPayment(db.Model):
     cash_shift_id = db.Column(
         db.Integer, db.ForeignKey('core_cash_shift.id', ondelete='SET NULL'), nullable=True, index=True
     )
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    refunded_by_cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True
+    )
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     order = db.relationship('CoreCommercialOrder', backref=db.backref('payments', lazy='dynamic'))
@@ -142,12 +151,23 @@ class CoreCashShift(db.Model):
     )
     register_ref = db.Column(db.String(64), nullable=False, index=True)
     status = db.Column(db.String(32), nullable=False, default='open')
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    cashier_name = db.Column(db.String(120), nullable=True)
+    cashier_changed_at = db.Column(db.DateTime, nullable=True)
+    cashier_changed_by_user_id = db.Column(
+        db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True
+    )
     opening_balance = db.Column(db.Float, nullable=False, default=0.0)
     closing_balance = db.Column(db.Float, nullable=True)
     counted_amount = db.Column(db.Float, nullable=True)
     expected_balance = db.Column(db.Float, nullable=True)
     opened_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     closed_at = db.Column(db.DateTime, nullable=True)
+    closed_by_cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True
+    )
 
     movements = db.relationship(
         'CoreCashMovement',
@@ -171,6 +191,9 @@ class CoreCashMovement(db.Model):
     amount = db.Column(db.Float, nullable=False, default=0.0)
     payment_id = db.Column(
         db.Integer, db.ForeignKey('core_commercial_payment.id', ondelete='SET NULL'), nullable=True
+    )
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
     )
     notes = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

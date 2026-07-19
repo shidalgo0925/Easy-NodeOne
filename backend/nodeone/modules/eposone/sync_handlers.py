@@ -6,14 +6,44 @@ from nodeone.core.commerce.order import OrderService, OrderValidationError
 from nodeone.core.commerce.payment import PaymentService
 from nodeone.core.sync.queue import SyncOperationDTO
 
+_CASHIER_OPERATIONS = frozenset(
+    {
+        'create_order',
+        'transition_order_status',
+        'capture_payment',
+        'refund_payment',
+        'open_cash_shift',
+        'reconcile_cash_shift',
+        'close_cash_shift',
+        'manual_cash_movement',
+        'split_order',
+        'transfer_order',
+    }
+)
+
 
 def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
     op = (dto.operation_type or '').strip().lower()
+    payload = dict(dto.payload or {})
+    cashier = None
+    if op in _CASHIER_OPERATIONS:
+        from nodeone.modules.eposone.cashier_service import (
+            CashierService,
+            CashierValidationError,
+        )
+
+        try:
+            cashier = CashierService.require_cashier(
+                int(dto.organization_id),
+                payload.get('cashier_contact_id'),
+                active=(op == 'open_cash_shift'),
+            )
+        except CashierValidationError as exc:
+            raise OrderValidationError(str(exc)) from exc
     if op == 'create_order':
-        OrderService.create(int(dto.organization_id), dict(dto.payload or {}), source_app_id='eposone')
+        OrderService.create(int(dto.organization_id), payload, source_app_id='eposone')
         return
     if op == 'transition_order_status':
-        payload = dict(dto.payload or {})
         order_id = payload.get('order_id')
         status = (payload.get('status') or '').strip()
         if not order_id or not status:
@@ -24,15 +54,15 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             status,
             source_app_id='eposone',
             reason=payload.get('reason'),
+            cashier_contact_id=int(cashier.id),
         )
         return
     if op == 'capture_payment':
-        PaymentService.capture(int(dto.organization_id), dict(dto.payload or {}), source_app_id='eposone')
+        PaymentService.capture(int(dto.organization_id), payload, source_app_id='eposone')
         return
     if op == 'emit_fiscal':
         from nodeone.core.commerce.fiscal import CommerceFiscalService
 
-        payload = dict(dto.payload or {})
         order_id = payload.get('order_id')
         if not order_id:
             raise OrderValidationError('order_id_required')
@@ -43,7 +73,6 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
         )
         return
     if op == 'refund_payment':
-        payload = dict(dto.payload or {})
         payment_id = payload.get('payment_id')
         if not payment_id:
             raise OrderValidationError('payment_id_required')
@@ -59,18 +88,18 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
     if op == 'open_cash_shift':
         from nodeone.core.commerce.cash import CashRegisterService
 
-        payload = dict(dto.payload or {})
         CashRegisterService.open_shift(
             int(dto.organization_id),
             register_ref=str(payload.get('register_ref') or ''),
             opening_balance=float(payload.get('opening_balance') or 0),
+            cashier_contact_id=int(cashier.id),
+            cashier_name=str(cashier.display_name),
             source_app_id='eposone',
         )
         return
     if op == 'reconcile_cash_shift':
         from nodeone.core.commerce.cash import CashRegisterService
 
-        payload = dict(dto.payload or {})
         shift_id = payload.get('shift_id')
         if not shift_id:
             raise OrderValidationError('shift_id_required')
@@ -79,12 +108,12 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             int(shift_id),
             counted_amount=float(payload.get('counted_amount') or 0),
             source_app_id='eposone',
+            cashier_contact_id=int(cashier.id),
         )
         return
     if op == 'close_cash_shift':
         from nodeone.core.commerce.cash import CashRegisterService
 
-        payload = dict(dto.payload or {})
         shift_id = payload.get('shift_id')
         if not shift_id:
             raise OrderValidationError('shift_id_required')
@@ -92,12 +121,12 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             int(dto.organization_id),
             int(shift_id),
             source_app_id='eposone',
+            cashier_contact_id=int(cashier.id),
         )
         return
     if op == 'manual_cash_movement':
         from nodeone.core.commerce.cash import CashRegisterService
 
-        payload = dict(dto.payload or {})
         shift_id = payload.get('shift_id')
         movement_type = (payload.get('movement_type') or '').strip()
         if not shift_id or not movement_type:
@@ -109,11 +138,11 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             float(payload.get('amount') or 0),
             notes=payload.get('notes'),
             approval=payload,
+            cashier_contact_id=int(cashier.id),
             source_app_id='eposone',
         )
         return
     if op == 'split_order':
-        payload = dict(dto.payload or {})
         order_id = payload.get('order_id')
         line_indexes = payload.get('line_indexes')
         if not order_id:
@@ -125,10 +154,10 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
             int(order_id),
             [int(i) for i in line_indexes],
             source_app_id='eposone',
+            cashier_contact_id=int(cashier.id),
         )
         return
     if op == 'transfer_order':
-        payload = dict(dto.payload or {})
         order_id = payload.get('order_id')
         if not order_id:
             raise OrderValidationError('order_id_required')
@@ -144,14 +173,13 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
 
         StockService.record_manual_adjust(
             int(dto.organization_id),
-            dict(dto.payload or {}),
+            payload,
             source_app_id='eposone',
         )
         return
     if op == 'create_contact':
         from nodeone.core.services.contacts import ContactService
 
-        payload = dict(dto.payload or {})
         if payload.get('legacy_contact_id') is not None:
             ContactService.create_with_legacy_link(int(dto.organization_id), payload)
         else:
@@ -160,7 +188,6 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
     if op == 'promote_legacy_contact':
         from nodeone.core.master.contact_bridge import ContactBridgeService
 
-        payload = dict(dto.payload or {})
         legacy_contact_id = payload.get('legacy_contact_id')
         if legacy_contact_id is None:
             raise OrderValidationError('legacy_contact_id_required')

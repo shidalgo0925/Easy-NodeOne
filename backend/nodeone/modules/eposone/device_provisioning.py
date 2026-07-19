@@ -538,6 +538,7 @@ class DeviceProvisioningService:
         row: CorePosTerminal,
         *,
         include: frozenset[str] | None = None,
+        known_cashiers_version: int | None = None,
     ) -> dict[str, Any]:
         """
         Hito 2 — Device Bootstrap (Sync Down) v1.
@@ -548,7 +549,7 @@ class DeviceProvisioningService:
         from nodeone.core.commerce.stock import StockService
         from nodeone.core.services.product import ProductService
 
-        include_set = include or frozenset({'config', 'products', 'stock'})
+        include_set = include or frozenset({'config', 'products', 'stock', 'cashiers'})
         oid = int(row.organization_id)
 
         row.last_seen_at = datetime.utcnow()
@@ -654,6 +655,19 @@ class DeviceProvisioningService:
         if 'stock' in include_set:
             payload['stock_balances'] = stock_out
             payload['stock_balances_count'] = len(stock_out)
+        if 'cashiers' in include_set:
+            from nodeone.modules.eposone.cashier_service import CashierService
+
+            cashiers, cashiers_version = CashierService.snapshot(oid)
+            payload['cashiers_version'] = cashiers_version
+            unchanged = (
+                known_cashiers_version is not None
+                and int(known_cashiers_version) == cashiers_version
+            )
+            payload['cashiers_changed'] = not unchanged
+            if not unchanged:
+                payload['cashiers'] = cashiers
+                payload['cashiers_count'] = len(cashiers)
         return payload
 
     @staticmethod

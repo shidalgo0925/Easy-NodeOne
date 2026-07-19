@@ -19,6 +19,7 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
     'terminals': ('Dispositivos', 'Tablets vinculadas a una caja.'),
     'registers': ('Cajas', 'Cajas del POS: EN1 crea la caja; el APK solo se vincula (EN1-02).'),
     'shifts': ('Turnos', 'Turnos de operadores y responsables de caja.'),
+    'cashiers': ('Cajeros', 'Personal autorizado para operar turnos de caja.'),
     'promotions': ('Promociones', 'Descuentos, combos y reglas comerciales POS.'),
     'kds': ('Cocina (KDS)', 'Tickets de cocina y opciones del flujo KDS.'),
     'delivery': ('Delivery', 'Repartidores, rutas y estado de entrega.'),

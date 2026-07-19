@@ -31,6 +31,7 @@ class ContactDTO:
     is_employee: bool
     active: bool
     roles: tuple[str, ...]
+    is_cashier: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,6 +52,7 @@ class ContactDTO:
             'is_participant': self.is_participant,
             'is_instructor': self.is_instructor,
             'is_employee': self.is_employee,
+            'is_cashier': self.is_cashier,
             'active': self.active,
             'roles': list(self.roles),
         }
@@ -75,6 +77,7 @@ def _to_dto(row) -> ContactDTO:
         is_participant=bool(row.is_participant),
         is_instructor=bool(row.is_instructor),
         is_employee=bool(row.is_employee),
+        is_cashier=bool(row.is_cashier),
         active=bool(row.active),
         roles=tuple(row.role_labels()),
     )

@@ -2,29 +2,31 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Aprobado** — actualizado **16 jul 2026** |
+| Estado | **Aprobado** — actualizado **18 jul 2026** |
 | Sucede a | V4 (ADRs 001–006, Hitos 1–2) — V4 docs siguen válidos como historia |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Order Domain Spec | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
 | Contrato HTTP H3 | [`EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`](EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md) **3B PUBLICADO** · ejemplos completos |
+| **Hito 2.5 Cajero** | [`EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) **EN1 listo** · consumo APK pendiente |
 | Paquete APK | [`handoff-eposone/`](handoff-eposone/) → copiar a `Doc/` |
 | Spec funcional Pedido | [`EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md`](EN1_EPOSONE_HITO3_SPEC_FUNCIONAL_V1.md) |
 | ADR Op/Admin | [`ADR-006-EPOSONE-OPERATION-VS-ADMIN.md`](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
 
 ---
 
-## Estado actual (16 jul 2026)
+## Estado actual (18 jul 2026)
 
 | Hito | Nombre | Estado |
 |------|--------|--------|
 | **1** | Provisioning EN1-02 | ✅ Cerrado / congelado |
 | **2** | Device Bootstrap | ✅ Cerrado / congelado (API EN1; consumo APK = contrato `/api/v1/devices/bootstrap`) |
+| **2.5** | Cajero POS (snapshot + PIN + sync Up) | ✅ **EN1 listo** — contrato congelado · CRUD PIN hash · bootstrap `cashiers` · Sync Up con `cashier_contact_id` · **APK pendiente P2** |
 | **3** | Dominio Pedido + contrato HTTP | ✅ **3B publicado** (ejemplos + handoff-eposone) |
 | **3C** | Cobro Order Domain (EN1 BO + API) | ✅ **EN1 listo** (`97f6d52`) — mixto 1:N, `OrderPaymentService`, UI Confirmar cobro |
 | **TZ-1** | Time Zone oficial (plataforma + EPosOne) | ✅ **Fase 1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning |
-| **4** | Operación del Pedido (APK + E2E) | ⏸ P2 · cablear HTTP H3 + cobro tablet (mismo endpoint) |
+| **4** | Operación del Pedido (APK + E2E) | ⏸ P2 · cablear HTTP H3 + cobro tablet + **login cajero Hito 2.5** |
 | **5** | Inventario Operativo | ⏸ |
-| **6** | Caja y Pagos extendidos | ⏸ (catálogo métodos POS ya seedado en 3C; turno/caja profunda = H6) |
+| **6** | Caja y Pagos extendidos | ⏸ (catálogo métodos POS ya seedado en 3C; turno/caja profunda = H6; apertura normal desde POS = H2.5) |
 | **7** | Facturación | ⏸ |
 
 ```text
@@ -34,9 +36,11 @@ P1 EN1 — Dominio + APIs + contrato HTTP ✅
     ↓
 P1 EN1 — 3C Cobro BO multi-pago ✅ (develop)
     ↓
+P1 EN1 — Hito 2.5 Cajero (bootstrap + PIN + sync) ✅ (develop)
+    ↓
 P2 EPosOne — Operación POS (Hito 4) ← GO P2
     ↓
-Integración E2E (incl. cobro tablet ↔ BO sin doble cobro)
+Integración E2E (incl. cobro tablet ↔ BO sin doble cobro + cajero offline)
     ↓
 Hito 5 Inventario → Hito 6 Caja → Hito 7 Facturación
 ```
@@ -66,8 +70,25 @@ Pedido → Operación → Pago(s) → Venta → Inventario → Caja → Factura
 ## Qué no se toca (congelado)
 
 - Provisioning (Hito 1)  
-- Bootstrap (Hito 2)  
+- Bootstrap (Hito 2) — extensión **cajero** documentada en Hito 2.5 (mismo endpoint)  
+- Contrato Hito 2.5 cajero v1 (PIN = verificador; nunca PIN plano)  
 - Contrato HTTP Order Domain v1.0 (sin romper; solo consumir)  
+
+---
+
+## Hito 2.5 — Cajero POS (EN1 cerrado 18 jul 2026)
+
+| Ítem | Notas |
+|------|--------|
+| Contrato | [`EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) |
+| Persona | `en1_contact.is_cashier` · CRUD en EPosOne → Cajeros |
+| PIN | PBKDF2-HMAC-SHA256 · tabla `eposone_cashier_credential` · BO nunca muestra/almacena plano |
+| Bootstrap | `GET /api/v1/devices/bootstrap` incluye `cashiers` + `cashiers_version` · sync incremental con `?cashiers_version=` |
+| Sync Up | Operaciones de turno/pedido/pago/reembolso/movimiento exigen `cashier_contact_id` |
+| Flujo normal | POS abre turno tras login local PIN · BO = excepción / auditoría |
+| Pendiente P2 | Catálogo local, Keystore, cabecera Caja/Cajero/Turno, open shift desde APK |
+
+**No incluye:** UI tablet, rotación avanzada de PIN, límites de intentos (lado APK).
 
 ---
 
@@ -75,9 +96,9 @@ Pedido → Operación → Pago(s) → Venta → Inventario → Caja → Factura
 
 | Rol | Ahora |
 |-----|--------|
-| **Arquitectura** | Spec + contrato HTTP **3B publicados** ✅ |
-| **P1 EN1** | Hito 3/3B docs cerrados · **3C cobro BO hecho** · siguiente = soporte P2 / bugs |
-| **P2 EPosOne** | Copiar `docs/handoff-eposone/*` → `Doc/` · cablear HTTP · cobro tablet vía `/payments` + `/payment-methods` |
+| **Arquitectura** | Spec + contrato HTTP **3B publicados** ✅ · contrato **Hito 2.5** ✅ |
+| **P1 EN1** | Hito 3/3B/3C + **2.5 cajero** hechos · siguiente = soporte P2 / bugs |
+| **P2 EPosOne** | Copiar contratos (`handoff-eposone` + Hito 2.5) → `Doc/` · cablear HTTP H3 · login cajero + bootstrap `cashiers` · cobro tablet |
 
 ---
 

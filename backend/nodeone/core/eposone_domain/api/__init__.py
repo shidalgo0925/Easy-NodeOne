@@ -197,7 +197,11 @@ def cash_shift_dto_to_portable(dto: Any, *, branch_id: str = '') -> CashShift:
         id=_sid(dto.id),
         register_id=str(dto.register_ref),
         branch_id=branch_id or str(dto.register_ref),
-        opened_by_employee_id='',
+        opened_by_employee_id=(
+            _sid(dto.cashier_contact_id)
+            if getattr(dto, 'cashier_contact_id', None) is not None
+            else ''
+        ),
         status='open' if status == 'open' else 'closed',
         opening_float=float(dto.opening_balance or 0),
         currency='USD',
@@ -524,11 +528,20 @@ class ApiCashShiftRepository:
 
     def open(self, shift: CashShift) -> CashShift:
         from nodeone.core.commerce.cash import CashRegisterService
+        from nodeone.modules.eposone.cashier_service import CashierService
 
+        raw_cashier_id = str(shift.opened_by_employee_id or '').strip()
+        cashier = (
+            CashierService.get(self._oid, int(raw_cashier_id))
+            if raw_cashier_id.isdigit()
+            else None
+        )
         dto = CashRegisterService.open_shift(
             self._oid,
             register_ref=shift.register_id,
             opening_balance=shift.opening_float,
+            cashier_contact_id=(int(cashier.id) if cashier is not None else None),
+            cashier_name=(cashier.display_name if cashier is not None else None),
             source_app_id='eposone',
         )
         return cash_shift_dto_to_portable(dto, branch_id=shift.branch_id or self._branch_id)

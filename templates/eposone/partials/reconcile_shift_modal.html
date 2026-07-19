@@ -1,0 +1,24 @@
+<div class="modal fade" id="reconcileShiftModal" tabindex="-1" aria-labelledby="reconcileShiftModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="" id="reconcileShiftForm" class="modal-content">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="reconcileShiftModalLabel">Arqueo de caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">Caja: <code id="reconcileRegisterRef">—</code></p>
+                <p class="small mb-3">Saldo esperado según movimientos: <strong id="reconcileExpected">0.00</strong></p>
+                <div class="mb-3">
+                    <label for="counted_amount" class="form-label">Efectivo contado</label>
+                    <input type="number" step="0.01" min="0" class="form-control" name="counted_amount" id="counted_amount" required>
+                </div>
+                <p class="small text-muted mb-0">Después del arqueo podrás cerrar el turno.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar arqueo</button>
+            </div>
+        </form>
+    </div>
+</div>

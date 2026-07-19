@@ -253,6 +253,11 @@ class OrderService:
             payment_status=ORDER_PAYMENT_STATUS_UNPAID,
             fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
             contact_id=contact_id,
+            cashier_contact_id=(
+                int(data['cashier_contact_id'])
+                if data.get('cashier_contact_id') is not None
+                else None
+            ),
             branch_org_unit_id=branch_org_unit_id,
             parent_order_id=parent_order_id,
             pos_terminal_id=pos_terminal_id,
@@ -275,7 +280,10 @@ class OrderService:
             payment_status=dto.payment_status,
             grand_total=dto.grand_total,
             source_app_id=source_app_id,
-            extra={'order_id': dto.id},
+            extra={
+                'order_id': dto.id,
+                'cashier_contact_id': dto.cashier_contact_id,
+            },
         )
         return dto
 
@@ -303,6 +311,7 @@ class OrderService:
         line_indexes: list[int],
         *,
         source_app_id: str = 'eposone',
+        cashier_contact_id: int | None = None,
     ) -> OrderDTO:
         """Split bill v1 — mueve líneas seleccionadas a un sub-pedido (§6.4)."""
         from app import db
@@ -333,6 +342,11 @@ class OrderService:
             payment_status=ORDER_PAYMENT_STATUS_UNPAID,
             fiscal_status=ORDER_FISCAL_STATUS_NOT_REQUIRED,
             contact_id=int(parent.contact_id) if parent.contact_id else None,
+            cashier_contact_id=(
+                int(cashier_contact_id)
+                if cashier_contact_id is not None
+                else getattr(parent, 'cashier_contact_id', None)
+            ),
             branch_org_unit_id=int(parent.branch_org_unit_id) if parent.branch_org_unit_id else None,
             parent_order_id=int(parent.id),
             currency=str(parent.currency or 'USD')[:8],
@@ -365,7 +379,11 @@ class OrderService:
             payment_status=dto.payment_status,
             grand_total=dto.grand_total,
             source_app_id=source_app_id,
-            extra={'order_id': dto.id, 'parent_order_id': int(parent.id)},
+            extra={
+                'order_id': dto.id,
+                'parent_order_id': int(parent.id),
+                'cashier_contact_id': cashier_contact_id,
+            },
         )
         return dto
 
@@ -421,6 +439,7 @@ class OrderService:
             to_terminal_ref=str(terminal.terminal_ref),
             source_app_id=source_app_id,
             order_id=int(row.id),
+            cashier_contact_id=data.get('cashier_contact_id'),
         )
         return dto
 
@@ -432,6 +451,7 @@ class OrderService:
         *,
         source_app_id: str = 'eposone',
         reason: str | None = None,
+        cashier_contact_id: int | None = None,
     ) -> OrderDTO:
         from app import db
 
@@ -462,6 +482,7 @@ class OrderService:
             to_status=tgt,
             source_app_id=source_app_id,
             order_id=int(row.id),
+            cashier_contact_id=cashier_contact_id,
         )
         if tgt == ORDER_STATUS_CONFIRMED:
             OrderService.publish_confirmed(
@@ -473,6 +494,7 @@ class OrderService:
                 order_ref=str(row.order_ref),
                 reason=reason,
                 source_app_id=source_app_id,
+                cashier_contact_id=cashier_contact_id,
             )
 
         from nodeone.modules.eposone.kds_service import KdsService
@@ -552,6 +574,7 @@ class OrderService:
         to_terminal_ref: str,
         source_app_id: str = 'eposone',
         order_id: int | None = None,
+        cashier_contact_id: int | None = None,
     ):
         payload: dict[str, Any] = {
             'order_ref': order_ref,
@@ -561,6 +584,8 @@ class OrderService:
         }
         if order_id is not None:
             payload['order_id'] = int(order_id)
+        if cashier_contact_id is not None:
+            payload['cashier_contact_id'] = int(cashier_contact_id)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_ORDER_TRANSFERRED,
@@ -607,6 +632,7 @@ class OrderService:
         source_app_id: str = 'eposone',
         order_id: int | None = None,
         inventory_policy: str | None = None,
+        cashier_contact_id: int | None = None,
     ):
         payload: dict[str, Any] = {
             'order_ref': order_ref,
@@ -617,6 +643,8 @@ class OrderService:
             payload['order_id'] = int(order_id)
         if inventory_policy:
             payload['inventory_policy'] = inventory_policy
+        if cashier_contact_id is not None:
+            payload['cashier_contact_id'] = int(cashier_contact_id)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_ORDER_PAYMENT_STATUS_CHANGED,
@@ -689,10 +717,13 @@ class OrderService:
         order_ref: str,
         reason: str | None = None,
         source_app_id: str = 'eposone',
+        cashier_contact_id: int | None = None,
     ):
         payload: dict[str, Any] = {'order_ref': order_ref}
         if reason:
             payload['reason'] = reason
+        if cashier_contact_id is not None:
+            payload['cashier_contact_id'] = int(cashier_contact_id)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_ORDER_CANCELLED,

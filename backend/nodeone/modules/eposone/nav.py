@@ -93,9 +93,28 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 'caja',
                 'Caja',
                 'fas fa-cash-register',
-                url=_section('shifts'),
-                visible=_v_eposone,
-                active_path_prefixes=('/admin/eposone/section/shifts',),
+                children=(
+                    AppNavItem(
+                        'turnos',
+                        'Turnos',
+                        'fas fa-clock',
+                        url=_section('shifts'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/shifts',),
+                    ),
+                    AppNavItem(
+                        'cajeros',
+                        'Cajeros',
+                        'fas fa-user-tag',
+                        url=_section('cashiers'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/cashiers',),
+                    ),
+                ),
+                active_path_prefixes=(
+                    '/admin/eposone/section/shifts',
+                    '/admin/eposone/section/cashiers',
+                ),
             ),
             AppNavItem(
                 'infraestructura',

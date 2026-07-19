@@ -4,11 +4,19 @@
 |-------|--------|
 | ID | ADR-005 |
 | Título | Licenciamiento por Puntos de Venta (POS) |
-| Estado | **Aprobado (congelado)** — 9 jul 2026 |
+| Estado | **Parcialmente reemplazado** por [ADR-007](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) — 18 jul 2026 |
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
 | Master Plan | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) |
 | Relacionados | [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-002](ADR-002-EPOSONE-DOMAIN.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) · [ADR-004](ADR-004-EPOSONE-MIGRATION.md) · Etapa 6 § 6.1 |
 | Alcance de esta fase | **Solo documentación** — **sin** restricciones en código |
+
+---
+
+> **Nota de precedencia (18 jul 2026):** ADR-007 reemplaza la decisión de este
+> documento que ubicaba la unidad comercial en el POS. La unidad vigente es la
+> **Caja** (`organization_id + register_ref`). Se mantienen vigentes la separación
+> entre dominio/licenciamiento, la ausencia de lógica de planes en EPosOne y el
+> principio de que los dispositivos no son la unidad comercial.
 
 ---
 

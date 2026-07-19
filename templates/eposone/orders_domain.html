@@ -119,14 +119,28 @@
             </select>
         </div>
         <input type="hidden" name="page" id="epos-orders-page" value="1">
-        <div class="epos-filter-bar__actions">
-            <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-today"
-                    data-today="{{ today_local|default('') }}"
-                    title="Pedidos abiertos hoy (zona horaria efectiva)">
-                <i class="fas fa-calendar-day me-1"></i>Hoy
-            </button>
-            <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
-            <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+        <div class="epos-filter-bar__actions epos-orders-filter-actions">
+            <div class="epos-filter-bar__presets" role="group" aria-label="Rango rápido">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-today"
+                        data-today="{{ today_local|default('') }}"
+                        title="Pedidos abiertos hoy (zona horaria efectiva)">
+                    <i class="fas fa-calendar-day me-1"></i>Hoy
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-yesterday"
+                        data-today="{{ today_local|default('') }}"
+                        title="Pedidos abiertos ayer (zona horaria efectiva)">
+                    <i class="fas fa-calendar-minus me-1"></i>Ayer
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-week"
+                        data-today="{{ today_local|default('') }}"
+                        title="Pedidos abiertos desde el lunes hasta hoy">
+                    <i class="fas fa-calendar-week me-1"></i>Esta Semana
+                </button>
+            </div>
+            <div class="epos-orders-filter-actions__primary">
+                <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
+                <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            </div>
         </div>
     </form>
 
@@ -237,19 +251,55 @@
 (function () {
   var form = document.getElementById('epos-orders-filters');
   var todayBtn = document.getElementById('epos-orders-today');
+  var yesterdayBtn = document.getElementById('epos-orders-yesterday');
+  var weekBtn = document.getElementById('epos-orders-week');
   var perPageSel = document.getElementById('epos-orders-per-page');
   var pageHidden = document.getElementById('epos-orders-page');
 
-  if (todayBtn && form) {
+  function shiftIsoDate(isoDate, days) {
+    var parts = (isoDate || '').split('-').map(Number);
+    if (parts.length !== 3 || parts.some(function (part) { return !Number.isFinite(part); })) return '';
+    var date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + days));
+    return date.toISOString().slice(0, 10);
+  }
+
+  function startOfWeekIso(isoDate) {
+    var parts = (isoDate || '').split('-').map(Number);
+    if (parts.length !== 3 || parts.some(function (part) { return !Number.isFinite(part); })) return '';
+    var date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    var day = date.getUTCDay();
+    return shiftIsoDate(isoDate, day === 0 ? -6 : 1 - day);
+  }
+
+  function applyQuickRange(fromDate, toDate) {
+    if (!form || !fromDate || !toDate) return;
+    var fromEl = document.getElementById('epos-orders-from');
+    var toEl = document.getElementById('epos-orders-to');
+    if (fromEl) fromEl.value = fromDate;
+    if (toEl) toEl.value = toDate;
+    if (pageHidden) pageHidden.value = '1';
+    form.submit();
+  }
+
+  if (todayBtn) {
     todayBtn.addEventListener('click', function () {
       var today = todayBtn.getAttribute('data-today') || '';
-      if (!today) return;
-      var fromEl = document.getElementById('epos-orders-from');
-      var toEl = document.getElementById('epos-orders-to');
-      if (fromEl) fromEl.value = today;
-      if (toEl) toEl.value = today;
-      if (pageHidden) pageHidden.value = '1';
-      form.submit();
+      applyQuickRange(today, today);
+    });
+  }
+
+  if (yesterdayBtn) {
+    yesterdayBtn.addEventListener('click', function () {
+      var today = yesterdayBtn.getAttribute('data-today') || '';
+      var yesterday = shiftIsoDate(today, -1);
+      applyQuickRange(yesterday, yesterday);
+    });
+  }
+
+  if (weekBtn) {
+    weekBtn.addEventListener('click', function () {
+      var today = weekBtn.getAttribute('data-today') || '';
+      applyQuickRange(startOfWeekIso(today), today);
     });
   }
 

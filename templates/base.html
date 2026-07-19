@@ -26,7 +26,7 @@
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
     {% if platform_shell_app_accent == 'eposone' or (request.endpoint and request.endpoint.startswith('eposone.')) %}
-    <link href="{{ url_for('static', filename='css/eposone-ui.css') }}?v=infra-v1-20260717a" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/eposone-ui.css') }}?v=prov-dedupe-20260718a" rel="stylesheet">
     {% endif %}
     {% block head_extra %}{% endblock %}
     <style>

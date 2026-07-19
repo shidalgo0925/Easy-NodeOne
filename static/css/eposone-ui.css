@@ -242,6 +242,28 @@ body[data-platform-app-accent="eposone"],
     margin-left: auto;
 }
 
+/* Pedidos: rangos rápidos arriba · Aplicar/Limpiar abajo */
+.en1-eposone-page .epos-orders-filter-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: var(--epos-space-2);
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+.en1-eposone-page .epos-orders-filter-actions .epos-filter-bar__presets {
+    justify-content: flex-end;
+}
+
+.en1-eposone-page .epos-orders-filter-actions__primary {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--epos-space-2);
+    justify-content: flex-end;
+}
+
 /* ——— Status badges ——— */
 .en1-eposone-page .epos-badge {
     display: inline-flex;
@@ -1045,7 +1067,13 @@ body[data-platform-app-accent="eposone"],
 }
 
 /* ——— Cajas V2 ——— */
-.epos-registers-v2 .epos-reg-table-wrap {
+.epos-registers-v2 .epos-card,
+.epos-registers-v2 .epos-card-body,
+.epos-registers-v2 .epos-reg-table-wrap,
+.epos-registers-v2 .epos-table,
+.epos-registers-v2 .epos-table tbody,
+.epos-registers-v2 .epos-table tr,
+.epos-registers-v2 .epos-table td {
     overflow: visible;
 }
 .epos-registers-v2 .epos-ref {
@@ -1062,9 +1090,53 @@ body[data-platform-app-accent="eposone"],
     padding: 0.1rem 0.35rem;
     font-size: 0.8rem;
 }
+.epos-registers-v2 .epos-reg-actions {
+    position: relative;
+    z-index: 2;
+}
 .epos-registers-v2 .dropdown-menu {
     z-index: 1080;
     min-width: 14rem;
+}
+.epos-registers-v2 .epos-prov-panel {
+    border: 1px solid rgba(194, 65, 12, 0.25);
+    background: #fff7ed;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.65rem;
+    max-width: 18rem;
+}
+.epos-registers-v2 .epos-prov-panel__label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #9a3412;
+    margin-bottom: 0.25rem;
+}
+.epos-registers-v2 .epos-prov-panel__row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.epos-registers-v2 .epos-prov-panel__code {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #7c2d12;
+    background: #fff;
+    border: 1px solid #fed7aa;
+    border-radius: 0.35rem;
+    padding: 0.2rem 0.45rem;
+    user-select: all;
+}
+.epos-registers-v2 .epos-prov-panel__meta {
+    margin-top: 0.3rem;
+    font-size: 0.72rem;
+    color: #9a3412;
+}
+.epos-registers-v2 .epos-prov-panel--flash {
+    box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.35);
 }
 
 /* ——— Sucursales V2 ——— */

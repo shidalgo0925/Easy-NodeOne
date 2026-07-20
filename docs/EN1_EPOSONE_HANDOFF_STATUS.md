@@ -3,8 +3,9 @@
 | Campo | Valor |
 |-------|--------|
 | Fecha | **19 jul 2026** |
-| **EN1-POS V7** | **Release 0 activo** — [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) (plan de producto) |
-| **R0 pack** | Constitución · Domain · Ownership · DoD · Gap · Backlog · Arquitectura — **Prog1 firmó 19 jul** · faltan Analista + Prog2 |
+| **EN1-POS V7** | **Release 0** (Prog1 OK) · **B-R1-01 en curso** — [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) |
+| **R0 pack** | Prog1 firmó · faltan Analista + Prog2 |
+| **B-R1-01** | Empresa BO + edit/deact. sucursal/caja + jerarquía padre — avance (sin DoD completo) |
 | Hito 3B | **Publicado** · pendiente recepción P2 |
 | Hito 3C | **EN1 listo** — lista/detalle + cobro multi-pago + catálogo APK + compatibilidad Yappy/propina |
 | **Hito 2.5** | **EN1 listo** — cajero POS · contrato + PIN hash + bootstrap `cashiers` + Sync Up |

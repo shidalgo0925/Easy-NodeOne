@@ -242,6 +242,23 @@
                                             <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow">
+                                            <li>
+                                                <button type="button" class="dropdown-item btn-edit-register"
+                                                    data-id="{{ reg.id }}"
+                                                    data-name="{{ reg.name }}"
+                                                    data-notes="{{ reg.notes or '' }}">
+                                                    Editar caja
+                                                </button>
+                                            </li>
+                                            {% if (reg.status or 'active')|lower == 'active' %}
+                                            <li>
+                                                <button type="button" class="dropdown-item text-danger btn-deactivate-register"
+                                                    data-id="{{ reg.id }}">
+                                                    Desactivar caja
+                                                </button>
+                                            </li>
+                                            {% endif %}
+                                            <li><hr class="dropdown-divider"></li>
                                             {% if row.can_reconcile and shift %}
                                             <li>
                                                 <button type="button" class="dropdown-item"
@@ -510,12 +527,46 @@
 </div>
 
 {% include 'eposone/partials/reconcile_shift_modal.html' %}
+
+{# ——— Modal: Editar caja ——— #}
+<div class="modal fade" id="editRegisterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit_register_id">
+                <div class="mb-3">
+                    <label class="form-label" for="edit_register_name">Nombre</label>
+                    <input class="form-control" id="edit_register_name" required maxlength="200">
+                </div>
+                <div class="mb-0">
+                    <label class="form-label" for="edit_register_notes">Notas</label>
+                    <input class="form-control" id="edit_register_notes" maxlength="500">
+                </div>
+                <p class="small text-muted mt-2 mb-0" id="edit-register-msg"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="edit-register-save">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
 (function () {
+  function csrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    var i = document.querySelector('input[name="csrf_token"]');
+    return i ? i.value : '';
+  }
   var qEl = document.getElementById('reg-q');
   var stEl = document.getElementById('reg-status');
   var clearBtn = document.getElementById('reg-clear');
@@ -648,6 +699,61 @@
     }
   })();
   {% endif %}
+
+  var editRegModalEl = document.getElementById('editRegisterModal');
+  var editRegModal = editRegModalEl && window.bootstrap ? new bootstrap.Modal(editRegModalEl) : null;
+  document.querySelectorAll('.btn-edit-register').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('edit_register_id').value = btn.getAttribute('data-id') || '';
+      document.getElementById('edit_register_name').value = btn.getAttribute('data-name') || '';
+      document.getElementById('edit_register_notes').value = btn.getAttribute('data-notes') || '';
+      var msg = document.getElementById('edit-register-msg');
+      if (msg) msg.textContent = '';
+      if (editRegModal) editRegModal.show();
+    });
+  });
+  var saveRegBtn = document.getElementById('edit-register-save');
+  if (saveRegBtn) {
+    saveRegBtn.addEventListener('click', async function () {
+      var id = document.getElementById('edit_register_id').value;
+      var name = (document.getElementById('edit_register_name').value || '').trim();
+      var notes = (document.getElementById('edit_register_notes').value || '').trim();
+      var msg = document.getElementById('edit-register-msg');
+      if (!id || !name) {
+        if (msg) msg.textContent = 'Nombre obligatorio.';
+        return;
+      }
+      try {
+        var res = await fetch('/api/eposone/registers/by-id/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          body: JSON.stringify({ name: name, notes: notes || null })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        window.location.reload();
+      } catch (e) {
+        if (msg) msg.textContent = 'Error: ' + e.message;
+      }
+    });
+  }
+  document.querySelectorAll('.btn-deactivate-register').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-id');
+      if (!id || !confirm('¿Desactivar esta caja?')) return;
+      try {
+        var res = await fetch('/api/eposone/registers/by-id/' + id + '/deactivate', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf() }
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        window.location.reload();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    });
+  });
 })();
 </script>
 {% endblock %}

@@ -12,6 +12,10 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
         'Sucursales',
         'Locales del negocio · cada sucursal agrupa POS y cajas.',
     ),
+    'organization': (
+        'Empresa',
+        'Datos legales, zona horaria y moneda operativa del negocio.',
+    ),
     'pos-points': (
         'Puntos de Venta',
         'POS del negocio · Sucursal → POS → Caja.',

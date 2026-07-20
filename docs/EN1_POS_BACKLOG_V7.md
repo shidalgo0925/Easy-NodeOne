@@ -50,6 +50,11 @@ Núcleo org/dispositivo → Cajero/turno → Catálogo mínimo → Motor totales
 | ID | Dominio | Capacidad | Gap ref | Depende | Resp. | Pri | Criterio de aceptación (resumen) | E2E |
 |----|---------|-----------|---------|---------|-------|-----|----------------------------------|-----|
 | B-R1-01 | Organización | Completar núcleo Empresa→Caja usable | C-ORG-01…04 | R0 | Prog1 | P0 | Alta cliente demo en BO sin SQL | Checklist org |
+
+**B-R1-01 avance 19 jul (Prog1):** panel Empresa (legal/TZ/moneda), edit/desactivar Sucursal y Caja (API+BO), validación jerarquía Sucursal→POS→Caja. Aún **no DoD completo** (E2E checklist, consecutivos).
+
+| ID | Dominio | Capacidad | Gap ref | Depende | Resp. | Pri | Criterio de aceptación (resumen) | E2E |
+|----|---------|-----------|---------|---------|-------|-----|----------------------------------|-----|
 | B-R1-02 | Dispositivos | Provisioning+bootstrap+revoke DoD | C-ORG-05…07 | B-R1-01 | Ambos | P0 | Device opera con versiones visibles | APK+EN1 |
 | B-R1-03 | Licencia | Plan/trial/grace/heartbeat DoD mínimo | C-ORG-08 | B-R1-02 | Ambos | P1 | Caja bloqueada/reactivada auditable | Offline grace |
 | B-R1-04 | Empleados | Cajero PIN + atribución DoD | C-HR-01…03 | B-R1-02 | Ambos | P0 | Venta atribuida a cajero | Login+turno+venta |

@@ -130,6 +130,7 @@ class OrgUnitService:
         if existing is not None:
             raise MasterDataError('unit_ref_exists')
 
+        parent = None
         if parent_id is not None:
             parent = CoreOrgUnit.query.filter_by(
                 organization_id=int(organization_id),
@@ -137,6 +138,7 @@ class OrgUnitService:
             ).first()
             if parent is None:
                 raise MasterDataError('parent_not_found')
+        OrgUnitService._assert_hierarchy(utype, parent)
 
         row = CoreOrgUnit(
             organization_id=int(organization_id),
@@ -190,9 +192,37 @@ class OrgUnitService:
             ).first()
             if parent is None:
                 raise MasterDataError('parent_not_found')
+            OrgUnitService._assert_hierarchy(str(row.unit_type or ''), parent)
             row.parent_id = int(parent_id)
         db.session.commit()
         return org_unit_to_dto(row)
+
+    @staticmethod
+    def _assert_hierarchy(unit_type: str, parent) -> None:
+        """Empresa → Sucursal → POS → Caja (ADR / B-R1-01)."""
+        from nodeone.core.master.constants import (
+            ORG_UNIT_POS_TYPES,
+            ORG_UNIT_TYPE_BRANCH,
+            ORG_UNIT_TYPE_COMPANY,
+            ORG_UNIT_TYPE_REGISTER,
+        )
+
+        utype = (unit_type or '').strip().lower()
+        if utype == ORG_UNIT_TYPE_BRANCH:
+            if parent is not None and str(parent.unit_type or '') != ORG_UNIT_TYPE_COMPANY:
+                raise MasterDataError('invalid_parent_type')
+            return
+        if utype in ORG_UNIT_POS_TYPES:
+            if parent is None:
+                raise MasterDataError('parent_required')
+            if str(parent.unit_type or '') != ORG_UNIT_TYPE_BRANCH:
+                raise MasterDataError('invalid_parent_type')
+            return
+        if utype == ORG_UNIT_TYPE_REGISTER:
+            if parent is None:
+                raise MasterDataError('parent_required')
+            if str(parent.unit_type or '') not in ORG_UNIT_POS_TYPES:
+                raise MasterDataError('invalid_parent_type')
 
     @staticmethod
     def deactivate(organization_id: int, unit_id: int) -> OrgUnitDTO:

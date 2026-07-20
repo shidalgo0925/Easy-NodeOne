@@ -438,6 +438,24 @@ def registers_get(unit_ref: str):
     return org_unit_get_handler(gate, unit_ref, unit_type=ORG_UNIT_TYPE_REGISTER, item_key='register')
 
 
+@eposone_api_bp.route('/registers/by-id/<int:unit_id>', methods=['PATCH'])
+@login_required
+def registers_patch(unit_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_patch_handler(gate, unit_id, item_key='register')
+
+
+@eposone_api_bp.route('/registers/by-id/<int:unit_id>/deactivate', methods=['POST'])
+@login_required
+def registers_deactivate(unit_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_deactivate_handler(gate, unit_id, item_key='register')
+
+
 @eposone_api_bp.route('/warehouses', methods=['GET', 'POST'])
 @login_required
 def warehouses_collection():
@@ -635,6 +653,111 @@ def branches_get(unit_ref: str):
     if dto is None or dto.unit_type != ORG_UNIT_TYPE_BRANCH:
         return jsonify({'error': 'not_found'}), 404
     return jsonify({'branch': dto.to_dict()})
+
+
+@eposone_api_bp.route('/branches/by-id/<int:unit_id>', methods=['PATCH'])
+@login_required
+def branches_patch(unit_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_patch_handler(gate, unit_id, item_key='branch')
+
+
+@eposone_api_bp.route('/branches/by-id/<int:unit_id>/deactivate', methods=['POST'])
+@login_required
+def branches_deactivate(unit_id: int):
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return org_unit_deactivate_handler(gate, unit_id, item_key='branch')
+
+
+@eposone_api_bp.route('/organization', methods=['GET', 'PATCH'])
+@login_required
+def organization_resource():
+    """Datos de empresa (legal / TZ) + moneda operativa EPosOne — B-R1-01."""
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    from models.saas import SaasOrganization
+    from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+    org = SaasOrganization.query.get(int(gate))
+    if org is None:
+        return jsonify({'error': 'organization_not_found'}), 404
+    settings = EposoneSettingsService.get_or_create(gate)
+    if request.method == 'GET':
+        return jsonify(
+            {
+                'organization': {
+                    'id': int(org.id),
+                    'name': org.name,
+                    'legal_name': org.legal_name,
+                    'tax_id': org.tax_id,
+                    'tax_regime': org.tax_regime,
+                    'fiscal_address': org.fiscal_address,
+                    'fiscal_city': org.fiscal_city,
+                    'fiscal_state': org.fiscal_state,
+                    'fiscal_country': org.fiscal_country,
+                    'fiscal_phone': org.fiscal_phone,
+                    'fiscal_email': org.fiscal_email,
+                    'timezone': org.timezone or 'America/Panama',
+                },
+                'settings': {'default_currency': settings.default_currency},
+            }
+        )
+    body = request.get_json(silent=True) or {}
+    from app import db
+
+    if 'name' in body and (body.get('name') or '').strip():
+        org.name = (body.get('name') or '').strip()[:200]
+    for field in (
+        'legal_name',
+        'tax_id',
+        'tax_regime',
+        'fiscal_address',
+        'fiscal_city',
+        'fiscal_state',
+        'fiscal_country',
+        'fiscal_phone',
+        'fiscal_email',
+    ):
+        if field in body:
+            val = body.get(field)
+            setattr(org, field, (str(val).strip()[:255] if val is not None else None) or None)
+    if 'timezone' in body:
+        tz = (body.get('timezone') or '').strip() or 'America/Panama'
+        org.timezone = tz[:64]
+    try:
+        if 'default_currency' in body:
+            EposoneSettingsService.update_settings(
+                gate, default_currency=body.get('default_currency')
+            )
+        db.session.commit()
+    except OrderValidationError as exc:
+        db.session.rollback()
+        return jsonify({'error': str(exc)}), 400
+    settings = EposoneSettingsService.get_or_create(gate)
+    return jsonify(
+        {
+            'organization': {
+                'id': int(org.id),
+                'name': org.name,
+                'legal_name': org.legal_name,
+                'tax_id': org.tax_id,
+                'tax_regime': org.tax_regime,
+                'fiscal_address': org.fiscal_address,
+                'fiscal_city': org.fiscal_city,
+                'fiscal_state': org.fiscal_state,
+                'fiscal_country': org.fiscal_country,
+                'fiscal_phone': org.fiscal_phone,
+                'fiscal_email': org.fiscal_email,
+                'timezone': org.timezone or 'America/Panama',
+            },
+            'settings': {'default_currency': settings.default_currency},
+        }
+    )
 
 
 @eposone_api_bp.route('/kds/tickets', methods=['GET'])

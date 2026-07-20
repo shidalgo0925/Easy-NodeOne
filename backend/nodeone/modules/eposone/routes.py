@@ -1787,6 +1787,53 @@ def eposone_branch_create():
     return redirect(url_for('eposone.eposone_section', slug='branches'))
 
 
+@eposone_bp.route('/organization/save', methods=['POST'])
+@login_required
+def eposone_organization_save():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from models.saas import SaasOrganization
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.settings_service import EposoneSettingsService
+    from app import db
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    org = SaasOrganization.query.get(int(oid))
+    if org is None:
+        flash('Organización no encontrada.', 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='organization'))
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        flash('El nombre comercial es obligatorio.', 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='organization'))
+    org.name = name[:200]
+    org.legal_name = (request.form.get('legal_name') or '').strip()[:200] or None
+    org.tax_id = (request.form.get('tax_id') or '').strip()[:80] or None
+    org.tax_regime = (request.form.get('tax_regime') or '').strip()[:120] or None
+    org.fiscal_address = (request.form.get('fiscal_address') or '').strip()[:255] or None
+    org.fiscal_city = (request.form.get('fiscal_city') or '').strip()[:120] or None
+    org.fiscal_state = (request.form.get('fiscal_state') or '').strip()[:120] or None
+    org.fiscal_country = (request.form.get('fiscal_country') or '').strip()[:120] or None
+    org.fiscal_phone = (request.form.get('fiscal_phone') or '').strip()[:60] or None
+    org.fiscal_email = (request.form.get('fiscal_email') or '').strip()[:200] or None
+    org.timezone = (request.form.get('timezone') or 'America/Panama').strip()[:64] or 'America/Panama'
+    currency = (request.form.get('default_currency') or '').strip().upper() or None
+    try:
+        if currency:
+            EposoneSettingsService.update_settings(int(oid), default_currency=currency)
+        db.session.commit()
+    except OrderValidationError as exc:
+        db.session.rollback()
+        flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='organization'))
+    flash('Datos de empresa guardados.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='organization'))
+
+
 @eposone_bp.route('/registers/create', methods=['POST'])
 @login_required
 def eposone_register_create():
@@ -2382,6 +2429,37 @@ def eposone_section(slug: str):
             section_description=description,
             promotions=promotions,
             promotions_total=len(promotions),
+        )
+    if key == 'organization':
+        from models.saas import SaasOrganization
+        from nodeone.core.platform.runtime import resolve_organization_id
+        from nodeone.modules.eposone.settings_service import (
+            ALLOWED_CURRENCIES,
+            EposoneSettingsService,
+        )
+
+        oid = resolve_organization_id()
+        org = SaasOrganization.query.get(int(oid)) if oid is not None else None
+        if org is None:
+            abort(404)
+        settings = EposoneSettingsService.get_settings(int(oid))
+        timezones = (
+            'America/Panama',
+            'America/Bogota',
+            'America/Costa_Rica',
+            'America/Mexico_City',
+            'America/New_York',
+            'UTC',
+        )
+        return render_template(
+            'eposone/organization.html',
+            section_slug=key,
+            section_title=title,
+            section_description=description,
+            org=org,
+            settings=settings,
+            timezones=timezones,
+            currencies=sorted(ALLOWED_CURRENCIES),
         )
     if key == 'branches':
         from nodeone.core.master.constants import (

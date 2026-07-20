@@ -34,6 +34,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
         '/admin/eposone/orders',
     )
     infra_prefixes = (
+        '/admin/eposone/section/organization',
         '/admin/eposone/section/branches',
         '/admin/eposone/section/pos-points',
         '/admin/eposone/section/registers',
@@ -121,6 +122,14 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 'Infraestructura',
                 'fas fa-server',
                 children=(
+                    AppNavItem(
+                        'organization',
+                        'Empresa',
+                        'fas fa-building',
+                        url=_section('organization'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/organization',),
+                    ),
                     AppNavItem(
                         'sucursales',
                         'Sucursales',

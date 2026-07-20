@@ -19,13 +19,14 @@
 | Paquete | [`handoff-eposone/`](handoff-eposone/) · `/opt/handoff-plataformas/eposone-hito3b-Doc/` |
 | Order Domain | **v1.0 CONGELADA** (R1 puede exigir extensión Venta/Recibo/FE) |
 | **Cierre handoff 3B docs** | Solo cuando P2 diga: *Documentos recibidos. Comienzo implementación HTTP.* |
-| **Cierre Release 0** | Prog1 OK · faltan Analista + Prog2 (+ T1) · **sin código R1 antes** |
+| **Cierre Release 0** | Prog1 OK · faltan Analista + Prog2 (+ T1) |
+| **R1 código** | **B-R1-01 avance** (GO owner) · resto pendiente |
 
 ---
 
 ## Una frase
 
-**V7 Release 0:** Prog1 (EN1) revisó Gap (0 Completa) y firmó el paquete. Faltan **Analista** (producto + T1 propinas) y **Prog2**. R1 con FE Panamá. V6 = contratos input. Prog2: Hito 4 en paralelo. **No features R1 hasta cierre R0.**
+**V7:** R0 docs en develop (Prog1 firmó; faltan Analista+Prog2+T1). **R1 arrancó** con B-R1-01 (Empresa/sucursal/caja en BO). V6 = contratos + infra políticas (motor stub). Prog2: Hito 4 en paralelo.
 
 ---
 

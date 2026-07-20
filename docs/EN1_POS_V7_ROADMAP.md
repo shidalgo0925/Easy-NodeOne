@@ -2,28 +2,52 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Activo — Release 0** · 19 jul 2026 |
+| Estado | **Activo** — R0 (Prog1 OK) + **R1 iniciado (B-R1-01)** · actualizado **19 jul 2026** |
 | Sucede a | V6 ([`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md)) como **plan de producto** |
 | Rector | [`EN1_POS_CONSTITUCION_V1.md`](EN1_POS_CONSTITUCION_V1.md) |
+| Backlog | [`EN1_POS_BACKLOG_V7.md`](EN1_POS_BACKLOG_V7.md) |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 
 V6 permanece como **paquete de contratos comerciales** (inputs). V7 es la **planificación de producto** y el criterio de cierre.
 
 ---
 
-## Paquete Release 0 (sin código de features)
+## Estado actual (19 jul 2026)
+
+| Bloque | Estado |
+|--------|--------|
+| **Release 0** docs | Creados + en `develop` · **Prog1 firmó** · faltan **Analista + Prog2** (+ T1 propinas) |
+| **V6 infra** | Policy engine + seed ITBMS + stub motor totales · en `develop` |
+| **B-R1-01** Núcleo Empresa→Caja | **Avance** (no DoD completo): panel Empresa, edit/deact. sucursal/caja, jerarquía |
+| Cadena R1 resto | Pendiente (device → … → FE → sync → reporte) |
+| Prog2 paralelo | Hito 4 cajeros/sync (sin dominio nuevo) |
+
+**Nota:** R0 formal sigue abierto (faltan 2 firmas). Prog1 avanzó B-R1-01 por **GO del owner** para no frenar el núcleo admin.
+
+### Commits relevantes (develop)
+
+| Commit | Contenido |
+|--------|-----------|
+| `6b40f53` | Infra políticas comerciales + ITBMS catálogo + cobro BO |
+| `b98925e` | Release 0 EN1-POS V7 (paquete docs) |
+| `502d285` | Firma Prog1 R0 + Gap endurecido |
+| `4205f08` | B-R1-01 Empresa BO + edit/deact. + jerarquía |
+
+---
+
+## Paquete Release 0
 
 | # | Documento | Estado |
 |---|-----------|--------|
-| 1 | [Constitución EN1-POS V1](EN1_POS_CONSTITUCION_V1.md) | Borrador · **Prog1 OK** |
-| 2 | [Domain Model V1](EN1_POS_DOMAIN_MODEL_V1.md) | Borrador · **Prog1 OK** |
-| 3 | [Ownership Matrix V1](EN1_POS_OWNERSHIP_MATRIX_V1.md) | Borrador · **Prog1 OK** |
-| 4 | [Definition of Done V1](EN1_POS_DEFINITION_OF_DONE_V1.md) | Borrador · **Prog1 OK** |
-| 5 | [Gap Analysis — capacidades](EN1_POS_CAPABILITY_GAP_V7.md) | **Prog1 revisado (B-R0-05 Done)** |
-| 6 | [Backlog único](EN1_POS_BACKLOG_V7.md) | Borrador · orden R1 respaldado por Prog1 |
-| 7 | [Arquitectura V7](EN1_POS_ARQUITECTURA_V7.md) | Borrador · **Prog1 OK** |
+| 1 | [Constitución EN1-POS V1](EN1_POS_CONSTITUCION_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
+| 2 | [Domain Model V1](EN1_POS_DOMAIN_MODEL_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
+| 3 | [Ownership Matrix V1](EN1_POS_OWNERSHIP_MATRIX_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
+| 4 | [Definition of Done V1](EN1_POS_DEFINITION_OF_DONE_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
+| 5 | [Gap Analysis — capacidades](EN1_POS_CAPABILITY_GAP_V7.md) | **B-R0-05 Done Prog1** (0 Completa) |
+| 6 | [Backlog único](EN1_POS_BACKLOG_V7.md) | Activo · R1 priorizado |
+| 7 | [Arquitectura V7](EN1_POS_ARQUITECTURA_V7.md) | Borrador · **Prog1 OK** · falta A+P2 |
 
-**Cierre R0:** faltan firmas **Analista + Prog2** (+ T1 / B-R0-08). Después recién código R1.
+**Cierre R0 formal:** firmas Analista + Prog2 + B-R0-08 (T1 propinas).
 
 ---
 
@@ -35,7 +59,7 @@ V6 permanece como **paquete de contratos comerciales** (inputs). V7 es la **plan
 | **EN1-POS** | Back Office completo |
 | **Standalone / Integrado / Vincular** | Dual Mode + cutover sin reinstalar |
 
-Referencia funcional externa: cobertura tipo Loyverse — **no** copia pantalla a pantalla; superioridad en Dual Mode, FE Panamá, políticas versionadas, CxC (R2), SaaS.
+Referencia funcional: cobertura tipo Loyverse — **no** copia pantalla a pantalla; superioridad en Dual Mode, FE Panamá, políticas versionadas, CxC (R2), SaaS.
 
 ---
 
@@ -43,11 +67,9 @@ Referencia funcional externa: cobertura tipo Loyverse — **no** copia pantalla 
 
 ### Release 0 — Constitución
 
-Constitución · Domain Model · Ownership · Gap · Backlog · DoD · Arquitectura.
+Docs rector + Domain + Ownership + Gap + Backlog + DoD + Arquitectura.
 
-### Release 1 — Backend/BO comercial funcional (cadena cerrada)
-
-Incluye **obligatoriamente** Facturación Electrónica (ajuste Analista 19 jul):
+### Release 1 — Cadena operativa comercial (incluye FE)
 
 ```text
 Núcleo admin → Empleados/cajeros → Catálogo mínimo → Motor totales
@@ -55,7 +77,12 @@ Núcleo admin → Empleados/cajeros → Catálogo mínimo → Motor totales
 (+ licencia, obs básica, Vincular)
 ```
 
-**No** abrir inventario avanzado / compras / fidelización hasta cerrar esta cadena (DoD).
+| Ítem | Estado |
+|------|--------|
+| B-R1-01 Empresa→Sucursal→POS→Caja | **En curso / avance** |
+| B-R1-02 … B-R1-19 | Pendiente |
+
+**No** abrir inventario avanzado / compras / fidelización hasta cerrar la cadena (DoD).
 
 ### Release 2 — Control del negocio
 
@@ -78,9 +105,9 @@ KDS · mesas/canales · QR · APIs públicas · integraciones · marketplace.
 
 | Rol | Acción |
 |-----|--------|
-| **Analista** | Aprobar paquete R0; resolver T1 propinas / mapear V6 → B-R1-08 |
-| **Prog1** | No features nuevas hasta R0 aprobado; preparar B-R1-01+ según backlog |
-| **Prog2** | Hito 4 cajeros/sync E2E; no inventar dominio; preparar paridad motor |
+| **Analista** | Firmar R0; resolver **T1 propinas** (B-R0-08); mapear V6 → motor R1 |
+| **Prog2** | Firmar R0 (Ownership/Arquitectura); Hito 4 cajeros/sync E2E |
+| **Prog1** | Cerrar DoD B-R1-01 (checklist E2E) o seguir **B-R1-02** dispositivos según GO |
 
 ---
 

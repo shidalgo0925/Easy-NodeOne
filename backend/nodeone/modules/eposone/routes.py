@@ -1636,6 +1636,7 @@ def eposone_product_create():
         'min_stock': request.form.get('min_stock'),
         'max_stock': request.form.get('max_stock'),
         'category': (request.form.get('category') or '').strip() or None,
+        'fiscal_category': (request.form.get('fiscal_category') or '').strip() or None,
         'image_url': image_url,
         'uom': (request.form.get('uom') or 'und').strip() or 'und',
         'purchase_uom': (request.form.get('purchase_uom') or '').strip() or None,
@@ -1692,6 +1693,7 @@ def eposone_product_update(product_ref: str):
         'min_stock': request.form.get('min_stock'),
         'max_stock': request.form.get('max_stock'),
         'category': (request.form.get('category') or '').strip() or None,
+        'fiscal_category': (request.form.get('fiscal_category') or '').strip() or None,
         'image_url': image_url,
         'uom': (request.form.get('uom') or 'und').strip() or 'und',
         'purchase_uom': (request.form.get('purchase_uom') or '').strip() or None,
@@ -1959,6 +1961,16 @@ def eposone_order_new():
             'product_ref': p.product_ref,
             'name': p.name,
             'category': p.category or '',
+            'fiscal_category': p.fiscal_category or 'ITBMS_7',
+            'tax_percent': (
+                10.0
+                if (p.fiscal_category or '') == 'ITBMS_10'
+                else 15.0
+                if (p.fiscal_category or '') == 'ITBMS_15'
+                else 0.0
+                if (p.fiscal_category or '') == 'EXENTO'
+                else 7.0
+            ),
             'unit_price': float(p.unit_price or 0),
             'image_url': p.image_url,
         }
@@ -2012,14 +2024,18 @@ def eposone_order_new():
             continue
         if qty <= 0:
             continue
-        clean_lines.append(
-            {
-                'product_ref': pref,
-                'qty': qty,
-                'unit_price': price,
-                'notes': (str(row.get('notes') or '').strip() or None),
-            }
-        )
+        line_payload = {
+            'product_ref': pref,
+            'qty': qty,
+            'unit_price': price,
+            'notes': (str(row.get('notes') or '').strip() or None),
+        }
+        if 'tax' in row:
+            try:
+                line_payload['tax'] = float(row.get('tax') or 0)
+            except (TypeError, ValueError):
+                pass
+        clean_lines.append(line_payload)
     if not clean_lines:
         flash('Agregá al menos un producto al ticket.', 'danger')
         return _render()
@@ -2105,6 +2121,9 @@ def eposone_section(slug: str):
         pos_filter = (request.args.get('pos') or '').strip() or None
         cashier_filter = (request.args.get('cashier') or '').strip() or None
         customer_filter = (request.args.get('customer') or '').strip() or None
+        # Presencia en query: vacío explícito (Aplicar sin fechas) ≠ primera visita.
+        has_date_from = 'from' in request.args
+        has_date_to = 'to' in request.args
         date_from = (request.args.get('from') or '').strip() or None
         date_to = (request.args.get('to') or '').strip() or None
         per_page, persist_pp = _resolve_orders_per_page(current_user)
@@ -2115,7 +2134,24 @@ def eposone_section(slug: str):
         except (TypeError, ValueError):
             page = 1
         pages_total = 1
+        today_local = ''
         if oid is not None:
+            from datetime import datetime as _dt
+
+            from models.saas import SaasOrganization
+            from nodeone.core.timezone_service import TimeZoneService
+
+            org = SaasOrganization.query.filter_by(id=int(oid)).first()
+            zone = TimeZoneService.effective_timezone(
+                user=current_user if getattr(current_user, 'is_authenticated', False) else None,
+                organization=org,
+            )
+            today_local = _dt.now(zone).strftime('%Y-%m-%d')
+            # Entrada a Pedidos sin from/to → hoy (zona efectiva).
+            if not has_date_from and not has_date_to:
+                date_from = today_local
+                date_to = today_local
+
             q = EposoneOrder.query.filter_by(organization_id=int(oid))
             if status_filter:
                 q = q.filter_by(status=status_filter)
@@ -2142,17 +2178,6 @@ def eposone_section(slug: str):
                         EposoneOrder.user_ref.ilike(like),
                     )
                 )
-            from datetime import datetime as _dt
-
-            from models.saas import SaasOrganization
-            from nodeone.core.timezone_service import TimeZoneService
-
-            org = SaasOrganization.query.filter_by(id=int(oid)).first()
-            zone = TimeZoneService.effective_timezone(
-                user=current_user if getattr(current_user, 'is_authenticated', False) else None,
-                organization=org,
-            )
-            today_local = _dt.now(zone).strftime('%Y-%m-%d')
             if date_from or date_to:
                 if date_from:
                     try:
@@ -2180,13 +2205,16 @@ def eposone_section(slug: str):
             showing_from = (offset + 1) if orders_total else 0
             showing_to = offset + len(orders)
         else:
-            today_local = ''
             showing_from = 0
             showing_to = 0
-        # Query string para Ver/detalle: filtros + paginación actual
+        # Query string para Ver/detalle: filtros + paginación actual (incluye hoy por defecto)
         from urllib.parse import urlencode
 
         detail_params = _orders_list_filter_args()
+        if date_from:
+            detail_params['from'] = str(date_from)
+        if date_to:
+            detail_params['to'] = str(date_to)
         detail_params['per_page'] = str(per_page)
         detail_params['page'] = str(page)
         orders_detail_qs = urlencode(detail_params)
@@ -2218,6 +2246,7 @@ def eposone_section(slug: str):
             date_from=date_from or '',
             date_to=date_to or '',
             today_local=today_local,
+            orders_refresh_seconds=15,
             orders_detail_qs=orders_detail_qs,
             orders_pager_qs=orders_pager_qs,
             page=page,
@@ -2266,6 +2295,14 @@ def eposone_section(slug: str):
                 if p.category and p.category not in categories:
                     categories.append(p.category)
             categories.sort()
+            try:
+                from nodeone.modules.eposone.fiscal_categories import ensure_panama_fiscal_seed
+
+                ensure_panama_fiscal_seed(int(oid))
+            except Exception:
+                pass
+        from nodeone.modules.eposone.fiscal_categories import FISCAL_CATEGORIES_PA
+
         return render_template(
             'eposone/products.html',
             section_slug=key,
@@ -2275,6 +2312,7 @@ def eposone_section(slug: str):
             products_total=len(products),
             can_delete_by_ref=can_delete_by_ref,
             categories=categories,
+            fiscal_categories=FISCAL_CATEGORIES_PA,
         )
     if key == 'kds':
         from nodeone.core.platform.runtime import resolve_organization_id

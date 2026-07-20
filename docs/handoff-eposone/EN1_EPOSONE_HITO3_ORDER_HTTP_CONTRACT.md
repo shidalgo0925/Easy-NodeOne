@@ -421,6 +421,8 @@ Content-Type: application/json
   "method": "cash",
   "kind": "payment",
   "currency": "USD",
+  "tip": 0,
+  "reference": null,
   "customer_ref": null,
   "payment_ref": "pay-local-001",
   "event_id": "550e8400-e29b-41d4-a716-446655440030"
@@ -431,6 +433,69 @@ Content-Type: application/json
 |--------|--------|
 | `payment` | Cobro normal |
 | `deposit` / `partial` / `abono` | Requiere `customer_ref` → CxC |
+
+### Métodos de pago canónicos
+
+| `method` | Etiqueta | Referencia |
+|----------|----------|------------|
+| `cash` | Efectivo | No |
+| `visa` | Visa | Sí |
+| `mastercard` | Mastercard | Sí |
+| `clave` | Clave | Sí |
+| `yappy` | Yappy | Sí |
+| `ach` | ACH | Sí |
+| `voucher` | Vale | No |
+| `customer_credit` | Crédito Cliente | No |
+| `gift_card` | Gift Card | Sí |
+| `other` | Otros | No |
+
+Compatibilidad EN1:
+
+- Acepta el método en `method`, `method_key`, `payment_method`, `payment_type`,
+  `forma_pago` o `tipo_pago`.
+- Normaliza etiquetas y alias (`Efectivo`, `Yappy`, `tarjeta`, `card`,
+  `Crédito Cliente`, etc.).
+- `card` se conserva como método legacy genérico; P2 debe preferir
+  `visa`, `mastercard` o `clave`.
+- Si un método que exige referencia llega sin ella, EN1 persiste
+  `NR-{payment_ref}` para no perder el cobro. P2 debe enviar la referencia real.
+
+### Propina
+
+P2 debe enviar `tip` (también se acepta `propina`) antes o junto con el pago.
+EN1 recalcula el total antes de validar el saldo.
+
+Como compatibilidad, si el monto excede el saldo exactamente por una propina aún
+no sincronizada, EN1 infiere la diferencia con un límite de 50% sobre la base.
+Esto evita perder el pago, pero no reemplaza el envío explícito de `tip`.
+
+Ejemplo Yappy:
+
+```json
+{
+  "amount": 14.12,
+  "method": "yappy",
+  "tip": 1.28,
+  "reference": "YAPPY-839201",
+  "kind": "payment",
+  "currency": "USD",
+  "payment_ref": "r000002-yappy-01",
+  "event_id": "f8eb6746-0d44-4e30-bd84-bfce037d16db"
+}
+```
+
+### Pago mixto
+
+Un pedido admite pagos 1:N. P2 debe enviar **un POST por componente**, cada uno
+con `payment_ref` y `event_id` únicos. Ejemplo:
+
+```text
+POST /payments  { "amount": 5.00, "method": "cash", ... }
+POST /payments  { "amount": 9.12, "method": "yappy", "reference": "...", ... }
+```
+
+Solo efectivo admite cálculo de vuelto en la APK. EN1 registra el monto aplicado
+al pedido; el vuelto no se registra como pago adicional.
 
 ### Response `201` (cierre completo)
 

@@ -15,6 +15,14 @@
                 <i class="fas fa-box-open me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Productos
             </h1>
             <p class="epos-page-subtitle mb-0">Catálogo maestro del POS · {{ products_total }} producto(s)</p>
+            <p class="small text-muted mb-0 mt-1">
+                Impuesto (ITBMS):
+                <span class="badge text-bg-light border">7% general</span>
+                <span class="badge text-bg-warning">10% alcohol</span>
+                <span class="badge text-bg-danger">15% tabaco</span>
+                <span class="badge text-bg-secondary">Exento</span>
+                · Editá cada producto → campo <strong>Impuesto (ITBMS)</strong>
+            </p>
         </div>
         <div class="epos-btn-row">
             <button type="button" class="btn btn-sm btn-primary" id="epos-btn-new-product"
@@ -72,6 +80,7 @@
                             <th>SKU</th>
                             <th>Código</th>
                             <th>Categoría</th>
+                            <th>Impuesto</th>
                             <th class="text-end">Precio</th>
                             <th>Stock</th>
                             <th>Estado</th>
@@ -105,6 +114,13 @@
                             <td><code class="small">{{ product.product_ref }}</code></td>
                             <td class="small text-muted">{{ product.barcode or '—' }}</td>
                             <td class="small">{{ product.category or '—' }}</td>
+                            <td class="small">
+                                {% set fc = product.fiscal_category or 'ITBMS_7' %}
+                                {% if fc == 'ITBMS_10' %}<span class="badge text-bg-warning">ITBMS 10%</span>
+                                {% elif fc == 'ITBMS_15' %}<span class="badge text-bg-danger">ITBMS 15%</span>
+                                {% elif fc == 'EXENTO' %}<span class="badge text-bg-secondary">Exento</span>
+                                {% else %}<span class="badge text-bg-light border">ITBMS 7%</span>{% endif %}
+                            </td>
                             <td class="text-end">{{ '%.2f'|format(product.unit_price) }} <span class="small text-muted">{{ product.currency }}</span></td>
                             <td class="small text-muted">
                                 {% if product.tracks_inventory %}
@@ -145,6 +161,7 @@
                                                 data-purchase-uom="{{ product.purchase_uom or '' }}"
                                                 data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
                                                 data-category="{{ product.category or '' }}"
+                                                data-fiscal-category="{{ product.fiscal_category or 'ITBMS_7' }}"
                                                 data-image="{{ product.image_url or '' }}">
                                                 <i class="fas fa-pen me-2 text-muted"></i>Editar
                                             </button>
@@ -169,6 +186,7 @@
                                                 data-purchase-uom="{{ product.purchase_uom or '' }}"
                                                 data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
                                                 data-category="{{ product.category or '' }}"
+                                                data-fiscal-category="{{ product.fiscal_category or 'ITBMS_7' }}"
                                                 data-image="{{ product.image_url or '' }}">
                                                 <i class="fas fa-copy me-2 text-muted"></i>Duplicar
                                             </button>
@@ -193,6 +211,7 @@
                                                 data-purchase-uom="{{ product.purchase_uom or '' }}"
                                                 data-pack-factor="{{ '%.2f'|format(product.pack_factor or 1) }}"
                                                 data-category="{{ product.category or '' }}"
+                                                data-fiscal-category="{{ product.fiscal_category or 'ITBMS_7' }}"
                                                 data-image="{{ product.image_url or '' }}">
                                                 <i class="fas fa-tag me-2 text-muted"></i>Cambiar precio
                                             </button>
@@ -271,14 +290,20 @@
                                     <input class="form-control" id="pf_name" name="name" required maxlength="200" placeholder="Ej. Cerveza Balboa">
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label" for="pf_category">Categoría <span class="text-danger">*</span></label>
-                                    <input class="form-control" id="pf_category" name="category" required maxlength="120"
-                                           list="category-suggestions" placeholder="Ej. Bebidas">
+                                    <label class="form-label" for="pf_category">Categoría</label>
+                                    <input class="form-control" id="pf_category" name="category" maxlength="120"
+                                           list="category-suggestions" placeholder="Ej. Bebidas, Alcohol, Alimentos">
                                     <datalist id="category-suggestions">
+                                        <option value="Bebidas">
+                                        <option value="Alcohol">
+                                        <option value="Alimentos">
+                                        <option value="Tabaco">
+                                        <option value="Servicios">
                                         {% for c in (categories or []) %}
                                         <option value="{{ c }}">
                                         {% endfor %}
                                     </datalist>
+                                    <div class="form-text">Categoría comercial (filtro). El impuesto legal va en el campo siguiente.</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label" for="pf_type">Tipo</label>
@@ -287,6 +312,16 @@
                                         <option value="service">Servicio</option>
                                         <option value="kit">Kit</option>
                                     </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="pf_fiscal_category">Impuesto (ITBMS) <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="pf_fiscal_category" name="fiscal_category" required>
+                                        <option value="ITBMS_7">ITBMS 7% (general)</option>
+                                        <option value="ITBMS_10">ITBMS 10% (alcohol / hospedaje)</option>
+                                        <option value="ITBMS_15">ITBMS 15% (tabaco)</option>
+                                        <option value="EXENTO">Exento</option>
+                                    </select>
+                                    <div class="form-text">Alcohol y licores → <strong>ITBMS 10%</strong> (DGI / art. 1057-V)</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label" for="pf_price">Precio de venta <span class="text-danger">*</span></label>
@@ -508,6 +543,8 @@
     document.getElementById('pf_uom').value = 'und';
     document.getElementById('pf_pack_factor').value = '1';
     document.getElementById('pf_clear_image').checked = false;
+    var fcReset = document.getElementById('pf_fiscal_category');
+    if (fcReset) fcReset.value = 'ITBMS_7';
     setPreview('');
   }
 
@@ -536,6 +573,8 @@
     document.getElementById('pf_purchase_uom').value = btn.getAttribute('data-purchase-uom') || '';
     document.getElementById('pf_pack_factor').value = btn.getAttribute('data-pack-factor') || '1';
     document.getElementById('pf_category').value = btn.getAttribute('data-category') || '';
+    var fcEdit = document.getElementById('pf_fiscal_category');
+    if (fcEdit) fcEdit.value = btn.getAttribute('data-fiscal-category') || 'ITBMS_7';
     document.getElementById('pf_image_url').value = btn.getAttribute('data-image') || '';
     document.getElementById('pf_clear_image').checked = false;
     var fileInput = document.getElementById('pf_image_file');
@@ -599,11 +638,11 @@
         document.getElementById('pf_price').focus();
         return;
       }
-      var cat = (document.getElementById('pf_category').value || '').trim();
-      if (!cat) {
+      var fiscal = (document.getElementById('pf_fiscal_category').value || '').trim();
+      if (!fiscal) {
         ev.preventDefault();
-        alert('La categoría es obligatoria.');
-        document.getElementById('pf_category').focus();
+        alert('Seleccioná el Impuesto (ITBMS). Alcohol = 10%.');
+        document.getElementById('pf_fiscal_category').focus();
         return;
       }
       var refEl = document.getElementById('pf_ref');

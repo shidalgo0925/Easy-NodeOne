@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import unicodedata
 import uuid
 from datetime import datetime
 from typing import Any
@@ -37,6 +38,14 @@ def _recalc_payment_status(order: EposoneOrder) -> None:
         order.payment_status = 'paid'
         order.financially_closed = True
 
+
+def _fold(value: str) -> str:
+    """Normaliza texto de método (minúsculas, sin acentos, espacios → _)."""
+    raw = unicodedata.normalize('NFKD', str(value or ''))
+    ascii_only = ''.join(ch for ch in raw if not unicodedata.combining(ch))
+    return '_'.join(ascii_only.strip().lower().replace('-', ' ').split())
+
+
 DEFAULT_PAYMENT_METHODS: tuple[tuple[str, str, int, bool, bool], ...] = (
     # method_key, label, display_order, requires_reference, requires_authorization
     ('cash', 'Efectivo', 10, False, False),
@@ -48,8 +57,40 @@ DEFAULT_PAYMENT_METHODS: tuple[tuple[str, str, int, bool, bool], ...] = (
     ('voucher', 'Vale', 70, False, False),
     ('customer_credit', 'Crédito Cliente', 80, False, False),
     ('gift_card', 'Gift Card', 90, True, False),
+    ('card', 'Tarjeta', 95, True, False),  # legado APK genérico
     ('other', 'Otros', 100, False, False),
 )
+
+# Alias que envía la APK / BO hacia method_key canónico.
+METHOD_ALIASES: dict[str, str] = {
+    'cash': 'cash',
+    'efectivo': 'cash',
+    'visa': 'visa',
+    'mastercard': 'mastercard',
+    'master': 'mastercard',
+    'master_card': 'mastercard',
+    'clave': 'clave',
+    'yappy': 'yappy',
+    'ach': 'ach',
+    'transferencia': 'ach',
+    'transfer': 'ach',
+    'vale': 'voucher',
+    'voucher': 'voucher',
+    'credito': 'customer_credit',
+    'credito_cliente': 'customer_credit',
+    'customer_credit': 'customer_credit',
+    'cxc': 'customer_credit',
+    'gift': 'gift_card',
+    'giftcard': 'gift_card',
+    'gift_card': 'gift_card',
+    'tarjeta_regalo': 'gift_card',
+    'card': 'card',
+    'tarjeta': 'card',
+    'credit_card': 'card',
+    'debit_card': 'card',
+    'otros': 'other',
+    'other': 'other',
+}
 
 
 class OrderPaymentService:
@@ -108,15 +149,28 @@ class OrderPaymentService:
         return out
 
     @staticmethod
+    def _raw_method_from_body(body: dict[str, Any]) -> str:
+        for key in (
+            'method',
+            'method_key',
+            'payment_method',
+            'payment_type',
+            'forma_pago',
+            'tipo_pago',
+        ):
+            val = body.get(key)
+            if val is not None and str(val).strip():
+                return str(val).strip()
+        return ''
+
+    @staticmethod
     def _resolve_method(
         organization_id: int, body: dict[str, Any]
     ) -> tuple[EposonePaymentMethod | None, str]:
-        """Devuelve (row|None, method_key). Valida contra catálogo org."""
-        OrderPaymentService.ensure_methods_for_org(int(organization_id))
+        """Devuelve (row|None, method_key). Acepta key, alias o etiqueta del catálogo."""
+        rows = OrderPaymentService.ensure_methods_for_org(int(organization_id))
         method_id = body.get('payment_method_id')
-        method_key = (body.get('method') or body.get('method_key') or '').strip().lower()
 
-        row: EposonePaymentMethod | None = None
         if method_id is not None and str(method_id).strip() != '':
             row = EposonePaymentMethod.query.filter_by(
                 id=int(method_id), organization_id=int(organization_id)
@@ -125,17 +179,112 @@ class OrderPaymentService:
                 raise OrderDomainError('payment_method_invalid', http_status=400)
             return row, str(row.method_key)
 
-        if not method_key:
-            method_key = 'cash'
-        row = EposonePaymentMethod.query.filter_by(
-            organization_id=int(organization_id), method_key=method_key
-        ).first()
-        if row is None or not bool(row.enabled):
-            raise OrderDomainError('payment_method_invalid', http_status=400)
-        return row, str(row.method_key)
+        raw = OrderPaymentService._raw_method_from_body(body)
+        folded = _fold(raw) if raw else 'cash'
+        if not folded:
+            folded = 'cash'
+
+        canonical = METHOD_ALIASES.get(folded, folded)
+        by_key = {str(r.method_key): r for r in rows if bool(r.enabled)}
+        if canonical in by_key:
+            row = by_key[canonical]
+            return row, str(row.method_key)
+
+        # Match por etiqueta ("Yappy", "Crédito Cliente", …)
+        for row in rows:
+            if not bool(row.enabled):
+                continue
+            if _fold(row.label) == folded or _fold(row.method_key) == folded:
+                return row, str(row.method_key)
+
+        raise OrderDomainError('payment_method_invalid', http_status=400)
+
+    @staticmethod
+    def _ensure_reference(
+        method_row: EposonePaymentMethod | None,
+        *,
+        reference: str | None,
+        authorization_code: str | None,
+        payment_ref: str,
+    ) -> str | None:
+        """Si el método exige referencia y no viene, genera una para no perder el cobro."""
+        ref = (reference or '').strip() or None
+        if ref:
+            return ref
+        if method_row is None or not bool(method_row.requires_reference):
+            return None
+        auth = (authorization_code or '').strip()
+        if auth:
+            return auth
+        # Continuidad operativa: registrar el pago aunque la APK omita la referencia.
+        return f'NR-{payment_ref}'[:128]
+
+    @staticmethod
+    def _base_total(order: EposoneOrder) -> float:
+        return round(
+            float(order.subtotal or 0) + float(order.tax or 0) - float(order.discount or 0),
+            4,
+        )
+
+    @staticmethod
+    def _apply_tip(order: EposoneOrder, tip: float) -> None:
+        order.tip = round(max(0.0, float(tip or 0)), 4)
+        order.total = round(OrderPaymentService._base_total(order) + float(order.tip), 4)
+
+    @staticmethod
+    def _sync_tip_before_payment(order: EposoneOrder, body: dict[str, Any], amount: float) -> None:
+        """Aplica propina explícita o inferida del monto (APK suele cobrar subtotal+tip)."""
+        tip_raw = body.get('tip')
+        if tip_raw is None:
+            tip_raw = body.get('propina')
+        if tip_raw is not None:
+            OrderPaymentService._apply_tip(order, float(tip_raw or 0))
+            return
+
+        paid = float(order.amount_paid or 0)
+        base = OrderPaymentService._base_total(order)
+        remaining_base = round(base - paid, 4)
+        if remaining_base < -1e-6:
+            return
+        # Si el cobro supera el saldo sin tip, asumir que la diferencia es propina.
+        overflow = round(amount - remaining_base, 4)
+        if overflow <= 1e-6:
+            return
+        # Tope razonable: propina ≤ 50% del subtotal (evita overpay accidental).
+        max_tip = round(max(base, 0.0) * 0.5, 4)
+        if overflow > max_tip + 1e-6:
+            return
+        OrderPaymentService._apply_tip(order, float(order.tip or 0) + overflow)
 
     @staticmethod
     def add_payment(device: CorePosTerminal, order_id: int, body: dict[str, Any]) -> EposoneOrder:
+        """Registra uno o varios pagos (lista `payments` = cobro mixto en un request)."""
+        payments_in = body.get('payments')
+        if isinstance(payments_in, list) and payments_in:
+            order: EposoneOrder | None = None
+            for idx, raw in enumerate(payments_in):
+                if not isinstance(raw, dict):
+                    continue
+                part = dict(body)
+                part.pop('payments', None)
+                part.update(raw)
+                if not part.get('payment_ref'):
+                    part['payment_ref'] = (
+                        str(body.get('payment_ref') or f'pay-{secrets.token_hex(3)}')
+                        + f'-{idx}'
+                    )
+                if not part.get('event_id'):
+                    part['event_id'] = str(uuid.uuid4())
+                order = OrderPaymentService._add_single_payment(device, order_id, part)
+            if order is None:
+                raise OrderDomainError('payments_required', http_status=400)
+            return order
+        return OrderPaymentService._add_single_payment(device, order_id, body)
+
+    @staticmethod
+    def _add_single_payment(
+        device: CorePosTerminal, order_id: int, body: dict[str, Any]
+    ) -> EposoneOrder:
         from app import db
         from sqlalchemy.orm import noload
 
@@ -161,7 +310,9 @@ class OrderPaymentService:
         if kind not in ('payment', 'deposit', 'partial', 'abono'):
             kind = 'payment'
         # Abonos formales (deposit/partial/abono) requieren cliente
-        if kind in ('deposit', 'partial', 'abono') and not (order.customer_ref or body.get('customer_ref')):
+        if kind in ('deposit', 'partial', 'abono') and not (
+            order.customer_ref or body.get('customer_ref')
+        ):
             raise OrderDomainError('customer_required_for_partial', http_status=400)
         if body.get('customer_ref'):
             order.customer_ref = str(body.get('customer_ref')).strip()
@@ -169,15 +320,17 @@ class OrderPaymentService:
         method_row, method_key = OrderPaymentService._resolve_method(
             int(order.organization_id), body
         )
-        reference = (body.get('reference') or '').strip() or None
-        authorization_code = (body.get('authorization_code') or '').strip() or None
-        if method_row and bool(method_row.requires_reference) and not reference:
-            raise OrderDomainError('reference_required', http_status=400)
-        if method_row and bool(method_row.requires_authorization) and not authorization_code:
-            raise OrderDomainError('authorization_required', http_status=400)
-
         payment_ref = str(body.get('payment_ref') or f'pay-{secrets.token_hex(4)}').strip()
         event_id = str(body.get('event_id') or uuid.uuid4()).strip()
+        authorization_code = (body.get('authorization_code') or '').strip() or None
+        reference = OrderPaymentService._ensure_reference(
+            method_row,
+            reference=(body.get('reference') or body.get('ref') or None),
+            authorization_code=authorization_code,
+            payment_ref=payment_ref,
+        )
+        if method_row and bool(method_row.requires_authorization) and not authorization_code:
+            raise OrderDomainError('authorization_required', http_status=400)
 
         existing_pay = EposoneOrderPayment.query.filter_by(
             order_id=int(order.id), payment_ref=payment_ref
@@ -209,6 +362,9 @@ class OrderPaymentService:
 
         if bool(order.financially_closed) or str(order.payment_status or '').lower() == 'paid':
             raise OrderDomainError('already_paid', http_status=409)
+
+        # Propina: explícita en payload o inferida si el monto incluye tip no sincronizado.
+        OrderPaymentService._sync_tip_before_payment(order, body, amount)
 
         total = float(order.total or 0)
         paid = float(order.amount_paid or 0)

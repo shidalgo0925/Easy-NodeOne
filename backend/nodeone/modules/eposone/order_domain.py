@@ -348,14 +348,32 @@ class OrderDomainService:
             product_ref = str(payload.get('product_ref') or '').strip()
             if not product_ref:
                 raise OrderDomainError('product_ref_required', http_status=400)
+            qty = float(payload.get('qty') or 1)
+            unit_price = float(payload.get('unit_price') or 0)
+            discount = float(payload.get('discount') or 0)
+            tax = float(payload.get('tax') or 0)
+            if 'tax' not in payload or tax == 0:
+                from nodeone.core.services.product import ProductService
+                from nodeone.modules.eposone.fiscal_categories import line_tax_amount
+
+                prod = ProductService.get_by_ref(int(order.organization_id), product_ref)
+                if prod is not None:
+                    if unit_price <= 0:
+                        unit_price = float(prod.unit_price or 0)
+                    tax = line_tax_amount(
+                        qty=qty,
+                        unit_price=unit_price,
+                        fiscal_category=prod.fiscal_category,
+                        discount=discount,
+                    )
             item = EposoneOrderItem(
                 order_id=order.id,
                 line_ref=line_ref,
                 product_ref=product_ref,
-                qty=float(payload.get('qty') or 1),
-                unit_price=float(payload.get('unit_price') or 0),
-                tax=float(payload.get('tax') or 0),
-                discount=float(payload.get('discount') or 0),
+                qty=qty,
+                unit_price=unit_price,
+                tax=tax,
+                discount=discount,
                 notes=payload.get('notes'),
                 line_status='pending',
             )
@@ -376,6 +394,19 @@ class OrderDomainService:
             if item is None:
                 raise OrderDomainError('line_not_found', http_status=404)
             item.qty = float(payload.get('qty') or item.qty)
+            from nodeone.core.services.product import ProductService
+            from nodeone.modules.eposone.fiscal_categories import line_tax_amount
+
+            prod = ProductService.get_by_ref(
+                int(order.organization_id), str(item.product_ref or '')
+            )
+            if prod is not None and prod.fiscal_category:
+                item.tax = line_tax_amount(
+                    qty=float(item.qty or 0),
+                    unit_price=float(item.unit_price or 0),
+                    fiscal_category=prod.fiscal_category,
+                    discount=float(item.discount or 0),
+                )
             _recalc(order)
         elif event_type == 'pedido.enviado':
             order.status = 'sent'

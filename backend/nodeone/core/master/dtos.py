@@ -48,6 +48,7 @@ class ProductDTO:
     min_stock: float | None = None
     max_stock: float | None = None
     category: str | None = None
+    fiscal_category: str | None = None
     image_url: str | None = None
     uom: str | None = 'und'
     purchase_uom: str | None = None
@@ -71,6 +72,7 @@ class ProductDTO:
             'min_stock': self.min_stock,
             'max_stock': self.max_stock,
             'category': self.category,
+            'fiscal_category': self.fiscal_category,
             'image_url': self.image_url,
             'uom': self.uom,
             'purchase_uom': self.purchase_uom,

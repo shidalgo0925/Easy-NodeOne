@@ -3453,6 +3453,35 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_eposone_cashier_schema: {e}')
         try:
+            from nodeone.services.eposone_commercial_policy_schema import (
+                ensure_eposone_commercial_policy_schema,
+            )
+
+            ensure_eposone_commercial_policy_schema(
+                db, db.engine, printfn=lambda m: print(f'📋 {m}')
+            )
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_commercial_policy_schema: {e}')
+        try:
+            # Seed ITBMS Panamá en orgs EPosOne (idempotente).
+            from nodeone.modules.eposone.fiscal_categories import ensure_panama_fiscal_seed
+
+            seed_ids = [
+                int(x.strip())
+                for x in (os.environ.get('NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS') or '1').split(',')
+                if x.strip().isdigit()
+            ]
+            for _oid in seed_ids:
+                try:
+                    ensure_panama_fiscal_seed(_oid)
+                except Exception as seed_exc:
+                    db.session.rollback()
+                    print(f'⚠️ ensure_panama_fiscal_seed org={_oid}: {seed_exc}')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ panama fiscal seed: {e}')
+        try:
             from nodeone.services.platform_app_runtime_schema import (
                 ensure_platform_app_runtime_schema,
                 seed_ecrm_platform_runtime,

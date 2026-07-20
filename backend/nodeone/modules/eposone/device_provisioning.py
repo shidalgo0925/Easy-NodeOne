@@ -539,17 +539,20 @@ class DeviceProvisioningService:
         *,
         include: frozenset[str] | None = None,
         known_cashiers_version: int | None = None,
+        known_policies_version: int | None = None,
     ) -> dict[str, Any]:
         """
         Hito 2 — Device Bootstrap (Sync Down) v1.
-        Snapshot: config + products + stock_balances (sin ventas→stock).
+        Snapshot: config + products + stock_balances + cashiers + commercial policies (infra V6).
         """
         from app import db
         from models.core_master import CoreProduct
         from nodeone.core.commerce.stock import StockService
         from nodeone.core.services.product import ProductService
 
-        include_set = include or frozenset({'config', 'products', 'stock', 'cashiers'})
+        include_set = include or frozenset(
+            {'config', 'products', 'stock', 'cashiers', 'policies'}
+        )
         oid = int(row.organization_id)
 
         row.last_seen_at = datetime.utcnow()
@@ -580,6 +583,7 @@ class DeviceProvisioningService:
                     'product_type': p.product_type,
                     'status': p.status,
                     'category': p.category,
+                    'fiscal_category': getattr(p, 'fiscal_category', None),
                     'barcode': p.barcode,
                     'unit_price': float(p.unit_price or 0),
                     'currency': p.currency or 'USD',
@@ -668,6 +672,19 @@ class DeviceProvisioningService:
             if not unchanged:
                 payload['cashiers'] = cashiers
                 payload['cashiers_count'] = len(cashiers)
+        if 'policies' in include_set:
+            from nodeone.modules.eposone.commercial_policy_service import (
+                CommercialPolicyService,
+            )
+
+            policy_snap = CommercialPolicyService.snapshot_for_terminal(
+                oid,
+                branch_ref=row.branch_ref,
+                pos_ref=row.pos_ref,
+                register_ref=row.register_ref,
+                known_policies_version=known_policies_version,
+            )
+            payload.update(policy_snap)
         return payload
 
     @staticmethod

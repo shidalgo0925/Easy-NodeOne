@@ -82,6 +82,8 @@ class CoreProduct(db.Model):
     min_stock = db.Column(db.Float, nullable=True)
     max_stock = db.Column(db.Float, nullable=True)
     category = db.Column(db.String(120), nullable=True)
+    # Categoría fiscal ITBMS: ITBMS_7 | ITBMS_10 | ITBMS_15 | EXENTO
+    fiscal_category = db.Column(db.String(32), nullable=True)
     image_url = db.Column(db.String(500), nullable=True)
     # Inventario: UOM venta; compra + factor (ej. caja → und × pack_factor)
     uom = db.Column(db.String(16), nullable=True, default='und')

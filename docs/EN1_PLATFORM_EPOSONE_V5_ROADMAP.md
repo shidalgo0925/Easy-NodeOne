@@ -2,8 +2,9 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Aprobado** — actualizado **18 jul 2026** |
+| Estado | **Aprobado** — actualizado **18 jul 2026** · sucesor activo: [**V6 Sprint Comercial**](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md) |
 | Sucede a | V4 (ADRs 001–006, Hitos 1–2) — V4 docs siguen válidos como historia |
+| Sucesor | [`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md) · [`Modelo Comercial V1`](EN1_EPOSONE_MODELO_COMERCIAL_V1.md) · ADR-008 diferido a V6 Fase 5 |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Order Domain Spec | [`EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md`](EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md) |
 | Contrato HTTP H3 | [`EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md`](EN1_EPOSONE_HITO3_ORDER_HTTP_CONTRACT.md) **3B PUBLICADO** · ejemplos completos |
@@ -22,7 +23,7 @@
 | **2** | Device Bootstrap | ✅ Cerrado / congelado (API EN1; consumo APK = contrato `/api/v1/devices/bootstrap`) |
 | **2.5** | Cajero POS (snapshot + PIN + sync Up) | ✅ **EN1 listo** — contrato congelado · CRUD PIN hash · bootstrap `cashiers` · Sync Up con `cashier_contact_id` · **APK pendiente P2** |
 | **3** | Dominio Pedido + contrato HTTP | ✅ **3B publicado** (ejemplos + handoff-eposone) |
-| **3C** | Cobro Order Domain (EN1 BO + API) | ✅ **EN1 listo** (`97f6d52`) — mixto 1:N, `OrderPaymentService`, UI Confirmar cobro |
+| **3C** | Cobro Order Domain (EN1 BO + API) | ✅ **EN1 listo** — mixto 1:N, catálogo completo, compatibilidad APK y propina antes del pago |
 | **TZ-1** | Time Zone oficial (plataforma + EPosOne) | ✅ **Fase 1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning |
 | **4** | Operación del Pedido (APK + E2E) | ⏸ P2 · cablear HTTP H3 + cobro tablet + **login cajero Hito 2.5** |
 | **5** | Inventario Operativo | ⏸ |
@@ -108,10 +109,15 @@ Pedido → Operación → Pago(s) → Venta → Inventario → Caja → Factura
 |------|--------|
 | Servicio | `OrderPaymentService` (delegado desde `OrderDomainService.add_payment`) |
 | API | `POST /api/v1/orders/{id}/payments` · `GET /api/v1/orders/payment-methods` |
-| Reglas | monto ≤ saldo · suma hasta `paid` · 409 `already_paid` / overpay · idempotencia `payment_ref`/`event_id` |
-| Catálogo | `eposone_payment_method` (Efectivo, Visa, Mastercard, Clave, Yappy, ACH, Vale, …) |
+| Reglas | monto ≤ saldo · suma hasta `paid` · idempotencia `payment_ref`/`event_id` · propina explícita (`tip`/`propina`) o inferida como compatibilidad |
+| Catálogo | Efectivo, Visa, Mastercard, Clave, Yappy, ACH, Vale, Crédito Cliente, Gift Card, Otros + `card` legacy |
+| Compatibilidad APK | Acepta `method`, `method_key`, `payment_method`, `payment_type`, `forma_pago` o `tipo_pago`; normaliza etiquetas/alias |
+| Referencia | Visa/Mastercard/Clave/Yappy/ACH/Gift Card deben enviarla; EN1 genera `NR-{payment_ref}` solo como fallback para no perder el cobro |
+| Pago mixto | 1:N sobre el pedido; P2 debe enviar un POST idempotente por componente del pago |
 | BO | Detalle pedido → **Cobrar pedido** → métodos dinámicos → **Confirmar cobro** |
-| Commit | `97f6d52` |
+| Corrección Yappy | 18 jul: R-000002 recuperado como Yappy B/.14.12; causa = total EN1 B/.12.84 sin propina B/.1.28 |
+
+**Contrato P2:** sincronizar `tip` antes o junto al pago; mandar referencia real en métodos que la exigen. La inferencia de propina y referencia `NR-*` son redes de seguridad, no el flujo normal.
 
 **No incluye:** UI tablet, turnos de caja, fiscal, abonos con política cliente avanzada.
 

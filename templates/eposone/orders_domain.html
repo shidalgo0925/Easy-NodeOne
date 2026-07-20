@@ -3,7 +3,8 @@
 {% block title %}EPosOne — Pedidos | {{ get_nav_brand_name() }}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3 en1-eposone-page" id="epos-orders-page">
+<div class="container-fluid py-3 en1-eposone-page" id="epos-orders-root"
+     data-refresh-seconds="{{ orders_refresh_seconds|default(15) }}">
     <div class="epos-page-header">
         <div>
             <h1 class="epos-page-title">
@@ -15,6 +16,7 @@
                 · pág. {{ page|default(1) }}/{{ pages_total }}
                 {% endif %}
                 · Order Domain
+                · auto <span id="epos-orders-countdown">{{ orders_refresh_seconds|default(15) }}s</span>
             </p>
         </div>
         <div class="epos-btn-row">
@@ -27,7 +29,7 @@
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
                 <i class="fas fa-print me-1"></i>Imprimir
             </button>
-            <a href="{{ request.full_path }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ request.full_path }}" class="btn btn-sm btn-outline-secondary" id="epos-orders-refresh-now">
                 <i class="fas fa-sync-alt me-1"></i>Actualizar
             </a>
         </div>
@@ -249,12 +251,14 @@
 </div>
 <script>
 (function () {
+  var root = document.getElementById('epos-orders-root');
   var form = document.getElementById('epos-orders-filters');
   var todayBtn = document.getElementById('epos-orders-today');
   var yesterdayBtn = document.getElementById('epos-orders-yesterday');
   var weekBtn = document.getElementById('epos-orders-week');
   var perPageSel = document.getElementById('epos-orders-per-page');
   var pageHidden = document.getElementById('epos-orders-page');
+  var countdownEl = document.getElementById('epos-orders-countdown');
 
   function shiftIsoDate(isoDate, days) {
     var parts = (isoDate || '').split('-').map(Number);
@@ -318,24 +322,90 @@
 
   var btn = document.getElementById('epos-orders-export');
   var table = document.getElementById('epos-orders-table');
-  if (!btn || !table) return;
-  btn.addEventListener('click', function () {
-    var rows = [];
-    table.querySelectorAll('tr').forEach(function (tr) {
-      var cols = [];
-      tr.querySelectorAll('th,td').forEach(function (cell, idx) {
-        if (idx === tr.children.length - 1) return; // skip Ver
-        cols.push('"' + (cell.innerText || '').replace(/"/g, '""').trim() + '"');
+  if (btn && table) {
+    btn.addEventListener('click', function () {
+      var rows = [];
+      table.querySelectorAll('tr').forEach(function (tr) {
+        var cols = [];
+        tr.querySelectorAll('th,td').forEach(function (cell, idx) {
+          if (idx === tr.children.length - 1) return; // skip Ver
+          cols.push('"' + (cell.innerText || '').replace(/"/g, '""').trim() + '"');
+        });
+        rows.push(cols.join(','));
       });
-      rows.push(cols.join(','));
+      var blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'pedidos-eposone.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
     });
-    var blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'pedidos-eposone.csv';
-    a.click();
-    URL.revokeObjectURL(a.href);
+  }
+
+  /* Auto-refresh: conserva query (filtros + página); pausa si pestaña oculta o editando filtros. */
+  if (!root) return;
+  var refreshSeconds = parseInt(root.getAttribute('data-refresh-seconds') || '15', 10);
+  if (!refreshSeconds || refreshSeconds < 5) refreshSeconds = 15;
+  var left = refreshSeconds;
+  var timer = null;
+
+  function isEditingFilters() {
+    var el = document.activeElement;
+    if (!form || !el || !form.contains(el)) return false;
+    var tag = (el.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+  }
+
+  function renderCountdown() {
+    if (countdownEl) countdownEl.textContent = left + 's';
+  }
+
+  function reloadPreservingState() {
+    window.location.reload();
+  }
+
+  function clearTimer() {
+    if (timer) {
+      window.clearTimeout(timer);
+      timer = null;
+    }
+  }
+
+  function scheduleTick() {
+    clearTimer();
+    if (document.hidden) return;
+    timer = window.setTimeout(tick, 1000);
+  }
+
+  function tick() {
+    if (document.hidden) return;
+    if (isEditingFilters()) {
+      left = refreshSeconds;
+      renderCountdown();
+      scheduleTick();
+      return;
+    }
+    left -= 1;
+    renderCountdown();
+    if (left <= 0) {
+      reloadPreservingState();
+      return;
+    }
+    scheduleTick();
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      clearTimer();
+      return;
+    }
+    left = refreshSeconds;
+    renderCountdown();
+    scheduleTick();
   });
+
+  renderCountdown();
+  scheduleTick();
 })();
 </script>
 {% endblock %}

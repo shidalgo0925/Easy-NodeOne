@@ -44,6 +44,9 @@ def product_to_dto(row: CoreProduct) -> ProductDTO:
         min_stock=(float(row.min_stock) if getattr(row, 'min_stock', None) is not None else None),
         max_stock=(float(row.max_stock) if getattr(row, 'max_stock', None) is not None else None),
         category=str(row.category) if getattr(row, 'category', None) else None,
+        fiscal_category=(
+            str(row.fiscal_category) if getattr(row, 'fiscal_category', None) else None
+        ),
         image_url=str(row.image_url) if getattr(row, 'image_url', None) else None,
         uom=(str(row.uom).strip() if getattr(row, 'uom', None) else 'und') or 'und',
         purchase_uom=(str(row.purchase_uom).strip() if getattr(row, 'purchase_uom', None) else None) or None,
@@ -103,6 +106,20 @@ class CoreProductService:
         if CoreProduct.query.filter_by(organization_id=int(organization_id), product_ref=ref).first():
             raise MasterDataError('product_ref_exists')
 
+        from nodeone.modules.eposone.fiscal_categories import (
+            FISCAL_CATEGORY_DEFAULT,
+            normalize_fiscal_category,
+        )
+
+        fiscal_raw = data.get('fiscal_category')
+        fiscal_cat = normalize_fiscal_category(
+            str(fiscal_raw) if fiscal_raw is not None else None
+        )
+        if fiscal_raw is not None and str(fiscal_raw).strip() and fiscal_cat is None:
+            raise MasterDataError('invalid_fiscal_category')
+        if fiscal_cat is None:
+            fiscal_cat = FISCAL_CATEGORY_DEFAULT
+
         row = CoreProduct(
             organization_id=int(organization_id),
             product_ref=ref,
@@ -119,6 +136,7 @@ class CoreProductService:
             min_stock=_optional_float(data.get('min_stock')),
             max_stock=_optional_float(data.get('max_stock')),
             category=(str(data.get('category')).strip()[:120] if data.get('category') else None),
+            fiscal_category=fiscal_cat,
             image_url=(str(data.get('image_url')).strip()[:500] if data.get('image_url') else None),
             uom=_optional_uom(data.get('uom'), default='und') or 'und',
             purchase_uom=_optional_uom(data.get('purchase_uom')),
@@ -209,6 +227,17 @@ class CoreProductService:
         if 'category' in data:
             raw = data.get('category')
             row.category = (str(raw).strip()[:120] if raw else None)
+        if 'fiscal_category' in data:
+            from nodeone.modules.eposone.fiscal_categories import normalize_fiscal_category
+
+            raw = data.get('fiscal_category')
+            if raw is None or str(raw).strip() == '':
+                row.fiscal_category = None
+            else:
+                fiscal_cat = normalize_fiscal_category(str(raw))
+                if fiscal_cat is None:
+                    raise MasterDataError('invalid_fiscal_category')
+                row.fiscal_category = fiscal_cat
         if 'image_url' in data:
             raw = data.get('image_url')
             row.image_url = (str(raw).strip()[:500] if raw else None)

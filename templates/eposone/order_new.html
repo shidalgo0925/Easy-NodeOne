@@ -355,6 +355,7 @@
 
   function addProduct(p) {
     var found = ticket.find(function (l) { return l.product_ref === p.product_ref; });
+    var taxPercent = Number(p.tax_percent != null ? p.tax_percent : 7);
     if (found) {
       found.qty += 1;
     } else {
@@ -363,20 +364,32 @@
         name: p.name,
         qty: 1,
         unit_price: Number(p.unit_price || 0),
+        tax_percent: taxPercent,
+        fiscal_category: p.fiscal_category || 'ITBMS_7',
         notes: null
       });
     }
     renderTicket();
   }
 
+  function lineTax(line) {
+    var base = line.qty * line.unit_price;
+    var pct = Number(line.tax_percent != null ? line.tax_percent : 7);
+    return Math.round(base * (pct / 100) * 10000) / 10000;
+  }
+
   function renderTicket() {
     linesEl.innerHTML = '';
-    var total = 0;
+    var subtotal = 0;
+    var taxTotal = 0;
     if (!ticket.length) {
       linesEl.innerHTML = '<p class="small text-muted mb-0">Tocá un producto para agregar.</p>';
     }
     ticket.forEach(function (line, idx) {
-      total += line.qty * line.unit_price;
+      var lineSub = line.qty * line.unit_price;
+      var lineT = lineTax(line);
+      subtotal += lineSub;
+      taxTotal += lineT;
       var row = document.createElement('div');
       row.className = 'epos-pos-line';
       row.innerHTML = '<div><strong></strong><div class="small text-muted"></div>'
@@ -387,9 +400,10 @@
         + '<button type="button" class="epos-pos-line__remove ms-2" data-act="rm">Quitar</button>'
         + '</div></div><div class="text-end fw-semibold" data-sub></div>';
       row.querySelector('strong').textContent = line.name;
-      row.querySelector('.small').textContent = line.product_ref;
+      row.querySelector('.small').textContent = line.product_ref
+        + (line.tax_percent ? (' · ITBMS ' + line.tax_percent + '%') : '');
       row.querySelector('[data-qty]').textContent = String(line.qty);
-      row.querySelector('[data-sub]').textContent = money(line.qty * line.unit_price);
+      row.querySelector('[data-sub]').textContent = money(lineSub + lineT);
       row.querySelectorAll('button').forEach(function (b) {
         b.addEventListener('click', function () {
           var act = b.getAttribute('data-act');
@@ -401,9 +415,15 @@
       });
       linesEl.appendChild(row);
     });
-    setTotal(total);
+    setTotal(subtotal + taxTotal);
     linesInput.value = JSON.stringify(ticket.map(function (l) {
-      return { product_ref: l.product_ref, qty: l.qty, unit_price: l.unit_price, notes: l.notes };
+      return {
+        product_ref: l.product_ref,
+        qty: l.qty,
+        unit_price: l.unit_price,
+        tax: lineTax(l),
+        notes: l.notes
+      };
     }));
     submitBtn.disabled = ticket.length === 0;
     updateMeta();

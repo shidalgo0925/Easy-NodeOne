@@ -238,6 +238,7 @@ def _ensure_core_product_standard_columns(engine, insp, dialect, printfn) -> Non
         ('min_stock', 'DOUBLE PRECISION', 'REAL'),
         ('max_stock', 'DOUBLE PRECISION', 'REAL'),
         ('category', 'VARCHAR(120)', 'VARCHAR(120)'),
+        ('fiscal_category', 'VARCHAR(32)', 'VARCHAR(32)'),
         ('image_url', 'VARCHAR(500)', 'VARCHAR(500)'),
         ('uom', 'VARCHAR(16)', 'VARCHAR(16)'),
         ('purchase_uom', 'VARCHAR(16)', 'VARCHAR(16)'),

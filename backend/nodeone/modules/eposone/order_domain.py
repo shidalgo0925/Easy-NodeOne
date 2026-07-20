@@ -352,7 +352,10 @@ class OrderDomainService:
             unit_price = float(payload.get('unit_price') or 0)
             discount = float(payload.get('discount') or 0)
             tax = float(payload.get('tax') or 0)
-            if 'tax' not in payload or tax == 0:
+            # Solo auto-ITBMS si el APK no envió `tax`. Si envía tax:0, respetar
+            # (precios con impuesto incluido / exento). Sobrescribir 0 hinchaba totales
+            # y dejaba cobros APK en payment_status=partial.
+            if 'tax' not in payload:
                 from nodeone.core.services.product import ProductService
                 from nodeone.modules.eposone.fiscal_categories import line_tax_amount
 

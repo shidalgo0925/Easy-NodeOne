@@ -18,17 +18,19 @@ Leyenda: ☐ pendiente · ✅ OK · ❌ falló · N/A
 
 | # | Caso | Resp. | ☐ |
 |---|------|-------|---|
-| A1 | APK limpia (sin datos / wipe) | Prog2 | ☐ |
-| A2 | Provisionar dispositivo a caja EN1 | Ambos | ☐ |
-| A3 | Bootstrap inicial completo | Ambos | ☐ |
-| A4 | Descargar catálogo | Ambos | ☐ |
-| A5 | Descargar cajeros | Ambos | ☐ |
-| A6 | Descargar configuración de caja | Ambos | ☐ |
-| A7 | Descargar versión de políticas (aunque vacía) | Ambos | ☐ |
-| A8 | Verificar `cashiers_version` (y coherencia con EN1) | Ambos | ☐ |
-| A9 | Reiniciar APK y confirmar persistencia (sin re-provisionar) | Prog2 | ☐ |
+| A1 | APK limpia (sin datos / wipe) | Prog2 | ✅ |
+| A2 | Provisionar dispositivo a caja EN1 | Ambos | ✅ |
+| A3 | Bootstrap inicial completo | Ambos | ✅ |
+| A4 | Descargar catálogo | Ambos | ✅ |
+| A5 | Descargar cajeros | Ambos | ✅ |
+| A6 | Descargar configuración de caja | Ambos | ✅ |
+| A7 | Descargar versión de políticas (aunque vacía) | Ambos | ✅ |
+| A8 | Verificar `cashiers_version` (y coherencia con EN1) | Ambos | ✅ |
+| A9 | Reiniciar APK y confirmar persistencia (sin re-provisionar) | Prog2 | ✅ |
 
 **Resultado esperado:** dispositivo listo para operar sin repetir provisioning.
+
+**Acta 20 jul 2026:** Bloque A **OK** (Prog2 / tablet).
 
 ---
 

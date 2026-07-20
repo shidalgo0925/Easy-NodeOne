@@ -233,12 +233,19 @@ class OrderPaymentService:
 
     @staticmethod
     def _sync_tip_before_payment(order: EposoneOrder, body: dict[str, Any], amount: float) -> None:
-        """Aplica propina explícita o inferida del monto (APK suele cobrar subtotal+tip)."""
+        """Aplica propina explícita o inferida del monto (APK suele cobrar subtotal+tip).
+
+        No acumula tip inferido sobre un tip ya presente (evita partial artificial).
+        """
         tip_raw = body.get('tip')
         if tip_raw is None:
             tip_raw = body.get('propina')
         if tip_raw is not None:
             OrderPaymentService._apply_tip(order, float(tip_raw or 0))
+            return
+
+        # Ya hay tip en el pedido: no inventar overflow adicional.
+        if float(order.tip or 0) > 1e-6:
             return
 
         paid = float(order.amount_paid or 0)
@@ -254,7 +261,7 @@ class OrderPaymentService:
         max_tip = round(max(base, 0.0) * 0.5, 4)
         if overflow > max_tip + 1e-6:
             return
-        OrderPaymentService._apply_tip(order, float(order.tip or 0) + overflow)
+        OrderPaymentService._apply_tip(order, overflow)
 
     @staticmethod
     def add_payment(device: CorePosTerminal, order_id: int, body: dict[str, Any]) -> EposoneOrder:

@@ -10,7 +10,8 @@
 | **B-R1-01** | Avance Empresa/sucursal/caja BO |
 | Hito 3B | **Publicado** · pendiente recepción P2 |
 | Hito 3C | **EN1 listo** |
-| **Hito 2.5** | Código ~95% · **cierre = E2E A–E** 🟡 |
+| **Hito 2.5** | Código ~95% · E2E bloque **A ✅** · B–E pendiente · cierre = checklist completa |
+| **Incidente 20 jul** | R-000001/2 marcados `partial` en EN1 por ITBMS auto sobre `tax:0` APK + tip acumulado · **reparado** + fix código |
 | **TZ Fase 1** | **Hecho en EN1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning TZ de org |
 | **V6 contratos** | Inputs técnicos — [`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md) · mapear a R1 (**FE en R1**) |
 | **V6 Infra políticas** | [`EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md`](EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md) **EN1 listo** · sin algoritmos |

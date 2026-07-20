@@ -96,6 +96,19 @@ class TestPaymentMethodAliases(unittest.TestCase):
         self.assertAlmostEqual(order.tip, 2.81, places=2)
         self.assertAlmostEqual(order.total, 21.54, places=2)
 
+    def test_sync_tip_does_not_accumulate_when_tip_already_set(self):
+        order = SimpleNamespace(
+            subtotal=13.38,
+            tax=0.0,
+            discount=0.0,
+            tip=1.34,
+            total=14.72,
+            amount_paid=0.0,
+        )
+        OrderPaymentService._sync_tip_before_payment(order, {}, 14.72)
+        self.assertAlmostEqual(order.tip, 1.34, places=2)
+        self.assertAlmostEqual(order.total, 14.72, places=2)
+
 
 if __name__ == '__main__':
     unittest.main()

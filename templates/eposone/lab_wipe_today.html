@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne Lab — Wipe día | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="epos-page-header mb-3">
+        <div>
+            <h1 class="epos-page-title">
+                <i class="fas fa-flask me-2 text-danger" aria-hidden="true"></i>Lab QA — Borrar transacciones del día
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Solo <strong>platform admin</strong> · entorno desarrollo · org activa
+                <code>{{ organization_id }}</code> · día <code>{{ preview.day_local }}</code> ({{ preview.timezone }})
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='orders') }}">
+                Volver a pedidos
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-warning">
+        <strong>No es para usuario final ni admin de tenant.</strong>
+        Borra pedidos POS del día (items/pagos/eventos), turnos de caja del día y commercial orders del día.
+        Irreversible.
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="epos-card"><div class="epos-card-body">
+                <div class="text-muted small">Pedidos POS</div>
+                <div class="fs-3 fw-bold">{{ preview.orders_count }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="epos-card"><div class="epos-card-body">
+                <div class="text-muted small">Turnos</div>
+                <div class="fs-3 fw-bold">{{ preview.shifts_count }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="epos-card"><div class="epos-card-body">
+                <div class="text-muted small">Commercial</div>
+                <div class="fs-3 fw-bold">{{ preview.commercial_count }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    {% if preview.orders %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label">Pedidos a eliminar (máx. 50)</h2>
+            <ul class="small mb-0">
+                {% for o in preview.orders %}
+                <li><code>{{ o.en1_number }}</code> · {{ o.status }}/{{ o.payment_status }} · {{ o.table_ref or '—' }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="epos-card">
+        <div class="epos-card-body">
+            <form method="post" onsubmit="return confirm('¿Confirmás borrar todas las transacciones del día en esta org?');">
+                <label class="form-label" for="confirm_phrase">
+                    Escribí <code>{{ preview.confirm_phrase }}</code> para habilitar
+                </label>
+                <input class="form-control mb-3" type="text" name="confirm_phrase" id="confirm_phrase"
+                       autocomplete="off" placeholder="{{ preview.confirm_phrase }}" required>
+                <button type="submit" class="btn btn-danger"
+                        {% if preview.orders_count == 0 and preview.shifts_count == 0 and preview.commercial_count == 0 %}disabled{% endif %}>
+                    <i class="fas fa-trash me-1"></i>Eliminar transacciones del día
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

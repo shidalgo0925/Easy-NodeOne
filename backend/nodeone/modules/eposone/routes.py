@@ -138,6 +138,67 @@ def _require_eposone_admin():
     return None
 
 
+def _require_platform_lab_wipe():
+    """Solo User.is_admin (plataforma). No alcanza admin tenant / RBAC."""
+    from nodeone.modules.eposone.dev_wipe_service import wipe_tool_enabled
+
+    if not getattr(current_user, 'is_admin', False):
+        abort(403)
+    if not wipe_tool_enabled():
+        abort(404)
+    return None
+
+
+@eposone_bp.route('/lab/wipe-today', methods=['GET', 'POST'])
+@login_required
+def eposone_lab_wipe_today():
+    """Lab QA: borrar transacciones del día (solo platform admin + entorno dev)."""
+    denied = _require_platform_lab_wipe()
+    if denied is not None:
+        return denied
+
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.dev_wipe_service import CONFIRM_PHRASE, preview_today, wipe_today
+
+    oid = resolve_organization_id()
+    if oid is None:
+        flash('Seleccioná una organización activa.', 'warning')
+        return redirect(url_for('dashboard'))
+
+    preview = preview_today(int(oid))
+    if request.method == 'POST':
+        phrase = (request.form.get('confirm_phrase') or '').strip()
+        if phrase != CONFIRM_PHRASE:
+            flash(f'Debés escribir exactamente: {CONFIRM_PHRASE}', 'danger')
+            return render_template(
+                'eposone/lab_wipe_today.html',
+                preview=preview,
+                organization_id=int(oid),
+            )
+        actor = (
+            getattr(current_user, 'email', None)
+            or getattr(current_user, 'username', None)
+            or f'user-{getattr(current_user, "id", "")}'
+        )
+        result = wipe_today(int(oid), actor=str(actor))
+        flash(
+            (
+                f"Lab wipe {result['day_local']}: "
+                f"{result['deleted_orders']} pedido(s), "
+                f"{result['deleted_shifts']} turno(s), "
+                f"{result['deleted_commercial']} commercial."
+            ),
+            'success',
+        )
+        return redirect(url_for('eposone.eposone_lab_wipe_today'))
+
+    return render_template(
+        'eposone/lab_wipe_today.html',
+        preview=preview,
+        organization_id=int(oid),
+    )
+
+
 def _order_detail_context(organization_id: int, order_id: int) -> dict | None:
     from models.commercial_core import CoreCashShift
     from nodeone.core.commerce.constants import (

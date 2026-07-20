@@ -70,16 +70,30 @@ def _recalc(order: EposoneOrder) -> None:
     order.discount = round(disc, 4)
     tip = float(order.tip or 0)
     order.total = round(sub + tax - disc + tip, 4)
+    apply_financial_state(order)
+
+
+def apply_financial_state(order: EposoneOrder) -> None:
+    """payment_status + cierre financiero y operativo al liquidar.
+
+    Al saldo 0: paid + financially_closed + status=closed (salvo cancelled/returned).
+    El ciclo operativo open/sent/ready no permanece abierto si ya está cobrado.
+    """
+    total = float(order.total or 0)
     paid = float(order.amount_paid or 0)
     if paid <= 0:
         order.payment_status = 'unpaid'
         order.financially_closed = False
-    elif paid + 1e-9 < float(order.total or 0):
+        return
+    if paid + 1e-9 < total:
         order.payment_status = 'partial'
         order.financially_closed = False
-    else:
-        order.payment_status = 'paid'
-        order.financially_closed = True
+        return
+    order.payment_status = 'paid'
+    order.financially_closed = True
+    st = str(order.status or '').lower()
+    if st not in ('cancelled', 'returned', 'closed'):
+        order.status = 'closed'
 
 
 def order_to_dict(order: EposoneOrder, *, include_events: bool = False) -> dict[str, Any]:
@@ -469,8 +483,7 @@ class OrderDomainService:
         elif event_type == 'pedido.cobrado':
             if float(order.amount_paid or 0) + 1e-9 < float(order.total or 0):
                 raise OrderDomainError('balance_not_zero', http_status=409)
-            order.financially_closed = True
-            order.payment_status = 'paid'
+            apply_financial_state(order)
         elif event_type in ('pago.registrado', 'pedido.creado', 'pedido.dividido'):
             # pago via /payments; creado/dividido en otros endpoints
             pass

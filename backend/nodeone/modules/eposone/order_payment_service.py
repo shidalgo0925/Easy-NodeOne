@@ -18,25 +18,13 @@ from models.eposone_order import (
 from nodeone.modules.eposone.order_domain import (
     OrderDomainError,
     OrderDomainService,
+    apply_financial_state,
 )
 
 
 def _recalc_payment_status(order: EposoneOrder) -> None:
-    """Actualiza payment_status / financially_closed sin tocar totales de líneas.
-
-    Seguro cuando los items no están cargados (lock FOR UPDATE sin outer join).
-    """
-    total = float(order.total or 0)
-    paid = float(order.amount_paid or 0)
-    if paid <= 0:
-        order.payment_status = 'unpaid'
-        order.financially_closed = False
-    elif paid + 1e-9 < total:
-        order.payment_status = 'partial'
-        order.financially_closed = False
-    else:
-        order.payment_status = 'paid'
-        order.financially_closed = True
+    """Actualiza flags de pago/cierre sin tocar totales de líneas."""
+    apply_financial_state(order)
 
 
 def _fold(value: str) -> str:

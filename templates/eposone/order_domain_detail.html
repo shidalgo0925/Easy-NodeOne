@@ -5,11 +5,17 @@
 {% block page_content %}
 {% set st = (order.status or '')|lower %}
 {% set pay = (order.payment_status or '')|lower %}
+{% set tip_amt = (order.tip or 0)|float %}
+{% set tip_base = ((order.subtotal or 0) - (order.discount or 0))|float %}
+{% set base_total = (tip_base + (order.tax or 0))|float %}
 {% set balance = ((order.total or 0) - (order.amount_paid or 0))|float %}
 {% set can_collect = st not in ('cancelled', 'returned') and pay in ('unpaid', 'partial') and not order.financially_closed and balance > 0.001 %}
 <div class="container-fluid py-2 en1-eposone-page" id="epos-order-domain-detail"
      data-order-id="{{ order.id }}"
      data-en1="{{ order.en1_number }}"
+     data-base="{{ '%.2f'|format(base_total) }}"
+     data-tip-base="{{ '%.2f'|format(tip_base if tip_base > 0 else 0) }}"
+     data-tip="{{ '%.2f'|format(tip_amt) }}"
      data-total="{{ '%.2f'|format(order.total or 0) }}"
      data-paid="{{ '%.2f'|format(order.amount_paid or 0) }}"
      data-balance="{{ '%.2f'|format(balance if balance > 0 else 0) }}"
@@ -44,10 +50,11 @@
                     <div class="epos-page-title mb-1">Pedido <code>{{ order.en1_number }}</code></div>
                     {% if order.local_number %}<div class="small text-muted mb-2">Local {{ order.local_number }}</div>{% endif %}
                     <div class="d-flex flex-wrap gap-2 mb-2">
-                        {% if st in ('open', 'draft') %}{% with text=order.status, tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% if order.financially_closed and st not in ('cancelled', 'returned') %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% elif st in ('open', 'draft') %}{% with text=order.status, tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
                         {% elif st in ('sent', 'preparing') %}{% with text=order.status, tone='preparing' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
                         {% elif st == 'ready' %}{% with text=order.status, tone='ready' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% elif order.financially_closed %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+                        {% elif st == 'closed' %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
                         {% else %}{% with text=order.status, tone='neutral' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
                         {% endif %}
                         {% if pay == 'paid' %}{% with text='paid', tone='paid' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
@@ -58,6 +65,9 @@
                 </div>
                 <div class="col-4 col-md-2">
                     {% with label='Total', value=('%.2f'|format(order.total or 0)), accent=true %}{% include 'eposone/partials/kpi_card.html' %}{% endwith %}
+                </div>
+                <div class="col-4 col-md-2">
+                    {% with label='Propina', value=('%.2f'|format(tip_amt)) %}{% include 'eposone/partials/kpi_card.html' %}{% endwith %}
                 </div>
                 <div class="col-4 col-md-2">
                     {% with label='Pagado', value=('%.2f'|format(order.amount_paid or 0)) %}{% include 'eposone/partials/kpi_card.html' %}{% endwith %}
@@ -254,6 +264,10 @@
                 <div class="epos-collect-summary mb-3" aria-live="polite">
                     <div class="fw-semibold mb-2">Pedido: <code id="epos-collect-en1">{{ order.en1_number }}</code></div>
                     <dl>
+                        <dt>Base (sin propina)</dt>
+                        <dd id="epos-collect-base">B/. {{ '%.2f'|format(base_total) }}</dd>
+                        <dt>Propina</dt>
+                        <dd id="epos-collect-tip-disp">B/. {{ '%.2f'|format(tip_amt) }}</dd>
                         <dt>Total pedido</dt>
                         <dd id="epos-collect-total">B/. {{ '%.2f'|format(order.total or 0) }}</dd>
                         <dt>Pagado</dt>
@@ -265,6 +279,20 @@
                         <dt>Saldo restante</dt>
                         <dd id="epos-collect-remain" class="epos-saldo-pending">B/. {{ '%.2f'|format(balance) }}</dd>
                     </dl>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="epos-collect-tip">Propina (B/.)</label>
+                    <input type="number" class="form-control" id="epos-collect-tip" min="0" step="0.01"
+                           value="{{ '%.2f'|format(tip_amt) }}"
+                           inputmode="decimal" autocomplete="off">
+                    <div class="form-text">R-TIP-COBRO: editable en caja/BO. 0 = sin propina. Sugerencias rápidas:</div>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary epos-tip-preset" data-pct="0">0</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary epos-tip-preset" data-pct="10">10%</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary epos-tip-preset" data-pct="15">15%</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary epos-tip-preset" data-pct="20">20%</button>
+                    </div>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mb-2">
@@ -300,6 +328,10 @@
   if (!root) return;
 
   var orderId = root.getAttribute('data-order-id');
+  var base = parseFloat(root.getAttribute('data-base') || '0') || 0;
+  var tipBase = parseFloat(root.getAttribute('data-tip-base') || '0') || 0;
+  var paid = parseFloat(root.getAttribute('data-paid') || '0') || 0;
+  var initialTip = parseFloat(root.getAttribute('data-tip') || '0') || 0;
   var balance = parseFloat(root.getAttribute('data-balance') || '0') || 0;
 
   var methods = [];
@@ -317,6 +349,9 @@
   var enteredEl = document.getElementById('epos-collect-entered');
   var remainEl = document.getElementById('epos-collect-remain');
   var balanceEl = document.getElementById('epos-collect-balance');
+  var tipInput = document.getElementById('epos-collect-tip');
+  var tipDisp = document.getElementById('epos-collect-tip-disp');
+  var totalEl = document.getElementById('epos-collect-total');
   if (!submitBtn || !linesEl || !pickerEl) return;
 
   var selectedKeys = {};
@@ -329,6 +364,21 @@
   function round2(n) { return Math.round(n * 100) / 100; }
   function showErr(msg) { errEl.textContent = msg; errEl.classList.remove('d-none'); }
   function hideErr() { errEl.classList.add('d-none'); }
+
+  function currentTip() {
+    var t = parseFloat(tipInput && tipInput.value !== '' ? tipInput.value : String(initialTip)) || 0;
+    if (t < 0) t = 0;
+    return round2(t);
+  }
+
+  function applyTipUi() {
+    var tip = currentTip();
+    balance = round2(Math.max(base + tip - paid, 0));
+    var total = round2(base + tip);
+    if (tipDisp) tipDisp.textContent = 'B/. ' + money(tip);
+    if (totalEl) totalEl.textContent = 'B/. ' + money(total);
+    refreshSummary();
+  }
 
   function sumEntered() {
     var sum = 0;
@@ -474,8 +524,23 @@
     amt.select();
   }
 
+  if (tipInput) {
+    tipInput.addEventListener('input', function () {
+      applyTipUi();
+    });
+  }
+  document.querySelectorAll('.epos-tip-preset').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pct = parseFloat(btn.getAttribute('data-pct') || '0') || 0;
+      var tip = pct <= 0 ? 0 : round2(tipBase * (pct / 100));
+      if (tipInput) tipInput.value = money(tip);
+      applyTipUi();
+    });
+  });
+
   fullCashBtn.addEventListener('click', function () {
     hideErr();
+    applyTipUi();
     linesEl.innerHTML = '';
     selectedKeys = {};
     var cash = methodByKey('cash') || { id: null, method_key: 'cash', label: 'Efectivo', requires_reference: false };
@@ -556,10 +621,12 @@
     }
 
     submitBtn.disabled = true;
+    var tipToSend = currentTip();
+    var tipAttached = false;
     var chain = Promise.resolve();
     rows.forEach(function (row, idx) {
       chain = chain.then(function () {
-        return postPayment({
+        var payload = {
           amount: row.amount,
           method: row.method,
           payment_method_id: row.payment_method_id,
@@ -568,7 +635,13 @@
           currency: 'USD',
           payment_ref: 'bo-' + orderId + '-' + Date.now().toString(36) + '-' + idx,
           event_id: uuid()
-        }).then(function (result) {
+        };
+        // R-TIP-COBRO: enviar tip en el primer cobro de la cadena.
+        if (!tipAttached) {
+          payload.tip = tipToSend;
+          tipAttached = true;
+        }
+        return postPayment(payload).then(function (result) {
           if (!result.ok) throw new Error(mapError(result));
         });
       });
@@ -588,12 +661,13 @@
       linesEl.innerHTML = '';
       selectedKeys = {};
       hideErr();
-      refreshSummary();
+      if (tipInput) tipInput.value = money(initialTip);
+      applyTipUi();
     });
   }
 
   rebuildPicker();
-  refreshSummary();
+  applyTipUi();
 })();
 </script>
 {% endif %}

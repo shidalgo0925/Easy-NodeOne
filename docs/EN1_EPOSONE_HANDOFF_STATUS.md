@@ -4,7 +4,7 @@
 |-------|--------|
 | Fecha | **19 jul 2026** |
 | **EN1-POS V7** | **Release 0 activo** — [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) (plan de producto) |
-| **R0 pack** | Constitución · Domain · Ownership · DoD · Gap · Backlog · Arquitectura — **borradores** (ver índice V7) |
+| **R0 pack** | Constitución · Domain · Ownership · DoD · Gap · Backlog · Arquitectura — **Prog1 firmó 19 jul** · faltan Analista + Prog2 |
 | Hito 3B | **Publicado** · pendiente recepción P2 |
 | Hito 3C | **EN1 listo** — lista/detalle + cobro multi-pago + catálogo APK + compatibilidad Yappy/propina |
 | **Hito 2.5** | **EN1 listo** — cajero POS · contrato + PIN hash + bootstrap `cashiers` + Sync Up |
@@ -18,13 +18,13 @@
 | Paquete | [`handoff-eposone/`](handoff-eposone/) · `/opt/handoff-plataformas/eposone-hito3b-Doc/` |
 | Order Domain | **v1.0 CONGELADA** (R1 puede exigir extensión Venta/Recibo/FE) |
 | **Cierre handoff 3B docs** | Solo cuando P2 diga: *Documentos recibidos. Comienzo implementación HTTP.* |
-| **Cierre Release 0** | Aprobación Analista + Prog1 + Prog2 · **sin código R1 antes** |
+| **Cierre Release 0** | Prog1 OK · faltan Analista + Prog2 (+ T1) · **sin código R1 antes** |
 
 ---
 
 ## Una frase
 
-**V7 Release 0** en marcha (Constitución, Domain Model, Ownership, DoD, Gap por capacidades, Backlog, Arquitectura). R1 cierra la cadena operativa **con FE Panamá**. V6 = contratos input. EN1: 3C + cajero + políticas infra; motor totales = stub. Prog2: Hito 4 en paralelo. **No features nuevas hasta aprobar R0.**
+**V7 Release 0:** Prog1 (EN1) revisó Gap (0 Completa) y firmó el paquete. Faltan **Analista** (producto + T1 propinas) y **Prog2**. R1 con FE Panamá. V6 = contratos input. Prog2: Hito 4 en paralelo. **No features R1 hasta cierre R0.**
 
 ---
 

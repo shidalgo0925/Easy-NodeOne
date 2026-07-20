@@ -15,15 +15,15 @@ V6 permanece como **paquete de contratos comerciales** (inputs). V7 es la **plan
 
 | # | Documento | Estado |
 |---|-----------|--------|
-| 1 | [Constitución EN1-POS V1](EN1_POS_CONSTITUCION_V1.md) | Borrador |
-| 2 | [Domain Model V1](EN1_POS_DOMAIN_MODEL_V1.md) | Borrador |
-| 3 | [Ownership Matrix V1](EN1_POS_OWNERSHIP_MATRIX_V1.md) | Borrador |
-| 4 | [Definition of Done V1](EN1_POS_DEFINITION_OF_DONE_V1.md) | Borrador |
-| 5 | [Gap Analysis — capacidades](EN1_POS_CAPABILITY_GAP_V7.md) | Borrador |
-| 6 | [Backlog único](EN1_POS_BACKLOG_V7.md) | Borrador |
-| 7 | [Arquitectura V7](EN1_POS_ARQUITECTURA_V7.md) | Borrador |
+| 1 | [Constitución EN1-POS V1](EN1_POS_CONSTITUCION_V1.md) | Borrador · **Prog1 OK** |
+| 2 | [Domain Model V1](EN1_POS_DOMAIN_MODEL_V1.md) | Borrador · **Prog1 OK** |
+| 3 | [Ownership Matrix V1](EN1_POS_OWNERSHIP_MATRIX_V1.md) | Borrador · **Prog1 OK** |
+| 4 | [Definition of Done V1](EN1_POS_DEFINITION_OF_DONE_V1.md) | Borrador · **Prog1 OK** |
+| 5 | [Gap Analysis — capacidades](EN1_POS_CAPABILITY_GAP_V7.md) | **Prog1 revisado (B-R0-05 Done)** |
+| 6 | [Backlog único](EN1_POS_BACKLOG_V7.md) | Borrador · orden R1 respaldado por Prog1 |
+| 7 | [Arquitectura V7](EN1_POS_ARQUITECTURA_V7.md) | Borrador · **Prog1 OK** |
 
-**Cierre R0:** aprobación Analista + Prog1 + Prog2. Después recién código R1.
+**Cierre R0:** faltan firmas **Analista + Prog2** (+ T1 / B-R0-08). Después recién código R1.
 
 ---
 

@@ -147,3 +147,13 @@ Ownership detallado: [`EN1_POS_OWNERSHIP_MATRIX_V1.md`](EN1_POS_OWNERSHIP_MATRIX
 - Algoritmos concretos de ITBMS/propina (contratos V6).
 
 Esos se derivan **después** de congelar dominio + gap + backlog.
+
+---
+
+## 10. Aprobación Domain Model
+
+| Rol | Firma | Fecha |
+|-----|-------|-------|
+| Prog1 (EN1) | **Aceptado** — Pedido ≠ Venta ≠ Recibo ≠ Documento fiscal | 19 jul 2026 |
+| Analista | Pendiente | — |
+| Prog2 (EPosOne) | Pendiente | — |

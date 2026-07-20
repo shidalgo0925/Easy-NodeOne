@@ -119,10 +119,10 @@ Detalle: [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md).
 
 ## 9. Aprobación
 
-| Rol | Firma |
-|-----|-------|
-| Producto / Analista | Pendiente |
-| Prog1 (EN1) | Pendiente |
-| Prog2 (EPosOne) | Pendiente |
+| Rol | Firma | Fecha |
+|-----|-------|-------|
+| Producto / Analista | Pendiente | — |
+| Prog1 (EN1) | **Aceptado** — docs R0 coherentes con código Dev; sin features R1 hasta cierre total | 19 jul 2026 |
+| Prog2 (EPosOne) | Pendiente | — |
 
-Al aprobarse, este documento es la **referencia obligatoria** antes de abrir código de Release 1.
+Al aprobarse por los tres, este documento es la **referencia obligatoria** antes de abrir código de Release 1.

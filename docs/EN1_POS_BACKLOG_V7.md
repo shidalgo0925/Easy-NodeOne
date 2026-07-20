@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Borrador Release 0** — 19 jul 2026 |
+| Estado | **Borrador Release 0** — Prog1 firmó 19 jul 2026 · faltan Analista + Prog2 |
 | Origen | [`EN1_POS_CAPABILITY_GAP_V7.md`](EN1_POS_CAPABILITY_GAP_V7.md) |
 | DoD | [`EN1_POS_DEFINITION_OF_DONE_V1.md`](EN1_POS_DEFINITION_OF_DONE_V1.md) |
 | Regla | No abrir ítem R2/R3 hasta cadena R1 **Completa** (salvo dependencia explícita) |
@@ -22,18 +22,18 @@
 
 ## Release 0 — Constitución (sin código de features)
 
-| ID | Dominio | Capacidad / entregable | Depende | Resp. | Prioridad | Criterio de aceptación | Prueba E2E |
-|----|---------|------------------------|---------|-------|-----------|------------------------|------------|
-| B-R0-01 | Producto | Constitución V1 aprobada | — | Analista | P0 | Firmas Analista+P1+P2 | N/A doc |
-| B-R0-02 | Producto | Domain Model V1 aprobado | B-R0-01 | Analista | P0 | Pedido≠Venta≠Recibo≠FE explícito | N/A |
-| B-R0-03 | Producto | Ownership Matrix V1 aprobada | B-R0-02 | Ambos | P0 | Conflicto por entidad R1 | N/A |
-| B-R0-04 | Producto | DoD V1 aprobado | B-R0-01 | Analista | P0 | Checklist 11 puntos en uso | N/A |
-| B-R0-05 | Producto | Gap capacidades V7 revisado | B-R0-02 | Prog1 | P0 | Matriz acordada sin “Completa” falsa | N/A |
-| B-R0-06 | Producto | Backlog priorizado R1 | B-R0-05 | Analista | P0 | Orden cadena operativa + FE | N/A |
-| B-R0-07 | Producto | Arquitectura V7 alineada | B-R0-02 | Ambos | P0 | Dual Mode + sync + FE | N/A |
-| B-R0-08 | Producto | V6 contratos: aprobar o mapear a B-R1 | B-R0-02 | Analista | P0 | T1 propinas resuelto o diferido con dueño | N/A |
+| ID | Dominio | Capacidad / entregable | Depende | Resp. | Prioridad | Criterio de aceptación | Prueba E2E | Estado |
+|----|---------|------------------------|---------|-------|-----------|------------------------|------------|--------|
+| B-R0-01 | Producto | Constitución V1 aprobada | — | Analista | P0 | Firmas Analista+P1+P2 | N/A doc | P1 OK · falta A+P2 |
+| B-R0-02 | Producto | Domain Model V1 aprobado | B-R0-01 | Analista | P0 | Pedido≠Venta≠Recibo≠FE explícito | N/A | P1 OK · falta A+P2 |
+| B-R0-03 | Producto | Ownership Matrix V1 aprobada | B-R0-02 | Ambos | P0 | Conflicto por entidad R1 | N/A | P1 OK · falta A+P2 |
+| B-R0-04 | Producto | DoD V1 aprobado | B-R0-01 | Analista | P0 | Checklist 11 puntos en uso | N/A | P1 OK · falta A+P2 |
+| B-R0-05 | Producto | Gap capacidades V7 revisado | B-R0-02 | Prog1 | P0 | Matriz acordada sin “Completa” falsa | N/A | **Done Prog1** |
+| B-R0-06 | Producto | Backlog priorizado R1 | B-R0-05 | Analista | P0 | Orden cadena operativa + FE | N/A | P1 respalda orden · falta A |
+| B-R0-07 | Producto | Arquitectura V7 alineada | B-R0-02 | Ambos | P0 | Dual Mode + sync + FE | N/A | P1 OK · falta A+P2 |
+| B-R0-08 | Producto | V6 contratos: aprobar o mapear a B-R1 | B-R0-02 | Analista | P0 | T1 propinas resuelto o diferido con dueño | N/A | **Pendiente Analista** |
 
-**Estado R0 docs:** borradores creados 19 jul — **pendiente aprobación**.
+**Estado R0 docs:** borradores · **Prog1 firmó 19 jul 2026** · faltan Analista + Prog2.
 
 ---
 

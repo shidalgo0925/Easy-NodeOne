@@ -120,3 +120,13 @@ Una caída del PAC **no** debe impedir cerrar la venta si hay modo contingencia 
 | V4/V5 roadmaps | Históricos / base técnica |
 | V6 comercial | Inputs de contratos/motores → se consumen en R1 (B-R1-08+) |
 | Constitución V1 | Gana en conflictos de producto |
+
+---
+
+## 9. Aprobación Arquitectura
+
+| Rol | Firma | Fecha |
+|-----|-------|-------|
+| Prog1 (EN1) | **Aceptado** — Dual Mode, paridad totales, Venta≠FE, sync observable | 19 jul 2026 |
+| Prog2 (EPosOne) | Pendiente | — |
+| Analista | Pendiente | — |

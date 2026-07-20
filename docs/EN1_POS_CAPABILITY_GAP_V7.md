@@ -2,11 +2,12 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Borrador Release 0** — 19 jul 2026 |
+| Estado | **Borrador Release 0** — revisado Prog1 19 jul 2026 |
 | Método | Por **capacidad de negocio** (no por tablas) |
 | DoD | [`EN1_POS_DEFINITION_OF_DONE_V1.md`](EN1_POS_DEFINITION_OF_DONE_V1.md) |
 | Dominio | [`EN1_POS_DOMAIN_MODEL_V1.md`](EN1_POS_DOMAIN_MODEL_V1.md) |
 | Evidencia | Dev EN1 `/opt/easynodeone/dev/app` · rama `develop` · 19 jul 2026 |
+| **Prog1 (B-R0-05)** | **OK** — 0 filas en Completa; estados endurecidos abajo |
 
 **Estados:** Completa · Parcial · Stub · Inexistente · Duplicada · Requiere rediseño
 
@@ -34,7 +35,7 @@ Ninguna fila puede marcarse **Completa** sin DoD 11/11. La mayoría del producto
 | ID | Capacidad | Dominio | Estado | Evidencia breve | DoD faltante típico |
 |----|-----------|---------|--------|-----------------|---------------------|
 | C-HR-01 | CRUD cajeros + PIN hash | Empleados | Parcial | Hito 2.5 EN1 | Flutter login local E2E, auth supervisor |
-| C-HR-02 | Bootstrap cajeros | Empleados | Parcial | `cashiers` en bootstrap | — casi; falta E2E APK |
+| C-HR-02 | Bootstrap cajeros | Empleados | Parcial | `cashiers` en bootstrap | E2E APK + DoD Flutter |
 | C-HR-03 | Atribución cajero en turno/pedido/pago | Empleados | Parcial | sync `cashier_contact_id` | Reportes por empleado |
 | C-HR-04 | Roles operativos (mesero, supervisor, cocina) | Empleados | Inexistente | — | Todo |
 | C-HR-05 | Permisos granulares por módulo/sucursal/POS | Seguridad | Parcial | RBAC plataforma genérico | Matriz EPosOne específica |
@@ -63,7 +64,7 @@ Ninguna fila puede marcarse **Completa** sin DoD 11/11. La mayoría del producto
 | C-COM-02 | Bootstrap/sync incremental políticas | Comercial | Parcial | `policies_version` | Tombstones, E2E |
 | C-COM-03 | Motor de totales único | Comercial | **Stub** | `order_calculation_engine` `not_implemented` | Todo cálculo |
 | C-COM-04 | Impuestos multi-tasa en línea | Fiscal | Parcial | `fiscal_categories` + tax en línea | Unificar con motor + FE |
-| C-COM-05 | Propinas por política | Comercial | Stub/Parcial | tip en pago; contrato V6 borrador | Política + motor + recibo |
+| C-COM-05 | Propinas por política | Comercial | **Stub** | tip ad-hoc en pago; sin política versionada | T1 + política + motor + recibo |
 | C-COM-06 | Promociones en motor comercial | Comercial | **Duplicada / Parcial** | `promotion_service` UI vs policy engine | Un solo camino DoD |
 | C-COM-07 | Descuentos línea/global auditables | Comercial | Inexistente | — | Todo |
 
@@ -78,9 +79,9 @@ Ninguna fila puede marcarse **Completa** sin DoD 11/11. La mayoría del producto
 | C-ORD-03 | Catálogo métodos de pago | Pago | Parcial | `eposone_payment_method` | Política versionada unificada |
 | C-ORD-04 | Reembolso total/parcial | Pago | Parcial | `PaymentService.refund` | BO UX, NC fiscal, inventario, E2E |
 | C-ORD-05 | **Venta** como entidad financiera distinta | Venta | **Requiere rediseño** | Pedido absorbe rol financiero | Separar dominio + persistencia |
-| C-ORD-06 | Recibo trazable (ítems, impuestos, pagos, cajero, device, políticas) | Recibo | Inexistente/Parcial | Docs V6; UI pedido ≠ recibo | Entidad + impresión + audit |
-| C-ORD-07 | Emitir factura electrónica Panamá | Fiscal | Parcial/Stub | `commerce/fiscal.py`, `emit_fiscal` sync | PAC real, NC/ND, contingencia, DoD |
-| C-ORD-08 | Nota de crédito / débito | Fiscal | Parcial/Inexistente | hooks refund fiscal | Flujo completo Panamá |
+| C-ORD-06 | Recibo trazable (ítems, impuestos, pagos, cajero, device, políticas) | Recibo | **Inexistente** | Solo docs V6 + UI pedido (no entidad recibo) | Entidad + impresión + audit |
+| C-ORD-07 | Emitir factura electrónica Panamá | Fiscal | **Stub** | Hooks `commerce/fiscal.py` / `emit_fiscal`; sin FE Panamá DoD | PAC, estados, contingencia, E2E |
+| C-ORD-08 | Nota de crédito / débito | Fiscal | **Stub** | Hooks credit note en fiscal; sin flujo Panamá DoD | NC/ND completo |
 | C-ORD-09 | Contingencia FE sin bloquear venta | Fiscal | Inexistente | — | Todo |
 
 ---
@@ -101,7 +102,7 @@ Ninguna fila puede marcarse **Completa** sin DoD 11/11. La mayoría del producto
 | ID | Capacidad | Dominio | Estado | Evidencia | Release |
 |----|-----------|---------|--------|-----------|---------|
 | C-INV-01 | Stock por sucursal / ajuste | Inventario | Parcial | `core_stock_*`, inventory BO | R1 básico / R2 |
-| C-INV-02 | Kardex completo auditable | Inventario | Parcial/Rediseño | movimientos parciales | R2 |
+| C-INV-02 | Kardex completo auditable | Inventario | **Requiere rediseño** | movimientos parciales ≠ libro auditable | R2 |
 | C-INV-03 | Compras / proveedores / OC | Compras | Inexistente | — | R2 |
 | C-CRM-01 | Clientes básicos | Clientes | Parcial | contacts | R1 |
 | C-CRM-02 | Crédito / fidelización | Clientes | Inexistente | — | R2 |
@@ -117,9 +118,9 @@ Ninguna fila puede marcarse **Completa** sin DoD 11/11. La mayoría del producto
 | C-SYNC-01 | Sync Up operaciones caja/pedido/pago | Sync | Parcial | `sync_handlers` | DLQ, replay UI, demostrabilidad |
 | C-SYNC-02 | Pull incremental multi-entidad | Sync | Parcial | policies; resto incompleto | Catálogo/cajeros pull formal |
 | C-SYNC-03 | Política de conflictos por entidad | Sync | Stub | Ownership borrador | Implementación + tests |
-| C-REP-01 | Reportes operativos ventas/pagos/caja | Reportes | Stub/Parcial | dashboard liviano, `commerce/reports` | DoD completo |
+| C-REP-01 | Reportes operativos ventas/pagos/caja | Reportes | **Stub** | `analytics.html` mínimo + `commerce/reports` sin DoD | DoD completo |
 | C-MIG-01 | Asistente Vincular Standalone→EN1 | Migración | Parcial | ADR-004 + link docs/código dominio | E2E producto cerrado |
-| C-OBS-01 | Panel soporte dispositivos/errores sync | Observabilidad | Inexistente/Parcial | logs | Panel BO |
+| C-OBS-01 | Panel soporte dispositivos/errores sync | Observabilidad | **Inexistente** | Solo logs/SSH | Panel BO |
 
 ---
 
@@ -132,6 +133,20 @@ Ninguna fila puede marcarse **Completa** sin DoD 11/11. La mayoría del producto
 | ¿Bloqueador conceptual #1? | **Venta ≠ Pedido** + **Recibo** + **Motor totales**. |
 | ¿Bloqueador Panamá #2? | **FE + NC** dentro de R1 (no diferir a R2). |
 | ¿Mayor riesgo de parche? | Promos UI vs policy engine; ITBMS en producto sin motor/recibo/FE. |
-| ¿Siguiente código? | **Ninguno** hasta aprobar Release 0 + backlog priorizado. |
+| ¿Siguiente código? | **Ninguno** hasta aprobar Release 0 (faltan Analista + Prog2). |
 
 Detalle de trabajo: [`EN1_POS_BACKLOG_V7.md`](EN1_POS_BACKLOG_V7.md).
+
+---
+
+## 10. Revisión Prog1 (B-R0-05) — 19 jul 2026
+
+| Chequeo | Resultado |
+|---------|-----------|
+| ¿Alguna capacidad en **Completa**? | **No** (0) |
+| ¿Estados ambiguos (X/Y) eliminados? | Sí — tip, recibo, FE, NC, reportes, obs, kardex |
+| ¿Evidencia re-chequeada en `develop`? | Sí — stub motor, order sin entidad Venta/Recibo, fiscal hooks ≠ FE DoD |
+| ¿Riesgo de sobreestimar EN1? | Mitigado: C-HR-02 / C-ORD-02 siguen Parcial (falta Flutter E2E) |
+
+**Firma Prog1 (EN1):** acepto esta matriz como base del backlog R1.  
+**Pendiente:** Analista (producto) · Prog2 (impacto APK).

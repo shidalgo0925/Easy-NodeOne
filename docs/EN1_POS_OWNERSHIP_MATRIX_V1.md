@@ -93,6 +93,18 @@ Conflictos (política por entidad):
 
 ## Pendiente de congelar (Release 0 → aprobación)
 
-- Precisión de conflicto en **pedido concurrente multi-dispositivo** (mesa).
-- Contingencia FE: cuándo D>S vs MANUAL.
-- Alcance exacto de “admin básica” Solo-POS (lista cerrada).
+| Tema | Propuesta Prog1 (no congelada) | Quién cierra |
+|------|--------------------------------|--------------|
+| Pedido concurrente multi-dispositivo (mesa) | Mientras un pedido está `open` en device A, device B solo lectura o claim explícito; conflicto **MANUAL** si ambos escriben | Analista + Prog2 |
+| Contingencia FE | Venta/recibo cierran siempre; FE queda `pending_contingency`; resolución **MANUAL** si PAC diverge | Analista (fiscal) |
+| Admin básica Solo-POS | Lista cerrada ADR-006: producto/precio/stock ajuste/cliente alta — nada de OC, kardex, FE admin | Analista |
+
+---
+
+## Aprobación Ownership
+
+| Rol | Firma | Fecha |
+|-----|-------|-------|
+| Prog1 (EN1) | **Aceptado** — matriz usable para R1; 3 temas arriba aún abiertos | 19 jul 2026 |
+| Prog2 (EPosOne) | Pendiente | — |
+| Analista | Pendiente (incl. temas abiertos) | — |

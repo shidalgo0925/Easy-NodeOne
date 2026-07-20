@@ -96,3 +96,13 @@ E2E: ✅/❌
 Documentación: ✅/❌
 Estado final: Completa | Parcial
 ```
+
+---
+
+## 7. Aprobación DoD
+
+| Rol | Firma | Fecha |
+|-----|-------|-------|
+| Prog1 (EN1) | **Aceptado** — 11 puntos son el único criterio de Completa en R1 | 19 jul 2026 |
+| Analista | Pendiente | — |
+| Prog2 (EPosOne) | Pendiente | — |

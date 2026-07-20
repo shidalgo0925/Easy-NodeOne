@@ -861,6 +861,24 @@ def eposone_order_domain_detail(order_id: int):
     except Exception:
         payment_methods = []
 
+    order_origin = None
+    try:
+        from models.commercial_core import CorePosTerminal
+        from nodeone.modules.eposone.bo_actor import order_origin_meta
+
+        t = None
+        if order.owner_device_uuid:
+            t = CorePosTerminal.query.filter_by(
+                organization_id=int(oid), terminal_ref=str(order.owner_device_uuid)
+            ).first()
+        order_origin = order_origin_meta(
+            owner_device_uuid=order.owner_device_uuid,
+            device_label=getattr(t, 'device_label', None) if t else None,
+            profile=getattr(t, 'profile', None) if t else None,
+        )
+    except Exception:
+        order_origin = None
+
     return render_template(
         'eposone/order_domain_detail.html',
         order=order,
@@ -869,6 +887,7 @@ def eposone_order_domain_detail(order_id: int):
         timeline=timeline,
         payment_methods=payment_methods,
         payment_method_labels=payment_method_labels,
+        order_origin=order_origin,
         orders_back_url=_orders_list_url(_orders_list_filter_args()),
     )
 
@@ -1992,9 +2011,9 @@ def eposone_order_new():
     import uuid
 
     from models.commercial_core import CorePosTerminal
-    from nodeone.core.commerce.constants import POS_TERMINAL_ACTIVE
     from nodeone.core.platform.runtime import resolve_organization_id
     from nodeone.core.services.product import ProductService
+    from nodeone.modules.eposone.bo_actor import ensure_backoffice_terminal
     from nodeone.modules.eposone.order_domain import OrderDomainError, OrderDomainService
 
     oid = resolve_organization_id()
@@ -2035,11 +2054,10 @@ def eposone_order_new():
     if request.method == 'GET':
         return _render()
 
-    device = (
-        CorePosTerminal.query.filter_by(organization_id=int(oid), status=POS_TERMINAL_ACTIVE)
-        .order_by(CorePosTerminal.id.asc())
-        .first()
-    )
+    try:
+        device = ensure_backoffice_terminal(int(oid))
+    except Exception:
+        device = None
     if device is None:
         flash('No hay terminal POS activo. Provisioná una caja/tablet primero.', 'warning')
         return redirect(url_for('eposone.eposone_section', slug='terminals'))
@@ -2251,9 +2269,35 @@ def eposone_section(slug: str):
             )
             showing_from = (offset + 1) if orders_total else 0
             showing_to = offset + len(orders)
+
+            from models.commercial_core import CorePosTerminal
+            from nodeone.modules.eposone.bo_actor import order_origin_meta
+
+            owner_refs = {
+                str(o.owner_device_uuid).strip()
+                for o in orders
+                if (o.owner_device_uuid or '').strip()
+            }
+            terminals_by_ref: dict = {}
+            if owner_refs:
+                trows = (
+                    CorePosTerminal.query.filter_by(organization_id=int(oid))
+                    .filter(CorePosTerminal.terminal_ref.in_(sorted(owner_refs)))
+                    .all()
+                )
+                terminals_by_ref = {str(t.terminal_ref): t for t in trows}
+            order_origins = {}
+            for o in orders:
+                t = terminals_by_ref.get(str(o.owner_device_uuid or '').strip())
+                order_origins[int(o.id)] = order_origin_meta(
+                    owner_device_uuid=o.owner_device_uuid,
+                    device_label=getattr(t, 'device_label', None) if t else None,
+                    profile=getattr(t, 'profile', None) if t else None,
+                )
         else:
             showing_from = 0
             showing_to = 0
+            order_origins = {}
         # Query string para Ver/detalle: filtros + paginación actual (incluye hoy por defecto)
         from urllib.parse import urlencode
 
@@ -2281,6 +2325,7 @@ def eposone_section(slug: str):
             section_title=title,
             section_description=description,
             orders=orders,
+            order_origins=order_origins,
             orders_total=orders_total,
             q=q_text,
             status_filter=status_filter or '',
@@ -2749,6 +2794,8 @@ def eposone_section(slug: str):
             ref = str(getattr(d, 'terminal_ref', None) or '').lower()
             label = str(getattr(d, 'device_label', None) or '').lower()
             blob = f'{ref} {label}'
+            if ref in ('en1-backoffice',) or 'backoffice' in blob:
+                return False
             if ref.startswith(('diag-', 'e2e-', 'test-')):
                 return False
             if 'bootstrap-check' in blob or 'http-check' in blob:

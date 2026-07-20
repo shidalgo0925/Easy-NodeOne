@@ -12,6 +12,9 @@
 | Hito 3C | **EN1 listo** |
 | **Hito 2.5** | Código ~95% · E2E bloque **A ✅** · B–E pendiente · cierre = checklist completa |
 | **Incidente 20 jul** | R-000001/2 marcados `partial` en EN1 por ITBMS auto sobre `tax:0` APK + tip acumulado · **reparado** + fix código |
+| **Partial centavos** | Total 4dp vs cobro 2dp (ej. 17.1735 vs 17.17) → `partial` fantasma · **fix money2** + EN1-5-32 reparado |
+| **Origen pedido** | Columna **Origen** en lista: `BO` (Caja principal) vs `Tablet` · actor BO = terminal `en1-backoffice` |
+| **Cajero UUID** | APK manda UUID en `user_ref` · EN1 ahora resuelve `cashier_contact_id` → nombre · **Prog2 debe enviar** `cashier_contact_id` o `cashier_name` (Hito 2.5) |
 | **R-PAY-MULTI / R-TIP-COBRO** | Congeladas · API tip OK · **BO modal cobro + tip** · al liquidar: `status=closed` · **APK (Prog2):** sync debe sacar de abiertos si `paid`/`closed`/`financially_closed` (C20) |
 | **TZ Fase 1** | **Hecho en EN1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning TZ de org |
 | **V6 contratos** | Inputs técnicos — [`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md) · mapear a R1 (**FE en R1**) |

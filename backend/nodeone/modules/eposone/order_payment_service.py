@@ -19,6 +19,8 @@ from nodeone.modules.eposone.order_domain import (
     OrderDomainError,
     OrderDomainService,
     apply_financial_state,
+    money2,
+    resolve_actor_user_ref,
 )
 
 
@@ -216,8 +218,8 @@ class OrderPaymentService:
 
     @staticmethod
     def _apply_tip(order: EposoneOrder, tip: float) -> None:
-        order.tip = round(max(0.0, float(tip or 0)), 4)
-        order.total = round(OrderPaymentService._base_total(order) + float(order.tip), 4)
+        order.tip = money2(max(0.0, float(tip or 0)))
+        order.total = money2(OrderPaymentService._base_total(order) + float(order.tip))
 
     @staticmethod
     def _sync_tip_before_payment(order: EposoneOrder, body: dict[str, Any], amount: float) -> None:
@@ -361,22 +363,22 @@ class OrderPaymentService:
         # Propina: explícita en payload o inferida si el monto incluye tip no sincronizado.
         OrderPaymentService._sync_tip_before_payment(order, body, amount)
 
-        total = float(order.total or 0)
-        paid = float(order.amount_paid or 0)
-        balance = round(total - paid, 4)
+        total = money2(order.total)
+        paid = money2(order.amount_paid)
+        balance = money2(total - paid)
         if balance <= 1e-9:
             raise OrderDomainError('already_paid', http_status=409)
-        if amount > balance + 1e-6:
+        if money2(amount) > balance + 1e-6:
             raise OrderDomainError('amount_exceeds_balance', http_status=409)
 
-        actor_user_ref = (body.get('actor_user_ref') or '').strip() or order.user_ref
+        actor_user_ref = resolve_actor_user_ref(int(order.organization_id), body) or order.user_ref
         currency = str(body.get('currency') or 'USD').strip() or 'USD'
         now = datetime.utcnow()
 
         pay = EposoneOrderPayment(
             order_id=order.id,
             payment_ref=payment_ref,
-            amount=amount,
+            amount=money2(amount),
             method=method_key,
             kind=kind,
             currency=currency,
@@ -391,7 +393,16 @@ class OrderPaymentService:
             ),
         )
         db.session.add(pay)
-        order.amount_paid = round(paid + amount, 4)
+        order.amount_paid = money2(paid + money2(amount))
+        if actor_user_ref and (
+            not order.user_ref
+            or (
+                len(str(order.user_ref)) == 36
+                and str(order.user_ref).count('-') == 4
+            )
+        ):
+            # Reemplaza UUID local de APK por nombre resuelto al cobrar.
+            order.user_ref = actor_user_ref
         _recalc_payment_status(order)
 
         OrderDomainService._append_event(
@@ -411,7 +422,7 @@ class OrderPaymentService:
                 'kind': pay.kind,
                 'register_ref': order.register_ref,
                 'actor_user_ref': actor_user_ref,
-                'balance_after': round(float(order.total or 0) - float(order.amount_paid or 0), 4),
+                'balance_after': money2(float(order.total or 0) - float(order.amount_paid or 0)),
                 'payment_status': order.payment_status,
             },
         )

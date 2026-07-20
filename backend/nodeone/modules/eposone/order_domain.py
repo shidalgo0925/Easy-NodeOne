@@ -50,6 +50,36 @@ class OrderDomainError(Exception):
         self.http_status = http_status
 
 
+def money2(value: float | int | None) -> float:
+    """Redondeo monetario a centavos (evita partial fantasma por ITBMS a 4dp)."""
+    return round(float(value or 0) + 1e-12, 2)
+
+
+def resolve_actor_user_ref(organization_id: int, body: dict[str, Any] | None) -> str | None:
+    """Prefiere cashier_contact_id → display_name; si no, user_ref / cashier_name / actor_user_ref.
+
+    Evita persistir UUIDs locales de APK cuando la tablet manda el ID de cajero Hito 2.5.
+    """
+    body = body or {}
+    raw_id = body.get('cashier_contact_id')
+    if raw_id is None:
+        raw_id = body.get('cashier_id')
+    if raw_id is not None and str(raw_id).strip() != '':
+        try:
+            from nodeone.modules.eposone.cashier_service import CashierService
+
+            cashier = CashierService.get(int(organization_id), int(raw_id))
+            if cashier is not None and (cashier.display_name or '').strip():
+                return str(cashier.display_name).strip()
+        except (TypeError, ValueError):
+            pass
+    for key in ('cashier_name', 'user_ref', 'actor_user_ref'):
+        val = (body.get(key) or '').strip() if body.get(key) is not None else ''
+        if val:
+            return val
+    return None
+
+
 def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() + 'Z' if dt else None
 
@@ -69,18 +99,20 @@ def _recalc(order: EposoneOrder) -> None:
     order.tax = round(tax, 4)
     order.discount = round(disc, 4)
     tip = float(order.tip or 0)
-    order.total = round(sub + tax - disc + tip, 4)
+    order.total = money2(sub + tax - disc + tip)
     apply_financial_state(order)
 
 
 def apply_financial_state(order: EposoneOrder) -> None:
     """payment_status + cierre financiero y operativo al liquidar.
 
-    Al saldo 0: paid + financially_closed + status=closed (salvo cancelled/returned).
-    El ciclo operativo open/sent/ready no permanece abierto si ya está cobrado.
+    Compara a 2 decimales. Al saldo 0: paid + financially_closed + status=closed
+    (salvo cancelled/returned).
     """
-    total = float(order.total or 0)
-    paid = float(order.amount_paid or 0)
+    # Normaliza total a centavos para que UI/BO/APK (2dp) no dejen basura de 4dp.
+    order.total = money2(order.total)
+    total = money2(order.total)
+    paid = money2(order.amount_paid)
     if paid <= 0:
         order.payment_status = 'unpaid'
         order.financially_closed = False
@@ -91,6 +123,9 @@ def apply_financial_state(order: EposoneOrder) -> None:
         return
     order.payment_status = 'paid'
     order.financially_closed = True
+    # Alinea amount_paid al total redondeado si solo difería por centavos.
+    if abs(float(order.amount_paid or 0) - total) <= 0.02:
+        order.amount_paid = total
     st = str(order.status or '').lower()
     if st not in ('cancelled', 'returned', 'closed'):
         order.status = 'closed'
@@ -275,7 +310,7 @@ class OrderDomainService:
             register_ref=(body.get('register_ref') or device.register_ref or None),
             owner_device_uuid=str(device.terminal_ref),
             owner_pos_ref=device.pos_ref,
-            user_ref=(body.get('user_ref') or '').strip() or None,
+            user_ref=resolve_actor_user_ref(oid, body),
             customer_ref=(body.get('customer_ref') or '').strip() or None,
             table_ref=table_ref,
             status='open',
@@ -305,8 +340,15 @@ class OrderDomainService:
         OrderDomainService._require_owner(order, device)
         if str(order.status) not in EDITABLE_STATUSES:
             raise OrderDomainError('order_not_editable', http_status=409)
-        if 'user_ref' in body:
-            order.user_ref = (body.get('user_ref') or '').strip() or None
+        if (
+            'user_ref' in body
+            or 'cashier_contact_id' in body
+            or 'cashier_id' in body
+            or 'cashier_name' in body
+        ):
+            resolved = resolve_actor_user_ref(int(order.organization_id), body)
+            if resolved is not None or 'user_ref' in body:
+                order.user_ref = resolved
         if 'customer_ref' in body:
             order.customer_ref = (body.get('customer_ref') or '').strip() or None
         if 'notes' in body:
@@ -324,7 +366,19 @@ class OrderDomainService:
             event_type='pedido.actualizado',
             device=device,
             user_ref=order.user_ref,
-            payload={k: body.get(k) for k in ('user_ref', 'customer_ref', 'notes', 'tip', 'local_number') if k in body},
+            payload={
+                k: body.get(k)
+                for k in (
+                    'user_ref',
+                    'cashier_contact_id',
+                    'cashier_name',
+                    'customer_ref',
+                    'notes',
+                    'tip',
+                    'local_number',
+                )
+                if k in body
+            },
         )
         db.session.commit()
         return order

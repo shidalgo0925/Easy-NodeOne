@@ -82,6 +82,13 @@
                         <div><span class="text-muted">Cliente:</span> <strong>{{ order.customer_ref or '—' }}</strong></div>
                         <div><span class="text-muted">Cajero:</span> {{ order.user_ref or '—' }}</div>
                         <div><span class="text-muted">POS:</span> {{ order.pos_ref or '—' }}</div>
+                        <div><span class="text-muted">Origen:</span>
+                            {% if order_origin %}
+                            <strong>{{ order_origin.label }}</strong>
+                            {% else %}
+                            {{ order.owner_device_uuid or '—' }}
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>

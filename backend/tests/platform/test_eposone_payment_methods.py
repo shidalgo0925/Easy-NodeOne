@@ -110,5 +110,25 @@ class TestPaymentMethodAliases(unittest.TestCase):
         self.assertAlmostEqual(order.total, 14.72, places=2)
 
 
+class TestFinancialStateCents(unittest.TestCase):
+    def test_partial_clears_when_paid_covers_rounded_total(self):
+        from nodeone.modules.eposone.order_domain import apply_financial_state
+
+        order = SimpleNamespace(
+            total=17.1735,
+            amount_paid=17.17,
+            tip=0.0,
+            payment_status='partial',
+            financially_closed=False,
+            status='open',
+        )
+        apply_financial_state(order)
+        self.assertEqual(order.payment_status, 'paid')
+        self.assertTrue(order.financially_closed)
+        self.assertEqual(order.status, 'closed')
+        self.assertAlmostEqual(order.total, 17.17, places=2)
+        self.assertAlmostEqual(order.amount_paid, 17.17, places=2)
+
+
 if __name__ == '__main__':
     unittest.main()

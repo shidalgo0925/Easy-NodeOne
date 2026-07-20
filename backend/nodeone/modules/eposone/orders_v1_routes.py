@@ -28,26 +28,18 @@ def _device_from_request():
     if auth and auth.strip().lower().startswith('bearer '):
         return DeviceProvisioningService.authenticate_bearer(auth)
 
-    # BackOffice: sesión + org; usa un terminal activo de la org como actor de lectura/cobro.
+    # BackOffice: sesión + org; actor sintético "Caja principal (BO)".
     if getattr(current_user, 'is_authenticated', False):
-        from models.commercial_core import CorePosTerminal
-        from nodeone.core.commerce.constants import POS_TERMINAL_ACTIVE
         from nodeone.core.platform.runtime import resolve_organization_id
         from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
+        from nodeone.modules.eposone.bo_actor import ensure_backoffice_terminal
 
         if not user_can_see_tenant_admin_menu(current_user):
             raise DeviceProvisioningError('forbidden', http_status=403)
         oid = resolve_organization_id()
         if oid is None:
             raise DeviceProvisioningError('organization_required', http_status=400)
-        row = (
-            CorePosTerminal.query.filter_by(organization_id=int(oid), status=POS_TERMINAL_ACTIVE)
-            .order_by(CorePosTerminal.id.asc())
-            .first()
-        )
-        if row is None:
-            raise DeviceProvisioningError('no_active_terminal', http_status=400)
-        return row
+        return ensure_backoffice_terminal(int(oid))
 
     raise DeviceProvisioningError('unauthorized', http_status=401)
 

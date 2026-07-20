@@ -160,6 +160,7 @@
                             <th>Pago</th>
                             <th>Cliente</th>
                             <th>Mesa</th>
+                            <th>Origen</th>
                             <th>POS</th>
                             <th>Caja</th>
                             <th>Cajero</th>
@@ -169,6 +170,7 @@
                     </thead>
                     <tbody>
                         {% for order in orders %}
+                        {% set origin = (order_origins or {}).get(order.id, {}) %}
                         <tr>
                             <td>
                                 <code>{{ order.en1_number }}</code>
@@ -198,6 +200,17 @@
                             </td>
                             <td class="small">{{ order.customer_ref or '—' }}</td>
                             <td class="small">{{ order.table_ref or '—' }}</td>
+                            <td class="small">
+                                {% if origin.kind == 'bo' %}
+                                <span class="badge text-bg-secondary">BO</span>
+                                <div class="text-muted" style="font-size:0.7rem">Caja principal</div>
+                                {% elif origin.kind == 'tablet' %}
+                                <span class="badge text-bg-primary">Tablet</span>
+                                <div class="text-muted" style="font-size:0.7rem">{{ origin.detail or origin.label }}</div>
+                                {% else %}
+                                {{ origin.label or '—' }}
+                                {% endif %}
+                            </td>
                             <td class="small">{{ order.pos_ref or '—' }}</td>
                             <td class="small">{{ order.register_ref or '—' }}</td>
                             <td class="small">{{ order.user_ref or '—' }}</td>

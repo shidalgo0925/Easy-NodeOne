@@ -63,7 +63,7 @@ Docs que el Analista pedía y **ya existen** (firmar, no reescribir): Ownership,
 |------|-----|--------|
 | **2.5 Cajeros** | Contrato + E2E | 🟡 E2E pendiente |
 | **2.6 Observabilidad** | [Hito 2.6](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) | 📋 Planificado |
-| **E2E oficial** | [Checklist A–E](EN1_EPOSONE_E2E_CHECKLIST_V1.md) | 📋 Oficial |
+| **E2E oficial** | [Checklist A–E](EN1_EPOSONE_E2E_CHECKLIST_V1.md) · **C17–C25** multi-device + propina |
 
 ---
 

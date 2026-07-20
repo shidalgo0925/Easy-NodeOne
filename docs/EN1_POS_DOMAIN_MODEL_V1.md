@@ -55,6 +55,39 @@ Empresa
 
 ---
 
+## 2.1 Reglas de cobro multi-dispositivo y propina (congeladas 20 jul 2026)
+
+Aprobadas con Analista — aplicables a Dual Mode (Standalone / Integrado).
+
+### R-PAY-MULTI — Pedido abierto en un device, cobro en otro
+
+> Un pedido puede abrirse en cualquier dispositivo autorizado y **pagarse en cualquier otro** dispositivo autorizado de la misma organización, siempre que el pedido permanezca abierto (no cancelado / no ya pagado). Al registrarse el pago, el estado debe sincronizarse en **todos** los dispositivos: el pedido deja de figurar como abierto, se impiden nuevos cobros y se conserva historial para consulta. **No** deben existir dos pedidos ni exigir cierre manual del mesero.
+
+Implicaciones:
+
+| Situación | Comportamiento |
+|-----------|----------------|
+| Mesero tablet A crea; cajero tablet B / caja cobra | Mismo `pedido`; B puede cobrar |
+| Tras pago, A online | Sync/pull → sale de abiertos; no re-cobrar |
+| A offline al cobrar B | Al reconectar: detectar pagado → cerrar local; **nunca** segundo cobro |
+| Back Office EN1 cobra | Mismo efecto SoT; devices hacen pull |
+
+Edición de líneas/mesa mientras abierto: sigue Ownership de operación (owner / reglas Hito 3). **Etapa cobro** = excepción multi-device (ya en Order Domain).
+
+### R-TIP-COBRO — Propina es del cobro, no del dispositivo
+
+> La propina forma parte del **proceso de cobro**, no del dispositivo. Cualquier punto autorizado de cobro (tablet mesero, caja, Back Office) puede registrarla o modificarla según el **contrato comercial de propinas** vigente (deshabilitada / sugerida / libre / % fijo). Hay una sola fuente de verdad en el pedido; el recibo usa la propina definitiva al cerrar el cobro.
+
+| Política (contrato) | UI en todo punto de cobro |
+|---------------------|---------------------------|
+| Deshabilitada | No muestra opción |
+| Solo sugerida | Muestra sugerencia; editable/rechazable |
+| Libre | Monto libre (con topes de política si existen) |
+| % fijo / obligatorio | Calculada; override solo si política lo permite |
+
+Estados útiles: **propina pendiente** vs **propina definida** (antes del cierre financiero). Si la caja cambia la propina al cobrar → actualiza pedido → sync a todos.
+---
+
 ## 3. Cadena de catálogo e inventario (Release 1 mínimo / Release 2 pleno)
 
 ```text
@@ -154,6 +187,6 @@ Esos se derivan **después** de congelar dominio + gap + backlog.
 
 | Rol | Firma | Fecha |
 |-----|-------|-------|
-| Prog1 (EN1) | **Aceptado** — Pedido ≠ Venta ≠ Recibo ≠ Documento fiscal | 19 jul 2026 |
+| Prog1 (EN1) | **Aceptado** — Pedido ≠ Venta ≠ Recibo ≠ Documento fiscal · **+ R-PAY-MULTI / R-TIP-COBRO (20 jul)** | 20 jul 2026 |
 | Analista | Pendiente | — |
 | Prog2 (EPosOne) | Pendiente | — |

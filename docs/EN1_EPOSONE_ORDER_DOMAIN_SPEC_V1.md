@@ -151,6 +151,8 @@ Misma entidad `Order` en ambos modos.
 | Dividir | Sí |
 | Cambiar cajero | Sí |
 | Cobro desde cualquier caja autorizada | Sí (etapa cobro) |
+| **R-PAY-MULTI** (abrir en device A, pagar en B) | Sí — ver Domain Model §2.1 · sync cierra abiertos en todos |
+| **R-TIP-COBRO** (propina en cualquier punto de cobro) | Sí — según contrato propinas · una sola tip en el pedido |
 
 ### Pago
 

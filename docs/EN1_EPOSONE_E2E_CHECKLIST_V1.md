@@ -78,6 +78,24 @@ Leyenda: ☐ pendiente · ✅ OK · ❌ falló · N/A
 
 **Resultado esperado:** misma operación reconstruible en EN1 (pedido, pagos, cajero, caja, turno).
 
+### C-extra — Multi-dispositivo y propina (R-PAY-MULTI / R-TIP-COBRO)
+
+| # | Caso | Resp. | ☐ |
+|---|------|-------|---|
+| C17 | Device A (mesero): crear pedido abierto | Prog2 | ☐ |
+| C18 | Device B (caja): abrir **el mismo** pedido (no duplicar) | Ambos | ☐ |
+| C19 | Device B: cobrar (efectivo o mixto) | Ambos | ☐ |
+| C20 | Device A online: sync → pedido **sale de abiertos** / estado pagado | Prog2 | ☐ |
+| C21 | Device A: intentar cobrar de nuevo → **rechazado** (already_paid) | Ambos | ☐ |
+| C22 | Device A offline al pagar B; al reconectar: cierra local, **sin** segundo cobro | Prog2 | ☐ |
+| C23 | Cobro en caja **con propina libre** (si política lo permite) | Ambos | ☐ |
+| C24 | Mesero dejó tip; caja **modifica tip** al cobrar → un solo tip en EN1/recibo | Ambos | ☐ |
+| C25 | BO EN1: cobro + tip sobre pedido abierto de tablet | Prog1 | ☐ |
+
+**Resultado esperado:** un pedido, un cobro, tip única; todos los devices alineados tras sync.
+
+Docs: Domain Model §2.1 · Order Domain Spec §6 · [Contrato Propinas](EN1_EPOSONE_CONTRATO_PROPINAS_V1.md).
+
 ---
 
 ## D. Offline

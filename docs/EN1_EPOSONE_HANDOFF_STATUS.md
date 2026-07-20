@@ -12,6 +12,7 @@
 | Hito 3C | **EN1 listo** |
 | **Hito 2.5** | Código ~95% · E2E bloque **A ✅** · B–E pendiente · cierre = checklist completa |
 | **Incidente 20 jul** | R-000001/2 marcados `partial` en EN1 por ITBMS auto sobre `tax:0` APK + tip acumulado · **reparado** + fix código |
+| **R-PAY-MULTI / R-TIP-COBRO** | Congeladas en Domain Model §2.1 · E2E C17–C25 · cobro multi-device + propina en cualquier punto de cobro |
 | **TZ Fase 1** | **Hecho en EN1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning TZ de org |
 | **V6 contratos** | Inputs técnicos — [`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md) · mapear a R1 (**FE en R1**) |
 | **V6 Infra políticas** | [`EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md`](EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md) **EN1 listo** · sin algoritmos |

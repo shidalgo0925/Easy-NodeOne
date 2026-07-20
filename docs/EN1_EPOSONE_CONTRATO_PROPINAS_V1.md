@@ -19,6 +19,8 @@ El Contrato de Propinas es un **tipo de política comercial** (Modelo Comercial 
 
 **Principio:** la propina **no es un impuesto**. En recibo, reportes y desglose va en sección propia, nunca mezclada con ITBMS/ISC.
 
+**Regla de producto (Domain Model §2.1 — R-TIP-COBRO):** la propina es del **proceso de cobro**, no del dispositivo. Tablet mesero, caja y Back Office pueden registrarla/modificarla según este contrato. Una sola tip en el pedido; el recibo usa la definitiva al cerrar.
+
 **No incluye:** layout de ticket (Contrato Recibo), medios de pago (Contrato Pagos), motor de totales completo (Fase 4).
 
 ---

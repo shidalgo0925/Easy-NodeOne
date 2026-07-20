@@ -160,7 +160,27 @@ y en los eventos de auditoría de transición, cancelación, arqueo y transferen
 - Si BO cerró el turno antes del Sync Up, EN1 aplica las reglas de estado existentes y
   rechaza operaciones incompatibles; la APK debe mostrarlas como conflicto, no descartarlas.
 
-## 7. Changelog
+## 7. Dueño del nombre (modo Integrado vs Standalone)
 
+**EN1 es el dueño del nombre en modo Integrado.**
+
+| Pieza | Quién |
+|-------|--------|
+| Alta / editar nombre del cajero | **EN1 Back Office** |
+| Sync a la tablet | Bootstrap/catálogo: `cashier_contact_id` + `cashier_name` |
+| Identidad en cada op | `cashier_contact_id` (**lo manda la APK** en pedido/pago/turno) |
+| Nombre en recibo/UI | Copia de display del catálogo / sesión al momento de la venta |
+
+- Integrado: la APK **no** administra el nombre; solo lo recibe (bootstrap) y lo estampa.
+  Si cambia el nombre en EN1, llega en el próximo bootstrap/sync de cajeros.
+- Standalone (sin EN1): el nombre lo crea/edita la APK en Configuración → Cajeros (local).
+
+**Corrección de bugs de nombre en tablet (Integrado):** si la UI/recibo muestra UUID o
+nombre vacío pese a existir el cajero en EN1, toca **Prog2 (APK)** — debe usar
+`cashier_contact_id` + `cashier_name` del bootstrap, no un UUID local como `user_ref`.
+
+## 8. Changelog
+
+- **v1.1 — 2026-07-20:** §7 dueño del nombre Integrado/Standalone + ownership de bugs UI.
 - **v1 — 2026-07-18:** snapshot versionado, verificador PBKDF2 portable, revocación por
   cajero inactivo y atribución obligatoria de operaciones Sync Up.

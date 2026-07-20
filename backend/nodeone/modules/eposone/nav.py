@@ -45,7 +45,6 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
         '/admin/eposone/section/registers',
         '/admin/eposone/section/terminals',
         '/admin/eposone/section/licenses',
-        '/admin/eposone/lab/',
     )
 
     return AppNavTree(
@@ -176,17 +175,17 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         visible=_v_eposone,
                         active_path_prefixes=('/admin/eposone/section/licenses',),
                     ),
-                    AppNavItem(
-                        'lab-wipe',
-                        'Lab · Wipe día',
-                        'fas fa-flask',
-                        url=safe_url_for('eposone.eposone_lab_wipe_today'),
-                        visible=_v_platform_lab,
-                        active_endpoints=('eposone.eposone_lab_wipe_today',),
-                        active_path_prefixes=('/admin/eposone/lab/wipe-today',),
-                    ),
                 ),
                 active_path_prefixes=infra_prefixes,
+            ),
+            AppNavItem(
+                'lab-wipe',
+                'Lab · Wipe día',
+                'fas fa-flask',
+                url=safe_url_for('eposone.eposone_lab_wipe_today'),
+                visible=_v_platform_lab,
+                active_endpoints=('eposone.eposone_lab_wipe_today',),
+                active_path_prefixes=('/admin/eposone/lab/wipe-today',),
             ),
             AppNavItem(
                 'mas',

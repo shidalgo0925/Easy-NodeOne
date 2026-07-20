@@ -61,6 +61,19 @@
     </div>
     {% endif %}
 
+    {% if preview.shifts %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label">Turnos a eliminar (máx. 50)</h2>
+            <ul class="small mb-0">
+                {% for s in preview.shifts %}
+                <li><code>{{ s.register_ref }}</code> · {{ s.status }} · {{ s.cashier_name or '—' }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="epos-card">
         <div class="epos-card-body">
             <form method="post" onsubmit="return confirm('¿Confirmás borrar todas las transacciones del día en esta org?');">

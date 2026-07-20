@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
+
+from nodeone.core.timezone_service import TimeZoneService
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +24,11 @@ def wipe_tool_enabled() -> bool:
     return env in {'development', 'dev', 'local'}
 
 
-def _day_bounds_utc_naive(tz_name: str = BUSINESS_TZ) -> tuple[datetime, datetime]:
-    zone = ZoneInfo(tz_name)
-    now_local = datetime.now(zone)
-    start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_local = start_local + timedelta(days=1)
-    start_utc = start_local.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
-    end_utc = end_local.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
-    return start_utc, end_utc
+def _day_bounds_utc_naive() -> tuple[datetime, datetime, str]:
+    zone = ZoneInfo(BUSINESS_TZ)
+    day_local = datetime.now(zone).strftime('%Y-%m-%d')
+    start, end = TimeZoneService.day_bounds_utc_naive(day_local, zone)
+    return start, end, day_local
 
 
 def preview_today(organization_id: int) -> dict[str, Any]:
@@ -37,7 +36,7 @@ def preview_today(organization_id: int) -> dict[str, Any]:
     from models.eposone_order import EposoneOrder
 
     oid = int(organization_id)
-    start, end = _day_bounds_utc_naive()
+    start, end, day_local = _day_bounds_utc_naive()
     orders = (
         EposoneOrder.query.filter_by(organization_id=oid)
         .filter(EposoneOrder.opened_at >= start, EposoneOrder.opened_at < end)
@@ -50,16 +49,14 @@ def preview_today(organization_id: int) -> dict[str, Any]:
         .order_by(CoreCashShift.id.asc())
         .all()
     )
-    commercial = (
+    commercial_count = (
         CoreCommercialOrder.query.filter_by(organization_id=oid)
         .filter(CoreCommercialOrder.created_at >= start, CoreCommercialOrder.created_at < end)
         .count()
     )
     return {
         'timezone': BUSINESS_TZ,
-        'day_local': datetime.now(ZoneInfo(BUSINESS_TZ)).strftime('%Y-%m-%d'),
-        'start_utc': start.isoformat() + 'Z',
-        'end_utc': end.isoformat() + 'Z',
+        'day_local': day_local,
         'orders_count': len(orders),
         'orders': [
             {
@@ -81,7 +78,7 @@ def preview_today(organization_id: int) -> dict[str, Any]:
             }
             for s in shifts[:50]
         ],
-        'commercial_count': int(commercial),
+        'commercial_count': int(commercial_count),
         'confirm_phrase': CONFIRM_PHRASE,
     }
 
@@ -93,8 +90,7 @@ def wipe_today(organization_id: int, *, actor: str | None = None) -> dict[str, A
     from models.eposone_order import EposoneOrder
 
     oid = int(organization_id)
-    start, end = _day_bounds_utc_naive()
-    preview = preview_today(oid)
+    start, end, day_local = _day_bounds_utc_naive()
 
     deleted_orders = (
         EposoneOrder.query.filter_by(organization_id=oid)
@@ -118,7 +114,7 @@ def wipe_today(organization_id: int, *, actor: str | None = None) -> dict[str, A
         'deleted_orders': int(deleted_orders or 0),
         'deleted_shifts': int(deleted_shifts or 0),
         'deleted_commercial': int(deleted_commercial or 0),
-        'day_local': preview['day_local'],
+        'day_local': day_local,
         'actor': actor,
     }
     logger.warning(

@@ -138,7 +138,7 @@ def _require_eposone_admin():
     return None
 
 
-def _require_platform_lab_wipe():
+def _require_platform_lab_wipe() -> None:
     """Solo User.is_admin (plataforma). No alcanza admin tenant / RBAC."""
     from nodeone.modules.eposone.dev_wipe_service import wipe_tool_enabled
 
@@ -146,16 +146,13 @@ def _require_platform_lab_wipe():
         abort(403)
     if not wipe_tool_enabled():
         abort(404)
-    return None
 
 
 @eposone_bp.route('/lab/wipe-today', methods=['GET', 'POST'])
 @login_required
 def eposone_lab_wipe_today():
     """Lab QA: borrar transacciones del día (solo platform admin + entorno dev)."""
-    denied = _require_platform_lab_wipe()
-    if denied is not None:
-        return denied
+    _require_platform_lab_wipe()
 
     from nodeone.core.platform.runtime import resolve_organization_id
     from nodeone.modules.eposone.dev_wipe_service import CONFIRM_PHRASE, preview_today, wipe_today
@@ -2851,20 +2848,10 @@ def eposone_section(slug: str):
         if oid is not None:
             devices = PosTerminalService.list_terminals(int(oid), limit=500)
 
-        def _is_ops_device(d) -> bool:
-            ref = str(getattr(d, 'terminal_ref', None) or '').lower()
-            label = str(getattr(d, 'device_label', None) or '').lower()
-            blob = f'{ref} {label}'
-            if ref in ('en1-backoffice',) or 'backoffice' in blob:
-                return False
-            if ref.startswith(('diag-', 'e2e-', 'test-')):
-                return False
-            if 'bootstrap-check' in blob or 'http-check' in blob:
-                return False
-            return True
+        from nodeone.modules.eposone.bo_actor import is_ops_device
 
         show_all = (request.args.get('all') or '').strip() == '1'
-        ops_devices = [d for d in devices if _is_ops_device(d)]
+        ops_devices = [d for d in devices if is_ops_device(d)]
         hidden_n = len(devices) - len(ops_devices)
         view_devices = devices if show_all else ops_devices
 

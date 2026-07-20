@@ -83,6 +83,14 @@ def is_backoffice_owner(owner_device_uuid: str | None, device_label: str | None 
     return False
 
 
+def is_ops_device(device) -> bool:
+    """True si el terminal es operativo (no BO sintético / e2e / smoke)."""
+    return not is_backoffice_owner(
+        getattr(device, 'terminal_ref', None),
+        getattr(device, 'device_label', None),
+    )
+
+
 def order_origin_meta(
     *,
     owner_device_uuid: str | None,

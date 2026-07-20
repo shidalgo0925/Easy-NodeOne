@@ -4,7 +4,7 @@
 |-------|--------|
 | Fecha | **18 jul 2026** |
 | Hito 3B | **Publicado** · pendiente recepción P2 |
-| Hito 3C | **Avanzado en EN1** (`97f6d52`) — lista/detalle Order Domain + **cobro BO multi-pago** |
+| Hito 3C | **EN1 listo** — lista/detalle + cobro multi-pago + catálogo APK + compatibilidad Yappy/propina |
 | **Hito 2.5** | **EN1 listo** — cajero POS · contrato + PIN hash + bootstrap `cashiers` + Sync Up |
 | **TZ Fase 1** | **Hecho en EN1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning TZ de org |
 | Detalle estados | [`EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md`](EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md) |
@@ -18,7 +18,7 @@
 
 ## Una frase
 
-Contrato **3B publicado** (pendiente recepción P2). En EN1: **3C operativo**, **Hito 2.5 cajero listo** (bootstrap + PIN verificador + atribución Sync Up) y **TZ Fase 1**.
+Contrato **3B publicado** (pendiente recepción P2). En EN1: **3C operativo y endurecido para pagos APK**, **Hito 2.5 cajero listo** y **TZ Fase 1**.
 
 ---
 
@@ -57,11 +57,22 @@ Código EN1 3C (BO cobro): **listo en develop** — no bloquea a P2.
 | Pagos 1:N (mixto) hasta saldo | ✅ |
 | Catálogo `eposone_payment_method` | ✅ seed por org |
 | `GET /api/v1/orders/payment-methods` | ✅ |
+| Métodos APK | ✅ Efectivo, Visa, Mastercard, Clave, Yappy, ACH, Vale, Crédito Cliente, Gift Card, Otros |
+| Alias legacy | ✅ `card`/Tarjeta y etiquetas localizadas normalizadas |
+| Referencias | ✅ requeridas por contrato; fallback `NR-{payment_ref}` evita perder cobros legacy |
+| Propina | ✅ `tip`/`propina` explícita; inferencia controlada si el monto la incluye y EN1 aún no la recibió |
 | UI BO cobro dinámico (Confirmar cobro) | ✅ |
-| Tablet EPosOne consume HTTP cobro | ⏸ Hito 4 (P2) |
+| Tablet EPosOne consume HTTP cobro | 🟡 operativo; P2 debe cerrar cola/reintento y referencia real |
 | Caja/turno / fiscal | ⏸ Hito 6–7 |
 
-Commit referencia: `97f6d52`.
+### Incidente validado — Yappy R-000002 (18 jul)
+
+- APK: subtotal B/.12.84 + propina B/.1.28 = Yappy B/.14.12.
+- EN1 recibió el pedido y sus ítems, pero no la propina antes del pago.
+- El cobro excedía el total EN1 y no se persistió.
+- EN1 ahora aplica propina explícita o infiere la diferencia dentro del límite de seguridad.
+- El pedido fue recuperado: `R-000002`, `method=yappy`, B/.14.12, estado `paid`.
+- P2 debe seguir enviando `tip` y `reference`; los fallbacks EN1 son compatibilidad, no sustituyen el contrato.
 
 ---
 

@@ -2,10 +2,12 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Borrador Release 0** — Prog1 firmó 19 jul 2026 · faltan Analista + Prog2 |
+| Estado | **Activo** — Prog1 R0 OK · E2E 2.5 + Hito 2.6 añadidos 19 jul 2026 |
 | Origen | [`EN1_POS_CAPABILITY_GAP_V7.md`](EN1_POS_CAPABILITY_GAP_V7.md) |
 | DoD | [`EN1_POS_DEFINITION_OF_DONE_V1.md`](EN1_POS_DEFINITION_OF_DONE_V1.md) |
-| Regla | No abrir ítem R2/R3 hasta cadena R1 **Completa** (salvo dependencia explícita) |
+| E2E | [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) |
+| Hito 2.6 | [`EN1_EPOSONE_HITO2_6_OBSERVABILITY.md`](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) |
+| Regla | No Motor V6 algoritmos sin E2E 2.5 + 2.6 mínimo · No R2/R3 hasta cadena R1 Completa |
 
 ---
 
@@ -34,6 +36,21 @@
 | B-R0-08 | Producto | V6 contratos: aprobar o mapear a B-R1 | B-R0-02 | Analista | P0 | T1 propinas resuelto o diferido con dueño | N/A | **Pendiente Analista** |
 
 **Estado R0 docs:** borradores · **Prog1 firmó 19 jul 2026** · faltan Analista + Prog2.
+
+---
+
+## Gates pre–Motor V6 (Analista)
+
+| ID | Dominio | Capacidad | Depende | Resp. | Pri | Criterio | Estado |
+|----|---------|-----------|---------|-------|-----|----------|--------|
+| B-H25-E2E | Cajeros | Cerrar Hito 2.5 con E2E A–E | Código 2.5 | Ambos | **P0** | Checklist oficial ✅ + acta | Todo |
+| B-H26-01 | Observabilidad | Diagnóstico APK (2.6-A) | — | Prog2 | **P0** | Pantalla campos mínimos | Todo |
+| B-H26-02 | Observabilidad | Panel técnico EN1 (2.6-B) | — | Prog1 | **P0** | Devices/sync/licencia/errores sin SSH | Todo |
+| B-H26-03 | Observabilidad | E2E error→visible→retry | B-H26-01/02 | Ambos | **P0** | 1 incidente simulado cerrado | Todo |
+
+Detalle: [E2E](EN1_EPOSONE_E2E_CHECKLIST_V1.md) · [Hito 2.6](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md).
+
+**Orden:** B-H25-E2E → (solape OK) B-H26-* → freeze V6 → B-R1-08 motor.
 
 ---
 
@@ -69,10 +86,10 @@ Núcleo org/dispositivo → Cajero/turno → Catálogo mínimo → Motor totales
 | B-R1-13 | Recibo | Recibo trazable + reimpresión | C-ORD-06 | B-R1-12 | Ambos | P0 | Incluye políticas/versiones/cajero/device | Print/reprint |
 | B-R1-14 | Fiscal | FE Panamá + contingencia | C-ORD-07,09 | B-R1-13 | Ambos | P0 | Venta cierra; FE estado auditable | Emisión/consulta |
 | B-R1-15 | Fiscal | Nota de crédito ligada a venta/FE | C-ORD-08 | B-R1-14 | Ambos | P0 | NC por refund | Refund→NC |
-| B-R1-16 | Sync | Demostrar recepción (device, tiempo, resultado) | C-SYNC-01…03 | B-R1-12 | Ambos | P0 | Panel o API soporte mínimo | Replay 1 evento |
+| B-R1-16 | Sync | Demostrar recepción (device, tiempo, resultado) | C-SYNC-01…03 | B-R1-12 · B-H26-02 | Ambos | P0 | Panel o API soporte mínimo | Replay 1 evento |
 | B-R1-17 | Reportes | Operativo: ventas, impuestos, pagos, caja | C-REP-01 | B-R1-14 | Prog1 | P0 | Cuadra con venta/FE del día | Reporte vs detalle |
 | B-R1-18 | Migración | Vincular Standalone→Integrado cerrado | C-MIG-01 | B-R1-16 | Ambos | P1 | Informe migración + SoT EN1 | Vincular E2E |
-| B-R1-19 | Observabilidad | Errores sync + versiones device | C-OBS-01 | B-R1-16 | Prog1 | P1 | Soporte sin SSH | Ver error sanitizado |
+| B-R1-19 | Observabilidad | Errores sync + versiones device | C-OBS-01 | **= B-H26-02** | Prog1 | **P0** | Cubierto por Hito 2.6 | Ver 2.6 |
 
 ---
 
@@ -104,10 +121,12 @@ Núcleo org/dispositivo → Cajero/turno → Catálogo mínimo → Motor totales
 
 ## WIP Prog2 paralelo (no abre R2)
 
-Permitido mientras R0 se aprueba y R1 arranca, **solo** si no inventa dominio nuevo:
+**Prioridad ahora:**
 
-- Login cajero local + Keystore (Hito 4)
-- Cola sync pagos / tip / reference
-- Desacoplar cálculos UI → preparar paridad con motor (B-R1-08)
+1. Ejecutar [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) (cierra 2.5)
+2. Pantalla diagnóstico Hito 2.6-A
+3. Firmar Ownership / Arquitectura R0
 
-Cualquier otra feature → rechazo hasta backlog.
+También permitido: Hito 4 login Keystore / cola tip-reference — sin dominio nuevo.
+
+Cualquier feature comercial V6 → rechazo hasta gates E2E+2.6 + freeze contratos.

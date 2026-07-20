@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Activo** — R0 (Prog1 OK) + **R1 iniciado (B-R1-01)** · actualizado **19 jul 2026** |
-| Sucede a | V6 ([`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md)) como **plan de producto** |
+| Estado | **Activo** — R0 (Prog1 OK) + R1 + **gates E2E/2.6** · **19 jul 2026** |
+| Sucede a | V6 ([`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md)) |
 | Rector | [`EN1_POS_CONSTITUCION_V1.md`](EN1_POS_CONSTITUCION_V1.md) |
 | Backlog | [`EN1_POS_BACKLOG_V7.md`](EN1_POS_BACKLOG_V7.md) |
+| E2E oficial | [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) |
+| Hito 2.6 | [`EN1_EPOSONE_HITO2_6_OBSERVABILITY.md`](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
-
-V6 permanece como **paquete de contratos comerciales** (inputs). V7 es la **planificación de producto** y el criterio de cierre.
 
 ---
 
@@ -16,22 +16,36 @@ V6 permanece como **paquete de contratos comerciales** (inputs). V7 es la **plan
 
 | Bloque | Estado |
 |--------|--------|
-| **Release 0** docs | Creados + en `develop` · **Prog1 firmó** · faltan **Analista + Prog2** (+ T1 propinas) |
-| **V6 infra** | Policy engine + seed ITBMS + stub motor totales · en `develop` |
-| **B-R1-01** Núcleo Empresa→Caja | **Avance** (no DoD completo): panel Empresa, edit/deact. sucursal/caja, jerarquía |
-| Cadena R1 resto | Pendiente (device → … → FE → sync → reporte) |
-| Prog2 paralelo | Hito 4 cajeros/sync (sin dominio nuevo) |
+| **Release 0** | Docs OK · **Prog1 firmó** · faltan Analista + Prog2 + T1 |
+| **Hito 2.5 Cajeros** | Código ~95% · **cierre = E2E A–E** 🟡 |
+| **Hito 2.6 Observabilidad** | **Planificado** (doc) · UI inexistente |
+| **B-R1-01** | Avance BO Empresa/sucursal/caja |
+| **Motor V6** | Infra + stubs · **no** algoritmos hasta gates abajo |
+| Prog2 | Hito 4 / E2E tablet |
 
-**Nota:** R0 formal sigue abierto (faltan 2 firmas). Prog1 avanzó B-R1-01 por **GO del owner** para no frenar el núcleo admin.
+### Gates obligatorios (Analista 19 jul — adoptados)
 
-### Commits relevantes (develop)
+```text
+1. Firmar R0 (A + P2) + T1 propinas
+2. E2E Hito 2.5 — checklist A–E  →  cierre oficial 2.5
+3. Hito 2.6 Diagnóstico / Observabilidad (mínimo)
+4. Freeze contratos V6
+5. Motor Totales / Comercial (implementación)
+6. Resto cadena R1 (Venta, Recibo, FE, reportes…)
+```
 
-| Commit | Contenido |
-|--------|-----------|
-| `6b40f53` | Infra políticas comerciales + ITBMS catálogo + cobro BO |
-| `b98925e` | Release 0 EN1-POS V7 (paquete docs) |
-| `502d285` | Firma Prog1 R0 + Gap endurecido |
-| `4205f08` | B-R1-01 Empresa BO + edit/deact. + jerarquía |
+**No** declarar “infra terminada” ni abrir Sprint Motor V6 sin pasos 2–3.
+
+---
+
+## Evaluación producto (reconciliada)
+
+| Producto | Infra | Falta inmediato |
+|----------|-------|-----------------|
+| **EPosOne** | ~95–97% lista | E2E tablet + cerrar 2.5 · Ownership firma P2 |
+| **EN1-POS** | ~85–90% infra | BO políticas, config comercial, algoritmo totales, reportes, **2.6 obs**, E2E vista BO |
+
+Docs que el Analista pedía y **ya existen** (firmar, no reescribir): Ownership, Gap/Capability, DoD, Constitución, Domain, Backlog.
 
 ---
 
@@ -39,65 +53,34 @@ V6 permanece como **paquete de contratos comerciales** (inputs). V7 es la **plan
 
 | # | Documento | Estado |
 |---|-----------|--------|
-| 1 | [Constitución EN1-POS V1](EN1_POS_CONSTITUCION_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
-| 2 | [Domain Model V1](EN1_POS_DOMAIN_MODEL_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
-| 3 | [Ownership Matrix V1](EN1_POS_OWNERSHIP_MATRIX_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
-| 4 | [Definition of Done V1](EN1_POS_DEFINITION_OF_DONE_V1.md) | Borrador · **Prog1 OK** · falta A+P2 |
-| 5 | [Gap Analysis — capacidades](EN1_POS_CAPABILITY_GAP_V7.md) | **B-R0-05 Done Prog1** (0 Completa) |
-| 6 | [Backlog único](EN1_POS_BACKLOG_V7.md) | Activo · R1 priorizado |
-| 7 | [Arquitectura V7](EN1_POS_ARQUITECTURA_V7.md) | Borrador · **Prog1 OK** · falta A+P2 |
-
-**Cierre R0 formal:** firmas Analista + Prog2 + B-R0-08 (T1 propinas).
+| 1–7 | Constitución · Domain · Ownership · DoD · Gap · Backlog · Arquitectura | Prog1 OK · falta A+P2 |
 
 ---
 
-## Visión (resumen)
+## Hitos transversales (antes / junto a R1 motor)
 
-| Pieza | Rol |
-|-------|-----|
-| **EPosOne** | Operación offline-first |
-| **EN1-POS** | Back Office completo |
-| **Standalone / Integrado / Vincular** | Dual Mode + cutover sin reinstalar |
-
-Referencia funcional: cobertura tipo Loyverse — **no** copia pantalla a pantalla; superioridad en Dual Mode, FE Panamá, políticas versionadas, CxC (R2), SaaS.
+| Hito | Doc | Estado |
+|------|-----|--------|
+| **2.5 Cajeros** | Contrato + E2E | 🟡 E2E pendiente |
+| **2.6 Observabilidad** | [Hito 2.6](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) | 📋 Planificado |
+| **E2E oficial** | [Checklist A–E](EN1_EPOSONE_E2E_CHECKLIST_V1.md) | 📋 Oficial |
 
 ---
 
 ## Releases
 
-### Release 0 — Constitución
+### R0 — Constitución  
+### R1 — Cadena comercial + FE (+ 2.6 obs como P0 de soporte)  
+### R2 — Inventario / compras / crédito / rentabilidad  
+### R3 — Restaurante / APIs / marketplace  
 
-Docs rector + Domain + Ownership + Gap + Backlog + DoD + Arquitectura.
-
-### Release 1 — Cadena operativa comercial (incluye FE)
-
-```text
-Núcleo admin → Empleados/cajeros → Catálogo mínimo → Motor totales
-→ Pedido → Venta → Pago → Recibo → FE + NC → Sync → Reporte
-(+ licencia, obs básica, Vincular)
-```
-
-| Ítem | Estado |
-|------|--------|
-| B-R1-01 Empresa→Sucursal→POS→Caja | **En curso / avance** |
-| B-R1-02 … B-R1-19 | Pendiente |
-
-**No** abrir inventario avanzado / compras / fidelización hasta cerrar la cadena (DoD).
-
-### Release 2 — Control del negocio
-
-Inventario pleno · compras/proveedores · costos/rentabilidad · crédito · fidelización · reportes gerenciales.
-
-### Release 3 — Restaurante y ecosistema
-
-KDS · mesas/canales · QR · APIs públicas · integraciones · marketplace.
+Detalle ítems: [`EN1_POS_BACKLOG_V7.md`](EN1_POS_BACKLOG_V7.md).
 
 ---
 
 ## Regla de oro
 
-> No se considera funcionalidad terminada por tener tabla, endpoint o pantalla.  
-> Solo DoD completo → **Completa**.
+> Tabla/endpoint/pantalla ≠ terminado. Solo **DoD** + **E2E** donde aplique.
 
 ---
 
@@ -105,14 +88,13 @@ KDS · mesas/canales · QR · APIs públicas · integraciones · marketplace.
 
 | Rol | Acción |
 |-----|--------|
-| **Analista** | Firmar R0; resolver **T1 propinas** (B-R0-08); mapear V6 → motor R1 |
-| **Prog2** | Firmar R0 (Ownership/Arquitectura); Hito 4 cajeros/sync E2E |
-| **Prog1** | Cerrar DoD B-R1-01 (checklist E2E) o seguir **B-R1-02** dispositivos según GO |
+| **Analista** | Firmar R0; T1; revisar checklist E2E + 2.6 |
+| **Prog2** | Ejecutar E2E A–E en tablet; firmar Ownership; pantalla diagnóstico 2.6 |
+| **Prog1** | Verificar C11–C16 en EN1; panel 2.6 BO; BO políticas cuando toque post-gates |
 
 ---
 
-## Índice rápido
+## Índice
 
-- Constitución → Domain → Ownership → DoD → Gap → Backlog → Arquitectura  
-- Contratos V6: fiscal, propinas, pagos, recibo, motores, ADR-008  
-- Histórico: V4, V5, ADR-001…007
+- E2E · Hito 2.6 · Constitución · Domain · Ownership · DoD · Gap · Backlog · Arquitectura  
+- V6 contratos / ADR-008 · Histórico V4/V5

@@ -3,12 +3,14 @@
 | Campo | Valor |
 |-------|--------|
 | Fecha | **19 jul 2026** |
-| **EN1-POS V7** | **Release 0** (Prog1 OK) · **B-R1-01 en curso** — [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) |
-| **R0 pack** | Prog1 firmó · faltan Analista + Prog2 |
-| **B-R1-01** | Empresa BO + edit/deact. sucursal/caja + jerarquía padre — avance (sin DoD completo) |
+| **EN1-POS V7** | [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) — R0 P1 OK · R1 · **gates E2E/2.6** |
+| **E2E oficial** | [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) — cierra Hito 2.5 |
+| **Hito 2.6** | [`EN1_EPOSONE_HITO2_6_OBSERVABILITY.md`](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) — planificado |
+| **R0 pack** | Prog1 firmó · faltan Analista + Prog2 + T1 |
+| **B-R1-01** | Avance Empresa/sucursal/caja BO |
 | Hito 3B | **Publicado** · pendiente recepción P2 |
-| Hito 3C | **EN1 listo** — lista/detalle + cobro multi-pago + catálogo APK + compatibilidad Yappy/propina |
-| **Hito 2.5** | **EN1 listo** — cajero POS · contrato + PIN hash + bootstrap `cashiers` + Sync Up |
+| Hito 3C | **EN1 listo** |
+| **Hito 2.5** | Código ~95% · **cierre = E2E A–E** 🟡 |
 | **TZ Fase 1** | **Hecho en EN1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning TZ de org |
 | **V6 contratos** | Inputs técnicos — [`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md) · mapear a R1 (**FE en R1**) |
 | **V6 Infra políticas** | [`EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md`](EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md) **EN1 listo** · sin algoritmos |
@@ -26,7 +28,7 @@
 
 ## Una frase
 
-**V7:** R0 docs en develop (Prog1 firmó; faltan Analista+Prog2+T1). **R1 arrancó** con B-R1-01 (Empresa/sucursal/caja en BO). V6 = contratos + infra políticas (motor stub). Prog2: Hito 4 en paralelo.
+**Gates:** E2E Hito 2.5 (checklist A–E) + Hito 2.6 Observabilidad **antes** del Motor V6. R0: faltan firmas A+P2+T1. R1: B-R1-01 avance. EPosOne ~infra lista; EN1 falta BO comercial + obs.
 
 ---
 

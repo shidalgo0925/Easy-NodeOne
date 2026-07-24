@@ -763,10 +763,16 @@ def resolve_theme_tokens():
     """
     Design tokens: organization_settings (BD) + capa opcional de marca.
     Orden: preset IIUS (si aplica) → BD → overrides NODEONE_BRAND_*.
+
+    ADR-011: inyecta ProductContext/BrandContext (metadatos) sin aplicar aún
+    la paleta visual del producto (eso es fase branding).
     """
+    from nodeone.core.platform.context_resolver import current_app_context
+
+    app_ctx = current_app_context()
     preset = (os.environ.get('NODEONE_BRAND_PRESET') or 'en1').strip().lower()
-    use_iius = preset in _IIUS_BRAND_PRESET_KEYS
-    use_en1 = preset in _EN1_BRAND_PRESET_KEYS or preset == ''
+    use_iius = preset in _IIUS_BRAND_PRESET_KEYS or app_ctx.product_code == 'iius'
+    use_en1 = (not use_iius) and (preset in _EN1_BRAND_PRESET_KEYS or preset == '')
 
     try:
         s = OrganizationSettings.get_settings_for_session()
@@ -794,17 +800,11 @@ def resolve_theme_tokens():
             }
     except Exception:
         out = {
-            **_IIUS_THEME,
-            'theme_logo_url': '',
-            'theme_favicon_url': '',
-        } if use_iius else {
-            **_EN1_THEME,
-            'theme_logo_url': '',
-            'theme_favicon_url': '',
-        } if use_en1 else {
-            'theme_primary': '#2563EB',
-            'theme_primary_dark': '#1E3A8A',
-            'theme_accent': '#06B6D4',
+            **(_IIUS_THEME if use_iius else _EN1_THEME if use_en1 else {
+                'theme_primary': '#2563EB',
+                'theme_primary_dark': '#1E3A8A',
+                'theme_accent': '#06B6D4',
+            }),
             'theme_logo_url': '',
             'theme_favicon_url': '',
         }
@@ -835,7 +835,19 @@ def resolve_theme_tokens():
     out.setdefault('theme_accent_gold', out.get('theme_accent', '#06B6D4'))
     out.setdefault('theme_accent_cyan', out.get('theme_accent', '#06B6D4'))
     out.setdefault('theme_background_cream', _EN1_THEME['theme_background_cream'] if use_en1 else '#F1F5F9')
+    # Visual brand_preset: silo/env (no forzar eposone/portal todavía)
     out['brand_preset'] = preset if (use_iius or use_en1) else ''
+    if use_iius:
+        out['brand_preset'] = 'iius'
+    # Metadatos ADR-011 (data-product / data-surface / nombre resuelto)
+    out.update(app_ctx.to_template_dict())
+    # No pisar brand_preset visual con el del producto hasta fase branding
+    if use_iius:
+        out['brand_preset'] = 'iius'
+    elif use_en1:
+        out['brand_preset'] = preset if preset in _EN1_BRAND_PRESET_KEYS or preset == '' else 'en1'
+        if not out['brand_preset']:
+            out['brand_preset'] = 'en1'
     return out
 
 

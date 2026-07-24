@@ -97,8 +97,22 @@ def get_nav_brand_name():
     nombre genérico del producto cuando corresponde.
 
     Forzar siempre la marca del producto (APP_BRAND_NAME): NODEONE_NAV_FORCE_PRODUCT_NAME=1
+
+    ADR-011: el BrandContext ya se resuelve (ContextResolver); el cambio visual de nombre
+    por Host se activará en la fase de branding (NODEONE_NAV_USE_BRAND_CONTEXT=1).
     """
     import app as M
+
+    if os.environ.get('NODEONE_NAV_USE_BRAND_CONTEXT', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        try:
+            from nodeone.core.platform.context_resolver import current_app_context
+            from nodeone.core.platform.product_context import SURFACE_PLATFORM
+
+            ctx = current_app_context()
+            if ctx.surface != SURFACE_PLATFORM and ctx.display_name:
+                return ctx.display_name
+        except Exception:
+            pass
 
     if os.environ.get('NODEONE_NAV_FORCE_PRODUCT_NAME', '').strip().lower() in ('1', 'true', 'yes', 'on'):
         return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}"{% if brand_preset %} data-brand="{{ brand_preset }}"{% endif %}>
+<html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}"{% if brand_preset %} data-brand="{{ brand_preset }}"{% endif %}{% if product_code %} data-product="{{ product_code }}"{% endif %}{% if product_surface %} data-surface="{{ product_surface }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">

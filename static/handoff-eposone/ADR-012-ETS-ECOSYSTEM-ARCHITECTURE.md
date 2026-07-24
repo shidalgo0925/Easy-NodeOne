@@ -131,7 +131,7 @@ Todo lo demás se reutiliza desde EN1 (ContextResolver + `host_product_map.json`
 | Host → product_code | `data/host_product_map.json` + `ContextResolver` |
 | Catálogo de productos | **Product Registry V1** — `data/product_registry.json` + `ProductRegistry` |
 | Apps técnicas del producto | `ProductDefinition.app_ids` → `ApplicationDescriptor` (App Registry) |
-| Tenant por producto / suscripciones | Principio aprobado; **otra capa** (no vive en el registry) |
+| Tenant por producto / suscripciones | **Subscription Registry V1** — `ets_product_subscription` + `SubscriptionRegistry` ([ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md)) |
 | Portal comercial | [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) — dominio `app.easytech.services` |
 
 ### Product Registry — V1 vs V2

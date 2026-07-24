@@ -6,7 +6,7 @@
 | Título | Portal ETS como Punto Único de Entrada |
 | Estado | **Aprobado (GO)** — 24 jul 2026 |
 | Ámbito | Portal ETS · EN1 (servicios comunes) · todos los productos |
-| Relacionados | [ADR-012 Arquitectura ETS](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-011 Brand/ProductContext](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) |
+| Relacionados | [ADR-012 Arquitectura ETS](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-011 Brand/ProductContext](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-014 Subscription Registry](ADR-014-SUBSCRIPTION-REGISTRY.md) |
 | Dominio oficial | **`app.easytech.services`** |
 
 ---

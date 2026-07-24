@@ -5,6 +5,7 @@
 | Fecha | **24 jul 2026** |
 | **ADR-011 / 012 / 013** | **Aprobados** · BrandContext Fase 1 en Dev · Arquitectura ETS · Portal `app.easytech.services` · [`ADR-011`](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · [`ADR-012`](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [`ADR-013`](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) |
 | **License Engine V1** | **En develop** — contrato bootstrap [`EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md`](EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md) · Trial 15d · features/limits · suspend/reactivate |
+| **ADR-014 Subscription Registry** | **V1 en Dev** — tenant↔producto · [`ADR-014-SUBSCRIPTION-REGISTRY.md`](ADR-014-SUBSCRIPTION-REGISTRY.md) |
 | **Cash Shift HTTP** | **v1.0 CONGELADO** — Device Bearer `/api/v1/cash/shifts*` · [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · spec [`EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md`](EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md) · tag `eposone-cash-shift-http-v1.0` (tras commit) |
 | **EN1-POS V7** | [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) — R0 P1 OK · R1 · **gates E2E/2.6** |
 | **ADR-009 Caja EN1** | **Aprobado** — Caja = cobro admin · turno = unidad · `allow_en1_collect_foreign_channel` · reporte cierre · [`ADR-009-EN1-CAJA-CENTRO-COBRO.md`](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · backlog **B-R1-05a/b/c** |

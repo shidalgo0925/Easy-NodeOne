@@ -128,9 +128,23 @@ Todo lo demás se reutiliza desde EN1 (ContextResolver + `host_product_map.json`
 
 | Concepto | Estado actual |
 |----------|----------------|
-| Host → Product/Brand | `ContextResolver` + `backend/nodeone/core/platform/data/host_product_map.json` |
-| Tenant por producto | Principio aprobado; modelo de datos / scoping = fases posteriores |
+| Host → product_code | `data/host_product_map.json` + `ContextResolver` |
+| Catálogo de productos | **Product Registry V1** — `data/product_registry.json` + `ProductRegistry` |
+| Apps técnicas del producto | `ProductDefinition.app_ids` → `ApplicationDescriptor` (App Registry) |
+| Tenant por producto / suscripciones | Principio aprobado; **otra capa** (no vive en el registry) |
 | Portal comercial | [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) — dominio `app.easytech.services` |
+
+### Product Registry — V1 vs V2
+
+| Versión | Persistencia | Quién administra |
+|---------|--------------|------------------|
+| **V1 (actual)** | JSON declarativo versionable | Código / PR |
+| **V2 (futuro)** | Base de datos + Portal ETS | Admin comercial |
+
+El contrato público (`ProductRegistry.get` / `list` / `list_for_portal`) debe permanecer estable al migrar a V2.
+
+El registry responde solo *«¿qué productos existen?»*. No responde *«¿qué tiene contratado este cliente?»* (eso será Suscripción → Producto).
+
 
 ---
 
@@ -139,3 +153,4 @@ Todo lo demás se reutiliza desde EN1 (ContextResolver + `host_product_map.json`
 | Fecha | Nota |
 |-------|------|
 | **2026-07-24** | Aprobado (GO) |
+| **2026-07-24** | Product Registry V1 (JSON) + separación Host map / App Registry / suscripciones (futuro) |

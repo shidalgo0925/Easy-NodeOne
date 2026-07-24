@@ -1,7 +1,13 @@
-"""ADR-011 — ContextResolver único: Host → ProductContext + BrandContext.
+"""ADR-011/012 — ContextResolver único: Host → product_code → ProductRegistry.
 
-Único punto de resolución. No dispersar `if host == ...` por el código.
-Config: ``data/host_product_map.json`` (override: ``NODEONE_PRODUCT_CONTEXT_CONFIG``).
+Capas:
+  Host map          → ¿qué product_code corresponde a este dominio?
+  ProductRegistry   → ¿qué es ese producto? (Brand + Product + app_ids)
+  App Registry      → capacidades técnicas (vía ProductDefinition.resolve_apps)
+
+No dispersar ``if host == ...`` por el código.
+Host map: ``data/host_product_map.json`` (override: ``NODEONE_HOST_PRODUCT_MAP``
+o legado ``NODEONE_PRODUCT_CONTEXT_CONFIG``).
 """
 
 from __future__ import annotations
@@ -15,18 +21,15 @@ from pathlib import Path
 from typing import Any
 
 from nodeone.core.platform.brand_context import BrandContext
-from nodeone.core.platform.product_context import (
-    PRODUCT_EN1,
-    ProductContext,
-    SURFACE_PLATFORM,
-)
+from nodeone.core.platform.product_context import PRODUCT_EN1, ProductContext
+from nodeone.core.platform.product_registry import ProductRegistry, reload_product_registry
 
 _G_KEY = '_en1_resolved_app_context'
 _lock = threading.RLock()
-_cached_config: dict[str, Any] | None = None
-_cached_config_path: str | None = None
+_cached_host_map: dict[str, Any] | None = None
+_cached_host_map_path: str | None = None
 
-_DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / 'data' / 'host_product_map.json'
+_DEFAULT_HOST_MAP_PATH = Path(__file__).resolve().parent / 'data' / 'host_product_map.json'
 
 
 @dataclass(frozen=True)
@@ -86,45 +89,17 @@ def request_hostname() -> str:
         return ''
 
 
-def _config_path() -> Path:
-    override = (os.environ.get('NODEONE_PRODUCT_CONTEXT_CONFIG') or '').strip()
+def _host_map_path() -> Path:
+    override = (
+        (os.environ.get('NODEONE_HOST_PRODUCT_MAP') or '').strip()
+        or (os.environ.get('NODEONE_PRODUCT_CONTEXT_CONFIG') or '').strip()
+    )
     if override:
         return Path(override)
-    return _DEFAULT_CONFIG_PATH
+    return _DEFAULT_HOST_MAP_PATH
 
 
-def _load_config() -> dict[str, Any]:
-    global _cached_config, _cached_config_path
-    path = _config_path()
-    key = str(path)
-    with _lock:
-        if _cached_config is not None and _cached_config_path == key:
-            return _cached_config
-        data: dict[str, Any] = {}
-        try:
-            raw = path.read_text(encoding='utf-8')
-            loaded = json.loads(raw)
-            if isinstance(loaded, dict):
-                data = loaded
-        except Exception:
-            data = {}
-        if not data.get('products'):
-            data = _builtin_fallback_config()
-        _cached_config = data
-        _cached_config_path = key
-        return data
-
-
-def reload_config() -> None:
-    """Invalida caché (tests / hot-reload admin futuro)."""
-    global _cached_config, _cached_config_path
-    with _lock:
-        _cached_config = None
-        _cached_config_path = None
-
-
-def _builtin_fallback_config() -> dict[str, Any]:
-    """Si falta el JSON, EN1 por defecto."""
+def _builtin_host_map() -> dict[str, Any]:
     return {
         'default_product': PRODUCT_EN1,
         'hosts': {
@@ -141,94 +116,42 @@ def _builtin_fallback_config() -> dict[str, Any]:
             'eclassone': 'eclassone',
             'etesis': 'ethesis',
         },
-        'products': {
-            PRODUCT_EN1: {
-                'surface': SURFACE_PLATFORM,
-                'display_name': 'Easy NodeOne',
-                'brand_preset': 'en1',
-                'tagline': 'Plataforma del ecosistema ETS',
-                'home_hint': 'dashboard',
-                'allowed_apps': [],
-                'theme': {
-                    'primary': '#FF6B35',
-                    'primary_dark': '#2D3E50',
-                    'accent': '#9CA3AF',
-                    'background': '#F7F9FC',
-                },
-            },
-            'eposone': {
-                'surface': 'product',
-                'display_name': 'EPosOne',
-                'brand_preset': 'eposone',
-                'tagline': 'Punto de venta',
-                'home_hint': 'eposone.eposone_home',
-                'allowed_apps': ['eposone'],
-                'theme': {
-                    'primary': '#FF6B35',
-                    'primary_dark': '#C2410C',
-                    'accent': '#FDBA74',
-                    'background': '#FFF7ED',
-                },
-            },
-            'portal': {
-                'surface': 'portal',
-                'display_name': 'Easy Technology Services',
-                'brand_preset': 'portal',
-                'tagline': 'Portal del ecosistema ETS',
-                'home_hint': 'portal_home',
-                'allowed_apps': ['portal', 'billing', 'licenses'],
-                'theme': {
-                    'primary': '#0F766E',
-                    'primary_dark': '#134E4A',
-                    'accent': '#14B8A6',
-                    'background': '#F0FDFA',
-                },
-            },
-        },
     }
 
 
-def _product_entry(code: str) -> dict[str, Any]:
-    cfg = _load_config()
-    products = cfg.get('products') or {}
-    entry = products.get(code) or products.get(cfg.get('default_product') or PRODUCT_EN1)
-    if not isinstance(entry, dict):
-        entry = _builtin_fallback_config()['products'][PRODUCT_EN1]
-    return entry
+def _load_host_map() -> dict[str, Any]:
+    global _cached_host_map, _cached_host_map_path
+    path = _host_map_path()
+    key = str(path)
+    with _lock:
+        if _cached_host_map is not None and _cached_host_map_path == key:
+            return _cached_host_map
+        data: dict[str, Any] = {}
+        try:
+            loaded = json.loads(path.read_text(encoding='utf-8'))
+            if isinstance(loaded, dict):
+                data = loaded
+        except Exception:
+            data = {}
+        if not data.get('hosts') and not data.get('default_product'):
+            data = _builtin_host_map()
+        _cached_host_map = data
+        _cached_host_map_path = key
+        return data
 
 
-def _contexts_for_code(code: str) -> tuple[ProductContext, BrandContext]:
-    entry = _product_entry(code)
-    theme = entry.get('theme') or {}
-    apps = entry.get('allowed_apps') or []
-    if not isinstance(apps, (list, tuple)):
-        apps = []
-    product = ProductContext(
-        code=code,
-        surface=str(entry.get('surface') or SURFACE_PLATFORM),
-        allowed_apps=tuple(str(a) for a in apps),
-        home_hint=str(entry.get('home_hint') or 'dashboard'),
-    )
-    brand = BrandContext(
-        display_name=str(entry.get('display_name') or code),
-        brand_preset=str(entry.get('brand_preset') or 'en1'),
-        theme_primary=str(theme.get('primary') or '#FF6B35'),
-        theme_primary_dark=str(theme.get('primary_dark') or '#2D3E50'),
-        theme_accent=str(theme.get('accent') or '#9CA3AF'),
-        theme_background=str(theme.get('background') or '#F7F9FC'),
-        tagline=str(entry.get('tagline') or ''),
-        logo_url=str(entry.get('logo_url') or ''),
-        favicon_url=str(entry.get('favicon_url') or ''),
-    )
-    return product, brand
+def reload_config() -> None:
+    """Invalida caché de host map + Product Registry (tests)."""
+    global _cached_host_map, _cached_host_map_path
+    with _lock:
+        _cached_host_map = None
+        _cached_host_map_path = None
+    reload_product_registry()
 
 
 def _product_from_force_env() -> str | None:
     forced = (os.environ.get('NODEONE_PRODUCT_FORCE') or '').strip().lower()
-    if not forced:
-        return None
-    cfg = _load_config()
-    if forced in (cfg.get('products') or {}):
+    if forced and ProductRegistry.exists(forced):
         return forced
     return None
 
@@ -250,8 +173,7 @@ def _product_from_dev_header() -> str | None:
         if not has_request_context():
             return None
         raw = (request.headers.get('X-EN1-Product') or '').strip().lower()
-        cfg = _load_config()
-        if raw in (cfg.get('products') or {}):
+        if ProductRegistry.exists(raw):
             return raw
     except Exception:
         pass
@@ -265,7 +187,7 @@ _HOST_PREFIX_RE = re.compile(
 
 
 class ContextResolver:
-    """Resolver único Host → ProductContext + BrandContext."""
+    """Resolver único Host → ProductContext + BrandContext (vía ProductRegistry)."""
 
     @classmethod
     def resolve_product_code(cls, hostname: str | None = None) -> str:
@@ -276,7 +198,7 @@ class ContextResolver:
         if header:
             return header
 
-        cfg = _load_config()
+        cfg = _load_host_map()
         default = str(cfg.get('default_product') or PRODUCT_EN1)
         host = _normalize_host(hostname if hostname is not None else request_hostname())
         if not host:
@@ -284,14 +206,16 @@ class ContextResolver:
 
         hosts = cfg.get('hosts') or {}
         if host in hosts:
-            return str(hosts[host])
+            code = str(hosts[host]).strip().lower()
+            return code if ProductRegistry.exists(code) else default
 
         prefixes = cfg.get('host_prefixes') or {}
         m = _HOST_PREFIX_RE.match(host)
         if m:
             pre = m.group('pre').lower()
             if pre in prefixes:
-                return str(prefixes[pre])
+                code = str(prefixes[pre]).strip().lower()
+                return code if ProductRegistry.exists(code) else default
 
         if host.endswith('.easynodeone.com'):
             return default
@@ -302,7 +226,7 @@ class ContextResolver:
     def resolve(cls, hostname: str | None = None) -> ResolvedAppContext:
         host = _normalize_host(hostname if hostname is not None else request_hostname())
         code = cls.resolve_product_code(hostname)
-        product, brand = _contexts_for_code(code)
+        product, brand = ProductRegistry.to_contexts(code)
         return ResolvedAppContext(hostname=host, product=product, brand=brand)
 
     @classmethod

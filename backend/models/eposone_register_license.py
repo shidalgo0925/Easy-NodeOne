@@ -21,18 +21,26 @@ class EposoneRegisterLicense(db.Model):
     )
     register_ref = db.Column(db.String(64), nullable=False, index=True)
 
-    # trial | subscription | courtesy | promotion | demo | perpetual | suspended
+    # trial | monthly | annual | perpetual | partner | oem | internal | educational | …
     license_type = db.Column(db.String(32), nullable=False, default='unlicensed')
-    # pending | active | expired | suspended | cancelled
+    # pending | active | grace | expired | suspended | revoked | cancelled
     status = db.Column(db.String(32), nullable=False, default='pending')
     plan_code = db.Column(db.String(64), nullable=False, default='eposone')
+    # EN1 | SIGNED_FILE | ACTIVATION_CODE | FACTORY
+    activation_method = db.Column(db.String(32), nullable=False, default='EN1')
 
     starts_at = db.Column(db.DateTime, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)
+    grace_until = db.Column(db.DateTime, nullable=True)
+    issued_at = db.Column(db.DateTime, nullable=True)
 
     trial_used = db.Column(db.Boolean, nullable=False, default=False)
     trial_started_at = db.Column(db.DateTime, nullable=True)
     trial_expires_at = db.Column(db.DateTime, nullable=True)
+
+    # JSON: lista de feature keys / mapa de límites (contrato License Engine V1)
+    features_json = db.Column(db.Text, nullable=True)
+    limits_json = db.Column(db.Text, nullable=True)
 
     notes = db.Column(db.String(500), nullable=True)
     reason = db.Column(db.String(200), nullable=True)
@@ -49,7 +57,7 @@ class EposoneRegisterLicense(db.Model):
 
 
 class EposoneCommercialCode(db.Model):
-    """Código de activación/licencia (NO es provisioning)."""
+    """Código de activación/licencia (NO es provisioning). Fuera de alcance V1 portal."""
 
     __tablename__ = 'eposone_commercial_code'
 
@@ -58,13 +66,12 @@ class EposoneCommercialCode(db.Model):
         db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=True, index=True
     )
     code = db.Column(db.String(64), nullable=False, unique=True, index=True)
-    # trial | subscription | courtesy | perpetual | extension_days
     benefit_type = db.Column(db.String(32), nullable=False, default='trial')
     duration_days = db.Column(db.Integer, nullable=True)
     max_uses = db.Column(db.Integer, nullable=False, default=1)
     uses_count = db.Column(db.Integer, nullable=False, default=0)
     registers_granted = db.Column(db.Integer, nullable=False, default=1)
-    status = db.Column(db.String(32), nullable=False, default='active')  # active | exhausted | revoked
+    status = db.Column(db.String(32), nullable=False, default='active')
     expires_at = db.Column(db.DateTime, nullable=True)
     label = db.Column(db.String(200), nullable=True)
     notes = db.Column(db.String(500), nullable=True)

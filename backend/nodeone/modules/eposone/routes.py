@@ -784,6 +784,17 @@ def eposone_register_license_set(register_ref: str):
                 user_id=uid,
             )
             flash(f'Licencia permanente en {register_ref}.', 'success')
+        elif action == 'suspend':
+            RegisterLicenseService.suspend(
+                int(oid),
+                register_ref,
+                reason=request.form.get('reason') or 'admin_suspend',
+                user_id=uid,
+            )
+            flash(f'Licencia suspendida en {register_ref}.', 'warning')
+        elif action == 'reactivate':
+            RegisterLicenseService.reactivate(int(oid), register_ref, user_id=uid)
+            flash(f'Licencia reactivada en {register_ref}.', 'success')
         else:
             ltype = (request.form.get('license_type') or LICENSE_TYPE_TRIAL).strip()
             days_raw = (request.form.get('days') or '').strip()

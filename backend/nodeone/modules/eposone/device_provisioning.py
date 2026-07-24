@@ -773,28 +773,37 @@ def _license_block_for_register(organization_id: int, register_ref: str) -> dict
     try:
         from nodeone.modules.eposone.register_license_service import RegisterLicenseService
 
-        snap = RegisterLicenseService.snapshot(int(organization_id), register_ref)
+        return RegisterLicenseService.serve_for_device(
+            int(organization_id),
+            register_ref,
+            touch_validation=True,
+            event='license.bootstrap_served',
+        )
+    except Exception:
         try:
-            from app import db
-            from models.eposone_register_license import EposoneRegisterLicense
+            from nodeone.core.services.audit import AuditService
 
-            lic_row = EposoneRegisterLicense.query.filter_by(
-                organization_id=int(organization_id), register_ref=register_ref
-            ).first()
-            if lic_row is not None:
-                lic_row.last_validated_at = datetime.utcnow()
-                db.session.commit()
+            AuditService.publish_domain_event(
+                int(organization_id),
+                'license.validation_failed',
+                {'register_ref': register_ref, 'reason': 'license_unavailable'},
+                source_app_id='eposone',
+            )
         except Exception:
             pass
-        return snap.to_device_payload()
-    except Exception:
         return {
-            'status': 'unlicensed',
-            'plan': 'eposone',
-            'can_operate': False,
-            'reason': 'license_unavailable',
-            'days_remaining': None,
+            'schema_version': 1,
+            'license_id': None,
+            'license_type': 'TRIAL',
+            'status': 'PENDING',
+            'plan_code': 'eposone',
+            'activation_method': 'EN1',
+            'issued_at': None,
             'starts_at': None,
             'expires_at': None,
-            'trial_used': False,
+            'grace_until': None,
+            'last_validation': None,
+            'features': [],
+            'limits': {},
+            'updated_at': None,
         }

@@ -138,7 +138,7 @@ def ensure_eposone_register_license_schema(db, engine, printfn=None) -> None:
         cols = {c['name'] for c in insp.get_columns('eposone_settings')}
         alters = []
         if 'trial_days_default' not in cols:
-            alters.append('trial_days_default INTEGER NOT NULL DEFAULT 45')
+            alters.append('trial_days_default INTEGER NOT NULL DEFAULT 15')
         if 'trial_start_policy' not in cols:
             alters.append("trial_start_policy VARCHAR(40) NOT NULL DEFAULT 'on_first_provision'")
         if 'provisioning_code_ttl_minutes' not in cols:
@@ -151,10 +151,45 @@ def ensure_eposone_register_license_schema(db, engine, printfn=None) -> None:
                 if dialect == 'postgresql':
                     conn.execute(text(f'ALTER TABLE eposone_settings ADD COLUMN IF NOT EXISTS {col_def}'))
                 else:
-                    # sqlite
                     try:
                         conn.execute(text(f'ALTER TABLE eposone_settings ADD COLUMN {col_def}'))
                     except Exception:
                         pass
                 if printfn:
                     printfn(f'eposone_settings: columna {col_name}')
+
+    # License Engine V1 — columnas extra en eposone_register_license
+    if 'eposone_register_license' in insp.get_table_names():
+        cols = {c['name'] for c in insp.get_columns('eposone_register_license')}
+        v1_alters: list[tuple[str, str]] = []
+        if 'activation_method' not in cols:
+            v1_alters.append(
+                ('activation_method', "activation_method VARCHAR(32) NOT NULL DEFAULT 'EN1'")
+            )
+        if 'grace_until' not in cols:
+            v1_alters.append(('grace_until', 'grace_until TIMESTAMP WITHOUT TIME ZONE'))
+        if 'issued_at' not in cols:
+            v1_alters.append(('issued_at', 'issued_at TIMESTAMP WITHOUT TIME ZONE'))
+        if 'features_json' not in cols:
+            v1_alters.append(('features_json', 'features_json TEXT'))
+        if 'limits_json' not in cols:
+            v1_alters.append(('limits_json', 'limits_json TEXT'))
+        if v1_alters:
+            with engine.begin() as conn:
+                for col_name, col_def in v1_alters:
+                    if dialect == 'postgresql':
+                        conn.execute(
+                            text(
+                                f'ALTER TABLE eposone_register_license '
+                                f'ADD COLUMN IF NOT EXISTS {col_def}'
+                            )
+                        )
+                    else:
+                        try:
+                            conn.execute(
+                                text(f'ALTER TABLE eposone_register_license ADD COLUMN {col_def}')
+                            )
+                        except Exception:
+                            pass
+                    if printfn:
+                        printfn(f'eposone_register_license: columna {col_name}')

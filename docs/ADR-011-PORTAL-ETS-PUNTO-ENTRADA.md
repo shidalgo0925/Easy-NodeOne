@@ -6,7 +6,7 @@
 | Título | Portal ETS como Punto Único de Entrada del Ecosistema |
 | Estado | **Aprobado (GO)** — 24 jul 2026 |
 | Ámbito | Codito (EN1) · Local (EPosOne) · resto productos ETS |
-| Relacionados | [ADR-007 Licenciamiento offline](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [ADR-009 Caja EN1](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · [License Engine V1](EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md) · Brand/Host (BrandContext) |
+| Relacionados | [ADR-012 Arquitectura ETS](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-013 Portal ETS](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-007 Licenciamiento offline](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [ADR-009 Caja EN1](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · Brand/Host (BrandContext) |
 | Destinatarios | Codito (EN1) y Local (EPosOne) |
 
 ---
@@ -33,15 +33,19 @@ Vive en EN1 (ningún producto lo administra por su cuenta):
 
 ### 2. Portal ETS
 
-El cliente **siempre** inicia desde un único portal, p. ej.:
+El cliente **siempre** inicia desde un único portal. Dominio oficial ([ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md)):
 
 ```text
-portal.easytech.services
+app.easytech.services
 ```
+
+Alias de resolución legacy: `portal.easytech.services`.
 
 Desde ahí: registro, login, productos contratados, compra, suscripciones, facturas, descargas, dispositivos, soporte.
 
 Equivalente conceptual a un Customer Portal (Contabo / Microsoft 365 / Google Workspace).
+
+> **ADR-012 / ADR-013 (24 jul 2026):** jerarquía oficial ETS → Productos → Tenant → Usuarios; EN1 = plataforma compartida; portal = entrada comercial (no producto operativo).
 
 ### 3. Productos con identidad propia
 
@@ -49,7 +53,7 @@ Cada producto tiene identidad visual y subdominio bajo `easytech.services` (sin 
 
 | Producto | Host (ejemplo) |
 |----------|----------------|
-| Portal ETS | `portal.easytech.services` |
+| Portal ETS | `app.easytech.services` (alias: `portal.easytech.services`) |
 | EPosOne | `eposone.easytech.services` |
 | EPayRoll | `epayroll.easytech.services` |
 | EClassOne | `eclassone.easytech.services` |
@@ -150,7 +154,7 @@ Este ADR es la **base arquitectónica** para EPosOne y el resto del ecosistema E
 | **1** | `BrandContext` + `ProductContext` por Host | **Hecho en Dev** — `nodeone/core/platform/brand_context.py` · theme/nav/`data-product` · test Host · smoke con `X-EN1-Product` / Host |
 | **2** | Superficie Portal ETS mínima (login, mis productos stub) | No |
 | **3** | Wire Trial/License + provisioning desde portal | No |
-| **4** | DNS `portal` / `eposone` → staging → prod por tags | Controlado |
+| **4** | DNS `app` / `eposone` → staging → prod por tags | Controlado (`eposone` prod publicado; `app.easytech.services` pendiente) |
 
 ### Fase 1 — cómo probar en Dev (sin DNS)
 
@@ -172,3 +176,4 @@ Env opcional: `NODEONE_PRODUCT_FORCE=eposone` (solo silo de prueba).
 | Fecha | Cambio |
 |-------|--------|
 | **2026-07-24** | Aprobado (GO) — Portal ETS como entrada única; EN1 core; Brand/ProductContext; subdominios `*.easytech.services` |
+| **2026-07-24** | Alineado con [ADR-012](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) / [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md): dominio portal oficial `app.easytech.services` |

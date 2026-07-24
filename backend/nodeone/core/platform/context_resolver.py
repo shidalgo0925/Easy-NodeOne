@@ -130,8 +130,9 @@ def _builtin_fallback_config() -> dict[str, Any]:
         'hosts': {
             'appdev.easynodeone.com': PRODUCT_EN1,
             'appprd.easynodeone.com': PRODUCT_EN1,
-            'eposone.easytech.services': 'eposone',
+            'app.easytech.services': 'portal',
             'portal.easytech.services': 'portal',
+            'eposone.easytech.services': 'eposone',
         },
         'host_prefixes': {
             'portal': 'portal',
@@ -171,9 +172,9 @@ def _builtin_fallback_config() -> dict[str, Any]:
             },
             'portal': {
                 'surface': 'portal',
-                'display_name': 'EasyTech Services',
+                'display_name': 'Easy Technology Services',
                 'brand_preset': 'portal',
-                'tagline': 'Portal de clientes ETS',
+                'tagline': 'Portal del ecosistema ETS',
                 'home_hint': 'portal_home',
                 'allowed_apps': ['portal', 'billing', 'licenses'],
                 'theme': {

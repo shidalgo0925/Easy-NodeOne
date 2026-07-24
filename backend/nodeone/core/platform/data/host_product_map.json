@@ -1,10 +1,11 @@
 {
-  "_comment": "ADR-011 — Host → product_code → BrandContext/ProductContext. Añadir productos aquí sin tocar código.",
+  "_comment": "ADR-011/012/013 — Host → product_code → BrandContext/ProductContext. Portal oficial: app.easytech.services.",
   "default_product": "en1",
   "hosts": {
     "appprd.easynodeone.com": "en1",
     "appdev.easynodeone.com": "en1",
     "apptst.easynodeone.com": "en1",
+    "app.easytech.services": "portal",
     "portal.easytech.services": "portal",
     "eposone.easytech.services": "eposone",
     "eposone-stg.easytech.services": "eposone",
@@ -41,9 +42,9 @@
     },
     "portal": {
       "surface": "portal",
-      "display_name": "EasyTech Services",
+      "display_name": "Easy Technology Services",
       "brand_preset": "portal",
-      "tagline": "Portal de clientes ETS",
+      "tagline": "Portal del ecosistema ETS",
       "home_hint": "portal_home",
       "allowed_apps": ["portal", "billing", "licenses"],
       "logo_url": "",

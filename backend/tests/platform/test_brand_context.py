@@ -34,9 +34,11 @@ class TestContextResolverHost(unittest.TestCase):
         self.assertEqual(epo.brand.display_name, 'EPosOne')
         self.assertEqual(epo.brand.theme_primary, '#FF6B35')
 
-        portal = ContextResolver.resolve('portal.easytech.services')
+        portal = ContextResolver.resolve('app.easytech.services')
         self.assertEqual(portal.product.surface, 'portal')
-        self.assertEqual(portal.brand.display_name, 'EasyTech Services')
+        self.assertEqual(portal.brand.display_name, 'Easy Technology Services')
+        alias = ContextResolver.resolve('portal.easytech.services')
+        self.assertEqual(alias.product.code, 'portal')
 
     def test_prefix_and_aliases(self):
         from nodeone.core.platform.context_resolver import ContextResolver

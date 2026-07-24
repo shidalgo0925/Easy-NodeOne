@@ -6,8 +6,9 @@
 {% set st = (order.status or '')|lower %}
 {% set pay = (order.payment_status or '')|lower %}
 {% set tip_amt = (order.tip or 0)|float %}
+{# Precio menú tax-inclusive: base cobrable = sub − desc (ITBMS ya va en el precio; no sumar tax). #}
 {% set tip_base = ((order.subtotal or 0) - (order.discount or 0))|float %}
-{% set base_total = (tip_base + (order.tax or 0))|float %}
+{% set base_total = tip_base %}
 {% set balance = ((order.total or 0) - (order.amount_paid or 0))|float %}
 {% set can_collect = st not in ('cancelled', 'returned') and pay in ('unpaid', 'partial') and not order.financially_closed and balance > 0.001 %}
 <div class="container-fluid py-2 en1-eposone-page" id="epos-order-domain-detail"
@@ -50,17 +51,8 @@
                     <div class="epos-page-title mb-1">Pedido <code>{{ order.en1_number }}</code></div>
                     {% if order.local_number %}<div class="small text-muted mb-2">Local {{ order.local_number }}</div>{% endif %}
                     <div class="d-flex flex-wrap gap-2 mb-2">
-                        {% if order.financially_closed and st not in ('cancelled', 'returned') %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% elif st in ('open', 'draft') %}{% with text=order.status, tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% elif st in ('sent', 'preparing') %}{% with text=order.status, tone='preparing' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% elif st == 'ready' %}{% with text=order.status, tone='ready' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% elif st == 'closed' %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% else %}{% with text=order.status, tone='neutral' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% endif %}
-                        {% if pay == 'paid' %}{% with text='paid', tone='paid' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% elif pay == 'partial' %}{% with text='partial', tone='preparing' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% else %}{% with text=order.payment_status or 'unpaid', tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
-                        {% endif %}
+                        {% include 'eposone/partials/order_lifecycle_badge.html' %}
+                        {% include 'eposone/partials/order_payment_badge.html' %}
                     </div>
                 </div>
                 <div class="col-4 col-md-2">

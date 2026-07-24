@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Turno #{{ shift.id }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+{% set cash = report.cash %}
+{% set cash_off = report.cash_official or cash %}
+{% set sales = report.sales %}
+{% set df = day_filter or report.day_filter or {} %}
+{% set day_mode = df.mode or 'all' %}
+<div class="container-fluid py-3 en1-eposone-page" id="epos-shift-close" style="max-width: 42rem;">
+    <div class="mb-3">
+        <a href="{{ url_for('eposone.eposone_section', slug='shifts') }}" class="btn btn-sm btn-outline-secondary mb-2">
+            <i class="fas fa-arrow-left me-1"></i>Turnos
+        </a>
+        <h1 class="h4 mb-1 app-page-title">
+            <i class="fas fa-cash-register me-2" style="color: var(--epos-accent, #e67e22)"></i>Turno / Caja
+        </h1>
+        <p class="text-muted small mb-0">
+            <code>{{ register_name }}</code> · <code>{{ shift.register_ref }}</code>
+        </p>
+    </div>
+
+    <div class="epos-card mb-3 border-0"
+         style="background: {% if report.status == 'closed' %}#f0f0f0{% elif report.status == 'reconciling' %}#fff8e6{% else %}#e8f8ef{% endif %};">
+        <div class="epos-card-body py-3">
+            <div class="d-flex align-items-start gap-2">
+                <i class="fas {% if report.status == 'closed' %}fa-lock{% else %}fa-lock-open{% endif %} mt-1"
+                   style="color: {% if report.status == 'closed' %}#666{% elif report.status == 'reconciling' %}#c47f00{% else %}#1a7f37{% endif %}"></i>
+                <div>
+                    <div class="fw-semibold">
+                        {% if report.status == 'open' %}Turno abierto
+                        {% elif report.status == 'reconciling' %}Arqueo registrado — listo para cerrar
+                        {% else %}Turno cerrado{% endif %}
+                    </div>
+                    <div class="small text-muted">
+                        {% if shift.opened_at %}Desde {{ shift.opened_at|epos_local('%d/%m/%Y %H:%M') }}{% endif %}
+                        {% if shift.closed_at %} · cerrado {{ shift.closed_at|epos_local('%d/%m/%Y %H:%M') }}{% endif %}
+                    </div>
+                    <div class="small mt-1">
+                        Cajero actual: <strong>{{ shift.cashier_name or 'Sin asignar' }}</strong>
+                        {% if shift.cashier_contact_id %}<span class="text-muted"> · #{{ shift.cashier_contact_id }}</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if df.days and (df.multi_day or (df.days|length) >= 1) %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body py-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h2 class="epos-section-label mb-0">Ver cierre por día</h2>
+                {% if df.multi_day %}
+                <span class="badge text-bg-warning">Turno de {{ df.days|length }} días</span>
+                {% endif %}
+            </div>
+            <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+                <div style="min-width:11rem;flex:1">
+                    <label class="form-label small text-muted mb-1" for="shift-day">Día (Panamá)</label>
+                    <select class="form-select form-select-sm" name="day" id="shift-day" onchange="this.form.submit()">
+                        <option value="all" {% if day_mode == 'all' %}selected{% endif %}>Todo el turno</option>
+                        {% for d in df.days %}
+                        <option value="{{ d }}" {% if df.day_local == d %}selected{% endif %}>{{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
+            </form>
+            {% if day_mode == 'day' and df.day_local %}
+            <p class="small text-muted mb-0 mt-2">
+                Mostrando actividad del <strong>{{ df.day_local[8:10] }}/{{ df.day_local[5:7] }}/{{ df.day_local[0:4] }}</strong>
+                · el arqueo/cierre oficial sigue siendo del turno completo.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label mb-3">
+                {% if day_mode == 'day' %}Resumen del día{% else %}Resumen del turno{% endif %}
+            </h2>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Ventas brutas</span><span>B/. {{ '%.2f'|format(sales.gross) }}</span></div>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Reembolsos</span><span class="text-danger">−B/. {{ '%.2f'|format(sales.refunds) }}</span></div>
+            <div class="d-flex justify-content-between py-1 fw-semibold"><span>Ventas netas</span><span>B/. {{ '%.2f'|format(sales.net) }}</span></div>
+            <hr class="my-2">
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Descuentos</span><span>B/. {{ '%.2f'|format(sales.discounts) }}</span></div>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">ITBMS</span><span>B/. {{ '%.2f'|format(sales.tax) }}</span></div>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Propinas</span><span>B/. {{ '%.2f'|format(sales.tips) }}</span></div>
+            <div class="d-flex justify-content-between py-1 small text-muted mt-1">
+                <span>Transacciones</span>
+                <span>{{ sales.sales_count }} venta(s) · {{ sales.refund_count }} reembolso(s)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label mb-3">Por método de pago</h2>
+            {% if report.payment_methods %}
+            {% for m in report.payment_methods %}
+            <div class="d-flex justify-content-between py-1">
+                <span class="text-muted">{{ m.label }}</span>
+                <span>B/. {{ '%.2f'|format(m.amount) }}</span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="text-muted small mb-0">Sin pagos en este período.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label mb-3">
+                {% if day_mode == 'day' %}Efectivo del día{% else %}Arqueo de efectivo{% endif %}
+            </h2>
+            {% if cash.include_opening %}
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Apertura</span><span>B/. {{ '%.2f'|format(cash.opening) }}</span></div>
+            {% endif %}
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Efectivo ventas (neto)</span><span>B/. {{ '%.2f'|format(cash.cash_sales) }}</span></div>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Movimientos +</span><span class="text-success">+B/. {{ '%.2f'|format(cash.cash_in) }}</span></div>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Movimientos −</span><span class="text-danger">−B/. {{ '%.2f'|format(cash.cash_out) }}</span></div>
+            {% if cash.refunds > 0.001 %}
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Reembolsos efectivo</span><span class="text-danger">−B/. {{ '%.2f'|format(cash.refunds) }}</span></div>
+            {% endif %}
+            <hr class="my-2">
+            <div class="d-flex justify-content-between py-1 fw-semibold" style="color: var(--epos-accent, #e67e22)">
+                <span>{% if day_mode == 'day' %}Efectivo del período{% else %}Efectivo esperado{% endif %}</span>
+                <span>B/. {{ '%.2f'|format(cash.expected) }}</span>
+            </div>
+            {% if day_mode == 'all' and cash.counted is not none %}
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Efectivo contado</span><span>B/. {{ '%.2f'|format(cash.counted) }}</span></div>
+            <div class="d-flex justify-content-between py-1 {% if cash.variance and cash.variance|abs > 0.009 %}text-warning fw-semibold{% endif %}">
+                <span>Diferencia</span>
+                <span>B/. {{ '%.2f'|format(cash.variance or 0) }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if day_mode == 'day' and report.status in ('reconciling', 'closed') %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label mb-2">Arqueo oficial del turno</h2>
+            <p class="small text-muted mb-2">No cambia al filtrar por día.</p>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Esperado (turno)</span><span>B/. {{ '%.2f'|format(cash_off.expected) }}</span></div>
+            {% if cash_off.counted is not none %}
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Contado</span><span>B/. {{ '%.2f'|format(cash_off.counted) }}</span></div>
+            <div class="d-flex justify-content-between py-1"><span class="text-muted">Diferencia</span><span>B/. {{ '%.2f'|format(cash_off.variance or 0) }}</span></div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if report.electronic_methods %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label mb-3">Conciliación electrónica</h2>
+            <p class="small text-muted mb-2">No forma parte del dinero contado en cajón.</p>
+            {% for m in report.electronic_methods %}
+            <div class="d-flex justify-content-between py-1">
+                <span class="text-muted">{{ m.label }}</span>
+                <span>B/. {{ '%.2f'|format(m.amount) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="d-grid gap-2 mb-4">
+        {% if report.can_move and supervisor_ok %}
+        <button type="button" class="btn btn-lg text-white"
+                style="background:#e67e22;border-color:#e67e22"
+                data-bs-toggle="modal" data-bs-target="#movementModal"
+                data-shift-id="{{ shift.id }}"
+                data-register-ref="{{ shift.register_ref }}">
+            <i class="fas fa-exchange-alt me-2"></i>Tesorería
+        </button>
+        {% endif %}
+
+        {% if report.can_reconcile %}
+        <button type="button" class="btn btn-lg btn-primary"
+                data-bs-toggle="modal" data-bs-target="#reconcileShiftModal"
+                data-shift-id="{{ shift.id }}"
+                data-register-ref="{{ shift.register_ref }}"
+                data-expected="{{ cash_off.expected }}">
+            <i class="fas fa-balance-scale me-2"></i>Arquear
+        </button>
+        {% endif %}
+
+        {% if report.can_close %}
+        <form method="post" action="{{ url_for('eposone.eposone_register_close_shift', shift_id=shift.id) }}">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <input type="hidden" name="next" value="shifts">
+            <button type="submit" class="btn btn-lg btn-danger w-100"
+                    onclick="return confirm('¿Cerrar el turno de {{ shift.register_ref }}?');">
+                <i class="fas fa-lock me-2"></i>Cerrar turno
+            </button>
+        </form>
+        {% endif %}
+
+        {% if day_mode == 'day' %}
+        <a href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id) }}" class="btn btn-lg btn-outline-secondary">
+            Ver todo el turno
+        </a>
+        {% endif %}
+
+        {% if report.status == 'closed' and day_mode == 'all' %}
+        <a href="{{ url_for('eposone.eposone_section', slug='shifts') }}" class="btn btn-lg btn-outline-secondary">
+            Volver a turnos
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% include 'eposone/partials/reconcile_shift_modal.html' %}
+
+<div class="modal fade" id="movementModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="" id="movementForm" class="modal-content">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <input type="hidden" name="next" value="detail">
+            <div class="modal-header">
+                <h5 class="modal-title">Tesorería — movimiento de caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Caja <code id="movementRegisterRef">—</code></p>
+                <div class="mb-3">
+                    <label for="movement_type" class="form-label">Tipo</label>
+                    <select class="form-select" name="movement_type" id="movement_type" required>
+                        <option value="cash_in">Ingreso de efectivo</option>
+                        <option value="cash_out">Egreso de efectivo</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="movement_amount" class="form-label">Monto</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control" name="amount" id="movement_amount" required>
+                </div>
+                <div class="mb-3">
+                    <label for="movement_notes" class="form-label">Notas</label>
+                    <input type="text" class="form-control" name="notes" id="movement_notes" maxlength="500">
+                </div>
+                <input type="hidden" name="supervisor_user_id" value="{{ current_user.id if current_user.is_authenticated else '' }}">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+  {% include 'eposone/partials/reconcile_shift_script.html' %}
+  var movementModal = document.getElementById('movementModal');
+  if (movementModal) {
+    movementModal.addEventListener('show.bs.modal', function (event) {
+      var btn = event.relatedTarget;
+      var shiftId = btn.getAttribute('data-shift-id') || '';
+      var ref = btn.getAttribute('data-register-ref') || '';
+      document.getElementById('movementRegisterRef').textContent = ref;
+      document.getElementById('movementForm').action =
+        '{{ url_for("eposone.eposone_shift_movement", shift_id=0) }}'.replace('/0/', '/' + shiftId + '/');
+    });
+  }
+})();
+</script>
+{% endblock %}

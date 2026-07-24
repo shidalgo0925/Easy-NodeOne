@@ -37,7 +37,7 @@
                             <th>Cajero</th>
                             <th>Estado</th>
                             <th class="text-end">Saldo</th>
-                            <th class="text-end">Mov.</th>
+                            <th class="text-end" title="Pagos del turno + movimientos de tesorería">Ops.</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -77,27 +77,20 @@
                                 <div class="small">Contado: {{ '%.2f'|format(shift.counted_amount) }}</div>
                                 {% endif %}
                             </td>
-                            <td class="text-end">{{ row.movement_count }}</td>
+                            <td class="text-end">
+                                <div>{{ row.movement_count }}</div>
+                                {% if row.payment_count or row.treasury_count %}
+                                <div class="small text-muted" style="font-size:0.7rem">
+                                    {{ row.payment_count }} pago(s){% if row.treasury_count %} · {{ row.treasury_count }} tes.{% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
                             <td>
                                 <div class="d-flex flex-wrap gap-1">
-                                    {% if row.can_reconcile %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#reconcileShiftModal"
-                                        data-shift-id="{{ shift.id }}"
-                                        data-register-ref="{{ row.register_ref }}"
-                                        data-expected="{{ row.expected_balance or 0 }}">
-                                        Arquear
-                                    </button>
-                                    {% endif %}
-                                    {% if row.can_close %}
-                                    <form method="post" action="{{ url_for('eposone.eposone_register_close_shift', shift_id=shift.id) }}" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"
-                                            onclick="return confirm('¿Cerrar turno #{{ shift.id }}?');">
-                                            Cerrar
-                                        </button>
-                                    </form>
-                                    {% endif %}
+                                    <a class="btn btn-sm btn-primary"
+                                       href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id) }}">
+                                        {% if row.can_close %}Cerrar turno{% else %}Ver / Cerrar{% endif %}
+                                    </a>
                                     {% if row.can_move and supervisor_ok %}
                                     <button type="button" class="btn btn-sm btn-outline-primary"
                                         data-bs-toggle="modal"
@@ -142,7 +135,8 @@
                             <th class="text-end">Cierre</th>
                             <th class="text-end">Esperado</th>
                             <th class="text-end">Dif.</th>
-                            <th class="text-end">Mov.</th>
+                            <th class="text-end" title="Pagos del turno + movimientos de tesorería">Ops.</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -166,7 +160,18 @@
                             <td class="text-end {% if shift.cash_variance and shift.cash_variance|abs > 0.01 %}text-warning{% endif %}">
                                 {{ '%.2f'|format(shift.cash_variance or 0) }}
                             </td>
-                            <td class="text-end">{{ row.movement_count }}</td>
+                            <td class="text-end">
+                                <div>{{ row.movement_count }}</div>
+                                {% if row.payment_count or row.treasury_count %}
+                                <div class="small text-muted" style="font-size:0.7rem">
+                                    {{ row.payment_count }} pago(s){% if row.treasury_count %} · {{ row.treasury_count }} tes.{% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id) }}">Ver</a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

@@ -24,11 +24,6 @@ from nodeone.modules.eposone.order_domain import (
 )
 
 
-def _recalc_payment_status(order: EposoneOrder) -> None:
-    """Actualiza flags de pago/cierre sin tocar totales de líneas."""
-    apply_financial_state(order)
-
-
 def _fold(value: str) -> str:
     """Normaliza texto de método (minúsculas, sin acentos, espacios → _)."""
     raw = unicodedata.normalize('NFKD', str(value or ''))
@@ -211,15 +206,29 @@ class OrderPaymentService:
 
     @staticmethod
     def _base_total(order: EposoneOrder) -> float:
-        return round(
-            float(order.subtotal or 0) + float(order.tax or 0) - float(order.discount or 0),
-            4,
+        """Base cobrable sin propina (precio menú inclusive → sin sumar tax otra vez)."""
+        from nodeone.modules.eposone.fiscal_categories import order_payable_total
+
+        return float(
+            order_payable_total(
+                subtotal=float(order.subtotal or 0),
+                tax=float(order.tax or 0),
+                discount=float(order.discount or 0),
+                tip=0.0,
+            )
         )
 
     @staticmethod
     def _apply_tip(order: EposoneOrder, tip: float) -> None:
+        from nodeone.modules.eposone.fiscal_categories import order_payable_total
+
         order.tip = money2(max(0.0, float(tip or 0)))
-        order.total = money2(OrderPaymentService._base_total(order) + float(order.tip))
+        order.total = order_payable_total(
+            subtotal=float(order.subtotal or 0),
+            tax=float(order.tax or 0),
+            discount=float(order.discount or 0),
+            tip=float(order.tip),
+        )
 
     @staticmethod
     def _sync_tip_before_payment(order: EposoneOrder, body: dict[str, Any], amount: float) -> None:
@@ -394,16 +403,13 @@ class OrderPaymentService:
         )
         db.session.add(pay)
         order.amount_paid = money2(paid + money2(amount))
+        uref = str(order.user_ref or '')
         if actor_user_ref and (
-            not order.user_ref
-            or (
-                len(str(order.user_ref)) == 36
-                and str(order.user_ref).count('-') == 4
-            )
+            not uref or (len(uref) == 36 and uref.count('-') == 4)
         ):
             # Reemplaza UUID local de APK por nombre resuelto al cobrar.
             order.user_ref = actor_user_ref
-        _recalc_payment_status(order)
+        apply_financial_state(order)
 
         OrderDomainService._append_event(
             order,

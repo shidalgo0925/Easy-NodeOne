@@ -8,8 +8,6 @@ from models.commercial_core import CoreCashMovement, CoreCashShift
 from nodeone.core.commerce.constants import (
     CASH_MOVEMENT_CASH_IN,
     CASH_MOVEMENT_CASH_OUT,
-    CASH_MOVEMENT_REFUND_CASH,
-    CASH_MOVEMENT_SALE_CASH,
     CASH_MOVEMENT_TYPES,
     CASH_SHIFT_CLOSED,
     CASH_SHIFT_OPEN,
@@ -61,18 +59,36 @@ class CashRegisterService:
         cashier_name: str | None = None,
         assigned_by_user_id: int | None = None,
         source_app_id: str = 'eposone',
+        opened_at: datetime | None = None,
+        client_shift_id: str | None = None,
     ) -> CashShiftDTO:
         from app import db
 
         ref = (register_ref or '').strip()
         if not ref:
             raise OrderValidationError('register_ref_required')
+        client_key = (client_shift_id or '').strip() or None
+        if client_key:
+            prior = CoreCashShift.query.filter_by(
+                organization_id=int(organization_id),
+                client_shift_id=client_key,
+            ).first()
+            if prior is not None:
+                return cash_shift_to_dto(prior)
         open_row = CoreCashShift.query.filter_by(
             organization_id=int(organization_id),
             register_ref=ref,
             status=CASH_SHIFT_OPEN,
         ).first()
         if open_row is not None:
+            raise OrderValidationError('shift_already_open')
+        # También bloquear si hay arqueo en curso
+        reconciling = CoreCashShift.query.filter_by(
+            organization_id=int(organization_id),
+            register_ref=ref,
+            status=CASH_SHIFT_RECONCILING,
+        ).first()
+        if reconciling is not None:
             raise OrderValidationError('shift_already_open')
         name = (cashier_name or '').strip() or None
 
@@ -89,7 +105,8 @@ class CashRegisterService:
                 int(assigned_by_user_id) if assigned_by_user_id is not None else None
             ),
             opening_balance=float(opening_balance or 0),
-            opened_at=datetime.utcnow(),
+            opened_at=opened_at or datetime.utcnow(),
+            client_shift_id=client_key,
         )
         db.session.add(row)
         db.session.commit()
@@ -156,22 +173,16 @@ class CashRegisterService:
 
     @staticmethod
     def compute_expected_balance(shift_id: int) -> float:
+        """Esperado del cajón (solo efectivo) — ADR-009 / B-R1-05c.
+
+        Fuente única: ``cash_expected_for_shift`` (tesorería + pagos OD cash).
+        """
         row = CoreCashShift.query.get(int(shift_id))
         if row is None:
             return 0.0
-        total = float(row.opening_balance or 0)
-        for amt, mtype in (
-            CoreCashMovement.query.filter_by(shift_id=int(shift_id))
-            .with_entities(CoreCashMovement.amount, CoreCashMovement.movement_type)
-            .all()
-        ):
-            amount = float(amt or 0)
-            movement_type = str(mtype or '')
-            if movement_type in (CASH_MOVEMENT_SALE_CASH, CASH_MOVEMENT_CASH_IN):
-                total += amount
-            elif movement_type in (CASH_MOVEMENT_REFUND_CASH, CASH_MOVEMENT_CASH_OUT):
-                total -= amount
-        return round(total, 2)
+        from nodeone.modules.eposone.shift_close_service import cash_expected_for_shift
+
+        return float(cash_expected_for_shift(row, include_opening=True)['expected'])
 
     @staticmethod
     def record_movement(
@@ -354,6 +365,85 @@ class CashRegisterService:
         return cash_shift_to_dto(row, include_variance=True)
 
     @staticmethod
+    def close_shift_counted(
+        organization_id: int,
+        shift_id: int,
+        *,
+        counted_amount: float,
+        source_app_id: str = 'eposone',
+        cashier_contact_id: int | None = None,
+        notes: str | None = None,
+        closed_at: datetime | None = None,
+    ) -> CashShiftDTO:
+        """Cierre POS en un paso: arqueo + close (ADR-009 flujo Abrir→…→Arqueo→Cerrar)."""
+        from app import db
+
+        row = CoreCashShift.query.filter_by(
+            organization_id=int(organization_id),
+            id=int(shift_id),
+        ).first()
+        if row is None:
+            raise OrderValidationError('shift_not_found')
+        if row.status == CASH_SHIFT_CLOSED:
+            return cash_shift_to_dto(row, include_variance=True)
+
+        status = str(row.status or '')
+        if status == CASH_SHIFT_OPEN:
+            counted = round(float(counted_amount or 0), 2)
+            expected = CashRegisterService.compute_expected_balance(int(row.id))
+            row.status = CASH_SHIFT_RECONCILING
+            row.counted_amount = counted
+            row.expected_balance = expected
+            db.session.flush()
+            variance = round(counted - expected, 2)
+            CashRegisterService.publish_count_recorded(
+                int(organization_id),
+                register_ref=str(row.register_ref),
+                counted_amount=counted,
+                cashier_contact_id=cashier_contact_id,
+                source_app_id=source_app_id,
+            )
+            CashRegisterService.publish_shift_reconciling(
+                int(organization_id),
+                register_ref=str(row.register_ref),
+                counted_amount=counted,
+                expected_balance=expected,
+                variance=variance,
+                cashier_contact_id=cashier_contact_id,
+                source_app_id=source_app_id,
+            )
+        elif status != CASH_SHIFT_RECONCILING:
+            raise OrderValidationError('shift_must_reconcile_before_close')
+        elif counted_amount is not None:
+            # Reintento con monto: actualizar contado si aún reconciling
+            row.counted_amount = round(float(counted_amount), 2)
+            if row.expected_balance is None:
+                row.expected_balance = CashRegisterService.compute_expected_balance(int(row.id))
+
+        closing = round(float(row.counted_amount or 0), 2)
+        expected = round(float(row.expected_balance or 0), 2)
+        variance = round(closing - expected, 2)
+        row.status = CASH_SHIFT_CLOSED
+        row.closing_balance = closing
+        row.closed_at = closed_at or datetime.utcnow()
+        row.closed_by_cashier_contact_id = (
+            int(cashier_contact_id) if cashier_contact_id is not None else None
+        )
+        db.session.commit()
+        payload_extra = {'notes': notes} if notes else None
+        CashRegisterService.publish_shift_closed(
+            int(organization_id),
+            register_ref=str(row.register_ref),
+            closing_balance=closing,
+            expected_balance=expected,
+            variance=variance,
+            cashier_contact_id=cashier_contact_id,
+            source_app_id=source_app_id,
+            extra=payload_extra,
+        )
+        return cash_shift_to_dto(row, include_variance=True)
+
+    @staticmethod
     def assert_cash_refund_allowed(organization_id: int, shift_id: int) -> None:
         row = CoreCashShift.query.filter_by(
             organization_id=int(organization_id),
@@ -452,6 +542,7 @@ class CashRegisterService:
         variance: float | None = None,
         cashier_contact_id: int | None = None,
         source_app_id: str = 'eposone',
+        extra: dict | None = None,
     ):
         payload: dict = {
             'register_ref': register_ref,
@@ -463,6 +554,8 @@ class CashRegisterService:
             payload['variance'] = variance
         if cashier_contact_id is not None:
             payload['cashier_contact_id'] = int(cashier_contact_id)
+        if extra:
+            payload.update(extra)
         return AuditService.publish_domain_event(
             organization_id,
             COMMERCE_CASH_SHIFT_CLOSED,

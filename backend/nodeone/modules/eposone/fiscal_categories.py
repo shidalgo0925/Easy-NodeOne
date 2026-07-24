@@ -3,6 +3,10 @@
 Base legal: Código Fiscal art. 1057-V / DGI — ITBMS 7% general,
 10% bebidas alcohólicas y hospedaje, 15% tabaco, exentos 0%.
 
+Modo precio default POS: **tax-inclusive** (precio de menú incluye ITBMS;
+el motor desglosa para recibo y no vuelve a sumar el impuesto al total cobrable).
+Override: EPOSONE_PRICES_INCLUDE_TAX=0 → tax-exclusive.
+
 ISC (selectivo) es impuesto distinto (fabricación/importación); no se
 mezcla aquí como tasa de venta POS por defecto.
 """
@@ -83,17 +87,69 @@ def tax_percent_for_category(fiscal_category: str | None) -> float:
     return float(FISCAL_CATEGORIES_PA[code]['percent'])
 
 
+# Panamá retail/restaurant: el precio de lista del menú ya incluye ITBMS.
+# El motor desglosa base+impuesto para recibo; el total cobrable NO vuelve a sumar tax.
+DEFAULT_PRICES_INCLUDE_TAX = True
+
+
+def prices_include_tax_enabled() -> bool:
+    import os
+
+    raw = (os.environ.get('EPOSONE_PRICES_INCLUDE_TAX') or '').strip().lower()
+    if raw in {'0', 'false', 'no', 'exclusive', 'neto'}:
+        return False
+    if raw in {'1', 'true', 'yes', 'inclusive', 'incluido'}:
+        return True
+    return DEFAULT_PRICES_INCLUDE_TAX
+
+
 def line_tax_amount(
     *,
     qty: float,
     unit_price: float,
     fiscal_category: str | None,
     discount: float = 0.0,
+    prices_include_tax: bool | None = None,
 ) -> float:
-    """ITBMS de línea (tax-exclusive): (qty×precio − desc) × tasa."""
+    """ITBMS de línea.
+
+    - Inclusive (default PA): desglose desde precio con impuesto → base × r/(1+r)
+    - Exclusive: (qty×precio − desc) × tasa
+    """
     base = max(0.0, float(qty or 0) * float(unit_price or 0) - float(discount or 0))
     rate = tax_percent_for_category(fiscal_category) / 100.0
+    if rate <= 0:
+        return 0.0
+    inclusive = (
+        prices_include_tax_enabled()
+        if prices_include_tax is None
+        else bool(prices_include_tax)
+    )
+    if inclusive:
+        return round(base * rate / (1.0 + rate), 4)
     return round(base * rate, 4)
+
+
+def order_payable_total(
+    *,
+    subtotal: float,
+    tax: float,
+    discount: float,
+    tip: float,
+    prices_include_tax: bool | None = None,
+) -> float:
+    """Total a cobrar (centavos). Inclusive: tax ya va en subtotal."""
+    inclusive = (
+        prices_include_tax_enabled()
+        if prices_include_tax is None
+        else bool(prices_include_tax)
+    )
+    sub = float(subtotal or 0)
+    disc = float(discount or 0)
+    tip_v = float(tip or 0)
+    if inclusive:
+        return round(sub - disc + tip_v + 1e-12, 2)
+    return round(sub + float(tax or 0) - disc + tip_v + 1e-12, 2)
 
 
 def panama_fiscal_policy_payload() -> dict[str, Any]:

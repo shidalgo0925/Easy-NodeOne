@@ -91,7 +91,7 @@ Ninguna fila puede marcarse **Completa** sin DoD 11/11. La mayoría del producto
 | ID | Capacidad | Dominio | Estado | Evidencia breve | DoD faltante típico |
 |----|-----------|---------|--------|-----------------|---------------------|
 | C-CASH-01 | Abrir turno | Caja | Parcial | sync `open_cash_shift` + BO | E2E desde APK |
-| C-CASH-02 | Cerrar turno / arqueo | Caja | Parcial | `close` / `reconcile` | X/Z, denominaciones, conciliación medios |
+| C-CASH-02 | Cerrar turno / arqueo | Caja | Parcial | `close` / `reconcile` · **ADR-009** | Reporte cierre completo + esperado solo efectivo + conciliación electrónica (B-R1-05b/c) |
 | C-CASH-03 | Movimientos manuales caja | Caja | Parcial | `manual_cash_movement` | Motivos, evidencias, auth |
 | C-CASH-04 | Diferencia esperado vs contado | Caja | Parcial | campos shift | Reporte + auth reapertura |
 

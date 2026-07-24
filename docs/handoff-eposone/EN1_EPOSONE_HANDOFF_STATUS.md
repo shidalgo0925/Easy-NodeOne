@@ -2,23 +2,41 @@
 
 | Campo | Valor |
 |-------|--------|
-| Fecha | **18 jul 2026** |
+| Fecha | **24 jul 2026** |
+| **Cash Shift HTTP** | **v1.0 CONGELADO** — Device Bearer `/api/v1/cash/shifts*` · [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · spec [`EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md`](EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md) · tag `eposone-cash-shift-http-v1.0` (tras commit) |
+| **EN1-POS V7** | [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) — R0 P1 OK · R1 · **gates E2E/2.6** |
+| **ADR-009 Caja EN1** | **Aprobado** — Caja = cobro admin · turno = unidad · `allow_en1_collect_foreign_channel` · reporte cierre · [`ADR-009-EN1-CAJA-CENTRO-COBRO.md`](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · backlog **B-R1-05a/b/c** |
+| **E2E oficial** | [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) — cierra Hito 2.5 |
+| **Hito 2.6** | [`EN1_EPOSONE_HITO2_6_OBSERVABILITY.md`](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) — planificado |
+| **R0 pack** | Prog1 firmó · faltan Analista + Prog2 + T1 |
+| **B-R1-01** | Avance Empresa/sucursal/caja BO |
 | Hito 3B | **Publicado** · pendiente recepción P2 |
-| Hito 3C | **EN1 listo** — lista/detalle + cobro multi-pago + catálogo APK + compatibilidad Yappy/propina |
-| **Hito 2.5** | **EN1 listo** — cajero POS · contrato + PIN hash + bootstrap `cashiers` + Sync Up |
+| Hito 3C | **EN1 listo** |
+| **Hito 2.5** | Código ~95% · E2E bloque **A ✅** · B–E pendiente · cierre = checklist completa |
+| **Incidente 20 jul** | R-000001/2 marcados `partial` en EN1 por ITBMS auto sobre `tax:0` APK + tip acumulado · **reparado** + fix código |
+| **Partial centavos** | Total 4dp vs cobro 2dp (ej. 17.1735 vs 17.17) → `partial` fantasma · **fix money2** + EN1-5-32 reparado |
+| **Origen pedido** | Columna **Origen** en lista: `BO` (Caja principal) vs `Tablet` · actor BO = terminal `en1-backoffice` |
+| **Lab wipe día** | `/admin/eposone/lab/wipe-today` · solo `User.is_admin` + `FLASK_ENV=development` · confirma `BORRAR HOY` · no visible a admin tenant |
+| **Cajero UUID (pedido)** | APK manda UUID en `user_ref` · EN1 resuelve si llega `cashier_contact_id` · **Prog2 debe enviar** `cashier_contact_id` (+ estampar `cashier_name`) |
+| **R-PAY-MULTI / R-TIP-COBRO** | Congeladas · API tip OK · **BO modal cobro + tip** · al liquidar: `status=closed` · **APK (Prog2):** sync debe sacar de abiertos si `paid`/`closed`/`financially_closed` (C20) |
 | **TZ Fase 1** | **Hecho en EN1** — `TimeZoneService`, org/user TZ, filtros día local, provisioning TZ de org |
+| **V6 contratos** | Inputs técnicos — [`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md) · mapear a R1 (**FE en R1**) |
+| **V6 Infra políticas** | [`EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md`](EN1_EPOSONE_COMMERCIAL_POLICY_ENGINE_INFRA_V1.md) **EN1 listo** · sin algoritmos |
+| ADR-008 | Borrador — aprueba con motor R1 |
 | Detalle estados | [`EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md`](EN1_EPOSONE_HITO3B_HANDOFF_STATUS.md) |
-| Roadmap V5 | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) |
+| Roadmap V5 | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) (historia) |
 | Contrato cajero | [`EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) |
 | Paquete | [`handoff-eposone/`](handoff-eposone/) · `/opt/handoff-plataformas/eposone-hito3b-Doc/` |
-| Order Domain | **v1.0 CONGELADA** |
+| Order Domain | **v1.0 CONGELADA** (R1 puede exigir extensión Venta/Recibo/FE) |
 | **Cierre handoff 3B docs** | Solo cuando P2 diga: *Documentos recibidos. Comienzo implementación HTTP.* |
+| **Cierre Release 0** | Prog1 OK · faltan Analista + Prog2 (+ T1) |
+| **R1 código** | **B-R1-01 avance** (GO owner) · resto pendiente |
 
 ---
 
 ## Una frase
 
-Contrato **3B publicado** (pendiente recepción P2). En EN1: **3C operativo y endurecido para pagos APK**, **Hito 2.5 cajero listo** y **TZ Fase 1**.
+**Gates:** E2E Hito 2.5 (checklist A–E) + Hito 2.6 Observabilidad **antes** del Motor V6. R0: faltan firmas A+P2+T1. R1: B-R1-01 avance. EPosOne ~infra lista; EN1 falta BO comercial + obs.
 
 ---
 
@@ -94,7 +112,8 @@ Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
 | Bootstrap `cashiers` / `cashiers_version` | ✅ mismo `GET /api/v1/devices/bootstrap` |
 | Sync Up con `cashier_contact_id` | ✅ turno / pedido / pago / reembolso / movimiento |
 | Login local APK + Keystore | ⏸ P2 |
-| Apertura de turno desde tablet | ⏸ P2 (BO sigue para excepciones) |
+| Apertura / cierre turno HTTP Device Bearer | ✅ EN1 [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · cableado APK = **P2** |
+| Apertura excepcional BO | ✅ Turnos UI |
 
 ---
 
@@ -104,8 +123,9 @@ Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
 |--------|--------|
 | H1 · H2 | Congelado |
 | H2.5 Cajero | EN1 listo · contrato congelado · APK = Hito 4 |
+| Cash Shift HTTP | **v1.0 congelado** · pendiente recepción P2 |
 | H3 dominio/API + contrato HTTP | Congelado (docs) |
 | H3C BO cobro | Hecho en EN1 · E2E multi-POS = Hito 4 |
 | TZ Fase 1 | Hecho en EN1 |
 | Inventario | No hasta Hito 5 |
-| P2 | Cablear HTTP H3 + cobro tablet + cajero H2.5 |
+| P2 | Cablear HTTP H3 + cobro tablet + cajero H2.5 + **turnos cash** |

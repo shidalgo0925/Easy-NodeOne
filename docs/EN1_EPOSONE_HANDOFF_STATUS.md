@@ -2,8 +2,10 @@
 
 | Campo | Valor |
 |-------|--------|
-| Fecha | **19 jul 2026** |
+| Fecha | **24 jul 2026** |
+| **Cash Shift HTTP** | **v1.0 CONGELADO** — Device Bearer `/api/v1/cash/shifts*` · [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · spec [`EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md`](EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md) · tag `eposone-cash-shift-http-v1.0` (tras commit) |
 | **EN1-POS V7** | [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) — R0 P1 OK · R1 · **gates E2E/2.6** |
+| **ADR-009 Caja EN1** | **Aprobado** — Caja = cobro admin · turno = unidad · `allow_en1_collect_foreign_channel` · reporte cierre · [`ADR-009-EN1-CAJA-CENTRO-COBRO.md`](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · backlog **B-R1-05a/b/c** |
 | **E2E oficial** | [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) — cierra Hito 2.5 |
 | **Hito 2.6** | [`EN1_EPOSONE_HITO2_6_OBSERVABILITY.md`](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) — planificado |
 | **R0 pack** | Prog1 firmó · faltan Analista + Prog2 + T1 |
@@ -110,7 +112,8 @@ Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
 | Bootstrap `cashiers` / `cashiers_version` | ✅ mismo `GET /api/v1/devices/bootstrap` |
 | Sync Up con `cashier_contact_id` | ✅ turno / pedido / pago / reembolso / movimiento |
 | Login local APK + Keystore | ⏸ P2 |
-| Apertura de turno desde tablet | ⏸ P2 (BO sigue para excepciones) |
+| Apertura / cierre turno HTTP Device Bearer | ✅ EN1 [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · cableado APK = **P2** |
+| Apertura excepcional BO | ✅ Turnos UI |
 
 ---
 
@@ -120,8 +123,9 @@ Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
 |--------|--------|
 | H1 · H2 | Congelado |
 | H2.5 Cajero | EN1 listo · contrato congelado · APK = Hito 4 |
+| Cash Shift HTTP | **v1.0 congelado** · pendiente recepción P2 |
 | H3 dominio/API + contrato HTTP | Congelado (docs) |
 | H3C BO cobro | Hecho en EN1 · E2E multi-POS = Hito 4 |
 | TZ Fase 1 | Hecho en EN1 |
 | Inventario | No hasta Hito 5 |
-| P2 | Cablear HTTP H3 + cobro tablet + cajero H2.5 |
+| P2 | Cablear HTTP H3 + cobro tablet + cajero H2.5 + **turnos cash** |

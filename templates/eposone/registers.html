@@ -259,6 +259,14 @@
                                             </li>
                                             {% endif %}
                                             <li><hr class="dropdown-divider"></li>
+                                            {% if shift %}
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id) }}">
+                                                    {% if row.can_close %}Cerrar turno{% else %}Ver / Cerrar turno{% endif %}
+                                                </a>
+                                            </li>
+                                            {% endif %}
                                             {% if row.can_reconcile and shift %}
                                             <li>
                                                 <button type="button" class="dropdown-item"
@@ -266,7 +274,7 @@
                                                     data-shift-id="{{ shift.id }}"
                                                     data-register-ref="{{ reg.unit_ref }}"
                                                     data-expected="{{ row.expected_balance or 0 }}">
-                                                    Arquear
+                                                    Arquear (rápido)
                                                 </button>
                                             </li>
                                             {% endif %}
@@ -274,9 +282,10 @@
                                             <li>
                                                 <form method="post" action="{{ url_for('eposone.eposone_register_close_shift', shift_id=shift.id) }}">
                                                     {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                    <input type="hidden" name="next" value="registers">
                                                     <button type="submit" class="dropdown-item text-danger"
                                                         onclick="return confirm('¿Cerrar el turno de {{ reg.unit_ref }}?');">
-                                                        Cerrar turno
+                                                        Cerrar turno (directo)
                                                     </button>
                                                 </form>
                                             </li>

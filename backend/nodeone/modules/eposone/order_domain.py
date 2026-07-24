@@ -14,7 +14,6 @@ from models.eposone_order import (
     EposoneOrderCancellation,
     EposoneOrderEvent,
     EposoneOrderItem,
-    EposoneOrderPayment,
     EposoneOrderReturn,
 )
 
@@ -85,6 +84,8 @@ def _iso(dt: datetime | None) -> str | None:
 
 
 def _recalc(order: EposoneOrder) -> None:
+    from nodeone.modules.eposone.fiscal_categories import order_payable_total
+
     sub = 0.0
     tax = 0.0
     disc = 0.0
@@ -99,7 +100,10 @@ def _recalc(order: EposoneOrder) -> None:
     order.tax = round(tax, 4)
     order.discount = round(disc, 4)
     tip = float(order.tip or 0)
-    order.total = money2(sub + tax - disc + tip)
+    # Inclusive PA: precio de menú ya trae ITBMS → total cobrable = sub − desc + tip.
+    order.total = order_payable_total(
+        subtotal=sub, tax=tax, discount=disc, tip=tip
+    )
     apply_financial_state(order)
 
 
@@ -110,8 +114,8 @@ def apply_financial_state(order: EposoneOrder) -> None:
     (salvo cancelled/returned).
     """
     # Normaliza total a centavos para que UI/BO/APK (2dp) no dejen basura de 4dp.
-    order.total = money2(order.total)
     total = money2(order.total)
+    order.total = total
     paid = money2(order.amount_paid)
     if paid <= 0:
         order.payment_status = 'unpaid'
@@ -412,45 +416,57 @@ class OrderDomainService:
             OrderDomainService._require_owner(order, device, for_payment=True)
 
         if event_type == 'producto.agregado':
-            line_ref = str(payload.get('line_ref') or secrets.token_hex(6))
+            line_ref = str(payload.get('line_ref') or secrets.token_hex(6)).strip()
             product_ref = str(payload.get('product_ref') or '').strip()
             if not product_ref:
                 raise OrderDomainError('product_ref_required', http_status=400)
-            qty = float(payload.get('qty') or 1)
-            unit_price = float(payload.get('unit_price') or 0)
-            discount = float(payload.get('discount') or 0)
-            tax = float(payload.get('tax') or 0)
-            # Solo auto-ITBMS si el APK no envió `tax`. Si envía tax:0, respetar
-            # (precios con impuesto incluido / exento). Sobrescribir 0 hinchaba totales
-            # y dejaba cobros APK en payment_status=partial.
-            if 'tax' not in payload:
-                from nodeone.core.services.product import ProductService
-                from nodeone.modules.eposone.fiscal_categories import line_tax_amount
-
-                prod = ProductService.get_by_ref(int(order.organization_id), product_ref)
-                if prod is not None:
-                    if unit_price <= 0:
-                        unit_price = float(prod.unit_price or 0)
-                    tax = line_tax_amount(
-                        qty=qty,
-                        unit_price=unit_price,
-                        fiscal_category=prod.fiscal_category,
-                        discount=discount,
-                    )
-            item = EposoneOrderItem(
-                order_id=order.id,
-                line_ref=line_ref,
-                product_ref=product_ref,
-                qty=qty,
-                unit_price=unit_price,
-                tax=tax,
-                discount=discount,
-                notes=payload.get('notes'),
-                line_status='pending',
+            # Idempotencia sync/reconnect: mismo line_ref no duplica la línea.
+            existing_line = next(
+                (
+                    i
+                    for i in (order.items or [])
+                    if str(i.line_ref) == line_ref and str(i.line_status) != 'cancelled'
+                ),
+                None,
             )
-            order.items.append(item)
-            db.session.flush()
-            _recalc(order)
+            if existing_line is not None:
+                # No-op de ítem; el event_id nuevo igual se audita abajo.
+                pass
+            else:
+                qty = float(payload.get('qty') or 1)
+                unit_price = float(payload.get('unit_price') or 0)
+                discount = float(payload.get('discount') or 0)
+                tax = float(payload.get('tax') or 0)
+                # Solo auto-ITBMS si el APK no envió `tax`. Si envía tax:0, respetar
+                # (precios con impuesto incluido / exento).
+                if 'tax' not in payload:
+                    from nodeone.core.services.product import ProductService
+                    from nodeone.modules.eposone.fiscal_categories import line_tax_amount
+
+                    prod = ProductService.get_by_ref(int(order.organization_id), product_ref)
+                    if prod is not None:
+                        if unit_price <= 0:
+                            unit_price = float(prod.unit_price or 0)
+                        tax = line_tax_amount(
+                            qty=qty,
+                            unit_price=unit_price,
+                            fiscal_category=prod.fiscal_category,
+                            discount=discount,
+                        )
+                item = EposoneOrderItem(
+                    order_id=order.id,
+                    line_ref=line_ref,
+                    product_ref=product_ref,
+                    qty=qty,
+                    unit_price=unit_price,
+                    tax=tax,
+                    discount=discount,
+                    notes=payload.get('notes'),
+                    line_status='pending',
+                )
+                order.items.append(item)
+                db.session.flush()
+                _recalc(order)
         elif event_type == 'producto.eliminado':
             line_ref = str(payload.get('line_ref') or '').strip()
             item = next((i for i in order.items if i.line_ref == line_ref), None)
@@ -532,10 +548,10 @@ class OrderDomainService:
             if 'notes' in payload:
                 order.notes = payload.get('notes')
             if 'tip' in payload:
-                order.tip = float(payload.get('tip') or 0)
+                order.tip = money2(payload.get('tip'))
                 _recalc(order)
         elif event_type == 'pedido.cobrado':
-            if float(order.amount_paid or 0) + 1e-9 < float(order.total or 0):
+            if money2(order.amount_paid) + 1e-9 < money2(order.total):
                 raise OrderDomainError('balance_not_zero', http_status=409)
             apply_financial_state(order)
         elif event_type in ('pago.registrado', 'pedido.creado', 'pedido.dividido'):

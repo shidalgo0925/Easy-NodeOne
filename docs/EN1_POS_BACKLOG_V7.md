@@ -75,7 +75,10 @@ Núcleo org/dispositivo → Cajero/turno → Catálogo mínimo → Motor totales
 | B-R1-02 | Dispositivos | Provisioning+bootstrap+revoke DoD | C-ORG-05…07 | B-R1-01 | Ambos | P0 | Device opera con versiones visibles | APK+EN1 |
 | B-R1-03 | Licencia | Plan/trial/grace/heartbeat DoD mínimo | C-ORG-08 | B-R1-02 | Ambos | P1 | Caja bloqueada/reactivada auditable | Offline grace |
 | B-R1-04 | Empleados | Cajero PIN + atribución DoD | C-HR-01…03 | B-R1-02 | Ambos | P0 | Venta atribuida a cajero | Login+turno+venta |
-| B-R1-05 | Caja | Abrir/cerrar turno + diferencia | C-CASH-01…04 | B-R1-04 | Ambos | P0 | Cierre explica efectivo | Turno completo |
+| B-R1-05 | Caja | Abrir/cerrar turno + diferencia + **ADR-009** | C-CASH-01…04 | B-R1-04 | Ambos | P0 | Cierre explica efectivo + medios; política canales | Turno completo |
+| B-R1-05a | Caja | Setting `allow_en1_collect_foreign_channel` (default Sí) | ADR-009 | B-R1-05 | Prog1 | P0 | Flag empresa; cobro BO respeta Sí/No | Cobro foreign on/off |
+| B-R1-05b | Caja | Reporte cierre turno: ventas / medios / movimientos / arqueo efectivo vs conciliación electrónica | ADR-009 · C-CASH-02/04 | B-R1-05a | Prog1 | P0 | **Hecho (dev)** — `/admin/eposone/shifts/<id>` nivel EPOS1 | 1 turno cerrado cuadra |
+| B-R1-05c | Caja | `expected_balance` solo efectivo (no mezclar tarjetas/Yappy en contado) | ADR-009 §6 | B-R1-05b | Prog1 | P0 | **Hecho (dev)** — OD cash + mov. en `compute_expected_balance` | Arqueo cuadra |
 | B-R1-06 | Catálogo | Producto + categoría comercial entidad mínima | C-CAT-01…02 | B-R1-01 | Prog1 | P0 | Filtro categorías real; sync down | Catálogo APK |
 | B-R1-07 | Fiscal catálogo | ITBMS en producto → política | C-CAT-03 | B-R1-06 | Prog1 | P0 | Alcohol 10% coherente | Línea impuesto |
 | B-R1-08 | Comercial | Motor totales único (EN1+Dart) | C-COM-03…05 | B-R0-08, B-R1-07 | Ambos | P0 | Mismo desglose en 4 superficies | Paridad totales |

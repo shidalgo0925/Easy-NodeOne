@@ -1,0 +1,6 @@
+{# EPosOne — badge de pago del pedido (lista + detalle). Expects: order #}
+{% set pay = (order.payment_status or '')|lower %}
+{% if pay == 'paid' %}{% with text='paid', tone='paid' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% elif pay == 'partial' %}{% with text='partial', tone='preparing' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% else %}{% with text=order.payment_status or 'unpaid', tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% endif %}

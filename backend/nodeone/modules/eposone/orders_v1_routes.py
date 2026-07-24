@@ -47,11 +47,9 @@ def _device_from_request():
 def _bo_actor_user_ref() -> str | None:
     if not getattr(current_user, 'is_authenticated', False):
         return None
-    return str(
-        getattr(current_user, 'username', None)
-        or getattr(current_user, 'email', None)
-        or f'user-{getattr(current_user, "id", "")}'
-    )
+    from nodeone.modules.eposone.bo_actor import actor_label_from_user
+
+    return actor_label_from_user(current_user)
 
 
 def _err(exc: Exception):

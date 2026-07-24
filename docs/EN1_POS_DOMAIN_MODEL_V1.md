@@ -41,7 +41,7 @@ Empresa
 | **Empresa** | Persona jurídica / negocio que opera con EN1-POS. Tiene moneda, TZ, datos legales y preferencias regionales. |
 | **Sucursal** | Lugar físico o lógico de operación bajo la empresa. |
 | **POS** | Punto de venta dentro de una sucursal (canal operativo). |
-| **Caja** | Unidad de tesorería operativa (register) donde se abren turnos y se consolidan pagos en efectivo/medios. |
+| **Caja** | Unidad de tesorería operativa (register) donde se abren turnos y se consolidan pagos en efectivo/medios. **EN1:** punto de cobro administrativo (no es una tablet). Ver [ADR-009](ADR-009-EN1-CAJA-CENTRO-COBRO.md). |
 | **Dispositivo** | Terminal (tablet/APK) provisionado a una caja/POS. |
 | **Turno** | Periodo de responsabilidad de un cajero sobre una caja (apertura → movimientos → cierre). |
 | **Pedido** | Intención de consumo/venta en curso (líneas, estados operativos, mesero/cajero, notas). |
@@ -86,6 +86,12 @@ Edición de líneas/mesa mientras abierto: sigue Ownership de operación (owner 
 | % fijo / obligatorio | Calculada; override solo si política lo permite |
 
 Estados útiles: **propina pendiente** vs **propina definida** (antes del cierre financiero). Si la caja cambia la propina al cobrar → actualiza pedido → sync a todos.
+
+### R-CAJA-EN1 — Caja EN1 es centro de cobro (ADR-009)
+
+> La Caja pertenece a EN1 y no representa un dispositivo. Opera por **turnos** (abrir → cobrar → movimientos → arqueo → cerrar). No hay entidad “cierre del día”; el reporte diario suma turnos cerrados. Política empresa `allow_en1_collect_foreign_channel` (default Sí) decide si EN1 cobra pedidos de otros canales. Arqueo físico = solo efectivo; medios electrónicos = conciliación aparte.
+
+Detalle: [`ADR-009-EN1-CAJA-CENTRO-COBRO.md`](ADR-009-EN1-CAJA-CENTRO-COBRO.md).
 ---
 
 ## 3. Cadena de catálogo e inventario (Release 1 mínimo / Release 2 pleno)
@@ -187,6 +193,6 @@ Esos se derivan **después** de congelar dominio + gap + backlog.
 
 | Rol | Firma | Fecha |
 |-----|-------|-------|
-| Prog1 (EN1) | **Aceptado** — Pedido ≠ Venta ≠ Recibo ≠ Documento fiscal · **+ R-PAY-MULTI / R-TIP-COBRO (20 jul)** | 20 jul 2026 |
+| Prog1 (EN1) | **Aceptado** — Pedido ≠ Venta ≠ Recibo ≠ Documento fiscal · **+ R-PAY-MULTI / R-TIP-COBRO · + R-CAJA-EN1 / ADR-009 (20 jul)** | 20 jul 2026 |
 | Analista | Pendiente | — |
 | Prog2 (EPosOne) | Pendiente | — |

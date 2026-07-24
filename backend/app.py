@@ -3453,6 +3453,17 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_eposone_cashier_schema: {e}')
         try:
+            from nodeone.services.eposone_cash_shift_schema import (
+                ensure_cash_shift_client_id_schema,
+            )
+
+            ensure_cash_shift_client_id_schema(
+                db, db.engine, printfn=lambda m: print(f'📋 {m}')
+            )
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_cash_shift_client_id_schema: {e}')
+        try:
             from nodeone.services.eposone_commercial_policy_schema import (
                 ensure_eposone_commercial_policy_schema,
             )

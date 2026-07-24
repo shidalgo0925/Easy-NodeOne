@@ -151,10 +151,6 @@ la siguiente descarga obliga a la APK a revocarlo. Un ID inexistente siempre se 
 La atribución queda persistida en pedido, pago, reembolso, movimiento y cierre de turno,
 y en los eventos de auditoría de transición, cancelación, arqueo y transferencia.
 
-**HTTP Device Bearer (apertura/cierre):** ver contrato congelado
-[`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md).
-El payload Sync Up de esta sección **no** sustituye ese HTTP para Prog2.
-
 ## 6. Conflictos de turno
 
 - La Caja solo puede tener un turno abierto.
@@ -185,7 +181,6 @@ nombre vacío pese a existir el cajero en EN1, toca **Prog2 (APK)** — debe usa
 
 ## 8. Changelog
 
-- **v1.2 — 2026-07-24:** Puntero a contrato HTTP Turnos (`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`).
 - **v1.1 — 2026-07-20:** §7 dueño del nombre Integrado/Standalone + ownership de bugs UI.
 - **v1 — 2026-07-18:** snapshot versionado, verificador PBKDF2 portable, revocación por
   cajero inactivo y atribución obligatoria de operaciones Sync Up.

@@ -168,6 +168,8 @@ class CoreCashShift(db.Model):
     closed_by_cashier_contact_id = db.Column(
         db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True
     )
+    # Idempotencia POS (Device Bearer / offline retry)
+    client_shift_id = db.Column(db.String(64), nullable=True, index=True)
 
     movements = db.relationship(
         'CoreCashMovement',

@@ -155,6 +155,7 @@ def eposone_lab_wipe_today():
     _require_platform_lab_wipe()
 
     from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.bo_actor import actor_label_from_user
     from nodeone.modules.eposone.dev_wipe_service import CONFIRM_PHRASE, preview_today, wipe_today
 
     oid = resolve_organization_id()
@@ -172,11 +173,7 @@ def eposone_lab_wipe_today():
                 preview=preview,
                 organization_id=int(oid),
             )
-        actor = (
-            getattr(current_user, 'email', None)
-            or getattr(current_user, 'username', None)
-            or f'user-{getattr(current_user, "id", "")}'
-        )
+        actor = actor_label_from_user(current_user) or f'user-{getattr(current_user, "id", "")}'
         result = wipe_today(int(oid), actor=str(actor))
         flash(
             (
@@ -317,6 +314,19 @@ def _redirect_shifts():
     return redirect(url_for('eposone.eposone_section', slug='shifts'))
 
 
+def _redirect_shift_detail(shift_id: int):
+    return redirect(url_for('eposone.eposone_shift_detail', shift_id=int(shift_id)))
+
+
+def _redirect_after_shift_action(shift_id: int, *, default: str = 'detail'):
+    nxt = (request.form.get('next') or request.args.get('next') or default).strip().lower()
+    if nxt in ('registers', 'register', 'cajas'):
+        return _redirect_registers()
+    if nxt in ('shifts', 'turnos', 'list'):
+        return _redirect_shifts()
+    return _redirect_shift_detail(shift_id)
+
+
 def _redirect_kds():
     return redirect(url_for('eposone.eposone_section', slug='kds'))
 
@@ -441,19 +451,19 @@ def _shift_operational_row(
     *,
     registers_by_ref: dict,
 ) -> dict:
-    from models.commercial_core import CoreCashMovement
+    from nodeone.modules.eposone.shift_close_service import shift_activity_stats
 
     state = _cash_shift_state(shift_row)
     reg = registers_by_ref.get(str(shift_row.register_ref))
-    movement_count = CoreCashMovement.query.filter_by(
-        organization_id=int(organization_id),
-        shift_id=int(shift_row.id),
-    ).count()
+    activity = shift_activity_stats(shift_row)
     return {
         **state,
         'register_ref': str(shift_row.register_ref),
         'register_name': str(getattr(reg, 'name', None) or shift_row.register_ref),
-        'movement_count': int(movement_count),
+        'movement_count': int(activity['activity_count']),
+        'payment_count': int(activity['payment_count']),
+        'treasury_count': int(activity['treasury_count']),
+        'orders_count': int(activity['orders_count']),
     }
 
 
@@ -921,19 +931,9 @@ def eposone_order_domain_detail(order_id: int):
 
     order_origin = None
     try:
-        from models.commercial_core import CorePosTerminal
-        from nodeone.modules.eposone.bo_actor import order_origin_meta
+        from nodeone.modules.eposone.bo_actor import order_origins_map
 
-        t = None
-        if order.owner_device_uuid:
-            t = CorePosTerminal.query.filter_by(
-                organization_id=int(oid), terminal_ref=str(order.owner_device_uuid)
-            ).first()
-        order_origin = order_origin_meta(
-            owner_device_uuid=order.owner_device_uuid,
-            device_label=getattr(t, 'device_label', None) if t else None,
-            profile=getattr(t, 'profile', None) if t else None,
-        )
+        order_origin = order_origins_map(int(oid), [order]).get(int(order.id))
     except Exception:
         order_origin = None
 
@@ -1317,6 +1317,52 @@ def eposone_register_change_cashier(shift_id: int):
     return _redirect_registers()
 
 
+@eposone_bp.route('/shifts/<int:shift_id>', methods=['GET'])
+@login_required
+def eposone_shift_detail(shift_id: int):
+    """Detalle / cierre de turno (paridad EPOS1 — ADR-009 B-R1-05b)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.authorization import CommerceAuthorizationService
+    from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.org_unit import OrgUnitService
+    from nodeone.modules.eposone.shift_close_service import build_shift_close_report
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    day_raw = (request.args.get('day') or '').strip()
+    report = build_shift_close_report(int(oid), int(shift_id), day_local=day_raw or None)
+    if report is None:
+        flash('Turno no encontrado.', 'warning')
+        return _redirect_shifts()
+
+    shift = report['shift']
+    registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
+    reg = next((r for r in registers if str(r.unit_ref) == str(shift.register_ref)), None)
+    register_name = str(getattr(reg, 'name', None) or shift.register_ref)
+
+    supervisor_ok = CommerceAuthorizationService.user_is_supervisor(current_user, int(oid))
+    try:
+        from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+        if not EposoneSettingsService.runtime_for(int(oid)).supervisor_approval_required:
+            supervisor_ok = True
+    except Exception:
+        pass
+
+    return render_template(
+        'eposone/shift_close.html',
+        report=report,
+        shift=shift,
+        register_name=register_name,
+        supervisor_ok=supervisor_ok,
+        day_filter=report.get('day_filter') or {},
+    )
+
+
 @eposone_bp.route('/registers/<int:shift_id>/reconcile', methods=['POST'])
 @login_required
 def eposone_register_reconcile_shift(shift_id: int):
@@ -1334,7 +1380,7 @@ def eposone_register_reconcile_shift(shift_id: int):
         counted_amount = float(request.form.get('counted_amount') or 0)
     except ValueError:
         flash('Monto contado no válido.', 'danger')
-        return _redirect_registers()
+        return _redirect_after_shift_action(shift_id)
     try:
         dto = CashRegisterService.begin_reconcile(
             int(oid),
@@ -1344,12 +1390,12 @@ def eposone_register_reconcile_shift(shift_id: int):
         )
     except OrderValidationError as exc:
         flash(str(exc).replace('_', ' '), 'danger')
-        return _redirect_registers()
+        return _redirect_after_shift_action(shift_id)
     flash(
-        f'Arqueo iniciado en {dto.register_ref}. Revisá la diferencia y cerrá el turno.',
+        f'Arqueo registrado en {dto.register_ref}. Revisá la diferencia y cerrá el turno.',
         'info',
     )
-    return _redirect_registers()
+    return _redirect_after_shift_action(shift_id)
 
 
 @eposone_bp.route('/registers/<int:shift_id>/close', methods=['POST'])
@@ -1369,7 +1415,7 @@ def eposone_register_close_shift(shift_id: int):
         dto = CashRegisterService.close_shift(int(oid), int(shift_id), source_app_id='eposone')
     except OrderValidationError as exc:
         flash(str(exc).replace('_', ' '), 'danger')
-        return _redirect_registers()
+        return _redirect_after_shift_action(shift_id)
     variance = dto.cash_variance
     if variance is not None and abs(variance) > 0.009:
         flash(
@@ -1378,7 +1424,7 @@ def eposone_register_close_shift(shift_id: int):
         )
     else:
         flash(f'Turno cerrado en {dto.register_ref}.', 'success')
-    return _redirect_registers()
+    return _redirect_after_shift_action(shift_id, default='shifts')
 
 
 @eposone_bp.route('/shifts/<int:shift_id>/movement', methods=['POST'])
@@ -1397,12 +1443,12 @@ def eposone_shift_movement(shift_id: int):
     movement_type = (request.form.get('movement_type') or '').strip().lower()
     if movement_type not in {'cash_in', 'cash_out'}:
         flash('Tipo de movimiento no válido.', 'warning')
-        return _redirect_shifts()
+        return _redirect_after_shift_action(shift_id)
     try:
         amount = float(request.form.get('amount') or 0)
     except ValueError:
         flash('Monto no válido.', 'danger')
-        return _redirect_shifts()
+        return _redirect_after_shift_action(shift_id)
     supervisor_raw = (request.form.get('supervisor_user_id') or '').strip()
     if not supervisor_raw and getattr(current_user, 'id', None):
         supervisor_raw = str(int(current_user.id))
@@ -1422,10 +1468,10 @@ def eposone_shift_movement(shift_id: int):
         )
     except OrderValidationError as exc:
         flash(str(exc).replace('_', ' '), 'danger')
-        return _redirect_shifts()
+        return _redirect_after_shift_action(shift_id)
     label = 'Ingreso' if movement_type == 'cash_in' else 'Egreso'
     flash(f'{label} de {amount:.2f} registrado en el turno.', 'success')
-    return _redirect_shifts()
+    return _redirect_after_shift_action(shift_id)
 
 
 @eposone_bp.route('/kds/<int:ticket_id>/status', methods=['POST'])
@@ -2068,10 +2114,10 @@ def eposone_order_new():
     import json
     import uuid
 
-    from models.commercial_core import CorePosTerminal
     from nodeone.core.platform.runtime import resolve_organization_id
     from nodeone.core.services.product import ProductService
-    from nodeone.modules.eposone.bo_actor import ensure_backoffice_terminal
+    from nodeone.modules.eposone.bo_actor import actor_label_from_user, ensure_backoffice_terminal
+    from nodeone.modules.eposone.fiscal_categories import tax_percent_for_category
     from nodeone.modules.eposone.order_domain import OrderDomainError, OrderDomainService
 
     oid = resolve_organization_id()
@@ -2086,15 +2132,7 @@ def eposone_order_new():
             'name': p.name,
             'category': p.category or '',
             'fiscal_category': p.fiscal_category or 'ITBMS_7',
-            'tax_percent': (
-                10.0
-                if (p.fiscal_category or '') == 'ITBMS_10'
-                else 15.0
-                if (p.fiscal_category or '') == 'ITBMS_15'
-                else 0.0
-                if (p.fiscal_category or '') == 'EXENTO'
-                else 7.0
-            ),
+            'tax_percent': tax_percent_for_category(p.fiscal_category),
             'unit_price': float(p.unit_price or 0),
             'image_url': p.image_url,
         }
@@ -2190,8 +2228,7 @@ def eposone_order_new():
                 'local_number': local_number,
                 'customer_ref': customer_ref,
                 'notes': notes,
-                'user_ref': getattr(current_user, 'email', None)
-                or getattr(current_user, 'username', None)
+                'user_ref': actor_label_from_user(current_user)
                 or str(getattr(current_user, 'id', '')),
                 'event_id': str(uuid.uuid4()),
             },
@@ -2328,30 +2365,9 @@ def eposone_section(slug: str):
             showing_from = (offset + 1) if orders_total else 0
             showing_to = offset + len(orders)
 
-            from models.commercial_core import CorePosTerminal
-            from nodeone.modules.eposone.bo_actor import order_origin_meta
+            from nodeone.modules.eposone.bo_actor import order_origins_map
 
-            owner_refs = {
-                str(o.owner_device_uuid).strip()
-                for o in orders
-                if (o.owner_device_uuid or '').strip()
-            }
-            terminals_by_ref: dict = {}
-            if owner_refs:
-                trows = (
-                    CorePosTerminal.query.filter_by(organization_id=int(oid))
-                    .filter(CorePosTerminal.terminal_ref.in_(sorted(owner_refs)))
-                    .all()
-                )
-                terminals_by_ref = {str(t.terminal_ref): t for t in trows}
-            order_origins = {}
-            for o in orders:
-                t = terminals_by_ref.get(str(o.owner_device_uuid or '').strip())
-                order_origins[int(o.id)] = order_origin_meta(
-                    owner_device_uuid=o.owner_device_uuid,
-                    device_label=getattr(t, 'device_label', None) if t else None,
-                    profile=getattr(t, 'profile', None) if t else None,
-                )
+            order_origins = order_origins_map(int(oid), orders)
         else:
             showing_from = 0
             showing_to = 0

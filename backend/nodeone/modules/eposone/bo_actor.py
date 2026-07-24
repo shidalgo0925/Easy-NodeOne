@@ -2,12 +2,31 @@
 
 from __future__ import annotations
 
+from typing import Any, Iterable
+
 from models.commercial_core import CorePosTerminal
 from nodeone.core.commerce.constants import POS_TERMINAL_ACTIVE
 from nodeone.core.master.constants import ORG_UNIT_TYPE_POS, ORG_UNIT_TYPE_REGISTER
 
 BACKOFFICE_TERMINAL_REF = 'en1-backoffice'
 BACKOFFICE_DEVICE_LABEL = 'Caja principal (Back Office)'
+
+
+def actor_label_from_user(user: Any) -> str | None:
+    """Etiqueta humana de sesión BO (email → username → user-id)."""
+    if user is None:
+        return None
+    label = (
+        getattr(user, 'email', None)
+        or getattr(user, 'username', None)
+        or (
+            f'user-{getattr(user, "id", "")}'
+            if getattr(user, 'id', None) is not None
+            else None
+        )
+    )
+    text = str(label or '').strip()
+    return text or None
 
 
 def ensure_backoffice_terminal(organization_id: int) -> CorePosTerminal:
@@ -123,3 +142,32 @@ def order_origin_meta(
     if short_ref:
         return {'kind': 'tablet', 'label': f'Tablet · {short_ref}', 'detail': short_ref}
     return {'kind': 'unknown', 'label': '—', 'detail': ''}
+
+
+def order_origins_map(organization_id: int, orders: Iterable[Any]) -> dict[int, dict[str, str]]:
+    """Origen BO/tablet por order.id (batch: 1 query de terminals)."""
+    rows = list(orders)
+    if not rows:
+        return {}
+    owner_refs = {
+        str(o.owner_device_uuid).strip()
+        for o in rows
+        if (getattr(o, 'owner_device_uuid', None) or '').strip()
+    }
+    terminals_by_ref: dict[str, CorePosTerminal] = {}
+    if owner_refs:
+        trows = (
+            CorePosTerminal.query.filter_by(organization_id=int(organization_id))
+            .filter(CorePosTerminal.terminal_ref.in_(sorted(owner_refs)))
+            .all()
+        )
+        terminals_by_ref = {str(t.terminal_ref): t for t in trows}
+    out: dict[int, dict[str, str]] = {}
+    for o in rows:
+        t = terminals_by_ref.get(str(getattr(o, 'owner_device_uuid', None) or '').strip())
+        out[int(o.id)] = order_origin_meta(
+            owner_device_uuid=getattr(o, 'owner_device_uuid', None),
+            device_label=getattr(t, 'device_label', None) if t else None,
+            profile=getattr(t, 'profile', None) if t else None,
+        )
+    return out

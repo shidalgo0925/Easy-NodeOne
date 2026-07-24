@@ -31,6 +31,13 @@ def _day_bounds_utc_naive() -> tuple[datetime, datetime, str]:
     return start, end, day_local
 
 
+def _day_query(model, organization_id: int, ts_col, start: datetime, end: datetime):
+    return (
+        model.query.filter_by(organization_id=int(organization_id))
+        .filter(ts_col >= start, ts_col < end)
+    )
+
+
 def preview_today(organization_id: int) -> dict[str, Any]:
     from models.commercial_core import CoreCashShift, CoreCommercialOrder
     from models.eposone_order import EposoneOrder
@@ -38,21 +45,17 @@ def preview_today(organization_id: int) -> dict[str, Any]:
     oid = int(organization_id)
     start, end, day_local = _day_bounds_utc_naive()
     orders = (
-        EposoneOrder.query.filter_by(organization_id=oid)
-        .filter(EposoneOrder.opened_at >= start, EposoneOrder.opened_at < end)
+        _day_query(EposoneOrder, oid, EposoneOrder.opened_at, start, end)
         .order_by(EposoneOrder.id.asc())
         .all()
     )
     shifts = (
-        CoreCashShift.query.filter_by(organization_id=oid)
-        .filter(CoreCashShift.opened_at >= start, CoreCashShift.opened_at < end)
+        _day_query(CoreCashShift, oid, CoreCashShift.opened_at, start, end)
         .order_by(CoreCashShift.id.asc())
         .all()
     )
     commercial_count = (
-        CoreCommercialOrder.query.filter_by(organization_id=oid)
-        .filter(CoreCommercialOrder.created_at >= start, CoreCommercialOrder.created_at < end)
-        .count()
+        _day_query(CoreCommercialOrder, oid, CoreCommercialOrder.created_at, start, end).count()
     )
     return {
         'timezone': BUSINESS_TZ,
@@ -92,21 +95,15 @@ def wipe_today(organization_id: int, *, actor: str | None = None) -> dict[str, A
     oid = int(organization_id)
     start, end, day_local = _day_bounds_utc_naive()
 
-    deleted_orders = (
-        EposoneOrder.query.filter_by(organization_id=oid)
-        .filter(EposoneOrder.opened_at >= start, EposoneOrder.opened_at < end)
-        .delete(synchronize_session=False)
-    )
-    deleted_shifts = (
-        CoreCashShift.query.filter_by(organization_id=oid)
-        .filter(CoreCashShift.opened_at >= start, CoreCashShift.opened_at < end)
-        .delete(synchronize_session=False)
-    )
-    deleted_commercial = (
-        CoreCommercialOrder.query.filter_by(organization_id=oid)
-        .filter(CoreCommercialOrder.created_at >= start, CoreCommercialOrder.created_at < end)
-        .delete(synchronize_session=False)
-    )
+    deleted_orders = _day_query(
+        EposoneOrder, oid, EposoneOrder.opened_at, start, end
+    ).delete(synchronize_session=False)
+    deleted_shifts = _day_query(
+        CoreCashShift, oid, CoreCashShift.opened_at, start, end
+    ).delete(synchronize_session=False)
+    deleted_commercial = _day_query(
+        CoreCommercialOrder, oid, CoreCommercialOrder.created_at, start, end
+    ).delete(synchronize_session=False)
     db.session.commit()
 
     result = {

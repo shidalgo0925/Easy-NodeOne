@@ -98,21 +98,28 @@ def get_nav_brand_name():
 
     Forzar siempre la marca del producto (APP_BRAND_NAME): NODEONE_NAV_FORCE_PRODUCT_NAME=1
 
-    ADR-011: el BrandContext ya se resuelve (ContextResolver); el cambio visual de nombre
-    por Host se activará en la fase de branding (NODEONE_NAV_USE_BRAND_CONTEXT=1).
+    ADR-011/013: en superficie portal el nombre es BrandContext (Easy Technology Services).
+    Activación amplia de marca por Host: NODEONE_NAV_USE_BRAND_CONTEXT=1.
     """
     import app as M
 
-    if os.environ.get('NODEONE_NAV_USE_BRAND_CONTEXT', '').strip().lower() in ('1', 'true', 'yes', 'on'):
-        try:
-            from nodeone.core.platform.context_resolver import current_app_context
-            from nodeone.core.platform.product_context import SURFACE_PLATFORM
+    try:
+        from nodeone.core.platform.context_resolver import current_app_context
+        from nodeone.core.platform.product_context import SURFACE_PLATFORM, SURFACE_PORTAL
 
-            ctx = current_app_context()
-            if ctx.surface != SURFACE_PLATFORM and ctx.display_name:
-                return ctx.display_name
-        except Exception:
-            pass
+        ctx = current_app_context()
+        use_brand = os.environ.get('NODEONE_NAV_USE_BRAND_CONTEXT', '').strip().lower() in (
+            '1',
+            'true',
+            'yes',
+            'on',
+        )
+        if ctx.surface == SURFACE_PORTAL and ctx.display_name:
+            return ctx.display_name
+        if use_brand and ctx.surface != SURFACE_PLATFORM and ctx.display_name:
+            return ctx.display_name
+    except Exception:
+        pass
 
     if os.environ.get('NODEONE_NAV_FORCE_PRODUCT_NAME', '').strip().lower() in ('1', 'true', 'yes', 'on'):
         return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'

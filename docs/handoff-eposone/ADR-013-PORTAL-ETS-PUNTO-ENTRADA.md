@@ -141,7 +141,15 @@ Queda establecida la arquitectura oficial del ecosistema:
 
 El cliente percibe una experiencia uniforme bajo ETS, mientras que cada producto mantiene su propia identidad y funcionalidad.
 
-Implementación de pantallas Marketplace / Mis Productos / facturación = **fases posteriores**. Esta ADR fija dominio, rol y límites.
+Implementación de pantallas Marketplace / facturación = **fases posteriores**.
+
+### Portal ETS MVP (Dev)
+
+- Rutas: `/portal/` · `/portal/products` · `/portal/open/<product_code>`
+- Servicio: `PortalService.list_products_for_current_tenant()`
+- Fuentes: solo `SubscriptionRegistry` + `ProductRegistry`
+- Post-login en Host portal → `/portal/`
+- Abrir producto → `https://{ProductRegistry.primary_domain}` (sin hardcode)
 
 ---
 

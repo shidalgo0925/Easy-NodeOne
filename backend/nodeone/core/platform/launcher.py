@@ -173,11 +173,20 @@ def visible_launcher_apps(ctx, organization_id: int | None = None) -> list[dict[
 
 
 def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
-    """URL destino tras login / selector de org (respeta launcher v2)."""
+    """URL destino tras login / selector de org (respeta launcher v2 + Portal ETS)."""
     from flask import url_for
 
     if next_page:
         return next_page
+
+    # ADR-013: Host portal → experiencia Portal ETS (no ERP EN1)
+    try:
+        from nodeone.core.platform.context_resolver import current_app_context
+
+        if current_app_context().surface == 'portal':
+            return url_for('ets_portal.home')
+    except Exception:
+        pass
 
     from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
 

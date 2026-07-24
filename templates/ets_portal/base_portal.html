@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light" data-brand="portal" data-product="portal" data-surface="portal">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ brand_name|default('Easy Technology Services') }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ets-portal.css') }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="ets-portal">
+    <header class="ets-portal-header">
+        <div class="ets-portal-header__inner">
+            <a class="ets-portal-brand" href="{{ url_for('ets_portal.home') }}">
+                <span class="ets-portal-brand__mark" aria-hidden="true">ETS</span>
+                <span class="ets-portal-brand__name">{{ brand_name|default('Easy Technology Services') }}</span>
+            </a>
+            <nav class="ets-portal-nav" aria-label="Principal">
+                <a href="{{ url_for('ets_portal.home') }}" class="ets-portal-nav__link{% if request.endpoint == 'ets_portal.home' %} is-active{% endif %}">Inicio</a>
+                <a href="{{ url_for('ets_portal.products') }}" class="ets-portal-nav__link{% if request.endpoint == 'ets_portal.products' %} is-active{% endif %}">Mis Productos</a>
+                <a href="{{ url_for('logout') }}" class="ets-portal-nav__link">Cerrar sesión</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="ets-portal-main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="ets-portal-flashes">
+            {% for category, message in messages %}
+            <div class="ets-portal-flash ets-portal-flash--{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="ets-portal-footer">
+        <p>Easy Technology Services · Portal del ecosistema</p>
+    </footer>
+</body>
+</html>

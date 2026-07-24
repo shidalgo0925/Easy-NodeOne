@@ -1,0 +1,244 @@
+/* Portal ETS MVP — identidad Easy Technology Services (surface portal) */
+:root {
+    --ets-primary: #0f766e;
+    --ets-primary-dark: #134e4a;
+    --ets-accent: #14b8a6;
+    --ets-bg: #f0fdfa;
+    --ets-ink: #0f172a;
+    --ets-muted: #64748b;
+    --ets-card: #ffffff;
+    --ets-border: #ccfbf1;
+}
+
+* { box-sizing: border-box; }
+
+body.ets-portal {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: var(--ets-ink);
+    background:
+        radial-gradient(1200px 500px at 10% -10%, #99f6e4 0%, transparent 55%),
+        linear-gradient(180deg, var(--ets-bg), #ffffff 45%);
+    display: flex;
+    flex-direction: column;
+}
+
+.ets-portal-header {
+    border-bottom: 1px solid var(--ets-border);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.ets-portal-header__inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0.9rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.ets-portal-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    text-decoration: none;
+    color: var(--ets-primary-dark);
+    font-weight: 700;
+}
+
+.ets-portal-brand__mark {
+    display: inline-grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.55rem;
+    background: var(--ets-primary);
+    color: #fff;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+}
+
+.ets-portal-nav {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.ets-portal-nav__link {
+    text-decoration: none;
+    color: var(--ets-muted);
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+}
+
+.ets-portal-nav__link:hover,
+.ets-portal-nav__link.is-active {
+    color: var(--ets-primary-dark);
+    background: #ccfbf1;
+}
+
+.ets-portal-main {
+    flex: 1;
+    max-width: 960px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 3rem;
+}
+
+.ets-portal-hero h1 {
+    margin: 0.25rem 0 0.5rem;
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+    color: var(--ets-primary-dark);
+}
+
+.ets-portal-hero--compact h1 {
+    font-size: 1.75rem;
+}
+
+.ets-portal-eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    color: var(--ets-accent);
+    font-weight: 700;
+}
+
+.ets-portal-lead {
+    color: var(--ets-muted);
+    margin: 0 0 1.25rem;
+    max-width: 36rem;
+}
+
+.ets-portal-section-title {
+    font-size: 1.1rem;
+    margin: 2rem 0 1rem;
+    color: var(--ets-primary-dark);
+}
+
+.ets-portal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 1.1rem;
+    border-radius: 0.55rem;
+    text-decoration: none;
+    border: 1px solid var(--ets-border);
+    color: var(--ets-primary-dark);
+    background: #fff;
+    font-weight: 600;
+}
+
+.ets-portal-btn--primary {
+    background: var(--ets-primary);
+    border-color: var(--ets-primary);
+    color: #fff;
+}
+
+.ets-portal-btn--disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.ets-portal-product-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1rem;
+}
+
+.ets-portal-product-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    background: var(--ets-card);
+    border: 1px solid var(--ets-border);
+    border-radius: 1rem;
+    box-shadow: 0 8px 24px rgba(15, 118, 110, 0.06);
+}
+
+.ets-portal-product-card__body {
+    display: flex;
+    gap: 0.9rem;
+    align-items: flex-start;
+}
+
+.ets-portal-product-card__icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background: #ccfbf1;
+    color: var(--ets-primary-dark);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.ets-portal-product-card h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.15rem;
+}
+
+.ets-portal-product-card__desc {
+    margin: 0 0 0.35rem;
+    color: var(--ets-muted);
+    font-size: 0.95rem;
+}
+
+.ets-portal-status,
+.ets-portal-meta {
+    margin: 0.15rem 0;
+    font-size: 0.9rem;
+    color: var(--ets-muted);
+}
+
+.ets-portal-empty {
+    color: var(--ets-muted);
+    padding: 1.5rem;
+    border: 1px dashed var(--ets-border);
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.ets-portal-footer {
+    text-align: center;
+    padding: 1rem;
+    color: var(--ets-muted);
+    font-size: 0.85rem;
+}
+
+.ets-portal-flashes {
+    margin-bottom: 1rem;
+}
+
+.ets-portal-flash {
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: #ecfeff;
+    border: 1px solid var(--ets-border);
+}
+
+.ets-portal-flash--error {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+@media (max-width: 640px) {
+    .ets-portal-product-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

@@ -56,6 +56,10 @@ class ResolvedAppContext:
     def brand_preset(self) -> str:
         return self.brand.brand_preset
 
+    @property
+    def theme_background(self) -> str:
+        return self.brand.theme_background
+
     def to_template_dict(self) -> dict[str, Any]:
         """Variables de plantilla / context processor (infra; sin forzar UI)."""
         out = {}

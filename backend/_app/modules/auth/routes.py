@@ -109,6 +109,14 @@ def select_organization():
         return redirect(dest)
     cards = [{'id': int(o.id), 'name': (o.name or '').strip() or 'Empresa', 'logo': resolved_logo_url_for_org_card(int(o.id))} for o in orgs]
     next_page = service.safe_next_path(request.args.get('next'))
+    if not next_page:
+        try:
+            from nodeone.core.platform.context_resolver import current_app_context
+
+            if current_app_context().surface == 'portal':
+                next_page = url_for('ets_portal.home')
+        except Exception:
+            pass
     return render_template(
         'select_organization.html',
         picker_organizations=cards,

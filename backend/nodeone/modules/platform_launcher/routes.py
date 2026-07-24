@@ -55,6 +55,18 @@ def _require_launcher_access():
 @platform_launcher_bp.route('/apps')
 @login_required
 def apps_home():
+    # Surface product: no hay launcher EN1 — ir al home del producto
+    try:
+        from nodeone.core.platform.context_resolver import current_app_context
+        from nodeone.core.platform.launcher import post_login_redirect_target
+
+        if current_app_context().surface == 'product':
+            return redirect(
+                post_login_redirect_target(next_page=None, user=current_user, session=session)
+            )
+    except Exception:
+        pass
+
     denied = _require_launcher_access()
     if denied is not None:
         return denied

@@ -784,8 +784,8 @@ def resolve_theme_tokens():
                 'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
                 'theme_favicon_url': s.favicon_url or '',
             }
-        elif app_ctx.surface == 'portal':
-            # ADR-013 Portal ETS — identidad ETS (no EN1)
+        elif app_ctx.surface in ('portal', 'product'):
+            # ADR-013 Portal / Surface producto — BrandContext (no EN1 genérico)
             out = {
                 **app_ctx.theme_overlay(),
                 'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
@@ -811,7 +811,7 @@ def resolve_theme_tokens():
                 _IIUS_THEME
                 if use_iius
                 else app_ctx.theme_overlay()
-                if app_ctx.surface == 'portal'
+                if app_ctx.surface in ('portal', 'product')
                 else _EN1_THEME
                 if use_en1
                 else {
@@ -832,13 +832,14 @@ def resolve_theme_tokens():
     ea = _env_brand_hex('NODEONE_BRAND_ACCENT')
     eg = _env_brand_hex('NODEONE_BRAND_ACCENT_GOLD')
     ec = _env_brand_hex('NODEONE_BRAND_ACCENT_CYAN')
-    if use_en1 and not ep and not ed and not ea:
+    # Surface producto: no pisar BrandContext con paleta EN1 del silo
+    if use_en1 and app_ctx.surface not in ('portal', 'product') and not ep and not ed and not ea:
         out.update(_EN1_THEME)
-    if ep:
+    if ep and app_ctx.surface not in ('portal', 'product'):
         out['theme_primary'] = ep
-    if ed:
+    if ed and app_ctx.surface not in ('portal', 'product'):
         out['theme_primary_dark'] = ed
-    if ea:
+    if ea and app_ctx.surface not in ('portal', 'product'):
         out['theme_accent'] = ea
         if use_iius:
             out['theme_accent_gold'] = ea
@@ -852,20 +853,22 @@ def resolve_theme_tokens():
     out.setdefault(
         'theme_background_cream',
         app_ctx.theme_background
-        if app_ctx.surface == 'portal'
+        if app_ctx.surface in ('portal', 'product')
         else (_EN1_THEME['theme_background_cream'] if use_en1 else '#F1F5F9'),
     )
-    # Visual brand_preset: silo/env; portal ETS usa preset del BrandContext
+    # Visual brand_preset: silo/env; portal/producto usan BrandContext
     out['brand_preset'] = preset if (use_iius or use_en1) else ''
     if use_iius:
         out['brand_preset'] = 'iius'
     # Metadatos ADR-011 (data-product / data-surface / nombre resuelto)
     out.update(app_ctx.to_template_dict())
-    # No pisar brand_preset visual con el del producto (salvo portal ETS)
+    # No pisar brand_preset visual con el del producto (salvo portal / surface product)
     if use_iius:
         out['brand_preset'] = 'iius'
     elif app_ctx.surface == 'portal':
         out['brand_preset'] = app_ctx.brand_preset or 'portal'
+    elif app_ctx.surface == 'product':
+        out['brand_preset'] = app_ctx.brand_preset or app_ctx.product_code or 'en1'
     elif use_en1:
         out['brand_preset'] = preset if preset in _EN1_BRAND_PRESET_KEYS or preset == '' else 'en1'
         if not out['brand_preset']:

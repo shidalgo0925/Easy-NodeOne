@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ brand_name|default('Easy Technology Services') }}{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ets-portal.css') }}">
     {% block head_extra %}{% endblock %}
@@ -12,7 +14,11 @@
     <header class="ets-portal-header">
         <div class="ets-portal-header__inner">
             <a class="ets-portal-brand" href="{{ url_for('ets_portal.home') }}">
-                <span class="ets-portal-brand__mark" aria-hidden="true">ETS</span>
+                <img class="ets-portal-brand__logo"
+                     src="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}"
+                     alt="{{ brand_name|default('Easy Technology Services') }}"
+                     width="48" height="48"
+                     decoding="async">
                 <span class="ets-portal-brand__name">{{ brand_name|default('Easy Technology Services') }}</span>
             </a>
             <nav class="ets-portal-nav" aria-label="Principal">

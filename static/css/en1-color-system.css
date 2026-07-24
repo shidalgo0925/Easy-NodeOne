@@ -26,6 +26,30 @@ html[data-brand='en1'] {
     --en1-badge-ink: #4b5563;
 }
 
+/* Surface EPosOne — Product Registry theme (Host eposone.easytech.services) */
+html[data-brand='eposone'] {
+    --color-primary: #ff6b35;
+    --color-primary-dark: #c2410c;
+    --color-accent: #fdba74;
+    --color-background-cream: #fff7ed;
+    --color-text: #431407;
+    --color-border: #fed7aa;
+    --en1-accent: #ff6b35;
+    --en1-sorbet: #ff6b35;
+    --en1-sidebar: #c2410c;
+    --en1-canvas: #fff7ed;
+    --en1-surface: #ffffff;
+    --en1-border: #fed7aa;
+    --en1-border-strong: #fdba74;
+    --en1-hover: #ffedd5;
+    --en1-icon: #ea580c;
+    --en1-ink: #431407;
+    --en1-ink-secondary: #9a3412;
+    --en1-ink-muted: #c2410c;
+    --en1-badge-bg: #ffedd5;
+    --en1-badge-ink: #c2410c;
+}
+
 :root {
     --en1-accent: var(--color-primary, #ff6b35);
     --en1-sorbet: var(--en1-accent);

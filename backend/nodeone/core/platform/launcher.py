@@ -180,11 +180,28 @@ def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
         return next_page
 
     # ADR-013: Host portal → experiencia Portal ETS (no ERP EN1)
+    # Surface product → home_hint del Product Registry (p. ej. eposone.eposone_home)
     try:
         from nodeone.core.platform.context_resolver import current_app_context
 
-        if current_app_context().surface == 'portal':
+        app_ctx = current_app_context()
+        if app_ctx.surface == 'portal':
             return url_for('ets_portal.home')
+        if app_ctx.surface == 'product':
+            hint = (app_ctx.product.home_hint or '').strip()
+            app_ids = app_ctx.product.allowed_apps or ()
+            if app_ids:
+                set_active_app_id(session, app_ids[0])
+            if hint and '.' in hint:
+                try:
+                    return url_for(hint)
+                except Exception:
+                    pass
+            if app_ids:
+                try:
+                    return url_for(f'{app_ids[0]}.{app_ids[0]}_home')
+                except Exception:
+                    pass
     except Exception:
         pass
 

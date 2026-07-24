@@ -43,8 +43,8 @@
       "home_hint": "portal_home",
       "app_ids": [],
       "list_in_portal": false,
-      "logo_url": "",
-      "favicon_url": "",
+      "logo_url": "images/logo-easy-technology-services.png",
+      "favicon_url": "images/logo-easy-technology-services.png",
       "licensing": {
         "model": "portal",
         "saas_code": ""
@@ -70,8 +70,8 @@
       "home_hint": "eposone.eposone_home",
       "app_ids": ["eposone"],
       "list_in_portal": true,
-      "logo_url": "",
-      "favicon_url": "",
+      "logo_url": "images/logo-eposone.svg",
+      "favicon_url": "images/logo-eposone.svg",
       "licensing": {
         "model": "register",
         "saas_code": "eposone"

@@ -80,6 +80,9 @@ class TestContextResolverHost(unittest.TestCase):
         self.assertEqual(epo.brand.display_name, 'EPosOne')
         self.assertEqual(epo.brand.theme_primary, '#FF6B35')
         self.assertEqual(epo.product.allowed_apps, ('eposone',))
+        self.assertEqual(epo.brand.logo_url, 'images/logo-eposone.svg')
+        self.assertEqual(epo.product.home_hint, 'eposone.eposone_home')
+        self.assertEqual(epo.brand.brand_preset, 'eposone')
 
         portal = ContextResolver.resolve('app.easytech.services')
         self.assertEqual(portal.product.surface, 'portal')

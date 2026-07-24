@@ -32,8 +32,35 @@ PLATFORM_APP_SHELL_AREA_IDS: frozenset[str] = frozenset(
 )
 
 
+def product_surface_primary_app_id() -> str | None:
+    """En Host surface=product, app_id primario del Product Registry (p. ej. eposone)."""
+    try:
+        from nodeone.core.platform.context_resolver import current_app_context
+
+        ctx = current_app_context()
+        if ctx.surface != 'product':
+            return None
+        apps = ctx.product.allowed_apps or ()
+        return apps[0] if apps else (ctx.product_code if ctx.product_code != 'en1' else None)
+    except Exception:
+        return None
+
+
+def is_product_surface_shell() -> bool:
+    return product_surface_primary_app_id() is not None
+
+
 def is_app_shell_enabled(organization_id: int | None, session) -> bool:
-    """True si el tenant usa launcher apps y hay app activa en sesión."""
+    """True si el tenant usa launcher apps y hay app activa en sesión.
+
+    Surface product (Host EPosOne): siempre shell del producto, sin depender de
+    NODEONE_LAUNCHER_MODE.
+    """
+    primary = product_surface_primary_app_id()
+    if primary:
+        if get_active_app_id(session) != primary:
+            set_active_app_id(session, primary)
+        return True
     if launcher_mode_for_organization(organization_id) != 'apps':
         return False
     return bool(get_active_app_id(session))
@@ -44,6 +71,11 @@ def sync_active_app_from_request(session, user) -> str | None:
     Alinea ``platform_active_app_id`` con la zona de navegación del request actual.
     """
     from flask import request
+
+    primary = product_surface_primary_app_id()
+    if primary:
+        set_active_app_id(session, primary)
+        return primary
 
     if getattr(request, 'blueprint', None) == 'platform_launcher':
         return get_active_app_id(session)
@@ -72,8 +104,14 @@ def sync_active_app_from_request(session, user) -> str | None:
     return get_active_app_id(session)
 
 
-def _apps_return_payload() -> dict[str, Any]:
-    """Retorno al launcher (UX-T1). Copy: Mis aplicaciones — no «Salir de EN1»."""
+def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
+    """Retorno al launcher (UX-T1). En surface product se oculta (no hay launcher EN1)."""
+    if hide:
+        return {
+            'platform_apps_return_url': None,
+            'platform_apps_return_label': None,
+            'platform_shell_show_apps_return': False,
+        }
     from flask import url_for
 
     try:
@@ -105,7 +143,7 @@ def _app_identity_payload(app_id: str) -> dict[str, Any]:
     return base
 
 
-def build_app_shell_nav_payload(active_area_id: str, ctx) -> dict[str, Any]:
+def build_app_shell_nav_payload(active_area_id: str, ctx, *, hide_apps_return: bool = False) -> dict[str, Any]:
     """Navegación restringida a una sola app (subnav horizontal + metadatos)."""
     from nodeone.core.nav_menu import (
         _active_child_label,
@@ -141,7 +179,7 @@ def build_app_shell_nav_payload(active_area_id: str, ctx) -> dict[str, Any]:
         'nav_show_module_bar': bool(children),
         'nav_active_child_label': active_child_label,
     }
-    payload.update(_apps_return_payload())
+    payload.update(_apps_return_payload(hide=hide_apps_return))
     payload.update(_app_identity_payload(active_area_id))
     return payload
 
@@ -150,7 +188,7 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
     """Fusiona payload de shell en el contexto admin si aplica."""
     from flask import request
 
-    if getattr(request, 'blueprint', None) == 'platform_launcher':
+    if getattr(request, 'blueprint', None) == 'platform_launcher' and not is_product_surface_shell():
         out.setdefault('platform_app_shell_active', False)
         return out
 
@@ -158,6 +196,9 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
     from nodeone.core.nav_menu import resolve_active_area_id
 
     org_id = _org_id_for_module_visibility()
+    product_primary = product_surface_primary_app_id()
+    hide_return = bool(product_primary)
+
     if not is_app_shell_enabled(org_id, session):
         out.setdefault('platform_app_shell_active', False)
         return out
@@ -167,6 +208,14 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
     active_id = sync_active_app_from_request(session, user)
     if not active_id:
         out.setdefault('platform_app_shell_active', False)
+        return out
+
+    # Surface product: siempre shell del producto (ignora zonas Core EN1).
+    if product_primary:
+        out.update(
+            build_app_shell_nav_payload(product_primary, ctx, hide_apps_return=True)
+        )
+        out['show_platform_admin_nav'] = False
         return out
 
     # Módulos Core (Contactos, Ventas, Finanzas…) no usan shell de app.
@@ -193,7 +242,7 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
     if request_area in NATIVE_APP_NAV_AREA_IDS and request_in_native_app_zone(request_area):
         shell_area = request_area
 
-    out.update(build_app_shell_nav_payload(shell_area, ctx))
+    out.update(build_app_shell_nav_payload(shell_area, ctx, hide_apps_return=hide_return))
     return out
 
 
@@ -201,7 +250,7 @@ def merge_native_app_nav_context(out: dict[str, Any], user, session) -> dict[str
     """UX V3.2 — nav nativa por app (sidebar único + context bar, sin menú horizontal)."""
     from flask import request
 
-    if getattr(request, 'blueprint', None) == 'platform_launcher':
+    if getattr(request, 'blueprint', None) == 'platform_launcher' and not is_product_surface_shell():
         out.setdefault('app_nav_native_active', False)
         return out
 
@@ -214,8 +263,13 @@ def merge_native_app_nav_context(out: dict[str, Any], user, session) -> dict[str
     )
 
     org_id = _org_id_for_module_visibility()
-    area_id = out.get('nav_active_area_id')
-    if not native_app_nav_enabled(org_id, area_id):
+    product_primary = product_surface_primary_app_id()
+    area_id = product_primary or out.get('nav_active_area_id')
+
+    if product_primary:
+        # Surface product: forzar nav nativa aunque launcher sea classic
+        pass
+    elif not native_app_nav_enabled(org_id, area_id):
         out.setdefault('app_nav_native_active', False)
         return out
 
@@ -244,8 +298,11 @@ def merge_native_app_nav_context(out: dict[str, Any], user, session) -> dict[str
             'app_nav_sidebar': sidebar,
             'app_breadcrumbs': breadcrumbs,
             'nav_active_area_label': tree.label,
+            'nav_active_area_id': tree.nav_area_id,
         }
     )
-    out.update(_apps_return_payload())
+    out.update(_apps_return_payload(hide=bool(product_primary)))
     out.update(_app_identity_payload(tree.nav_area_id))
+    if product_primary:
+        out['show_platform_admin_nav'] = False
     return out

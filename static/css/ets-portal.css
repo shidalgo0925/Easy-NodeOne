@@ -53,16 +53,14 @@ body.ets-portal {
     font-weight: 700;
 }
 
-.ets-portal-brand__mark {
-    display: inline-grid;
-    place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 0.55rem;
-    background: var(--ets-primary);
-    color: #fff;
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
+.ets-portal-brand__logo {
+    display: block;
+    width: 2.75rem;
+    height: 2.75rem;
+    object-fit: contain;
+    border-radius: 0.45rem;
+    background: transparent;
+    flex-shrink: 0;
 }
 
 .ets-portal-nav {

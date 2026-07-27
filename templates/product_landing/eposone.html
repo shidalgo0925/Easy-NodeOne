@@ -145,7 +145,7 @@
 {% if landing.plans %}
 <section class="pl-section" id="planes">
     <div class="pl-section__inner">
-        <h2 class="pl-section__title">Planes que se adaptan a tu negocio</h2>
+        <h2 class="pl-section__title">Planes EPOS One</h2>
         <p class="pl-section__lead">{{ landing.plans_intro }}</p>
         {% if landing.offer_highlights %}
         <ul class="pl-offers">
@@ -157,7 +157,7 @@
             {% endfor %}
         </ul>
         {% endif %}
-        <div class="pl-plans pl-plans--two">
+        <div class="pl-plans">
             {% for p in landing.plans %}
             <article class="pl-plan{% if p.featured %} is-featured{% endif %}">
                 {% if p.eyebrow %}<p class="pl-plan__eyebrow">{{ p.eyebrow }}</p>{% endif %}

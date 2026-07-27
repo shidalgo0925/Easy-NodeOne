@@ -675,13 +675,6 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.pl-plans--two {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  max-width: 56rem;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 .pl-plan {
   padding: 1.35rem;
   border: 1px solid var(--pl-border);

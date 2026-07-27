@@ -22,10 +22,13 @@ class TestProductLandingContent(unittest.TestCase):
         )
         self.assertEqual(c['template'], 'product_landing/eposone.html')
         self.assertEqual(c['demo']['source'], 'eposone-landing')
-        self.assertGreaterEqual(len(c['benefits']), 3)
-        self.assertGreaterEqual(len(c['plans']), 2)
+        self.assertGreaterEqual(len(c['pillars']), 4)
+        self.assertEqual(len(c['plans']), 3)
+        self.assertEqual(c['plans'][1]['name'], 'Business')
+        self.assertIn('US$34.99', c['plans'][1]['price'])
         self.assertGreaterEqual(len(c['faq']), 3)
-        self.assertIn('EPosOne', c['hero']['headline'])
+        self.assertIn('Vende más', c['hero']['tagline'])
+        self.assertEqual(len(c['modules']['entries']), 6)
 
     def test_generic_fallback(self):
         from nodeone.modules.product_landing.content import landing_content_for

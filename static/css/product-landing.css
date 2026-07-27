@@ -191,6 +191,67 @@ a {
   color: var(--pl-primary-dark) !important;
 }
 
+.pl-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pl-hero--banner {
+  min-height: 0;
+  display: block;
+  border-bottom: 1px solid var(--pl-border);
+  background: #fff;
+}
+
+.pl-hero--banner .pl-hero__media {
+  margin: 0;
+  width: 100%;
+  line-height: 0;
+}
+
+.pl-hero--banner .pl-hero__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(78vh, 820px);
+  object-fit: cover;
+  object-position: center top;
+}
+
+.pl-hero--banner .pl-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem 1.25rem 1.35rem;
+  background: #fff;
+  border-top: 1px solid var(--pl-border);
+}
+
+@media (max-width: 720px) {
+  .pl-hero--banner .pl-hero__img {
+    max-height: none;
+    object-fit: contain;
+  }
+
+  .pl-hero--banner .pl-hero__actions {
+    justify-content: stretch;
+  }
+
+  .pl-hero--banner .pl-hero__actions .pl-btn {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
+
 .pl-hero {
   position: relative;
   min-height: min(88vh, 720px);

@@ -10,8 +10,8 @@
     <title>{% block title %}{{ landing.meta_title }}{% endblock %}</title>
     <meta name="description" content="{{ landing.meta_description|e }}">
     <meta name="robots" content="index,follow">
-    {% if brand_logo %}
-    <link rel="icon" href="{{ url_for('static', filename=brand_logo) }}">
+    {% if brand_favicon or brand_logo %}
+    <link rel="icon" href="{{ url_for('static', filename=brand_favicon or brand_logo) }}">
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/product-landing.css') }}">
     {% block head_extra %}{% endblock %}

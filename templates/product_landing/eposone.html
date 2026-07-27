@@ -1,25 +1,36 @@
 {% extends "product_landing/base_public.html" %}
 
 {% block content %}
-<section class="pl-hero" aria-label="Presentación">
+<section class="pl-hero pl-hero--split" aria-label="Presentación">
     <div class="pl-hero__plane" aria-hidden="true"></div>
-    <div class="pl-hero__inner">
-        <p class="pl-hero__eyebrow">{{ landing.hero.eyebrow }}</p>
-        <h1 class="pl-hero__title">{{ landing.hero.headline }}</h1>
-        {% if landing.hero.tagline %}
-        <p class="pl-hero__tagline">{{ landing.hero.tagline }}</p>
-        {% endif %}
-        <p class="pl-hero__sub">{{ landing.hero.subhead }}</p>
-        {% if landing.hero.offer_badge %}
-        <p class="pl-hero__badge">{{ landing.hero.offer_badge }}</p>
-        {% endif %}
-        <div class="pl-hero__cta">
-            <a class="pl-btn pl-btn--primary" href="{{ landing.hero.primary_cta.href }}">{{ landing.hero.primary_cta.label }}</a>
-            <a class="pl-btn pl-btn--ghost" href="{{ landing.hero.secondary_cta.href }}">{{ landing.hero.secondary_cta.label }}</a>
-            <a class="pl-btn pl-btn--ghost" href="{{ login_url }}">{{ landing.hero.tertiary_cta.label }}</a>
+    <div class="pl-hero__layout">
+        <div class="pl-hero__inner">
+            <p class="pl-hero__eyebrow">{{ landing.hero.eyebrow }}</p>
+            <h1 class="pl-hero__title">{{ landing.hero.headline }}</h1>
+            {% if landing.hero.tagline %}
+            <p class="pl-hero__tagline">{{ landing.hero.tagline }}</p>
+            {% endif %}
+            <p class="pl-hero__sub">{{ landing.hero.subhead }}</p>
+            {% if landing.hero.offer_badge %}
+            <p class="pl-hero__badge">{{ landing.hero.offer_badge }}</p>
+            {% endif %}
+            <div class="pl-hero__cta">
+                <a class="pl-btn pl-btn--primary" href="{{ landing.hero.primary_cta.href }}">{{ landing.hero.primary_cta.label }}</a>
+                <a class="pl-btn pl-btn--ghost" href="{{ landing.hero.secondary_cta.href }}">{{ landing.hero.secondary_cta.label }}</a>
+                <a class="pl-btn pl-btn--ghost" href="{{ login_url }}">{{ landing.hero.tertiary_cta.label }}</a>
+            </div>
+            {% if landing.hero.fine_print %}
+            <p class="pl-hero__fine">{{ landing.hero.fine_print }}</p>
+            {% endif %}
         </div>
-        {% if landing.hero.fine_print %}
-        <p class="pl-hero__fine">{{ landing.hero.fine_print }}</p>
+        {% if landing.hero.side_image %}
+        <figure class="pl-hero__visual">
+            <img src="{{ url_for('static', filename=landing.hero.side_image) }}"
+                 alt="{{ landing.hero.side_image_alt|e }}"
+                 width="1024" height="648"
+                 decoding="async"
+                 fetchpriority="high">
+        </figure>
         {% endif %}
     </div>
 </section>

@@ -47,6 +47,10 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             'fine_print': (
                 'Sin compromiso · La prueba no incluye documentos fiscales ni firma electrónica · Contacto EasyTech'
             ),
+            'side_image': 'images/eposone-landing-hero-side.png',
+            'side_image_alt': (
+                'EPOSOne en punto de venta: café, terminal táctil y cobro con tarjeta'
+            ),
         },
         'about': {
             'title_prefix': '¿Qué es',
@@ -58,6 +62,7 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         'assets': {
             'wordmark': 'images/logo-eposone-wordmark.jpg',
             'product_shot': 'images/eposone-landing-product.jpg',
+            'hero_side': 'images/eposone-landing-hero-side.png',
         },
         'pillars': [
             {'title': 'Más rápido', 'body': 'Cobros ágiles y menos filas en caja.'},

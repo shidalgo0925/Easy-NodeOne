@@ -23,13 +23,15 @@ class TestProductLandingContent(unittest.TestCase):
         self.assertEqual(c['template'], 'product_landing/eposone.html')
         self.assertEqual(c['demo']['source'], 'eposone-landing')
         self.assertGreaterEqual(len(c['pillars']), 4)
-        self.assertEqual(len(c['plans']), 2)
-        self.assertEqual(c['plans'][0]['name'], 'EPOS One Business')
-        self.assertIn('39.95', c['plans'][0]['price'])
-        self.assertEqual(c['plans'][1]['name'], 'EPOS One Enterprise')
-        self.assertIn('79.95', c['plans'][1]['price'])
-        self.assertEqual(len(c['services_included']['entries']), 5)
-        self.assertEqual(len(c['services_optional']['entries']), 10)
+        self.assertEqual(len(c['plans']), 3)
+        self.assertEqual(c['plans'][0]['name'], 'Starter')
+        self.assertIn('29.95', c['plans'][0]['price'])
+        self.assertEqual(c['plans'][1]['name'], 'Business')
+        self.assertIn('39.95', c['plans'][1]['price'])
+        self.assertEqual(c['plans'][2]['name'], 'Enterprise')
+        self.assertIn('79.95', c['plans'][2]['price'])
+        self.assertEqual(len(c['services_included']['entries']), 6)
+        self.assertEqual(len(c['services_optional']['entries']), 7)
         self.assertFalse(c['modules']['entries'][2]['included'])  # CRM
         self.assertFalse(c['modules']['entries'][3]['included'])  # Marketing
         self.assertTrue(c['modules']['entries'][0]['included'])  # POS

@@ -28,8 +28,8 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         'template': 'product_landing/eposone.html',
         'meta_title': f'{name} — Punto de venta | EasyTech',
         'meta_description': (
-            'Punto de venta todo en uno para retail, restaurantes y servicios: '
-            'ventas, inventario, clientes y reportes. Online y offline. 45 días gratis.'
+            'Punto de venta moderno para Panamá: retail, restaurantes y servicios. '
+            'Online y offline, sincronización con EN1. Prueba gratuita de 15 días.'
         ),
         'hero': {
             'eyebrow': 'Easy Technology Services',
@@ -40,12 +40,12 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                 'Todo en uno para retail, restaurantes y servicios: ventas, inventario, '
                 'clientes y reportes — online y offline.'
             ),
-            'offer_badge': '45 días gratis · Sin docs. fiscales ni firma electrónica',
+            'offer_badge': '15 días gratis · Actualizaciones y soporte incluidos',
             'primary_cta': {'label': 'Solicitar demostración', 'href': '#demo'},
             'secondary_cta': {'label': 'Ver planes', 'href': '#planes'},
             'tertiary_cta': {'label': 'Iniciar sesión', 'href': 'login'},
             'fine_print': (
-                'Sin compromiso · La prueba no incluye documentos fiscales ni firma electrónica · Contacto EasyTech'
+                'Sin compromiso · Suscripción con actualizaciones y soporte · Contacto EasyTech'
             ),
             'side_image': 'images/eposone-landing-hero-side.png',
             'side_image_alt': (
@@ -79,16 +79,16 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                     'body': 'Interfaz intuitiva, descuentos, devoluciones y múltiples métodos de pago.',
                 },
                 {
-                    'title': 'Control total de inventario',
-                    'body': 'Productos, variantes y stock en tiempo real con alertas automáticas.',
+                    'title': 'Productos y categorías',
+                    'body': 'Catálogo en caja con control básico de productos incluido en el plan.',
                 },
                 {
-                    'title': 'Clientes y fidelización',
-                    'body': 'Historial de compras, puntos y programas de lealtad integrados.',
+                    'title': 'Clientes en caja',
+                    'body': 'Registro de clientes en el POS. El módulo CRM completo es adicional.',
                 },
                 {
-                    'title': 'Reportes inteligentes',
-                    'body': 'Ventas, productos, empleados y márgenes para decidir con datos.',
+                    'title': 'Reportes de ventas',
+                    'body': 'Ventas y operación diaria para decidir con datos. Reportes avanzados según plan.',
                 },
                 {
                     'title': 'Online y offline',
@@ -97,15 +97,54 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             ],
         },
         'modules': {
-            'title': 'Módulos principales',
-            'lead': 'Seis módulos integrados para operar su negocio desde el mostrador hasta el backoffice.',
+            'title': 'Módulos',
+            'lead': (
+                'El plan incluye el POS core (caja, productos, ventas, reportes básicos y configuración). '
+                'CRM, Marketing y el resto de módulos se contratan como adicionales.'
+            ),
             'entries': [
-                {'label': 'POS', 'title': 'Punto de venta', 'body': 'Ventas, descuentos, devoluciones y cobros en segundos.'},
-                {'label': 'Stock', 'title': 'Inventario', 'body': 'Control de existencias, alertas, transferencias y variantes.'},
-                {'label': 'CRM', 'title': 'Clientes', 'body': 'Base de datos, historial de compras y programas de fidelización.'},
-                {'label': 'Marketing', 'title': 'Promociones', 'body': 'Descuentos, combos, cupones y campañas en mostrador.'},
-                {'label': 'Datos', 'title': 'Reportes', 'body': 'Ventas, márgenes, productos top y desempeño por empleado.'},
-                {'label': 'Admin', 'title': 'Configuración', 'body': 'Impuestos, usuarios, permisos y parámetros por sucursal.'},
+                {
+                    'label': 'POS',
+                    'title': 'Punto de venta',
+                    'body': 'Ventas, descuentos, devoluciones y cobros en segundos.',
+                    'badge': 'Incluido',
+                    'included': True,
+                },
+                {
+                    'label': 'Stock',
+                    'title': 'Inventario',
+                    'body': 'Control avanzado de existencias, alertas, transferencias y variantes.',
+                    'badge': 'Adicional',
+                    'included': False,
+                },
+                {
+                    'label': 'CRM',
+                    'title': 'Clientes',
+                    'body': 'Base de datos, historial de compras y programas de fidelización.',
+                    'badge': 'Adicional',
+                    'included': False,
+                },
+                {
+                    'label': 'Marketing',
+                    'title': 'Promociones',
+                    'body': 'Descuentos, combos, cupones y campañas en mostrador.',
+                    'badge': 'Adicional',
+                    'included': False,
+                },
+                {
+                    'label': 'Datos',
+                    'title': 'Reportes avanzados',
+                    'body': 'Márgenes, productos top y desempeño por empleado más allá del reporte de ventas del plan.',
+                    'badge': 'Adicional',
+                    'included': False,
+                },
+                {
+                    'label': 'Admin',
+                    'title': 'Configuración',
+                    'body': 'Impuestos, usuarios, permisos y parámetros por sucursal.',
+                    'badge': 'Incluido',
+                    'included': True,
+                },
             ],
         },
         'benefits_list': [
@@ -118,103 +157,131 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         ],
         'integrations': [
             'EasyNodeOne (EN1) — gestión administrativa y financiera',
-            'Facturación electrónica — cumplimiento DGI Panamá (no incluida en los 45 días gratis; docs. fiscales y firma electrónica se habilitan aparte)',
+            'Facturación electrónica — configuración DGI Panamá (servicio opcional)',
             'Pasarelas de pago — Yappy, Telered, Stripe',
             'Contabilidad — Easy Odoo / ERP',
             'E-commerce — tiendas en línea conectadas',
         ],
         'offer_highlights': [
             {
-                'title': '45 días gratis',
-                'body': 'Sin tarjeta ni compromiso · No incluye docs. fiscales ni firma electrónica',
+                'title': '15 días gratis',
+                'body': 'Prueba el POS sin compromiso · Actualizaciones incluidas',
             },
-            {'title': 'Implementación gratis', 'body': 'Capacitación incluida'},
-            {'title': 'Cancela cuando quieras', 'body': 'Sin permanencia'},
+            {'title': 'Implementación incluida', 'body': 'Configuración inicial y capacitación básica'},
+            {'title': 'Licenciamiento EN1', 'body': 'Respaldo y administración desde la nube'},
         ],
         'plans_intro': (
-            'Montos en USD. Incluye sincronización con EN1 y modo offline. '
-            'La facturación electrónica Panamá está disponible en los planes; requiere alta DGI. '
-            'Confirme vigencia con EasyTech.'
+            'EPOS One es un punto de venta moderno para Panamá, diseñado para trabajar incluso sin Internet, '
+            'con sincronización inteligente hacia EN1, administración centralizada y un modelo de suscripción '
+            'que incluye actualizaciones, soporte y evolución continua del producto. Montos en USD.'
         ),
         'plans': [
             {
-                'eyebrow': 'Ideal para un punto de venta',
-                'name': 'Starter',
-                'price': 'US$24.99',
-                'period': '/ mes',
-                'blurb': 'Ideal para cafeterías, tiendas y pequeños negocios.',
+                'eyebrow': 'Lanzamiento comercial',
+                'name': 'EPOS One Business',
+                'price': 'USD 39.95',
+                'period': '/mes',
+                'blurb': 'Ideal para pequeños y medianos negocios.',
+                'points_heading': 'Incluye',
                 'points': [
-                    '1 POS',
-                    'Caja',
-                    'Pedidos',
-                    'Inventario básico',
-                    'Reportes',
-                    'Offline',
-                    'Módulo FE disponible*',
-                    'Soporte',
-                ],
-                'cta': 'Solicitar plan',
-            },
-            {
-                'eyebrow': 'Para la mayoría de los negocios',
-                'name': 'Business',
-                'price': 'US$34.99',
-                'period': '/ mes',
-                'blurb': 'Restaurantes, bares y comercios en crecimiento.',
-                'points': [
-                    'Hasta 3 POS',
-                    'Inventario avanzado',
+                    '1 organización',
+                    '1 sucursal',
+                    'Hasta 2 cajas POS',
+                    'Usuarios/cajeros ilimitados',
+                    'Productos y categorías',
                     'Clientes',
-                    'Dashboard EN1',
-                    'Reportes avanzados',
-                    'Sincronización',
-                    'Módulo FE disponible*',
-                    'Soporte prioritario',
+                    'Ventas',
+                    'Tickets abiertos',
+                    'Múltiples formas de pago',
+                    'Arqueo y cierre de caja',
+                    'Reportes de ventas',
+                    'Impresión de recibos',
+                    'Impuestos configurables',
+                    'Propinas configurables',
+                    'Modo Offline First',
+                    'Sincronización con EN1',
+                    'Actualizaciones incluidas',
+                    'Soporte estándar',
+                    'Prueba gratuita de 15 días',
                 ],
                 'featured': True,
                 'cta': 'Solicitar plan',
             },
             {
-                'eyebrow': 'Cadenas y múltiples sucursales',
-                'name': 'Enterprise',
-                'price': 'US$59.99',
-                'period': '/ mes',
-                'blurb': 'Negocios grandes que necesitan control total.',
+                'eyebrow': 'Varias sucursales o mayor volumen',
+                'name': 'EPOS One Enterprise',
+                'price': 'USD 79.95',
+                'period': '/mes',
+                'blurb': 'Para empresas con varias sucursales o mayor volumen de operación.',
+                'points_heading': 'Todo lo incluido en Business, más:',
                 'points': [
-                    'POS ilimitados',
-                    'Multi sucursal',
-                    'Dashboard corporativo',
-                    'Roles avanzados',
-                    'API',
-                    'Reportes avanzados',
-                    'Módulo FE disponible*',
-                    'Soporte premium',
+                    'Sucursales múltiples',
+                    'Cajas POS según el plan contratado',
+                    'Administración centralizada',
+                    'Reportes consolidados',
+                    'Gestión avanzada de usuarios y permisos',
+                    'APIs e integraciones',
+                    'Prioridad en sincronización y soporte',
+                    'Funciones Enterprise que se incorporen en futuras versiones',
+                    'Asistencia prioritaria',
+                    'Prueba gratuita de 15 días',
                 ],
                 'cta': 'Hablar con ventas',
             },
         ],
         'plan_compare': {
-            'headers': ['Capacidad', 'Starter', 'Business', 'Enterprise'],
+            'headers': ['Capacidad', 'Business', 'Enterprise'],
             'rows': [
-                ['Precio mensual', 'US$24.99', 'US$34.99', 'US$59.99'],
-                ['Terminales POS', '1', 'Hasta 3', 'Ilimitados'],
-                ['Modo offline', 'Sí', 'Sí', 'Sí'],
-                ['Inventario', 'Básico', 'Avanzado', 'Sí'],
-                ['Dashboard EN1', '—', 'Sí', 'Corporativo'],
-                ['Multi-sucursal', '—', '—', 'Sí'],
-                ['API', '—', '—', 'Sí'],
-                ['Módulo FE Panamá*', 'Disponible', 'Disponible', 'Disponible'],
-                ['Soporte', 'Estándar', 'Prioritario', 'Premium'],
+                ['Precio mensual', 'USD 39.95', 'USD 79.95'],
+                ['Organizaciones', '1', '1+'],
+                ['Sucursales', '1', 'Múltiples'],
+                ['Cajas POS', 'Hasta 2', 'Según plan contratado'],
+                ['Usuarios/cajeros', 'Ilimitados', 'Ilimitados + permisos avanzados'],
+                ['Modo Offline First', 'Sí', 'Sí'],
+                ['Sincronización EN1', 'Sí', 'Prioritaria'],
+                ['Reportes', 'Ventas', 'Consolidados'],
+                ['APIs e integraciones', '—', 'Sí'],
+                ['Soporte', 'Estándar', 'Prioritario'],
+                ['Prueba gratuita', '15 días', '15 días'],
             ],
             'footnote': (
-                '*Facturación electrónica: el período de 45 días gratis no incluye documentos fiscales '
-                'ni firma electrónica (certificado / DGI). Esos servicios se habilitan aparte tras el onboarding. '
-                'Implementación y capacitación del POS incluidas. Dispositivos e impresoras se cotizan aparte.'
+                'Ambos planes incluyen configuración inicial, capacitación básica, actualizaciones continuas, '
+                'respaldo de configuración en EN1 y licenciamiento administrado desde EN1. '
+                'CRM, Marketing, Inventario avanzado y demás módulos fuera del POS core se contratan como adicionales. '
+                'Servicios como instalación en sitio, carga de catálogo, impresoras, facturación electrónica '
+                'e integraciones personalizadas se cotizan aparte.'
             ),
+        },
+        'services_included': {
+            'title': 'Servicios incluidos',
+            'lead': 'En ambos planes:',
+            'entries': [
+                'Configuración inicial del sistema.',
+                'Capacitación básica.',
+                'Actualizaciones continuas.',
+                'Respaldo de configuración en EN1.',
+                'Licenciamiento administrado desde EN1.',
+            ],
+        },
+        'services_optional': {
+            'title': 'Servicios y módulos opcionales',
+            'lead': 'Se cotizan aparte según necesidad:',
+            'entries': [
+                'Módulo CRM (adicional).',
+                'Módulo Marketing (adicional).',
+                'Módulos adicionales fuera del POS core (inventario avanzado, reportes avanzados, etc.).',
+                'Instalación en sitio.',
+                'Carga inicial del catálogo de productos.',
+                'Configuración de impresoras.',
+                'Configuración de facturación electrónica.',
+                'Capacitación avanzada.',
+                'Desarrollo de integraciones personalizadas.',
+                'Migración desde otro sistema POS.',
+            ],
         },
         'testimonials': {
             'title': 'Lo que dicen nuestros clientes',
-            'note': 'La oferta de 45 días gratis aplica al POS. No incluye documentos fiscales ni firma electrónica.',
+            'note': 'Prueba gratuita de 15 días del POS. Actualizaciones y soporte incluidos en la suscripción.',
             'entries': [
                 {
                     'quote': 'Tenemos control total de ventas e inventario. Tomamos mejores decisiones cada semana.',
@@ -232,10 +299,11 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         },
         'faq': [
             {
-                'q': '¿Qué incluye la prueba de 45 días gratis?',
+                'q': '¿Qué incluye la prueba gratuita de 15 días?',
                 'a': (
-                    'El punto de venta (POS). No incluye documentos fiscales ni firma electrónica '
-                    '(certificado / DGI); eso se habilita aparte tras el onboarding.'
+                    'El punto de venta (POS) con las capacidades del plan elegido. '
+                    'Servicios opcionales (instalación en sitio, facturación electrónica, migraciones, etc.) '
+                    'se cotizan aparte.'
                 ),
             },
             {
@@ -257,8 +325,8 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         'demo': {
             'title': 'Solicite una demostración de EPosOne',
             'subtitle': (
-                'Sin compromiso. Prueba de 45 días gratis del punto de venta. '
-                'No incluye documentos fiscales ni firma electrónica.'
+                'Sin compromiso. Prueba gratuita de 15 días del punto de venta. '
+                'Actualizaciones y soporte incluidos en la suscripción.'
             ),
             'source': 'eposone-landing',
             'contacts': [

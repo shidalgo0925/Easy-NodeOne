@@ -107,8 +107,11 @@
         <p class="pl-section__lead">{{ landing.modules.lead }}</p>
         <div class="pl-modules">
             {% for m in landing.modules.entries %}
-            <article class="pl-module">
-                <span class="pl-module__label">{{ m.label }}</span>
+            <article class="pl-module{% if not m.included %} is-addon{% endif %}">
+                <div class="pl-module__head">
+                    <span class="pl-module__label">{{ m.label }}</span>
+                    {% if m.badge %}<span class="pl-module__badge{% if not m.included %} is-addon{% endif %}">{{ m.badge }}</span>{% endif %}
+                </div>
                 <h3>{{ m.title }}</h3>
                 <p>{{ m.body }}</p>
             </article>
@@ -154,7 +157,7 @@
             {% endfor %}
         </ul>
         {% endif %}
-        <div class="pl-plans">
+        <div class="pl-plans pl-plans--two">
             {% for p in landing.plans %}
             <article class="pl-plan{% if p.featured %} is-featured{% endif %}">
                 {% if p.eyebrow %}<p class="pl-plan__eyebrow">{{ p.eyebrow }}</p>{% endif %}
@@ -163,6 +166,7 @@
                 <p class="pl-plan__price"><span>{{ p.price }}</span> {{ p.period }}</p>
                 {% endif %}
                 <p class="pl-plan__blurb">{{ p.blurb }}</p>
+                {% if p.points_heading %}<p class="pl-plan__points-heading">{{ p.points_heading }}</p>{% endif %}
                 <ul>
                     {% for point in p.points %}
                     <li>{{ point }}</li>
@@ -193,6 +197,32 @@
                 </tbody>
             </table>
             <p class="pl-compare__note">{{ landing.plan_compare.footnote }}</p>
+        </div>
+        {% endif %}
+        {% if landing.services_included or landing.services_optional %}
+        <div class="pl-services">
+            {% if landing.services_included %}
+            <div class="pl-services__block">
+                <h3>{{ landing.services_included.title }}</h3>
+                {% if landing.services_included.lead %}<p>{{ landing.services_included.lead }}</p>{% endif %}
+                <ul>
+                    {% for item in landing.services_included.entries %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if landing.services_optional %}
+            <div class="pl-services__block">
+                <h3>{{ landing.services_optional.title }}</h3>
+                {% if landing.services_optional.lead %}<p>{{ landing.services_optional.lead }}</p>{% endif %}
+                <ul>
+                    {% for item in landing.services_optional.entries %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
         {% endif %}
     </div>

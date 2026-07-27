@@ -27,7 +27,7 @@ class TestProductLandingContent(unittest.TestCase):
         self.assertEqual(c['plans'][0]['name'], 'Starter')
         self.assertIn('29.95', c['plans'][0]['price'])
         self.assertEqual(c['plans'][1]['name'], 'Business')
-        self.assertIn('39.95', c['plans'][1]['price'])
+        self.assertIn('49.95', c['plans'][1]['price'])
         self.assertEqual(c['plans'][2]['name'], 'Enterprise')
         self.assertIn('79.95', c['plans'][2]['price'])
         self.assertEqual(len(c['services_included']['entries']), 6)

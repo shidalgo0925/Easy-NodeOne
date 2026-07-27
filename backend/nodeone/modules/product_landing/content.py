@@ -212,7 +212,7 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             {
                 'eyebrow': 'Restaurantes, cafeterías y comercios establecidos',
                 'name': 'Business',
-                'price': 'USD 39.95',
+                'price': 'USD 49.95',
                 'period': '/mes',
                 'blurb': 'Ideal para restaurantes, cafeterías y comercios con mayor volumen de ventas.',
                 'points_heading': 'Todo lo incluido en Starter, más:',
@@ -256,7 +256,7 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         'plan_compare': {
             'headers': ['Plan', 'Starter', 'Business', 'Enterprise'],
             'rows': [
-                ['Precio mensual', 'USD 29.95', 'USD 39.95', 'USD 79.95'],
+                ['Precio mensual', 'USD 29.95', 'USD 49.95', 'USD 79.95'],
                 ['Ideal para', 'Emprendedores y pequeños comercios', 'Restaurantes, cafeterías y comercios establecidos', 'Múltiples sucursales o necesidades avanzadas'],
                 ['Sucursales', '1', '1', 'Múltiples'],
                 ['Cajas POS', '1', 'Hasta 2', 'Según licencia'],

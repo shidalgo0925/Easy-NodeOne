@@ -3671,6 +3671,13 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_ets_product_subscription_schema: {e}')
         try:
+            from nodeone.services.ets_entitlement_schema import ensure_ets_product_entitlement_schema
+
+            ensure_ets_product_entitlement_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_ets_product_entitlement_schema: {e}')
+        try:
             from nodeone.services.eposone_order_schema import ensure_eposone_order_schema
 
             ensure_eposone_order_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

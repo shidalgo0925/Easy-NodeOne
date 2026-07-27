@@ -40,11 +40,6 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                 'Todo en uno para retail, restaurantes y servicios: ventas, inventario, '
                 'clientes y reportes — online y offline.'
             ),
-            'image': 'images/eposone-landing-hero.png',
-            'image_alt': (
-                'EPOSOne — punto de venta simple, rápido y poderoso. '
-                'Vende más. Controla todo. Desde cualquier lugar.'
-            ),
             'offer_badge': '45 días gratis · Sin docs. fiscales ni firma electrónica',
             'primary_cta': {'label': 'Solicitar demostración', 'href': '#demo'},
             'secondary_cta': {'label': 'Ver planes', 'href': '#planes'},
@@ -63,7 +58,6 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         'assets': {
             'wordmark': 'images/logo-eposone-wordmark.jpg',
             'product_shot': 'images/eposone-landing-product.jpg',
-            'hero': 'images/eposone-landing-hero.png',
         },
         'pillars': [
             {'title': 'Más rápido', 'body': 'Cobros ágiles y menos filas en caja.'},

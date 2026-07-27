@@ -24,12 +24,14 @@ def render_product_public_landing():
         description=(defn.description if defn else '') or '',
     )
     logo = brand_context_logo_relpath() or brand.logo_url or (defn.logo_url if defn else '') or ''
+    favicon = (defn.favicon_url if defn and defn.favicon_url else '') or logo
     login_url = url_for('auth.login', next='/')
     return render_template(
         content['template'],
         landing=content,
         brand_name=brand.display_name or (defn.name if defn else product.code),
         brand_logo=logo,
+        brand_favicon=favicon,
         brand_logo_wide=bool(content.get('logo_wide')),
         product_code=product.code,
         login_url=login_url,

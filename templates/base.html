@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}"{% if brand_preset %} data-brand="{{ brand_preset }}"{% endif %}>
+<html lang="es" data-theme="{{ user_theme|default('light') }}" data-font-size="{{ user_font_size|default('medium') }}"{% if brand_preset %} data-brand="{{ brand_preset }}"{% endif %}{% if product_code %} data-product="{{ product_code }}"{% endif %}{% if product_surface %} data-surface="{{ product_surface }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -18,11 +18,16 @@
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-9-dropdown" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=27-launcher-icons" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-14-context-bar" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/en1-color-system.css') }}?v=9-tenant-brand" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=32-eposone-collapse-icons-only" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/platform-app-shell.css') }}?v=8-context-bar-z" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/event-flyers.css') }}?v=2" rel="stylesheet">
+    {% if platform_shell_app_accent == 'eposone' or product_code == 'eposone' or (request.endpoint and request.endpoint.startswith('eposone.')) %}
+    <link href="{{ url_for('static', filename='css/eposone-ui.css') }}?v=prod-img-preview-20260727" rel="stylesheet">
+    {% endif %}
     {% block head_extra %}{% endblock %}
     <style>
         /* Design tokens: identidad por cliente (organization_settings). No hardcodear colores de marca. */
@@ -32,14 +37,11 @@
             --color-accent: {{ theme_accent }};
             --color-accent-gold: {{ theme_accent_gold|default(theme_accent) }};
             --color-accent-cyan: {{ theme_accent_cyan|default(theme_accent) }};
-            --color-background-cream: {{ theme_background_cream|default('#F1F5F9') }};
-            /* Alias legacy (beneficios, promos) */
-            --primary-blue: var(--color-primary);
-            --dark-blue: var(--color-primary-dark);
-            /* Neutros fijos (no editables) */
-            --color-background: #F1F5F9;
-            --color-text: #0F172A;
-            --color-border: #e2e8f0;
+            --color-background-cream: {{ theme_background_cream|default('#F7F9FC') }};
+            /* Neutros EN1 corporativo */
+            --color-background: {{ theme_background_cream|default('#F7F9FC') }};
+            --color-text: #2C3E50;
+            --color-border: #E5E7EB;
             /* Alias para compatibilidad con clases .bg-primary / .text-primary */
             --primary: var(--color-primary);
             --secondary: var(--color-accent);
@@ -188,23 +190,88 @@
                 padding: 0.32rem 0.45rem;
             }
         }
-        /* Botón flotante legacy: desactivado para evitar solapar formularios */
-        #expandSidebarBtn.expand-sidebar-btn {
-            display: none !important;
-        }
         li.sidebar-menu-divider { list-style: none; padding: 0.35rem 1rem; }
         li.sidebar-menu-divider hr { margin: 0; opacity: 0.2; }
         html[data-theme="dark"] .sidebar-section-label,
         html[data-theme="auto"] .sidebar-section-label { color: #9ca3af; }
+        /* Critical: hamburguesa colapsado = solo íconos (sin depender de cache CSS). */
+        body.sidebar-collapsed aside.left-panel {
+            width: 70px !important;
+            min-width: 70px !important;
+            max-width: 70px !important;
+            overflow-x: hidden !important;
+        }
+        body.sidebar-collapsed aside.left-panel .sidebar-org-bar,
+        body.sidebar-collapsed aside.left-panel .menu-title-text,
+        body.sidebar-collapsed aside.left-panel .app-nav-product-label,
+        body.sidebar-collapsed aside.left-panel .app-nav-product-tagline,
+        body.sidebar-collapsed aside.left-panel .menu-arrow,
+        body.sidebar-collapsed aside.left-panel .nav-group-items {
+            display: none !important;
+        }
+        body.sidebar-collapsed aside.left-panel .app-nav-product-header {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 0.5rem 0 !important;
+        }
+        body.sidebar-collapsed aside.left-panel .app-nav-product-icon {
+            display: inline-flex !important;
+            margin: 0 !important;
+        }
+        body.sidebar-collapsed #right-panel {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+        }
+        /* Expandido: devolver textos del menú (Pedidos, etc.). */
+        body:not(.sidebar-collapsed) aside.left-panel.sidebar-erp {
+            width: 240px !important;
+            min-width: 240px !important;
+            max-width: 240px !important;
+        }
+        body:not(.sidebar-collapsed) aside.left-panel .menu-title-text,
+        body:not(.sidebar-collapsed) aside.left-panel .app-nav-product-label,
+        body:not(.sidebar-collapsed) aside.left-panel .app-nav-product-tagline {
+            display: inline !important;
+            width: auto !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        body:not(.sidebar-collapsed) aside.left-panel .app-nav-product-tagline {
+            display: block !important;
+        }
+        /* Opciones de pedido (Mesa/Llevar/Delivery) siempre visibles sobre el sidebar. */
+        #appContextBar.app-context-bar {
+            z-index: 1025 !important;
+            overflow: visible !important;
+            min-height: 2.75rem !important;
+        }
+        body.sidebar-collapsed #appContextBar.app-context-bar {
+            left: 70px !important;
+        }
+        body:not(.sidebar-collapsed) #appContextBar.app-context-bar {
+            left: 240px !important;
+        }
+        /* Hamburguesa siempre en el extremo izquierdo (no empuje por sidebar). */
+        @media (min-width: 992px) {
+            body:has(aside.left-panel) .navbar-landing .navbar-wrap,
+            body.sidebar-collapsed:has(aside.left-panel) .navbar-landing .navbar-wrap,
+            body.open:has(aside.left-panel) .navbar-landing .navbar-wrap {
+                padding-left: 0.5rem !important;
+            }
+            body:has(aside.left-panel) .navbar-landing .topbar-sidebar-toggle {
+                margin-left: 0 !important;
+            }
+        }
     </style>
 </head>
-<body{% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}>
+<body{% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}{% if platform_app_shell_active %} data-platform-app-shell="1"{% endif %}{% if app_nav_native_active %} data-app-nav-native="1"{% endif %}{% if platform_shell_app_accent %} data-platform-app-accent="{{ platform_shell_app_accent }}"{% endif %}>
     <a href="#main-content" class="skip-link visually-hidden-focusable">Saltar al contenido</a>
     <!-- Topbar única: logo + nombre + menú + usuario -->
     <nav class="navbar navbar-expand-lg navbar-landing fixed-top">
         <div class="container-fluid navbar-wrap">
             {% if current_user.is_authenticated and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
-            <button type="button" class="btn btn-link text-dark p-2 me-1 d-inline-flex align-items-center justify-content-center topbar-sidebar-toggle" id="topbarSidebarToggle" aria-label="Abrir o cerrar menú lateral" title="Menú">
+            <button type="button" class="btn btn-link text-dark p-2 me-1 d-inline-flex align-items-center justify-content-center topbar-sidebar-toggle" id="topbarSidebarToggle" aria-label="Abrir o cerrar menú lateral" title="Menú" onclick="if(window.__en1ToggleSidebar){window.__en1ToggleSidebar(event);return false;}">
                 <i class="fas fa-bars fa-lg"></i>
             </button>
             {% endif %}
@@ -376,17 +443,28 @@
     </nav>
 
     {% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
+    {% if platform_app_shell_active and not app_nav_native_active %}
+    <div class="platform-shell-banner" role="region" aria-label="Aplicación activa">
+        <div class="platform-shell-banner__inner container-fluid">
+            <span class="platform-shell-banner__app"><i class="{{ platform_shell_app_icon }}" aria-hidden="true"></i>{{ platform_shell_app_product_name or platform_shell_app_label }}{% if platform_shell_app_tagline %}<span class="platform-shell-banner__tag">{{ platform_shell_app_tagline }}</span>{% endif %}</span>
+            {% if platform_shell_show_apps_return and platform_apps_return_url %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ platform_apps_return_url }}">{{ platform_apps_return_label or '← Mis aplicaciones' }}</a>
+            {% else %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('platform_launcher.apps_switch') }}"><i class="fas fa-exchange-alt me-1"></i>Cambiar aplicación</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% if nav_use_context_bar %}
+    {% include 'partials/app_context_bar.html' %}
+    {% elif nav_show_module_bar and nav_area_children %}
     {% include 'partials/erp_app_subnav.html' %}
+    {% endif %}
     {% endif %}
 
     <!-- Main Content -->
     <main id="main-content" tabindex="-1">
         {% if current_user.is_authenticated and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %}
-        <!-- Botón para expandir sidebar cuando está colapsado -->
-        <button id="expandSidebarBtn" class="expand-sidebar-btn" aria-label="Expand sidebar" title="Expandir menú" style="display: none;">
-            <i class="fas fa-bars"></i>
-        </button>
-        
         <!-- Sidebar: operación (estructura SaaS: producto / tenant / plataforma) -->
         <aside id="left-panel" class="left-panel sidebar-erp">
             {# Mostrar selector si hay más de una empresa, o modo multi-tenant / admin plataforma (evita ocultar en single-tenant cuando RBAC tiene varias orgs). #}
@@ -415,9 +493,31 @@
             <nav class="navbar navbar-expand-sm navbar-default">
                 <div id="main-menu" class="main-menu navbar-collapse">
                     <ul class="nav navbar-nav">
-                        {# 🏠 Dashboard #}
-                        {# Menú lateral miembro Relatic: Inicio → Eventos → Mis servicios → Mi membresía → Tienda → Correo → Documentos #}
+                        {# Miembro / comprador: Relatic (membresía) vs comprador tienda (sales sin memberships). #}
                         {% if not show_tenant_admin_menu and not (show_platform_admin_nav and current_user.is_admin) %}
+                        {% set _store_buyer = saas_module_enabled('sales') and not saas_module_enabled('memberships') %}
+                        {% if _store_buyer %}
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--inicio">
+                            <a class="nav-link sidebar-link {% if request.endpoint == 'dashboard' or request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de productos">
+                                <i class="menu-icon fas fa-home"></i>
+                                <span class="menu-title-text">Inicio</span>
+                            </a>
+                        </li>
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--tienda">
+                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos disponibles">
+                                <i class="menu-icon fas fa-store"></i>
+                                <span class="menu-title-text">Tienda</span>
+                            </a>
+                        </li>
+                        {% if has_view_endpoint('payments_checkout.payments_history') %}
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--orders">
+                            <a class="nav-link sidebar-link {% if request.endpoint == 'payments_checkout.payments_history' %}active{% endif %}" href="{{ url_for('payments_checkout.payments_history') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Pedidos y pagos">
+                                <i class="menu-icon fas fa-receipt"></i>
+                                <span class="menu-title-text">Mis pedidos</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% else %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--inicio">
                             <a class="nav-link sidebar-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Resumen y accesos rápidos">
                                 <i class="menu-icon fas fa-home"></i>
@@ -439,12 +539,14 @@
                         </li>
                         {% endif %}
                         {% if not academic_member_gate_active %}
+                        {% if saas_module_enabled('memberships') or saas_module_enabled('appointments') %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--services">
                             <a class="nav-link sidebar-link {% if request.endpoint == 'member_services' %}active{% endif %}" href="{{ url_for('member_services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios contratados o incluidos en tu plan">
                                 <i class="menu-icon fas fa-box-open"></i>
                                 <span class="menu-title-text">Mis servicios</span>
                             </a>
                         </li>
+                        {% endif %}
                         {% endif %}
                         {% if saas_module_enabled('memberships') %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--membership">
@@ -462,13 +564,14 @@
                             </a>
                         </li>
                         {% endif %}
-                        {% if not academic_member_gate_active %}
+                        {% if not academic_member_gate_active and (saas_module_enabled('sales') or saas_module_enabled('appointments')) %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--tienda">
-                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios disponibles para comprar">
+                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos y servicios disponibles">
                                 <i class="menu-icon fas fa-store"></i>
                                 <span class="menu-title-text">Tienda</span>
                             </a>
                         </li>
+                        {% endif %}
                         {% endif %}
                         {% if saas_module_enabled('communications') and office365_module_enabled %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--mail">
@@ -514,6 +617,20 @@
                             {% endif %}
                         {% endif %}
                         {% elif show_tenant_admin_menu or (show_platform_admin_nav and current_user.is_admin) %}
+                        {% if app_nav_native_active %}
+                        {# UX-T1: retorno «← Mis aplicaciones» vive en app_nav_sidebar (siempre). #}
+                        {% include 'partials/app_nav_sidebar.html' %}
+                        {% elif platform_app_shell_active %}
+                        {% include 'partials/platform_app_shell_sidebar.html' %}
+                        {% else %}
+                        {% if platform_launcher_enabled %}
+                        <li class="nav-item sidebar-nav-app sidebar-nav-app--platform-launcher">
+                            <a class="nav-link {% if request.blueprint == 'platform_launcher' %}active{% endif %}" href="{{ url_for('platform_launcher.apps_home') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Mis aplicaciones">
+                                <i class="menu-icon fas fa-th-large"></i>
+                                <span class="menu-title-text">Mis aplicaciones</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         <li class="nav-item sidebar-nav-app sidebar-nav-app--dashboard">
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
                                 <i class="menu-icon fas fa-tachometer-alt"></i>
@@ -521,6 +638,7 @@
                             </a>
                         </li>
                         {% include 'partials/sidebar_admin_areas.html' %}
+                        {% endif %}
                         {% endif %}
 
                     </ul>
@@ -601,20 +719,40 @@
             var sidebarTooltipInstances = [];
             var sidebarObserver = null;
 
+            function collapseNavGroupsForIconMode() {
+                document.querySelectorAll('#main-menu li.nav-group.show').forEach(function (group) {
+                    group.classList.remove('show');
+                    var tg = group.querySelector(':scope > .nav-group-toggle');
+                    if (tg) tg.setAttribute('aria-expanded', 'false');
+                });
+                saveNavGroupsState();
+            }
+
             function toggleSidebar() {
-                var expandSidebarBtn = document.getElementById('expandSidebarBtn');
                 document.body.classList.toggle('sidebar-collapsed');
                 var isCollapsed = document.body.classList.contains('sidebar-collapsed');
                 localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
-                if (expandSidebarBtn) {
-                    expandSidebarBtn.style.display = 'none';
-                }
-                if (!isCollapsed) {
+                if (isCollapsed) {
+                    collapseNavGroupsForIconMode();
+                } else {
                     restoreNavGroupsFromStorage();
                     expandNavGroupsWithActiveChild();
                 }
                 updateSidebarTooltipsEnabled();
             }
+
+            window.__en1ToggleSidebar = function (ev) {
+                if (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                }
+                if (window.matchMedia('(min-width: 992px)').matches) {
+                    toggleSidebar();
+                } else {
+                    toggleMobileDrawer();
+                }
+                return false;
+            };
 
             function updateSidebarTooltipsEnabled() {
                 if (!sidebarTooltipInstances.length) return;
@@ -649,16 +787,14 @@
 
             function applySidebarCollapsedFromStorage() {
                 var leftPanel = document.getElementById('left-panel');
-                var expandSidebarBtn = document.getElementById('expandSidebarBtn');
                 if (!leftPanel) return;
                 var stored = localStorage.getItem('sidebarCollapsed');
                 var isCollapsed = stored !== 'false';
                 if (isCollapsed) {
                     document.body.classList.add('sidebar-collapsed');
-                    if (expandSidebarBtn) expandSidebarBtn.style.display = 'none';
+                    collapseNavGroupsForIconMode();
                 } else {
                     document.body.classList.remove('sidebar-collapsed');
-                    if (expandSidebarBtn) expandSidebarBtn.style.display = 'none';
                 }
             }
 
@@ -666,15 +802,41 @@
                 if (document.body.classList.contains('sidebar-collapsed')) return;
                 var erpChrome = document.body.getAttribute('data-erp-app-chrome') === '1';
                 document.querySelectorAll('.nav-group').forEach(function (group) {
-                    if (erpChrome && !group.classList.contains('sidebar-nav-launcher-group')) {
+                    var isLauncher = group.classList.contains('sidebar-nav-launcher-group');
+                    var isAppDomain = group.classList.contains('app-nav-domain');
+                    /* En chrome ERP no restaurar grupos del portal miembro; sí launcher y nav nativa de app. */
+                    if (erpChrome && !isLauncher && !isAppDomain) {
                         return;
                     }
                     var groupName = getNavGroupKey(group);
                     if (!groupName) return;
                     if (localStorage.getItem('navGroup_' + groupName) === 'open') {
                         group.classList.add('show');
+                    } else if (localStorage.getItem('navGroup_' + groupName) === 'closed' && isAppDomain) {
+                        /* Solo cerrar si no hay ítem activo (expandNavGroupsWithActiveChild lo reabre). */
+                        if (!group.querySelector('.nav-group-items .nav-link.active')) {
+                            group.classList.remove('show');
+                        }
                     }
                 });
+
+                // UX: acordeón estricto para nav nativa de app.
+                // Si el localStorage deja más de un dominio `app-nav-domain` en "open",
+                // el resultado visual parece "se expandió todo".
+                var shownAppGroups = document.querySelectorAll('#main-menu li.app-nav-domain.show');
+                if (shownAppGroups && shownAppGroups.length > 1) {
+                    var keep = null;
+                    shownAppGroups.forEach(function (g) {
+                        if (!keep && g.querySelector('.nav-group-items .nav-link.active')) keep = g;
+                    });
+                    if (!keep) keep = shownAppGroups[0];
+                    shownAppGroups.forEach(function (g) {
+                        if (g === keep) return;
+                        g.classList.remove('show');
+                        var ot = g.querySelector(':scope > .nav-group-toggle') || g.querySelector('.nav-group-toggle');
+                        if (ot) ot.setAttribute('aria-expanded', 'false');
+                    });
+                }
             }
 
             /** Abre el grupo que contiene el ítem activo (prioridad sobre storage cerrado). */
@@ -834,16 +996,6 @@
                     }
                     return;
                 }
-                if (e.target.closest('#expandSidebarBtn')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (isDesktopSidebarLayout()) {
-                        toggleSidebar();
-                    } else {
-                        toggleMobileDrawer();
-                    }
-                    return;
-                }
                 var tg = e.target.closest('.nav-group-toggle');
                 if (tg) {
                     var group = tg.closest('.nav-group');
@@ -851,10 +1003,20 @@
                     e.preventDefault();
                     e.stopPropagation();
                     var isLauncherGroup = group.classList.contains('sidebar-nav-launcher-group');
+                    var isAppNavDomain = group.classList.contains('app-nav-domain');
                     var leftPanel = document.getElementById('left-panel');
                     var erpChrome = document.body.getAttribute('data-erp-app-chrome') === '1';
-                    /* Portal miembro en ERP: cabecera abre primer hijo; launcher admin: acordeón */
-                    if (erpChrome && !isLauncherGroup && leftPanel && leftPanel.classList.contains('sidebar-erp')) {
+                    var nativeAppNav = document.body.getAttribute('data-app-nav-native') === '1';
+                    /* Portal miembro en ERP: cabecera abre primer hijo; launcher admin: acordeón.
+                       Nav nativa EPosOne (.app-nav-domain): siempre acordeón (Sucursales/POS/Cajas). */
+                    if (
+                        erpChrome
+                        && !isLauncherGroup
+                        && !isAppNavDomain
+                        && !nativeAppNav
+                        && leftPanel
+                        && leftPanel.classList.contains('sidebar-erp')
+                    ) {
                         var subLinks = group.querySelectorAll('.nav-group-items a.nav-link[href]');
                         for (var si = 0; si < subLinks.length; si++) {
                             var hv = subLinks[si].getAttribute('href') || '';
@@ -865,7 +1027,19 @@
                         return;
                     }
                     if (document.body.classList.contains('sidebar-collapsed')) return;
-                    group.classList.toggle('show');
+                    var willOpen = !group.classList.contains('show');
+                    if (isAppNavDomain && willOpen) {
+                        /* Acordeón: un solo dominio de app abierto a la vez. */
+                        document.querySelectorAll('#main-menu li.app-nav-domain.show').forEach(function (other) {
+                            if (other !== group) {
+                                other.classList.remove('show');
+                                var ot = other.querySelector(':scope > .nav-group-toggle');
+                                if (ot) ot.setAttribute('aria-expanded', 'false');
+                            }
+                        });
+                    }
+                    group.classList.toggle('show', willOpen);
+                    tg.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
                     saveNavGroupsState();
                 }
                 var navLink = e.target.closest('#main-menu a.nav-link');
@@ -901,11 +1075,6 @@
             });
 
             document.addEventListener('DOMContentLoaded', initAppChrome);
-
-            window.addEventListener('load', function () {
-                var btn = document.getElementById('expandSidebarBtn');
-                if (btn) btn.style.display = 'none';
-            });
         })();
     </script>
 
@@ -1147,6 +1316,8 @@
     </div>
 
     {% block scripts %}{% endblock %}
+
+    {% include 'partials/timezone_prompt.html' %}
     
 <script>
 function refreshNavbarBadges() {

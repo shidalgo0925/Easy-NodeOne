@@ -1,8 +1,46 @@
 # Mis Certificados — Guía para el usuario
 
-**Easy NodeOne**
+**Easy NodeOne** · Actualizado junio 2026
 
 Esta guía es para **participantes y miembros** de la plataforma. Explica cómo ver, descargar y comprobar tus certificados. No necesitás conocimientos técnicos.
+
+---
+
+## Novedades (junio 2026)
+
+### Un certificado por plan de membresía
+
+Ahora hay **un certificado distinto para cada plan** comercial de tu organización, por ejemplo:
+
+| Tu membresía vigente | Certificado que podés solicitar |
+|----------------------|----------------------------------|
+| **Básica** | Certificado de Membresía **BÁSICA** |
+| **Pro** | Certificado de Membresía **PRO** |
+| **Premium** | Certificado de Membresía **PREMIUM** |
+| (y así con cada plan activo) | |
+
+**Importante:** solo verás el botón **Solicitar** en el certificado que **coincida con tu plan actual**. Si tenés plan Básica, la tarjeta PRO mostrará *Requisitos pendientes* (sin botón) — eso es normal.
+
+### Códigos nuevos
+
+Los certificados nuevos usan códigos como:
+
+- `PLAN-BASIC-O1-2026-0001`
+- `PLAN-PRO-O1-2026-0001`
+
+Los códigos antiguos (`MEM-O1-2026-…`) siguen siendo válidos si ya los tenías emitidos.
+
+### Si la organización actualiza el diseño
+
+Cuando el administrador mejora la plantilla (logo, fondo, textos, etc.), **no tenés que volver a solicitar** el certificado:
+
+- Seguís viendo **Emitido** con el **mismo código**.
+- Al pulsar **Descargar PDF** obtenés la **versión actualizada** del diseño.
+- Tu **fecha de emisión** y los **datos congelados al momento en que lo solicitaste** (nombre y membresía de esa emisión) se mantienen en el PDF.
+
+### Descarga más fiable
+
+Se corrigió un problema que a veces mostraba «Archivo no disponible» al descargar. Si ocurre, recargá la página (Ctrl+F5) o volvé a entrar a **Mis Certificados**.
 
 ---
 
@@ -13,9 +51,9 @@ En la plataforma podés tener dos tipos de certificados:
 | Tipo | ¿Para qué sirve? |
 |------|------------------|
 | **Certificado de evento** | Acredita que participaste en un curso, seminario, congreso o actividad similar. Lo prepara la organización del evento y vos lo descargás cuando ya está listo. |
-| **Certificado de membresía o registro** | Acredita que tenés una cuenta en la plataforma o una membresía activa. En muchos casos lo podés **solicitar vos mismo** con un botón. |
+| **Certificado de membresía** | Acredita que tenés una **membresía activa** de un plan concreto (Básica, Pro, Premium, etc.). Lo **solicitás vos** con un botón cuando cumplís los requisitos. |
 
-Los certificados se entregan en formato **PDF**. Muchos incluyen un **código** y un **código QR** para que cualquier persona pueda comprobar que son auténticos.
+Los certificados se entregan en formato **PDF**. Incluyen un **código** y un **código QR** para comprobar que son auténticos.
 
 ---
 
@@ -25,9 +63,9 @@ Los certificados se entregan en formato **PDF**. Muchos incluyen un **código** 
 2. En el menú lateral, buscá la sección **Operaciones**.
 3. Entrá en **Mis Certificados**.
 
-También podés encontrar un acceso desde tu **perfil**, según cómo esté configurado el sitio de tu organización.
+También podés usar la URL directa de tu organización, por ejemplo: `https://miembros.tuorganizacion.org/certificates`
 
-**Importante:** tenés que estar **logueado**. Si no tenés cuenta, registrate primero o pedí acceso a la organización.
+**Importante:** tenés que estar **logueado** con el correo correcto. El certificado queda asociado a **esa cuenta**.
 
 ---
 
@@ -39,20 +77,20 @@ Al abrir **Mis Certificados** verás una o dos secciones:
 
 Tarjetas con el nombre del evento, las fechas, el **código del certificado** y la **fecha en que se emitió**.
 
-En cada tarjeta hay botones para:
+Botones:
 
-- **Descargar PDF** — guarda el certificado en tu computadora o celular.
-- **Verificar** (icono de escudo) — abre una página pública que confirma si el certificado es válido.
+- **Descargar PDF** — guarda el certificado.
+- **Verificar** (escudo) — comprueba autenticidad en una página pública.
 
 ### Certificados de membresía
 
-Tarjetas con el nombre del certificado (por ejemplo, «Certificado por Registro» o «Certificado de Membresía»).
+Varias tarjetas (una por plan: Básica, Pro, Premium, etc.). Cada una puede mostrar:
 
-Cada tarjeta puede mostrar:
-
-- **Emitido** — ya lo tenés; podés descargar el PDF.
-- **Disponible** — cumplís los requisitos; aparece el botón **Solicitar** para generarlo.
-- **Requisitos pendientes** — todavía no cumplís lo necesario (por ejemplo, no tenés membresía activa).
+| Estado en pantalla | Significado | Qué podés hacer |
+|--------------------|-------------|-----------------|
+| **Emitido** | Ya lo generaste | **Descargar PDF** |
+| **Disponible** | Tenés el plan correcto y aún no lo pediste | **Solicitar** → luego descargar |
+| **Requisitos pendientes** | Tu plan actual no es ese (ej. tenés Básica y mirás PRO) | Nada por ahora; subí de plan o pedí el certificado de tu plan |
 
 ---
 
@@ -60,76 +98,62 @@ Cada tarjeta puede mostrar:
 
 ### ¿Cuándo aparece mi certificado?
 
-Tu certificado de evento **aparece aquí cuando la organización ya lo emitió** para vos. No se genera solo al inscribirte: primero la organización confirma tu participación (por ejemplo, con el registro de asistencia) y luego lo emite.
+Cuando la **organización ya lo emitió** para vos. No se genera solo al inscribirte.
 
-### ¿Qué necesito para verlo?
+### Requisito clave
 
-Lo más importante: el **correo electrónico de tu cuenta** en Easy NodeOne debe ser **el mismo** que usaste al inscribirte en el evento.
+El **correo de tu cuenta** debe coincidir con el del registro del evento.
 
-Si participaste con otro correo, es posible que no veas el certificado. En ese caso contactá a la organización del evento para que actualicen tus datos o te envíen el PDF por otro medio.
+### Cómo descargar
 
-### Cómo descargar el PDF
+1. **Mis Certificados** → sección **Certificados de eventos**.
+2. **Descargar PDF** en tu evento.
 
-1. Entrá a **Mis Certificados**.
-2. En la sección **Certificados de eventos**, buscá tu evento.
-3. Pulsá **Descargar PDF**.
-4. Guardá el archivo en un lugar seguro (nube, correo, carpeta del celular).
-
-Si el botón dice **PDF no disponible**, el archivo aún no está listo o hubo un problema. Volvé a intentar más tarde o escribí a la organización del evento.
-
-### Cómo comprobar que es auténtico
-
-- Desde la tarjeta: pulsá el botón **Verificar** (escudo).
-- Desde el PDF: escaneá el **código QR** con la cámara del celular.
-
-Se abrirá una página que indica si el certificado es **válido**, si fue **revocado** o si **no se encontró**.
+Si dice **PDF no disponible**, contactá a la organización del evento.
 
 ---
 
-## 5. Certificados de membresía o registro — paso a paso
+## 5. Certificados de membresía — paso a paso
 
-### Certificado por registro
+### Requisitos
 
-Si tu organización lo ofrece, acredita que tenés una cuenta en la plataforma.
+- Membresía **vigente** del plan que corresponde al certificado.
+- Solo podés tener **un certificado emitido por plan** (la primera vez pulsás Solicitar; después solo Descargar).
+
+### Cómo solicitar (primera vez)
 
 1. Entrá a **Mis Certificados**.
-2. En **Certificados de membresía**, buscá algo como «Certificado por Registro».
-3. Si dice **Disponible**, pulsá **Solicitar**.
-4. Esperá unos segundos; el sistema generará el PDF.
-5. Cuando aparezca **Emitido**, pulsá **Descargar PDF**.
+2. Bajá a **Certificados de membresía**.
+3. Buscá la tarjeta de **tu plan** (ej. «Certificado de Membresía PRO» si tenés plan Pro).
+4. Si dice **Disponible**, pulsá **Solicitar**.
+5. Esperá unos segundos; se generará el PDF.
+6. Pulsá **Descargar PDF** o dejá que se abra la descarga automáticamente.
 
-### Certificado de membresía
+### Cómo volver a descargar
 
-Acredita que tenés una **membresía activa** en la organización.
+1. **Mis Certificados** → tarjeta con **Emitido**.
+2. **Descargar PDF** — podés hacerlo las veces que quieras.
 
-1. Comprobá que tu membresía esté vigente (planes, pagos o lo que indique tu organización).
-2. En **Mis Certificados**, buscá «Certificado de Membresía» u otro nombre similar.
-3. Si está **Disponible**, pulsá **Solicitar** y luego **Descargar PDF**.
+### Ejemplos frecuentes
 
-Si dice **Requisitos pendientes**, todavía no cumplís las condiciones. Revisá tu membresía o consultá con soporte de la organización.
+| Situación | Qué verás |
+|-----------|-----------|
+| Plan **Básica**, nunca pediste certificado | Tarjeta BÁSICA: **Disponible** → Solicitar |
+| Plan **Pro**, ya lo pediste | Tarjeta PRO: **Emitido** → Descargar |
+| Plan **Premium**, mirás tarjeta PRO | PRO: **Requisitos pendientes** (normal) |
+| Borraron tu emisión (admin) y tenés el plan | Vuelve **Disponible** → podés Solicitar de nuevo |
 
 ---
 
 ## 6. Verificación pública (sin iniciar sesión)
 
-Cualquier persona — vos, un empleador, una universidad — puede comprobar un certificado **sin tener cuenta** en Easy NodeOne.
-
 ### Con el código QR del PDF
 
-1. Abrí el certificado en PDF en el celular o imprimilo.
-2. Escaneá el **código QR** con la cámara o una app de lectura QR.
-3. Se abrirá una página con el resultado: **válido**, **revocado** o **no encontrado**.
+Escaneá el QR → página con resultado: **válido**, **revocado** o **no encontrado**.
 
 ### Con el código escrito
 
-Si alguien te pide el número del certificado (por ejemplo `EN1-2026-…` o `MEM-…`), la organización puede indicarte un enlace de verificación donde ingresar o pegar ese código. La página de verificación que se abre desde **Mis Certificados** ya lleva tu código incluido.
-
-### Qué información suele mostrar la verificación
-
-- Nombre de la persona certificada  
-- Nombre del evento o del tipo de certificado  
-- Fecha de emisión  
-- Si el certificado sigue siendo **válido** o fue **revocado**
+Usá el enlace de verificación de tu organización con el código del certificado (ej. `PLAN-PRO-O1-2026-0001`).
 
 ---
 
@@ -137,37 +161,34 @@ Si alguien te pide el número del certificado (por ejemplo `EN1-2026-…` o `MEM
 
 ### Participé en un evento pero no veo el certificado
 
-Posibles causas:
+- La organización **aún no lo emitió**.
+- Tu **correo de acceso** no coincide con el del registro.
+- Contactá al organizador del evento.
 
-- La organización **aún no lo emitió**. Esperá o preguntá al organizador.
-- Tu **correo de acceso** no coincide con el del registro del evento. Usá la misma cuenta o pedí que corrijan el email.
-- El certificado se emitió a **otro nombre o documento**. Contactá a la organización.
+### No veo el botón Solicitar en el certificado PRO (u otro plan)
 
-### El botón Solicitar no funciona o sale un error
+Casi siempre es porque **tu membresía vigente es de otro plan**. Revisá qué plan tenés activo y buscá la tarjeta que coincida. Si tenés el plan correcto y sigue sin aparecer, contactá soporte.
 
-- Revisá que cumplas los requisitos (membresía activa, cuenta registrada, etc.).
-- Cerrá sesión, volvé a entrar e intentá de nuevo.
-- Si persiste, contactá al soporte de tu organización.
+### Ya tenía un certificado y «desapareció» el botón Solicitar
 
-### Descargué el PDF pero quiero otro con datos corregidos
+Si ahora dice **Emitido**, ya lo generaste — usá **Descargar PDF**. Si un administrador eliminó la emisión para corregir algo, volverá a **Disponible** y podrás solicitarlo otra vez.
 
-Solo la **organización** puede revocar un certificado y emitir uno nuevo con los datos correctos. Escribiles indicando el error (nombre mal escrito, documento, etc.).
+### Descargué el PDF pero quiero otro con datos corregidos (nombre mal escrito)
+
+Contactá a la **administración de tu organización**. Ellos pueden invalidar la emisión y permitir que solicites uno nuevo, o actualizar el diseño y regenerar los certificados.
 
 ### ¿Puedo compartir mi certificado?
 
-Sí. Podés enviar el PDF por correo, subirlo a LinkedIn o entregarlo a quien lo necesite. El QR y el código permiten que terceros comprueben que es real.
-
-### ¿Los certificados vencen?
-
-Depende de la política de cada organización. Si un certificado tiene fecha de vencimiento, la página de verificación lo indicará. Si no hay vencimiento, el certificado permanece válido mientras no sea revocado.
+Sí. El PDF, el QR y el código permiten que terceros lo comprueben.
 
 ### Perdí el PDF
 
-Volvé a **Mis Certificados** y pulsá **Descargar PDF** otra vez. Mientras el certificado siga activo, podés descargarlo las veces que quieras.
+**Mis Certificados** → **Descargar PDF** otra vez (mismo código).
 
-### Me sale «revocado» al verificar
+### Me sale «revocado» o «Archivo no disponible» al verificar o descargar
 
-La organización invalidó ese certificado. Ya no sirve como comprobante oficial. Pedí uno nuevo si corresponde.
+- **Revocado:** la organización invalidó ese certificado.
+- **Archivo no disponible:** error temporal o emisión incompleta — recargá la página o contactá soporte.
 
 ---
 
@@ -175,11 +196,12 @@ La organización invalidó ese certificado. Ya no sirve como comprobante oficial
 
 | Quiero… | Qué hacer |
 |---------|-----------|
-| Ver mis certificados | Menú **Operaciones → Mis Certificados** |
-| Bajar el PDF de un evento | **Descargar PDF** (cuando la organización ya lo emitió) |
-| Pedir certificado de membresía/registro | **Solicitar** → luego **Descargar PDF** |
-| Comprobar autenticidad | Botón **Verificar** o escanear el **QR** del PDF |
-| Resolver un problema | Contactar a la organización del evento o soporte de la plataforma |
+| Ver mis certificados | **Operaciones → Mis Certificados** |
+| Bajar PDF de un evento | **Descargar PDF** (cuando la org ya lo emitió) |
+| Pedir certificado de mi plan | Tarjeta **Disponible** → **Solicitar** → **Descargar PDF** |
+| Bajar de nuevo el mismo certificado | Tarjeta **Emitido** → **Descargar PDF** |
+| Comprobar autenticidad | **Verificar** o escanear el **QR** |
+| Certificado de otro plan (ej. PRO sin tener Pro) | No disponible hasta tener ese plan |
 
 ---
 
@@ -187,10 +209,10 @@ La organización invalidó ese certificado. Ya no sirve como comprobante oficial
 
 | Situación | Contacto |
 |-----------|----------|
-| Evento, asistencia, nombre mal escrito, emisión del certificado | Organización que dictó el evento (correo o teléfono del evento) |
-| Membresía, acceso a la cuenta, módulos de la plataforma | Soporte o administración de tu organización en Easy NodeOne |
-| No podés iniciar sesión | Recuperación de contraseña en la pantalla de login |
+| Evento, asistencia, emisión de certificado de curso | Organización del evento |
+| Membresía, plan, botón Solicitar, descarga | Administración / soporte de tu organización |
+| No podés iniciar sesión | Recuperación de contraseña en el login |
 
 ---
 
-*Guía para usuarios finales de Easy NodeOne. La disponibilidad de certificados de evento o de membresía depende de la configuración de cada organización.*
+*Guía para usuarios finales de Easy NodeOne. La disponibilidad de certificados depende de la configuración de cada organización.*

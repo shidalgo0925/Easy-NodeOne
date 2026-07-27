@@ -93,10 +93,32 @@
                     <div class="mb-3">
                         <label for="timezone" class="form-label">Zona Horaria</label>
                         <select class="form-select" id="timezone">
-                            <option value="America/Panama" selected>Panamá (GMT-5)</option>
-                            <option value="America/Mexico_City">México (GMT-6)</option>
-                            <option value="America/Bogota">Colombia (GMT-5)</option>
-                            <option value="America/Lima">Perú (GMT-5)</option>
+                            <option value="America/Panama" selected>Panamá (America/Panama)</option>
+                            <option value="America/Bogota">Colombia (America/Bogota)</option>
+                            <option value="America/Lima">Perú (America/Lima)</option>
+                            <option value="America/Mexico_City">México (America/Mexico_City)</option>
+                            <option value="America/New_York">Nueva York (America/New_York)</option>
+                            <option value="America/Chicago">Chicago (America/Chicago)</option>
+                            <option value="America/Los_Angeles">Los Ángeles (America/Los_Angeles)</option>
+                            <option value="America/Sao_Paulo">São Paulo (America/Sao_Paulo)</option>
+                            <option value="America/Argentina/Buenos_Aires">Buenos Aires</option>
+                            <option value="Europe/Madrid">Madrid (Europe/Madrid)</option>
+                            <option value="UTC">UTC</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dateFormat" class="form-label">Formato de fecha</label>
+                        <select class="form-select" id="dateFormat">
+                            <option value="DD/MM/YYYY" selected>DD/MM/YYYY</option>
+                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="timeFormat" class="form-label">Formato de hora</label>
+                        <select class="form-select" id="timeFormat">
+                            <option value="24h" selected>24 horas</option>
+                            <option value="12h">12 horas (AM/PM)</option>
                         </select>
                     </div>
                 </div>
@@ -163,6 +185,8 @@ function getPreferencesFromForm() {
         privacy_activity: document.getElementById('privacyActivity').checked,
         language: document.getElementById('language').value,
         timezone: document.getElementById('timezone').value,
+        date_format: document.getElementById('dateFormat').value,
+        time_format: document.getElementById('timeFormat').value,
         theme: document.getElementById('theme').value,
         font_size: document.getElementById('fontSize').value
     };
@@ -178,7 +202,18 @@ function applyPreferencesToForm(prefs) {
     if (typeof prefs.privacy_email !== 'undefined') document.getElementById('privacyEmail').checked = !!prefs.privacy_email;
     if (typeof prefs.privacy_activity !== 'undefined') document.getElementById('privacyActivity').checked = !!prefs.privacy_activity;
     if (prefs.language) document.getElementById('language').value = prefs.language;
-    if (prefs.timezone) document.getElementById('timezone').value = prefs.timezone;
+    if (prefs.timezone) {
+        var tzSel = document.getElementById('timezone');
+        if (![].some.call(tzSel.options, function(o) { return o.value === prefs.timezone; })) {
+            var opt = document.createElement('option');
+            opt.value = prefs.timezone;
+            opt.textContent = prefs.timezone;
+            tzSel.appendChild(opt);
+        }
+        tzSel.value = prefs.timezone;
+    }
+    if (prefs.date_format) document.getElementById('dateFormat').value = prefs.date_format;
+    if (prefs.time_format) document.getElementById('timeFormat').value = prefs.time_format;
     if (prefs.theme) document.getElementById('theme').value = prefs.theme;
     if (prefs.font_size) document.getElementById('fontSize').value = prefs.font_size;
     applyAppearanceToDocument(prefs.theme, prefs.font_size);
@@ -227,7 +262,8 @@ function resetSettings() {
     applyPreferencesToForm({
         notif_email: true, notif_events: true, notif_publications: false, notif_newsletter: true,
         privacy_profile: false, privacy_email: false, privacy_activity: true,
-        language: 'es', timezone: 'America/Panama', theme: 'light', font_size: 'medium'
+        language: 'es', timezone: 'America/Panama', date_format: 'DD/MM/YYYY', time_format: '24h',
+        theme: 'light', font_size: 'medium'
     });
     saveSettings();
 }

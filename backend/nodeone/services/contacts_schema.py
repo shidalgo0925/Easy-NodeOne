@@ -24,6 +24,24 @@ def ensure_contacts_schema(db, engine, printfn=None) -> None:
             except Exception as ex:
                 if printfn:
                     printfn(f'! en1_contact.image_url: {ex}')
+        if 'is_cashier' not in cols:
+            try:
+                dialect = engine.dialect.name
+                col_type = (
+                    'BOOLEAN NOT NULL DEFAULT FALSE'
+                    if dialect == 'postgresql'
+                    else 'INTEGER NOT NULL DEFAULT 0'
+                )
+                clause = 'ADD COLUMN IF NOT EXISTS' if dialect == 'postgresql' else 'ADD COLUMN'
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(f'ALTER TABLE en1_contact {clause} is_cashier {col_type}')
+                    )
+                if printfn:
+                    printfn('+ en1_contact.is_cashier')
+            except Exception as ex:
+                if printfn:
+                    printfn(f'! en1_contact.is_cashier: {ex}')
 
     insp = inspect(engine)
     if 'en1_contact' not in insp.get_table_names():

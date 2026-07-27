@@ -98,6 +98,7 @@ def validate_contact_payload(data: dict[str, Any], *, organization_id: int, excl
         'is_instructor': bool(data.get('is_instructor')),
         'is_donor': bool(data.get('is_donor')),
         'is_employee': bool(data.get('is_employee')),
+        'is_cashier': bool(data.get('is_cashier')),
         'is_tax_exempt': bool(data.get('is_tax_exempt')),
         'active': bool(data.get('active', True)),
     }
@@ -175,6 +176,7 @@ def search_contacts(
         'instructor': Contact.is_instructor.is_(True),
         'donor': Contact.is_donor.is_(True),
         'employee': Contact.is_employee.is_(True),
+        'cashier': Contact.is_cashier.is_(True),
         'consumer_final': Contact.identification_type == 'consumer_final',
     }
     if role in role_map:

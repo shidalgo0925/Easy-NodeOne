@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
@@ -21,6 +22,54 @@ class NavContext:
     is_platform_admin: bool
     is_advisor: bool
     show_tenant_admin_menu: bool
+
+
+def _parse_org_id_list(env_name: str) -> set[int] | None:
+    raw = (os.environ.get(env_name) or '').strip()
+    if not raw:
+        return None
+    out: set[int] = set()
+    for part in raw.split(','):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            out.add(int(part))
+        except ValueError:
+            continue
+    return out or None
+
+
+def current_nav_taxonomy() -> str:
+    """
+    Taxonomía de navegación (ADR-015).
+
+    - ``NODEONE_NAV_TAXONOMY`` = v1 | v2 (default v1)
+    - ``NODEONE_NAV_TAXONOMY_V2_ORG_IDS`` = 7,1 — fuerza v2 en esas orgs
+    - ``NODEONE_NAV_TAXONOMY_V1_ORG_IDS`` = 3,4 — fuerza v1 aunque el global sea v2
+    """
+    mode = (os.environ.get('NODEONE_NAV_TAXONOMY') or 'v1').strip().lower()
+    if mode not in ('v1', 'v2'):
+        mode = 'v1'
+
+    oid: int | None = None
+    if has_request_context():
+        try:
+            from utils.organization import get_current_organization_id
+
+            raw = get_current_organization_id()
+            if raw is not None:
+                oid = int(raw)
+        except Exception:
+            oid = None
+
+    v1_orgs = _parse_org_id_list('NODEONE_NAV_TAXONOMY_V1_ORG_IDS')
+    if oid is not None and v1_orgs and oid in v1_orgs:
+        return 'v1'
+    v2_orgs = _parse_org_id_list('NODEONE_NAV_TAXONOMY_V2_ORG_IDS')
+    if oid is not None and v2_orgs and oid in v2_orgs:
+        return 'v2'
+    return mode
 
 
 @dataclass
@@ -76,6 +125,7 @@ _CONFIG_EPS = (
     'admin_communications.admin_communications_settings',
     'admin_configuration_taxes',
     'admin_identity',
+    'admin_company_setup',
     'admin_email',
     'media_admin.admin_media',
     'admin_ai',
@@ -174,9 +224,91 @@ def _v_ventas(ctx: NavContext) -> bool:
     return ctx.nav_can('payments.view') and ctx.saas_module_enabled('sales')
 
 
+def _v_eposone(ctx: NavContext) -> bool:
+    return (
+        ctx.saas_module_enabled('eposone')
+        and ctx.nav_can('payments.view')
+        and ctx.has_view_endpoint('eposone.eposone_home')
+    )
+
+
+def _v_epayroll(ctx: NavContext) -> bool:
+    return (
+        ctx.saas_module_enabled('epayroll')
+        and ctx.nav_can('users.view')
+        and ctx.has_view_endpoint('epayroll.epayroll_home')
+    )
+
+
+def _v_eposone_compose_sales(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('sales')
+        and ctx.has_view_endpoint('admin_sales_quotations')
+    )
+
+
+def _v_eposone_compose_contacts(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('contacts')
+        and ctx.has_view_endpoint('contacts_admin.contacts_index')
+    )
+
+
+def _v_eposone_compose_products(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('sales')
+        and ctx.has_view_endpoint('admin_services_catalog.admin_services')
+    )
+
+
+def _v_eposone_compose_contador(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('contador')
+        and ctx.has_view_endpoint('contador.contador_index')
+    )
+
+
+def _v_eposone_compose_analytics(ctx: NavContext) -> bool:
+    return (
+        _v_eposone(ctx)
+        and ctx.saas_module_enabled('analytics')
+        and ctx.has_view_endpoint('admin_analytics_sales')
+    )
+
+
+def _eposone_section_item(
+    item_id: str,
+    label: str,
+    icon: str,
+    slug: str,
+    *,
+    visible: Callable[[NavContext], bool] | None = None,
+) -> NavAreaItem:
+    path = f'/admin/eposone/section/{slug}'
+    return NavAreaItem(
+        item_id,
+        label,
+        icon,
+        'eposone.eposone_section',
+        url_path=path,
+        visible=visible or _v_eposone,
+        active_path_prefixes=(path,),
+    )
+
+
 def _v_tienda(ctx: NavContext) -> bool:
-    """Vitrina pública /services (compra y reservas del miembro)."""
-    return ctx.saas_module_enabled('appointments') and ctx.has_view_endpoint('services.list')
+    """Vitrina pública /services (compra del miembro / cliente).
+
+    Visible con catálogo comercial (``sales``) o con agenda (``appointments``,
+    guard legado). Antes solo ``appointments`` ocultaba la Tienda en orgs con Ventas.
+    """
+    if not ctx.has_view_endpoint('services.list'):
+        return False
+    return ctx.saas_module_enabled('sales') or ctx.saas_module_enabled('appointments')
 
 
 def _v_catalog_productos(ctx: NavContext) -> bool:
@@ -188,10 +320,16 @@ def _v_catalog_servicios(ctx: NavContext) -> bool:
 
 
 def _v_catalog_membresias(ctx: NavContext) -> bool:
+    # ADR-015 v2: Membresías es dominio propio — no duplicar bajo Ventas → Catálogo.
+    if current_nav_taxonomy() == 'v2':
+        return False
     return _v_membresias(ctx) and ctx.has_view_endpoint('admin_plans')
 
 
 def _v_catalog_eventos(ctx: NavContext) -> bool:
+    # ADR-015 v2: Eventos es dominio propio — no duplicar bajo Ventas → Catálogo.
+    if current_nav_taxonomy() == 'v2':
+        return False
     return _v_eventos(ctx) and ctx.has_view_endpoint('admin_events.admin_events_index')
 
 
@@ -353,7 +491,7 @@ _CRM_PIPELINE_ITEMS: tuple[NavAreaItem, ...] = (
 _CONTADOR_DATOS_ITEMS: tuple[NavAreaItem, ...] = (
     NavAreaItem(
         'importar',
-        'Importar XLS',
+        'Importaciones',
         'fas fa-file-upload',
         'contador.contador_importar',
         visible=lambda c: c.nav_can('contador.admin'),
@@ -366,7 +504,7 @@ _CONTADOR_DATOS_ITEMS: tuple[NavAreaItem, ...] = (
     ),
     NavAreaItem(
         'catalogo',
-        'Catálogo',
+        'Productos para conteo',
         'fas fa-boxes',
         'contador.contador_catalogo',
         active_endpoints=('contador.contador_catalogo', 'contador.contador_catalogo_nuevo'),
@@ -653,6 +791,11 @@ def _v_portal_mis_certificados(ctx: NavContext) -> bool:
     )
 
 
+def _v_certificados_domain(ctx: NavContext) -> bool:
+    """Dominio Certificados = admin emisión + portal Mis Certificados (ADR-015)."""
+    return _v_certificados(ctx) or _v_portal_mis_certificados(ctx)
+
+
 def _v_email_marketing(ctx: NavContext) -> bool:
     """App Email marketing: solo módulo SaaS ``marketing_email`` (sin integraciones)."""
     return ctx.saas_module_enabled('marketing_email') and ctx.has_view_endpoint('admin_marketing')
@@ -683,7 +826,24 @@ def _v_cxc(ctx: NavContext) -> bool:
 
 
 def _v_finanzas(ctx: NavContext) -> bool:
+    """Área monolítica v1. En taxonomía v2 se oculta (reemplazada por Facturación + Cobros)."""
+    if current_nav_taxonomy() == 'v2':
+        return False
     return _v_facturas(ctx) or _v_contabilidad(ctx) or _v_fe(ctx)
+
+
+def _v_facturacion(ctx: NavContext) -> bool:
+    """Dominio Facturación (ADR-015). Solo en taxonomía v2."""
+    if current_nav_taxonomy() != 'v2':
+        return False
+    return _v_facturas(ctx) or _v_fe(ctx)
+
+
+def _v_cobros(ctx: NavContext) -> bool:
+    """Dominio Cobros (ADR-015). Solo en taxonomía v2. Incluye Asientos temporalmente (D-1)."""
+    if current_nav_taxonomy() != 'v2':
+        return False
+    return _v_cxc(ctx) or _v_contabilidad(ctx)
 
 
 def _v_config(ctx: NavContext) -> bool:
@@ -741,11 +901,11 @@ _FINANZAS_COBRO_ITEMS: tuple[NavAreaItem, ...] = (
 _CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
     NavAreaItem(
         'branding',
-        'Branding',
-        'fas fa-palette',
-        'admin_identity',
+        'Empresa',
+        'fas fa-building',
+        'admin_company_setup',
         visible=_v_config,
-        active_endpoints=('admin_identity',),
+        active_endpoints=('admin_company_setup', 'admin_identity'),
     ),
     NavAreaItem(
         'smtp',
@@ -831,10 +991,42 @@ _CERTIFICADOS_ZONE_ENDPOINTS: tuple[str, ...] = (
 )
 
 # Launcher lateral: enlaces fijos (Dashboard va en base.html) y grupos colapsables.
+# Top-level en sidebar ERP (modo classic).
+# TEMPORAL — atajo classic hasta cutover launcher (UX-T2 / Sprint UX transición apps).
+# «eposone» NO es un módulo ERP permanente: es acceso temporal a la app-producto EPosOne.
+# Entrada oficial: Login → Plataforma → Mis aplicaciones → EPosOne.
+# No ampliar este atajo a otras apps; no tratarlo como diseño definitivo.
+#
+# ADR-015: taxonomía v2 aplana dominios (sin Comercial/Operaciones/Finanzas).
+# Ver ``current_nav_taxonomy()`` / ``NODEONE_NAV_TAXONOMY``.
 _SIDEBAR_TOP_LEVEL_AREA_IDS: tuple[str, ...] = (
     'tienda',
     'contactos',
+    'eposone',  # TEMPORAL — atajo classic hasta cutover launcher
 )
+
+# Orden plano ADR-015 v2 (cosmético Dev): Mis apps + Dashboard viven en base.html;
+# debajo solo estos dominios, en este orden. Inventario/Taller/Eventos fuera del menú v2.
+_SIDEBAR_V2_FLAT_AREA_IDS: tuple[str, ...] = (
+    'tienda',
+    'contactos',
+    'marketing_email',
+    'crm',
+    'ventas',
+    'facturacion',
+    'cobros',
+    'eposone',
+    'membresias',
+    'agenda',
+    'educacion',
+    'certificados',
+    'analitica',
+    'epayroll',
+    'plataforma',
+)
+
+# Áreas top-level que son atajos a apps-producto (no módulos ERP).
+_SIDEBAR_TEMPORARY_APP_SHORTCUT_IDS: frozenset[str] = frozenset({'eposone'})
 
 @dataclass(frozen=True)
 class NavLauncherGroup:
@@ -842,8 +1034,11 @@ class NavLauncherGroup:
     label: str
     icon: str
     area_ids: tuple[str, ...]
+    # Si está definido, el grupo del sidebar solo aparece con ese módulo SaaS activo.
+    saas_module_code: str | None = None
 
 
+# Taxonomía v1 (agrupadores históricos). No usar en v2.
 _SIDEBAR_LAUNCHER_GROUPS: tuple[NavLauncherGroup, ...] = (
     NavLauncherGroup(
         'comercial',
@@ -855,7 +1050,8 @@ _SIDEBAR_LAUNCHER_GROUPS: tuple[NavLauncherGroup, ...] = (
         'operaciones',
         'Operaciones',
         'fas fa-cogs',
-        ('agenda', 'educacion', 'certificados', 'mis_certificados', 'contador'),
+        ('agenda', 'educacion', 'certificados', 'contador'),
+        saas_module_code='operaciones',
     ),
     NavLauncherGroup('finanzas', 'Finanzas', 'fas fa-file-invoice-dollar', ('finanzas',)),
     NavLauncherGroup('inteligencia', 'Inteligencia', 'fas fa-chart-line', ('analitica',)),
@@ -982,6 +1178,127 @@ APP_AREAS: tuple[NavArea, ...] = (
         ),
     ),
     NavArea(
+        id='eposone',
+        label='EPosOne',
+        icon='fas fa-cash-register',
+        visible=_v_eposone,
+        zone_blueprints=('eposone',),
+        zone_path_prefixes=('/admin/eposone',),
+        zone_endpoints=(
+            'eposone.eposone_home',
+            'eposone.eposone_section',
+        ),
+        # Sprint 7 UX — menú operativo corto; técnico bajo Configuración.
+        items=(
+            NavAreaItem(
+                'dashboard',
+                'Dashboard',
+                'fas fa-chart-line',
+                'eposone.eposone_home',
+                visible=_v_eposone,
+                active_endpoints=('eposone.eposone_home',),
+                active_path_prefixes=('/admin/eposone/dashboard',),
+            ),
+            NavAreaItem(
+                'pedidos',
+                'Pedidos',
+                'fas fa-receipt',
+                'eposone.eposone_section',
+                url_path='/admin/eposone/section/orders',
+                visible=_v_eposone,
+                active_path_prefixes=('/admin/eposone/section/orders', '/admin/eposone/orders'),
+            ),
+            _eposone_section_item('productos', 'Productos', 'fas fa-box-open', 'products'),
+            _eposone_section_item('inventario', 'Inventario', 'fas fa-warehouse', 'inventory'),
+            _eposone_section_item('clientes', 'Clientes', 'fas fa-address-book', 'contacts'),
+            NavAreaItem(
+                'caja',
+                'Caja',
+                'fas fa-cash-register',
+                'eposone.eposone_section',
+                url_path='/admin/eposone/section/shifts',
+                visible=_v_eposone,
+                active_path_prefixes=('/admin/eposone/section/shifts',),
+            ),
+            _nav_menu_dropdown(
+                'administracion',
+                'Administración',
+                'fas fa-building',
+                (
+                    _eposone_section_item('empresa', 'Empresa', 'fas fa-building', 'organization'),
+                    _eposone_section_item('sucursales', 'Sucursales', 'fas fa-store', 'branches'),
+                    _eposone_section_item(
+                        'pos-points', 'Puntos de venta', 'fas fa-map-marker-alt', 'pos-points'
+                    ),
+                    _eposone_section_item('cajas', 'Cajas', 'fas fa-cash-register', 'registers'),
+                    _eposone_section_item('cajeros', 'Cajeros', 'fas fa-user-tag', 'cashiers'),
+                ),
+                visible=_v_eposone,
+            ),
+            _nav_menu_dropdown(
+                'eposone-ops',
+                'EPosOne',
+                'fas fa-tablet-alt',
+                (
+                    NavAreaItem(
+                        'install-device',
+                        'Instalar dispositivo',
+                        'fas fa-mobile-alt',
+                        'eposone.eposone_section',
+                        url_path='/admin/eposone/section/registers?install=1',
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/registers',),
+                    ),
+                    _eposone_section_item('terminales', 'Dispositivos', 'fas fa-desktop', 'terminals'),
+                    _eposone_section_item('turnos', 'Turnos', 'fas fa-clock', 'shifts'),
+                ),
+                visible=_v_eposone,
+            ),
+            _nav_menu_dropdown(
+                'mas',
+                'Más',
+                'fas fa-ellipsis-h',
+                (
+                    _eposone_section_item('promociones', 'Promociones', 'fas fa-tags', 'promotions'),
+                    _eposone_section_item('kds', 'Cocina (KDS)', 'fas fa-utensils', 'kds'),
+                    _eposone_section_item('delivery', 'Delivery', 'fas fa-motorcycle', 'delivery'),
+                    _eposone_section_item(
+                        'menu-digital', 'Menú digital', 'fas fa-qrcode', 'digital-menu'
+                    ),
+                    _eposone_section_item('licencias', 'Licencias', 'fas fa-key', 'licenses'),
+                    NavAreaItem(
+                        'conteo-fisico',
+                        'Conteo físico',
+                        'fas fa-clipboard-list',
+                        'contador.contador_index',
+                        visible=_v_eposone_compose_contador,
+                        active_blueprints=('contador',),
+                        active_path_prefixes=('/admin/contador',),
+                    ),
+                ),
+                visible=_v_eposone,
+            ),
+        ),
+    ),
+    NavArea(
+        id='epayroll',
+        label='EPayroll',
+        icon='fas fa-money-check-alt',
+        visible=_v_epayroll,
+        zone_blueprints=('epayroll',),
+        zone_path_prefixes=('/admin/epayroll',),
+        items=(
+            NavAreaItem(
+                'inicio',
+                'Inicio',
+                'fas fa-home',
+                'epayroll.epayroll_home',
+                visible=_v_epayroll,
+                active_endpoints=('epayroll.epayroll_home',),
+            ),
+        ),
+    ),
+    NavArea(
         id='tienda',
         label='Tienda',
         icon='fas fa-store',
@@ -1002,7 +1319,7 @@ APP_AREAS: tuple[NavArea, ...] = (
     ),
     NavArea(
         id='contador',
-        label='Contador',
+        label='Inventario',
         icon='fas fa-clipboard-list',
         visible=_v_contador,
         zone_blueprints=('contador', 'contador_api'),
@@ -1018,7 +1335,7 @@ APP_AREAS: tuple[NavArea, ...] = (
             _nav_menu_dropdown('datos', 'Datos', 'fas fa-database', _CONTADOR_DATOS_ITEMS),
             NavAreaItem(
                 'sesiones',
-                'Sesiones',
+                'Sesiones de conteo',
                 'fas fa-list-ol',
                 'contador.contador_sesiones',
                 active_endpoints=(
@@ -1119,20 +1436,24 @@ APP_AREAS: tuple[NavArea, ...] = (
         id='certificados',
         label='Certificados',
         icon='fas fa-certificate',
-        visible=_v_certificados,
-        zone_endpoints=_CERTIFICADOS_ZONE_ENDPOINTS,
-        zone_path_prefixes=('/admin/certificate',),
+        visible=_v_certificados_domain,
+        zone_endpoints=_CERTIFICADOS_ZONE_ENDPOINTS
+        + ('certificates_page.certificates_page',),
+        zone_path_prefixes=('/admin/certificate', '/certificates', '/my/certificates'),
         zone_blueprints=(
             'certificates_builder',
             'certificates_api',
             'certificates_public',
+            'certificates_page',
+            'my_event_certificates',
         ),
         items=(
             NavAreaItem(
-                'eventos',
-                'Eventos',
+                'emision',
+                'Emisión / Eventos',
                 'fas fa-calendar-alt',
                 'admin_certificate_events',
+                visible=_v_certificados,
                 active_endpoints=('admin_certificate_events',),
             ),
             NavAreaItem(
@@ -1140,10 +1461,21 @@ APP_AREAS: tuple[NavArea, ...] = (
                 'Plantillas',
                 'fas fa-file-image',
                 'admin_certificate_templates',
+                visible=_v_certificados,
                 active_endpoints=(
                     'admin_certificate_templates',
                     'admin_certificate_template_editor',
                 ),
+            ),
+            NavAreaItem(
+                'portal',
+                'Mis Certificados',
+                'fas fa-id-card',
+                'certificates_page.certificates_page',
+                visible=_v_portal_mis_certificados,
+                active_endpoints=('certificates_page.certificates_page',),
+                active_blueprints=('my_event_certificates',),
+                active_path_prefixes=('/certificates', '/my/certificates'),
             ),
         ),
     ),
@@ -1151,7 +1483,10 @@ APP_AREAS: tuple[NavArea, ...] = (
         id='mis_certificados',
         label='Mis Certificados',
         icon='fas fa-id-card',
+        # Ya vive bajo el dominio Certificados (sidebar). Se mantiene el área para
+        # resolución de zona / compatibilidad de highlight.
         visible=_v_portal_mis_certificados,
+        show_in_sidebar=False,
         zone_path_prefixes=('/certificates', '/my/certificates'),
         zone_blueprints=('certificates_page', 'my_event_certificates'),
         zone_endpoints=('certificates_page.certificates_page',),
@@ -1169,7 +1504,7 @@ APP_AREAS: tuple[NavArea, ...] = (
     ),
     NavArea(
         id='marketing_email',
-        label='Email marketing',
+        label='Marketing',
         icon='fas fa-bullhorn',
         visible=_v_email_marketing,
         zone_path_prefixes=('/admin/marketing',),
@@ -1241,6 +1576,82 @@ APP_AREAS: tuple[NavArea, ...] = (
                 visible=_v_fe,
                 active_blueprints=('efactura_admin', 'efactura_api'),
                 active_path_prefixes=('/admin/efactura', '/api/admin/efactura'),
+            ),
+        ),
+    ),
+    # ADR-015 — dominios Facturación / Cobros (taxonomía v2; mismos endpoints que finanzas).
+    NavArea(
+        id='facturacion',
+        label='Facturación',
+        icon='fas fa-file-invoice',
+        visible=_v_facturacion,
+        zone_blueprints=('efactura_admin', 'efactura_api'),
+        zone_path_prefixes=('/admin/efactura', '/api/admin/efactura'),
+        zone_endpoints=(
+            'admin_accounting_invoices',
+            'admin_accounting_invoice_new',
+            'admin_accounting_invoice_form',
+            'efactura_admin.efactura_emissions',
+            'efactura_admin.efactura_test_invoice',
+            'efactura_admin.efactura_logs',
+        ),
+        items=(
+            NavAreaItem(
+                'facturas',
+                'Facturas',
+                'fas fa-file-invoice',
+                'admin_accounting_invoices',
+                url_path='/admin/accounting/invoices',
+                visible=_v_facturas,
+                active_endpoints=(
+                    'admin_accounting_invoices',
+                    'admin_accounting_invoice_new',
+                    'admin_accounting_invoice_form',
+                ),
+            ),
+            NavAreaItem(
+                'fe',
+                'Fact. electrónica',
+                'fas fa-receipt',
+                'efactura_admin.efactura_emissions',
+                visible=_v_fe,
+                active_blueprints=('efactura_admin', 'efactura_api'),
+                active_path_prefixes=('/admin/efactura', '/api/admin/efactura'),
+            ),
+        ),
+    ),
+    NavArea(
+        id='cobros',
+        label='Cobros',
+        icon='fas fa-hand-holding-usd',
+        visible=_v_cobros,
+        zone_blueprints=('accounting_core',),
+        # Sin path prefix amplio /admin/accounting (chocaría con Facturas).
+        zone_path_prefixes=(),
+        zone_endpoints=_ACCOUNTING_EPS
+        + (
+            'accounting_core.receivables_list',
+            'accounting_core.receivables_customers_list',
+        ),
+        items=(
+            NavAreaItem(
+                'cxc',
+                'Cuentas por cobrar',
+                'fas fa-hand-holding-usd',
+                'accounting_core.receivables_list',
+                visible=_v_cxc,
+                active_endpoints=(
+                    'accounting_core.receivables_list',
+                    'accounting_core.receivables_customers_list',
+                ),
+            ),
+            NavAreaItem(
+                'asientos',
+                'Asientos',
+                'fas fa-book',
+                'accounting_core.entries_list',
+                visible=_v_contabilidad,
+                active_endpoints=_ACCOUNTING_EPS,
             ),
         ),
     ),
@@ -1627,12 +2038,24 @@ def _area_by_id(area_id: str) -> NavArea | None:
 
 
 def _serialize_sidebar_area(area: NavArea, ctx: NavContext) -> dict[str, Any]:
-    return {
+    row: dict[str, Any] = {
         'id': area.id,
         'label': area.label,
         'icon': area.icon,
         'url': area_default_url(area, ctx),
     }
+    # UX-T2: atajo temporal a app-producto (no módulo ERP).
+    if area.id in _SIDEBAR_TEMPORARY_APP_SHORTCUT_IDS:
+        row['temporary_app_shortcut'] = True
+        row['badge'] = 'App'
+        row['title'] = (
+            f'{area.label} — aplicación (acceso temporal). '
+            'Entrada oficial: Mis aplicaciones.'
+        )
+    else:
+        row['temporary_app_shortcut'] = False
+        row['title'] = area.label
+    return row
 
 
 def visible_sidebar_launcher(
@@ -1641,9 +2064,12 @@ def visible_sidebar_launcher(
     active_sidebar_area_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
-    Top-level: Tienda, Contactos (sin grupo).
-    Resto: grupos colapsables Comercial, Operaciones, Finanzas, Inteligencia, Sistema.
+    Taxonomía v1: top-level Tienda/Contactos/EPosOne + grupos Comercial/Operaciones/…
+    Taxonomía v2 (ADR-015): lista plana de dominios funcionales (sin agrupadores genéricos).
     """
+    if current_nav_taxonomy() == 'v2':
+        return _visible_sidebar_launcher_v2(ctx, active_sidebar_area_id=active_sidebar_area_id)
+
     top: list[dict[str, Any]] = []
     for area_id in _SIDEBAR_TOP_LEVEL_AREA_IDS:
         area = _area_by_id(area_id)
@@ -1653,6 +2079,8 @@ def visible_sidebar_launcher(
 
     groups: list[dict[str, Any]] = []
     for grp in _SIDEBAR_LAUNCHER_GROUPS:
+        if grp.saas_module_code and not ctx.saas_module_enabled(grp.saas_module_code):
+            continue
         children: list[dict[str, Any]] = []
         for area_id in grp.area_ids:
             area = _area_by_id(area_id)
@@ -1675,6 +2103,23 @@ def visible_sidebar_launcher(
             }
         )
     return top, groups
+
+
+def _visible_sidebar_launcher_v2(
+    ctx: NavContext,
+    *,
+    active_sidebar_area_id: str | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Launcher plano ADR-015: cada dominio es entrada top-level; sin grupos Comercial/Finanzas/…"""
+    top: list[dict[str, Any]] = []
+    for area_id in _SIDEBAR_V2_FLAT_AREA_IDS:
+        area = _area_by_id(area_id)
+        if area is None or not area.show_in_sidebar or not _area_visible(area, ctx):
+            continue
+        # Plataforma: solo al final y solo platform admin (ya filtrado por _v_plataforma).
+        top.append(_serialize_sidebar_area(area, ctx))
+    # Sin grupos colapsables en v2.
+    return top, []
 
 
 def visible_areas(ctx: NavContext) -> list[dict[str, Any]]:
@@ -1741,6 +2186,11 @@ def sidebar_highlight_area_id(area_id: str | None) -> str | None:
         return 'taller'
     if area_id == 'ventas_catalog':
         return 'ventas'
+    if area_id == 'mis_certificados':
+        return 'certificados'
+    # Compat: rutas que aún resuelven a finanzas en v1.
+    if area_id == 'finanzas' and current_nav_taxonomy() == 'v2':
+        return 'facturacion'
     return area_id
 
 
@@ -1783,6 +2233,24 @@ def nav_launcher_payload(**kwargs) -> dict[str, Any]:
         ctx.show_tenant_admin_menu
         or (active_id == 'plataforma' and ctx.show_platform_admin_nav and ctx.is_platform_admin)
     )
+    try:
+        from nodeone.core.platform.app_nav import NATIVE_APP_NAV_AREA_IDS, request_in_native_app_zone
+
+        if active_id in NATIVE_APP_NAV_AREA_IDS and not request_in_native_app_zone(active_id):
+            zone_id = resolve_active_area_id(ctx)
+            if zone_id and zone_id != active_id:
+                active_id = zone_id
+                sidebar_area_id = sidebar_highlight_area_id(active_id)
+                children = visible_area_children(active_id, ctx)
+                active_child_label = _active_child_label(children)
+                show_bar = bool(children) and (
+                    len(children) > 1 or any(c.get('dropdown') for c in children)
+                ) and ctx.show_tenant_admin_menu
+            else:
+                children = []
+                show_bar = False
+    except Exception:
+        pass
     result = {
         'nav_app_areas': areas,
         'nav_sidebar_top_areas': top_areas,

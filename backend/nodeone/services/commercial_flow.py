@@ -57,7 +57,8 @@ def resolve_commercial_flow_type(service, pricing: Mapping[str, Any] | None) -> 
         return COMMERCIAL_FLOW_CV_REGISTRATION
     if st in ('WORKSHOP_ORDER', 'WORKSHOP'):
         return COMMERCIAL_FLOW_WORKSHOP_ORDER
-    if getattr(service, 'appointment_type_id', None):
+    # CONSULTIVO = producto/asesoría del catálogo (cotización o cita), aunque precio base sea 0
+    if st == 'CONSULTIVO' or getattr(service, 'appointment_type_id', None):
         return COMMERCIAL_FLOW_SERVICE_CONSULTATIVE
     bp = float(getattr(service, 'base_price', None) or 0.0)
     if bool(pricing.get('is_included')) or bp == 0.0:
@@ -65,7 +66,11 @@ def resolve_commercial_flow_type(service, pricing: Mapping[str, Any] | None) -> 
     return COMMERCIAL_FLOW_SERVICE_DIRECT
 
 
-def flow_type_badge_label(flow: str) -> str:
+def flow_type_badge_label(flow: str, service=None) -> str:
+    if service is not None:
+        st = (getattr(service, 'service_type', None) or '').strip().upper()
+        if st == 'CONSULTIVO' and not getattr(service, 'appointment_type_id', None):
+            return 'Producto'
     return {
         COMMERCIAL_FLOW_SERVICE_INCLUDED: 'Incluido',
         COMMERCIAL_FLOW_SERVICE_DIRECT: 'Compra directa',
@@ -79,8 +84,17 @@ def flow_type_badge_label(flow: str) -> str:
     }.get(flow, flow)
 
 
-def flow_cta_labels(flow: str) -> tuple[str, str]:
+def flow_cta_labels(flow: str, service=None) -> tuple[str, str]:
     """(label_botón, pista corta bajo el botón)."""
+    if (
+        flow == COMMERCIAL_FLOW_SERVICE_CONSULTATIVE
+        and service is not None
+        and not getattr(service, 'appointment_type_id', None)
+    ):
+        return (
+            'Solicitar cotización',
+            'Un asesor de tu organización te contacta con precio y disponibilidad.',
+        )
     return {
         COMMERCIAL_FLOW_SERVICE_INCLUDED: ('Acceder', 'Incluido en tu plan: usá el servicio sin pasar por caja.'),
         COMMERCIAL_FLOW_SERVICE_DIRECT: ('Comprar', 'Se agrega al carrito con el precio de tu plan.'),

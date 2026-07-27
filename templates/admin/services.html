@@ -2,11 +2,12 @@
 {% from 'macros/admin_filters.html' import admin_filter_collapse %}
 {% from 'partials/qr_generator_link.html' import qr_link %}
 
-{% block title %}Gestión de Servicios - Easy NodeOne{% endblock %}
+{% block title %}Catálogo — Productos — {{ get_nav_brand_name() }}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/services-template-cards.css') }}?v=svc-card-actions-2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/services-template-cards.css') }}?v=svc-card-actions-3">
 {% endblock %}
+
 
 {% block page_content %}
 <div class="container-fluid px-2 px-sm-3 py-2 services-catalog-page erp-compact-page">
@@ -58,16 +59,16 @@
                     <div class="col-12 col-lg-7 mt-3 mt-lg-0">
                         <div class="card-body py-3 small text-body-secondary">
                             <p class="mb-2 fw-semibold text-body">¿Qué es esta pantalla?</p>
-                            <p class="mb-2">Acá administrás el <strong>catálogo de servicios</strong> que ofrece tu organización: nombre, descripción, precio, planes, si requiere <strong>cita</strong>, tipo (consultivo / agendable) y asesores.</p>
+                            <p class="mb-2">Acá administrás el <strong>catálogo de productos</strong> de tu organización: nombre, descripción, precio, imagen y categoría. También admite flujos de servicio (cita, CV, curso) cuando aplica.</p>
                             <ul class="mb-2 ps-3">
-                                <li><strong>Nuevo servicio</strong>: botón superior; podés editar desde cada tarjeta (lápiz).</li>
+                                <li><strong>Nuevo producto</strong>: botón superior; editar desde cada tarjeta (lápiz). Podés <strong>cargar imagen</strong> desde el formulario.</li>
                                 <li><strong>Filtros</strong>: estado y búsqueda por nombre o descripción.</li>
-                                <li><strong>Citas</strong>: si el servicio requiere cita, enlazá tipos de cita y agenda desde <strong>Citas</strong> o el enlace Asesores en la tarjeta.</li>
-                                <li><strong>Multi-tenant</strong>: si el catálogo va por empresa, el contexto de organización aplica a este listado.</li>
-                                <li><strong>Importar / exportar</strong>: CSV o Excel con las mismas columnas; sin <code>id</code> se crean filas; con <code>id</code> de esta organización se actualizan. Categoría por nombre (<code>category_name</code>). Solo administradores pueden importar.</li>
+                                <li><strong>Multi-tenant</strong>: el listado respeta la empresa activa en sesión.</li>
+                                <li><strong>Importar / exportar</strong>: CSV o Excel; categoría por nombre (<code>category_name</code>).</li>
                             </ul>
                             <p class="mb-0 fw-semibold text-body">Categorías</p>
-                            <p class="mb-0 mt-1">Para agrupar en el sitio, usá <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}">Categorías servicios</a>.</p>
+                            <p class="mb-0 mt-1">Para agrupar, usá <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}">Categorías del catálogo</a>.</p>
+
                         </div>
                     </div>
                 </div>
@@ -116,19 +117,23 @@
     <!-- Lista de Servicios -->
     <div class="row">
         <div class="col-12">
-            <p class="text-muted small mb-3">Los que requieren cita muestran el tipo de flujo. Para <strong>asesores</strong>, usá <a href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}">Citas → Servicios configurados</a> o editá el servicio.</p>
+            <p class="text-muted small mb-3">Las tarjetas muestran la imagen del producto cuando está cargada. Editá con el lápiz para subir foto.</p>
             <div class="card shadow-sm border-0">
                 <div class="card-body p-3 p-md-4">
                     {% if services %}
                     <div class="services-card-grid" id="servicesCardGrid">
                         {% for service in services %}
-                        <article class="service-template-card" aria-labelledby="svc-title-{{ service.id }}">
+                        <article class="service-template-card{% if service.image_url %} has-product-thumb{% endif %}" aria-labelledby="svc-title-{{ service.id }}">
                             <div class="service-card-top">
+                                {% if service.image_url %}
+                                <img class="service-card-thumb" src="{{ service.image_url }}" alt="" width="72" height="72" loading="lazy" decoding="async">
+                                {% else %}
                                 <div class="service-card-icon" aria-hidden="true">
-                                    <i class="{{ service.icon or 'fas fa-layer-group' }}"></i>
+                                    <i class="{{ service.icon or 'fas fa-box' }}"></i>
                                 </div>
-                                <div class="service-card-actions" role="group" aria-label="Acciones del servicio">
-                                    <button type="button" class="service-card-icon-btn" data-svc-edit="{{ service.id }}" title="Editar servicio" aria-label="Editar {{ service.name | e }}">
+                                {% endif %}
+                                <div class="service-card-actions" role="group" aria-label="Acciones del producto">
+                                    <button type="button" class="service-card-icon-btn" data-svc-edit="{{ service.id }}" title="Editar producto" aria-label="Editar {{ service.name | e }}">
                                         <i class="fas fa-pen"></i>
                                     </button>
                                     <button type="button" class="service-card-icon-btn" data-svc-dup="{{ service.id }}" data-svc-name="{{ service.name | e }}" title="Duplicar" aria-label="Duplicar {{ service.name | e }}">
@@ -223,12 +228,12 @@
 }
 </style>
 
-<!-- Modal Crear/Editar Servicio -->
+<!-- Modal Crear/Editar Producto -->
 <div class="modal fade" id="createServiceModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title" id="serviceModalTitle">Crear servicio</h5>
+                <h5 class="modal-title" id="serviceModalTitle">Crear producto</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body pt-2">
@@ -239,7 +244,7 @@
                         <!-- Columna principal -->
                         <div class="col-12 col-lg-7">
                             <p class="service-modal-kicker text-uppercase text-muted small mb-1">Contenido</p>
-                            <h6 class="fw-semibold mb-3">Información del servicio</h6>
+                            <h6 class="fw-semibold mb-3">Información del producto</h6>
                             <div class="mb-3">
                                 <label for="serviceName" class="form-label">Nombre <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="serviceName" name="name" required>
@@ -253,7 +258,7 @@
                                 <select class="form-select" id="serviceCategory" name="category_id">
                                     <option value="">Sin categoría</option>
                                 </select>
-                                <small class="text-muted">Gestionar en <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}" target="_blank" rel="noopener">Categorías servicios</a></small>
+                                <small class="text-muted">Gestionar en <a href="{{ url_for('admin_services_catalog.admin_service_categories') }}" target="_blank" rel="noopener">Categorías del catálogo</a></small>
                             </div>
 
                             <h6 class="fw-semibold mb-1">Precio y planes de membresía</h6>
@@ -291,10 +296,10 @@
                         <!-- Columna control + catálogo -->
                         <div class="col-12 col-lg-5">
                             <p class="service-modal-kicker text-uppercase text-muted small mb-1">Control</p>
-                            <h6 class="fw-semibold mb-3">Estado e imagen en catálogo</h6>
+                            <h6 class="fw-semibold mb-3">Estado e imagen del producto</h6>
                             <div class="form-check form-switch mb-3">
                                 <input class="form-check-input" type="checkbox" id="serviceIsActive" name="is_active" checked>
-                                <label class="form-check-label fw-medium" for="serviceIsActive">Servicio activo</label>
+                                <label class="form-check-label fw-medium" for="serviceIsActive">Producto activo</label>
                             </div>
                             <div class="mb-3">
                                 <label for="serviceDisplayOrder" class="form-label">Orden de visualización</label>
@@ -303,13 +308,26 @@
                             </div>
                             <div class="mb-3">
                                 <label for="serviceIcon" class="form-label">Icono (Font Awesome)</label>
-                                <input type="text" class="form-control" id="serviceIcon" name="icon" placeholder="fas fa-cog" value="fas fa-cog" autocomplete="off">
-                                <small class="form-text">Ej. <code>fas fa-briefcase</code></small>
+                                <input type="text" class="form-control" id="serviceIcon" name="icon" placeholder="fas fa-box" value="fas fa-box" autocomplete="off">
+                                <small class="form-text">Se usa si no hay imagen. Ej. <code>fas fa-syringe</code></small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="serviceImageFile" class="form-label fw-semibold">Foto del producto</label>
+                                <div id="serviceImagePreviewWrap" class="mb-2 border rounded p-2 text-center" style="min-height:140px;background:#f8fafc;">
+                                    <img id="serviceImagePreview" src="" alt="Vista previa" class="rounded d-none" style="max-width:100%;max-height:160px;object-fit:contain;">
+                                    <div id="serviceImagePlaceholder" class="text-muted py-3 px-2">
+                                        <i class="fas fa-image fa-2x mb-2 d-block opacity-50" aria-hidden="true"></i>
+                                        <span class="small">Todavía no hay foto.<br>Elegí un archivo abajo (PNG/JPG).</span>
+                                    </div>
+                                </div>
+                                <input type="file" class="form-control" id="serviceImageFile" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+                                <small class="form-text">Al elegir el archivo se sube y se guarda en el producto automáticamente.</small>
+                                <div id="serviceImageUploadStatus" class="small mt-1" aria-live="polite"></div>
                             </div>
                             <div class="mb-3">
                                 <label for="serviceImageUrl" class="form-label">Imagen / URL</label>
-                                <input type="text" class="form-control" id="serviceImageUrl" name="image_url" placeholder="https://…" inputmode="url" autocomplete="off">
-                                <small class="form-text">Miniatura en <code>/services</code>. Si está vacía, puede resolverse por nombre en el sitio público.</small>
+                                <input type="text" class="form-control" id="serviceImageUrl" name="image_url" placeholder="https://… o /static/uploads/…" inputmode="url" autocomplete="off">
+                                <small class="form-text">Se completa al subir, o pegá una URL externa y Guardá.</small>
                             </div>
                             <div class="mb-0">
                                 <label for="serviceDefaultTax" class="form-label">Impuesto por defecto</label>
@@ -317,10 +335,6 @@
                                     <option value="">Ninguno</option>
                                 </select>
                                 <small class="form-text">Sugerido al facturar o cotizar.</small>
-                            </div>
-                            <div class="alert alert-light border small mt-3 mb-0">
-                                <i class="fas fa-lightbulb text-warning me-1"></i>
-                                <strong>Recomendación:</strong> mantené el nombre y la imagen alineados con lo publicado en Relatic/landing para coherencia en catálogo.
                             </div>
                         </div>
                     </div>
@@ -401,7 +415,7 @@
             </div>
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary px-4" onclick="saveService()">Guardar servicio</button>
+                <button type="button" class="btn btn-primary px-4" onclick="saveService()">Guardar producto</button>
             </div>
         </div>
     </div>
@@ -545,25 +559,92 @@ function editService(serviceId) {
     .then(([serviceData, categoriesData]) => {
         if (serviceData.success) {
             fillForm(serviceData.service);
-            document.getElementById('serviceModalTitle').textContent = 'Editar Servicio';
+            document.getElementById('serviceModalTitle').textContent = 'Editar producto';
             new bootstrap.Modal(document.getElementById('createServiceModal')).show();
         } else {
-            alert('Error al cargar el servicio: ' + (serviceData.error || 'Error desconocido'));
+            alert('Error al cargar el producto: ' + (serviceData.error || 'Error desconocido'));
         }
     })
     .catch(error => {
         console.error('Error completo:', error);
-        alert('Error al cargar el servicio: ' + error.message);
+        alert('Error al cargar el producto: ' + error.message);
     });
+}
+
+function setServiceImagePreview(url) {
+    const wrap = document.getElementById('serviceImagePreviewWrap');
+    const img = document.getElementById('serviceImagePreview');
+    const ph = document.getElementById('serviceImagePlaceholder');
+    if (!wrap || !img) return;
+    const u = (url || '').trim();
+    if (!u) {
+        img.classList.add('d-none');
+        img.removeAttribute('src');
+        if (ph) ph.classList.remove('d-none');
+        return;
+    }
+    img.src = u;
+    img.classList.remove('d-none');
+    if (ph) ph.classList.add('d-none');
+}
+
+function uploadServiceCatalogImage(file) {
+    const statusEl = document.getElementById('serviceImageUploadStatus');
+    if (!file) return;
+    if (statusEl) {
+        statusEl.className = 'small mt-1 text-muted';
+        statusEl.textContent = 'Subiendo imagen…';
+    }
+    const fd = new FormData();
+    fd.append('image_file', file);
+    const sid = (document.getElementById('serviceId') && document.getElementById('serviceId').value) || '';
+    if (sid) fd.append('service_id', sid);
+    return fetch('/api/admin/services/upload-image', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: fd,
+    })
+        .then(async (r) => {
+            let data = {};
+            try { data = await r.json(); } catch (e) { data = {}; }
+            if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+            return data;
+        })
+        .then((data) => {
+            if (!data.success || !data.image_url) throw new Error(data.error || 'Sin URL de imagen');
+            const urlImg = document.getElementById('serviceImageUrl');
+            if (urlImg) urlImg.value = data.image_url;
+            setServiceImagePreview(data.image_url);
+            if (statusEl) {
+                statusEl.className = 'small mt-1 text-success';
+                statusEl.textContent = data.persisted
+                    ? 'Foto guardada en el producto. Refrescá la Tienda / detalle para verla.'
+                    : 'Imagen lista. Pulsá Guardar producto para confirmar.';
+            }
+            return data.image_url;
+        })
+        .catch((err) => {
+            console.error(err);
+            if (statusEl) {
+                statusEl.className = 'small mt-1 text-danger';
+                statusEl.textContent = 'Error al subir.';
+            }
+            alert('No se pudo subir la imagen: ' + (err && err.message ? err.message : err));
+        });
 }
 
 function fillForm(service) {
     document.getElementById('serviceId').value = service.id || '';
     document.getElementById('serviceName').value = service.name || '';
     document.getElementById('serviceDescription').value = service.description || '';
-    document.getElementById('serviceIcon').value = service.icon || 'fas fa-cog';
+    document.getElementById('serviceIcon').value = service.icon || 'fas fa-box';
     const urlImg = document.getElementById('serviceImageUrl');
     if (urlImg) urlImg.value = service.image_url || '';
+    setServiceImagePreview(service.image_url || '');
+    const fileInput = document.getElementById('serviceImageFile');
+    if (fileInput) fileInput.value = '';
+    const statusEl = document.getElementById('serviceImageUploadStatus');
+    if (statusEl) statusEl.textContent = '';
     
     // Establecer categoría - verificar que el elemento existe y está cargado
     const categorySelect = document.getElementById('serviceCategory');
@@ -759,15 +840,15 @@ function saveService() {
     })
     .then(data => {
         if (data.success) {
-            alert('Servicio guardado exitosamente');
+            alert('Producto guardado exitosamente');
             window.location.reload();
         } else {
-            alert('Error: ' + (data.error || 'No se pudo guardar el servicio'));
+            alert('Error: ' + (data.error || 'No se pudo guardar el producto'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al guardar el servicio: ' + (error && error.message ? error.message : error));
+        alert('Error al guardar el producto: ' + (error && error.message ? error.message : error));
     });
 }
 
@@ -829,7 +910,32 @@ document.getElementById('createServiceModal').addEventListener('show.bs.modal', 
     loadAppointmentTypes();
     loadServiceTaxOptions(document.getElementById('serviceDefaultTax') ? document.getElementById('serviceDefaultTax').value : '');
     applyServiceFlowVisibility();
+    if (!document.getElementById('serviceId').value) {
+        document.getElementById('serviceModalTitle').textContent = 'Crear producto';
+        setServiceImagePreview('');
+        const statusEl = document.getElementById('serviceImageUploadStatus');
+        if (statusEl) statusEl.textContent = '';
+    }
 });
+
+(function bindCatalogImageUpload() {
+    const fileInput = document.getElementById('serviceImageFile');
+    const urlImg = document.getElementById('serviceImageUrl');
+    if (fileInput) {
+        fileInput.addEventListener('change', function () {
+            const f = this.files && this.files[0];
+            if (f) uploadServiceCatalogImage(f);
+        });
+    }
+    if (urlImg) {
+        urlImg.addEventListener('change', function () {
+            setServiceImagePreview(this.value);
+        });
+        urlImg.addEventListener('input', function () {
+            setServiceImagePreview(this.value);
+        });
+    }
+})();
 
 // Requiere cita (solo consultivo / agendable)
 document.getElementById('serviceRequiresAppointment').addEventListener('change', function() {
@@ -946,7 +1052,7 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     editingServiceId = null;
     document.getElementById('serviceForm').reset();
     document.getElementById('serviceId').value = '';
-    document.getElementById('serviceModalTitle').textContent = 'Crear servicio';
+    document.getElementById('serviceModalTitle').textContent = 'Crear producto';
     document.getElementById('serviceIsActive').checked = true;
     document.querySelectorAll('.membership-plan-checkbox').forEach(cb => cb.checked = false);
     document.getElementById('serviceRequiresAppointment').checked = false;
@@ -955,6 +1061,11 @@ document.getElementById('createServiceModal').addEventListener('hidden.bs.modal'
     document.getElementById('serviceAppointmentType').required = false;
     const psIn = document.getElementById('serviceProgramSlug');
     if (psIn) psIn.value = '';
+    const fileInput = document.getElementById('serviceImageFile');
+    if (fileInput) fileInput.value = '';
+    setServiceImagePreview('');
+    const statusEl = document.getElementById('serviceImageUploadStatus');
+    if (statusEl) statusEl.textContent = '';
     setServiceFlowType('AGENDABLE');
 });
 

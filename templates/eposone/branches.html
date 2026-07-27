@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Sucursales | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page epos-branches-v2" id="epos-branches-page">
+
+    <div class="epos-page-header">
+        <div>
+            <h1 class="epos-page-title">
+                <i class="fas fa-store me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Sucursales
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Locales del negocio · Sucursal → POS → Caja
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <span class="badge text-bg-light border">{{ branches_total }} sucursal(es)</span>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newBranchModal">
+                <i class="fas fa-plus me-1"></i>Nueva Sucursal
+            </button>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='pos-points') }}">
+                <i class="fas fa-map-marker-alt me-1"></i>Puntos de venta
+            </a>
+        </div>
+    </div>
+
+    <form class="epos-filter-bar mb-3" id="epos-br-filters" onsubmit="return false;">
+        <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
+            <label for="br-q">Buscar</label>
+            <input class="form-control" type="search" id="br-q" placeholder="Nombre o referencia…" autocomplete="off">
+        </div>
+        <div class="epos-filter-field">
+            <label for="br-status">Estado</label>
+            <select class="form-select" id="br-status">
+                <option value="">Todos</option>
+                <option value="active">Activa</option>
+                <option value="inactive">Inactiva</option>
+            </select>
+        </div>
+        <div class="epos-filter-bar__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="br-clear">Limpiar</button>
+        </div>
+    </form>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body p-0">
+            {% if branch_rows %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table" id="epos-branches-table">
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th>
+                            <th>Referencia</th>
+                            <th>POS</th>
+                            <th>Cajas</th>
+                            <th>Estado</th>
+                            <th>Notas</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in branch_rows %}
+                        {% set b = row.branch %}
+                        {% set st = (b.status or 'active')|lower %}
+                        <tr class="epos-br-row"
+                            data-q="{{ (b.name ~ ' ' ~ b.unit_ref ~ ' ' ~ (b.notes or ''))|lower }}"
+                            data-status="{{ st }}">
+                            <td>
+                                <div class="fw-semibold">{{ b.name }}</div>
+                            </td>
+                            <td><code class="epos-code-plain">{{ b.unit_ref }}</code></td>
+                            <td>
+                                {% if row.pos_count %}
+                                <span class="fw-semibold">{{ row.pos_count }}</span>
+                                {% else %}
+                                <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.register_count %}
+                                <span class="fw-semibold">{{ row.register_count }}</span>
+                                {% else %}
+                                <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if st == 'active' %}
+                                <span class="badge text-bg-success-subtle border border-success-subtle text-success-emphasis">Activa</span>
+                                {% elif st in ('inactive', 'disabled', 'archived') %}
+                                <span class="badge text-bg-secondary-subtle border">Inactiva</span>
+                                {% else %}
+                                <span class="badge text-bg-light border">{{ b.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">{{ b.notes or '—' }}</td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="dropdown" aria-expanded="false"
+                                            data-bs-popper-config='{"strategy":"fixed"}'>
+                                        <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <button type="button" class="dropdown-item btn-edit-branch"
+                                                    data-id="{{ b.id }}"
+                                                    data-name="{{ b.name }}"
+                                                    data-notes="{{ b.notes or '' }}">
+                                                <i class="fas fa-edit me-2"></i>Editar
+                                            </button>
+                                        </li>
+                                        {% if st == 'active' %}
+                                        <li>
+                                            <button type="button" class="dropdown-item text-danger btn-deactivate-branch"
+                                                    data-id="{{ b.id }}">
+                                                <i class="fas fa-ban me-2"></i>Desactivar
+                                            </button>
+                                        </li>
+                                        {% endif %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('eposone.eposone_section', slug='pos-points') }}">
+                                                <i class="fas fa-map-marker-alt me-2"></i>Ver puntos de venta
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('eposone.eposone_section', slug='registers') }}">
+                                                <i class="fas fa-cash-register me-2"></i>Ver cajas
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 text-muted d-none" id="br-empty-filter">Ninguna sucursal coincide con el filtro.</div>
+            {% else %}
+            <div class="p-4 text-muted">
+                <p class="mb-2">Todavía no hay sucursales.</p>
+                <p class="small mb-0">Creá la primera con <strong>+ Nueva Sucursal</strong>. Después definí POS y cajas en esa jerarquía.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <p class="small text-muted mb-0">
+        La sucursal es la unidad geográfica/comercial del maestro EN1. El POS y la caja se configuran en sus módulos.
+    </p>
+</div>
+
+{# ——— Modal: Nueva sucursal ——— #}
+<div class="modal fade" id="newBranchModal" tabindex="-1" aria-labelledby="newBranchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{{ url_for('eposone.eposone_branch_create') }}">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <div class="modal-header">
+                    <h2 class="modal-title fs-6" id="newBranchModalLabel">Nueva Sucursal</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        Referencia estable (no cambia) · nombre visible en operación.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label" for="branch_name">Nombre</label>
+                        <input class="form-control" id="branch_name" name="name" required maxlength="200"
+                               placeholder="Sucursal Centro" autocomplete="off">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="branch_ref">Referencia</label>
+                        <input class="form-control" id="branch_ref" name="unit_ref" required maxlength="64"
+                               placeholder="centro" pattern="[a-zA-Z0-9_\-]+" autocomplete="off">
+                        <div class="form-text">Solo letras, números, guion y guion bajo.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="branch_notes">Notas</label>
+                        <input class="form-control" id="branch_notes" name="notes" maxlength="500" placeholder="Opcional">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus me-1"></i>Crear sucursal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ——— Modal: Editar sucursal ——— #}
+<div class="modal fade" id="editBranchModal" tabindex="-1" aria-labelledby="editBranchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-6" id="editBranchModalLabel">Editar Sucursal</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit_branch_id">
+                <div class="mb-3">
+                    <label class="form-label" for="edit_branch_name">Nombre</label>
+                    <input class="form-control" id="edit_branch_name" required maxlength="200">
+                </div>
+                <div class="mb-0">
+                    <label class="form-label" for="edit_branch_notes">Notas</label>
+                    <input class="form-control" id="edit_branch_notes" maxlength="500">
+                </div>
+                <p class="small text-muted mt-2 mb-0" id="edit-branch-msg"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" id="edit-branch-save">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+  function csrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    var i = document.querySelector('input[name="csrf_token"]');
+    return i ? i.value : '';
+  }
+  var qEl = document.getElementById('br-q');
+  var stEl = document.getElementById('br-status');
+  var clearBtn = document.getElementById('br-clear');
+  var empty = document.getElementById('br-empty-filter');
+  var nameEl = document.getElementById('branch_name');
+  var refEl = document.getElementById('branch_ref');
+  var refTouched = false;
+
+  function slugify(s) {
+    return (s || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 64);
+  }
+
+  if (nameEl && refEl) {
+    refEl.addEventListener('input', function () { refTouched = true; });
+    nameEl.addEventListener('input', function () {
+      if (!refTouched || !refEl.value) {
+        refEl.value = slugify(nameEl.value);
+        refTouched = false;
+      }
+    });
+  }
+
+  function applyFilters() {
+    var q = (qEl && qEl.value || '').trim().toLowerCase();
+    var st = (stEl && stEl.value) || '';
+    var rows = document.querySelectorAll('#epos-branches-table .epos-br-row');
+    var n = 0;
+    rows.forEach(function (tr) {
+      var ok = true;
+      if (q && (tr.getAttribute('data-q') || '').indexOf(q) === -1) ok = false;
+      if (ok && st && tr.getAttribute('data-status') !== st) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) n += 1;
+    });
+    if (empty) empty.classList.toggle('d-none', n !== 0 || !rows.length);
+  }
+  if (qEl) qEl.addEventListener('input', applyFilters);
+  if (stEl) stEl.addEventListener('change', applyFilters);
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (qEl) qEl.value = '';
+      if (stEl) stEl.value = '';
+      applyFilters();
+    });
+  }
+
+  var editModalEl = document.getElementById('editBranchModal');
+  var editModal = editModalEl && window.bootstrap ? new bootstrap.Modal(editModalEl) : null;
+  document.querySelectorAll('.btn-edit-branch').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('edit_branch_id').value = btn.getAttribute('data-id') || '';
+      document.getElementById('edit_branch_name').value = btn.getAttribute('data-name') || '';
+      document.getElementById('edit_branch_notes').value = btn.getAttribute('data-notes') || '';
+      var msg = document.getElementById('edit-branch-msg');
+      if (msg) msg.textContent = '';
+      if (editModal) editModal.show();
+    });
+  });
+  var saveBtn = document.getElementById('edit-branch-save');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async function () {
+      var id = document.getElementById('edit_branch_id').value;
+      var name = (document.getElementById('edit_branch_name').value || '').trim();
+      var notes = (document.getElementById('edit_branch_notes').value || '').trim();
+      var msg = document.getElementById('edit-branch-msg');
+      if (!id || !name) {
+        if (msg) msg.textContent = 'Nombre obligatorio.';
+        return;
+      }
+      try {
+        var res = await fetch('/api/eposone/branches/by-id/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          body: JSON.stringify({ name: name, notes: notes || null })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        window.location.reload();
+      } catch (e) {
+        if (msg) msg.textContent = 'Error: ' + e.message;
+      }
+    });
+  }
+  document.querySelectorAll('.btn-deactivate-branch').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-id');
+      if (!id || !confirm('¿Desactivar esta sucursal?')) return;
+      try {
+        var res = await fetch('/api/eposone/branches/by-id/' + id + '/deactivate', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf() }
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        window.location.reload();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

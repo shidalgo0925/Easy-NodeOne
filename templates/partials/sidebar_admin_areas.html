@@ -1,12 +1,17 @@
-{# Admin tenant: Dashboard (base.html) + top-level + grupos colapsables. #}
+{# Admin tenant: Dashboard (base.html) + top-level + grupos colapsables.
+   ADR-015 v2: top-level plano y groups=[] — no usar fallback nav_app_areas
+   (Jinja trata [] como falsy y duplicaba todas las entradas). #}
 {% set _sidebar_active = nav_sidebar_area_id|default(nav_active_area_id) %}
 
 {% if nav_sidebar_top_areas %}
 {% for area in nav_sidebar_top_areas %}
-<li class="nav-item sidebar-nav-app sidebar-nav-app--area sidebar-nav-app--{{ area.id }}">
-    <a class="nav-link {% if _sidebar_active == area.id %}active{% endif %}" href="{{ area.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ area.label }}">
+<li class="nav-item sidebar-nav-app sidebar-nav-app--area sidebar-nav-app--{{ area.id }}{% if area.temporary_app_shortcut %} sidebar-nav-app--temp-shortcut{% endif %}">
+    <a class="nav-link {% if _sidebar_active == area.id %}active{% endif %}" href="{{ area.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ area.title|default(area.label) }}">
         <i class="menu-icon {{ area.icon }}"></i>
         <span class="menu-title-text">{{ area.label }}</span>
+        {% if area.temporary_app_shortcut and area.badge %}
+        <span class="badge sidebar-app-temp-badge ms-1" title="{{ area.title|default(area.label) }}">{{ area.badge }}</span>
+        {% endif %}
     </a>
 </li>
 {% endfor %}
@@ -32,8 +37,8 @@
     </ul>
 </li>
 {% endfor %}
-{% elif nav_app_areas %}
-{# Fallback plano si el payload no trae grupos #}
+{% elif not nav_sidebar_top_areas and nav_app_areas %}
+{# Fallback plano solo si no hay top-level ni grupos (payload legacy). #}
 {% for area in nav_app_areas %}
 <li class="nav-item sidebar-nav-app sidebar-nav-app--area sidebar-nav-app--{{ area.id }}">
     <a class="nav-link {% if _sidebar_active == area.id %}active{% endif %}" href="{{ area.url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ area.label }}">

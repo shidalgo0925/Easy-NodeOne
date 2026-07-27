@@ -2486,6 +2486,28 @@ def admin_event_certificate_regenerate(event_id, certificate_id):
     return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
 
 
+@admin_events_bp.route('/<int:event_id>/certificates/regenerate-all', methods=['POST'])
+@admin_required
+def admin_event_certificates_regenerate_all(event_id):
+    from nodeone.modules.events.services.certificates import regenerate_bulk_for_event
+
+    ensure_models()
+    event = _scoped_events_query().filter(Event.id == event_id).first_or_404()
+    if not getattr(event, 'has_certificate', False):
+        flash('Este evento no tiene certificado habilitado.', 'warning')
+        return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+    stats = regenerate_bulk_for_event(current_app, event, current_user.id)
+    msg = f"Certificados regenerados: {stats['regenerated']}. Omitidos: {stats['skipped']}."
+    errs = stats.get('errors') or []
+    if errs:
+        msg += ' ' + '; '.join(errs[:4])
+        if len(errs) > 4:
+            msg += f' (+{len(errs) - 4} más)'
+    flash(msg, 'success' if stats['regenerated'] else ('warning' if errs else 'info'))
+    return redirect(url_for('admin_events.admin_event_certificates', event_id=event_id))
+
+
 @admin_events_bp.route('/<int:event_id>/certificates/<int:certificate_id>/revoke', methods=['POST'])
 @admin_required
 def admin_event_certificate_revoke(event_id, certificate_id):

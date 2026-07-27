@@ -71,6 +71,7 @@
 | ID | Tema | Problema hoy | Objetivo | Fuera de alcance (por ahora) |
 |----|------|--------------|----------|------------------------------|
 | **IIUS-CAT-01** | Vitrina `/programas` — programas creados en Apps | La sección **Talleres** (y lógica similar en `catalog_public`) solo lista los **4 slugs canónicos** `taller-de-*` cableados con WordPress. Programas nuevos publicados en admin (p. ej. talleres manuales) **no aparecen** en la vitrina de Apps aunque el landing `/inscripcion/<slug>` funcione. | Mostrar en **lista/vitrina de programas** (HTML `/programas` + `GET /api/public/academic-programs`) **todos** los `AcademicProgram` **publicados** de la org, agrupados por categoría/tipo, **sin** depender del cableado WP ni del badge WP·T. | Push automático a WordPress: el equipo actualiza **manualmente** las tarjetas en internationalinstitute.us con enlace a `/inscripcion/<slug>`. No tocar landings existentes ni sync masivo WP↔Apps en esta tarea. |
+| **IIUS-ECAL-01** | Calendario coaching — sitio marketing → EN1 | [internationalinstitute.us](https://internationalinstitute.us/) tiene menú **Calendario** / **Coaching** sin integración con EN1. ECalendar V1 existe solo para EasyTech (`easytech.services/agenda.html`). | Landing público en `apps.internationalinstitute.us/agenda` (o `/coaching/cita`) + API `/api/ecalendar/*` tenant IIUS + enlace manual desde WordPress. **No** usar `/inscripcion/*`. | Lógica en WordPress; mezclar con matrícula académica; V2 email confirmación hasta GO global. Detalle: `docs/ECALENDAR_ROADMAP.md` §IIUS. |
 
 **Rama de referencia:** `iius-product` (`catalog_public.py`, `group_programs_for_template`, `_published_talleres_programs`).
 
@@ -118,6 +119,7 @@ bash scripts/go_iius_validate_all.sh
 | `IIUS_TRANSFER_TO_DEV.md` | Procedimiento tar (histórico) |
 | `IIUS_PAYPAL_LIVE.md` | PayPal live |
 | `ETAPA2_IIUS_RUNBOOK.md` | Deploy, migraciones, rollback |
+| `docs/ECALENDAR_ROADMAP.md` | Agenda coaching IIUS (**IIUS-ECAL-01**) |
 | `ETAPA1_DEV_CHECKLIST.md` | Etapa 1 DEV (multi-tenant) |
 
 ---

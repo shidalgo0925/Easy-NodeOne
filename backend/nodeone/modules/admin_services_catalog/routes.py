@@ -43,10 +43,41 @@ def _admin_catalog_org_id():
     return int(get_admin_effective_organization_id())
 
 
+@admin_services_catalog_bp.route('/api/admin/services/upload-image', methods=['POST'])
+@M.admin_required
+def admin_services_upload_image():
+    """Sube imagen de producto del catálogo → /static/uploads/catalog/products/."""
+    from nodeone.services.catalog_image_storage import save_catalog_product_image
+
+    oid = _admin_catalog_org_id()
+    f = request.files.get('image_file') or request.files.get('file')
+    url, err = save_catalog_product_image(f, organization_id=oid)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    if not url:
+        return jsonify({'success': False, 'error': 'Seleccioná un archivo de imagen.'}), 400
+
+    # Si viene service_id, persistir ya en el producto (no hace falta Guardar).
+    sid_raw = (request.form.get('service_id') or request.args.get('service_id') or '').strip()
+    if sid_raw.isdigit():
+        service = M.Service.query.filter_by(id=int(sid_raw), organization_id=oid).first()
+        if service is None:
+            return jsonify({'success': False, 'error': 'Producto no encontrado para asignar la imagen.'}), 404
+        service.image_url = url
+        try:
+            M.db.session.commit()
+        except Exception as e:
+            M.db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 400
+        return jsonify({'success': True, 'image_url': url, 'service_id': service.id, 'persisted': True})
+
+    return jsonify({'success': True, 'image_url': url, 'persisted': False})
+
+
 @admin_services_catalog_bp.route('/admin/services')
 @M.require_permission('services.view')
 def admin_services():
-    """Panel de administración de servicios"""
+    """Panel de administración de productos del catálogo (tabla Service)."""
     status = request.args.get('status', 'all')
     search = request.args.get('search', '').strip()
     q = M.Service.query.filter_by(organization_id=_admin_catalog_org_id())

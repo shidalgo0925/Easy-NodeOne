@@ -26,3 +26,8 @@ from .efactura import *  # noqa: F403
 from .ecalendar import *  # noqa: F403
 from .security_matrix import *  # noqa: F403
 from .qr_codes import *  # noqa: F403
+from .platform_app import *  # noqa: F403
+from .ets_product_subscription import *  # noqa: F403
+from .ets_product_entitlement import *  # noqa: F403
+from .core_master import *  # noqa: F403
+from .password_reset import *  # noqa: F403

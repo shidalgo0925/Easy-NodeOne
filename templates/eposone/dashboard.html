@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Dashboard | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+{% set k = kpis or {} %}
+{% set charts = (board.charts if board else {}) or {} %}
+{% set sys = (board.system_status if board else {}) or {} %}
+{% set counts = (board.bucket_counts if board else {}) or {} %}
+{% set alerts = (board.alerts if board else []) or [] %}
+{% set insights = (board.insights if board else []) or [] %}
+{% set activity = (board.recent_activity if board else []) or [] %}
+{% set currency = k.currency|default('USD') %}
+{% set sales_val = k.sales|default(0)|float %}
+{% set daily_goal = (board.daily_goal if board else 500)|float %}
+{% set goal_pct = ((sales_val / daily_goal * 100) if daily_goal > 0 else 0)|round(0) %}
+{% if goal_pct > 100 %}{% set goal_pct = 100 %}{% endif %}
+{% set stock_n = k.stock_critical|default(0)|int %}
+{% set pending_n = k.pending_orders|default(0)|int %}
+{% set open_reg = k.open_registers|default(0)|int %}
+{% set sync_pending = sys.pending_count|default(0)|int %}
+{% set orders_period_url = url_for('eposone.eposone_section', slug='orders', **({'from': dash_from, 'to': dash_to} if dash_from and dash_to else {})) %}
+<div class="container-fluid py-3 en1-eposone-page epos-dash-v2" id="eposone-dashboard-root"
+     data-refresh-seconds="{{ dashboard_refresh_seconds|default(30) }}"
+     data-range="{{ dash_range|default('hoy') }}"
+     data-from="{{ dash_from|default('') }}"
+     data-to="{{ dash_to|default('') }}"
+     data-chart-ext='{"sales_by_hour_avg":null,"sales_by_hour_yesterday":null,"sales_by_hour_last_week":null,"product_metrics":["qty","sales","margin"]}'>
+
+    <div class="epos-page-header">
+        <div>
+            <h1 class="epos-page-title">
+                <i class="fas fa-chart-line me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Dashboard
+                <span class="badge rounded-pill ms-2 epos-dash-v2-badge" title="Panel operativo V2">V2</span>
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                ¿Cómo está el negocio ahora? ·
+                {% if dash_range == 'hoy' %}Hoy
+                {% elif dash_range == 'ayer' %}Ayer
+                {% elif dash_range == 'semana' %}Esta semana
+                {% elif dash_range == 'mes' %}Este mes
+                {% else %}{{ dash_from }} → {{ dash_to }}{% endif %}
+                · {{ board.timezone|default('America/Panama') if board else 'America/Panama' }}
+                · <span id="eposone-dash-countdown" aria-live="polite"></span>
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <a href="{{ orders_period_url }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-receipt me-1"></i> Pedidos del periodo
+            </a>
+        </div>
+    </div>
+
+    {% include 'eposone/partials/setup_guide.html' %}
+
+    {% with range=dash_range|default('hoy'), date_from=dash_from|default(''), date_to=dash_to|default(''), filter_action=filter_action, show_custom=true %}
+    {% include 'eposone/partials/filter_bar.html' %}
+    {% endwith %}
+
+    {# ——— 1. KPIs principales ——— #}
+    <div class="row g-3 mb-3 epos-dash-kpi-row">
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="epos-kpi epos-kpi--hero epos-kpi--accent h-100">
+                <div class="epos-kpi__body">
+                    <div class="epos-kpi__label"><i class="fas fa-dollar-sign epos-kpi__icon" aria-hidden="true"></i> Ventas</div>
+                    <div class="epos-kpi__value">{{ '%.2f'|format(sales_val) }} <span class="epos-kpi__unit">{{ currency }}</span></div>
+                    <div class="epos-kpi__hint">Comparativo vs ayer · próximamente</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="epos-kpi epos-kpi--hero h-100">
+                <div class="epos-kpi__body">
+                    <div class="epos-kpi__label"><i class="fas fa-receipt epos-kpi__icon" aria-hidden="true"></i> Pedidos</div>
+                    <div class="epos-kpi__value">{{ k.orders|default(0) }}</div>
+                    <div class="epos-kpi__hint">En el periodo seleccionado</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="epos-kpi epos-kpi--hero h-100">
+                <div class="epos-kpi__body">
+                    <div class="epos-kpi__label"><i class="fas fa-ticket-alt epos-kpi__icon" aria-hidden="true"></i> Ticket promedio</div>
+                    <div class="epos-kpi__value">{{ '%.2f'|format(k.avg_ticket|default(0)) }} <span class="epos-kpi__unit">{{ currency }}</span></div>
+                    <div class="epos-kpi__hint">Ventas ÷ pedidos</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="epos-kpi epos-kpi--hero h-100">
+                <div class="epos-kpi__body">
+                    <div class="epos-kpi__label"><i class="fas fa-users epos-kpi__icon" aria-hidden="true"></i> Clientes</div>
+                    <div class="epos-kpi__value">{{ k.customers|default(0) }}</div>
+                    <div class="epos-kpi__hint">{% if (k.customers|default(0)) == 0 %}Sin cliente en pedidos{% else %}Con referencia en pedidos{% endif %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="epos-kpi epos-kpi--hero h-100 {% if open_reg > 0 %}epos-kpi--tone-warn{% else %}epos-kpi--tone-ok{% endif %}">
+                <div class="epos-kpi__body">
+                    <div class="epos-kpi__label"><i class="fas fa-cash-register epos-kpi__icon" aria-hidden="true"></i> Cajas abiertas</div>
+                    <div class="epos-kpi__value">{{ open_reg }}</div>
+                    <div class="epos-kpi__hint epos-kpi__status">
+                        {% if open_reg > 0 %}<span class="epos-dot epos-dot--warn"></span> Turnos activos{% else %}<span class="epos-dot epos-dot--ok"></span> Sin cajas abiertas{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="epos-kpi epos-kpi--hero h-100 {% if stock_n > 0 %}epos-kpi--tone-danger{% else %}epos-kpi--tone-ok{% endif %}">
+                <div class="epos-kpi__body">
+                    <div class="epos-kpi__label"><i class="fas fa-boxes epos-kpi__icon" aria-hidden="true"></i> Stock crítico</div>
+                    <div class="epos-kpi__value">{{ stock_n }}</div>
+                    <div class="epos-kpi__hint epos-kpi__status">
+                        {% if stock_n > 0 %}<span class="epos-dot epos-dot--danger"></span> Revisar inmediatamente{% else %}<span class="epos-dot epos-dot--ok"></span> Todo correcto{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ——— 2. Acciones rápidas + sync compacto + pendientes ——— #}
+    <div class="row g-3 mb-3 align-items-stretch">
+        <div class="col-12 col-lg-8">
+            <div class="epos-quick-actions" role="navigation" aria-label="Acciones rápidas">
+                <a class="epos-quick-actions__btn" href="{{ url_for('eposone.eposone_order_new') }}"><i class="fas fa-plus"></i><span>Nuevo Pedido</span></a>
+                <a class="epos-quick-actions__btn" href="{{ url_for('eposone.eposone_section', slug='registers') }}"><i class="fas fa-cash-register"></i><span>Abrir Caja</span></a>
+                <a class="epos-quick-actions__btn" href="{{ url_for('eposone.eposone_section', slug='products') }}"><i class="fas fa-box-open"></i><span>Productos</span></a>
+                <a class="epos-quick-actions__btn" href="{{ url_for('eposone.eposone_section', slug='contacts') }}"><i class="fas fa-address-book"></i><span>Clientes</span></a>
+                <a class="epos-quick-actions__btn" href="{{ orders_period_url }}"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
+                <a class="epos-quick-actions__btn" href="{{ url_for('eposone.eposone_section', slug='terminals') }}"><i class="fas fa-desktop"></i><span>Dispositivos</span></a>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="epos-kpi epos-kpi--compact h-100 {% if pending_n > 0 %}epos-kpi--tone-warn{% else %}epos-kpi--tone-ok{% endif %}">
+                <div class="epos-kpi__body">
+                    <div class="epos-kpi__label">Pendientes</div>
+                    <div class="epos-kpi__value">{{ pending_n }}</div>
+                    <div class="epos-kpi__hint epos-kpi__status">
+                        {% if pending_n > 0 %}<span class="epos-dot epos-dot--warn"></span> Atender operación{% else %}<span class="epos-dot epos-dot--ok"></span> Sin cola financiera{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="epos-sync-compact h-100 {% if not sys.online|default(true) %}is-down{% elif sync_pending > 0 %}is-warn{% else %}is-ok{% endif %}">
+                <div class="epos-sync-compact__row">
+                    <span class="epos-dot {% if not sys.online|default(true) %}epos-dot--danger{% elif sync_pending > 0 %}epos-dot--warn{% else %}epos-dot--ok{% endif %}"></span>
+                    <strong class="small">{{ sys.title|default('EN1 Conectado') }}</strong>
+                </div>
+                <div class="epos-sync-compact__meta">{{ sys.last_sync_label|default('—') }}</div>
+                <div class="epos-sync-compact__meta">Pendientes: <strong>{{ sync_pending }}</strong></div>
+            </div>
+        </div>
+    </div>
+
+    {# ——— 3. Estado operativo (tarjetas) ——— #}
+    <div class="row g-2 g-md-3 mb-3 epos-status-board">
+        {% for key, label, icon in [
+            ('open','Abiertos','fa-door-open'),
+            ('preparing','Preparando','fa-fire'),
+            ('ready','Listos','fa-bell'),
+            ('paid','Pagados','fa-check-circle'),
+            ('closed','Cerrados','fa-archive')
+        ] %}
+        <div class="col">
+            <div class="epos-status-card epos-status-card--{{ key }}">
+                <div class="epos-status-card__icon"><i class="fas {{ icon }}" aria-hidden="true"></i></div>
+                <div class="epos-status-card__value">{{ counts.get(key, 0) }}</div>
+                <div class="epos-status-card__label">{{ label }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# ——— 4. Charts + Asistente / Meta / Actividad ——— #}
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-8">
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <div class="epos-card epos-chart-card h-100" data-chart-ready="sales_by_hour_ext">
+                        <div class="epos-card-body">
+                            <h2 class="epos-section-label">Ventas por hora</h2>
+                            <div class="epos-chart-card__wrap epos-chart-card__wrap--tall" data-chart-slot="hours">
+                                <canvas id="epos-chart-hours" class="epos-chart-card__canvas"></canvas>
+                                <div class="epos-chart-empty d-none" data-chart-empty="hours">Sin datos en este período.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="epos-card epos-chart-card h-100" data-chart-ready="products_ext">
+                        <div class="epos-card-body">
+                            <h2 class="epos-section-label">Productos más vendidos</h2>
+                            <div class="epos-chart-card__wrap epos-chart-card__wrap--tall" data-chart-slot="products">
+                                <canvas id="epos-chart-products" class="epos-chart-card__canvas"></canvas>
+                                <div class="epos-chart-empty d-none" data-chart-empty="products">Sin datos en este período.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="epos-card epos-chart-card h-100">
+                        <div class="epos-card-body">
+                            <h2 class="epos-section-label">Formas de pago</h2>
+                            <div class="epos-chart-card__wrap epos-chart-card__wrap--tall" data-chart-slot="payments">
+                                <canvas id="epos-chart-payments" class="epos-chart-card__canvas"></canvas>
+                                <div class="epos-chart-empty d-none" data-chart-empty="payments">Sin datos en este período.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="epos-card epos-chart-card h-100">
+                        <div class="epos-card-body">
+                            <h2 class="epos-section-label">Ventas por categoría</h2>
+                            <div class="epos-chart-card__wrap epos-chart-card__wrap--tall" data-chart-slot="categories">
+                                <canvas id="epos-chart-categories" class="epos-chart-card__canvas"></canvas>
+                                <div class="epos-chart-empty d-none" data-chart-empty="categories">Sin datos en este período.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="d-flex flex-column gap-3 h-100">
+                <div class="epos-card epos-goal-card">
+                    <div class="epos-card-body">
+                        <h2 class="epos-section-label">Meta diaria</h2>
+                        <div class="epos-goal-card__values">
+                            <div><span class="epos-goal-card__small">Actual</span><strong>{{ '%.2f'|format(sales_val) }} {{ currency }}</strong></div>
+                            <div><span class="epos-goal-card__small">Meta</span><strong>{{ '%.2f'|format(daily_goal) }} {{ currency }}</strong></div>
+                        </div>
+                        <div class="epos-goal-card__bar" role="progressbar" aria-valuenow="{{ goal_pct }}" aria-valuemin="0" aria-valuemax="100">
+                            <div class="epos-goal-card__fill" style="width: {{ goal_pct }}%"></div>
+                        </div>
+                        <div class="epos-goal-card__pct">{{ goal_pct|int }}% alcanzado</div>
+                    </div>
+                </div>
+
+                <div class="epos-card flex-grow-1">
+                    <div class="epos-card-body">
+                        {% if alerts %}
+                        <h2 class="epos-section-label">Alertas</h2>
+                        {% with alerts=alerts %}{% include 'eposone/partials/alert_panel.html' %}{% endwith %}
+                        {% else %}
+                        <h2 class="epos-section-label">Asistente del negocio</h2>
+                        {% if insights %}
+                        <div class="epos-assistant">
+                            {% for a in insights %}
+                            <div class="epos-assistant__item epos-assistant__item--{{ a.tone|default('info') }}">
+                                <span class="epos-assistant__icon" aria-hidden="true"><i class="fas {{ a.icon|default('fa-lightbulb') }}"></i></span>
+                                <div>
+                                    <p class="epos-assistant__title">{{ a.title }}</p>
+                                    {% if a.text %}<p class="epos-assistant__text">{{ a.text }}</p>{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        {% with title='Sin recomendaciones', text='Cuando haya movimiento en el periodo, el asistente sugerirá acciones.', icon='fa-lightbulb' %}
+                        {% include 'eposone/partials/empty_state.html' %}
+                        {% endwith %}
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="epos-card">
+                    <div class="epos-card-body">
+                        <h2 class="epos-section-label">Actividad reciente</h2>
+                        {% if activity %}
+                        <ul class="epos-activity list-unstyled mb-0">
+                            {% for ev in activity %}
+                            <li class="epos-activity__item">
+                                <span class="epos-activity__dot" aria-hidden="true"></span>
+                                <div>
+                                    <p class="epos-activity__label mb-0">{{ ev.label }}</p>
+                                    {% if ev.detail %}<p class="epos-activity__detail mb-0">{{ ev.detail }}</p>{% endif %}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="small text-muted mb-0">Aún no hay eventos recientes para mostrar.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script type="application/json" id="epos-dash-charts">{{ charts|tojson }}</script>
+<script>
+(function () {
+  var root = document.getElementById('eposone-dashboard-root');
+  if (!root) return;
+
+  var seconds = parseInt(root.getAttribute('data-refresh-seconds') || '30', 10);
+  if (!seconds || seconds < 5) seconds = 30;
+  var left = seconds;
+  var label = document.getElementById('eposone-dash-countdown');
+  function tick() {
+    if (label) label.textContent = left + 's';
+    if (left <= 0) {
+      var u = new URL(window.location.href);
+      u.searchParams.set('range', root.getAttribute('data-range') || 'hoy');
+      var f = root.getAttribute('data-from') || '';
+      var t = root.getAttribute('data-to') || '';
+      if (f) u.searchParams.set('from', f);
+      if (t) u.searchParams.set('to', t);
+      window.location.href = u.toString();
+      return;
+    }
+    left -= 1;
+    window.setTimeout(tick, 1000);
+  }
+  tick();
+
+  /* Hooks V2: promedio / ayer / semana y métricas producto (aún sin datos). */
+  try { JSON.parse(root.getAttribute('data-chart-ext') || '{}'); } catch (e) {}
+
+  function showEmpty(id) {
+    var canvas = document.getElementById('epos-chart-' + id);
+    var empty = document.querySelector('[data-chart-empty="' + id + '"]');
+    if (canvas) canvas.classList.add('d-none');
+    if (empty) empty.classList.remove('d-none');
+  }
+  function mount(id, factory) {
+    if (typeof Chart === 'undefined') { showEmpty(id); return; }
+    var canvas = document.getElementById('epos-chart-' + id);
+    if (!canvas) return;
+    try { factory(canvas); } catch (e) { console.warn('chart', id, e); showEmpty(id); }
+  }
+
+  var raw = document.getElementById('epos-dash-charts');
+  var data = {};
+  try { data = JSON.parse(raw ? raw.textContent : '{}') || {}; } catch (e) { data = {}; }
+
+  var accent = '#c2410c';
+  var ink2 = '#6b7280';
+  function barOpts(horizontal) {
+    var opts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: ink2, font: { size: 10 } }, grid: horizontal ? { color: '#f1f5f9' } : { display: false }, beginAtZero: true },
+        y: { ticks: { color: ink2, font: { size: 10 } }, grid: horizontal ? { display: false } : { color: '#f1f5f9' }, beginAtZero: true }
+      }
+    };
+    if (horizontal) opts.indexAxis = 'y';
+    return opts;
+  }
+
+  var hours = data.sales_by_hour || [];
+  var hourSum = hours.reduce(function (a, b) { return a + (Number(b) || 0); }, 0);
+  if (!hourSum) showEmpty('hours');
+  else {
+    var hourLabels = [], hourVals = [];
+    for (var h = 0; h < 24; h++) {
+      if ((Number(hours[h]) || 0) > 0 || (h >= 8 && h <= 23)) {
+        hourLabels.push(String(h).padStart(2, '0') + 'h');
+        hourVals.push(Number(hours[h]) || 0);
+      }
+    }
+    mount('hours', function (canvas) {
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: hourLabels,
+          datasets: [
+            { label: 'Ventas', data: hourVals, backgroundColor: accent, borderRadius: 4, maxBarThickness: 28 }
+            /* Futuro: promedio / ayer / semana como datasets line */
+          ]
+        },
+        options: barOpts(false)
+      });
+    });
+  }
+
+  var tops = (data.top_products || []).filter(function (p) {
+    return (Number(p.qty) || 0) > 0 || (Number(p.sales) || 0) > 0;
+  }).slice(0, 6);
+  if (!tops.length) showEmpty('products');
+  else {
+    mount('products', function (canvas) {
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: tops.map(function (p) {
+            var s = String(p.product_ref || '');
+            return s.length > 14 ? s.slice(0, 12) + '…' : s;
+          }),
+          datasets: [{
+            label: 'qty',
+            data: tops.map(function (p) { return Number(p.qty) || Number(p.sales) || 0; }),
+            backgroundColor: '#ea580c',
+            borderRadius: 4,
+            maxBarThickness: 36
+            /* Futuro: datasets sales / margin */
+          }]
+        },
+        options: barOpts(false)
+      });
+    });
+  }
+
+  var pays = (data.payment_methods || []).filter(function (p) { return (Number(p.amount) || 0) > 0; });
+  pays.sort(function (a, b) { return (Number(b.amount) || 0) - (Number(a.amount) || 0); });
+  if (!pays.length) showEmpty('payments');
+  else {
+    var payTotal = pays.reduce(function (s, p) { return s + (Number(p.amount) || 0); }, 0) || 1;
+    mount('payments', function (canvas) {
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: pays.map(function (p) {
+            var pct = Math.round(100 * (Number(p.amount) || 0) / payTotal);
+            return (p.method || 'otros') + ' (' + pct + '%)';
+          }),
+          datasets: [{
+            data: pays.map(function (p) { return Number(p.amount) || 0; }),
+            backgroundColor: ['#c2410c', '#ea580c', '#f59e0b', '#64748b', '#94a3b8'],
+            borderRadius: 4,
+            maxBarThickness: 22
+          }]
+        },
+        options: barOpts(true)
+      });
+    });
+  }
+
+  var cats = (data.sales_by_category || []).filter(function (c) { return (Number(c.sales) || 0) > 0; });
+  cats.sort(function (a, b) { return (Number(b.sales) || 0) - (Number(a.sales) || 0); });
+  cats = cats.slice(0, 6);
+  if (!cats.length) showEmpty('categories');
+  else {
+    mount('categories', function (canvas) {
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: cats.map(function (c) { return c.category; }),
+          datasets: [{
+            data: cats.map(function (c) { return Number(c.sales) || 0; }),
+            backgroundColor: '#9a3412',
+            borderRadius: 4,
+            maxBarThickness: 36
+          }]
+        },
+        options: barOpts(false)
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

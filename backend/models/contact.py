@@ -11,6 +11,8 @@ class Contact(db.Model):
     """
     Sujeto comercial y fiscal por organización.
     No confundir con User (acceso al sistema).
+    Etapa 10: maestro canónico de terceros; roles is_* (cliente, miembro, empleado, …).
+    Apps no crean tablas paralelas de persona — ver docs/EN1_PLATFORM_ETAPA10_MODELO_MAESTRO.md
     """
 
     __tablename__ = 'en1_contact'
@@ -52,6 +54,7 @@ class Contact(db.Model):
     is_instructor = db.Column(db.Boolean, nullable=False, default=False)
     is_donor = db.Column(db.Boolean, nullable=False, default=False)
     is_employee = db.Column(db.Boolean, nullable=False, default=False)
+    is_cashier = db.Column(db.Boolean, nullable=False, default=False)
     is_tax_exempt = db.Column(db.Boolean, nullable=False, default=False)
 
     image_url = db.Column(db.String(500), nullable=True)
@@ -84,4 +87,6 @@ class Contact(db.Model):
             roles.append('Donante')
         if self.is_employee:
             roles.append('Empleado')
+        if self.is_cashier:
+            roles.append('Cajero')
         return roles

@@ -1,0 +1,53 @@
+.platform-launcher-page {
+    max-width: 1100px;
+}
+
+.platform-launcher-grid {
+    margin-top: 0.5rem;
+}
+
+.platform-launcher-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-height: 140px;
+    padding: 1.25rem 1rem;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--color-text, #0f172a);
+    text-align: center;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.platform-launcher-card:hover,
+.platform-launcher-card:focus {
+    border-color: var(--color-primary, #2563eb);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
+    transform: translateY(-2px);
+    outline: none;
+}
+
+.platform-launcher-card.is-active {
+    border-color: var(--color-primary, #2563eb);
+    background: rgba(37, 99, 235, 0.06);
+}
+
+.platform-launcher-card__icon {
+    font-size: 1.75rem;
+    color: var(--color-primary, #2563eb);
+    line-height: 1;
+}
+
+.platform-launcher-card__label {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+html[data-theme="dark"] .platform-launcher-card {
+    background: #252830;
+    border-color: #3a3f4b;
+    color: #e4e6eb;
+}

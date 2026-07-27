@@ -24,7 +24,7 @@ class EInvoiceProviderAdapter(ABC):
         raise NotImplementedError('Nota de crédito: Fase D')
 
     def emit_debit_note(self, document: ElectronicInvoiceDocument, pac_payload: dict) -> dict[str, Any]:
-        raise NotImplementedError('Nota de débito: Fase D')
+        return self.emit_invoice(document, pac_payload)
 
     def query_status(self, cufe: str) -> dict[str, Any]:
         raise NotImplementedError('Consulta estado: Fase E')

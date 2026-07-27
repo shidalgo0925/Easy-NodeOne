@@ -97,8 +97,67 @@ def register_appointments_saas_guards(*blueprints):
         _attach_guard(bp)
 
 
+def org_store_catalog_enabled(organization_id) -> bool:
+    """Vitrina /services: catálogo comercial (sales) o citas (appointments)."""
+    from app import has_saas_module_enabled
+
+    oid = int(organization_id)
+    return bool(
+        has_saas_module_enabled(oid, 'sales') or has_saas_module_enabled(oid, 'appointments')
+    )
+
+
+def enforce_store_catalog_or_response():
+    """Si la org no tiene sales ni appointments, bloquea Tienda (/services)."""
+    if not current_user.is_authenticated:
+        return None
+    if getattr(current_user, 'is_admin', False):
+        return None
+
+    path = request.path or ''
+    bp = getattr(request, 'blueprint', '') or ''
+    is_api = path.startswith('/api/') or bp.endswith('_api') or 'api' in bp
+
+    from app import (
+        default_organization_id,
+        tenant_data_organization_id,
+    )
+
+    org_id = None
+    try:
+        org_id = int(tenant_data_organization_id())
+    except Exception:
+        try:
+            org_id = int(getattr(current_user, 'organization_id', None) or default_organization_id())
+        except Exception:
+            if is_api or request.is_json:
+                return jsonify(
+                    {
+                        'error': 'organization_context_lost',
+                        'user_message': 'Sesión o contexto de organización inválido. Recargue e inicie sesión.',
+                    }
+                ), 403
+            flash('Tu sesión perdió el contexto de organización. Inicia sesión de nuevo.', 'error')
+            return redirect(url_for('auth.login'))
+
+    if org_id is None:
+        if is_api or request.is_json:
+            return jsonify({'error': 'Organización no disponible', 'module': 'sales'}), 403
+        flash('Debes iniciar sesión con un contexto de organización válido.', 'error')
+        return redirect(url_for('dashboard'))
+
+    if org_store_catalog_enabled(org_id):
+        return None
+
+    if is_api or request.is_json:
+        return jsonify({'error': 'Módulo no habilitado', 'module': 'sales'}), 403
+
+    flash('Esta función no está habilitada para su organización.', 'error')
+    return redirect(url_for('dashboard'))
+
+
 def register_services_saas_guards(services_bp):
-    """Catálogo /services y solicitud de cita con pago: mismo tenant que módulo citas."""
+    """Catálogo /services: habilitado con sales (compra/vitrina) o appointments (legado citas)."""
 
     @services_bp.before_request
     def _guard_services_catalog():
@@ -114,22 +173,21 @@ def register_services_saas_guards(services_bp):
             from app import (
                 _organization_id_from_request_host,
                 default_organization_id,
-                has_saas_module_enabled,
             )
 
             oid_h = _organization_id_from_request_host(request)
             org_id = int(oid_h) if oid_h is not None else int(default_organization_id())
-            if not has_saas_module_enabled(org_id, 'appointments'):
+            if not org_store_catalog_enabled(org_id):
                 path = request.path or ''
                 bp = getattr(request, 'blueprint', '') or ''
                 is_api = path.startswith('/api/') or bp.endswith('_api') or 'api' in bp
                 if is_api or request.is_json:
-                    return jsonify({'error': 'Módulo no habilitado', 'module': 'appointments'}), 403
+                    return jsonify({'error': 'Módulo no habilitado', 'module': 'sales'}), 403
                 flash('Esta función no está habilitada para su organización.', 'error')
                 return redirect(url_for('auth.login'))
             return None
 
-        return enforce_saas_module_or_response('appointments')
+        return enforce_store_catalog_or_response()
 
 
 def register_events_saas_guards(events_bp, admin_events_bp, events_api_bp):

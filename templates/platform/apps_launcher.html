@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Mis aplicaciones — {{ get_nav_brand_name() }}{% endblock %}
+
+{% block head_extra %}
+<link href="{{ url_for('static', filename='css/platform-launcher.css') }}?v=1" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4 platform-launcher-page">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Mis aplicaciones</h1>
+            <p class="text-muted mb-0">EasyNodeOne Platform — elige una aplicación para continuar.</p>
+        </div>
+        {% if active_app_id %}
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('platform_launcher.apps_switch') }}">
+            <i class="fas fa-exchange-alt me-1"></i> Cambiar aplicación
+        </a>
+        {% endif %}
+    </div>
+
+    {% if not launcher_apps %}
+    <div class="alert alert-info">
+        No hay aplicaciones disponibles para tu perfil en esta organización.
+        <a href="{{ url_for('admin_dashboard') }}">Ir al panel</a>.
+    </div>
+    {% else %}
+    <div class="row g-3 platform-launcher-grid">
+        {% for app in launcher_apps %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <form method="post" action="{{ url_for('platform_launcher.apps_select') }}" class="h-100">
+                <input type="hidden" name="app_id" value="{{ app.id }}">
+                <button type="submit" class="platform-launcher-card w-100 h-100{% if active_app_id == app.id %} is-active{% endif %}">
+                    <span class="platform-launcher-card__icon"><i class="{{ app.icon }}"></i></span>
+                    <span class="platform-launcher-card__label">{{ app.label }}</span>
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

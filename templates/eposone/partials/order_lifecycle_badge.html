@@ -1,0 +1,9 @@
+{# EPosOne — badge de ciclo de vida del pedido (lista + detalle). Expects: order #}
+{% set st = (order.status or '')|lower %}
+{% if order.financially_closed and st not in ('cancelled', 'returned') %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% elif st in ('open', 'draft') %}{% with text=order.status, tone='open' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% elif st in ('sent', 'preparing') %}{% with text=order.status, tone='preparing' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% elif st == 'ready' %}{% with text=order.status, tone='ready' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% elif st == 'closed' %}{% with text='cerrado', tone='closed' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% else %}{% with text=order.status, tone='neutral' %}{% include 'eposone/partials/status_badge.html' %}{% endwith %}
+{% endif %}

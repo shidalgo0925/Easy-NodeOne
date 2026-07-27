@@ -1,0 +1,4 @@
+{# EPosOne DS — status badge
+   text, tone: open|preparing|ready|paid|closed|neutral|danger|ok #}
+{% set tone = (tone or 'neutral')|lower %}
+<span class="epos-badge epos-badge--{{ tone }}">{{ text }}</span>

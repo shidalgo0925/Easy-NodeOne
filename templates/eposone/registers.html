@@ -1,0 +1,778 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Cajas | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+{% macro cashier_options() %}
+<option value="">Seleccionar cajero…</option>
+{% for cashier in cashier_contacts %}
+<option value="{{ cashier.id }}">
+    {{ cashier.display_name }}{% if cashier.email %} · {{ cashier.email }}{% endif %}
+</option>
+{% endfor %}
+{% endmacro %}
+<div class="container-fluid py-3 en1-eposone-page epos-registers-v2" id="epos-registers-page">
+
+    <div class="epos-page-header">
+        <div>
+            <h1 class="epos-page-title">
+                <i class="fas fa-cash-register me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Cajas
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Administración del negocio · la tablet se vincula en «Instalar dispositivo»
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <span class="badge text-bg-light border">{{ registers_total }} caja(s)</span>
+            <span class="badge text-bg-light border">{{ open_shifts_total }} turno(s) activo(s)</span>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newRegisterModal"
+                    {% if not pos_units %}disabled{% endif %}>
+                <i class="fas fa-plus me-1"></i>Nueva Caja
+            </button>
+        </div>
+    </div>
+
+    {% if request.args.get('install') %}
+    <div class="alert alert-info border-0 shadow-sm mb-3">
+        <strong>Instalar dispositivo</strong>
+        <p class="small mb-2">Elegí una caja y usá <em>Asignar dispositivo</em> para generar el código. Pegalo en la tablet. Las licencias no bloquean este paso.</p>
+        {% if registers_total == 0 %}
+        <p class="small mb-0">Todavía no hay cajas: creá una en Administración primero.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <form class="epos-filter-bar mb-3" id="epos-reg-filters" onsubmit="return false;">
+        <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
+            <label for="reg-q">Buscar</label>
+            <input class="form-control" type="search" id="reg-q" placeholder="Caja, POS, dispositivo…" autocomplete="off">
+        </div>
+        <div class="epos-filter-field">
+            <label for="reg-status">Estado</label>
+            <select class="form-select" id="reg-status">
+                <option value="">Todos</option>
+                <option value="available">Disponible</option>
+                <option value="assigned">Asignada</option>
+                <option value="no_device">Sin dispositivo</option>
+                <option value="open">Turno abierto</option>
+                <option value="reconciling">Arqueando</option>
+            </select>
+        </div>
+        <div class="epos-filter-bar__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="reg-clear">Limpiar</button>
+        </div>
+    </form>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <div class="epos-section-label">Seguridad de caja</div>
+            <form method="post" action="{{ url_for('eposone.eposone_settings_save') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="settings_panel" value="seguridad">
+                <input type="hidden" name="redirect_slug" value="registers">
+                <div class="col-12 col-lg-8">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="supervisor_approval_required" name="supervisor_approval_required" value="1"
+                               {% if not settings or settings.supervisor_approval_required %}checked{% endif %}>
+                        <label class="form-check-label" for="supervisor_approval_required">
+                            Requerir supervisor en reembolsos y movimientos manuales de caja
+                        </label>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4 text-lg-end">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-save me-1"></i>Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body p-0">
+            {% if register_rows %}
+            <div class="epos-reg-table-wrap">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table" id="epos-registers-table">
+                    <thead>
+                        <tr>
+                            <th>Caja</th>
+                            <th>POS</th>
+                            <th>Dispositivo</th>
+                            <th>Estado técnico</th>
+                            <th>Estado comercial</th>
+                            <th>Turno</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in register_rows %}
+                        {% set reg = row.register %}
+                        {% set shift = row.shift %}
+                        {% set dev = row.device %}
+                        {% set st = row.ui_status %}
+                        <tr class="epos-reg-row"
+                            data-q="{{ (reg.name ~ ' ' ~ reg.unit_ref ~ ' ' ~ (row.pos_name or '') ~ ' ' ~ (row.branch_name or '') ~ ' ' ~ (dev.device_label if dev else '') ~ ' ' ~ (dev.terminal_ref if dev else ''))|lower }}"
+                            data-status="{{ st }}">
+                            <td>
+                                <div class="fw-semibold">{{ reg.name }}</div>
+                                <div class="epos-ref">{{ reg.unit_ref }}</div>
+                            </td>
+                            <td>
+                                {% if row.pos_name %}
+                                <div class="fw-semibold">{{ row.pos_name }}</div>
+                                {% if row.branch_name %}<div class="small text-muted">{{ row.branch_name }}</div>{% endif %}
+                                {% else %}
+                                <span class="small text-warning">Sin POS</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.provisioning_code %}
+                                <div class="epos-prov-panel mb-2" data-register-ref="{{ reg.unit_ref }}">
+                                    <div class="epos-prov-panel__label">Código de provisioning</div>
+                                    <div class="epos-prov-panel__row">
+                                        <code class="epos-prov-panel__code" id="prov-code-{{ reg.unit_ref }}">{{ row.provisioning_code }}</code>
+                                        <button type="button" class="btn btn-sm btn-primary epos-prov-copy"
+                                                data-copy="{{ row.provisioning_code }}">
+                                            <i class="fas fa-copy me-1"></i>Copiar
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary epos-prov-open"
+                                                data-register-ref="{{ reg.unit_ref }}"
+                                                data-code="{{ row.provisioning_code }}"
+                                                data-expires="{% if row.provisioning_expires_at %}{{ row.provisioning_expires_at.strftime('%H:%M') }} UTC{% endif %}">
+                                            <i class="fas fa-expand me-1"></i>Ver
+                                        </button>
+                                    </div>
+                                    <div class="epos-prov-panel__meta">
+                                        {% if row.provisioning_expires_at %}
+                                        Expira {{ row.provisioning_expires_at.strftime('%H:%M') }} UTC ·
+                                        {% endif %}
+                                        un solo uso · pegalo en la APK
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if dev %}
+                                <div class="fw-semibold text-truncate" style="max-width:16rem" title="{{ dev.device_label or '' }} · {{ dev.terminal_ref }}">
+                                    {{ dev.device_label or 'Tablet' }}
+                                </div>
+                                <div class="small text-muted">
+                                    {% if dev.last_seen_at %}Sync {{ dev.last_seen_at.strftime('%d/%m %H:%M') }}{% else %}Sin sync{% endif %}
+                                    {% if dev.app_version %} · v{{ dev.app_version }}{% endif %}
+                                </div>
+                                {% elif not row.provisioning_code %}
+                                <span class="small text-warning">Sin dispositivo</span>
+                                {% else %}
+                                <span class="small text-muted">Esperando vínculo de tablet…</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if st == 'open' %}
+                                <span class="epos-stock-pill epos-stock-pill--ok">Turno abierto</span>
+                                {% elif st == 'reconciling' %}
+                                <span class="epos-stock-pill epos-stock-pill--low">Arqueando</span>
+                                {% elif st == 'code_pending' %}
+                                <span class="epos-stock-pill epos-stock-pill--low">Código generado</span>
+                                {% elif st == 'no_device' %}
+                                <span class="epos-stock-pill epos-stock-pill--low">Sin dispositivo</span>
+                                {% elif st == 'assigned' %}
+                                <span class="epos-stock-pill epos-stock-pill--ok">Asignada</span>
+                                {% elif st == 'disconnected' %}
+                                <span class="epos-stock-pill epos-stock-pill--low">Desconectada</span>
+                                {% elif st == 'blocked' %}
+                                <span class="epos-stock-pill epos-stock-pill--out">Bloqueada</span>
+                                {% else %}
+                                <span class="epos-stock-pill epos-stock-pill--ok">Disponible</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set ck = row.commercial_key or 'unlicensed' %}
+                                {% if ck in ('active', 'trial', 'courtesy', 'perpetual', 'promotion', 'demo') %}
+                                <span class="epos-stock-pill epos-stock-pill--ok">{{ row.commercial_ui }}</span>
+                                {% elif ck in ('expired', 'suspended') %}
+                                <span class="epos-stock-pill epos-stock-pill--out">{{ row.commercial_ui }}</span>
+                                {% else %}
+                                <span class="epos-stock-pill epos-stock-pill--low">{{ row.commercial_ui or 'Sin licencia' }}</span>
+                                {% endif %}
+                                {% if row.license and row.license.days_remaining is not none %}
+                                <div class="small text-muted">{{ row.license.days_remaining }} d</div>
+                                {% endif %}
+                            </td>
+                            <td class="small">
+                                {% if shift %}
+                                <div class="fw-semibold">
+                                    <i class="fas fa-user me-1 text-muted"></i>{{ shift.cashier_name or 'Sin cajero asignado' }}
+                                </div>
+                                {% if shift.opened_at %}{{ shift.opened_at.strftime('%d/%m %H:%M') }}{% else %}{{ shift.status }}{% endif %}
+                                {% if row.expected_balance is not none %}
+                                <div class="text-muted">Esp. {{ '%.2f'|format(row.expected_balance) }}</div>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <div class="d-inline-flex align-items-center gap-1 epos-reg-actions">
+                                    {% if row.can_open %}
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                        data-bs-toggle="modal" data-bs-target="#openShiftModal"
+                                        data-register-ref="{{ reg.unit_ref }}"
+                                        data-register-name="{{ reg.name }}">
+                                        Abrir turno
+                                    </button>
+                                    {% endif %}
+                                    {% if shift %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal" data-bs-target="#changeCashierModal"
+                                        data-shift-id="{{ shift.id }}"
+                                        data-register-ref="{{ reg.unit_ref }}"
+                                        data-cashier-contact-id="{{ shift.cashier_contact_id or '' }}">
+                                        {% if shift.cashier_name %}Cambiar cajero{% else %}Asignar cajero{% endif %}
+                                    </button>
+                                    {% endif %}
+                                    {# Acción crítica siempre visible (no depende del menú ⋮) #}
+                                    <form method="post" action="{{ url_for('eposone.eposone_issue_provisioning_code') }}" class="d-inline">
+                                        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                        <input type="hidden" name="register_ref" value="{{ reg.unit_ref }}">
+                                        <input type="hidden" name="redirect_slug" value="registers">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary"
+                                                title="{% if row.has_device %}Genera un código nuevo para vincular otra tablet{% else %}Genera el código de provisioning{% endif %}">
+                                            {% if row.has_device %}
+                                            <i class="fas fa-sync-alt me-1"></i>Reemplazar dispositivo
+                                            {% elif row.provisioning_code %}
+                                            <i class="fas fa-key me-1"></i>Renovar código
+                                            {% else %}
+                                            <i class="fas fa-mobile-alt me-1"></i>Asignar dispositivo
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button"
+                                                data-bs-toggle="dropdown"
+                                                data-bs-auto-close="true"
+                                                data-bs-popper-config='{"strategy":"fixed","modifiers":[{"name":"preventOverflow","options":{"boundary":"viewport"}}]}'
+                                                aria-expanded="false" title="Más acciones">
+                                            <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow">
+                                            <li>
+                                                <button type="button" class="dropdown-item btn-edit-register"
+                                                    data-id="{{ reg.id }}"
+                                                    data-name="{{ reg.name }}"
+                                                    data-notes="{{ reg.notes or '' }}">
+                                                    Editar caja
+                                                </button>
+                                            </li>
+                                            {% if (reg.status or 'active')|lower == 'active' %}
+                                            <li>
+                                                <button type="button" class="dropdown-item text-danger btn-deactivate-register"
+                                                    data-id="{{ reg.id }}">
+                                                    Desactivar caja
+                                                </button>
+                                            </li>
+                                            {% endif %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            {% if shift %}
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id) }}">
+                                                    {% if row.can_close %}Cerrar turno{% else %}Ver / Cerrar turno{% endif %}
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                            {% if row.can_reconcile and shift %}
+                                            <li>
+                                                <button type="button" class="dropdown-item"
+                                                    data-bs-toggle="modal" data-bs-target="#reconcileShiftModal"
+                                                    data-shift-id="{{ shift.id }}"
+                                                    data-register-ref="{{ reg.unit_ref }}"
+                                                    data-expected="{{ row.expected_balance or 0 }}">
+                                                    Arquear (rápido)
+                                                </button>
+                                            </li>
+                                            {% endif %}
+                                            {% if row.can_close and shift %}
+                                            <li>
+                                                <form method="post" action="{{ url_for('eposone.eposone_register_close_shift', shift_id=shift.id) }}">
+                                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                    <input type="hidden" name="next" value="registers">
+                                                    <button type="submit" class="dropdown-item text-danger"
+                                                        onclick="return confirm('¿Cerrar el turno de {{ reg.unit_ref }}?');">
+                                                        Cerrar turno (directo)
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% endif %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><h6 class="dropdown-header">Licencia (comercial)</h6></li>
+                                            <li>
+                                                <form method="post" action="{{ url_for('eposone.eposone_register_license_set', register_ref=reg.unit_ref) }}">
+                                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                    <input type="hidden" name="action" value="activate">
+                                                    <input type="hidden" name="license_type" value="trial">
+                                                    <button type="submit" class="dropdown-item">Activar trial (días según política)</button>
+                                                </form>
+                                            </li>
+                                            <li>
+                                                <form method="post" action="{{ url_for('eposone.eposone_register_license_set', register_ref=reg.unit_ref) }}">
+                                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                    <input type="hidden" name="action" value="extend">
+                                                    <input type="hidden" name="days" value="30">
+                                                    <button type="submit" class="dropdown-item">Extender 30 días</button>
+                                                </form>
+                                            </li>
+                                            <li>
+                                                <form method="post" action="{{ url_for('eposone.eposone_register_license_set', register_ref=reg.unit_ref) }}">
+                                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                    <input type="hidden" name="action" value="courtesy">
+                                                    <button type="submit" class="dropdown-item">Regalar cortesía</button>
+                                                </form>
+                                            </li>
+                                            <li>
+                                                <form method="post" action="{{ url_for('eposone.eposone_register_license_set', register_ref=reg.unit_ref) }}">
+                                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                                    <input type="hidden" name="action" value="perpetual">
+                                                    <button type="submit" class="dropdown-item">Licencia permanente</button>
+                                                </form>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('eposone.eposone_section', slug='terminals') }}">Ver dispositivos</a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 text-muted d-none" id="reg-empty-filter">Ninguna caja coincide con los filtros.</div>
+            {% else %}
+            <div class="p-4 text-center text-muted">
+                <p class="mb-2">No hay cajas todavía.</p>
+                <p class="small">Creá la caja desde Administración (sin tablet todavía). La vinculación del dispositivo es un paso aparte.</p>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newRegisterModal"
+                        {% if not pos_units %}disabled{% endif %}>
+                    <i class="fas fa-plus me-1"></i>Crear la primera caja
+                </button>
+                {% if not pos_units %}
+                <p class="small mt-2 mb-0">Primero creá un <strong>Punto de venta</strong> en <strong>Administración → Puntos de venta</strong> (después de la Sucursal).</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if recent_closed %}
+    <div class="epos-card">
+        <div class="epos-card-body p-0">
+            <div class="px-3 pt-3 pb-2">
+                <h2 class="h6 mb-0">Últimos turnos cerrados</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle epos-table">
+                    <thead>
+                        <tr>
+                            <th>Caja</th>
+                            <th>Cerrado</th>
+                            <th class="text-end">Cierre</th>
+                            <th class="text-end">Esperado</th>
+                            <th class="text-end">Diferencia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shift in recent_closed %}
+                        <tr>
+                            <td><span class="epos-ref">{{ shift.register_ref }}</span></td>
+                            <td class="small text-muted">
+                                {% if shift.closed_at %}{{ shift.closed_at.strftime('%d/%m/%Y %H:%M') }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end">{{ '%.2f'|format(shift.closing_balance or 0) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(shift.expected_balance or 0) }}</td>
+                            <td class="text-end {% if shift.cash_variance and shift.cash_variance|abs > 0.01 %}text-warning{% endif %}">
+                                {{ '%.2f'|format(shift.cash_variance or 0) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ——— Nueva Caja (modal) ——— #}
+<div class="modal fade" id="newRegisterModal" tabindex="-1" aria-labelledby="newRegisterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="{{ url_for('eposone.eposone_register_create') }}" class="modal-content">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <input type="hidden" name="redirect_slug" value="registers">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newRegisterModalLabel">Nueva Caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">
+                    La caja pertenece al POS. Después generá el código de provisioning e instalá el APK.
+                </p>
+                <div class="vstack gap-3">
+                    <div>
+                        <label class="form-label" for="new_reg_ref">Referencia <span class="text-danger">*</span></label>
+                        <input class="form-control" id="new_reg_ref" name="unit_ref" required maxlength="64" placeholder="caja-01">
+                    </div>
+                    <div>
+                        <label class="form-label" for="new_reg_name">Nombre <span class="text-danger">*</span></label>
+                        <input class="form-control" id="new_reg_name" name="name" required maxlength="200" placeholder="Caja 1">
+                    </div>
+                    <div>
+                        <label class="form-label" for="new_reg_pos">POS <span class="text-danger">*</span></label>
+                        <select class="form-select" id="new_reg_pos" name="parent_id" required>
+                            <option value="">— elegir POS —</option>
+                            {% for p in pos_units %}
+                            <option value="{{ p.id }}">{{ p.name }} ({{ p.unit_ref }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" {% if not pos_units %}disabled{% endif %}>Crear caja</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ——— Modal código de provisioning (copiable) ——— #}
+<div class="modal fade" id="provCodeModal" tabindex="-1" aria-labelledby="provCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="provCodeModalLabel">Código de provisioning</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">
+                    En la tablet limpia ingresá la URL de EN1 y este código. Es de <strong>un solo uso</strong>.
+                </p>
+                <div class="mb-3">
+                    <label class="form-label small text-muted mb-1">Caja</label>
+                    <div class="fw-semibold" id="provModalRegister">—</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted mb-1">URL API EasyNodeOne</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control font-monospace" id="provModalUrl"
+                               value="{{ en1_api_base_url|default('') }}" readonly>
+                        <button type="button" class="btn btn-outline-secondary epos-prov-copy"
+                                data-copy-from="provModalUrl">Copiar</button>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small text-muted mb-1">Código</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control form-control-lg font-monospace text-center"
+                               id="provModalCode" value="" readonly>
+                        <button type="button" class="btn btn-primary epos-prov-copy"
+                                data-copy-from="provModalCode">
+                            <i class="fas fa-copy me-1"></i>Copiar
+                        </button>
+                    </div>
+                </div>
+                <p class="small text-muted mb-0" id="provModalMeta"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="openShiftModal" tabindex="-1" aria-labelledby="openShiftModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="{{ url_for('eposone.eposone_register_open_shift') }}" class="modal-content">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="openShiftModalLabel">Abrir turno de caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Caja: <strong id="openShiftRegisterName">—</strong> (<code id="openShiftRegisterRef">—</code>)</p>
+                <input type="hidden" name="register_ref" id="openShiftRegisterRefInput" value="">
+                <div class="mb-3">
+                    <label for="openShiftCashier" class="form-label">Cajero</label>
+                    <select class="form-select" name="cashier_contact_id" id="openShiftCashier" required>
+                        {{ cashier_options() }}
+                    </select>
+                    <div class="form-text">
+                        <a href="{{ url_for('eposone.eposone_section', slug='cashiers') }}">Administrar cajeros</a>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="opening_balance" class="form-label">Saldo inicial en caja</label>
+                    <input type="number" step="0.01" min="0" class="form-control" name="opening_balance" id="opening_balance" value="0.00" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Abrir turno</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="changeCashierModal" tabindex="-1" aria-labelledby="changeCashierModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="" id="changeCashierForm" class="modal-content">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="changeCashierModalLabel">Cajero del turno</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Caja: <code id="changeCashierRegisterRef">—</code></p>
+                <label for="changeCashierContact" class="form-label">Cajero actual</label>
+                <select class="form-select" name="cashier_contact_id" id="changeCashierContact" required>
+                    {{ cashier_options() }}
+                </select>
+                <p class="small text-muted mt-2 mb-0">El cambio quedará registrado en la auditoría del turno.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cajero</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% include 'eposone/partials/reconcile_shift_modal.html' %}
+
+{# ——— Modal: Editar caja ——— #}
+<div class="modal fade" id="editRegisterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit_register_id">
+                <div class="mb-3">
+                    <label class="form-label" for="edit_register_name">Nombre</label>
+                    <input class="form-control" id="edit_register_name" required maxlength="200">
+                </div>
+                <div class="mb-0">
+                    <label class="form-label" for="edit_register_notes">Notas</label>
+                    <input class="form-control" id="edit_register_notes" maxlength="500">
+                </div>
+                <p class="small text-muted mt-2 mb-0" id="edit-register-msg"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="edit-register-save">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+  function csrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    var i = document.querySelector('input[name="csrf_token"]');
+    return i ? i.value : '';
+  }
+  var qEl = document.getElementById('reg-q');
+  var stEl = document.getElementById('reg-status');
+  var clearBtn = document.getElementById('reg-clear');
+  var empty = document.getElementById('reg-empty-filter');
+
+  function applyFilters() {
+    var q = (qEl && qEl.value || '').trim().toLowerCase();
+    var st = (stEl && stEl.value) || '';
+    var rows = document.querySelectorAll('#epos-registers-table .epos-reg-row');
+    var n = 0;
+    rows.forEach(function (tr) {
+      var ok = true;
+      if (q && (tr.getAttribute('data-q') || '').indexOf(q) === -1) ok = false;
+      if (ok && st && tr.getAttribute('data-status') !== st) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) n += 1;
+    });
+    if (empty) empty.classList.toggle('d-none', n !== 0 || !rows.length);
+  }
+  if (qEl) qEl.addEventListener('input', applyFilters);
+  if (stEl) stEl.addEventListener('change', applyFilters);
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (qEl) qEl.value = '';
+      if (stEl) stEl.value = '';
+      applyFilters();
+    });
+  }
+
+  var openModal = document.getElementById('openShiftModal');
+  if (openModal) {
+    openModal.addEventListener('show.bs.modal', function (event) {
+      var btn = event.relatedTarget;
+      if (!btn) return;
+      var ref = btn.getAttribute('data-register-ref') || '';
+      var name = btn.getAttribute('data-register-name') || ref;
+      document.getElementById('openShiftRegisterRef').textContent = ref;
+      document.getElementById('openShiftRegisterName').textContent = name;
+      document.getElementById('openShiftRegisterRefInput').value = ref;
+    });
+  }
+  var cashierModal = document.getElementById('changeCashierModal');
+  if (cashierModal) {
+    cashierModal.addEventListener('show.bs.modal', function (event) {
+      var btn = event.relatedTarget;
+      if (!btn) return;
+      var shiftId = btn.getAttribute('data-shift-id') || '';
+      var ref = btn.getAttribute('data-register-ref') || '';
+      var cashierContactId = btn.getAttribute('data-cashier-contact-id') || '';
+      document.getElementById('changeCashierRegisterRef').textContent = ref;
+      document.getElementById('changeCashierContact').value = cashierContactId;
+      document.getElementById('changeCashierForm').action =
+        '{{ url_for("eposone.eposone_register_change_cashier", shift_id=0) }}'.replace('/0/', '/' + shiftId + '/');
+    });
+  }
+  {% include 'eposone/partials/reconcile_shift_script.html' %}
+
+  function copyText(text, btn) {
+    if (!text) return;
+    var done = function () {
+      if (!btn) return;
+      var prev = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check me-1"></i>Copiado';
+      btn.classList.add('btn-success');
+      btn.classList.remove('btn-primary', 'btn-outline-secondary');
+      setTimeout(function () {
+        btn.innerHTML = prev;
+        btn.classList.remove('btn-success');
+        if (btn.classList.contains('epos-prov-copy') && btn.getAttribute('data-copy-from') === 'provModalUrl') {
+          btn.classList.add('btn-outline-secondary');
+        } else {
+          btn.classList.add('btn-primary');
+        }
+      }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        window.prompt('Copiá el código:', text);
+      });
+    } else {
+      window.prompt('Copiá el código:', text);
+      done();
+    }
+  }
+
+  document.querySelectorAll('.epos-prov-copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var fromId = btn.getAttribute('data-copy-from');
+      var text = '';
+      if (fromId) {
+        var el = document.getElementById(fromId);
+        text = el ? (el.value || el.textContent || '') : '';
+      } else {
+        text = btn.getAttribute('data-copy') || '';
+      }
+      copyText((text || '').trim(), btn);
+    });
+  });
+
+  function openProvModal(registerRef, code, expiresText) {
+    var modalEl = document.getElementById('provCodeModal');
+    if (!modalEl || !window.bootstrap) return;
+    document.getElementById('provModalRegister').textContent = registerRef || '—';
+    document.getElementById('provModalCode').value = code || '';
+    document.getElementById('provModalMeta').textContent = expiresText
+      ? ('Expira ' + expiresText + ' · un solo uso')
+      : 'Un solo uso · no compartas este código';
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+
+  document.querySelectorAll('.epos-prov-open').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openProvModal(
+        btn.getAttribute('data-register-ref') || '',
+        btn.getAttribute('data-code') || '',
+        btn.getAttribute('data-expires') || ''
+      );
+    });
+  });
+
+  {% if issued_register_ref %}
+  (function () {
+    var issued = {{ issued_register_ref|tojson }};
+    var panel = document.querySelector('.epos-prov-panel[data-register-ref="' + issued + '"]');
+    if (panel) {
+      panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      panel.classList.add('epos-prov-panel--flash');
+      setTimeout(function () { panel.classList.remove('epos-prov-panel--flash'); }, 2200);
+    }
+  })();
+  {% endif %}
+
+  var editRegModalEl = document.getElementById('editRegisterModal');
+  var editRegModal = editRegModalEl && window.bootstrap ? new bootstrap.Modal(editRegModalEl) : null;
+  document.querySelectorAll('.btn-edit-register').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('edit_register_id').value = btn.getAttribute('data-id') || '';
+      document.getElementById('edit_register_name').value = btn.getAttribute('data-name') || '';
+      document.getElementById('edit_register_notes').value = btn.getAttribute('data-notes') || '';
+      var msg = document.getElementById('edit-register-msg');
+      if (msg) msg.textContent = '';
+      if (editRegModal) editRegModal.show();
+    });
+  });
+  var saveRegBtn = document.getElementById('edit-register-save');
+  if (saveRegBtn) {
+    saveRegBtn.addEventListener('click', async function () {
+      var id = document.getElementById('edit_register_id').value;
+      var name = (document.getElementById('edit_register_name').value || '').trim();
+      var notes = (document.getElementById('edit_register_notes').value || '').trim();
+      var msg = document.getElementById('edit-register-msg');
+      if (!id || !name) {
+        if (msg) msg.textContent = 'Nombre obligatorio.';
+        return;
+      }
+      try {
+        var res = await fetch('/api/eposone/registers/by-id/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          body: JSON.stringify({ name: name, notes: notes || null })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        window.location.reload();
+      } catch (e) {
+        if (msg) msg.textContent = 'Error: ' + e.message;
+      }
+    });
+  }
+  document.querySelectorAll('.btn-deactivate-register').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-id');
+      if (!id || !confirm('¿Desactivar esta caja?')) return;
+      try {
+        var res = await fetch('/api/eposone/registers/by-id/' + id + '/deactivate', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf() }
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        window.location.reload();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

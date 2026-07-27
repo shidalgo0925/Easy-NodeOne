@@ -1,0 +1,215 @@
+/* Shell por aplicación — sidebar compacto (Etapa 4) */
+
+body[data-platform-app-shell="1"] .left-panel.sidebar-erp {
+    border-right-color: rgba(37, 99, 235, 0.15);
+}
+
+body[data-platform-app-shell="1"] .platform-shell-banner {
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), transparent);
+    border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
+.platform-shell-banner__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.platform-shell-banner__app {
+    font-weight: 600;
+    color: var(--color-primary, #2563eb);
+}
+
+.platform-shell-banner__app i {
+    margin-right: 0.35rem;
+}
+
+body[data-platform-app-shell="1"] .shell-sidebar-group .nav-link {
+    font-size: 0.875rem;
+}
+
+body[data-app-nav-native="1"] .left-panel.sidebar-erp {
+    border-right-color: rgba(37, 99, 235, 0.2);
+}
+
+.app-context-bar {
+    --app-context-bar-height: 2.75rem;
+    background: var(--color-surface, #fff);
+    border-bottom: 1px solid var(--color-border, #e2e8f0);
+    position: fixed;
+    top: 56px;
+    left: 240px;
+    right: 0;
+    z-index: 1025; /* por encima del sidebar (1020) para no tapar Mesa/Llevar/Delivery */
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+    overflow: visible;
+}
+
+body.sidebar-collapsed .app-context-bar {
+    left: 70px !important;
+}
+
+body.open .app-context-bar {
+    left: 70px !important;
+}
+
+@media (max-width: 991.98px) {
+    .app-context-bar {
+        left: 0 !important;
+    }
+}
+
+/* Contenido bajo topbar + context bar (sin doble hueco en flujo) */
+body:has(#appContextBar) #right-panel {
+    margin-top: calc(56px + var(--app-context-bar-height, 2.25rem));
+}
+
+body:has(#appContextBar) #right-panel .content {
+    min-height: calc(100vh - 56px - var(--app-context-bar-height, 2.25rem));
+}
+
+.app-context-bar__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.65rem;
+    min-height: var(--app-context-bar-height, 2.25rem);
+    padding: 0.2rem 0.85rem;
+}
+
+.app-context-bar__breadcrumb {
+    --bs-breadcrumb-divider: '›';
+    flex: 0 1 auto;
+    font-size: 0.8125rem;
+    margin-bottom: 0 !important;
+}
+
+.app-context-bar__breadcrumb .breadcrumb-item a {
+    color: var(--color-primary, #2563eb);
+    text-decoration: none;
+}
+
+.app-context-bar__breadcrumb .breadcrumb-item.active {
+    color: var(--color-text-muted, #64748b);
+}
+
+.app-context-bar__middle {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+}
+
+.app-context-bar__actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+/* Padding de contenido más compacto en shell / chrome admin */
+body[data-platform-app-shell="1"] #right-panel .content,
+body[data-app-nav-native="1"] #right-panel .content,
+body[data-erp-app-chrome="1"] #right-panel .content {
+    padding: 0.5rem 1rem 1rem;
+}
+
+body[data-platform-app-shell="1"] .en1-eposone-page.container-fluid,
+body[data-app-nav-native="1"] .en1-eposone-page.container-fluid {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.75rem !important;
+}
+
+body[data-app-nav-native="1"] .app-nav-domain > .nav-group-toggle {
+    /* Misma tipografía que Dashboard / Pedidos (sin ALL CAPS). */
+    font-weight: inherit;
+    font-size: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+    color: inherit;
+}
+
+/* UX-T1 — retorno al launcher + identidad de producto */
+.app-nav-return-link {
+    font-weight: 600;
+    color: var(--color-text-muted, #64748b) !important;
+    border-bottom: 1px solid var(--color-border, #e2e8f0);
+    margin-bottom: 0.25rem;
+}
+
+.app-nav-return-link:hover {
+    color: var(--app-shell-accent, var(--color-primary, #2563eb)) !important;
+}
+
+.app-nav-product-header {
+    padding-top: 0.75rem !important;
+}
+
+.app-nav-product-name {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--app-shell-accent, var(--color-primary, #2563eb));
+}
+
+.app-nav-product-tagline {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-text-muted, #64748b);
+    margin-top: 0.15rem;
+}
+
+.platform-shell-banner__tag {
+    display: inline-block;
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-muted, #64748b);
+}
+
+.app-context-return {
+    white-space: nowrap;
+}
+
+/* EPosOne — acento propio (producto, no ERP genérico) */
+body[data-platform-app-accent="eposone"] {
+    --app-shell-accent: #c2410c;
+    --app-shell-accent-soft: rgba(194, 65, 12, 0.1);
+}
+
+body[data-platform-app-accent="eposone"][data-platform-app-shell="1"] .left-panel.sidebar-erp,
+body[data-platform-app-accent="eposone"][data-app-nav-native="1"] .left-panel.sidebar-erp {
+    border-right-color: rgba(194, 65, 12, 0.25);
+}
+
+body[data-platform-app-accent="eposone"] .platform-shell-banner {
+    background: linear-gradient(90deg, var(--app-shell-accent-soft), transparent);
+}
+
+body[data-platform-app-accent="eposone"] .platform-shell-banner__app {
+    color: var(--app-shell-accent);
+}
+
+body[data-platform-app-accent="eposone"] .app-context-bar {
+    border-bottom-color: rgba(194, 65, 12, 0.2);
+}
+
+body[data-platform-app-accent="eposone"] .app-context-bar__breadcrumb .breadcrumb-item a {
+    color: var(--app-shell-accent);
+}
+
+body[data-platform-app-accent="eposone"] .sidebar-erp .nav-link.active,
+body[data-platform-app-accent="eposone"] .sidebar-erp .nav-link.active:hover {
+    color: var(--app-shell-accent);
+}
+

@@ -71,6 +71,50 @@ class TestCertificateAssets(unittest.TestCase):
         self.assertEqual(assets.STATUS_CREATED, 'CREATED')
         self.assertEqual(assets.STATUS_REUSED, 'REUSED')
 
+    def test_is_membership_visual_template_by_name(self):
+        mem = SimpleNamespace(
+            id=7,
+            name='Certificado de Membresía PREMIUM MEM/REG',
+            json_layout='{"canvas":{},"elements":[]}',
+        )
+        evt = SimpleNamespace(
+            id=3,
+            name='Certificados para revisores',
+            json_layout='{"canvas":{},"elements":[],"meta":{"event_id":3}}',
+        )
+        with patch(
+            'nodeone.services.certificate_visual_templates.event_id_from_visual_template',
+            side_effect=lambda t: 3 if t is evt else None,
+        ):
+            self.assertTrue(assets.is_membership_visual_template(mem))
+            self.assertFalse(assets.is_membership_visual_template(evt))
+
+    def test_list_certificate_templates_excludes_membership(self):
+        mem = SimpleNamespace(id=7, name='Certificado de Membresía BÁSICA MEM/REG')
+        evt = SimpleNamespace(id=3, name='Certificados para revisores')
+        q = MagicMock()
+        q.filter_by.return_value.order_by.return_value.all.return_value = [mem, evt]
+        CertificateTemplate = MagicMock()
+        CertificateTemplate.query = q
+        with patch.object(assets, 'is_membership_visual_template', side_effect=lambda t: t is mem):
+            rows = assets.list_certificate_templates_for_event_form(CertificateTemplate, 1)
+        self.assertEqual(rows, [{'id': 3, 'name': 'Certificados para revisores'}])
+
+    def test_apply_rejects_membership_template(self):
+        mem = SimpleNamespace(id=7, name='Membresía PRO')
+        CertificateTemplate = MagicMock()
+        CertificateTemplate.query.filter_by.return_value.first.return_value = mem
+        event = SimpleNamespace(certificate_template=None)
+        with patch.object(
+            assets,
+            'membership_template_blocked_for_event',
+            return_value=assets.EVENT_MEMBERSHIP_TEMPLATE_BLOCKED_MSG,
+        ):
+            err = assets.apply_certificate_template_from_event_form(
+                event, '7', 1, CertificateTemplate
+            )
+        self.assertEqual(err, assets.EVENT_MEMBERSHIP_TEMPLATE_BLOCKED_MSG)
+
     def test_find_event_certificate_format_by_event_id_only(self):
         fmt = SimpleNamespace(id=25, organization_id=3, event_required_id=5)
         mock_ce = MagicMock()

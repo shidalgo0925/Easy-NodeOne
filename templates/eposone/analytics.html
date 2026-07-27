@@ -1,0 +1,8 @@
+{# DEPRECATED — pantalla vieja UX-T4.
+   /admin/eposone/analytics redirige a eposone.eposone_home (Dashboard V2).
+   Este archivo se conserva solo por referencia histórica; no se renderiza. #}
+{% extends "base.html" %}
+{% block title %}Redirect…{% endblock %}
+{% block page_content %}
+<p class="p-4">Esta pantalla fue reemplazada por el <a href="{{ url_for('eposone.eposone_home') }}">Dashboard V2</a>.</p>
+{% endblock %}

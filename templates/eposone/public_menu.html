@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0c1117">
+    <title>{{ menu['name'] }} — Menú</title>
+    {% if brand_logo_url %}
+    <link rel="icon" type="image/png" href="{{ brand_favicon_url or brand_logo_url }}">
+    <link rel="apple-touch-icon" href="{{ brand_favicon_url or brand_logo_url }}">
+    {% endif %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0c1117;
+            --bg-elev: #151c26;
+            --ink: #f4f7fb;
+            --muted: #9aa8b8;
+            --accent: #3ddc97;
+            --accent-ink: #042016;
+            --chip: rgba(255, 255, 255, 0.08);
+            --chip-active: #3ddc97;
+            --radius: 18px;
+            --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Outfit, system-ui, sans-serif;
+            color: var(--ink);
+            background-color: #0a0e14;
+        }
+        body.pm-has-brand-bg {
+            background-color: #0a0e14;
+            background-image: var(--pm-brand-bg);
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: min(110vw, 1100px) auto;
+            background-attachment: fixed;
+        }
+        .pm-bg-brand {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            /* Velo oscuro: el logo queda de fondo, sin pelear con fotos/precios */
+            background: rgba(10, 14, 20, 0.72);
+        }
+        .pm-shell {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 0 4rem;
+        }
+        .pm-hero {
+            padding: 1.75rem 1.25rem 1rem;
+            position: relative;
+        }
+        .pm-brand {
+            font-family: Syne, Outfit, sans-serif;
+            font-weight: 800;
+            font-size: clamp(2rem, 7vw, 3.25rem);
+            letter-spacing: -0.03em;
+            line-height: 1.05;
+            margin: 0 0 0.5rem;
+        }
+        .pm-tagline {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            max-width: 28rem;
+        }
+        .pm-cats {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            padding: 0.75rem 1.25rem 0.9rem;
+            background: linear-gradient(180deg, rgba(10, 14, 20, 0.72) 30%, rgba(10, 14, 20, 0.35));
+            backdrop-filter: blur(8px);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .pm-cats::-webkit-scrollbar { display: none; }
+        .pm-cat-chip {
+            flex: 0 0 auto;
+            border: 0;
+            border-radius: 999px;
+            padding: 0.55rem 1rem;
+            background: var(--chip);
+            color: var(--ink);
+            font: inherit;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+        }
+        .pm-cat-chip:hover { transform: translateY(-1px); }
+        .pm-cat-chip.is-active {
+            background: var(--chip-active);
+            color: var(--accent-ink);
+        }
+        .pm-section {
+            padding: 1.25rem 1.25rem 0.5rem;
+            scroll-margin-top: 4.25rem;
+        }
+        .pm-section-title {
+            font-family: Syne, Outfit, sans-serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin: 0 0 1rem;
+            letter-spacing: -0.02em;
+        }
+        .pm-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+        @media (min-width: 720px) {
+            .pm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; }
+        }
+        @media (min-width: 980px) {
+            .pm-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        .pm-card {
+            position: relative;
+            display: block;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: var(--bg-elev);
+            box-shadow: var(--shadow);
+            aspect-ratio: 4 / 5;
+            isolation: isolate;
+            animation: pm-in 0.45s ease both;
+            cursor: zoom-in;
+            text-align: left;
+            color: inherit;
+            font: inherit;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .pm-card:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 3px;
+        }
+        .pm-card:nth-child(2) { animation-delay: 0.04s; }
+        .pm-card:nth-child(3) { animation-delay: 0.08s; }
+        .pm-card:nth-child(4) { animation-delay: 0.12s; }
+        @keyframes pm-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: none; }
+        }
+        .pm-card__img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scale(1.02);
+            transition: transform 0.45s ease;
+        }
+        .pm-card:hover .pm-card__img { transform: scale(1.08); }
+        .pm-card__ph {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(145deg, #1b2533, #10161f);
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .pm-card__veil {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 42%, rgba(0, 0, 0, 0.82) 100%);
+            pointer-events: none;
+        }
+        .pm-card__meta {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 0.85rem 0.9rem 0.95rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .pm-card__name {
+            margin: 0;
+            font-size: 0.98rem;
+            font-weight: 700;
+            line-height: 1.25;
+            text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+        }
+        .pm-card__desc {
+            margin: 0;
+            color: rgba(244, 247, 251, 0.78);
+            font-size: 0.78rem;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .pm-card__price {
+            align-self: flex-start;
+            margin-top: 0.15rem;
+            background: var(--accent);
+            color: var(--accent-ink);
+            font-weight: 700;
+            font-size: 0.82rem;
+            border-radius: 999px;
+            padding: 0.28rem 0.65rem;
+        }
+        .pm-empty {
+            padding: 3rem 1.25rem;
+            text-align: center;
+            color: var(--muted);
+        }
+        .pm-footer {
+            margin: 2rem 1.25rem 0;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .pm-lb {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: grid;
+            place-items: center;
+            padding: 1rem;
+            background: rgba(4, 8, 12, 0.82);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.22s ease, visibility 0.22s ease;
+        }
+        .pm-lb.is-open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        .pm-lb__panel {
+            width: min(920px, 100%);
+            max-height: min(92vh, 920px);
+            display: flex;
+            flex-direction: column;
+            background: #10161f;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+            transform: translateY(12px) scale(0.97);
+            transition: transform 0.25s ease;
+        }
+        .pm-lb.is-open .pm-lb__panel { transform: none; }
+        .pm-lb__media {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 0;
+            background: #000;
+            display: grid;
+            place-items: center;
+        }
+        .pm-lb__img {
+            display: block;
+            width: 100%;
+            max-height: min(72vh, 720px);
+            object-fit: contain;
+            background: #000;
+        }
+        .pm-lb__ph {
+            width: 100%;
+            min-height: 240px;
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .pm-lb__ph[hidden],
+        .pm-lb__img[hidden] {
+            display: none !important;
+        }
+        .pm-lb__meta {
+            padding: 1rem 1.15rem 1.2rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem 1rem;
+        }
+        .pm-lb__name {
+            margin: 0;
+            font-family: Syne, Outfit, sans-serif;
+            font-size: clamp(1.15rem, 4vw, 1.55rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+        .pm-lb__desc {
+            margin: 0.35rem 0 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.4;
+            max-width: 36rem;
+        }
+        .pm-lb__price {
+            background: var(--accent);
+            color: var(--accent-ink);
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.4rem 0.85rem;
+            font-size: 1rem;
+            white-space: nowrap;
+        }
+        .pm-lb__close {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            z-index: 2;
+            width: 2.5rem;
+            height: 2.5rem;
+            border: 0;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-size: 1.35rem;
+            line-height: 1;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+        }
+        .pm-lb__close:hover { background: rgba(0, 0, 0, 0.75); }
+        .pm-lb__nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+            width: 2.75rem;
+            height: 2.75rem;
+            border: 0;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-size: 1.6rem;
+            line-height: 1;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .pm-lb__nav:hover { background: rgba(0, 0, 0, 0.78); }
+        .pm-lb__nav:disabled {
+            opacity: 0.25;
+            cursor: default;
+        }
+        .pm-lb__nav--prev { left: 0.65rem; }
+        .pm-lb__nav--next { right: 0.65rem; }
+        .pm-lb__count {
+            position: absolute;
+            left: 0.85rem;
+            top: 0.9rem;
+            z-index: 2;
+            padding: 0.28rem 0.65rem;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.55);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        body.pm-lb-open { overflow: hidden; }
+    </style>
+</head>
+<body{% if brand_logo_url %} class="pm-has-brand-bg" style="--pm-brand-bg: url('{{ brand_logo_url }}');"{% endif %}>
+{% set categories = menu.get('categories') or [] %}
+{% set items = menu.get('items') or [] %}
+{% if brand_logo_url %}
+<div class="pm-bg-brand" aria-hidden="true"></div>
+{% endif %}
+<div class="pm-shell">
+    <header class="pm-hero">
+        <h1 class="pm-brand">{{ menu['name'] }}</h1>
+        <p class="pm-tagline">Explorá el menú por categorías. Tocá una foto para verla grande.</p>
+    </header>
+
+    {% if categories %}
+    <nav class="pm-cats" id="pm-cats" aria-label="Categorías del menú">
+        {% for cat in categories %}
+        <a class="pm-cat-chip{% if loop.first %} is-active{% endif %}" href="#cat-{{ cat['slug'] }}" data-cat="{{ cat['slug'] }}">{{ cat['name'] }}</a>
+        {% endfor %}
+    </nav>
+
+    {% for cat in categories %}
+    <section class="pm-section" id="cat-{{ cat['slug'] }}" data-cat-section="{{ cat['slug'] }}">
+        <h2 class="pm-section-title">{{ cat['name'] }}</h2>
+        <div class="pm-grid">
+            {% for item in cat['items'] %}
+            <button type="button" class="pm-card"
+                    data-pm-open
+                    data-name="{{ item['name']|e }}"
+                    data-price="${{ '%.2f'|format(item.get('price') or 0) }}"
+                    data-desc="{{ (item.get('description') or '')|e }}"
+                    data-img="{{ (item.get('image_url') or '')|e }}"
+                    aria-label="Ver {{ item['name'] }} en grande">
+                {% if item.get('image_url') %}
+                <img class="pm-card__img" src="{{ item['image_url'] }}" alt="" loading="lazy" decoding="async">
+                {% else %}
+                <div class="pm-card__ph" aria-hidden="true">Sin foto</div>
+                {% endif %}
+                <div class="pm-card__veil"></div>
+                <div class="pm-card__meta">
+                    <h3 class="pm-card__name">{{ item['name'] }}</h3>
+                    {% if item.get('description') %}
+                    <p class="pm-card__desc">{{ item['description'] }}</p>
+                    {% endif %}
+                    <span class="pm-card__price">${{ '%.2f'|format(item.get('price') or 0) }}</span>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+    {% elif items %}
+    <section class="pm-section">
+        <div class="pm-grid">
+            {% for item in items %}
+            <button type="button" class="pm-card"
+                    data-pm-open
+                    data-name="{{ item['name']|e }}"
+                    data-price="${{ '%.2f'|format(item.get('price') or 0) }}"
+                    data-desc="{{ (item.get('description') or '')|e }}"
+                    data-img="{{ (item.get('image_url') or '')|e }}"
+                    aria-label="Ver {{ item['name'] }} en grande">
+                {% if item.get('image_url') %}
+                <img class="pm-card__img" src="{{ item['image_url'] }}" alt="" loading="lazy">
+                {% else %}
+                <div class="pm-card__ph">Sin foto</div>
+                {% endif %}
+                <div class="pm-card__veil"></div>
+                <div class="pm-card__meta">
+                    <h3 class="pm-card__name">{{ item['name'] }}</h3>
+                    <span class="pm-card__price">${{ '%.2f'|format(item.get('price') or 0) }}</span>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+    </section>
+    {% else %}
+    <p class="pm-empty">Menú sin ítems disponibles.</p>
+    {% endif %}
+
+    <footer class="pm-footer">Menú digital · {{ menu['name'] }}</footer>
+</div>
+
+<div class="pm-lb" id="pm-lb" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pm-lb-name" hidden>
+    <div class="pm-lb__panel">
+        <div class="pm-lb__media" id="pm-lb-media">
+            <span class="pm-lb__count" id="pm-lb-count" hidden></span>
+            <button type="button" class="pm-lb__close" id="pm-lb-close" aria-label="Cerrar">×</button>
+            <button type="button" class="pm-lb__nav pm-lb__nav--prev" id="pm-lb-prev" aria-label="Anterior">‹</button>
+            <button type="button" class="pm-lb__nav pm-lb__nav--next" id="pm-lb-next" aria-label="Siguiente">›</button>
+            <img class="pm-lb__img" id="pm-lb-img" src="" alt="" hidden>
+            <div class="pm-lb__ph" id="pm-lb-ph" hidden>Sin foto</div>
+        </div>
+        <div class="pm-lb__meta">
+            <div>
+                <h2 class="pm-lb__name" id="pm-lb-name"></h2>
+                <p class="pm-lb__desc" id="pm-lb-desc" hidden></p>
+            </div>
+            <span class="pm-lb__price" id="pm-lb-price"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.pm-cat-chip'));
+  var sections = Array.prototype.slice.call(document.querySelectorAll('[data-cat-section]'));
+
+  function setActive(slug) {
+    chips.forEach(function (c) {
+      c.classList.toggle('is-active', c.getAttribute('data-cat') === slug);
+    });
+  }
+
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      setActive(chip.getAttribute('data-cat'));
+    });
+  });
+
+  if (chips.length && sections.length && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      var visible = entries
+        .filter(function (e) { return e.isIntersecting; })
+        .sort(function (a, b) { return b.intersectionRatio - a.intersectionRatio; })[0];
+      if (visible) {
+        var slug = visible.target.getAttribute('data-cat-section');
+        setActive(slug);
+        var activeChip = document.querySelector('.pm-cat-chip[data-cat="' + slug + '"]');
+        if (activeChip && activeChip.scrollIntoView) {
+          activeChip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        }
+      }
+    }, { rootMargin: '-30% 0px -55% 0px', threshold: [0.15, 0.35, 0.55] });
+    sections.forEach(function (s) { io.observe(s); });
+  }
+
+  var lb = document.getElementById('pm-lb');
+  var lbMedia = document.getElementById('pm-lb-media');
+  var lbImg = document.getElementById('pm-lb-img');
+  var lbPh = document.getElementById('pm-lb-ph');
+  var lbName = document.getElementById('pm-lb-name');
+  var lbDesc = document.getElementById('pm-lb-desc');
+  var lbPrice = document.getElementById('pm-lb-price');
+  var lbClose = document.getElementById('pm-lb-close');
+  var lbPrev = document.getElementById('pm-lb-prev');
+  var lbNext = document.getElementById('pm-lb-next');
+  var lbCount = document.getElementById('pm-lb-count');
+  if (!lb) return;
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll('[data-pm-open]'));
+  var currentIndex = -1;
+
+  function showAt(index) {
+    if (!cards.length) return;
+    var n = cards.length;
+    currentIndex = ((index % n) + n) % n;
+    var btn = cards[currentIndex];
+    var name = btn.getAttribute('data-name') || '';
+    var price = btn.getAttribute('data-price') || '';
+    var desc = btn.getAttribute('data-desc') || '';
+    var img = btn.getAttribute('data-img') || '';
+    lbName.textContent = name;
+    lbPrice.textContent = price;
+    if (desc) {
+      lbDesc.textContent = desc;
+      lbDesc.hidden = false;
+    } else {
+      lbDesc.textContent = '';
+      lbDesc.hidden = true;
+    }
+    if (img) {
+      lbImg.src = img;
+      lbImg.alt = name;
+      lbImg.hidden = false;
+      lbPh.hidden = true;
+    } else {
+      lbImg.removeAttribute('src');
+      lbImg.hidden = true;
+      lbPh.hidden = false;
+    }
+    if (lbCount) {
+      lbCount.hidden = n < 2;
+      lbCount.textContent = (currentIndex + 1) + ' / ' + n;
+    }
+    var multi = n > 1;
+    if (lbPrev) lbPrev.hidden = !multi;
+    if (lbNext) lbNext.hidden = !multi;
+  }
+
+  function openLb(btn) {
+    var idx = cards.indexOf(btn);
+    if (idx < 0) idx = 0;
+    showAt(idx);
+    lb.hidden = false;
+    lb.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(function () { lb.classList.add('is-open'); });
+    document.body.classList.add('pm-lb-open');
+    if (lbClose) lbClose.focus();
+  }
+
+  function closeLb() {
+    lb.classList.remove('is-open');
+    lb.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('pm-lb-open');
+    currentIndex = -1;
+    setTimeout(function () {
+      if (!lb.classList.contains('is-open')) {
+        lb.hidden = true;
+        lbImg.removeAttribute('src');
+      }
+    }, 220);
+  }
+
+  function go(delta) {
+    if (!lb.classList.contains('is-open') || cards.length < 2) return;
+    showAt(currentIndex + delta);
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-pm-open]');
+    if (btn) {
+      e.preventDefault();
+      openLb(btn);
+      return;
+    }
+    if (e.target.closest('#pm-lb-prev')) {
+      e.preventDefault();
+      e.stopPropagation();
+      go(-1);
+      return;
+    }
+    if (e.target.closest('#pm-lb-next')) {
+      e.preventDefault();
+      e.stopPropagation();
+      go(1);
+      return;
+    }
+    if (e.target === lb || e.target.closest('#pm-lb-close')) {
+      closeLb();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (!lb.classList.contains('is-open')) return;
+    if (e.key === 'Escape') {
+      closeLb();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      go(-1);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      go(1);
+    }
+  });
+
+  /* Swipe en móvil */
+  var touchX = null;
+  if (lbMedia) {
+    lbMedia.addEventListener('touchstart', function (e) {
+      if (!e.changedTouches || !e.changedTouches.length) return;
+      touchX = e.changedTouches[0].clientX;
+    }, { passive: true });
+    lbMedia.addEventListener('touchend', function (e) {
+      if (touchX === null || !e.changedTouches || !e.changedTouches.length) return;
+      var dx = e.changedTouches[0].clientX - touchX;
+      touchX = null;
+      if (Math.abs(dx) < 50) return;
+      go(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+})();
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@
 App factory — FASE 1 (incremental).
 
 Una sola fuente de verdad: `app.create_app()` en `app.py` (tras import del monolito).
+Core de plataforma: `nodeone.core.platform` (Etapa 2).
 """
 
 

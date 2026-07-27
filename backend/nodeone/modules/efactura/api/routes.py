@@ -140,6 +140,52 @@ def api_issue_from_invoice(invoice_id: int):
     )
 
 
+@efactura_api_bp.route('/credit-note-from-invoice/<int:invoice_id>', methods=['POST'])
+@login_required
+def api_credit_note_from_invoice(invoice_id: int):
+    data = request.get_json(silent=True) or {}
+    reason = (data.get('reason') or 'Devolución total').strip()
+    try:
+        doc = issue_svc.issue_credit_note_from_commercial_invoice(
+            invoice_id, _org_id(), reason=reason
+        )
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+    return jsonify(
+        {
+            'ok': doc.status == 'accepted',
+            'document_id': doc.id,
+            'cufe': doc.cufe,
+            'status': doc.status,
+            'document_type': doc.document_type,
+            'message': doc.authorization_message or doc.error_message,
+        }
+    )
+
+
+@efactura_api_bp.route('/debit-note-from-invoice/<int:invoice_id>', methods=['POST'])
+@login_required
+def api_debit_note_from_invoice(invoice_id: int):
+    data = request.get_json(silent=True) or {}
+    reason = (data.get('reason') or 'Cargo adicional').strip()
+    try:
+        doc = issue_svc.issue_debit_note_from_commercial_invoice(
+            invoice_id, _org_id(), reason=reason
+        )
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+    return jsonify(
+        {
+            'ok': doc.status == 'accepted',
+            'document_id': doc.id,
+            'cufe': doc.cufe,
+            'status': doc.status,
+            'document_type': doc.document_type,
+            'message': doc.authorization_message or doc.error_message,
+        }
+    )
+
+
 @efactura_api_bp.route('/emissions/<int:doc_id>')
 @login_required
 def api_emission_detail(doc_id: int):

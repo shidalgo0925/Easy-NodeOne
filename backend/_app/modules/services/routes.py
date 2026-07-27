@@ -35,11 +35,29 @@ def list():
     )
 
 
+@services_bp.route('/services/<int:service_id>')
+def detail(service_id):
+    """Ficha de producto / servicio: imagen, descripción, precio y CTA."""
+    oid = resolve_current_organization()
+    user = current_user if getattr(current_user, 'is_authenticated', False) else None
+    data = svc.get_service_detail_page_data(service_id, user, organization_id=oid)
+    return render_template(
+        'services/detail.html',
+        service=data['service'],
+        membership=data['membership'],
+        membership_type=data['membership_type'],
+        list_url=data['list_url'],
+    )
+
+
 @services_bp.route('/services/<int:service_id>/begin-consultive-flow')
 @login_required
 def begin_consultive_flow(service_id):
     """
-    Fase consultiva: crea ``ServiceRequest`` (requested) y redirige al flujo de agenda o primera reunión.
+    Fase consultiva: crea ``ServiceRequest`` (requested).
+
+    - Producto CONSULTIVO sin tipo de cita (p. ej. Galenus): cotización sin membresía.
+    - Con tipo de cita: requiere membresía y sigue a agenda.
     """
     from nodeone.services.commercial_flow import COMMERCIAL_FLOW_SERVICE_CONSULTATIVE, resolve_commercial_flow_type
     from _app.modules.services import repository
@@ -49,11 +67,14 @@ def begin_consultive_flow(service_id):
     if not service.is_active:
         flash('Este servicio no está disponible.', 'error')
         return redirect(url_for('services.list'))
+    st = (getattr(service, 'service_type', None) or '').strip().upper()
+    quote_only = st == 'CONSULTIVO' and not getattr(service, 'appointment_type_id', None)
     membership = current_user.get_active_membership()
-    if not membership:
+    if not membership and not quote_only:
         flash('Necesitás una membresía activa para continuar.', 'warning')
         return redirect(url_for('services.list'))
-    pricing = service.pricing_for_membership(membership.membership_type)
+    plan_slug = membership.membership_type if membership else 'basic'
+    pricing = service.pricing_for_membership(plan_slug)
     flow = resolve_commercial_flow_type(service, pricing)
     if flow != COMMERCIAL_FLOW_SERVICE_CONSULTATIVE:
         flash('Este ítem no requiere este flujo de solicitud.', 'info')
@@ -64,11 +85,17 @@ def begin_consultive_flow(service_id):
         user_id=int(current_user.id),
         service_id=int(service.id),
         status='requested',
+        notes='Solicitud de cotización desde Tienda (usuario registrado).' if quote_only else None,
     )
     db.session.add(sr)
     db.session.commit()
     session['pending_service_request_id'] = int(sr.id)
-    st = (getattr(service, 'service_type', None) or '').strip().upper()
+    if quote_only:
+        flash(
+            'Solicitud de cotización registrada. Un asesor te contactará pronto.',
+            'success',
+        )
+        return redirect(url_for('services.detail', service_id=service.id))
     if st == 'CONSULTIVO':
         return redirect(url_for('appointments.request_appointment', service_id=service.id))
     return redirect(url_for('services.request_appointment', service_id=service.id))

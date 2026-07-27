@@ -34,6 +34,12 @@ def register_public_and_org_switch_routes(app):
 
             save_last_selected_organization(current_user, int(home))
             app.logger.info('User %s switched to home organization %s', current_user.id, home)
+            try:
+                from nodeone.core.timezone_service import TimeZoneService
+
+                TimeZoneService.sync_session_timezone(user=current_user)
+            except Exception:
+                pass
             return jsonify({'success': True, 'organization_id': home})
         try:
             cand = int(raw)
@@ -69,6 +75,12 @@ def register_public_and_org_switch_routes(app):
 
         save_last_selected_organization(current_user, cand)
         app.logger.info('User %s switched to organization %s', current_user.id, cand)
+        try:
+            from nodeone.core.timezone_service import TimeZoneService
+
+            TimeZoneService.sync_session_timezone(user=current_user, organization=org)
+        except Exception:
+            pass
         return jsonify({'success': True, 'organization_id': cand})
 
     @app.route('/admin/switch-organization', methods=['GET', 'POST'])

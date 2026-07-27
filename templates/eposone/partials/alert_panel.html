@@ -1,0 +1,23 @@
+{# EPosOne DS — alert panel
+   Expects: alerts = [{tone, icon, title, text, href?}, ...]
+   tones: warning|danger|info|ok
+#}
+<div class="epos-alerts">
+    {% if alerts %}
+        {% for a in alerts %}
+        <{% if a.href %}a href="{{ a.href }}" class="epos-alert-item epos-alert-item--{{ a.tone|default('info') }} text-decoration-none"{% else %}div class="epos-alert-item epos-alert-item--{{ a.tone|default('info') }}"{% endif %}>
+            <span class="epos-alert-item__icon" aria-hidden="true">
+                <i class="fas {{ a.icon|default('fa-bell') }}"></i>
+            </span>
+            <div>
+                <p class="epos-alert-item__title">{{ a.title }}</p>
+                {% if a.text %}<p class="epos-alert-item__text">{{ a.text }}</p>{% endif %}
+            </div>
+        </{% if a.href %}a{% else %}div{% endif %}>
+        {% endfor %}
+    {% else %}
+        {% with title=empty_title|default('Sin alertas'), text=empty_text|default('Todo en orden por ahora.'), icon=empty_icon|default('fa-check-circle') %}
+        {% include 'eposone/partials/empty_state.html' %}
+        {% endwith %}
+    {% endif %}
+</div>

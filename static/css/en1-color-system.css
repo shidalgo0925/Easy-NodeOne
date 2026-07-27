@@ -1,0 +1,495 @@
+/**
+ * EN1 Color System — Corporativo (único acento naranja).
+ * Naranja #FF6B35 · Navy sidebar #2D3E50 · Escala de grises en UI.
+ */
+
+/* data-brand=en1: tokens derivados de --color-* (inyectados desde organization_settings).
+   No hardcodear primario: pisaba el branding por empresa. */
+html[data-brand='en1'] {
+    --en1-accent: var(--color-primary, #ff6b35);
+    --en1-sorbet: var(--en1-accent);
+    --en1-sidebar: var(--color-primary-dark, #2d3e50);
+    --en1-canvas: var(--color-background-cream, #f7f9fc);
+    --en1-surface: #ffffff;
+    --en1-border: var(--color-border, #e5e7eb);
+    --en1-border-strong: #d1d5db;
+    --en1-hover: #f3f4f6;
+    --en1-icon: var(--color-accent, #9ca3af);
+    --en1-ink: var(--color-text, #2c3e50);
+    --en1-ink-secondary: #6b7280;
+    --en1-ink-muted: #9ca3af;
+    --en1-badge-bg: #f3f4f6;
+    --en1-badge-ink: #4b5563;
+    --en1-action: var(--en1-accent);
+    --en1-action-hover: color-mix(in srgb, var(--en1-action) 85%, #000);
+    --en1-action-pressed: color-mix(in srgb, var(--en1-action) 70%, #000);
+}
+
+/* Surface EPosOne — Product Registry theme (Host eposone.easytech.services) */
+html[data-brand='eposone'] {
+    --color-primary: #ff6b35;
+    --color-primary-dark: #c2410c;
+    --color-accent: #fdba74;
+    --color-background-cream: #fff7ed;
+    --color-text: #431407;
+    --color-border: #fed7aa;
+    --en1-accent: #ff6b35;
+    --en1-sorbet: #ff6b35;
+    --en1-sidebar: #c2410c;
+    --en1-canvas: #fff7ed;
+    --en1-surface: #ffffff;
+    --en1-border: #fed7aa;
+    --en1-border-strong: #fdba74;
+    --en1-hover: #ffedd5;
+    --en1-icon: #ea580c;
+    --en1-ink: #431407;
+    --en1-ink-secondary: #9a3412;
+    --en1-ink-muted: #c2410c;
+    --en1-badge-bg: #ffedd5;
+    --en1-badge-ink: #c2410c;
+}
+
+:root {
+    --en1-accent: var(--color-primary, #ff6b35);
+    --en1-sorbet: var(--en1-accent);
+    --en1-obsidian: #2c3e50;
+
+    --en1-canvas: var(--color-background-cream, #f7f9fc);
+    --en1-surface: #ffffff;
+    --en1-sidebar: var(--color-primary-dark, #2d3e50);
+    --en1-hover: #f3f4f6;
+
+    --en1-action: var(--en1-accent);
+    --en1-action-hover: color-mix(in srgb, var(--en1-action) 85%, #000);
+    --en1-action-pressed: color-mix(in srgb, var(--en1-action) 70%, #000);
+    --en1-on-action: #ffffff;
+
+    --en1-ink: var(--color-text, #2c3e50);
+    --en1-ink-secondary: #6b7280;
+    --en1-ink-muted: #9ca3af;
+    --en1-on-dark: #ffffff;
+    --en1-icon: #9ca3af;
+
+    --en1-border: #e5e7eb;
+    --en1-border-strong: #d1d5db;
+    --en1-disabled: #e5e7eb;
+
+    /* Alias legacy — semánticos en gris (sin arcoíris) */
+    --en1-secondary: var(--en1-ink-muted);
+    --en1-calypso: var(--en1-ink-muted);
+    --en1-success: var(--en1-ink-secondary);
+    --en1-oz: var(--en1-ink-secondary);
+    --en1-warning: var(--en1-ink-secondary);
+    --en1-marigold: var(--en1-ink-secondary);
+    --en1-danger: var(--en1-ink-secondary);
+    --en1-candy-apple: var(--en1-ink-secondary);
+    --en1-info: var(--en1-ink-muted);
+    --en1-badge-bg: #f3f4f6;
+    --en1-badge-ink: #4b5563;
+
+    --en1-radius-sm: 6px;
+    --en1-radius-md: 8px;
+    --en1-radius-lg: 12px;
+    --en1-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --en1-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08);
+
+    --color-background: var(--en1-canvas);
+    --color-text: var(--en1-ink);
+    --color-border: var(--en1-border);
+    --success-green: var(--en1-ink-secondary);
+    --gray-600: var(--en1-ink-muted);
+    --gray-900: var(--en1-ink);
+}
+
+body {
+    background-color: var(--en1-canvas);
+    color: var(--en1-ink);
+}
+
+h1, h2, h3, h4, h5, h6,
+.portal-welcome h1,
+.module-card h3 {
+    color: var(--en1-ink);
+}
+
+.text-muted {
+    color: var(--en1-ink-secondary) !important;
+}
+
+/* Botones — solo naranja (primario) o gris */
+.btn-primary,
+.btn.btn-primary {
+    background-color: var(--en1-action);
+    border-color: var(--en1-action);
+    color: var(--en1-on-action);
+    border-radius: var(--en1-radius-md);
+}
+
+.btn-primary:hover,
+.btn.btn-primary:hover {
+    background-color: var(--en1-action-hover);
+    border-color: var(--en1-action-hover);
+    color: var(--en1-on-action);
+}
+
+.btn-primary:active,
+.btn.btn-primary:active {
+    background-color: var(--en1-action-pressed);
+    border-color: var(--en1-action-pressed);
+}
+
+.btn-outline-primary {
+    color: var(--en1-action);
+    border-color: var(--en1-action);
+    border-radius: var(--en1-radius-md);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--en1-action);
+    border-color: var(--en1-action);
+    color: var(--en1-on-action);
+}
+
+.btn-outline-secondary,
+.btn-secondary {
+    color: var(--en1-ink-secondary);
+    border-color: var(--en1-border);
+    background-color: var(--en1-surface);
+}
+
+.btn-outline-secondary:hover,
+.btn-secondary:hover {
+    background-color: var(--en1-hover);
+    border-color: var(--en1-border-strong);
+    color: var(--en1-ink);
+}
+
+#main-content .btn-success,
+#main-content .btn-danger,
+#main-content .btn-info,
+#main-content .btn-warning {
+    background-color: var(--en1-surface);
+    border-color: var(--en1-border);
+    color: var(--en1-ink-secondary);
+}
+
+#main-content .btn-success:hover,
+#main-content .btn-danger:hover,
+#main-content .btn-info:hover,
+#main-content .btn-warning:hover {
+    background-color: var(--en1-hover);
+    border-color: var(--en1-border-strong);
+    color: var(--en1-ink);
+}
+
+.text-primary,
+a.text-primary,
+.text-primary i {
+    color: var(--en1-action) !important;
+}
+
+.bg-primary {
+    background-color: var(--en1-action) !important;
+}
+
+.badge.bg-primary {
+    background-color: color-mix(in srgb, var(--en1-accent) 12%, var(--en1-badge-bg)) !important;
+    color: var(--en1-badge-ink) !important;
+    border: 1px solid var(--en1-border);
+}
+
+/* Cards — borde gris uniforme */
+.card {
+    background-color: var(--en1-surface);
+    border: 1px solid var(--en1-border);
+    border-radius: var(--en1-radius-lg);
+    box-shadow: var(--en1-shadow-soft);
+}
+
+.card-header.bg-primary {
+    background: var(--en1-ink) !important;
+    border-color: transparent;
+    color: var(--en1-on-dark);
+}
+
+/* Enlaces — gris; hover naranja sutil */
+#main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card),
+.content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card) {
+    color: var(--en1-ink-secondary);
+}
+
+#main-content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover,
+.content a:not(.btn):not(.nav-link):not(.dropdown-item):not(.module-card):hover {
+    color: var(--en1-action);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: color-mix(in srgb, var(--en1-accent) 45%, var(--en1-border));
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-accent) 15%, transparent);
+}
+
+/* Sidebar */
+html[data-brand='en1'] aside.left-panel.sidebar-erp,
+aside.left-panel.sidebar-erp {
+    background: var(--en1-sidebar) !important;
+    border-right-color: color-mix(in srgb, var(--en1-sidebar) 85%, #fff) !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
+    background: color-mix(in srgb, var(--en1-accent) 14%, transparent) !important;
+    border-left: 4px solid var(--en1-accent) !important;
+    padding-left: calc(0.75rem - 4px);
+}
+
+/* Iconos sidebar — gris; activo naranja */
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon:not(.menu-arrow),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
+    background: var(--en1-icon) !important;
+    color: #fff !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a .menu-icon {
+    background: var(--en1-accent) !important;
+}
+
+.bg-iius-navy,
+.bg-dark-blue {
+    background-color: var(--en1-sidebar) !important;
+}
+
+/* Module cards — sin arcoíris */
+.module-card {
+    background: var(--en1-surface);
+    border: 1px solid var(--en1-border);
+    border-left: 4px solid var(--en1-border) !important;
+}
+
+.module-card:hover {
+    border-color: var(--en1-border-strong) !important;
+    border-left-color: var(--en1-accent) !important;
+    background-color: var(--en1-hover);
+}
+
+.module-card .module-icon,
+.module-card .module-icon i {
+    color: var(--en1-icon) !important;
+}
+
+.module-card:hover .module-icon,
+.module-card:hover .module-icon i {
+    color: var(--en1-accent) !important;
+}
+
+.module-card--sorbet,
+.module-card--calypso,
+.module-card--oz,
+.module-card--marigold,
+.module-card--obsidian,
+.module-card--candy {
+    border-left-color: var(--en1-border) !important;
+}
+
+.portal-welcome .subtitle {
+    color: var(--en1-ink-muted);
+}
+
+.en1-setup-banner {
+    background: var(--en1-hover) !important;
+    color: var(--en1-ink);
+    border: 1px solid var(--en1-border);
+}
+
+body[data-platform-app-shell='1'] .platform-shell-banner {
+    background: var(--en1-hover);
+    border-bottom-color: var(--en1-border);
+}
+
+body[data-platform-app-shell='1'] .platform-shell-banner__app {
+    color: var(--en1-accent);
+}
+
+/* Círculos de servicio — gris o naranja único */
+.bg-purple,
+.bg-orange,
+.bg-teal,
+.bg-green,
+.bg-blue,
+.bg-cyan,
+.bg-pink,
+.bg-red,
+.bg-yellow,
+.bg-indigo,
+.bg-dark-blue,
+.bg-secondary {
+    background: var(--en1-icon) !important;
+    color: #fff !important;
+}
+
+.rounded-circle.bg-primary {
+    background: var(--en1-accent) !important;
+}
+
+/* Badges — gris con tinte naranja sutil */
+.badge.en1-badge,
+.en1-badge,
+.en1-badge--success,
+.en1-badge--warning,
+.en1-badge--danger,
+.en1-badge--info,
+.en1-badge--neutral,
+.en1-badge--accent,
+.badge.bg-success:not(.btn),
+.badge.bg-warning:not(.btn),
+.badge.bg-danger:not(.btn),
+.badge.bg-info:not(.btn),
+.badge.bg-secondary:not(.btn),
+.badge.text-bg-success,
+.badge.text-bg-info,
+.badge.text-bg-light {
+    background-color: var(--en1-badge-bg) !important;
+    color: var(--en1-badge-ink) !important;
+    border: 1px solid var(--en1-border);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-radius: var(--en1-radius-sm);
+    padding: 0.35em 0.65em;
+}
+
+.en1-badge--accent,
+.badge.bg-success:not(.btn) {
+    background-color: color-mix(in srgb, var(--en1-accent) 10%, var(--en1-badge-bg)) !important;
+    color: #374151 !important;
+}
+
+.badge.bg-warning.text-dark {
+    background-color: var(--en1-badge-bg) !important;
+    color: var(--en1-badge-ink) !important;
+}
+
+.bg-success,
+.bg-warning,
+.bg-danger,
+.bg-info {
+    background-color: var(--en1-badge-bg) !important;
+    color: var(--en1-badge-ink) !important;
+}
+
+.text-info {
+    color: var(--en1-ink-muted) !important;
+}
+
+.erp-toolbar .btn-success.btn-sm,
+.erp-toolbar .btn-danger.btn-sm {
+    background-color: var(--en1-surface);
+    border-color: var(--en1-border);
+    color: var(--en1-ink-secondary);
+}
+
+.erp-toolbar .btn-success.btn-sm:hover,
+.erp-toolbar .btn-danger.btn-sm:hover {
+    background-color: var(--en1-hover);
+    border-color: var(--en1-border-strong);
+    color: var(--en1-ink);
+}
+
+/* KPI cards — borde gris único */
+.en1-kpi-card,
+.en1-kpi-card--sorbet,
+.en1-kpi-card--neutral,
+.en1-kpi-card--calypso,
+.en1-kpi-card--secondary,
+.en1-kpi-card--oz,
+.en1-kpi-card--success,
+.en1-kpi-card--marigold,
+.en1-kpi-card--warning {
+    border-left: 4px solid var(--en1-border) !important;
+}
+
+.en1-kpi-label {
+    color: var(--en1-ink-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.en1-kpi-value {
+    color: var(--en1-ink);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-top: 0.15rem;
+}
+
+.en1-section-label {
+    color: var(--en1-ink-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.en1-data-table thead th {
+    background: var(--en1-hover);
+    border-bottom-color: var(--en1-border);
+    color: var(--en1-ink-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.en1-data-table tbody td {
+    border-color: var(--en1-border);
+}
+
+.en1-data-table tbody tr:hover {
+    background-color: var(--en1-hover);
+}
+
+/* Dark theme */
+html[data-theme='dark'] {
+    --en1-canvas: #1a2332;
+    --en1-surface: #243044;
+    --en1-ink: #eaf0f6;
+    --en1-ink-muted: #9ca3af;
+    --en1-border: #3d4f63;
+    --en1-badge-bg: #2d3748;
+    --en1-badge-ink: #e5e7eb;
+    --en1-hover: #2d3748;
+}
+
+html[data-theme='dark'] body {
+    background-color: var(--en1-canvas);
+    color: var(--en1-ink);
+}
+
+/* Sidebar launcher / miembro — sin arcoíris en marca EN1 */
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--comercial > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--operaciones > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--finanzas > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--inteligencia > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--sistema > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member .menu-icon:not(.menu-arrow) {
+    background: var(--en1-icon) !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group.show > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member > a.nav-link.active .menu-icon:not(.menu-arrow) {
+    background: var(--en1-accent) !important;
+}
+
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle) {
+    border-left-color: var(--en1-accent) !important;
+}
+
+.en1-eposone-page .table-light {
+    background-color: var(--en1-hover) !important;
+    color: var(--en1-ink-secondary);
+}

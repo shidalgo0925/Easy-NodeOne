@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Nuevo pedido | {{ get_nav_brand_name() }}{% endblock %}
+
+{% set context_bar_middle %}
+<div class="epos-context-pos" id="epos-context-pos" aria-label="Resumen POS">
+    <div class="epos-context-pos__modes" role="group" aria-label="Modo de servicio">
+        <button type="button" class="epos-context-pos__chip is-active" data-mode="mesa" title="Mesa">
+            <i class="fas fa-chair" aria-hidden="true"></i><span>Mesa</span>
+        </button>
+        <button type="button" class="epos-context-pos__chip" data-mode="llevar" title="Llevar">
+            <i class="fas fa-shopping-bag" aria-hidden="true"></i><span>Llevar</span>
+        </button>
+        <button type="button" class="epos-context-pos__chip" data-mode="delivery" title="Delivery">
+            <i class="fas fa-motorcycle" aria-hidden="true"></i><span>Delivery</span>
+        </button>
+    </div>
+    <div class="epos-context-pos__mesa-hint" id="epos-context-mesa-hint" aria-live="polite">
+        <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+        <span id="epos-context-mesa-label">Mesa —</span>
+    </div>
+    <div class="epos-context-pos__total" title="Total del ticket">
+        <span class="epos-context-pos__total-label">Total</span>
+        <strong id="epos-context-total">0.00</strong>
+    </div>
+    <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary epos-context-pos__back">
+        <i class="fas fa-arrow-left" aria-hidden="true"></i><span class="d-none d-md-inline ms-1">Pedidos</span>
+    </a>
+</div>
+{% endset %}
+
+{% block head_extra %}
+<style>
+.epos-context-pos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.65rem;
+  width: 100%;
+  max-width: 44rem;
+}
+.epos-context-pos__modes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.epos-context-pos__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--epos-border, #e5e7eb);
+  background: #fff;
+  color: var(--epos-text, #374151);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.epos-context-pos__chip:hover {
+  border-color: var(--epos-accent, #c2410c);
+  color: var(--epos-accent, #c2410c);
+}
+.epos-context-pos__chip.is-active {
+  background: var(--epos-accent, #c2410c);
+  border-color: var(--epos-accent, #c2410c);
+  color: #fff;
+}
+.epos-context-pos__mesa-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #4b5563;
+  white-space: nowrap;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.epos-context-pos__total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+  padding: 0.2rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(194, 65, 12, 0.08);
+  color: var(--epos-accent, #c2410c);
+}
+.epos-context-pos__total-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+.epos-context-pos__total strong {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.epos-context-pos__back { white-space: nowrap; }
+@media (max-width: 767.98px) {
+  .epos-context-pos__chip span { display: none; }
+  .epos-context-pos__chip { padding: 0.35rem 0.55rem; }
+  .epos-context-pos__mesa-hint { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-2 en1-eposone-page" id="epos-pos-new"
+     data-catalog='{{ catalog|tojson }}'>
+    <form method="post" action="{{ url_for('eposone.eposone_order_new') }}" id="epos-pos-form" novalidate>
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        <input type="hidden" name="lines_json" id="epos-lines-json" value="[]">
+        <input type="hidden" name="service_mode" id="epos-service-mode" value="mesa">
+
+        <div class="row g-2">
+            <div class="col-12 col-lg-7 col-xl-8">
+                <div class="epos-card mb-2">
+                    <div class="epos-card-body py-2">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-6 col-md-3" id="epos-field-table">
+                                <label class="form-label small fw-semibold mb-1" for="epos-table-ref">Mesa</label>
+                                <input class="form-control form-control-sm" id="epos-table-ref" name="table_ref"
+                                       placeholder="Ej. 5" autocomplete="off" required>
+                            </div>
+                            <div class="col-6 col-md-4" id="epos-field-guest">
+                                <label class="form-label small fw-semibold mb-1" for="epos-guest-name">Nombre / cliente</label>
+                                <input class="form-control form-control-sm" id="epos-guest-name" name="guest_name" placeholder="Opcional" autocomplete="off">
+                            </div>
+                            <div class="col-12 col-md-5">
+                                <label class="form-label small fw-semibold mb-1" for="epos-notes">Notas pedido</label>
+                                <input class="form-control form-control-sm" id="epos-notes" name="notes" placeholder="Sin cebolla, etc." autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="epos-card">
+                    <div class="epos-card-body">
+                        <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+                            <div class="flex-grow-1" style="min-width:12rem;">
+                                <input type="search" class="form-control" id="epos-product-search"
+                                       placeholder="Buscar producto…" autocomplete="off" autofocus>
+                            </div>
+                        </div>
+                        <div class="epos-filter-bar__presets mb-2" id="epos-cat-chips" role="group" aria-label="Categorías">
+                            <button type="button" class="epos-filter-chip is-active" data-cat="">Todas</button>
+                            {% for cat in categories %}
+                            <button type="button" class="epos-filter-chip" data-cat="{{ cat }}">{{ cat }}</button>
+                            {% endfor %}
+                        </div>
+                        <div class="epos-pos-grid" id="epos-product-grid"></div>
+                        <div class="epos-chart-empty d-none" id="epos-product-empty">Sin productos con ese filtro.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-5 col-xl-4">
+                <div class="epos-card epos-pos-ticket sticky-lg-top" style="top:0.5rem;">
+                    <div class="epos-card-body">
+                        <h2 class="epos-section-label">Ticket</h2>
+                        <div id="epos-ticket-meta" class="small text-muted mb-2">Mesa —</div>
+                        <div id="epos-ticket-lines" class="epos-pos-ticket__lines mb-3"></div>
+                        <div class="d-flex justify-content-between align-items-baseline mb-3">
+                            <span class="fw-semibold">Total</span>
+                            <span class="epos-kpi__value" style="font-size:1.35rem;" id="epos-ticket-total">0.00</span>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mb-2" id="epos-submit" disabled>
+                            <i class="fas fa-check me-1"></i> Crear pedido
+                        </button>
+                        <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-outline-secondary w-100 btn-sm">Cancelar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+.epos-pos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.65rem;
+  max-height: min(70vh, 720px);
+  overflow: auto;
+  padding-bottom: 0.25rem;
+}
+.epos-pos-product {
+  border: 1px solid var(--epos-border, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  min-height: 72px;
+  overflow: hidden;
+  transition: border-color .12s, box-shadow .12s;
+  display: flex;
+  flex-direction: column;
+}
+.epos-pos-product:hover, .epos-pos-product:focus {
+  border-color: var(--epos-accent, #c2410c);
+  box-shadow: 0 0 0 2px rgba(194,65,12,.12);
+  outline: none;
+}
+.epos-pos-product__img-wrap {
+  height: 72px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.epos-pos-product__img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.epos-pos-product__img-wrap .epos-pos-product__ph {
+  color: #9ca3af;
+  font-size: 1.25rem;
+}
+.epos-pos-product__body { padding: 0.45rem 0.55rem 0.55rem; }
+.epos-pos-product__name {
+  margin: 0 0 0.15rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.epos-pos-product__meta {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+.epos-pos-product__price {
+  margin-top: 0.2rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--epos-accent, #c2410c);
+}
+.epos-pos-ticket__lines { min-height: 8rem; }
+.epos-pos-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.epos-pos-line__qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.epos-pos-line__qty button {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fff;
+  line-height: 1;
+}
+.epos-pos-line__remove {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  padding: 0;
+}
+</style>
+
+<script>
+(function () {
+  var root = document.getElementById('epos-pos-new');
+  if (!root) return;
+  var catalog = [];
+  try { catalog = JSON.parse(root.getAttribute('data-catalog') || '[]') || []; } catch (e) { catalog = []; }
+
+  var mode = 'mesa';
+  var activeCat = '';
+  var query = '';
+  var ticket = [];
+
+  var grid = document.getElementById('epos-product-grid');
+  var empty = document.getElementById('epos-product-empty');
+  var linesEl = document.getElementById('epos-ticket-lines');
+  var totalEl = document.getElementById('epos-ticket-total');
+  var contextTotalEl = document.getElementById('epos-context-total');
+  var contextMesaLabel = document.getElementById('epos-context-mesa-label');
+  var metaEl = document.getElementById('epos-ticket-meta');
+  var linesInput = document.getElementById('epos-lines-json');
+  var modeInput = document.getElementById('epos-service-mode');
+  var submitBtn = document.getElementById('epos-submit');
+  var tableInput = document.getElementById('epos-table-ref');
+  var guestInput = document.getElementById('epos-guest-name');
+  var fieldTable = document.getElementById('epos-field-table');
+
+  function money(n) { return (Math.round(n * 100) / 100).toFixed(2); }
+
+  function setTotal(n) {
+    var m = money(n);
+    totalEl.textContent = m;
+    if (contextTotalEl) contextTotalEl.textContent = m;
+  }
+
+  function filtered() {
+    var q = (query || '').trim().toLowerCase();
+    return catalog.filter(function (p) {
+      if (activeCat && (p.category || '') !== activeCat) return false;
+      if (!q) return true;
+      return (p.name || '').toLowerCase().indexOf(q) >= 0
+          || (p.product_ref || '').toLowerCase().indexOf(q) >= 0
+          || (p.category || '').toLowerCase().indexOf(q) >= 0;
+    });
+  }
+
+  function renderGrid() {
+    var items = filtered();
+    grid.innerHTML = '';
+    if (!items.length) {
+      empty.classList.remove('d-none');
+      return;
+    }
+    empty.classList.add('d-none');
+    items.forEach(function (p) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'epos-pos-product';
+      var imgHtml = '<div class="epos-pos-product__img-wrap"><i class="fas fa-utensils epos-pos-product__ph" aria-hidden="true"></i></div>';
+      if (p.image_url) {
+        var src = p.image_url;
+        if (src.indexOf('http') !== 0 && src.charAt(0) !== '/') src = '/' + src;
+        imgHtml = '<div class="epos-pos-product__img-wrap"><img src="' + src.replace(/"/g, '&quot;') + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<i class=&quot;fas fa-utensils epos-pos-product__ph&quot; aria-hidden=&quot;true&quot;></i>\';"></div>';
+      }
+      btn.innerHTML = imgHtml
+        + '<div class="epos-pos-product__body">'
+        + '<p class="epos-pos-product__name"></p>'
+        + '<div class="epos-pos-product__meta"></div>'
+        + '<div class="epos-pos-product__price"></div>'
+        + '</div>';
+      btn.querySelector('.epos-pos-product__name').textContent = p.name;
+      btn.querySelector('.epos-pos-product__meta').textContent = p.category || p.product_ref;
+      btn.querySelector('.epos-pos-product__price').textContent = money(p.unit_price || 0);
+      btn.addEventListener('click', function () { addProduct(p); });
+      grid.appendChild(btn);
+    });
+  }
+
+  function addProduct(p) {
+    var found = ticket.find(function (l) { return l.product_ref === p.product_ref; });
+    var taxPercent = Number(p.tax_percent != null ? p.tax_percent : 7);
+    if (found) {
+      found.qty += 1;
+    } else {
+      ticket.push({
+        product_ref: p.product_ref,
+        name: p.name,
+        qty: 1,
+        unit_price: Number(p.unit_price || 0),
+        tax_percent: taxPercent,
+        fiscal_category: p.fiscal_category || 'ITBMS_7',
+        notes: null
+      });
+    }
+    renderTicket();
+  }
+
+  function lineTax(line) {
+    var base = line.qty * line.unit_price;
+    var pct = Number(line.tax_percent != null ? line.tax_percent : 7);
+    return Math.round(base * (pct / 100) * 10000) / 10000;
+  }
+
+  function renderTicket() {
+    linesEl.innerHTML = '';
+    var subtotal = 0;
+    var taxTotal = 0;
+    if (!ticket.length) {
+      linesEl.innerHTML = '<p class="small text-muted mb-0">Tocá un producto para agregar.</p>';
+    }
+    ticket.forEach(function (line, idx) {
+      var lineSub = line.qty * line.unit_price;
+      var lineT = lineTax(line);
+      subtotal += lineSub;
+      taxTotal += lineT;
+      var row = document.createElement('div');
+      row.className = 'epos-pos-line';
+      row.innerHTML = '<div><strong></strong><div class="small text-muted"></div>'
+        + '<div class="epos-pos-line__qty mt-1">'
+        + '<button type="button" data-act="dec">−</button>'
+        + '<span data-qty></span>'
+        + '<button type="button" data-act="inc">+</button>'
+        + '<button type="button" class="epos-pos-line__remove ms-2" data-act="rm">Quitar</button>'
+        + '</div></div><div class="text-end fw-semibold" data-sub></div>';
+      row.querySelector('strong').textContent = line.name;
+      row.querySelector('.small').textContent = line.product_ref
+        + (line.tax_percent ? (' · ITBMS ' + line.tax_percent + '%') : '');
+      row.querySelector('[data-qty]').textContent = String(line.qty);
+      row.querySelector('[data-sub]').textContent = money(lineSub + lineT);
+      row.querySelectorAll('button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var act = b.getAttribute('data-act');
+          if (act === 'inc') line.qty += 1;
+          if (act === 'dec') line.qty = Math.max(1, line.qty - 1);
+          if (act === 'rm') ticket.splice(idx, 1);
+          renderTicket();
+        });
+      });
+      linesEl.appendChild(row);
+    });
+    setTotal(subtotal + taxTotal);
+    linesInput.value = JSON.stringify(ticket.map(function (l) {
+      return {
+        product_ref: l.product_ref,
+        qty: l.qty,
+        unit_price: l.unit_price,
+        tax: lineTax(l),
+        notes: l.notes
+      };
+    }));
+    submitBtn.disabled = ticket.length === 0;
+    updateMeta();
+  }
+
+  function updateMeta() {
+    var modeLabel = mode === 'mesa' ? 'Mesa' : (mode === 'llevar' ? 'Llevar' : 'Delivery');
+    var detail = '';
+    if (mode === 'mesa') detail = (tableInput.value || '—');
+    else detail = (guestInput.value || '—');
+    var text = modeLabel + ' · ' + detail;
+    metaEl.textContent = text;
+    if (contextMesaLabel) contextMesaLabel.textContent = text;
+  }
+
+  function setMode(next) {
+    mode = next;
+    modeInput.value = mode;
+    document.querySelectorAll('#epos-context-pos [data-mode]').forEach(function (el) {
+      el.classList.toggle('is-active', el.getAttribute('data-mode') === mode);
+    });
+    if (fieldTable) fieldTable.style.display = mode === 'mesa' ? '' : 'none';
+    if (mode === 'mesa') {
+      guestInput.placeholder = 'Opcional';
+      tableInput.required = true;
+    } else {
+      tableInput.required = false;
+      tableInput.value = '';
+      guestInput.placeholder = mode === 'llevar' ? 'Nombre para retiro' : 'Nombre / dirección corta';
+    }
+    updateMeta();
+  }
+
+  document.querySelectorAll('#epos-context-pos [data-mode]').forEach(function (el) {
+    el.addEventListener('click', function () { setMode(el.getAttribute('data-mode')); });
+  });
+  document.getElementById('epos-cat-chips').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-cat]');
+    if (!btn) return;
+    activeCat = btn.getAttribute('data-cat') || '';
+    document.querySelectorAll('#epos-cat-chips [data-cat]').forEach(function (el) {
+      el.classList.toggle('is-active', el === btn);
+    });
+    renderGrid();
+  });
+  document.getElementById('epos-product-search').addEventListener('input', function (ev) {
+    query = ev.target.value || '';
+    renderGrid();
+  });
+  tableInput.addEventListener('input', updateMeta);
+  guestInput.addEventListener('input', updateMeta);
+
+  document.getElementById('epos-pos-form').addEventListener('submit', function (ev) {
+    if (!ticket.length) {
+      ev.preventDefault();
+      return;
+    }
+    if (mode === 'mesa' && !(tableInput.value || '').trim()) {
+      ev.preventDefault();
+      tableInput.focus();
+      alert('Indicá la mesa.');
+    }
+  });
+
+  setMode('mesa');
+  renderGrid();
+  renderTicket();
+})();
+</script>
+{% endblock %}

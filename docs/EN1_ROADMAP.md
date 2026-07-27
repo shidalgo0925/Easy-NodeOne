@@ -1,6 +1,6 @@
 # EN1 — Roadmap producto
 
-**Última actualización:** junio 2026  
+**Última actualización:** 15 jul 2026  
 **Edición:** `/opt/easynodeone/dev/app` → rama `develop`
 
 Índice de iniciativas planificadas o en curso en Easy NodeOne. Roadmaps de módulo con detalle propio enlazan desde aquí.
@@ -8,7 +8,135 @@
 | Módulo | Documento |
 |--------|-----------|
 | ECalendar | [`ECALENDAR_ROADMAP.md`](ECALENDAR_ROADMAP.md) |
+| Certificados | Este archivo § Certificados |
 | Stripe / tarjetas | Este archivo § Stripe |
+| Plataforma / EPosOne UX | Este archivo § Plataforma — EPosOne (nav) |
+| Sprint UX transición apps | [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) |
+| **EPosOne V5 (activo)** | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) · [handoff](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| **EPosOne V4 (historia)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [EN1-01](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [POS/licencia](EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) |
+
+---
+
+## Plataforma — EPosOne (nav / UX V3.2)
+
+**Estado:** **avanzado** (15 jul 2026) — nav nativa, dashboard operativo, pedidos Order Domain, POS BO, **cobro mixto 3C** (`97f6d52`).
+
+**Fuente de verdad hitos:** [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md).
+
+**Siguiente:** P2 EPosOne Hito 4 (tablet consume HTTP H3 + `/payments`). En EN1: bugs / soporte P2.
+
+### Síntoma (histórico)
+
+- En módulos de plataforma (p. ej. `/admin/contacts`) no debe aparecer la barra horizontal legacy de EPosOne (correcto tras fix UX V3.2).
+- **Problema:** tampoco hay un punto de entrada claro para entrar a EPosOne y ver su menú (Dashboard, Pedidos, Clientes, Catálogo, etc.).
+- URL directa `/admin/eposone/dashboard` sí muestra el sidebar nativo por dominios; el fallo es de **descubrimiento / acceso**, no de rutas internas.
+
+### Causas identificadas
+
+| Causa | Detalle |
+|-------|---------|
+| Sin ítem en sidebar ERP | El área `eposone` en `nav_menu.py` **no está** en `_SIDEBAR_TOP_LEVEL_AREA_IDS` ni en `_SIDEBAR_LAUNCHER_GROUPS` (Comercial, Operaciones, …). |
+| Modo launcher `classic` | Orgs como Itsmo Brew no tienen «Mis aplicaciones»; solo ven Contactos, Comercial, Finanzas en sidebar. |
+| Shell apps + sesión stale | Con `platform_active_app_id=eposone`, `merge_app_shell_nav_context` podía forzar shell EPosOne fuera de `/admin/eposone/*` (fix parcial en dev, sin commit al cierre de esta nota). |
+| Código duplicado | Menú EPosOne definido en `nav_menu.py` (legacy horizontal) y `modules/eposone/nav.py` (nativo V3.2); pipeline calcula ambos. |
+
+### Fix aplicado (dev, 9–15 jul 2026)
+
+- Ítem **EPosOne** en sidebar top-level (`_SIDEBAR_TOP_LEVEL_AREA_IDS`) → enlace a `/admin/eposone/dashboard`.
+- **UX-T2:** ese ítem es **atajo temporal** (comentario `TEMPORAL`, badge «App», tooltip); entrada oficial = Launcher / Mis aplicaciones. No ampliar a otras apps.
+- Nav nativa V3.2 si la org tiene módulo `eposone` activo (no solo orgs seed).
+- No mostrar barra horizontal EPosOne fuera de `/admin/eposone/*` en Contactos (commit `a19cc6d`).
+- Enlace EPosOne en wizard empresa → paso Opciones.
+- Tests: `test_eposone_in_sidebar_top_level`, `TestMergeAppShellContacts`.
+- **15 jul:** UX operativa BO (dashboard, pedidos, POS nuevo, shell) + **Hito 3C cobro multi-pago** BO.
+
+### Pendiente (requiere GO)
+
+**Sprint UX transición (Fase 2)** — ver [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md):
+
+- [x] **UX-T1** Retorno `← Mis aplicaciones` + identidad shell EPosOne (dev, 9 jul 2026)
+- [x] **UX-T2** Atajo ERP classic documentado como **temporal** (dev, 9 jul 2026)
+- [x] **UX-T3** Dashboard: quitar “Core Compuesto”; empty states cortos (dev, 9 jul 2026)
+- [x] **UX-T4** Analítica POS dentro de EPosOne (sin `?source=eposone` como diseño) (dev, 9 jul 2026)
+- [ ] **UX-T5** (Opcional) Micro-transición visual al entrar a la app
+
+Otros:
+
+- [ ] Consolidar nav (una fuente: `eposone/nav.py`; retirar ítems duplicados en `nav_menu.py`).
+- [ ] UAT en appdev: desde Contactos → clic **EPosOne** en sidebar → menú dominios visible.
+- [ ] Hito 4 P2: tablet consume cobro `/api/v1/orders/{id}/payments`.
+
+### Referencias
+
+| Pieza | Ubicación |
+|-------|-----------|
+| Nav nativa V3.2 | `nodeone/modules/eposone/nav.py`, `nodeone/core/platform/app_nav.py` |
+| Shell / merge | `nodeone/core/platform/app_shell.py` |
+| Cobro 3C | `order_payment_service.py`, detalle `order_domain_detail.html` |
+| Zona eposone | `nav_menu.py` área `eposone` (`zone_path_prefixes=/admin/eposone`) |
+| Plan maestro | [`EN1_PLATFORM_MASTER_PLAN.md`](EN1_PLATFORM_MASTER_PLAN.md) § Etapa 6–7 EPosOne |
+
+---
+
+## Certificados — eventos y membresía
+
+**Estado:** **operativo en `develop` y Relatic** — refactor cerrado; mitigación plantilla MEM↔evento (jul 2026).
+
+Hay **dos flujos** (no mezclar):
+
+| Familia | Pantalla usuario | Pantalla admin | Emisión |
+|---------|------------------|----------------|---------|
+| **Eventos** (seminarios) | Mis Certificados → descarga | Eventos → Certificados | Admin genera PDF |
+| **Membresía** (`PLAN-BASIC`, `PLAN-PRO`, …) | Mis Certificados → **Solicitar** / descarga | Certificados → Eventos (formatos MEM/PLAN) | Usuario solicita si cumple plan |
+
+### Entregado (jun–jul 2026)
+
+| Entrega | Commit / nota |
+|---------|----------------|
+| Refactor módulo `nodeone/modules/certificates/` + tests | `314d1f7`, fases 0–5 |
+| Editor único de formato + retorno al evento | `1d878d4` |
+| Regenerar **todos** los PDF de un evento | `33dde91` |
+| Un certificado por plan comercial (`PLAN-{slug}`) + elegibilidad por membresía vigente | `certificate_membership_rules.py` |
+| Admin: listar y **eliminar emisiones** MEM/PLAN (re-solicitar con plantilla vigente) | `6b9c17f`, `1911a9f` |
+| Fix rutas PDF membresía (`app/instance/certificates/`) tras refactor | **`804edf6`** — desplegado Relatic |
+| PDF membresía: descarga y regeneración si falta archivo en disco | `certificate_http.py`, `api_routes.py` |
+| **Cerrado jul 2026:** evento no puede usar plantilla de membresía (selector filtra MEM/PLAN; bloqueo al guardar/vincular/emitir/regenerar). Incidente Relatic «revisores» (plantilla PREMIUM mal vinculada) corregido en datos + código | `certificate_assets.is_membership_visual_template` |
+
+### Reglas de negocio (membresía)
+
+- **Básico** → solo `PLAN-BASIC` si membresía `basic` vigente.
+- **Pro / Premium / …** → solo el formato del plan que coincida con suscripción o `membership` activa.
+- Código emitido: `PLAN-PRO-O1-2026-XXXX` (legacy `MEM-O1-…` sigue descargable si existe fila en BD).
+- Sin plan coincidente → tarjeta **Requisitos pendientes** (sin botón Solicitar). Con emisión previa → **Emitido** + Descargar aunque el plan haya cambiado.
+
+### Reglas anti-mezcla (evento ↔ membresía) — jul 2026
+
+- El selector **Plantilla visual** del evento **no lista** plantillas de membresía (nombre MEM/PLAN, vars de layout, o `certificate_events` PLAN).
+- Guardar / link-event / sync / emitir / regenerar **rechazan** plantilla MEM vinculada a un evento.
+- Si un evento quedó mal linkeado: alerta en el form; hay que elegir plantilla de evento y regenerar PDFs.
+
+### QA mínimo (smoke)
+
+- [ ] Mis Certificados carga `/api/my-certificates` (tarjetas por plan).
+- [ ] Usuario con plan Pro → Solicitar → PDF en `instance/certificates/` → descarga 200.
+- [ ] Admin → formato PLAN → Ver emitidos → Eliminar → usuario puede volver a solicitar.
+- [ ] Evento con participantes → Regenerar todos (N) tras cambio de plantilla.
+- [ ] En form de evento, plantillas «Membresía … MEM/REG» **no** aparecen; forzar id MEM → error al guardar.
+- [ ] Preview/emisión de evento con plantilla de evento (no carátula MEM).
+
+### Referencias
+
+| Documento | Uso |
+|-----------|------|
+| [`EN1_CERTIFICADOS_EVENTOS_CONTEXTO.md`](EN1_CERTIFICADOS_EVENTOS_CONTEXTO.md) | Eventos: formato, plantilla, emitir, regenerar |
+| [`EN1_CERTIFICADOS_ENTREGA_ANALISTA_2026-06.md`](EN1_CERTIFICADOS_ENTREGA_ANALISTA_2026-06.md) | Entrega analista jun 2026 |
+| `backend/docs/MANUAL_ADMIN_CERTIFICADOS_EN1.md` | Admin membresía + eventos |
+| `backend/docs/MANUAL_USUARIO_CERTIFICADOS_EN1.md` | Usuario final |
+
+### Fuera de alcance (esta fase)
+
+- Re-emitir automáticamente todos los MEM legacy al cambiar plantilla (solo regeneración bajo demanda / admin elimina emisión).
+- Certificados de membresía sin plan vinculado (formatos huérfanos REL/MEM sueltos — desactivados en siembra).
 
 ---
 

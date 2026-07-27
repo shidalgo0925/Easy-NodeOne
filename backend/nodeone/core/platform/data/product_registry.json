@@ -1,0 +1,222 @@
+{
+  "_comment": "ADR-012 Product Registry V1 — catálogo ETS (qué productos existen). NO es suscripciones de tenant. V2: BD + admin Portal.",
+  "schema_version": 1,
+  "products": {
+    "en1": {
+      "code": "en1",
+      "name": "Easy NodeOne",
+      "description": "Plataforma tecnológica compartida del ecosistema ETS (no es la experiencia comercial del cliente).",
+      "primary_domain": "appdev.easynodeone.com",
+      "icon": "",
+      "status": "active",
+      "version": "1.0",
+      "surface": "platform",
+      "brand_preset": "en1",
+      "tagline": "Plataforma del ecosistema ETS",
+      "home_hint": "dashboard",
+      "app_ids": [],
+      "list_in_portal": false,
+      "logo_url": "",
+      "favicon_url": "",
+      "licensing": {
+        "model": "platform",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#FF6B35",
+        "primary_dark": "#2D3E50",
+        "accent": "#9CA3AF",
+        "background": "#F7F9FC"
+      }
+    },
+    "portal": {
+      "code": "portal",
+      "name": "Easy Technology Services",
+      "description": "Portal ETS — punto único de entrada comercial (ADR-013). No ejecuta lógica de productos verticales.",
+      "primary_domain": "app.easytech.services",
+      "icon": "",
+      "status": "active",
+      "version": "1.0",
+      "surface": "portal",
+      "brand_preset": "portal",
+      "tagline": "Portal del ecosistema ETS",
+      "home_hint": "portal_home",
+      "app_ids": [],
+      "list_in_portal": false,
+      "logo_url": "images/logo-easy-technology-services.png",
+      "favicon_url": "images/logo-easy-technology-services.png",
+      "licensing": {
+        "model": "portal",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#0F766E",
+        "primary_dark": "#134E4A",
+        "accent": "#14B8A6",
+        "background": "#F0FDFA"
+      }
+    },
+    "eposone": {
+      "code": "eposone",
+      "name": "EPosOne",
+      "description": "Punto de venta y operación de caja para comercios y restaurantes.",
+      "primary_domain": "eposone.easytech.services",
+      "icon": "",
+      "status": "active",
+      "version": "1.0",
+      "surface": "product",
+      "brand_preset": "eposone",
+      "tagline": "Punto de venta",
+      "home_hint": "eposone.eposone_home",
+      "app_ids": ["eposone"],
+      "list_in_portal": true,
+      "logo_url": "images/logo-eposone.svg",
+      "favicon_url": "images/logo-eposone.svg",
+      "licensing": {
+        "model": "register",
+        "saas_code": "eposone"
+      },
+      "theme": {
+        "primary": "#FF6B35",
+        "primary_dark": "#C2410C",
+        "accent": "#FDBA74",
+        "background": "#FFF7ED"
+      }
+    },
+    "epayroll": {
+      "code": "epayroll",
+      "name": "EPayRoll",
+      "description": "Nómina y gestión de empleados.",
+      "primary_domain": "epayroll.easytech.services",
+      "icon": "",
+      "status": "active",
+      "version": "1.0",
+      "surface": "product",
+      "brand_preset": "epayroll",
+      "tagline": "Nómina",
+      "home_hint": "dashboard",
+      "app_ids": ["epayroll"],
+      "list_in_portal": true,
+      "logo_url": "",
+      "favicon_url": "",
+      "licensing": {
+        "model": "subscription",
+        "saas_code": "epayroll"
+      },
+      "theme": {
+        "primary": "#4F46E5",
+        "primary_dark": "#312E81",
+        "accent": "#A5B4FC",
+        "background": "#EEF2FF"
+      }
+    },
+    "eclassone": {
+      "code": "eclassone",
+      "name": "EClassOne",
+      "description": "Educación y gestión académica.",
+      "primary_domain": "eclassone.easytech.services",
+      "icon": "",
+      "status": "planned",
+      "version": "0.1",
+      "surface": "product",
+      "brand_preset": "eclassone",
+      "tagline": "Educación",
+      "home_hint": "dashboard",
+      "app_ids": ["academic"],
+      "list_in_portal": true,
+      "logo_url": "",
+      "favicon_url": "",
+      "licensing": {
+        "model": "subscription",
+        "saas_code": "academic"
+      },
+      "theme": {
+        "primary": "#059669",
+        "primary_dark": "#065F46",
+        "accent": "#6EE7B7",
+        "background": "#ECFDF5"
+      }
+    },
+    "ethesis": {
+      "code": "ethesis",
+      "name": "EThesis",
+      "description": "Gestión de tesis y trabajos de grado.",
+      "primary_domain": "etesis.easytech.services",
+      "icon": "",
+      "status": "planned",
+      "version": "0.1",
+      "surface": "product",
+      "brand_preset": "ethesis",
+      "tagline": "Gestión de tesis",
+      "home_hint": "dashboard",
+      "app_ids": [],
+      "list_in_portal": true,
+      "logo_url": "",
+      "favicon_url": "",
+      "licensing": {
+        "model": "subscription",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#7C3AED",
+        "primary_dark": "#4C1D95",
+        "accent": "#C4B5FD",
+        "background": "#F5F3FF"
+      }
+    },
+    "iius": {
+      "code": "iius",
+      "name": "IIUS",
+      "description": "Despliegue white-label International Institute (legacy / tenant branding).",
+      "primary_domain": "apps.internationalinstitute.us",
+      "icon": "",
+      "status": "legacy",
+      "version": "1.0",
+      "surface": "product",
+      "brand_preset": "iius",
+      "tagline": "",
+      "home_hint": "dashboard",
+      "app_ids": ["academic", "emembership", "eappointments"],
+      "list_in_portal": false,
+      "logo_url": "",
+      "favicon_url": "",
+      "licensing": {
+        "model": "tenant",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#8B60AA",
+        "primary_dark": "#00042D",
+        "accent": "#E6BF75",
+        "background": "#F3E8C8"
+      }
+    },
+    "relatic": {
+      "code": "relatic",
+      "name": "Relatic",
+      "description": "Despliegue white-label Relatic (legacy / tenant branding).",
+      "primary_domain": "apps.relatic.org",
+      "icon": "",
+      "status": "legacy",
+      "version": "1.0",
+      "surface": "product",
+      "brand_preset": "en1",
+      "tagline": "",
+      "home_hint": "dashboard",
+      "app_ids": ["emembership", "eevents", "ecertificates", "ecrm"],
+      "list_in_portal": false,
+      "logo_url": "",
+      "favicon_url": "",
+      "licensing": {
+        "model": "tenant",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#2563EB",
+        "primary_dark": "#1E3A8A",
+        "accent": "#64748B",
+        "background": "#F7F9FC"
+      }
+    }
+  }
+}

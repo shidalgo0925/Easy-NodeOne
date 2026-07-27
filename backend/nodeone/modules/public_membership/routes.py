@@ -69,14 +69,35 @@ def register_public_membership_routes(app):
         if bool(getattr(current_user, 'must_change_password', False)):
             flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
             return redirect(url_for('auth.change_password'))
-        from app import Appointment, EventRegistration, Event, Payment, UserService
+        from app import Appointment, EventRegistration, Event, Payment, UserService, has_saas_module_enabled
+        from saas_features import org_store_catalog_enabled
         from user_status_checker import UserStatusChecker
+
+        # Comprador registrado sin membresía: ir a la Tienda (no portal Relatic).
+        try:
+            import app as M
+
+            is_admin_ui = bool(getattr(current_user, 'is_admin', False)) or bool(
+                M._user_has_any_admin_permission(current_user)
+            )
+        except Exception:
+            is_admin_ui = bool(getattr(current_user, 'is_admin', False))
+        active_membership_early = current_user.get_active_membership()
+        _toid_early = int(tenant_data_organization_id())
+        if (
+            not is_admin_ui
+            and active_membership_early is None
+            and org_store_catalog_enabled(_toid_early)
+            and not has_saas_module_enabled(_toid_early, 'memberships')
+            and not has_saas_module_enabled(_toid_early, 'events')
+        ):
+            return redirect(url_for('services.list'))
     
         # Verificar estado completo del usuario
         user_status = UserStatusChecker.check_user_status(current_user.id, db.session)
     
-        active_membership = current_user.get_active_membership()
-        _toid = tenant_data_organization_id()
+        active_membership = active_membership_early
+        _toid = _toid_early
         benefits = Benefit.query.filter_by(is_active=True, organization_id=_toid).all()
     
         # Calcular días desde inicio y días restantes
@@ -127,11 +148,22 @@ def register_public_membership_routes(app):
             Payment.status.in_(('pending', 'awaiting_confirmation')),
         ).count()
     
-        # Obtener todos los eventos públicos para el calendario
-        all_public_events = Event.query.filter(
-            Event.publish_status == 'published',
-            Event.start_date.isnot(None)
-        ).order_by(Event.start_date.asc()).all()
+        # Eventos del tenant (vía creador en org); no listar eventos globales de otras empresas.
+        all_public_events = []
+        if has_saas_module_enabled(int(_toid), 'events'):
+            try:
+                from nodeone.services.events_portal import (
+                    apply_portal_list_filters,
+                    portal_events_scoped_query,
+                )
+
+                _eq = portal_events_scoped_query(organization_id=int(_toid))
+                _eq = apply_portal_list_filters(_eq, user=current_user)
+                all_public_events = (
+                    _eq.filter(Event.start_date.isnot(None)).order_by(Event.start_date.asc()).all()
+                )
+            except Exception:
+                all_public_events = []
     
         # Citas confirmadas (leyenda bajo el calendario)
         user_confirmed_appointments = Appointment.query.filter(

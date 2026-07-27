@@ -1,0 +1,16 @@
+{# EPosOne DS — page header (uso con variables o {% call %})
+   Variables: title, subtitle?, icon?
+   Acciones: {% call %}...{% endcall %} envolviendo el include vía macro epos_page_header si se define;
+   o copiar markup .epos-page-header en la plantilla (ver dashboard).
+#}
+<div class="epos-page-header">
+    <div>
+        <h1 class="epos-page-title">
+            {% if icon %}<i class="{{ icon }} me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>{% endif %}{{ title }}
+        </h1>
+        {% if subtitle %}<p class="epos-page-subtitle">{{ subtitle|safe }}</p>{% endif %}
+    </div>
+    {% if actions %}
+    <div class="epos-btn-row">{{ actions|safe }}</div>
+    {% endif %}
+</div>

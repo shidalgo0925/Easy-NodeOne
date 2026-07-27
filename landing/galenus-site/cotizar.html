@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solicitar cotización — Galenus Panamá</title>
+  <meta name="robots" content="noindex" />
+  <script>
+    (function () {
+      var EN1 = 'https://appdev.easynodeone.com';
+      var map = {
+        "citraflow-4-sf": "/services/203",
+        "hm-cast": "/services/204",
+        "begobano": "/services/205",
+        "protectores": "/services/206",
+        "babybano": "/services/207"
+      };
+      var q = new URLSearchParams(location.search).get("product") || "";
+      var next = map[q] || "/services";
+      location.replace(EN1 + "/login?next=" + encodeURIComponent(next));
+    })();
+  </script>
+  <meta http-equiv="refresh" content="0;url=https://appdev.easynodeone.com/login?next=/services" />
+</head>
+<body>
+  <p>Redirigiendo al portal EN1… <a href="https://appdev.easynodeone.com/login?next=/services">Continuar</a></p>
+</body>
+</html>

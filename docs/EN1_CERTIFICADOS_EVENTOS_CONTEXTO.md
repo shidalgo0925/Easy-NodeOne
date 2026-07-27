@@ -1,8 +1,8 @@
 # EN1 — Contexto técnico: certificados de eventos
 
 **Para:** IA, programadores y operación en Dev EN1.  
-**Última actualización:** 2026-06-24  
-**Rama / commit de referencia:** `develop` · `1d878d4` (`fix(certificates): editor único de formato y retorno al evento`)
+**Última actualización:** 2026-07-13  
+**Rama / commit de referencia:** `develop` · mitigación anti-mezcla plantilla MEM↔evento (`certificate_assets.is_membership_visual_template`)
 
 > Comentario: este archivo es la **fuente de verdad de contexto** para chats y tareas sobre certificados de **eventos** (seminarios). No sustituye `AGENTS.md` ni `REGLAS-DE-TRABAJO.md` para protocolo Git/entornos.
 
@@ -59,6 +59,10 @@ Archivo: `backend/nodeone/modules/events/services/certificates.py` → `_render_
 
 **No hay dos plantillas activas a la vez**; hay formato (datos) + plantilla visual (diseño opcional pero habitual).
 
+**Anti-mezcla con membresía (jul 2026):** no vincular plantillas MEM/PLAN a un evento.  
+`is_membership_visual_template` / `membership_template_blocked_for_event` en `certificate_assets.py` filtran el selector y bloquean guardar, link-event, emitir y regenerar.  
+Incidente Relatic: evento «Certificados para revisores» con `visual_template_id` de Membresía PREMIUM → PDF incorrecto; corregido en datos + traba de código.
+
 ---
 
 ## 3. Código único — dónde está cada cosa
@@ -107,7 +111,7 @@ Archivo: `backend/nodeone/modules/events/services/certificates.py` → `_render_
 
 **`backend/nodeone/modules/events/services/certificates.py`**
 
-- `create_event_certificate`, `regenerate_event_certificate`, `generate_bulk_for_event`
+- `create_event_certificate`, `regenerate_event_certificate`, `generate_bulk_for_event`, `regenerate_bulk_for_event`
 - `_write_certificate_pdf_file`: si la ruta legada no es escribible, guarda en `uploads/certificates/<org_id>/<event_id>/`
 - Render visual: `nodeone.services.certificate_render.render_pdf_from_json_layout`
 
@@ -136,6 +140,10 @@ NODEONE_ROOT=/opt/easynodeone/dev/app python repair_certificates_job.py
 | **Formato** | Azul, engranaje | Enlace a **editor único** `/admin/certificate-events?edit=<format_id>&return=/admin/events/<id>/certificates` | `certificate_events` |
 | **Plantilla** | Amarillo, paleta | Editor visual `/admin/certificate-templates/editor/<id>?return=...` | `certificate_templates` |
 | **Vista previa** | Celeste, ojo | PDF de ejemplo (no guarda en BD) | — |
+| **Regenerar todos (N)** | Azul outline, sync | Reemplaza **todos** los PDF activos con plantilla/formato vigentes (confirmación) | `event_certificate` |
+| **Generar todos los elegibles** | Azul primario | Crea PDF para participantes elegibles sin certificado activo | `event_certificate` |
+
+**Regeneración masiva:** visible solo si `cert_stats.issued > 0`. Ubicación: toolbar superior (junto a Exportar) y cabecera de tarjeta **Emitidos**. Ruta `POST /admin/events/<id>/certificates/regenerate-all` → `regenerate_bulk_for_event`. Omite revocados e inactivos; equivale al botón sync por fila, en lote.
 
 **No hay modal duplicado** en `templates/admin/events/certificates.html` (eliminado jun 2026). Formato y Plantilla reutilizan las pantallas globales de certificados.
 
@@ -164,7 +172,7 @@ En **`/admin/certificate-events`**: filas **EVENTO** con mismos enlaces; el ojo 
 2. Opcional: **Plantilla** → editor visual → **Guardar**.
 3. **Participantes** → importar / alta → **check-in** (o tipo `reviewer`).
 4. **Certificados** → Generar todos los elegibles o por participante.
-5. Regenerar PDF si cambió la plantilla (botón sync en listado emitidos).
+5. Si cambió plantilla o formato → **Regenerar todos (N)** (toolbar o tarjeta Emitidos) o sync por fila en la tabla.
 
 **Elegibilidad:** `attendance_status` en `checked_in`/`attended` **o** `participant_type == reviewer`.
 
@@ -207,6 +215,8 @@ Verificación: eventos con `has_certificate=true` sin fila `event_required_id` �
 | `f3534c0` | Unificación sync/UI, listado EVENTO, PDF regenerate resiliente, tests |
 | `1696aba` | Docs contexto EN1 certificados de eventos |
 | `1d878d4` | Editor único Formato/Plantilla, `?return=` navegación evento, API org evento |
+| `2bd6dc9` | Entrega analista jun 2026 (docs) |
+| `33dde91` | Regenerar todos los certificados del evento (bulk + UI + test) |
 
 ---
 
@@ -218,6 +228,7 @@ Verificación: eventos con `has_certificate=true` sin fila `event_required_id` �
 | Fase 2: auto-emitir PDF al check-in | No acordado |
 | Quitar ojo duplicado en filas EVENTO de certificate-events | Opcional UX |
 | Despliegue relatic `1d878d4` | Hecho (pull `develop` + restart `easynodeone-relatic`, jun 2026) |
+| Despliegue relatic `33dde91` (regenerar todos) | Hecho (pull `develop` + restart `easynodeone-relatic`, jun 2026) |
 | Commit `docs/MANUAL_USUARIO_RELATIC_GUIA_PANTALLA.md` | Pendiente (archivo local sin commit) |
 
 ### Refactor certificados (plan jun 2026)
@@ -262,3 +273,4 @@ Contexto operativo e IA: [`docs/EN1_DEPLOY_LIMPIEZA_CONTEXTO.md`](EN1_DEPLOY_LIM
 7. ¿UI Formato desde evento? → **no** duplicar modal; enlace `?edit=` + `?return=` a `/admin/events/<id>/certificates`.
 8. ¿Cambiar navegación certificados? → `admin_certificate_pages/routes.py`, `certificate_events.html`, `certificates.html`.
 9. ¿Tests emisión/verify? → `tests/events/test_event_certificates.py`, `tests/test_certificate_verify.py` antes de mover PDF o `/verify`.
+10. ¿Regeneración masiva? → `regenerate_bulk_for_event` en `certificates.py`; ruta `regenerate-all`; no confundir con `generate_bulk_for_event` (solo crea nuevos).

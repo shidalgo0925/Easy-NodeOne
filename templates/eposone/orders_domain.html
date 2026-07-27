@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Pedidos | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page" id="epos-orders-root"
+     data-refresh-seconds="{{ orders_refresh_seconds|default(15) }}">
+    <div class="epos-page-header">
+        <div>
+            <h1 class="epos-page-title">
+                <i class="fas fa-receipt me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Pedidos
+            </h1>
+            <p class="epos-page-subtitle">
+                {{ orders_total }} pedido(s)
+                {% if orders_total and pages_total|default(1) > 1 %}
+                · pág. {{ page|default(1) }}/{{ pages_total }}
+                {% endif %}
+                · Order Domain
+                · auto <span id="epos-orders-countdown">{{ orders_refresh_seconds|default(15) }}s</span>
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <a href="{{ url_for('eposone.eposone_order_new') }}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus me-1"></i>Nuevo Pedido
+            </a>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="epos-orders-export">
+                <i class="fas fa-file-export me-1"></i>Exportar
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i>Imprimir
+            </button>
+            <a href="{{ request.full_path }}" class="btn btn-sm btn-outline-secondary" id="epos-orders-refresh-now">
+                <i class="fas fa-sync-alt me-1"></i>Actualizar
+            </a>
+        </div>
+    </div>
+
+    {% if fe_module_enabled %}
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <div class="epos-section-label">Facturación electrónica</div>
+            <form method="post" action="{{ url_for('eposone.eposone_settings_save') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="settings_panel" value="fe">
+                <input type="hidden" name="redirect_slug" value="orders">
+                <div class="col-12 col-lg-8">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="fiscal_on_payment" name="fiscal_on_payment" value="1"
+                               {% if settings and settings.fiscal_on_payment %}checked{% endif %}>
+                        <label class="form-check-label" for="fiscal_on_payment">
+                            Solicitar emisión fiscal al completar el cobro
+                        </label>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4 text-lg-end">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-save me-1"></i>Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="get" class="epos-filter-bar" id="epos-orders-filters">
+        <div class="epos-filter-field" style="min-width:10rem; flex:1 1 12rem;">
+            <label for="epos-orders-q">Buscar</label>
+            <input class="form-control" type="search" id="epos-orders-q" name="q" value="{{ q|default('') }}" placeholder="EN1, local, mesa, cliente…">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-from">Desde</label>
+            <input class="form-control" type="date" id="epos-orders-from" name="from" value="{{ date_from|default('') }}">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-to">Hasta</label>
+            <input class="form-control" type="date" id="epos-orders-to" name="to" value="{{ date_to|default('') }}">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-table">Mesa</label>
+            <input class="form-control" type="text" id="epos-orders-table" name="table" value="{{ table_filter|default('') }}">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-register">Caja</label>
+            <input class="form-control" type="text" id="epos-orders-register" name="register" value="{{ register_filter|default('') }}">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-pos">POS</label>
+            <input class="form-control" type="text" id="epos-orders-pos" name="pos" value="{{ pos_filter|default('') }}">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-cashier">Cajero</label>
+            <input class="form-control" type="text" id="epos-orders-cashier" name="cashier" value="{{ cashier_filter|default('') }}">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-customer">Cliente</label>
+            <input class="form-control" type="text" id="epos-orders-customer" name="customer" value="{{ customer_filter|default('') }}">
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-status">Estado</label>
+            <select name="status" id="epos-orders-status" class="form-select">
+                <option value="">Todos</option>
+                {% for st in ('open', 'draft', 'sent', 'ready', 'delivered', 'cancelled', 'returned') %}
+                <option value="{{ st }}" {% if status_filter == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-pay">Pago</label>
+            <select name="payment_status" id="epos-orders-pay" class="form-select">
+                <option value="">Todos</option>
+                {% for st in ('unpaid', 'partial', 'paid') %}
+                <option value="{{ st }}" {% if payment_filter == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="epos-filter-field">
+            <label for="epos-orders-per-page">Por página</label>
+            <select name="per_page" id="epos-orders-per-page" class="form-select">
+                {% for n in per_page_choices|default([15, 25, 50, 100]) %}
+                <option value="{{ n }}" {% if per_page|default(15) == n %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <input type="hidden" name="page" id="epos-orders-page" value="1">
+        <div class="epos-filter-bar__actions epos-orders-filter-actions">
+            <div class="epos-filter-bar__presets" role="group" aria-label="Rango rápido">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-today"
+                        data-today="{{ today_local|default('') }}"
+                        title="Pedidos abiertos hoy (zona horaria efectiva)">
+                    <i class="fas fa-calendar-day me-1"></i>Hoy
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-yesterday"
+                        data-today="{{ today_local|default('') }}"
+                        title="Pedidos abiertos ayer (zona horaria efectiva)">
+                    <i class="fas fa-calendar-minus me-1"></i>Ayer
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-week"
+                        data-today="{{ today_local|default('') }}"
+                        title="Pedidos abiertos desde el lunes hasta hoy">
+                    <i class="fas fa-calendar-week me-1"></i>Esta Semana
+                </button>
+            </div>
+            <div class="epos-orders-filter-actions__primary">
+                <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
+                <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="epos-card">
+        <div class="epos-card-body p-0">
+            {% if orders %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle epos-table" id="epos-orders-table">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Actualizado</th>
+                            <th>Abierto</th>
+                            <th>Estado</th>
+                            <th>Pago</th>
+                            <th>Cliente</th>
+                            <th>Mesa</th>
+                            <th>Origen</th>
+                            <th>POS</th>
+                            <th>Caja</th>
+                            <th>Cajero</th>
+                            <th class="text-end">Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        {% set origin = (order_origins or {}).get(order.id, {}) %}
+                        <tr>
+                            <td>
+                                <code>{{ order.en1_number }}</code>
+                                {% if order.local_number %}<div class="small text-muted">{{ order.local_number }}</div>{% endif %}
+                            </td>
+                            <td class="small">
+                                {{ order.updated_at|epos_local }}
+                                <div class="text-muted" style="font-size:0.7rem">Panamá</div>
+                            </td>
+                            <td class="small text-muted">{{ order.opened_at|epos_local }}</td>
+                            <td>
+                                {% include 'eposone/partials/order_lifecycle_badge.html' %}
+                            </td>
+                            <td>
+                                {% include 'eposone/partials/order_payment_badge.html' %}
+                            </td>
+                            <td class="small">{{ order.customer_ref or '—' }}</td>
+                            <td class="small">{{ order.table_ref or '—' }}</td>
+                            <td class="small">
+                                {% if origin.kind == 'bo' %}
+                                <span class="badge text-bg-secondary">BO</span>
+                                <div class="text-muted" style="font-size:0.7rem">Caja principal</div>
+                                {% elif origin.kind == 'tablet' %}
+                                <span class="badge text-bg-primary">Tablet</span>
+                                <div class="text-muted" style="font-size:0.7rem">{{ origin.detail or origin.label }}</div>
+                                {% else %}
+                                {{ origin.label or '—' }}
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ order.pos_ref or '—' }}</td>
+                            <td class="small">{{ order.register_ref or '—' }}</td>
+                            <td class="small">{{ order.user_ref or '—' }}</td>
+                            <td class="text-end">{{ '%.2f'|format(order.total or 0) }}</td>
+                            <td class="text-end">
+                                <a href="{{ url_for('eposone.eposone_order_domain_detail', order_id=order.id) }}{% if orders_detail_qs %}?{{ orders_detail_qs }}{% endif %}" class="btn btn-sm btn-outline-primary py-0">Ver</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if pages_total|default(1) > 1 %}
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 py-2 border-top">
+                <div class="small text-muted">
+                    Mostrando {{ showing_from|default(0) }}–{{ showing_to|default(0) }} de {{ orders_total }}
+                </div>
+                <nav aria-label="Paginación pedidos">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item {% if page|default(1) <= 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{% if page|default(1) > 1 %}{{ url_for('eposone.eposone_section', slug='orders') }}?{% if orders_pager_qs %}{{ orders_pager_qs }}&{% endif %}page={{ page - 1 }}{% else %}#{% endif %}">Anterior</a>
+                        </li>
+                        {% set start_p = [1, page|default(1) - 2]|max %}
+                        {% set end_p = [pages_total, page|default(1) + 2]|min %}
+                        {% if start_p > 1 %}
+                        <li class="page-item"><a class="page-link" href="{{ url_for('eposone.eposone_section', slug='orders') }}?{% if orders_pager_qs %}{{ orders_pager_qs }}&{% endif %}page=1">1</a></li>
+                        {% if start_p > 2 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+                        {% endif %}
+                        {% for p in range(start_p, end_p + 1) %}
+                        <li class="page-item {% if p == page|default(1) %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('eposone.eposone_section', slug='orders') }}?{% if orders_pager_qs %}{{ orders_pager_qs }}&{% endif %}page={{ p }}">{{ p }}</a>
+                        </li>
+                        {% endfor %}
+                        {% if end_p < pages_total %}
+                        {% if end_p < pages_total - 1 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+                        <li class="page-item"><a class="page-link" href="{{ url_for('eposone.eposone_section', slug='orders') }}?{% if orders_pager_qs %}{{ orders_pager_qs }}&{% endif %}page={{ pages_total }}">{{ pages_total }}</a></li>
+                        {% endif %}
+                        <li class="page-item {% if page|default(1) >= pages_total %}disabled{% endif %}">
+                            <a class="page-link" href="{% if page|default(1) < pages_total %}{{ url_for('eposone.eposone_section', slug='orders') }}?{% if orders_pager_qs %}{{ orders_pager_qs }}&{% endif %}page={{ page + 1 }}{% else %}#{% endif %}">Siguiente</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+            {% else %}
+                {% with title='Sin pedidos', text='Ajustá filtros o esperá sincronización desde la tablet.', icon='fa-receipt' %}
+                {% include 'eposone/partials/empty_state.html' %}
+                {% endwith %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+  var root = document.getElementById('epos-orders-root');
+  var form = document.getElementById('epos-orders-filters');
+  var todayBtn = document.getElementById('epos-orders-today');
+  var yesterdayBtn = document.getElementById('epos-orders-yesterday');
+  var weekBtn = document.getElementById('epos-orders-week');
+  var perPageSel = document.getElementById('epos-orders-per-page');
+  var pageHidden = document.getElementById('epos-orders-page');
+  var countdownEl = document.getElementById('epos-orders-countdown');
+
+  function shiftIsoDate(isoDate, days) {
+    var parts = (isoDate || '').split('-').map(Number);
+    if (parts.length !== 3 || parts.some(function (part) { return !Number.isFinite(part); })) return '';
+    var date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + days));
+    return date.toISOString().slice(0, 10);
+  }
+
+  function startOfWeekIso(isoDate) {
+    var parts = (isoDate || '').split('-').map(Number);
+    if (parts.length !== 3 || parts.some(function (part) { return !Number.isFinite(part); })) return '';
+    var date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    var day = date.getUTCDay();
+    return shiftIsoDate(isoDate, day === 0 ? -6 : 1 - day);
+  }
+
+  function applyQuickRange(fromDate, toDate) {
+    if (!form || !fromDate || !toDate) return;
+    var fromEl = document.getElementById('epos-orders-from');
+    var toEl = document.getElementById('epos-orders-to');
+    if (fromEl) fromEl.value = fromDate;
+    if (toEl) toEl.value = toDate;
+    if (pageHidden) pageHidden.value = '1';
+    form.submit();
+  }
+
+  if (todayBtn) {
+    todayBtn.addEventListener('click', function () {
+      var today = todayBtn.getAttribute('data-today') || '';
+      applyQuickRange(today, today);
+    });
+  }
+
+  if (yesterdayBtn) {
+    yesterdayBtn.addEventListener('click', function () {
+      var today = yesterdayBtn.getAttribute('data-today') || '';
+      var yesterday = shiftIsoDate(today, -1);
+      applyQuickRange(yesterday, yesterday);
+    });
+  }
+
+  if (weekBtn) {
+    weekBtn.addEventListener('click', function () {
+      var today = weekBtn.getAttribute('data-today') || '';
+      applyQuickRange(startOfWeekIso(today), today);
+    });
+  }
+
+  if (perPageSel && form) {
+    perPageSel.addEventListener('change', function () {
+      if (pageHidden) pageHidden.value = '1';
+      form.submit();
+    });
+  }
+
+  if (form && pageHidden) {
+    form.addEventListener('submit', function () {
+      pageHidden.value = '1';
+    });
+  }
+
+  var btn = document.getElementById('epos-orders-export');
+  var table = document.getElementById('epos-orders-table');
+  if (btn && table) {
+    btn.addEventListener('click', function () {
+      var rows = [];
+      table.querySelectorAll('tr').forEach(function (tr) {
+        var cols = [];
+        tr.querySelectorAll('th,td').forEach(function (cell, idx) {
+          if (idx === tr.children.length - 1) return; // skip Ver
+          cols.push('"' + (cell.innerText || '').replace(/"/g, '""').trim() + '"');
+        });
+        rows.push(cols.join(','));
+      });
+      var blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'pedidos-eposone.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  }
+
+  /* Auto-refresh: conserva query (filtros + página); pausa si pestaña oculta o editando filtros. */
+  if (!root) return;
+  var refreshSeconds = parseInt(root.getAttribute('data-refresh-seconds') || '15', 10);
+  if (!refreshSeconds || refreshSeconds < 5) refreshSeconds = 15;
+  var left = refreshSeconds;
+  var timer = null;
+
+  function isEditingFilters() {
+    var el = document.activeElement;
+    if (!form || !el || !form.contains(el)) return false;
+    var tag = (el.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+  }
+
+  function renderCountdown() {
+    if (countdownEl) countdownEl.textContent = left + 's';
+  }
+
+  function reloadPreservingState() {
+    window.location.reload();
+  }
+
+  function clearTimer() {
+    if (timer) {
+      window.clearTimeout(timer);
+      timer = null;
+    }
+  }
+
+  function scheduleTick() {
+    clearTimer();
+    if (document.hidden) return;
+    timer = window.setTimeout(tick, 1000);
+  }
+
+  function tick() {
+    if (document.hidden) return;
+    if (isEditingFilters()) {
+      left = refreshSeconds;
+      renderCountdown();
+      scheduleTick();
+      return;
+    }
+    left -= 1;
+    renderCountdown();
+    if (left <= 0) {
+      reloadPreservingState();
+      return;
+    }
+    scheduleTick();
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      clearTimer();
+      return;
+    }
+    left = refreshSeconds;
+    renderCountdown();
+    scheduleTick();
+  });
+
+  renderCountdown();
+  scheduleTick();
+})();
+</script>
+{% endblock %}

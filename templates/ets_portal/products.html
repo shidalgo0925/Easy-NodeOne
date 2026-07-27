@@ -1,0 +1,44 @@
+{% extends "ets_portal/base_portal.html" %}
+
+{% block title %}Mis Productos — {{ brand_name }}{% endblock %}
+
+{% block content %}
+<section class="ets-portal-hero ets-portal-hero--compact">
+    <p class="ets-portal-eyebrow">{{ brand_name }}</p>
+    <h1>Mis Productos</h1>
+    <p class="ets-portal-lead">Solo productos contratados para tu organización.</p>
+</section>
+
+{% if portal_products %}
+<ul class="ets-portal-product-list">
+    {% for p in portal_products %}
+    <li class="ets-portal-product-card">
+        <div class="ets-portal-product-card__body">
+            <div class="ets-portal-product-card__icon" aria-hidden="true">{{ (p.icon or p.name[:1])|e }}</div>
+            <div>
+                <h3>{{ p.name }}</h3>
+                {% if p.description %}
+                <p class="ets-portal-product-card__desc">{{ p.description }}</p>
+                {% endif %}
+                <p class="ets-portal-status">Estado: <strong>{{ p.subscription_status }}</strong></p>
+                {% if p.subscription_status == 'trial' and p.trial_ends_at %}
+                <p class="ets-portal-meta">Licencia: Trial · hasta {{ p.trial_ends_at[:10] }}</p>
+                {% elif p.subscription_status == 'active' %}
+                <p class="ets-portal-meta">Licencia: Activa</p>
+                {% elif p.subscription_status == 'suspended' %}
+                <p class="ets-portal-meta">Licencia: Suspendida</p>
+                {% endif %}
+            </div>
+        </div>
+        {% if p.open_url and p.subscription_status != 'suspended' %}
+        <a class="ets-portal-btn ets-portal-btn--primary" href="{{ url_for('ets_portal.open_product', product_code=p.product_code) }}">Abrir</a>
+        {% elif p.subscription_status == 'suspended' %}
+        <span class="ets-portal-btn ets-portal-btn--disabled" aria-disabled="true">Suspendido</span>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="ets-portal-empty">Aún no tienes productos contratados. Contacta a Easy Technology Services.</p>
+{% endif %}
+{% endblock %}

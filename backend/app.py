@@ -8,7 +8,7 @@ import re
 import html as html_module
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, has_request_context, send_file, abort, send_from_directory, Response
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user, user_logged_in
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timedelta
@@ -117,6 +117,10 @@ except ImportError:
 
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
+# Dev: siempre releer Jinja (evita pantallas viejas tras deploy sin restart completo).
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 # Detrás de Nginx/Cloudflare: confiar en X-Forwarded-Proto y X-Forwarded-For
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1, x_host=1)
 
@@ -734,6 +738,16 @@ def _env_brand_hex(key: str):
 _IIUS_BRAND_PRESET_KEYS = frozenset(
     ('iius', 'international_institute', 'international-institute', 'internationalinstitute')
 )
+_EN1_BRAND_PRESET_KEYS = frozenset(('en1', 'easynodeone', 'hubspot'))
+# EN1 plataforma — paleta corporativa (único acento naranja)
+_EN1_THEME = {
+    'theme_primary': '#FF6B35',
+    'theme_primary_dark': '#2D3E50',
+    'theme_accent': '#9CA3AF',
+    'theme_accent_gold': '#9CA3AF',
+    'theme_accent_cyan': '#9CA3AF',
+    'theme_background_cream': '#F7F9FC',
+}
 # IIUS (internationalinstitute.us): morado CTA · marino fondos · dorado emblema · cian copy destacada
 _IIUS_THEME = {
     'theme_primary': '#8B60AA',
@@ -749,9 +763,16 @@ def resolve_theme_tokens():
     """
     Design tokens: organization_settings (BD) + capa opcional de marca.
     Orden: preset IIUS (si aplica) → BD → overrides NODEONE_BRAND_*.
+
+    ADR-011: inyecta ProductContext/BrandContext (metadatos) sin aplicar aún
+    la paleta visual del producto (eso es fase branding).
     """
-    preset = (os.environ.get('NODEONE_BRAND_PRESET') or '').strip().lower()
-    use_iius = preset in _IIUS_BRAND_PRESET_KEYS
+    from nodeone.core.platform.context_resolver import current_app_context
+
+    app_ctx = current_app_context()
+    preset = (os.environ.get('NODEONE_BRAND_PRESET') or 'en1').strip().lower()
+    use_iius = preset in _IIUS_BRAND_PRESET_KEYS or app_ctx.product_code == 'iius'
+    use_en1 = (not use_iius) and (preset in _EN1_BRAND_PRESET_KEYS or preset == '')
 
     try:
         s = OrganizationSettings.get_settings_for_session()
@@ -760,6 +781,19 @@ def resolve_theme_tokens():
         if use_iius:
             out = {
                 **_IIUS_THEME,
+                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
+                'theme_favicon_url': s.favicon_url or '',
+            }
+        elif app_ctx.surface in ('portal', 'product'):
+            # ADR-013 Portal / Surface producto — BrandContext (no EN1 genérico)
+            out = {
+                **app_ctx.theme_overlay(),
+                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
+                'theme_favicon_url': s.favicon_url or '',
+            }
+        elif use_en1 and not (s.primary_color or s.primary_color_dark or s.accent_color):
+            out = {
+                **_EN1_THEME,
                 'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
                 'theme_favicon_url': s.favicon_url or '',
             }
@@ -773,13 +807,19 @@ def resolve_theme_tokens():
             }
     except Exception:
         out = {
-            **_IIUS_THEME,
-            'theme_logo_url': '',
-            'theme_favicon_url': '',
-        } if use_iius else {
-            'theme_primary': '#2563EB',
-            'theme_primary_dark': '#1E3A8A',
-            'theme_accent': '#06B6D4',
+            **(
+                _IIUS_THEME
+                if use_iius
+                else app_ctx.theme_overlay()
+                if app_ctx.surface in ('portal', 'product')
+                else _EN1_THEME
+                if use_en1
+                else {
+                    'theme_primary': '#2563EB',
+                    'theme_primary_dark': '#1E3A8A',
+                    'theme_accent': '#06B6D4',
+                }
+            ),
             'theme_logo_url': '',
             'theme_favicon_url': '',
         }
@@ -792,11 +832,13 @@ def resolve_theme_tokens():
     ea = _env_brand_hex('NODEONE_BRAND_ACCENT')
     eg = _env_brand_hex('NODEONE_BRAND_ACCENT_GOLD')
     ec = _env_brand_hex('NODEONE_BRAND_ACCENT_CYAN')
-    if ep:
+    # Overrides opcionales por env (NODEONE_BRAND_*). No pisar organization_settings
+    # con la paleta fija EN1 del silo: eso anulaba el branding por empresa.
+    if ep and app_ctx.surface not in ('portal', 'product'):
         out['theme_primary'] = ep
-    if ed:
+    if ed and app_ctx.surface not in ('portal', 'product'):
         out['theme_primary_dark'] = ed
-    if ea:
+    if ea and app_ctx.surface not in ('portal', 'product'):
         out['theme_accent'] = ea
         if use_iius:
             out['theme_accent_gold'] = ea
@@ -807,8 +849,29 @@ def resolve_theme_tokens():
         out['theme_accent_cyan'] = ec
     out.setdefault('theme_accent_gold', out.get('theme_accent', '#06B6D4'))
     out.setdefault('theme_accent_cyan', out.get('theme_accent', '#06B6D4'))
-    out.setdefault('theme_background_cream', '#F1F5F9')
-    out['brand_preset'] = preset if use_iius else ''
+    out.setdefault(
+        'theme_background_cream',
+        app_ctx.theme_background
+        if app_ctx.surface in ('portal', 'product')
+        else (_EN1_THEME['theme_background_cream'] if use_en1 else '#F1F5F9'),
+    )
+    # Visual brand_preset: silo/env; portal/producto usan BrandContext
+    out['brand_preset'] = preset if (use_iius or use_en1) else ''
+    if use_iius:
+        out['brand_preset'] = 'iius'
+    # Metadatos ADR-011 (data-product / data-surface / nombre resuelto)
+    out.update(app_ctx.to_template_dict())
+    # No pisar brand_preset visual con el del producto (salvo portal / surface product)
+    if use_iius:
+        out['brand_preset'] = 'iius'
+    elif app_ctx.surface == 'portal':
+        out['brand_preset'] = app_ctx.brand_preset or 'portal'
+    elif app_ctx.surface == 'product':
+        out['brand_preset'] = app_ctx.brand_preset or app_ctx.product_code or 'en1'
+    elif use_en1:
+        out['brand_preset'] = preset if preset in _EN1_BRAND_PRESET_KEYS or preset == '' else 'en1'
+        if not out['brand_preset']:
+            out['brand_preset'] = 'en1'
     return out
 
 
@@ -820,13 +883,13 @@ def inject_theme():
         return resolve_theme_tokens()
     except Exception:
         return {
-            'theme_primary': '#2563EB',
-            'theme_primary_dark': '#1E3A8A',
-            'theme_accent': '#06B6D4',
-            'theme_accent_gold': '#06B6D4',
-            'theme_accent_cyan': '#06B6D4',
-            'theme_background_cream': '#F1F5F9',
-            'brand_preset': '',
+            'theme_primary': '#FF6B35',
+            'theme_primary_dark': '#2D3E50',
+            'theme_accent': '#9CA3AF',
+            'theme_accent_gold': '#9CA3AF',
+            'theme_accent_cyan': '#9CA3AF',
+            'theme_background_cream': '#F7F9FC',
+            'brand_preset': 'en1',
             'theme_logo_url': '',
             'theme_favicon_url': '',
         }
@@ -841,16 +904,47 @@ def inject_membership_plans():
 # Context processor: apariencia del usuario (tema y tamaño de fuente) para aplicar en <html>
 @app.context_processor
 def inject_user_appearance():
-    out = {'user_theme': 'light', 'user_font_size': 'medium'}
+    out = {
+        'user_theme': 'light',
+        'user_font_size': 'medium',
+        'user_timezone': 'America/Panama',
+        'user_utc_offset': '-05:00',
+        'timezone_prompt': None,
+    }
     if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
         try:
+            from nodeone.core.timezone_service import TimeZoneService
+
+            prefs = dict(_default_user_preferences())
             row = UserSettings.query.filter_by(user_id=current_user.id).first()
             if row and row.preferences:
-                prefs = json.loads(row.preferences)
-                if prefs.get('theme') in ('light', 'dark', 'auto'):
-                    out['user_theme'] = prefs['theme']
-                if prefs.get('font_size') in ('small', 'medium', 'large'):
-                    out['user_font_size'] = prefs['font_size']
+                try:
+                    loaded = json.loads(row.preferences)
+                    if isinstance(loaded, dict):
+                        prefs.update(loaded)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    pass
+            if prefs.get('theme') in ('light', 'dark', 'auto'):
+                out['user_theme'] = prefs['theme']
+            if prefs.get('font_size') in ('small', 'medium', 'large'):
+                out['user_font_size'] = prefs['font_size']
+            if 'timezone' not in session:
+                TimeZoneService.sync_session_timezone(user=current_user, prefs=prefs)
+            out['user_timezone'] = session.get('timezone') or TimeZoneService.effective_timezone_name(
+                user=current_user, prefs=prefs
+            )
+            out['user_utc_offset'] = session.get('utc_offset') or TimeZoneService.offset_iso(
+                out['user_timezone']
+            )
+            confirmed = bool(prefs.get('timezone_confirmed'))
+            last_browser = (prefs.get('last_browser_timezone') or '').strip() or None
+            out['timezone_prompt'] = {
+                'confirmed': confirmed,
+                'current_timezone': TimeZoneService.validate_iana(prefs.get('timezone')),
+                'last_browser_timezone': last_browser,
+                'date_format': prefs.get('date_format') or 'DD/MM/YYYY',
+                'time_format': prefs.get('time_format') or '24h',
+            }
         except Exception:
             pass
     return out
@@ -1845,6 +1939,13 @@ def inject_admin_nav_context():
                     show_tenant_admin_menu=bool(out.get('show_tenant_admin_menu')),
                 )
             )
+            try:
+                from nodeone.core.platform.app_shell import merge_app_shell_nav_context, merge_native_app_nav_context
+
+                merge_app_shell_nav_context(out, current_user, session)
+                merge_native_app_nav_context(out, current_user, session)
+            except Exception:
+                pass
     except Exception:
         try:
             from flask import current_app
@@ -1901,6 +2002,38 @@ if _ym.isdigit():
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+@user_logged_in.connect_via(app)
+def _store_password_fingerprint(sender, user, **extra):
+    """Permite invalidar otras sesiones cuando cambia el password_hash."""
+    try:
+        from flask import session
+        from nodeone.services.password_reset_service import password_fingerprint
+
+        session['pwd_fp'] = password_fingerprint(user)
+    except Exception:
+        pass
+
+
+@app.before_request
+def _invalidate_session_if_password_changed():
+    try:
+        from flask import session
+        from flask_login import current_user, logout_user
+        from nodeone.services.password_reset_service import password_fingerprint
+
+        if not getattr(current_user, 'is_authenticated', False):
+            return
+        fp = session.get('pwd_fp')
+        if not fp:
+            session['pwd_fp'] = password_fingerprint(current_user)
+            return
+        if fp != password_fingerprint(current_user):
+            logout_user()
+            session.pop('pwd_fp', None)
+    except Exception:
+        pass
 
 # Decoradores
 def email_verified_required(f):
@@ -2651,8 +2784,13 @@ def _default_user_preferences():
         'privacy_activity': True,
         'language': 'es',
         'timezone': 'America/Panama',
+        'date_format': 'DD/MM/YYYY',
+        'time_format': '24h',
+        'timezone_confirmed': False,
+        'last_browser_timezone': None,
         'theme': 'light',
         'font_size': 'medium',
+        'eposone_orders_per_page': 15,
     }
 
 
@@ -3155,6 +3293,12 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_registration_policy_column: {e}')
         try:
+            from nodeone.services.saas_org_timezone_schema import ensure_saas_organization_timezone_column
+
+            ensure_saas_organization_timezone_column(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_saas_organization_timezone_column: {e}')
+        try:
             from nodeone.services.tenant_email_logo_storage import migrate_legacy_tenant_email_logos_to_uploads
 
             migrate_legacy_tenant_email_logos_to_uploads(db, printfn=lambda m: print(f'📋 {m}'))
@@ -3337,6 +3481,209 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_contacts_schema: {e}')
+        try:
+            from nodeone.services.eposone_cashier_schema import ensure_eposone_cashier_schema
+
+            ensure_eposone_cashier_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_cashier_schema: {e}')
+        try:
+            from nodeone.services.eposone_cash_shift_schema import (
+                ensure_cash_shift_client_id_schema,
+            )
+
+            ensure_cash_shift_client_id_schema(
+                db, db.engine, printfn=lambda m: print(f'📋 {m}')
+            )
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_cash_shift_client_id_schema: {e}')
+        try:
+            from nodeone.services.eposone_commercial_policy_schema import (
+                ensure_eposone_commercial_policy_schema,
+            )
+
+            ensure_eposone_commercial_policy_schema(
+                db, db.engine, printfn=lambda m: print(f'📋 {m}')
+            )
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_commercial_policy_schema: {e}')
+        try:
+            # Seed ITBMS Panamá en orgs EPosOne (idempotente).
+            from nodeone.modules.eposone.fiscal_categories import ensure_panama_fiscal_seed
+
+            seed_ids = [
+                int(x.strip())
+                for x in (os.environ.get('NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS') or '1').split(',')
+                if x.strip().isdigit()
+            ]
+            for _oid in seed_ids:
+                try:
+                    ensure_panama_fiscal_seed(_oid)
+                except Exception as seed_exc:
+                    db.session.rollback()
+                    print(f'⚠️ ensure_panama_fiscal_seed org={_oid}: {seed_exc}')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ panama fiscal seed: {e}')
+        try:
+            from nodeone.services.platform_app_runtime_schema import (
+                ensure_platform_app_runtime_schema,
+                seed_ecrm_platform_runtime,
+                seed_eevents_platform_runtime,
+                seed_ecertificates_platform_runtime,
+                seed_eappointments_platform_runtime,
+                seed_eposone_platform_runtime,
+                seed_epayroll_platform_runtime,
+                seed_emembership_platform_runtime,
+            )
+
+            ensure_platform_app_runtime_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+
+            def _parse_org_id_list_env(name: str) -> list[int]:
+                raw = (os.environ.get(name) or '').strip()
+                if not raw:
+                    return []
+                out: list[int] = []
+                for part in raw.split(','):
+                    part = part.strip()
+                    if part:
+                        out.append(int(part))
+                return out
+
+            memb_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EMEMBERSHIP_ORG_IDS')
+            if memb_orgs:
+                seed_emembership_platform_runtime(db, memb_orgs, printfn=lambda m: print(f'📋 {m}'))
+            crm_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_ECRM_ORG_IDS')
+            if crm_orgs:
+                seed_ecrm_platform_runtime(db, crm_orgs, printfn=lambda m: print(f'📋 {m}'))
+            events_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EEVENTS_ORG_IDS')
+            if events_orgs:
+                seed_eevents_platform_runtime(db, events_orgs, printfn=lambda m: print(f'📋 {m}'))
+            cert_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_ECERTIFICATES_ORG_IDS')
+            if cert_orgs:
+                seed_ecertificates_platform_runtime(db, cert_orgs, printfn=lambda m: print(f'📋 {m}'))
+            appt_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EAPPOINTMENTS_ORG_IDS')
+            if appt_orgs:
+                seed_eappointments_platform_runtime(db, appt_orgs, printfn=lambda m: print(f'📋 {m}'))
+            epos_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS')
+            if epos_orgs:
+                seed_eposone_platform_runtime(db, epos_orgs, printfn=lambda m: print(f'📋 {m}'))
+            payroll_orgs = _parse_org_id_list_env('NODEONE_PLATFORM_SEED_EPAYROLL_ORG_IDS')
+            if payroll_orgs:
+                seed_epayroll_platform_runtime(db, payroll_orgs, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_platform_app_runtime_schema: {e}')
+        try:
+            from nodeone.services.platform_events_schema import ensure_platform_events_schema
+
+            ensure_platform_events_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_platform_events_schema: {e}')
+        try:
+            from nodeone.services.platform_sync_schema import ensure_platform_sync_schema
+
+            ensure_platform_sync_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_platform_sync_schema: {e}')
+        try:
+            from nodeone.services.commercial_core_schema import ensure_commercial_core_schema
+
+            ensure_commercial_core_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_commercial_core_schema: {e}')
+        try:
+            from nodeone.services.core_master_schema import ensure_core_master_schema
+
+            ensure_core_master_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_core_master_schema: {e}')
+        try:
+            from nodeone.services.password_reset_schema import ensure_password_reset_schema
+
+            ensure_password_reset_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_password_reset_schema: {e}')
+        try:
+            from nodeone.services.eposone_kds_schema import ensure_eposone_kds_schema
+
+            ensure_eposone_kds_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_kds_schema: {e}')
+        try:
+            from nodeone.services.eposone_delivery_schema import ensure_eposone_delivery_schema
+
+            ensure_eposone_delivery_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_delivery_schema: {e}')
+        try:
+            from nodeone.services.eposone_digital_menu_schema import ensure_eposone_digital_menu_schema
+
+            ensure_eposone_digital_menu_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_digital_menu_schema: {e}')
+        try:
+            from nodeone.services.eposone_promotion_schema import ensure_eposone_promotion_schema
+
+            ensure_eposone_promotion_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_promotion_schema: {e}')
+        try:
+            from nodeone.services.eposone_settings_schema import ensure_eposone_settings_schema
+
+            ensure_eposone_settings_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_settings_schema: {e}')
+        try:
+            from nodeone.services.eposone_provisioning_schema import ensure_eposone_provisioning_schema
+
+            ensure_eposone_provisioning_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_provisioning_schema: {e}')
+        try:
+            from nodeone.services.eposone_register_license_schema import (
+                ensure_eposone_register_license_schema,
+            )
+
+            ensure_eposone_register_license_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_register_license_schema: {e}')
+        try:
+            from nodeone.services.ets_subscription_schema import ensure_ets_product_subscription_schema
+
+            ensure_ets_product_subscription_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_ets_product_subscription_schema: {e}')
+        try:
+            from nodeone.services.ets_entitlement_schema import ensure_ets_product_entitlement_schema
+
+            ensure_ets_product_entitlement_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_ets_product_entitlement_schema: {e}')
+        try:
+            from nodeone.services.eposone_order_schema import ensure_eposone_order_schema
+
+            ensure_eposone_order_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_order_schema: {e}')
         try:
             from nodeone.services.academic_schema import ensure_academic_schema
 

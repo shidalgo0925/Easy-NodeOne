@@ -22,7 +22,14 @@ def apply_session_organization_after_login(user, req):
     """Tras login: delega en finalize_post_login_organization (cards / última empresa / una sola)."""
     from nodeone.services.post_login_organization import finalize_post_login_organization
 
-    return finalize_post_login_organization(user, req)
+    result = finalize_post_login_organization(user, req)
+    try:
+        from nodeone.core.timezone_service import TimeZoneService
+
+        TimeZoneService.sync_session_timezone(user=user)
+    except Exception:
+        pass
+    return result
 
 
 def admin_can_view_all_organizations():

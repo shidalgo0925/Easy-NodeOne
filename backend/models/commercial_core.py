@@ -1,0 +1,281 @@
+"""Modelos del dominio comercial Core — Etapa 14 (EPosOne MVP)."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from nodeone.core.db import db
+
+
+class CoreCommercialOrder(db.Model):
+    __tablename__ = 'core_commercial_order'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    order_ref = db.Column(db.String(50), nullable=False, index=True)
+    operational_status = db.Column(db.String(32), nullable=False, default='draft')
+    payment_status = db.Column(db.String(32), nullable=False, default='unpaid')
+    fiscal_status = db.Column(db.String(32), nullable=False, default='not_required')
+    contact_id = db.Column(db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True)
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    branch_org_unit_id = db.Column(
+        db.Integer, db.ForeignKey('core_org_unit.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    parent_order_id = db.Column(
+        db.Integer, db.ForeignKey('core_commercial_order.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    pos_terminal_id = db.Column(
+        db.Integer, db.ForeignKey('core_pos_terminal.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    currency = db.Column(db.String(8), nullable=False, default='USD')
+    subtotal = db.Column(db.Float, nullable=False, default=0.0)
+    tax_total = db.Column(db.Float, nullable=False, default=0.0)
+    discount_total = db.Column(db.Float, nullable=False, default=0.0)
+    promotion_ref = db.Column(db.String(64), nullable=True)
+    grand_total = db.Column(db.Float, nullable=False, default=0.0)
+    amount_paid = db.Column(db.Float, nullable=False, default=0.0)
+    source_app_id = db.Column(db.String(64), nullable=False, default='eposone')
+    notes = db.Column(db.Text, nullable=True)
+    version = db.Column(db.Integer, nullable=False, default=1)
+    inventory_deducted_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    lines = db.relationship(
+        'CoreCommercialOrderLine',
+        backref='order',
+        lazy='joined',
+        cascade='all, delete-orphan',
+        order_by='CoreCommercialOrderLine.id',
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'order_ref', name='uq_core_commercial_order_ref'),
+    )
+
+    @property
+    def status(self) -> str:
+        """Alias legacy — usar operational_status."""
+        return str(self.operational_status or 'draft')
+
+    @status.setter
+    def status(self, value: str) -> None:
+        self.operational_status = (value or 'draft').strip().lower()
+
+    def sync_payment_status(self) -> str:
+        from nodeone.core.commerce.constants import compute_order_payment_status
+
+        ps = compute_order_payment_status(float(self.amount_paid or 0), float(self.grand_total or 0))
+        self.payment_status = ps
+        return ps
+
+    def maybe_mark_fiscal_pending(self, *, skip_fiscal: bool = False) -> str | None:
+        """Dominio 6.8 — default on_paid: fiscal_status pending al cobrar completo."""
+        from nodeone.core.commerce.constants import (
+            ORDER_FISCAL_STATUS_NOT_REQUIRED,
+            ORDER_FISCAL_STATUS_PENDING,
+            ORDER_PAYMENT_STATUS_PAID,
+        )
+
+        if skip_fiscal:
+            return None
+        if str(self.payment_status or '') != ORDER_PAYMENT_STATUS_PAID:
+            return None
+        if str(self.fiscal_status or '') != ORDER_FISCAL_STATUS_NOT_REQUIRED:
+            return None
+        prev = str(self.fiscal_status)
+        self.fiscal_status = ORDER_FISCAL_STATUS_PENDING
+        return prev
+
+
+class CoreCommercialOrderLine(db.Model):
+    __tablename__ = 'core_commercial_order_line'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(
+        db.Integer, db.ForeignKey('core_commercial_order.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    description = db.Column(db.String(500), nullable=False)
+    quantity = db.Column(db.Float, nullable=False, default=1.0)
+    unit_price = db.Column(db.Float, nullable=False, default=0.0)
+    line_total = db.Column(db.Float, nullable=False, default=0.0)
+    product_ref = db.Column(db.String(128), nullable=True)
+    line_status = db.Column(db.String(32), nullable=False, default='pending')
+
+
+class CoreCommercialPayment(db.Model):
+    __tablename__ = 'core_commercial_payment'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    order_id = db.Column(
+        db.Integer, db.ForeignKey('core_commercial_order.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    payment_ref = db.Column(db.String(50), nullable=False)
+    status = db.Column(db.String(32), nullable=False, default='captured')
+    payment_type = db.Column(db.String(32), nullable=False, default='cash')
+    amount = db.Column(db.Float, nullable=False, default=0.0)
+    refunded_amount = db.Column(db.Float, nullable=False, default=0.0)
+    currency = db.Column(db.String(8), nullable=False, default='USD')
+    captured_at = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
+    cash_shift_id = db.Column(
+        db.Integer, db.ForeignKey('core_cash_shift.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    refunded_by_cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    order = db.relationship('CoreCommercialOrder', backref=db.backref('payments', lazy='dynamic'))
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'payment_ref', name='uq_core_commercial_payment_ref'),
+    )
+
+
+class CoreCashShift(db.Model):
+    __tablename__ = 'core_cash_shift'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    register_ref = db.Column(db.String(64), nullable=False, index=True)
+    status = db.Column(db.String(32), nullable=False, default='open')
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    cashier_name = db.Column(db.String(120), nullable=True)
+    cashier_changed_at = db.Column(db.DateTime, nullable=True)
+    cashier_changed_by_user_id = db.Column(
+        db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True
+    )
+    opening_balance = db.Column(db.Float, nullable=False, default=0.0)
+    closing_balance = db.Column(db.Float, nullable=True)
+    counted_amount = db.Column(db.Float, nullable=True)
+    expected_balance = db.Column(db.Float, nullable=True)
+    opened_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    closed_at = db.Column(db.DateTime, nullable=True)
+    closed_by_cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True
+    )
+    # Idempotencia POS (Device Bearer / offline retry)
+    client_shift_id = db.Column(db.String(64), nullable=True, index=True)
+
+    movements = db.relationship(
+        'CoreCashMovement',
+        backref='shift',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+    )
+
+
+class CoreCashMovement(db.Model):
+    __tablename__ = 'core_cash_movement'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    shift_id = db.Column(
+        db.Integer, db.ForeignKey('core_cash_shift.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    movement_type = db.Column(db.String(32), nullable=False)
+    amount = db.Column(db.Float, nullable=False, default=0.0)
+    payment_id = db.Column(
+        db.Integer, db.ForeignKey('core_commercial_payment.id', ondelete='SET NULL'), nullable=True
+    )
+    cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    notes = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class CorePosTerminal(db.Model):
+    __tablename__ = 'core_pos_terminal'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    terminal_ref = db.Column(db.String(64), nullable=False)
+    register_ref = db.Column(db.String(64), nullable=True)
+    status = db.Column(db.String(32), nullable=False, default='active')
+    device_label = db.Column(db.String(200), nullable=True)
+    # Sprint 6 — Dispositivos POS V4
+    profile = db.Column(db.String(32), nullable=False, default='fixed')  # fixed | handheld
+    platform = db.Column(db.String(32), nullable=True)  # android | web | ios
+    device_model = db.Column(db.String(120), nullable=True)
+    app_version = db.Column(db.String(64), nullable=True)
+    android_version = db.Column(db.String(64), nullable=True)
+    branch_ref = db.Column(db.String(64), nullable=True)
+    # ADR-005 — vínculo al Punto de Venta (unidad comercial / sync)
+    pos_ref = db.Column(db.String(64), nullable=True, index=True)
+    sync_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    last_seen_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    # Hito EN1-01 — token de dispositivo (hash) + versión de config
+    access_token_hash = db.Column(db.String(64), nullable=True, index=True)
+    config_version = db.Column(db.Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'terminal_ref', name='uq_core_pos_terminal_ref'),
+    )
+
+
+class CoreStockBalance(db.Model):
+    __tablename__ = 'core_stock_balance'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    warehouse_org_unit_id = db.Column(
+        db.Integer, db.ForeignKey('core_org_unit.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    product_ref = db.Column(db.String(64), nullable=False, index=True)
+    quantity_on_hand = db.Column(db.Float, nullable=False, default=0.0)
+    quantity_reserved = db.Column(db.Float, nullable=False, default=0.0)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'organization_id',
+            'warehouse_org_unit_id',
+            'product_ref',
+            name='uq_core_stock_balance_wh_product',
+        ),
+    )
+
+
+class CoreStockMovement(db.Model):
+    __tablename__ = 'core_stock_movement'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    warehouse_org_unit_id = db.Column(
+        db.Integer, db.ForeignKey('core_org_unit.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    product_ref = db.Column(db.String(64), nullable=False, index=True)
+    movement_type = db.Column(db.String(32), nullable=False)
+    quantity = db.Column(db.Float, nullable=False, default=0.0)
+    order_ref = db.Column(db.String(50), nullable=True, index=True)
+    idempotency_key = db.Column(db.String(128), nullable=True, index=True)
+    notes = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'idempotency_key', name='uq_core_stock_movement_idempotency'),
+    )

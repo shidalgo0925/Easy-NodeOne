@@ -1,0 +1,85 @@
+"""Dominio comercial compartido — Etapa 12 (contratos + eventos)."""
+
+from nodeone.core.commerce.cash import CashRegisterService
+from nodeone.core.commerce.constants import (
+    CASH_SHIFT_CLOSED,
+    CASH_SHIFT_OPEN,
+    CASH_SHIFT_RECONCILING,
+    DELIVERY_STATUS_COMPLETED,
+    DELIVERY_STATUS_PARTIAL,
+    DELIVERY_STATUS_PENDING,
+    INVOICE_KIND_FISCAL,
+    INVOICE_KIND_NON_FISCAL,
+    INVOICE_KIND_PROFORMA,
+    ORDER_STATUS_CANCELLED,
+    ORDER_STATUS_CONFIRMED,
+    ORDER_STATUS_DRAFT,
+    ORDER_STATUS_DELIVERED,
+    ORDER_STATUS_IN_PROGRESS,
+    ORDER_STATUS_READY,
+    ORDER_STATUS_REFUNDED,
+    PAYMENT_STATUS_CAPTURED,
+    PAYMENT_STATUS_PENDING,
+    PAYMENT_TYPE_CASH,
+    PAYMENT_TYPE_CARD,
+    POS_TERMINAL_ACTIVE,
+    can_transition_order_status,
+)
+from nodeone.core.commerce.delivery import DeliveryService
+from nodeone.core.commerce.dtos import (
+    CashShiftDTO,
+    DeliveryDTO,
+    InvoiceDTO,
+    InvoiceLineDTO,
+    OrderDTO,
+    OrderLineDTO,
+    PaymentDTO,
+    PosTerminalDTO,
+)
+from nodeone.core.commerce.events import COMMERCE_EVENT_TYPES, COMMERCE_ORDER_CREATED
+from nodeone.core.commerce.invoice import InvoiceService
+from nodeone.core.commerce.order import CommerceNotReadyError, OrderService
+from nodeone.core.commerce.payment import PaymentService
+from nodeone.core.commerce.pos import PosTerminalService
+
+__all__ = [
+    'CASH_SHIFT_CLOSED',
+    'CASH_SHIFT_OPEN',
+    'CASH_SHIFT_RECONCILING',
+    'COMMERCE_EVENT_TYPES',
+    'COMMERCE_ORDER_CREATED',
+    'CashRegisterService',
+    'CashShiftDTO',
+    'CommerceNotReadyError',
+    'DELIVERY_STATUS_COMPLETED',
+    'DELIVERY_STATUS_PARTIAL',
+    'DELIVERY_STATUS_PENDING',
+    'DeliveryDTO',
+    'DeliveryService',
+    'INVOICE_KIND_FISCAL',
+    'INVOICE_KIND_NON_FISCAL',
+    'INVOICE_KIND_PROFORMA',
+    'InvoiceDTO',
+    'InvoiceLineDTO',
+    'InvoiceService',
+    'ORDER_STATUS_CANCELLED',
+    'ORDER_STATUS_CONFIRMED',
+    'ORDER_STATUS_DRAFT',
+    'ORDER_STATUS_DELIVERED',
+    'ORDER_STATUS_IN_PROGRESS',
+    'ORDER_STATUS_READY',
+    'ORDER_STATUS_REFUNDED',
+    'OrderDTO',
+    'OrderLineDTO',
+    'OrderService',
+    'PAYMENT_STATUS_CAPTURED',
+    'PAYMENT_STATUS_PENDING',
+    'PAYMENT_TYPE_CARD',
+    'PAYMENT_TYPE_CASH',
+    'POS_TERMINAL_ACTIVE',
+    'PaymentDTO',
+    'PaymentService',
+    'PosTerminalDTO',
+    'PosTerminalService',
+    'can_transition_order_status',
+]

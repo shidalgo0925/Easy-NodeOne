@@ -1,0 +1,838 @@
+"""DDL idempotente — dominio comercial Core (Etapa 14)."""
+
+from __future__ import annotations
+
+from sqlalchemy import inspect, text
+
+
+def ensure_commercial_core_schema(db, engine, printfn=None) -> None:
+    insp = inspect(engine)
+    dialect = engine.dialect.name
+    tables = set(insp.get_table_names())
+
+    if 'core_commercial_order' not in tables:
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_commercial_order (
+                id SERIAL PRIMARY KEY,
+                organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+                order_ref VARCHAR(50) NOT NULL,
+                operational_status VARCHAR(32) NOT NULL DEFAULT 'draft',
+                payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
+                fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
+                contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                subtotal DOUBLE PRECISION NOT NULL DEFAULT 0,
+                tax_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+                discount_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+                promotion_ref VARCHAR(64),
+                grand_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+                amount_paid DOUBLE PRECISION NOT NULL DEFAULT 0,
+                source_app_id VARCHAR(64) NOT NULL DEFAULT 'eposone',
+                notes TEXT,
+                version INTEGER NOT NULL DEFAULT 1,
+                created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                CONSTRAINT uq_core_commercial_order_ref UNIQUE (organization_id, order_ref)
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_commercial_order_org ON core_commercial_order (organization_id);
+            CREATE INDEX IF NOT EXISTS ix_core_commercial_order_operational_status
+                ON core_commercial_order (organization_id, operational_status);
+            """
+        else:
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_commercial_order (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organization_id INTEGER NOT NULL,
+                order_ref VARCHAR(50) NOT NULL,
+                operational_status VARCHAR(32) NOT NULL DEFAULT 'draft',
+                payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
+                fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required',
+                contact_id INTEGER,
+                cashier_contact_id INTEGER,
+                currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                subtotal REAL NOT NULL DEFAULT 0,
+                tax_total REAL NOT NULL DEFAULT 0,
+                discount_total REAL NOT NULL DEFAULT 0,
+                promotion_ref VARCHAR(64),
+                grand_total REAL NOT NULL DEFAULT 0,
+                amount_paid REAL NOT NULL DEFAULT 0,
+                source_app_id VARCHAR(64) NOT NULL DEFAULT 'eposone',
+                notes TEXT,
+                version INTEGER NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (organization_id, order_ref)
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_commercial_order_org ON core_commercial_order (organization_id);
+            """
+        _exec(engine, ddl, printfn, 'core_commercial_order')
+    else:
+        _ensure_order_status_axes(engine, insp, printfn)
+        _ensure_order_operational_status_column(engine, insp, printfn)
+        _ensure_order_inventory_deducted_at(engine, insp, printfn)
+        _ensure_order_branch_org_unit(engine, insp, printfn)
+        _ensure_order_parent_order_id(engine, insp, printfn)
+        _ensure_order_pos_terminal_id(engine, insp, printfn)
+        _ensure_order_promotion_columns(engine, insp, printfn)
+
+    if 'core_commercial_order_line' not in tables:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_commercial_order_line (
+            id INTEGER PRIMARY KEY {},
+            order_id INTEGER NOT NULL,
+            description VARCHAR(500) NOT NULL,
+            quantity DOUBLE PRECISION NOT NULL DEFAULT 1,
+            unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
+            line_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+            product_ref VARCHAR(128),
+            line_status VARCHAR(32) NOT NULL DEFAULT 'pending'
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_commercial_order_line_order ON core_commercial_order_line (order_id);
+        """.format(
+            'AUTOINCREMENT' if dialect != 'postgresql' else 'GENERATED BY DEFAULT AS IDENTITY'
+        )
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_commercial_order_line (
+                id SERIAL PRIMARY KEY,
+                order_id INTEGER NOT NULL REFERENCES core_commercial_order(id) ON DELETE CASCADE,
+                description VARCHAR(500) NOT NULL,
+                quantity DOUBLE PRECISION NOT NULL DEFAULT 1,
+                unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
+                line_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+                product_ref VARCHAR(128),
+                line_status VARCHAR(32) NOT NULL DEFAULT 'pending'
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_commercial_order_line_order ON core_commercial_order_line (order_id);
+            """
+        _exec(engine, ddl, printfn, 'core_commercial_order_line')
+    else:
+        _ensure_order_line_status_axis(engine, insp, printfn)
+
+    if 'core_commercial_payment' not in tables:
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_commercial_payment (
+                id SERIAL PRIMARY KEY,
+                organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+                order_id INTEGER NOT NULL REFERENCES core_commercial_order(id) ON DELETE CASCADE,
+                payment_ref VARCHAR(50) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'captured',
+                payment_type VARCHAR(32) NOT NULL DEFAULT 'cash',
+                amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+                refunded_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+                currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                refunded_by_cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                captured_at TIMESTAMP WITHOUT TIME ZONE,
+                created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                CONSTRAINT uq_core_commercial_payment_ref UNIQUE (organization_id, payment_ref)
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_commercial_payment_order ON core_commercial_payment (order_id);
+            """
+        else:
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_commercial_payment (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organization_id INTEGER NOT NULL,
+                order_id INTEGER NOT NULL,
+                payment_ref VARCHAR(50) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'captured',
+                payment_type VARCHAR(32) NOT NULL DEFAULT 'cash',
+                amount REAL NOT NULL DEFAULT 0,
+                refunded_amount REAL NOT NULL DEFAULT 0,
+                currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+                cashier_contact_id INTEGER,
+                refunded_by_cashier_contact_id INTEGER,
+                captured_at DATETIME,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (organization_id, payment_ref)
+            );
+            """
+        _exec(engine, ddl, printfn, 'core_commercial_payment')
+
+    if 'core_cash_shift' not in tables:
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_cash_shift (
+                id SERIAL PRIMARY KEY,
+                organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+                register_ref VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'open',
+                cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+                cashier_name VARCHAR(120),
+                cashier_changed_at TIMESTAMP WITHOUT TIME ZONE,
+                cashier_changed_by_user_id INTEGER REFERENCES "user"(id) ON DELETE SET NULL,
+                opening_balance DOUBLE PRECISION NOT NULL DEFAULT 0,
+                closing_balance DOUBLE PRECISION,
+                opened_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                closed_at TIMESTAMP WITHOUT TIME ZONE,
+                closed_by_cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_cash_shift_org ON core_cash_shift (organization_id, register_ref);
+            """
+        else:
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_cash_shift (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organization_id INTEGER NOT NULL,
+                register_ref VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'open',
+                cashier_contact_id INTEGER,
+                cashier_name VARCHAR(120),
+                cashier_changed_at DATETIME,
+                cashier_changed_by_user_id INTEGER,
+                opening_balance REAL NOT NULL DEFAULT 0,
+                closing_balance REAL,
+                opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                closed_at DATETIME,
+                closed_by_cashier_contact_id INTEGER
+            );
+            """
+        _exec(engine, ddl, printfn, 'core_cash_shift')
+    else:
+        _ensure_cash_shift_arqueo_columns(engine, insp, printfn)
+        _ensure_cash_shift_cashier_columns(engine, insp, printfn)
+        _drop_legacy_cashier_user_column(engine, insp, printfn)
+
+    _ensure_cash_movement_table(engine, insp, printfn)
+    _ensure_payment_cash_shift_column(engine, insp, printfn)
+    _ensure_payment_refunded_amount_column(engine, insp, printfn)
+    _ensure_cashier_attribution_columns(engine, insp, printfn)
+
+    if 'core_pos_terminal' not in tables:
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_pos_terminal (
+                id SERIAL PRIMARY KEY,
+                organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+                terminal_ref VARCHAR(64) NOT NULL,
+                register_ref VARCHAR(64),
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                device_label VARCHAR(200),
+                profile VARCHAR(32) NOT NULL DEFAULT 'fixed',
+                platform VARCHAR(32),
+                device_model VARCHAR(120),
+                app_version VARCHAR(64),
+                branch_ref VARCHAR(64),
+                sync_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                last_seen_at TIMESTAMP WITHOUT TIME ZONE,
+                created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                CONSTRAINT uq_core_pos_terminal_ref UNIQUE (organization_id, terminal_ref)
+            );
+            """
+        else:
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_pos_terminal (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organization_id INTEGER NOT NULL,
+                terminal_ref VARCHAR(64) NOT NULL,
+                register_ref VARCHAR(64),
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                device_label VARCHAR(200),
+                profile VARCHAR(32) NOT NULL DEFAULT 'fixed',
+                platform VARCHAR(32),
+                device_model VARCHAR(120),
+                app_version VARCHAR(64),
+                branch_ref VARCHAR(64),
+                sync_enabled INTEGER NOT NULL DEFAULT 1,
+                last_seen_at DATETIME,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (organization_id, terminal_ref)
+            );
+            """
+        _exec(engine, ddl, printfn, 'core_pos_terminal')
+    else:
+        _ensure_pos_terminal_v4_columns(engine, insp, printfn)
+
+    _ensure_stock_balance_table(engine, insp, printfn)
+    _ensure_stock_movement_table(engine, insp, printfn)
+
+
+def _ensure_stock_balance_table(engine, insp, printfn) -> None:
+    if 'core_stock_balance' in insp.get_table_names():
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_balance (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+            warehouse_org_unit_id INTEGER NOT NULL REFERENCES core_org_unit(id) ON DELETE CASCADE,
+            product_ref VARCHAR(64) NOT NULL,
+            quantity_on_hand DOUBLE PRECISION NOT NULL DEFAULT 0,
+            quantity_reserved DOUBLE PRECISION NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+            CONSTRAINT uq_core_stock_balance_wh_product
+                UNIQUE (organization_id, warehouse_org_unit_id, product_ref)
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_stock_balance_org ON core_stock_balance (organization_id);
+        CREATE INDEX IF NOT EXISTS ix_core_stock_balance_product ON core_stock_balance (product_ref);
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_balance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            organization_id INTEGER NOT NULL,
+            warehouse_org_unit_id INTEGER NOT NULL,
+            product_ref VARCHAR(64) NOT NULL,
+            quantity_on_hand REAL NOT NULL DEFAULT 0,
+            quantity_reserved REAL NOT NULL DEFAULT 0,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (organization_id, warehouse_org_unit_id, product_ref)
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_stock_balance_org ON core_stock_balance (organization_id);
+        """
+    _exec(engine, ddl, printfn, 'core_stock_balance')
+
+
+def _ensure_stock_movement_table(engine, insp, printfn) -> None:
+    if 'core_stock_movement' in insp.get_table_names():
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_movement (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+            warehouse_org_unit_id INTEGER NOT NULL REFERENCES core_org_unit(id) ON DELETE CASCADE,
+            product_ref VARCHAR(64) NOT NULL,
+            movement_type VARCHAR(32) NOT NULL,
+            quantity DOUBLE PRECISION NOT NULL DEFAULT 0,
+            order_ref VARCHAR(50),
+            idempotency_key VARCHAR(128),
+            notes VARCHAR(500),
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+            CONSTRAINT uq_core_stock_movement_idempotency UNIQUE (organization_id, idempotency_key)
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_stock_movement_order ON core_stock_movement (order_ref);
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_stock_movement (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            organization_id INTEGER NOT NULL,
+            warehouse_org_unit_id INTEGER NOT NULL,
+            product_ref VARCHAR(64) NOT NULL,
+            movement_type VARCHAR(32) NOT NULL,
+            quantity REAL NOT NULL DEFAULT 0,
+            order_ref VARCHAR(50),
+            idempotency_key VARCHAR(128),
+            notes VARCHAR(500),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (organization_id, idempotency_key)
+        );
+        """
+    _exec(engine, ddl, printfn, 'core_stock_movement')
+
+
+def _ensure_order_operational_status_column(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'operational_status' in cols:
+        return
+    dialect = engine.dialect.name
+    if 'status' in cols:
+        stmt = 'ALTER TABLE core_commercial_order RENAME COLUMN status TO operational_status'
+        with engine.begin() as conn:
+            conn.execute(text(stmt))
+        if dialect == 'postgresql':
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        'ALTER INDEX IF EXISTS ix_core_commercial_order_status '
+                        'RENAME TO ix_core_commercial_order_operational_status'
+                    )
+                )
+        if printfn:
+            printfn('core_commercial_order: columna status renombrada a operational_status')
+        return
+    if dialect == 'postgresql':
+        stmt = (
+            "ALTER TABLE core_commercial_order "
+            "ADD COLUMN IF NOT EXISTS operational_status VARCHAR(32) NOT NULL DEFAULT 'draft'"
+        )
+    else:
+        stmt = (
+            "ALTER TABLE core_commercial_order "
+            "ADD COLUMN operational_status VARCHAR(32) NOT NULL DEFAULT 'draft'"
+        )
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_order: columna operational_status añadida')
+
+
+def _ensure_order_inventory_deducted_at(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'inventory_deducted_at' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_order '
+            'ADD COLUMN IF NOT EXISTS inventory_deducted_at TIMESTAMP WITHOUT TIME ZONE'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_order ADD COLUMN inventory_deducted_at DATETIME'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_order: columna inventory_deducted_at añadida')
+
+
+def _ensure_order_branch_org_unit(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'branch_org_unit_id' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_order '
+            'ADD COLUMN IF NOT EXISTS branch_org_unit_id INTEGER '
+            'REFERENCES core_org_unit(id) ON DELETE SET NULL'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_order ADD COLUMN branch_org_unit_id INTEGER'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if dialect == 'postgresql':
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_core_commercial_order_branch '
+                    'ON core_commercial_order (branch_org_unit_id)'
+                )
+            )
+    if printfn:
+        printfn('core_commercial_order: columna branch_org_unit_id añadida')
+
+
+def _ensure_order_parent_order_id(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'parent_order_id' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_order '
+            'ADD COLUMN IF NOT EXISTS parent_order_id INTEGER '
+            'REFERENCES core_commercial_order(id) ON DELETE SET NULL'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_order ADD COLUMN parent_order_id INTEGER'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if dialect == 'postgresql':
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_core_commercial_order_parent '
+                    'ON core_commercial_order (parent_order_id)'
+                )
+            )
+    if printfn:
+        printfn('core_commercial_order: columna parent_order_id añadida')
+
+
+def _ensure_order_pos_terminal_id(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    if 'pos_terminal_id' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_order '
+            'ADD COLUMN IF NOT EXISTS pos_terminal_id INTEGER '
+            'REFERENCES core_pos_terminal(id) ON DELETE SET NULL'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_order ADD COLUMN pos_terminal_id INTEGER'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if dialect == 'postgresql':
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_core_commercial_order_pos_terminal '
+                    'ON core_commercial_order (pos_terminal_id)'
+                )
+            )
+    if printfn:
+        printfn('core_commercial_order: columna pos_terminal_id añadida')
+
+
+def _ensure_order_promotion_columns(engine, insp, printfn) -> None:
+    if 'core_commercial_order' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    dialect = engine.dialect.name
+    stmts: list[str] = []
+    if 'discount_total' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                'ALTER TABLE core_commercial_order '
+                'ADD COLUMN IF NOT EXISTS discount_total DOUBLE PRECISION NOT NULL DEFAULT 0'
+            )
+        else:
+            stmts.append(
+                'ALTER TABLE core_commercial_order '
+                'ADD COLUMN discount_total REAL NOT NULL DEFAULT 0'
+            )
+    if 'promotion_ref' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                'ALTER TABLE core_commercial_order '
+                'ADD COLUMN IF NOT EXISTS promotion_ref VARCHAR(64)'
+            )
+        else:
+            stmts.append('ALTER TABLE core_commercial_order ADD COLUMN promotion_ref VARCHAR(64)')
+    if stmts:
+        with engine.begin() as conn:
+            for stmt in stmts:
+                conn.execute(text(stmt))
+        if printfn:
+            printfn('core_commercial_order: columnas promoción añadidas')
+
+
+def _ensure_order_line_status_axis(engine, insp, printfn) -> None:
+    if 'core_commercial_order_line' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order_line')}
+    if 'line_status' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            "ALTER TABLE core_commercial_order_line "
+            "ADD COLUMN IF NOT EXISTS line_status VARCHAR(32) NOT NULL DEFAULT 'pending'"
+        )
+    else:
+        stmt = (
+            "ALTER TABLE core_commercial_order_line "
+            "ADD COLUMN line_status VARCHAR(32) NOT NULL DEFAULT 'pending'"
+        )
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_order_line: columna line_status añadida')
+
+
+def _ensure_order_status_axes(engine, insp, printfn) -> None:
+    cols = {c['name'] for c in insp.get_columns('core_commercial_order')}
+    dialect = engine.dialect.name
+    stmts: list[str] = []
+    if 'payment_status' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN IF NOT EXISTS payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid'"
+            )
+        else:
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid'"
+            )
+    if 'fiscal_status' not in cols:
+        if dialect == 'postgresql':
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN IF NOT EXISTS fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required'"
+            )
+        else:
+            stmts.append(
+                "ALTER TABLE core_commercial_order "
+                "ADD COLUMN fiscal_status VARCHAR(32) NOT NULL DEFAULT 'not_required'"
+            )
+    if stmts:
+        with engine.begin() as conn:
+            for stmt in stmts:
+                conn.execute(text(stmt))
+        if printfn:
+            printfn('core_commercial_order: columnas payment_status / fiscal_status añadidas')
+    if dialect == 'postgresql':
+        backfill = """
+        UPDATE core_commercial_order
+        SET payment_status = CASE
+            WHEN COALESCE(amount_paid, 0) <= 0 THEN 'unpaid'
+            WHEN COALESCE(amount_paid, 0) < COALESCE(grand_total, 0) THEN 'partial'
+            WHEN COALESCE(amount_paid, 0) = COALESCE(grand_total, 0) THEN 'paid'
+            ELSE 'overpaid'
+        END
+        WHERE payment_status IS NULL OR payment_status = 'unpaid'
+          AND COALESCE(amount_paid, 0) > 0
+        """
+        with engine.begin() as conn:
+            conn.execute(text(backfill))
+
+
+def _ensure_cash_shift_arqueo_columns(engine, insp, printfn) -> None:
+    if 'core_cash_shift' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_cash_shift')}
+    dialect = engine.dialect.name
+    stmts: list[str] = []
+    if 'counted_amount' not in cols:
+        if dialect == 'postgresql':
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN IF NOT EXISTS counted_amount DOUBLE PRECISION')
+        else:
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN counted_amount REAL')
+    if 'expected_balance' not in cols:
+        if dialect == 'postgresql':
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN IF NOT EXISTS expected_balance DOUBLE PRECISION')
+        else:
+            stmts.append('ALTER TABLE core_cash_shift ADD COLUMN expected_balance REAL')
+    if stmts:
+        with engine.begin() as conn:
+            for stmt in stmts:
+                conn.execute(text(stmt))
+        if printfn:
+            printfn('core_cash_shift: columnas arqueo añadidas')
+
+
+def _ensure_cash_shift_cashier_columns(engine, insp, printfn) -> None:
+    if 'core_cash_shift' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_cash_shift')}
+    dialect = engine.dialect.name
+    specs: list[tuple[str, str, str]] = [
+        (
+            'cashier_contact_id',
+            'INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL',
+            'INTEGER',
+        ),
+        ('cashier_name', 'VARCHAR(120)', 'VARCHAR(120)'),
+        (
+            'cashier_changed_at',
+            'TIMESTAMP WITHOUT TIME ZONE',
+            'DATETIME',
+        ),
+        (
+            'cashier_changed_by_user_id',
+            'INTEGER REFERENCES "user"(id) ON DELETE SET NULL',
+            'INTEGER',
+        ),
+    ]
+    added: list[str] = []
+    with engine.begin() as conn:
+        for name, pg_type, sqlite_type in specs:
+            if name in cols:
+                continue
+            col_type = pg_type if dialect == 'postgresql' else sqlite_type
+            clause = 'ADD COLUMN IF NOT EXISTS' if dialect == 'postgresql' else 'ADD COLUMN'
+            conn.execute(text(f'ALTER TABLE core_cash_shift {clause} {name} {col_type}'))
+            added.append(name)
+        if dialect == 'postgresql':
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_core_cash_shift_cashier_contact '
+                    'ON core_cash_shift (cashier_contact_id)'
+                )
+            )
+    if added and printfn:
+        printfn(f'core_cash_shift: columnas cajero añadidas ({", ".join(added)})')
+
+
+def _drop_legacy_cashier_user_column(engine, insp, printfn) -> None:
+    """Retira el identificador duplicado del primer prototipo User=Cajero."""
+    if 'core_cash_shift' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_cash_shift')}
+    if 'cashier_user_id' not in cols:
+        return
+    clause = 'DROP COLUMN IF EXISTS' if engine.dialect.name == 'postgresql' else 'DROP COLUMN'
+    with engine.begin() as conn:
+        conn.execute(text(f'ALTER TABLE core_cash_shift {clause} cashier_user_id'))
+    if printfn:
+        printfn('core_cash_shift: columna legacy cashier_user_id eliminada')
+
+
+def _ensure_cash_movement_table(engine, insp, printfn) -> None:
+    if 'core_cash_movement' in insp.get_table_names():
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_cash_movement (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+            shift_id INTEGER NOT NULL REFERENCES core_cash_shift(id) ON DELETE CASCADE,
+            movement_type VARCHAR(32) NOT NULL,
+            amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            payment_id INTEGER REFERENCES core_commercial_payment(id) ON DELETE SET NULL,
+            cashier_contact_id INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL,
+            notes VARCHAR(500),
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_cash_movement_shift ON core_cash_movement (shift_id);
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS core_cash_movement (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            organization_id INTEGER NOT NULL,
+            shift_id INTEGER NOT NULL,
+            movement_type VARCHAR(32) NOT NULL,
+            amount REAL NOT NULL DEFAULT 0,
+            payment_id INTEGER,
+            cashier_contact_id INTEGER,
+            notes VARCHAR(500),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS ix_core_cash_movement_shift ON core_cash_movement (shift_id);
+        """
+    _exec(engine, ddl, printfn, 'core_cash_movement')
+
+
+def _ensure_payment_cash_shift_column(engine, insp, printfn) -> None:
+    if 'core_commercial_payment' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_payment')}
+    if 'cash_shift_id' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_payment '
+            'ADD COLUMN IF NOT EXISTS cash_shift_id INTEGER REFERENCES core_cash_shift(id) ON DELETE SET NULL'
+        )
+    else:
+        stmt = 'ALTER TABLE core_commercial_payment ADD COLUMN cash_shift_id INTEGER'
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_payment: columna cash_shift_id añadida')
+
+
+def _ensure_payment_refunded_amount_column(engine, insp, printfn) -> None:
+    if 'core_commercial_payment' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_commercial_payment')}
+    if 'refunded_amount' in cols:
+        return
+    dialect = engine.dialect.name
+    if dialect == 'postgresql':
+        stmt = (
+            'ALTER TABLE core_commercial_payment '
+            'ADD COLUMN IF NOT EXISTS refunded_amount DOUBLE PRECISION NOT NULL DEFAULT 0'
+        )
+    else:
+        stmt = (
+            'ALTER TABLE core_commercial_payment '
+            'ADD COLUMN refunded_amount REAL NOT NULL DEFAULT 0'
+        )
+    with engine.begin() as conn:
+        conn.execute(text(stmt))
+    if printfn:
+        printfn('core_commercial_payment: columna refunded_amount añadida')
+
+
+def _ensure_cashier_attribution_columns(engine, insp, printfn) -> None:
+    dialect = engine.dialect.name
+    specs = {
+        'core_commercial_order': ('cashier_contact_id',),
+        'core_commercial_payment': (
+            'cashier_contact_id',
+            'refunded_by_cashier_contact_id',
+        ),
+        'core_cash_shift': ('closed_by_cashier_contact_id',),
+        'core_cash_movement': ('cashier_contact_id',),
+    }
+    added: list[str] = []
+    with engine.begin() as conn:
+        for table, names in specs.items():
+            if table not in insp.get_table_names():
+                continue
+            cols = {c['name'] for c in inspect(engine).get_columns(table)}
+            for name in names:
+                if name in cols:
+                    continue
+                if dialect == 'postgresql':
+                    col_type = 'INTEGER REFERENCES en1_contact(id) ON DELETE SET NULL'
+                    clause = 'ADD COLUMN IF NOT EXISTS'
+                else:
+                    col_type = 'INTEGER'
+                    clause = 'ADD COLUMN'
+                conn.execute(text(f'ALTER TABLE {table} {clause} {name} {col_type}'))
+                added.append(f'{table}.{name}')
+            if dialect == 'postgresql' and 'cashier_contact_id' in names:
+                conn.execute(
+                    text(
+                        f'CREATE INDEX IF NOT EXISTS ix_{table}_cashier_contact '
+                        f'ON {table} (cashier_contact_id)'
+                    )
+                )
+    if added and printfn:
+        printfn(f'atribución cajero: {", ".join(added)}')
+
+
+def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:
+    """Sprint 6 — columnas dispositivo V4 en core_pos_terminal."""
+    if 'core_pos_terminal' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('core_pos_terminal')}
+    dialect = engine.dialect.name
+    specs: list[tuple[str, str, str]] = [
+        ('profile', "VARCHAR(32) NOT NULL DEFAULT 'fixed'", "VARCHAR(32) NOT NULL DEFAULT 'fixed'"),
+        ('platform', 'VARCHAR(32)', 'VARCHAR(32)'),
+        ('device_model', 'VARCHAR(120)', 'VARCHAR(120)'),
+        ('app_version', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('android_version', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('branch_ref', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('pos_ref', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('sync_enabled', 'BOOLEAN NOT NULL DEFAULT TRUE', 'INTEGER NOT NULL DEFAULT 1'),
+        ('last_seen_at', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME'),
+        ('access_token_hash', 'VARCHAR(64)', 'VARCHAR(64)'),
+        ('config_version', 'INTEGER NOT NULL DEFAULT 1', 'INTEGER NOT NULL DEFAULT 1'),
+    ]
+    added: list[str] = []
+    with engine.begin() as conn:
+        for name, pg_type, sqlite_type in specs:
+            if name in cols:
+                continue
+            col_type = pg_type if dialect == 'postgresql' else sqlite_type
+            if dialect == 'postgresql':
+                conn.execute(text(f'ALTER TABLE core_pos_terminal ADD COLUMN IF NOT EXISTS {name} {col_type}'))
+            else:
+                conn.execute(text(f'ALTER TABLE core_pos_terminal ADD COLUMN {name} {col_type}'))
+            added.append(name)
+        if dialect == 'postgresql':
+            try:
+                conn.execute(
+                    text(
+                        'CREATE INDEX IF NOT EXISTS ix_core_pos_terminal_pos_ref '
+                        'ON core_pos_terminal (organization_id, pos_ref)'
+                    )
+                )
+                conn.execute(
+                    text(
+                        'CREATE INDEX IF NOT EXISTS ix_core_pos_terminal_token '
+                        'ON core_pos_terminal (access_token_hash)'
+                    )
+                )
+            except Exception:
+                pass
+    if added and printfn:
+        printfn(f'core_pos_terminal: columnas V4/Hito1 añadidas ({", ".join(added)})')
+
+
+
+def _exec(engine, ddl: str, printfn, label: str) -> None:
+    with engine.begin() as conn:
+        for stmt in ddl.strip().split(';'):
+            s = stmt.strip()
+            if s:
+                conn.execute(text(s))
+    if printfn:
+        printfn(f'{label}: tabla creada')

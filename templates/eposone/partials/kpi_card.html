@@ -1,0 +1,11 @@
+{# EPosOne DS — KPI card
+   label, value, hint?, accent?=false, alert?=false, icon? #}
+<div class="epos-kpi{% if accent %} epos-kpi--accent{% endif %}{% if alert %} epos-kpi--alert{% endif %}">
+    <div class="epos-kpi__body">
+        <div class="epos-kpi__label">
+            {% if icon %}<i class="{{ icon }} me-1" aria-hidden="true"></i>{% endif %}{{ label }}
+        </div>
+        <div class="epos-kpi__value">{{ value }}</div>
+        {% if hint %}<div class="epos-kpi__hint">{{ hint }}</div>{% endif %}
+    </div>
+</div>

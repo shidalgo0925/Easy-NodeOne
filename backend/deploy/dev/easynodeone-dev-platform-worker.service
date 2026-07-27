@@ -1,0 +1,16 @@
+[Unit]
+Description=Easy NodeOne DEV — worker outbox y sync offline
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=nodeone
+Group=nodeone
+WorkingDirectory=/opt/easynodeone/dev/app/backend
+EnvironmentFile=/opt/easynodeone/dev/.env
+ExecStart=/opt/easynodeone/dev/venv/bin/python3 /opt/easynodeone/dev/app/backend/scripts/run_platform_worker.py --json
+StandardOutput=append:/opt/easynodeone/dev/logs/platform-worker.log
+StandardError=append:/opt/easynodeone/dev/logs/platform-worker.log
+
+[Install]
+WantedBy=multi-user.target

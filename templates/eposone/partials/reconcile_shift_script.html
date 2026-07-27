@@ -1,0 +1,15 @@
+var reconcileModal = document.getElementById('reconcileShiftModal');
+if (reconcileModal) {
+  reconcileModal.addEventListener('show.bs.modal', function (event) {
+    var btn = event.relatedTarget;
+    if (!btn) return;
+    var shiftId = btn.getAttribute('data-shift-id') || '';
+    var ref = btn.getAttribute('data-register-ref') || '';
+    var expected = btn.getAttribute('data-expected') || '0';
+    document.getElementById('reconcileRegisterRef').textContent = ref;
+    document.getElementById('reconcileExpected').textContent = parseFloat(expected).toFixed(2);
+    document.getElementById('counted_amount').value = parseFloat(expected).toFixed(2);
+    document.getElementById('reconcileShiftForm').action =
+      '{{ url_for("eposone.eposone_register_reconcile_shift", shift_id=0) }}'.replace('/0/', '/' + shiftId + '/');
+  });
+}

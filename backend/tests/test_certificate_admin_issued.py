@@ -19,17 +19,22 @@ class TestCertificateAdminIssued(unittest.TestCase):
 
     def test_remove_certificate_pdf_file_only_inside_allowed_dir(self):
         with tempfile.TemporaryDirectory() as tmp:
-            allowed = os.path.join(tmp, 'certs') + os.sep
-            os.makedirs(allowed, exist_ok=True)
-            pdf = os.path.join(allowed, 'PLAN-2026-0001.pdf')
+            inst = os.path.join(tmp, 'app', 'instance', 'certificates')
+            os.makedirs(inst, exist_ok=True)
+            pdf = os.path.join(inst, 'PLAN-2026-0001.pdf')
             with open(pdf, 'wb') as f:
                 f.write(b'%PDF')
             outside = os.path.join(tmp, 'other.pdf')
             with open(outside, 'wb') as f:
                 f.write(b'%PDF')
 
-            with patch.object(routes, '_certificates_pdf_dir', return_value=allowed):
-                routes._remove_certificate_pdf_file(pdf)
+            def fake_resolve(stored, code=None, app=None):
+                if stored == pdf:
+                    return pdf
+                return None
+
+            with patch.object(routes, 'resolve_membership_certificate_pdf_path', side_effect=fake_resolve):
+                routes._remove_certificate_pdf_file(pdf, 'PLAN-2026-0001')
                 routes._remove_certificate_pdf_file(outside)
 
             self.assertFalse(os.path.isfile(pdf))

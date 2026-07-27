@@ -44,9 +44,28 @@ def nav_theme_logo_relpath():
     return None
 
 
+def brand_context_logo_relpath():
+    """Logo del BrandContext (Product Registry), p. ej. Portal ETS en app.easytech.services."""
+    try:
+        from nodeone.core.platform.context_resolver import current_app_context
+
+        logo = (current_app_context().brand.logo_url or '').strip().lstrip('/')
+        if not logo:
+            return None
+        # Solo rutas estáticas relativas; no URLs absolutas externas.
+        if '://' in logo or logo.startswith('//'):
+            return None
+        return logo
+    except Exception:
+        return None
+
+
 def get_nav_logo():
     import app as M
 
+    brand_logo = brand_context_logo_relpath()
+    if brand_logo:
+        return brand_logo
     rel = nav_theme_logo_relpath()
     if rel:
         return rel
@@ -60,6 +79,15 @@ def get_nav_logo():
 def get_nav_logo_cache_key():
     import app as M
 
+    brand_logo = brand_context_logo_relpath()
+    if brand_logo:
+        p = os.path.join(os.path.dirname(M.__file__), '..', 'static', brand_logo)
+        if os.path.exists(p):
+            try:
+                return int(os.path.getmtime(p))
+            except OSError:
+                pass
+        return 0
     rel = nav_theme_logo_relpath()
     if rel:
         p = os.path.join(os.path.dirname(M.__file__), '..', 'static', rel)
@@ -97,8 +125,34 @@ def get_nav_brand_name():
     nombre genérico del producto cuando corresponde.
 
     Forzar siempre la marca del producto (APP_BRAND_NAME): NODEONE_NAV_FORCE_PRODUCT_NAME=1
+
+    ADR-011/013: en superficie portal/product el nombre es BrandContext
+    (Easy Technology Services / EPosOne / …).
+    Activación amplia de marca por Host: NODEONE_NAV_USE_BRAND_CONTEXT=1.
     """
     import app as M
+
+    try:
+        from nodeone.core.platform.context_resolver import current_app_context
+        from nodeone.core.platform.product_context import (
+            SURFACE_PLATFORM,
+            SURFACE_PORTAL,
+            SURFACE_PRODUCT,
+        )
+
+        ctx = current_app_context()
+        use_brand = os.environ.get('NODEONE_NAV_USE_BRAND_CONTEXT', '').strip().lower() in (
+            '1',
+            'true',
+            'yes',
+            'on',
+        )
+        if ctx.surface in (SURFACE_PORTAL, SURFACE_PRODUCT) and ctx.display_name:
+            return ctx.display_name
+        if use_brand and ctx.surface != SURFACE_PLATFORM and ctx.display_name:
+            return ctx.display_name
+    except Exception:
+        pass
 
     if os.environ.get('NODEONE_NAV_FORCE_PRODUCT_NAME', '').strip().lower() in ('1', 'true', 'yes', 'on'):
         return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'

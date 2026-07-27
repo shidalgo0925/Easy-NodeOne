@@ -1,0 +1,53 @@
+{# Guía de preparación — checklist (no wizard lineal). #}
+{% if setup_guide and setup_guide.show_guide %}
+<div class="card border-0 shadow-sm mb-3 epos-setup-guide" data-phase="{{ setup_guide.phase }}">
+    <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+                <h2 class="h5 mb-1">{{ setup_guide.title }}</h2>
+                <p class="text-muted small mb-0">{{ setup_guide.subtitle }}</p>
+            </div>
+            {% if setup_guide.phase == 'prepare' and setup_guide.pending_count %}
+            <span class="badge text-bg-warning">{{ setup_guide.pending_count }} tarea(s) pendiente(s)</span>
+            {% elif setup_guide.phase == 'install_device' %}
+            <span class="badge text-bg-success">Empresa lista</span>
+            {% elif setup_guide.phase == 'open_shift' %}
+            <span class="badge text-bg-primary">Listo para vender</span>
+            {% endif %}
+        </div>
+
+        {% if setup_guide.phase == 'prepare' %}
+        <ul class="list-unstyled mb-3 epos-setup-checklist">
+            {% for task in setup_guide.tasks %}
+            <li class="d-flex align-items-center justify-content-between gap-2 py-2 border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                    {% if task.done %}
+                    <span class="text-success" aria-hidden="true"><i class="fas fa-check-square"></i></span>
+                    <span class="text-decoration-line-through text-muted">{{ task.label }}</span>
+                    {% else %}
+                    <span class="text-muted" aria-hidden="true"><i class="far fa-square"></i></span>
+                    <a href="{{ task.url }}" class="fw-semibold text-decoration-none">{{ task.label }}</a>
+                    {% endif %}
+                </div>
+                {% if not task.done %}
+                <a href="{{ task.url }}" class="btn btn-sm btn-outline-primary">{{ task.cta }}</a>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if setup_guide.primary_cta_url and setup_guide.primary_cta_label %}
+        <a href="{{ setup_guide.primary_cta_url }}" class="btn btn-primary">
+            <i class="fas fa-arrow-right me-1"></i>{{ setup_guide.primary_cta_label }}
+        </a>
+        {% endif %}
+
+        {% if setup_guide.phase == 'install_device' %}
+        <p class="small text-muted mt-3 mb-0">
+            Las licencias no bloquean esta etapa. El aprovisionamiento de tablets es una fase aparte (EPosOne → Instalar dispositivo).
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

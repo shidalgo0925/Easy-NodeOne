@@ -1,0 +1,54 @@
+{# Sidebar único de aplicación nativa (UX V3.2). Sin nav ERP ni duplicado horizontal. #}
+{# UX-T1: retorno siempre visible → Mis aplicaciones (no «Salir de EN1»). #}
+{% if platform_shell_show_apps_return and platform_apps_return_url %}
+<li class="nav-item sidebar-nav-app sidebar-nav-app--platform-return">
+    <a class="nav-link app-nav-return-link" href="{{ platform_apps_return_url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Volver al launcher de la plataforma">
+        <i class="menu-icon fas fa-th-large"></i>
+        <span class="menu-title-text">{{ platform_apps_return_label or '← Mis aplicaciones' }}</span>
+    </a>
+</li>
+{% endif %}
+{% if app_nav_sidebar %}
+<li class="nav-item sidebar-section-title px-3 pt-2 pb-1 app-nav-product-header" title="{{ platform_shell_app_product_name or platform_shell_app_label or 'App' }}">
+    <span class="app-nav-product-name">
+        {% if platform_shell_app_icon %}
+        <i class="menu-icon app-nav-product-icon {{ platform_shell_app_icon }}" aria-hidden="true"></i>
+        {% endif %}
+        <span class="app-nav-product-label">{{ platform_shell_app_product_name or platform_shell_app_label or 'App' }}</span>
+    </span>
+    {% if platform_shell_app_tagline %}
+    <span class="app-nav-product-tagline d-block">{{ platform_shell_app_tagline }}</span>
+    {% endif %}
+</li>
+{% for domain in app_nav_sidebar %}
+    {% if domain.is_group %}
+    {% set domain_open = domain.children|selectattr('active')|list|length > 0 %}
+    <li class="nav-item nav-group app-nav-domain{% if domain_open %} show{% endif %}"
+        data-nav-group-key="app-nav:{{ platform_shell_app_id or 'app' }}:{{ domain.id }}">
+        <a class="nav-link nav-group-toggle sidebar-link" href="#" onclick="return false;"
+           aria-expanded="{{ 'true' if domain_open else 'false' }}">
+            {% if domain.icon %}<i class="menu-icon {{ domain.icon }}"></i>{% endif %}
+            <span class="menu-title-text">{{ domain.label }}</span>
+            <i class="menu-arrow fas fa-chevron-down"></i>
+        </a>
+        <ul class="nav-group-items">
+            {% for child in domain.children %}
+            <li class="nav-item">
+                <a class="nav-link sidebar-link py-1 {% if child.active %}active{% endif %}" href="{{ child.url }}">
+                    {% if child.icon %}<i class="{{ child.icon }} me-1"></i>{% endif %}
+                    <span>{{ child.label }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </li>
+    {% else %}
+    <li class="nav-item sidebar-nav-app sidebar-nav-app--{{ domain.id }}">
+        <a class="nav-link sidebar-link {% if domain.active %}active{% endif %}" href="{{ domain.url }}">
+            {% if domain.icon %}<i class="menu-icon {{ domain.icon }}"></i>{% endif %}
+            <span class="menu-title-text">{{ domain.label }}</span>
+        </a>
+    </li>
+    {% endif %}
+{% endfor %}
+{% endif %}

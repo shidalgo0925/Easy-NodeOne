@@ -30,7 +30,8 @@
                 <span class="pl-brand__name">{{ brand_name }}</span>
             </a>
             <nav class="pl-nav" aria-label="Principal">
-                {% if landing.benefits %}<a href="#beneficios">Beneficios</a>{% endif %}
+                {% if landing.pillars %}<a href="#beneficios">Beneficios</a>{% elif landing.benefits %}<a href="#beneficios">Beneficios</a>{% endif %}
+                {% if landing.modules %}<a href="#modulos">Módulos</a>{% endif %}
                 {% if landing.plans %}<a href="#planes">Planes</a>{% endif %}
                 <a href="#demo">Demo</a>
                 {% if landing.faq %}<a href="#faq">FAQ</a>{% endif %}

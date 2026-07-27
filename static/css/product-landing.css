@@ -157,12 +157,244 @@ a {
   animation: pl-rise 0.7s ease-out both;
 }
 
-.pl-hero__sub {
+.pl-hero__tagline {
+  margin: 0.75rem 0 0;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  max-width: 22ch;
+  animation: pl-rise 0.75s ease-out 0.04s both;
+}
+
+.pl-hero__badge {
+  display: inline-block;
   margin: 1.25rem 0 0;
-  max-width: 38rem;
-  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--pl-border);
+  background: color-mix(in srgb, var(--pl-surface) 80%, var(--pl-accent));
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--pl-primary-dark);
+}
+
+.pl-hero__fine {
+  margin: 1rem 0 0;
+  max-width: 36rem;
+  font-size: 0.85rem;
   color: var(--pl-muted);
-  animation: pl-rise 0.8s ease-out 0.08s both;
+}
+
+.pl-pillars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.pl-pillar h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.pl-pillar p {
+  margin: 0;
+  color: var(--pl-muted);
+}
+
+.pl-caps {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.pl-cap {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--pl-border);
+}
+
+.pl-cap__n {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: var(--pl-primary);
+  color: #fff;
+}
+
+.pl-cap h3 {
+  margin: 0 0 0.35rem;
+}
+
+.pl-cap p {
+  margin: 0;
+  color: var(--pl-muted);
+}
+
+.pl-modules {
+  margin-top: 2rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.pl-module {
+  padding: 1.2rem;
+  border: 1px solid var(--pl-border);
+  background: var(--pl-surface);
+}
+
+.pl-module__label {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pl-primary-dark);
+  margin-bottom: 0.55rem;
+}
+
+.pl-module h3 {
+  margin: 0 0 0.4rem;
+}
+
+.pl-module p {
+  margin: 0;
+  color: var(--pl-muted);
+}
+
+.pl-split {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.pl-checklist {
+  margin: 1rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--pl-muted);
+}
+
+.pl-checklist li {
+  margin: 0.45rem 0;
+}
+
+.pl-offers {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.pl-offers li {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--pl-border);
+  background: color-mix(in srgb, var(--pl-surface) 75%, var(--pl-canvas));
+  display: grid;
+  gap: 0.25rem;
+}
+
+.pl-offers span {
+  color: var(--pl-muted);
+  font-size: 0.9rem;
+}
+
+.pl-plan__eyebrow {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--pl-muted);
+  font-weight: 600;
+}
+
+.pl-plan__price {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.pl-plan__price span {
+  color: var(--pl-primary-dark);
+}
+
+.pl-compare-wrap {
+  margin-top: 2.5rem;
+  overflow-x: auto;
+}
+
+.pl-compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  background: var(--pl-surface);
+}
+
+.pl-compare th,
+.pl-compare td {
+  border: 1px solid var(--pl-border);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.pl-compare th {
+  background: color-mix(in srgb, var(--pl-accent) 25%, var(--pl-surface));
+}
+
+.pl-compare__note {
+  margin: 0.85rem 0 0;
+  font-size: 0.85rem;
+  color: var(--pl-muted);
+  max-width: 52rem;
+}
+
+.pl-quotes {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.pl-quote {
+  margin: 0;
+  padding: 1.15rem;
+  border: 1px solid var(--pl-border);
+  background: var(--pl-surface);
+}
+
+.pl-quote p {
+  margin: 0 0 0.75rem;
+}
+
+.pl-quote footer {
+  color: var(--pl-muted);
+  font-size: 0.9rem;
+}
+
+.pl-demo__contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 1rem 0 0;
+}
+
+.pl-source {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--pl-muted);
+}
+
+.pl-source a {
+  color: var(--pl-primary-dark);
 }
 
 .pl-hero__cta {

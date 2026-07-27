@@ -6,66 +6,69 @@
     <div class="pl-hero__inner">
         <p class="pl-hero__eyebrow">{{ landing.hero.eyebrow }}</p>
         <h1 class="pl-hero__title">{{ landing.hero.headline }}</h1>
+        {% if landing.hero.tagline %}
+        <p class="pl-hero__tagline">{{ landing.hero.tagline }}</p>
+        {% endif %}
         <p class="pl-hero__sub">{{ landing.hero.subhead }}</p>
+        {% if landing.hero.offer_badge %}
+        <p class="pl-hero__badge">{{ landing.hero.offer_badge }}</p>
+        {% endif %}
         <div class="pl-hero__cta">
             <a class="pl-btn pl-btn--primary" href="{{ landing.hero.primary_cta.href }}">{{ landing.hero.primary_cta.label }}</a>
-            <a class="pl-btn pl-btn--ghost" href="{{ login_url }}">{{ landing.hero.secondary_cta.label }}</a>
+            <a class="pl-btn pl-btn--ghost" href="{{ landing.hero.secondary_cta.href }}">{{ landing.hero.secondary_cta.label }}</a>
+            <a class="pl-btn pl-btn--ghost" href="{{ login_url }}">{{ landing.hero.tertiary_cta.label }}</a>
         </div>
+        {% if landing.hero.fine_print %}
+        <p class="pl-hero__fine">{{ landing.hero.fine_print }}</p>
+        {% endif %}
     </div>
 </section>
 
+{% if landing.pillars %}
 <section class="pl-section" id="beneficios">
     <div class="pl-section__inner">
-        <h2 class="pl-section__title">Beneficios</h2>
-        <p class="pl-section__lead">Lo esencial para vender y operar sin ruido.</p>
-        <ul class="pl-benefits">
-            {% for b in landing.benefits %}
-            <li class="pl-benefit">
-                <h3>{{ b.title }}</h3>
-                <p>{{ b.body }}</p>
+        <ul class="pl-pillars">
+            {% for p in landing.pillars %}
+            <li class="pl-pillar">
+                <h2>{{ p.title }}</h2>
+                <p>{{ p.body }}</p>
             </li>
             {% endfor %}
         </ul>
     </div>
 </section>
+{% endif %}
 
-<section class="pl-section pl-section--alt" id="capturas">
+{% if landing.capabilities %}
+<section class="pl-section pl-section--alt" id="caja">
     <div class="pl-section__inner">
-        <h2 class="pl-section__title">En el producto</h2>
-        <p class="pl-section__lead">Caja, pedidos y menú digital sobre la misma plataforma ETS.</p>
-        <div class="pl-shots" role="list">
-            <div class="pl-shot" role="listitem">
-                <span class="pl-shot__label">Operación</span>
-                <p>Turnos de caja y flujo de venta en el mostrador.</p>
-            </div>
-            <div class="pl-shot" role="listitem">
-                <span class="pl-shot__label">Pedidos</span>
-                <p>Mesas, llevar y delivery en un solo lenguaje operativo.</p>
-            </div>
-            <div class="pl-shot" role="listitem">
-                <span class="pl-shot__label">Menú digital</span>
-                <p>Carta pública lista para QR y redes.</p>
-            </div>
-        </div>
+        <h2 class="pl-section__title">{{ landing.capabilities.title }}</h2>
+        <ol class="pl-caps">
+            {% for item in landing.capabilities.entries %}
+            <li class="pl-cap">
+                <span class="pl-cap__n">{{ loop.index }}</span>
+                <div>
+                    <h3>{{ item.title }}</h3>
+                    <p>{{ item.body }}</p>
+                </div>
+            </li>
+            {% endfor %}
+        </ol>
     </div>
 </section>
+{% endif %}
 
-{% if landing.plans %}
-<section class="pl-section" id="planes">
+{% if landing.modules %}
+<section class="pl-section" id="modulos">
     <div class="pl-section__inner">
-        <h2 class="pl-section__title">Planes</h2>
-        <p class="pl-section__lead">Orientativos. El cupo y precio se cierran en la demo comercial.</p>
-        <div class="pl-plans">
-            {% for p in landing.plans %}
-            <article class="pl-plan{% if p.featured %} is-featured{% endif %}">
-                <h3>{{ p.name }}</h3>
-                <p class="pl-plan__blurb">{{ p.blurb }}</p>
-                <ul>
-                    {% for point in p.points %}
-                    <li>{{ point }}</li>
-                    {% endfor %}
-                </ul>
-                <a class="pl-btn pl-btn--{{ 'primary' if p.featured else 'ghost' }}" href="#demo">Solicitar demo</a>
+        <h2 class="pl-section__title">{{ landing.modules.title }}</h2>
+        <p class="pl-section__lead">{{ landing.modules.lead }}</p>
+        <div class="pl-modules">
+            {% for m in landing.modules.entries %}
+            <article class="pl-module">
+                <span class="pl-module__label">{{ m.label }}</span>
+                <h3>{{ m.title }}</h3>
+                <p>{{ m.body }}</p>
             </article>
             {% endfor %}
         </div>
@@ -73,10 +76,115 @@
 </section>
 {% endif %}
 
-<section class="pl-section pl-section--alt" id="demo">
+<section class="pl-section pl-section--alt" id="integraciones">
+    <div class="pl-section__inner pl-split">
+        <div>
+            <h2 class="pl-section__title">Beneficios</h2>
+            <ul class="pl-checklist">
+                {% for b in landing.benefits_list %}
+                <li>{{ b }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div>
+            <h2 class="pl-section__title">Integraciones EasyTech</h2>
+            <ul class="pl-checklist">
+                {% for i in landing.integrations %}
+                <li>{{ i }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</section>
+
+{% if landing.plans %}
+<section class="pl-section" id="planes">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">Planes que se adaptan a tu negocio</h2>
+        <p class="pl-section__lead">{{ landing.plans_intro }}</p>
+        {% if landing.offer_highlights %}
+        <ul class="pl-offers">
+            {% for o in landing.offer_highlights %}
+            <li>
+                <strong>{{ o.title }}</strong>
+                <span>{{ o.body }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        <div class="pl-plans">
+            {% for p in landing.plans %}
+            <article class="pl-plan{% if p.featured %} is-featured{% endif %}">
+                {% if p.eyebrow %}<p class="pl-plan__eyebrow">{{ p.eyebrow }}</p>{% endif %}
+                <h3>{{ p.name }}</h3>
+                {% if p.price %}
+                <p class="pl-plan__price"><span>{{ p.price }}</span> {{ p.period }}</p>
+                {% endif %}
+                <p class="pl-plan__blurb">{{ p.blurb }}</p>
+                <ul>
+                    {% for point in p.points %}
+                    <li>{{ point }}</li>
+                    {% endfor %}
+                </ul>
+                <a class="pl-btn pl-btn--{{ 'primary' if p.featured else 'ghost' }}" href="#demo">{{ p.cta or 'Solicitar demo' }}</a>
+            </article>
+            {% endfor %}
+        </div>
+        {% if landing.plan_compare %}
+        <div class="pl-compare-wrap">
+            <table class="pl-compare">
+                <thead>
+                    <tr>
+                        {% for h in landing.plan_compare.headers %}
+                        <th>{{ h }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in landing.plan_compare.rows %}
+                    <tr>
+                        {% for cell in row %}
+                        <td>{{ cell }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p class="pl-compare__note">{{ landing.plan_compare.footnote }}</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+{% if landing.testimonials %}
+<section class="pl-section pl-section--alt" id="clientes">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">{{ landing.testimonials.title }}</h2>
+        <p class="pl-section__lead">{{ landing.testimonials.note }}</p>
+        <div class="pl-quotes">
+            {% for t in landing.testimonials.entries %}
+            <blockquote class="pl-quote">
+                <p>«{{ t.quote }}»</p>
+                <footer>— {{ t.author }}</footer>
+            </blockquote>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="pl-section" id="demo">
     <div class="pl-section__inner pl-demo">
         <h2 class="pl-section__title">{{ landing.demo.title }}</h2>
         <p class="pl-section__lead">{{ landing.demo.subtitle }}</p>
+        {% if landing.demo.contacts %}
+        <p class="pl-demo__contacts">
+            {% for c in landing.demo.contacts %}
+            <a class="pl-btn pl-btn--ghost" href="{{ c.href }}" rel="noopener">{{ c.label }}</a>
+            {% endfor %}
+        </p>
+        {% endif %}
         <form id="pl-demo-form" class="pl-demo__form" data-source="{{ landing.demo.source|e }}">
             <label>Nombre
                 <input name="name" type="text" required maxlength="200" autocomplete="name">
@@ -97,7 +205,7 @@
 </section>
 
 {% if landing.faq %}
-<section class="pl-section" id="faq">
+<section class="pl-section pl-section--alt" id="faq">
     <div class="pl-section__inner">
         <h2 class="pl-section__title">Preguntas frecuentes</h2>
         <div class="pl-faq">
@@ -108,6 +216,9 @@
             </details>
             {% endfor %}
         </div>
+        {% if landing.source_url %}
+        <p class="pl-source">Contenido comercial alineado a <a href="{{ landing.source_url }}">easytech.services/eposone</a>.</p>
+        {% endif %}
     </div>
 </section>
 {% endif %}

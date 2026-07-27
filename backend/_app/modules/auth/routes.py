@@ -7,6 +7,12 @@ from . import service
 auth_bp = Blueprint('auth', __name__, url_prefix='')
 
 
+def _auth_template(name: str) -> str:
+    from nodeone.modules.ets_portal.auth_skin import resolve_auth_template
+
+    return resolve_auth_template(name)
+
+
 def _organizations_for_login_form(user=None):
     """
     Compat: lista para plantilla login (ya no se usa selector en login).
@@ -35,7 +41,7 @@ def login():
 
                 _luo()
                 flash(org_err or 'No se pudo validar la organización.', 'error')
-                return render_template('login.html', saas_organizations=[], login_email=email)
+                return render_template(_auth_template('login.html'), saas_organizations=[], login_email=email)
             if code == 'pick':
                 next_page = service.safe_next_path(
                     request.form.get('next') or request.args.get('next')
@@ -87,8 +93,8 @@ def login():
             dest = post_login_redirect_target(next_page=next_page, user=user, session=session)
             return redirect(dest)
         flash(error or 'Credenciales inválidas.', 'error')
-        return render_template('login.html', saas_organizations=[], login_email=email)
-    return render_template('login.html', saas_organizations=[], login_email=None)
+        return render_template(_auth_template('login.html'), saas_organizations=[], login_email=email)
+    return render_template(_auth_template('login.html'), saas_organizations=[], login_email=None)
 
 
 @auth_bp.route('/select-organization', methods=['GET'])
@@ -113,14 +119,18 @@ def select_organization():
         try:
             from nodeone.core.platform.context_resolver import current_app_context
 
-            if current_app_context().surface == 'portal':
+            if current_app_context().surface in ('portal', 'product'):
                 next_page = url_for('ets_portal.home')
         except Exception:
             pass
+    from nodeone.core.platform.launcher import post_login_redirect_target
+
+    fallback = post_login_redirect_target(next_page=None, user=current_user, session=session)
     return render_template(
         'select_organization.html',
         picker_organizations=cards,
         next_url=next_page,
+        post_login_fallback_url=fallback,
     )
 
 

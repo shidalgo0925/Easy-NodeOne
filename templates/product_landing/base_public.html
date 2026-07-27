@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es"
+      data-theme="light"
+      data-brand="{{ product_code|e }}"
+      data-product="{{ product_code|e }}"
+      data-surface="product">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ landing.meta_title }}{% endblock %}</title>
+    <meta name="description" content="{{ landing.meta_description|e }}">
+    <meta name="robots" content="index,follow">
+    {% if brand_logo %}
+    <link rel="icon" href="{{ url_for('static', filename=brand_logo) }}">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/product-landing.css') }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="pl-body pl-body--{{ product_code|e }}">
+    <header class="pl-header">
+        <div class="pl-header__inner">
+            <a class="pl-brand" href="/">
+                {% if brand_logo %}
+                <img class="pl-brand__logo"
+                     src="{{ url_for('static', filename=brand_logo) }}"
+                     alt="{{ brand_name|e }}"
+                     width="40" height="40"
+                     decoding="async">
+                {% endif %}
+                <span class="pl-brand__name">{{ brand_name }}</span>
+            </a>
+            <nav class="pl-nav" aria-label="Principal">
+                {% if landing.benefits %}<a href="#beneficios">Beneficios</a>{% endif %}
+                {% if landing.plans %}<a href="#planes">Planes</a>{% endif %}
+                <a href="#demo">Demo</a>
+                {% if landing.faq %}<a href="#faq">FAQ</a>{% endif %}
+                <a class="pl-nav__login" href="{{ login_url }}">Iniciar sesión</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="pl-footer">
+        <p>{{ brand_name }} · Easy Technology Services</p>
+        <p class="pl-footer__note">Puerta oficial del producto · ADR-017</p>
+    </footer>
+
+    <script>
+    (function () {
+      var form = document.getElementById('pl-demo-form');
+      if (!form) return;
+      var statusEl = document.getElementById('pl-demo-status');
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        if (statusEl) { statusEl.textContent = 'Enviando…'; statusEl.className = 'pl-demo__status'; }
+        var payload = {
+          name: (form.name.value || '').trim(),
+          company: (form.company.value || '').trim(),
+          phone: (form.phone.value || '').trim(),
+          message: (form.message.value || '').trim(),
+          source: form.dataset.source || 'product-landing'
+        };
+        fetch('/api/public/demo-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (!statusEl) return;
+            if (res.ok && res.j.success) {
+              statusEl.textContent = 'Listo. Te contactaremos pronto.';
+              statusEl.className = 'pl-demo__status is-ok';
+              form.reset();
+            } else {
+              statusEl.textContent = (res.j && res.j.error) || 'No se pudo enviar. Intentá de nuevo.';
+              statusEl.className = 'pl-demo__status is-err';
+            }
+          }).catch(function () {
+            if (statusEl) {
+              statusEl.textContent = 'Error de red. Intentá de nuevo.';
+              statusEl.className = 'pl-demo__status is-err';
+            }
+          });
+      });
+    })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

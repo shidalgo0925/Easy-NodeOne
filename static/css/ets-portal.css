@@ -91,6 +91,14 @@ body.ets-portal {
     padding: 2rem 1.25rem 3rem;
 }
 
+.ets-portal-main--auth {
+    max-width: 720px;
+}
+
+body.ets-portal--auth .auth-login-card .card-header {
+    background: linear-gradient(135deg, var(--ets-primary), var(--ets-primary-dark));
+}
+
 .ets-portal-home {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(220px, 0.85fr);

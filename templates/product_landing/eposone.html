@@ -1,0 +1,114 @@
+{% extends "product_landing/base_public.html" %}
+
+{% block content %}
+<section class="pl-hero" aria-label="Presentación">
+    <div class="pl-hero__plane" aria-hidden="true"></div>
+    <div class="pl-hero__inner">
+        <p class="pl-hero__eyebrow">{{ landing.hero.eyebrow }}</p>
+        <h1 class="pl-hero__title">{{ landing.hero.headline }}</h1>
+        <p class="pl-hero__sub">{{ landing.hero.subhead }}</p>
+        <div class="pl-hero__cta">
+            <a class="pl-btn pl-btn--primary" href="{{ landing.hero.primary_cta.href }}">{{ landing.hero.primary_cta.label }}</a>
+            <a class="pl-btn pl-btn--ghost" href="{{ login_url }}">{{ landing.hero.secondary_cta.label }}</a>
+        </div>
+    </div>
+</section>
+
+<section class="pl-section" id="beneficios">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">Beneficios</h2>
+        <p class="pl-section__lead">Lo esencial para vender y operar sin ruido.</p>
+        <ul class="pl-benefits">
+            {% for b in landing.benefits %}
+            <li class="pl-benefit">
+                <h3>{{ b.title }}</h3>
+                <p>{{ b.body }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+
+<section class="pl-section pl-section--alt" id="capturas">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">En el producto</h2>
+        <p class="pl-section__lead">Caja, pedidos y menú digital sobre la misma plataforma ETS.</p>
+        <div class="pl-shots" role="list">
+            <div class="pl-shot" role="listitem">
+                <span class="pl-shot__label">Operación</span>
+                <p>Turnos de caja y flujo de venta en el mostrador.</p>
+            </div>
+            <div class="pl-shot" role="listitem">
+                <span class="pl-shot__label">Pedidos</span>
+                <p>Mesas, llevar y delivery en un solo lenguaje operativo.</p>
+            </div>
+            <div class="pl-shot" role="listitem">
+                <span class="pl-shot__label">Menú digital</span>
+                <p>Carta pública lista para QR y redes.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if landing.plans %}
+<section class="pl-section" id="planes">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">Planes</h2>
+        <p class="pl-section__lead">Orientativos. El cupo y precio se cierran en la demo comercial.</p>
+        <div class="pl-plans">
+            {% for p in landing.plans %}
+            <article class="pl-plan{% if p.featured %} is-featured{% endif %}">
+                <h3>{{ p.name }}</h3>
+                <p class="pl-plan__blurb">{{ p.blurb }}</p>
+                <ul>
+                    {% for point in p.points %}
+                    <li>{{ point }}</li>
+                    {% endfor %}
+                </ul>
+                <a class="pl-btn pl-btn--{{ 'primary' if p.featured else 'ghost' }}" href="#demo">Solicitar demo</a>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="pl-section pl-section--alt" id="demo">
+    <div class="pl-section__inner pl-demo">
+        <h2 class="pl-section__title">{{ landing.demo.title }}</h2>
+        <p class="pl-section__lead">{{ landing.demo.subtitle }}</p>
+        <form id="pl-demo-form" class="pl-demo__form" data-source="{{ landing.demo.source|e }}">
+            <label>Nombre
+                <input name="name" type="text" required maxlength="200" autocomplete="name">
+            </label>
+            <label>Empresa
+                <input name="company" type="text" required maxlength="200" autocomplete="organization">
+            </label>
+            <label>Teléfono
+                <input name="phone" type="tel" required maxlength="50" autocomplete="tel">
+            </label>
+            <label>Mensaje
+                <textarea name="message" required maxlength="2000" rows="4" placeholder="Contanos tamaño del local, canales de venta y qué querés ver en la demo."></textarea>
+            </label>
+            <button class="pl-btn pl-btn--primary" type="submit">Enviar solicitud</button>
+            <p id="pl-demo-status" class="pl-demo__status" role="status" aria-live="polite"></p>
+        </form>
+    </div>
+</section>
+
+{% if landing.faq %}
+<section class="pl-section" id="faq">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">Preguntas frecuentes</h2>
+        <div class="pl-faq">
+            {% for item in landing.faq %}
+            <details class="pl-faq__item">
+                <summary>{{ item.q }}</summary>
+                <p>{{ item.a }}</p>
+            </details>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "product_landing/base_public.html" %}
+
+{% block content %}
+<section class="pl-hero" aria-label="Presentación">
+    <div class="pl-hero__plane" aria-hidden="true"></div>
+    <div class="pl-hero__inner">
+        <p class="pl-hero__eyebrow">{{ landing.hero.eyebrow }}</p>
+        <h1 class="pl-hero__title">{{ landing.hero.headline }}</h1>
+        <p class="pl-hero__sub">{{ landing.hero.subhead }}</p>
+        <div class="pl-hero__cta">
+            <a class="pl-btn pl-btn--primary" href="{{ landing.hero.primary_cta.href }}">{{ landing.hero.primary_cta.label }}</a>
+            <a class="pl-btn pl-btn--ghost" href="{{ login_url }}">{{ landing.hero.secondary_cta.label }}</a>
+        </div>
+    </div>
+</section>
+
+{% if landing.benefits %}
+<section class="pl-section" id="beneficios">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">Beneficios</h2>
+        <ul class="pl-benefits">
+            {% for b in landing.benefits %}
+            <li class="pl-benefit">
+                <h3>{{ b.title }}</h3>
+                <p>{{ b.body }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+{% endif %}
+
+<section class="pl-section pl-section--alt" id="demo">
+    <div class="pl-section__inner pl-demo">
+        <h2 class="pl-section__title">{{ landing.demo.title }}</h2>
+        <p class="pl-section__lead">{{ landing.demo.subtitle }}</p>
+        <form id="pl-demo-form" class="pl-demo__form" data-source="{{ landing.demo.source|e }}">
+            <label>Nombre
+                <input name="name" type="text" required maxlength="200" autocomplete="name">
+            </label>
+            <label>Empresa
+                <input name="company" type="text" required maxlength="200" autocomplete="organization">
+            </label>
+            <label>Teléfono
+                <input name="phone" type="tel" required maxlength="50" autocomplete="tel">
+            </label>
+            <label>Mensaje
+                <textarea name="message" required maxlength="2000" rows="4"></textarea>
+            </label>
+            <button class="pl-btn pl-btn--primary" type="submit">Enviar solicitud</button>
+            <p id="pl-demo-status" class="pl-demo__status" role="status" aria-live="polite"></p>
+        </form>
+    </div>
+</section>
+
+{% if landing.faq %}
+<section class="pl-section" id="faq">
+    <div class="pl-section__inner">
+        <h2 class="pl-section__title">FAQ</h2>
+        <div class="pl-faq">
+            {% for item in landing.faq %}
+            <details class="pl-faq__item">
+                <summary>{{ item.q }}</summary>
+                <p>{{ item.a }}</p>
+            </details>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

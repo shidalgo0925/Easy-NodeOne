@@ -6,7 +6,7 @@
 | Título | Portal ETS como Punto Único de Entrada del Ecosistema |
 | Estado | **Aprobado (GO)** — 24 jul 2026 |
 | Ámbito | Codito (EN1) · Local (EPosOne) · resto productos ETS |
-| Relacionados | [ADR-012 Arquitectura ETS](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-013 Portal ETS](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-007 Licenciamiento offline](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [ADR-009 Caja EN1](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · Brand/Host (BrandContext) |
+| Relacionados | [ADR-012 Arquitectura ETS](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-013 Portal ETS](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-017 Customer Entry & Product Portal](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) · [ADR-007 Licenciamiento offline](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [ADR-009 Caja EN1](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · Brand/Host (BrandContext) |
 | Destinatarios | Codito (EN1) y Local (EPosOne) |
 
 ---
@@ -177,3 +177,4 @@ Env opcional: `NODEONE_PRODUCT_FORCE=eposone` (solo silo de prueba).
 |-------|--------|
 | **2026-07-24** | Aprobado (GO) — Portal ETS como entrada única; EN1 core; Brand/ProductContext; subdominios `*.easytech.services` |
 | **2026-07-24** | Alineado con [ADR-012](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) / [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md): dominio portal oficial `app.easytech.services` |
+| **2026-07-27** | Experiencia de entrada unificada en [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) |

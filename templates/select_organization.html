@@ -63,7 +63,7 @@
           .then(function (x) {
             if (x.j && x.j.success) {
                 var next = {{ (next_url or '')|tojson }};
-                window.location.href = (next && String(next).trim()) ? next : '{{ url_for("dashboard") }}';
+                window.location.href = (next && String(next).trim()) ? next : '{{ post_login_fallback_url }}';
                 return;
             }
             var msg = (x.j && x.j.error) ? x.j.error : 'No se pudo cambiar de empresa.';

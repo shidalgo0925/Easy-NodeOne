@@ -151,9 +151,32 @@ def register_public_and_org_switch_routes(app):
 
     @app.route('/')
     def index():
-        """Redirige a login (sin landing)."""
+        """Raíz: landing comercial en Host product (ADR-017); resto → login / home producto."""
+        try:
+            from nodeone.core.platform.context_resolver import current_app_context
+
+            app_ctx = current_app_context()
+            surface = getattr(app_ctx, 'surface', None)
+        except Exception:
+            surface = None
+
         if current_user.is_authenticated:
+            if surface in ('product', 'portal'):
+                try:
+                    from nodeone.core.platform.launcher import post_login_redirect_target
+
+                    return redirect(
+                        post_login_redirect_target(next_page=None, user=current_user, session=session)
+                    )
+                except Exception:
+                    pass
             return redirect(url_for('dashboard'))
+
+        if surface == 'product':
+            from nodeone.modules.product_landing.routes import render_product_public_landing
+
+            return render_product_public_landing()
+
         return redirect(url_for('auth.login'))
 
     @app.route('/promocion')

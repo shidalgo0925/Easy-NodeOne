@@ -64,6 +64,8 @@
 
     {% if menus %}
         {% for menu in menus %}
+        {% set qr_url = url_for('eposone.eposone_digital_menu_qr', menu_id=menu.id, size=640) %}
+        {% set qr_dl = url_for('eposone.eposone_digital_menu_qr', menu_id=menu.id, size=1024) %}
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong>{{ menu.name }}</strong>
@@ -80,23 +82,61 @@
                 </div>
             </div>
             <div class="card-body">
-                <p class="small text-muted mb-2">Ref: <code>{{ menu.menu_ref }}</code> · {{ menu.items|length }} ítem(s)</p>
-                <p class="small mb-2">
-                    URL pública (QR):
-                    <a href="{{ menu.public_url }}" target="_blank" rel="noopener">{{ menu.public_url }}</a>
-                </p>
-                {% if menu.items %}
-                <ul class="list-unstyled small mb-0">
-                    {% for item in menu.items %}
-                    <li class="mb-1">
-                        {{ item.name }}
-                        {% if item.category %}<span class="text-muted">({{ item.category }})</span>{% endif %}
-                        — {{ '%.2f'|format(item.price) }}
-                        {% if not item.available %}<em>(no disp.)</em>{% endif %}
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
+                <div class="row g-4 align-items-start">
+                    <div class="col-12 col-md-auto text-center">
+                        <div class="border rounded-3 p-3 bg-white d-inline-block">
+                            <img src="{{ qr_url }}"
+                                 alt="QR {{ menu.name }}"
+                                 width="220" height="220"
+                                 class="img-fluid"
+                                 style="width:220px;height:220px;object-fit:contain"
+                                 loading="lazy">
+                        </div>
+                        <p class="small text-muted mt-2 mb-2">Escaneá para ver el menú</p>
+                        <div class="d-flex flex-wrap justify-content-center gap-2">
+                            <a class="btn btn-sm btn-primary" href="{{ qr_dl }}" download="menu-qr-{{ menu.menu_ref }}.png">
+                                <i class="fas fa-download me-1"></i>Descargar QR
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-primary epos-qr-print"
+                                    data-qr="{{ qr_dl }}" data-name="{{ menu.name|e }}" data-url="{{ menu.public_url|e }}">
+                                <i class="fas fa-print me-1"></i>Imprimir
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <p class="small text-muted mb-2">Ref: <code>{{ menu.menu_ref }}</code> · {{ menu['items']|length }} ítem(s)</p>
+                        <label class="form-label small fw-semibold mb-1">Link público</label>
+                        <div class="input-group input-group-sm mb-2" style="max-width:40rem">
+                            <input type="text" class="form-control form-control-sm" readonly
+                                   id="menu-url-{{ menu.id }}" value="{{ menu.public_url }}">
+                            <button type="button" class="btn btn-outline-secondary epos-copy-url"
+                                    data-target="menu-url-{{ menu.id }}">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <a class="btn btn-outline-primary" href="{{ menu.public_url }}" target="_blank" rel="noopener">
+                                Abrir
+                            </a>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            Imprimí el QR y ponelo en mesas o mostrador. El cliente escanea y ve el menú con fotos.
+                        </p>
+                        {% if menu['items'] %}
+                        <details>
+                            <summary class="small fw-semibold" style="cursor:pointer">Ver ítems ({{ menu['items']|length }})</summary>
+                            <ul class="list-unstyled small mb-0 mt-2">
+                                {% for item in menu['items'] %}
+                                <li class="mb-1">
+                                    {{ item.name }}
+                                    {% if item.category %}<span class="text-muted">({{ item.category }})</span>{% endif %}
+                                    — {{ '%.2f'|format(item.price) }}
+                                    {% if not item.available %}<em>(no disp.)</em>{% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </details>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
         {% endfor %}
@@ -109,4 +149,54 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+  document.querySelectorAll('.epos-copy-url').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var el = document.getElementById(btn.getAttribute('data-target'));
+      if (!el) return;
+      var text = el.value || '';
+      function ok() {
+        var prev = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(function () { btn.innerHTML = prev; }, 1200);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(ok).catch(function () {
+          el.select();
+          try { document.execCommand('copy'); ok(); } catch (e) {}
+        });
+      } else {
+        el.select();
+        try { document.execCommand('copy'); ok(); } catch (e) {}
+      }
+    });
+  });
+
+  document.querySelectorAll('.epos-qr-print').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var qr = btn.getAttribute('data-qr') || '';
+      var name = btn.getAttribute('data-name') || 'Menú';
+      var url = btn.getAttribute('data-url') || '';
+      var w = window.open('', '_blank', 'width=520,height=720');
+      if (!w) return;
+      w.document.write(
+        '<!DOCTYPE html><html><head><title>QR ' + name.replace(/</g, '') + '</title>' +
+        '<style>body{font-family:system-ui,sans-serif;text-align:center;padding:2rem;}' +
+        'img{width:360px;height:360px;object-fit:contain}h1{font-size:1.25rem;margin:0 0 .5rem}' +
+        'p{color:#555;font-size:.85rem;word-break:break-all}</style></head><body>' +
+        '<h1>' + name.replace(/</g, '') + '</h1>' +
+        '<img src="' + qr + '" alt="QR">' +
+        '<p>' + url.replace(/</g, '') + '</p>' +
+        '<script>window.onload=function(){window.print();}<\\/script></body></html>'
+      );
+      w.document.close();
+    });
+  });
+})();
+</script>
 {% endblock %}

@@ -20,8 +20,11 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
         'Puntos de Venta',
         'POS del negocio · Sucursal → POS → Caja.',
     ),
-    'terminals': ('Dispositivos', 'Tablets vinculadas a una caja.'),
-    'registers': ('Cajas', 'Cajas del POS: EN1 crea la caja; el APK solo se vincula (EN1-02).'),
+    'terminals': ('Dispositivos', 'Tablets ya vinculadas a una caja.'),
+    'registers': (
+        'Cajas',
+        'Cajas del POS (Administración). La tablet se vincula después en Instalar dispositivo.',
+    ),
     'shifts': ('Turnos', 'Turnos de operadores y responsables de caja.'),
     'cashiers': ('Cajeros', 'Personal autorizado para operar turnos de caja.'),
     'promotions': ('Promociones', 'Descuentos, combos y reglas comerciales POS.'),
@@ -30,7 +33,7 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
     'digital-menu': ('Menú digital', 'Catálogo QR para pedidos del cliente.'),
     'licenses': (
         'Licencias',
-        'Estado comercial por caja · trial, cortesía, perpetua.',
+        'Estado comercial por caja (informativo · no bloquea la preparación del negocio).',
     ),
 }
 

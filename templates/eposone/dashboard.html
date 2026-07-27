@@ -51,6 +51,8 @@
         </div>
     </div>
 
+    {% include 'eposone/partials/setup_guide.html' %}
+
     {% with range=dash_range|default('hoy'), date_from=dash_from|default(''), date_to=dash_to|default(''), filter_action=filter_action, show_custom=true %}
     {% include 'eposone/partials/filter_bar.html' %}
     {% endwith %}

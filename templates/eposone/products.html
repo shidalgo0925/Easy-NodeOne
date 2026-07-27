@@ -349,12 +349,13 @@
                             <label class="epos-prod-dropzone" for="pf_image_file" id="pf_dropzone">
                                 <input type="file" class="d-none" id="pf_image_file" name="image_file"
                                        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-                                <img id="pf_image_preview" class="epos-prod-dropzone__preview d-none" alt="">
+                                <img id="pf_image_preview" class="epos-prod-dropzone__preview" alt="Vista previa del producto">
                                 <span class="epos-prod-dropzone__placeholder" id="pf_image_ph">
                                     <i class="fas fa-camera fa-lg mb-2 d-block"></i>
                                     + Agregar fotografía<br>
                                     <span class="small">Arrastrar aquí o seleccionar</span>
                                 </span>
+                                <span class="epos-prod-dropzone__hint" id="pf_image_hint">Vista previa — confirmar y guardar</span>
                             </label>
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" value="1" id="pf_clear_image" name="clear_image">
@@ -514,19 +515,58 @@
   var createUrl = page.getAttribute('data-create-url');
   var updateTpl = page.getAttribute('data-update-url');
 
-  function setPreview(url) {
+  var previewObjectUrl = null;
+  var dropzone = document.getElementById('pf_dropzone');
+
+  function revokePreviewObjectUrl() {
+    if (previewObjectUrl) {
+      try { URL.revokeObjectURL(previewObjectUrl); } catch (e) { /* ignore */ }
+      previewObjectUrl = null;
+    }
+  }
+
+  function setPreview(url, opts) {
+    opts = opts || {};
     var img = document.getElementById('pf_image_preview');
     var ph = document.getElementById('pf_image_ph');
+    var hint = document.getElementById('pf_image_hint');
     if (!img || !ph) return;
+    if (!opts.keepObjectUrl) revokePreviewObjectUrl();
     if (url) {
       img.src = url;
-      img.classList.remove('d-none');
+      img.removeAttribute('hidden');
+      if (dropzone) dropzone.classList.add('is-previewing');
       ph.classList.add('d-none');
+      if (hint) {
+        hint.textContent = opts.pending
+          ? 'Vista previa — aún no guardada; confirmá que es la correcta'
+          : 'Imagen actual del producto';
+      }
     } else {
       img.removeAttribute('src');
-      img.classList.add('d-none');
+      img.setAttribute('hidden', 'hidden');
+      if (dropzone) dropzone.classList.remove('is-previewing');
       ph.classList.remove('d-none');
     }
+  }
+
+  function previewLocalFile(file) {
+    if (!file || !(/^image\//.test(file.type) || /\.(jpe?g|png|gif|webp)$/i.test(file.name || ''))) {
+      return;
+    }
+    var clearCb = document.getElementById('pf_clear_image');
+    if (clearCb) clearCb.checked = false;
+    revokePreviewObjectUrl();
+    // FileReader = preview fiable antes de guardar (sin depender de blob: CSP)
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      setPreview(ev.target && ev.target.result, { pending: true, keepObjectUrl: true });
+    };
+    reader.onerror = function () {
+      previewObjectUrl = URL.createObjectURL(file);
+      setPreview(previewObjectUrl, { pending: true, keepObjectUrl: true });
+    };
+    reader.readAsDataURL(file);
   }
 
   function resetCreateForm() {
@@ -624,8 +664,57 @@
     fileInput.addEventListener('change', function () {
       var f = fileInput.files && fileInput.files[0];
       if (!f) return;
-      var url = URL.createObjectURL(f);
-      setPreview(url);
+      previewLocalFile(f);
+    });
+  }
+
+  if (dropzone && fileInput) {
+    ['dragenter', 'dragover'].forEach(function (evName) {
+      dropzone.addEventListener(evName, function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        dropzone.classList.add('is-dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(function (evName) {
+      dropzone.addEventListener(evName, function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        dropzone.classList.remove('is-dragover');
+      });
+    });
+    dropzone.addEventListener('drop', function (ev) {
+      var files = ev.dataTransfer && ev.dataTransfer.files;
+      var f = files && files[0];
+      if (!f) return;
+      try {
+        var dt = new DataTransfer();
+        dt.items.add(f);
+        fileInput.files = dt.files;
+      } catch (err) {
+        /* DataTransfer no disponible: al menos preview */
+      }
+      previewLocalFile(f);
+    });
+  }
+
+  var clearImg = document.getElementById('pf_clear_image');
+  if (clearImg) {
+    clearImg.addEventListener('change', function () {
+      if (clearImg.checked) {
+        if (fileInput) fileInput.value = '';
+        setPreview('');
+      }
+    });
+  }
+
+  var urlImg = document.getElementById('pf_image_url');
+  if (urlImg) {
+    urlImg.addEventListener('change', function () {
+      var v = (urlImg.value || '').trim();
+      if (v && !(fileInput && fileInput.files && fileInput.files[0])) {
+        setPreview(v, { pending: true });
+      }
     });
   }
 

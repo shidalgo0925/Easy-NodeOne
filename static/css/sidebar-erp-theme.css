@@ -413,6 +413,65 @@ body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-org-bar {
     display: none !important;
 }
 
+/* Colapsado: solo íconos (sin labels / sin Aplicar / sin submenús). */
+body.sidebar-collapsed aside.left-panel.sidebar-erp {
+    overflow-x: hidden !important;
+}
+
+body.sidebar-collapsed aside.left-panel.sidebar-erp .menu-title-text,
+body.sidebar-collapsed aside.left-panel.sidebar-erp .app-nav-product-label,
+body.sidebar-collapsed aside.left-panel.sidebar-erp .app-nav-product-tagline,
+body.sidebar-collapsed aside.left-panel.sidebar-erp .menu-arrow {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body.sidebar-collapsed aside.left-panel.sidebar-erp .app-nav-product-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0 !important;
+    margin: 0 !important;
+    list-style: none;
+}
+
+body.sidebar-collapsed aside.left-panel.sidebar-erp .app-nav-product-name {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    padding: 0 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+
+body.sidebar-collapsed aside.left-panel.sidebar-erp .app-nav-product-icon {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    width: 1.6rem !important;
+    height: 1.6rem !important;
+    font-size: 0.85rem !important;
+    color: #fb923c !important;
+}
+
+body.sidebar-collapsed aside.left-panel.sidebar-erp #main-menu li.app-nav-domain > ul.nav-group-items,
+body.sidebar-collapsed[data-app-nav-native="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain.show > ul.nav-group-items,
+body.sidebar-collapsed[data-platform-app-shell="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain.show > ul.nav-group-items,
+body.sidebar-collapsed aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group > ul.nav-group-items,
+body.sidebar-collapsed[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items,
+body.sidebar-collapsed aside.left-panel.sidebar-erp .nav-group-items {
+    display: none !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+
 body.sidebar-collapsed aside.left-panel.sidebar-erp .sidebar-nav-launcher-group > .nav-group-toggle.active {
     background: rgba(56, 189, 248, 0.15) !important;
     border-left: 3px solid #38bdf8 !important;
@@ -825,19 +884,42 @@ body:has(#erpAppSubnav) #right-panel .content:has(.erp-compact-page) {
 /*
  * Modo horizontal (Odoo): sin acordeón lateral en nav-group del portal miembro.
  * Los grupos del launcher admin (.sidebar-nav-launcher-group) sí despliegan hijos.
+ * Nav nativa de app (EPosOne .app-nav-domain): sí debe mostrar Sucursales / POS / Cajas / Dispositivos.
  */
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > ul.nav-group-items,
-body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > ul.nav-group-items {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group):not(.app-nav-domain) > ul.nav-group-items,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group):not(.app-nav-domain) > ul.nav-group-items {
     display: none !important;
 }
 
-body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > a.nav-group-toggle .menu-arrow,
-body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group) > a.nav-group-toggle .menu-arrow {
+body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group):not(.app-nav-domain) > a.nav-group-toggle .menu-arrow,
+body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.nav-group:not(.sidebar-nav-launcher-group):not(.app-nav-domain) > a.nav-group-toggle .menu-arrow {
     opacity: 0;
     width: 0;
     margin: 0;
     overflow: hidden;
     pointer-events: none;
+}
+
+body[data-app-nav-native="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain.show > ul.nav-group-items,
+body[data-platform-app-shell="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain.show > ul.nav-group-items {
+    display: block !important;
+    max-height: 2400px !important;
+    overflow: visible !important;
+}
+
+body[data-app-nav-native="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain:not(.show) > ul.nav-group-items,
+body[data-platform-app-shell="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain:not(.show) > ul.nav-group-items {
+    display: none !important;
+    max-height: 0 !important;
+}
+
+body[data-app-nav-native="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain > a.nav-group-toggle .menu-arrow,
+body[data-platform-app-shell="1"] aside.left-panel.sidebar-erp #main-menu li.app-nav-domain > a.nav-group-toggle .menu-arrow {
+    opacity: 1;
+    width: auto;
+    margin: unset;
+    overflow: visible;
+    pointer-events: auto;
 }
 
 body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items,
@@ -851,13 +933,6 @@ body:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-l
 body[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group:not(.show) > ul.nav-group-items {
     display: none !important;
     max-height: 0 !important;
-}
-
-body.sidebar-collapsed:has(#erpAppSubnav) aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items,
-body.sidebar-collapsed[data-erp-app-chrome="1"] aside.left-panel.sidebar-erp #main-menu li.sidebar-nav-launcher-group.show > ul.nav-group-items {
-    display: none !important;
-    max-height: 0 !important;
-    overflow: hidden !important;
 }
 
 /* Pestañas internas que duplican la barra de módulo */

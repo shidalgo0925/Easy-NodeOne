@@ -19,7 +19,7 @@
                 <i class="fas fa-cash-register me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Cajas
             </h1>
             <p class="epos-page-subtitle mb-0">
-                Cada caja pertenece a un POS · la tablet se vincula con provisioning
+                Administración del negocio · la tablet se vincula en «Instalar dispositivo»
             </p>
         </div>
         <div class="epos-btn-row">
@@ -31,6 +31,16 @@
             </button>
         </div>
     </div>
+
+    {% if request.args.get('install') %}
+    <div class="alert alert-info border-0 shadow-sm mb-3">
+        <strong>Instalar dispositivo</strong>
+        <p class="small mb-2">Elegí una caja y usá <em>Asignar dispositivo</em> para generar el código. Pegalo en la tablet. Las licencias no bloquean este paso.</p>
+        {% if registers_total == 0 %}
+        <p class="small mb-0">Todavía no hay cajas: creá una en Administración primero.</p>
+        {% endif %}
+    </div>
+    {% endif %}
 
     <form class="epos-filter-bar mb-3" id="epos-reg-filters" onsubmit="return false;">
         <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
@@ -339,13 +349,13 @@
             {% else %}
             <div class="p-4 text-center text-muted">
                 <p class="mb-2">No hay cajas todavía.</p>
-                <p class="small">Creá la caja aquí, generá el código y después instalá el APK.</p>
+                <p class="small">Creá la caja desde Administración (sin tablet todavía). La vinculación del dispositivo es un paso aparte.</p>
                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newRegisterModal"
                         {% if not pos_units %}disabled{% endif %}>
                     <i class="fas fa-plus me-1"></i>Crear la primera caja
                 </button>
                 {% if not pos_units %}
-                <p class="small mt-2 mb-0">Primero creá un POS en Configuración → Puntos de venta.</p>
+                <p class="small mt-2 mb-0">Primero creá un <strong>Punto de venta</strong> en <strong>Administración → Puntos de venta</strong> (después de la Sucursal).</p>
                 {% endif %}
             </div>
             {% endif %}

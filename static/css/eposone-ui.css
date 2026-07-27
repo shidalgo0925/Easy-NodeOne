@@ -910,16 +910,46 @@ body[data-platform-app-accent="eposone"],
     cursor: pointer;
     margin: 0;
     transition: border-color 0.15s ease, background 0.15s ease;
+    position: relative;
+    overflow: hidden;
 }
 .epos-prod-dropzone:hover {
     border-color: var(--epos-accent, #0d6efd);
     background: rgba(13, 110, 253, 0.03);
 }
+.epos-prod-dropzone.is-dragover {
+    border-color: var(--epos-accent, #0d6efd);
+    background: rgba(13, 110, 253, 0.08);
+}
+.epos-prod-dropzone.is-previewing {
+    border-style: solid;
+    border-color: var(--epos-accent, #0d6efd);
+    background: #f8fafc;
+    padding: 0.5rem;
+}
+.epos-prod-dropzone.is-previewing .epos-prod-dropzone__placeholder {
+    display: none !important;
+}
 .epos-prod-dropzone__preview {
+    display: none;
     max-width: 100%;
     max-height: 10rem;
+    width: auto;
+    height: auto;
     object-fit: contain;
     border-radius: 0.5rem;
+}
+.epos-prod-dropzone.is-previewing .epos-prod-dropzone__preview {
+    display: block !important;
+}
+.epos-prod-dropzone__hint {
+    display: none;
+    margin-top: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--epos-ink-2, #6c757d);
+}
+.epos-prod-dropzone.is-previewing .epos-prod-dropzone__hint {
+    display: block;
 }
 .epos-prod-dropzone__placeholder {
     font-size: 0.9rem;

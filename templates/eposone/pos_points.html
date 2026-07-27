@@ -334,7 +334,8 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
+{{ super() }}
 <script>
 (function () {
   function csrf() {
@@ -367,18 +368,32 @@
       };
       var parent = document.getElementById('pos-branch').value;
       if (parent) body.parent_id = parseInt(parent, 10);
-      if (msg) { msg.hidden = false; msg.textContent = 'Creando…'; }
+      if (!body.unit_ref || !body.name) {
+        if (msg) { msg.hidden = false; msg.className = 'small text-danger mt-3 mb-0'; msg.textContent = 'Completá nombre y código.'; }
+        return;
+      }
+      if (!parent) {
+        if (msg) { msg.hidden = false; msg.className = 'small text-danger mt-3 mb-0'; msg.textContent = 'Elegí una sucursal.'; }
+        return;
+      }
+      if (msg) { msg.hidden = false; msg.className = 'small text-muted mt-3 mb-0'; msg.textContent = 'Creando…'; }
       try {
         var res = await fetch('/api/eposone/pos-units', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          credentials: 'same-origin',
           body: JSON.stringify(body)
         });
-        var data = await res.json();
-        if (!res.ok) throw new Error(data.error || res.statusText);
+        var data = {};
+        try { data = await res.json(); } catch (parseErr) { /* ignore */ }
+        if (!res.ok) throw new Error(data.error || data.message || res.statusText || ('HTTP ' + res.status));
         window.location.reload();
       } catch (e) {
-        if (msg) msg.textContent = 'Error: ' + e.message;
+        if (msg) {
+          msg.hidden = false;
+          msg.className = 'small text-danger mt-3 mb-0';
+          msg.textContent = 'Error: ' + (e && e.message ? e.message : e);
+        }
       }
     });
   }
@@ -389,9 +404,11 @@
       try {
         var res = await fetch('/api/eposone/pos-units/by-id/' + id + '/deactivate', {
           method: 'POST',
-          headers: { 'X-CSRFToken': csrf() }
+          headers: { 'X-CSRFToken': csrf() },
+          credentials: 'same-origin'
         });
-        var data = await res.json();
+        var data = {};
+        try { data = await res.json(); } catch (parseErr) { /* ignore */ }
         if (!res.ok) throw new Error(data.error || res.statusText);
         window.location.reload();
       } catch (e) {

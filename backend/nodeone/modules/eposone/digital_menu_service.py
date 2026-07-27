@@ -10,6 +10,19 @@ from models.eposone_digital_menu import EposoneDigitalMenu, EposoneDigitalMenuIt
 from nodeone.core.commerce.order import OrderService, OrderValidationError
 
 
+# Orden preferido de categorías (Mexican Food / resto alfabético al final).
+_CATEGORY_ORDER = (
+    'Entradas',
+    'Nachos',
+    'Tacos',
+    'Burritos',
+    'Platos fuertes',
+    'Bandejas',
+    'Bebidas',
+    'Postres',
+)
+
+
 @dataclass(frozen=True)
 class DigitalMenuItemDTO:
     id: int
@@ -19,6 +32,7 @@ class DigitalMenuItemDTO:
     price: float
     available: bool
     sort_order: int
+    image_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -29,6 +43,7 @@ class DigitalMenuItemDTO:
             'price': self.price,
             'available': self.available,
             'sort_order': self.sort_order,
+            'image_url': self.image_url,
         }
 
 
@@ -50,26 +65,137 @@ class DigitalMenuDTO:
             'name': self.name,
             'active': self.active,
             'items': [i.to_dict() for i in self.items],
+            'categories': _group_items_by_category(self.items),
         }
         if include_token:
             data['public_token'] = self.public_token
         return data
 
 
+def _product_image_lookup(organization_id: int) -> dict[str, str]:
+    """Mapa nombre|categoría → image_url de productos activos (menú digital no guarda imagen)."""
+    try:
+        from models.core_master import CoreProduct
+
+        rows = (
+            CoreProduct.query.filter_by(organization_id=int(organization_id), status='active')
+            .with_entities(CoreProduct.name, CoreProduct.category, CoreProduct.image_url)
+            .all()
+        )
+    except Exception:
+        return {}
+    out: dict[str, str] = {}
+    for name, category, image_url in rows:
+        url = (image_url or '').strip()
+        if not url:
+            continue
+        key_name = (name or '').strip().lower()
+        if not key_name:
+            continue
+        cat = (category or '').strip().lower()
+        if cat:
+            out[f'{key_name}|{cat}'] = url
+        out.setdefault(key_name, url)
+    return out
+
+
+def _resolve_item_image(
+    lookup: dict[str, str],
+    *,
+    name: str,
+    category: str | None,
+) -> str | None:
+    key_name = (name or '').strip().lower()
+    if not key_name:
+        return None
+    cat = (category or '').strip().lower()
+    if cat:
+        hit = lookup.get(f'{key_name}|{cat}')
+        if hit:
+            return hit
+    return lookup.get(key_name)
+
+
+def _group_items_by_category(items: tuple[DigitalMenuItemDTO, ...]) -> list[dict[str, Any]]:
+    buckets: dict[str, list[DigitalMenuItemDTO]] = {}
+    for item in items:
+        cat = (item.category or '').strip() or 'Otros'
+        buckets.setdefault(cat, []).append(item)
+
+    def sort_key(cat: str) -> tuple[int, str]:
+        try:
+            return (_CATEGORY_ORDER.index(cat), cat.lower())
+        except ValueError:
+            return (len(_CATEGORY_ORDER), cat.lower())
+
+    grouped: list[dict[str, Any]] = []
+    for cat in sorted(buckets.keys(), key=sort_key):
+        cat_items = sorted(buckets[cat], key=lambda i: (i.sort_order, i.name.lower()))
+        grouped.append(
+            {
+                'name': cat,
+                'slug': re.sub(r'[^a-z0-9]+', '-', cat.lower()).strip('-') or 'otros',
+                'items': [i.to_dict() for i in cat_items],
+            }
+        )
+    return grouped
+
+
+def resolve_public_menu_brand_logo(organization_id: int) -> str | None:
+    """Ruta relativa bajo static/ del logo del tenant para menú público."""
+    import os
+
+    from nodeone.services.post_login_organization import organization_logo_url_for_picker
+    from nodeone.services.tenant_email_logo_storage import TENANT_EMAIL_LOGO_REL_DIR, _static_root_abs
+
+    def _normalize_rel(stored: str | None) -> str | None:
+        rel = (stored or '').strip().lstrip('/')
+        if not rel or rel.startswith('http'):
+            return None
+        if rel.startswith('static/'):
+            rel = rel[7:]
+        path = os.path.join(_static_root_abs(), rel.replace('/', os.sep))
+        return rel if os.path.isfile(path) else None
+
+    oid = int(organization_id)
+    root = _static_root_abs()
+
+    # Preferencia: logo de marca para menú digital (fondo de página).
+    for ext in ('jpg', 'jpeg', 'png', 'svg', 'webp'):
+        cand = f'uploads/eposone/brands/org{oid}-logo.{ext}'
+        if os.path.isfile(os.path.join(root, cand.replace('/', os.sep))):
+            return cand
+
+    rel = _normalize_rel(organization_logo_url_for_picker(oid))
+    if rel:
+        return rel
+
+    for ext in ('png', 'svg', 'jpg', 'jpeg'):
+        cand = f'{TENANT_EMAIL_LOGO_REL_DIR}/logo-email-org{oid}.{ext}'
+        path = os.path.join(root, cand.replace('/', os.sep))
+        if os.path.isfile(path):
+            return cand
+    return None
+
+
 def _menu_to_dto(row: EposoneDigitalMenu, *, public_only: bool = False) -> DigitalMenuDTO:
+    image_lookup = _product_image_lookup(int(row.organization_id))
     items_list: list[DigitalMenuItemDTO] = []
     for item in row.items or []:
         if public_only and not bool(item.available):
             continue
+        name = str(item.name)
+        category = item.category or None
         items_list.append(
             DigitalMenuItemDTO(
                 id=int(item.id),
-                name=str(item.name),
+                name=name,
                 description=(item.description or None),
-                category=(item.category or None),
+                category=category,
                 price=float(item.price or 0),
                 available=bool(item.available),
                 sort_order=int(item.sort_order or 0),
+                image_url=_resolve_item_image(image_lookup, name=name, category=category),
             )
         )
     return DigitalMenuDTO(
@@ -182,6 +308,16 @@ class DigitalMenuService:
         from flask import url_for
 
         return url_for('eposone_public.public_menu_page', token=public_token, _external=True)
+
+    @staticmethod
+    def qr_png_bytes(public_url: str, *, size: int = 512) -> bytes:
+        """PNG del QR que apunta a la URL pública del menú."""
+        from nodeone.modules.qr_generator.services import generate_png_bytes
+
+        url = (public_url or '').strip()
+        if not url:
+            raise OrderValidationError('public_url_required')
+        return generate_png_bytes(url, int(size), 'M', style={'fill': '#0a0e14', 'bg': '#ffffff', 'border': 2})
 
     @staticmethod
     def place_order_from_token(

@@ -1,4 +1,4 @@
-"""Navegación nativa EPosOne — Operación vs Infraestructura (V1.0)."""
+"""Navegación nativa EPosOne — Operación / Administración / Instalación (piloto UX)."""
 
 from __future__ import annotations
 
@@ -33,18 +33,21 @@ def _section(slug: str) -> str:
 
 
 def build_nav_tree(ctx: NavContext) -> AppNavTree:
-    """Operación diaria arriba · Infraestructura y módulos auxiliares aparte."""
+    """Operación diaria · Administración del negocio · Instalación EPosOne (tablets)."""
     orders_prefixes = (
         '/admin/eposone/section/orders',
         '/admin/eposone/orders',
     )
-    infra_prefixes = (
+    admin_prefixes = (
         '/admin/eposone/section/organization',
         '/admin/eposone/section/branches',
         '/admin/eposone/section/pos-points',
         '/admin/eposone/section/registers',
+        '/admin/eposone/section/cashiers',
+    )
+    device_prefixes = (
         '/admin/eposone/section/terminals',
-        '/admin/eposone/section/licenses',
+        '/admin/eposone/section/shifts',
     )
 
     return AppNavTree(
@@ -96,36 +99,9 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 active_path_prefixes=('/admin/eposone/section/contacts',),
             ),
             AppNavItem(
-                'caja',
-                'Caja',
-                'fas fa-cash-register',
-                children=(
-                    AppNavItem(
-                        'turnos',
-                        'Turnos',
-                        'fas fa-clock',
-                        url=_section('shifts'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/shifts',),
-                    ),
-                    AppNavItem(
-                        'cajeros',
-                        'Cajeros',
-                        'fas fa-user-tag',
-                        url=_section('cashiers'),
-                        visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/cashiers',),
-                    ),
-                ),
-                active_path_prefixes=(
-                    '/admin/eposone/section/shifts',
-                    '/admin/eposone/section/cashiers',
-                ),
-            ),
-            AppNavItem(
-                'infraestructura',
-                'Infraestructura',
-                'fas fa-server',
+                'administracion',
+                'Administración',
+                'fas fa-building',
                 children=(
                     AppNavItem(
                         'organization',
@@ -160,6 +136,30 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         active_path_prefixes=('/admin/eposone/section/registers',),
                     ),
                     AppNavItem(
+                        'cajeros',
+                        'Cajeros',
+                        'fas fa-user-tag',
+                        url=_section('cashiers'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/cashiers',),
+                    ),
+                ),
+                active_path_prefixes=admin_prefixes,
+            ),
+            AppNavItem(
+                'eposone-ops',
+                'EPosOne',
+                'fas fa-tablet-alt',
+                children=(
+                    AppNavItem(
+                        'install-device',
+                        'Instalar dispositivo',
+                        'fas fa-mobile-alt',
+                        url=_section('registers') + '?install=1',
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/registers',),
+                    ),
+                    AppNavItem(
                         'terminales',
                         'Dispositivos',
                         'fas fa-desktop',
@@ -168,15 +168,15 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         active_path_prefixes=('/admin/eposone/section/terminals',),
                     ),
                     AppNavItem(
-                        'licencias',
-                        'Licencias',
-                        'fas fa-key',
-                        url=_section('licenses'),
+                        'turnos',
+                        'Turnos',
+                        'fas fa-clock',
+                        url=_section('shifts'),
                         visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/licenses',),
+                        active_path_prefixes=('/admin/eposone/section/shifts',),
                     ),
                 ),
-                active_path_prefixes=infra_prefixes,
+                active_path_prefixes=device_prefixes,
             ),
             AppNavItem(
                 'lab-wipe',
@@ -223,6 +223,14 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         url=_section('digital-menu'),
                         visible=_v_eposone,
                         active_path_prefixes=('/admin/eposone/section/digital-menu',),
+                    ),
+                    AppNavItem(
+                        'licencias',
+                        'Licencias',
+                        'fas fa-key',
+                        url=_section('licenses'),
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/licenses',),
                     ),
                     AppNavItem(
                         'conteo-fisico',

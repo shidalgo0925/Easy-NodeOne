@@ -1221,17 +1221,36 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_path_prefixes=('/admin/eposone/section/shifts',),
             ),
             _nav_menu_dropdown(
-                'infraestructura',
-                'Infraestructura',
-                'fas fa-server',
+                'administracion',
+                'Administración',
+                'fas fa-building',
                 (
+                    _eposone_section_item('empresa', 'Empresa', 'fas fa-building', 'organization'),
                     _eposone_section_item('sucursales', 'Sucursales', 'fas fa-store', 'branches'),
                     _eposone_section_item(
                         'pos-points', 'Puntos de venta', 'fas fa-map-marker-alt', 'pos-points'
                     ),
                     _eposone_section_item('cajas', 'Cajas', 'fas fa-cash-register', 'registers'),
+                    _eposone_section_item('cajeros', 'Cajeros', 'fas fa-user-tag', 'cashiers'),
+                ),
+                visible=_v_eposone,
+            ),
+            _nav_menu_dropdown(
+                'eposone-ops',
+                'EPosOne',
+                'fas fa-tablet-alt',
+                (
+                    NavAreaItem(
+                        'install-device',
+                        'Instalar dispositivo',
+                        'fas fa-mobile-alt',
+                        'eposone.eposone_section',
+                        url_path='/admin/eposone/section/registers?install=1',
+                        visible=_v_eposone,
+                        active_path_prefixes=('/admin/eposone/section/registers',),
+                    ),
                     _eposone_section_item('terminales', 'Dispositivos', 'fas fa-desktop', 'terminals'),
-                    _eposone_section_item('licencias', 'Licencias', 'fas fa-key', 'licenses'),
+                    _eposone_section_item('turnos', 'Turnos', 'fas fa-clock', 'shifts'),
                 ),
                 visible=_v_eposone,
             ),
@@ -1246,6 +1265,7 @@ APP_AREAS: tuple[NavArea, ...] = (
                     _eposone_section_item(
                         'menu-digital', 'Menú digital', 'fas fa-qrcode', 'digital-menu'
                     ),
+                    _eposone_section_item('licencias', 'Licencias', 'fas fa-key', 'licenses'),
                     NavAreaItem(
                         'conteo-fisico',
                         'Conteo físico',

@@ -9,10 +9,12 @@
 </li>
 {% endif %}
 {% if app_nav_sidebar %}
-<li class="nav-item sidebar-section-title px-3 pt-2 pb-1 app-nav-product-header">
+<li class="nav-item sidebar-section-title px-3 pt-2 pb-1 app-nav-product-header" title="{{ platform_shell_app_product_name or platform_shell_app_label or 'App' }}">
     <span class="app-nav-product-name">
-        {% if platform_shell_app_icon %}<i class="{{ platform_shell_app_icon }} me-1" aria-hidden="true"></i>{% endif %}
-        {{ platform_shell_app_product_name or platform_shell_app_label or 'App' }}
+        {% if platform_shell_app_icon %}
+        <i class="menu-icon app-nav-product-icon {{ platform_shell_app_icon }}" aria-hidden="true"></i>
+        {% endif %}
+        <span class="app-nav-product-label">{{ platform_shell_app_product_name or platform_shell_app_label or 'App' }}</span>
     </span>
     {% if platform_shell_app_tagline %}
     <span class="app-nav-product-tagline d-block">{{ platform_shell_app_tagline }}</span>
@@ -20,8 +22,11 @@
 </li>
 {% for domain in app_nav_sidebar %}
     {% if domain.is_group %}
-    <li class="nav-item nav-group app-nav-domain show">
-        <a class="nav-link nav-group-toggle sidebar-link" href="#" onclick="return false;" aria-expanded="true">
+    {% set domain_open = domain.children|selectattr('active')|list|length > 0 %}
+    <li class="nav-item nav-group app-nav-domain{% if domain_open %} show{% endif %}"
+        data-nav-group-key="app-nav:{{ platform_shell_app_id or 'app' }}:{{ domain.id }}">
+        <a class="nav-link nav-group-toggle sidebar-link" href="#" onclick="return false;"
+           aria-expanded="{{ 'true' if domain_open else 'false' }}">
             {% if domain.icon %}<i class="menu-icon {{ domain.icon }}"></i>{% endif %}
             <span class="menu-title-text">{{ domain.label }}</span>
             <i class="menu-arrow fas fa-chevron-down"></i>

@@ -72,12 +72,14 @@ class TestEposoneNavTree(unittest.TestCase):
         )
 
     def test_build_tree_domains(self):
+        from nodeone.core.platform.app_nav import serialize_nav_sidebar
         from nodeone.modules.eposone.nav import build_nav_tree
 
         with self.app.test_request_context('/admin/eposone/dashboard'):
             tree = build_nav_tree(self._ctx())
-        # Sprint 7 — menú operativo corto
-        labels = [d.label for d in tree.domains]
+            rows = serialize_nav_sidebar(tree, self._ctx())
+        # Sprint UX — operación + Administración + instalación EPosOne
+        labels = [r['label'] for r in rows]
         self.assertEqual(
             labels,
             [
@@ -86,8 +88,8 @@ class TestEposoneNavTree(unittest.TestCase):
                 'Productos',
                 'Inventario',
                 'Clientes',
-                'Caja',
-                'Infraestructura',
+                'Administración',
+                'EPosOne',
                 'Más',
             ],
         )
@@ -96,15 +98,23 @@ class TestEposoneNavTree(unittest.TestCase):
         self.assertNotIn('/admin/contador', inventario.url or '')
         self.assertNotIn('Reportes', labels)
         self.assertNotIn('Configuración', labels)
-        infra = next(d for d in tree.domains if d.id == 'infraestructura')
-        infra_labels = {c.label for c in infra.children}
+        self.assertNotIn('Infraestructura', labels)
+        admin = next(d for d in tree.domains if d.id == 'administracion')
+        admin_labels = {c.label for c in admin.children}
         self.assertEqual(
-            infra_labels,
-            {'Sucursales', 'Puntos de venta', 'Cajas', 'Dispositivos', 'Licencias'},
+            admin_labels,
+            {'Empresa', 'Sucursales', 'Puntos de venta', 'Cajas', 'Cajeros'},
+        )
+        epos_ops = next(d for d in tree.domains if d.id == 'eposone-ops')
+        epos_labels = {c.label for c in epos_ops.children}
+        self.assertEqual(
+            epos_labels,
+            {'Instalar dispositivo', 'Dispositivos', 'Turnos'},
         )
         mas = next(d for d in tree.domains if d.id == 'mas')
         mas_labels = {c.label for c in mas.children}
         self.assertIn('Cocina (KDS)', mas_labels)
+        self.assertIn('Licencias', mas_labels)
         self.assertNotIn('Centro de configuración', mas_labels)
         self.assertNotIn('Sistema', labels)
         self.assertNotIn('Comercial', labels)
@@ -125,9 +135,9 @@ class TestEposoneNavTree(unittest.TestCase):
         with self.app.test_request_context('/admin/eposone/dashboard'):
             tree = build_nav_tree(self._ctx())
             rows = serialize_nav_sidebar(tree, self._ctx())
-        self.assertTrue(any(r['is_group'] and r['id'] == 'infraestructura' for r in rows))
+        self.assertTrue(any(r['is_group'] and r['id'] == 'administracion' for r in rows))
+        self.assertTrue(any(r['is_group'] and r['id'] == 'eposone-ops' for r in rows))
         self.assertTrue(any(r['is_group'] and r['id'] == 'mas' for r in rows))
-        self.assertTrue(any((not r.get('is_group')) and r['id'] == 'caja' for r in rows))
         self.assertTrue(any((not r.get('is_group')) and r['id'] == 'pedidos' for r in rows))
 
 class TestMergeNativeAppNav(unittest.TestCase):

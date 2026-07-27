@@ -662,10 +662,16 @@ def eposone_home():
             date_to=date_to,
         )
     kpis = board['kpis'] if board else None
+    setup_guide = None
+    if oid is not None:
+        from nodeone.modules.eposone.setup_guide import build_setup_guide
+
+        setup_guide = build_setup_guide(int(oid))
     return render_template(
         'eposone/dashboard.html',
         board=board,
         kpis=kpis,
+        setup_guide=setup_guide,
         dash_range=(board or {}).get('range') or range_key,
         dash_from=(board or {}).get('date_from') or date_from or '',
         dash_to=(board or {}).get('date_to') or date_to or '',
@@ -1588,6 +1594,46 @@ def eposone_digital_menu_create():
         return _redirect_digital_menu()
     flash(f'Menú {dto.menu_ref} creado ({len(dto.items)} ítem(s)).', 'success')
     return _redirect_digital_menu()
+
+
+@eposone_bp.route('/digital-menus/<int:menu_id>/qr.png', methods=['GET'])
+@login_required
+def eposone_digital_menu_qr(menu_id: int):
+    """QR imprimible del menú público (para mesa / mostrador)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from flask import Response
+
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.digital_menu_service import DigitalMenuService
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    dto = DigitalMenuService.get_menu(int(oid), int(menu_id))
+    if dto is None:
+        abort(404)
+    public_url = DigitalMenuService.public_menu_url(dto.public_token)
+    try:
+        size = int(request.args.get('size') or 512)
+    except (TypeError, ValueError):
+        size = 512
+    size = max(256, min(size, 1024))
+    try:
+        png = DigitalMenuService.qr_png_bytes(public_url, size=size)
+    except OrderValidationError:
+        abort(400)
+    safe_ref = ''.join(c if c.isalnum() or c in '-_' else '-' for c in (dto.menu_ref or 'menu'))
+    return Response(
+        png,
+        mimetype='image/png',
+        headers={
+            'Content-Disposition': f'inline; filename="menu-qr-{safe_ref}.png"',
+            'Cache-Control': 'private, max-age=300',
+        },
+    )
 
 
 @eposone_bp.route('/digital-menus/<int:menu_id>/active', methods=['POST'])

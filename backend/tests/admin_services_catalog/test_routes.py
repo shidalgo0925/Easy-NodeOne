@@ -20,6 +20,7 @@ class TestAdminServicesCatalogBlueprint(unittest.TestCase):
         self.assertIn('admin_services_catalog.admin_services_export_xlsx', endpoints)
         self.assertIn('admin_services_catalog.admin_services_import_template_csv', endpoints)
         self.assertIn('admin_services_catalog.admin_services_import', endpoints)
+        self.assertIn('admin_services_catalog.admin_services_upload_image', endpoints)
 
     def test_paths(self):
         from app import app

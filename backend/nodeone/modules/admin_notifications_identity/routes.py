@@ -1,15 +1,11 @@
 """Registro de rutas admin notifications + identity en app (endpoints legacy)."""
 
-from nodeone.services.company_wizard import IDENTITY_PRESETS, validate_hex_color
-
-
 def register_admin_notifications_identity_routes(app):
-    import re
     from datetime import datetime
 
     from flask import flash, jsonify, redirect, render_template, request, url_for
 
-    from app import SaasOrganization, admin_required, db, NotificationSettings, OrganizationSettings
+    from app import SaasOrganization, admin_required, db, NotificationSettings
 
     @app.route('/admin/notifications')
     @admin_required
@@ -160,98 +156,3 @@ def register_admin_notifications_identity_routes(app):
             }
         )
         return render_template('admin/company_wizard.html', **ctx)
-
-    @app.route('/api/admin/identity', methods=['GET', 'POST'])
-    @admin_required
-    def api_admin_identity():
-        """GET: devolver configuración. POST: guardar (validar HEX y presets)."""
-        if request.method == 'GET':
-            s = OrganizationSettings.get_settings_for_session()
-            return jsonify({'success': True, 'settings': s.to_dict()})
-        data = request.get_json(silent=True) or {}
-        preset = (data.get('preset') or 'azul').strip().lower()
-        if preset in IDENTITY_PRESETS:
-            p = IDENTITY_PRESETS[preset]
-            s = OrganizationSettings.get_settings_for_session()
-            s.primary_color = p['primary_color']
-            s.primary_color_dark = p['primary_color_dark']
-            s.accent_color = p['accent_color']
-            s.preset = preset
-        elif preset == 'custom':
-            primary = (data.get('primary_color') or '').strip()
-            primary_dark = (data.get('primary_color_dark') or '').strip()
-            accent = (data.get('accent_color') or '').strip()
-            if not all((validate_hex_color(primary), validate_hex_color(primary_dark), validate_hex_color(accent))):
-                return jsonify({'success': False, 'error': 'Colores personalizados deben ser HEX válidos (#RRGGBB).'}), 400
-            s = OrganizationSettings.get_settings_for_session()
-            s.primary_color = primary
-            s.primary_color_dark = primary_dark
-            s.accent_color = accent
-            s.preset = 'custom'
-        else:
-            return jsonify({'success': False, 'error': 'Preset no válido. Elige un preset de la lista o custom.'}), 400
-        try:
-            db.session.commit()
-            return jsonify({'success': True, 'settings': s.to_dict()})
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'success': False, 'error': str(e)}), 500
-
-    @app.route('/api/admin/company-fiscal-profile', methods=['GET', 'POST'])
-    @admin_required
-    def api_company_fiscal_profile():
-        try:
-            from nodeone.services.org_scope import admin_data_scope_organization_id
-            from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
-
-            ensure_saas_organization_fiscal_columns(db, db.engine)
-            oid = int(admin_data_scope_organization_id())
-        except Exception as e:
-            return jsonify({'success': False, 'error': f'organization_context_error: {e}'}), 400
-
-        org = SaasOrganization.query.get(oid)
-        if not org:
-            return jsonify({'success': False, 'error': 'organization_not_found'}), 404
-
-        def _payload():
-            return {
-                'organization_id': int(org.id),
-                'name': (org.name or '').strip(),
-                'legal_name': (getattr(org, 'legal_name', None) or '').strip(),
-                'tax_id': (getattr(org, 'tax_id', None) or '').strip(),
-                'tax_regime': (getattr(org, 'tax_regime', None) or '').strip(),
-                'fiscal_address': (getattr(org, 'fiscal_address', None) or '').strip(),
-                'fiscal_city': (getattr(org, 'fiscal_city', None) or '').strip(),
-                'fiscal_state': (getattr(org, 'fiscal_state', None) or '').strip(),
-                'fiscal_country': (getattr(org, 'fiscal_country', None) or '').strip(),
-                'fiscal_phone': (getattr(org, 'fiscal_phone', None) or '').strip(),
-                'fiscal_email': (getattr(org, 'fiscal_email', None) or '').strip(),
-            }
-
-        if request.method == 'GET':
-            return jsonify({'success': True, 'profile': _payload()})
-
-        data = request.get_json(silent=True) or {}
-        raw_email = (data.get('fiscal_email') or '').strip()
-        if raw_email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', raw_email):
-            return jsonify({'success': False, 'error': 'Email fiscal inválido.'}), 400
-
-        updates = {
-            'legal_name': (data.get('legal_name') or '').strip() or None,
-            'tax_id': (data.get('tax_id') or '').strip() or None,
-            'tax_regime': (data.get('tax_regime') or '').strip() or None,
-            'fiscal_address': (data.get('fiscal_address') or '').strip() or None,
-            'fiscal_city': (data.get('fiscal_city') or '').strip() or None,
-            'fiscal_state': (data.get('fiscal_state') or '').strip() or None,
-            'fiscal_country': (data.get('fiscal_country') or '').strip() or None,
-            'fiscal_phone': (data.get('fiscal_phone') or '').strip() or None,
-            'fiscal_email': raw_email or None,
-        }
-        for k, v in updates.items():
-            setattr(org, k, v)
-        try:
-            db.session.commit()
-            return jsonify({'success': True, 'profile': _payload()})
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'success': False, 'error': str(e)}), 500

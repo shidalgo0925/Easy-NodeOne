@@ -18,7 +18,6 @@ docs/PLAN_MODULO_ACADEMIC_ENROLLMENT.md
 static/css/custom.css
 static/css/sidebar-erp-theme.css
 templates/admin/academic_programs_list.html
-templates/admin/identity.html
 templates/admin/organization_form.html
 templates/admin/organizations_list.html
 templates/admin/payments.html

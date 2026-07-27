@@ -166,11 +166,34 @@
                                    value="{{ identity_settings.accent_color or '#06B6D4' }}">
                         </div>
                     </div>
-                    <div class="border rounded p-3 bg-light">
-                        <span class="small text-muted">Vista previa</span>
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <button type="button" class="btn btn-primary btn-sm">Botón primario</button>
-                            <span class="badge bg-primary">Badge</span>
+                    <div class="border rounded overflow-hidden" id="brandPreviewShell">
+                        <div class="px-3 py-2 border-bottom bg-white d-flex align-items-center justify-content-between">
+                            <span class="small text-muted mb-0">Vista previa</span>
+                            <span class="small text-muted">Botones, enlaces y barra lateral</span>
+                        </div>
+                        <div class="brand-preview-frame d-flex">
+                            <aside class="brand-preview-sidebar flex-shrink-0" aria-hidden="true">
+                                <div class="brand-preview-brand">Empresa</div>
+                                <nav class="brand-preview-nav">
+                                    <span class="brand-preview-nav-item is-active"><i class="fas fa-home me-2"></i>Inicio</span>
+                                    <span class="brand-preview-nav-item"><i class="fas fa-box me-2"></i>Ventas</span>
+                                    <span class="brand-preview-nav-item"><i class="fas fa-cog me-2"></i>Config</span>
+                                </nav>
+                            </aside>
+                            <div class="brand-preview-main flex-grow-1 p-3">
+                                <div class="small text-muted mb-1">Contenido</div>
+                                <h2 class="h6 mb-2">Panel de ejemplo</h2>
+                                <p class="small mb-3">
+                                    Texto con
+                                    <a href="#" class="brand-preview-link" onclick="return false;">enlace de marca</a>
+                                    y acciones.
+                                </p>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm brand-preview-btn-primary">Botón primario</button>
+                                    <button type="button" class="btn btn-sm brand-preview-btn-outline">Secundario</button>
+                                    <span class="brand-preview-badge">Badge</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -266,8 +289,17 @@
 </div>
 {% endblock %}
 
+{% block head_extra %}
+{{ super() }}
+<link href="{{ url_for('static', filename='css/brand-preview.css') }}?v=1" rel="stylesheet">
+{% endblock %}
+
 {% block scripts %}
 {{ super() }}
+<script>
+window.NODEONE_IDENTITY_PRESETS = {{ identity_presets|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/brand-preview.js') }}?v=1"></script>
 <script>
 (function () {
     var maxStep = {{ wizard_max_step }};
@@ -278,9 +310,7 @@
     var btnNext = document.getElementById('wizardBtnNext');
     var btnSave = document.getElementById('wizardBtnSave');
     var stepField = document.getElementById('wizard_step_field');
-    var presetField = document.getElementById('identity_preset_field');
-    var customFields = document.getElementById('identityCustomFields');
-    var presetBtns = document.querySelectorAll('.identity-preset-btn');
+    var brandPreview = null;
 
     function showStep(n) {
         current = n;
@@ -295,16 +325,10 @@
         if (btnPrev) btnPrev.disabled = n <= 1;
         if (btnNext) btnNext.classList.toggle('d-none', n >= maxStep);
         if (btnSave) btnSave.classList.toggle('d-none', n < maxStep);
-    }
-
-    function setPreset(preset) {
-        if (presetField) presetField.value = preset;
-        presetBtns.forEach(function (b) {
-            var p = b.getAttribute('data-preset');
-            b.classList.toggle('btn-primary', p === preset);
-            b.classList.toggle('btn-outline-secondary', p !== preset);
-        });
-        if (customFields) customFields.classList.toggle('d-none', preset !== 'custom');
+        if (brandPreview) {
+            if (n === 3) brandPreview.refreshPreview();
+            else brandPreview.clearLiveRoot();
+        }
     }
 
     tabs.forEach(function (t) {
@@ -314,11 +338,10 @@
     });
     if (btnPrev) btnPrev.addEventListener('click', function () { showStep(current - 1); });
     if (btnNext) btnNext.addEventListener('click', function () { showStep(current + 1); });
-    presetBtns.forEach(function (b) {
-        b.addEventListener('click', function () { setPreset(b.getAttribute('data-preset')); });
-    });
 
-    setPreset(presetField ? presetField.value : 'azul');
+    if (window.NodeOneBrandPreview) {
+        brandPreview = window.NodeOneBrandPreview.init({ liveApp: true });
+    }
     showStep(current);
 })();
 </script>

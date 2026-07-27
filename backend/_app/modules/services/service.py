@@ -101,22 +101,14 @@ def _keyword_landing_key(name: str) -> str | None:
 
 def resolve_service_card_image_url(name: str | None, stored_url: str | None) -> str:
     """
-    URL de la miniatura: primero `image_url` en BD (admin), luego mapeo landing por nombre/alias,
-    luego heurística por palabras, y al final la misma foto genérica del menú en servicesCatalog.
+    Miniatura de tarjeta en Tienda/admin:
+    - Si hay ``image_url`` en BD (subida o URL), usarla.
+    - Si no, devolver vacío → la plantilla muestra el icono Font Awesome (sin fotos genéricas Unsplash).
     """
     s = (stored_url or "").strip()
     if s and s.lower() not in ("none", "null", "0", "-"):
         return s
-    n = (name or "").strip()
-    if not n:
-        return _DEFAULT_LANDING
-    ck = _norm_name(n).casefold()
-    key = _LANDING_LOOKUP.get(ck) or _LANDING_LOOKUP.get(_fold_ascii(n))
-    if not key:
-        key = _keyword_landing_key(n)
-    if not key or key not in _LANDING_IMAGES:
-        return _DEFAULT_LANDING
-    return _LANDING_IMAGES.get(key) or _DEFAULT_LANDING
+    return ""
 
 
 def _absolute_public_external_link(href):
@@ -136,6 +128,60 @@ def _absolute_public_external_link(href):
     if h.startswith('/'):
         return base + h
     return f'{base}/{h}'
+
+
+def _store_service_detail_url(service_id: int) -> str:
+    try:
+        from flask import url_for
+
+        return url_for('services.detail', service_id=int(service_id))
+    except Exception:
+        return f'/services/{int(service_id)}'
+
+
+def serialize_store_service(service, membership_type: str, *, advisors_list=None) -> dict:
+    """Dict de tarjeta/ficha Tienda (listado y detalle)."""
+    from nodeone.services.commercial_flow import (
+        flow_cta_labels,
+        flow_type_badge_label,
+        resolve_commercial_flow_type,
+    )
+
+    user_pricing = service.pricing_for_membership(membership_type)
+    flow = resolve_commercial_flow_type(service, user_pricing)
+    cta_label, cta_hint = flow_cta_labels(flow, service)
+    cat_name = ''
+    if getattr(service, 'category', None) is not None:
+        cat_name = service.category.name or ''
+
+    return {
+        'id': service.id,
+        'name': service.name,
+        'description': service.description or '',
+        'icon': service.icon or 'fas fa-box',
+        'image_url': resolve_service_card_image_url(service.name, service.image_url),
+        'external_link': _absolute_public_external_link(service.external_link),
+        'base_price': float(service.base_price or 0),
+        'pricing': user_pricing,
+        'requires_diagnostic_appointment': (
+            service.requires_diagnostic_appointment
+            if service.requires_diagnostic_appointment is not None
+            else False
+        ),
+        'appointment_type_id': service.appointment_type_id,
+        'requires_appointment': service.requires_appointment(),
+        'is_free': service.is_free_service(membership_type),
+        'service_type': getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE',
+        'advisors': list(advisors_list or []),
+        'diagnostic_appointment_type_id': getattr(service, 'diagnostic_appointment_type_id', None),
+        'program_slug': (getattr(service, 'program_slug', None) or '').strip(),
+        'commercial_flow_type': flow,
+        'commercial_flow_badge': flow_type_badge_label(flow, service),
+        'cta_label': cta_label,
+        'cta_hint': cta_hint,
+        'detail_url': _store_service_detail_url(service.id),
+        'category_name': cat_name,
+    }
 
 
 # Fallback cuando no hay tabla membership_plan (incl. basic: sin pago, servicios con precio 0 o incluidos según reglas)
@@ -184,7 +230,11 @@ _STORE_OPEN_SERVICE_REQUEST_STATUSES = frozenset(
 
 
 def _service_ids_with_open_contract(user, organization_id: int) -> set[int]:
-    """Servicios con compra o solicitud consultiva en curso → no van en tienda."""
+    """Servicios con compra en curso → no van en tienda.
+
+    Las solicitudes consultivas (ServiceRequest) de productos de catálogo sin tipo de cita
+    (p. ej. Galenus bajo cotización) no ocultan el ítem: el cliente debe seguir viendo la ficha.
+    """
     from models.service_request import ServiceRequest
 
     from app import Service, UserService
@@ -206,12 +256,17 @@ def _service_ids_with_open_contract(user, organization_id: int) -> set[int]:
             continue
         excluded.add(int(rec.service_id))
 
+    # Solo ocultar si hay solicitud abierta Y el servicio tiene cita (flujo asesoría real)
     for sr in ServiceRequest.query.filter(
         ServiceRequest.user_id == user.id,
         ServiceRequest.organization_id == organization_id,
         ServiceRequest.status.in_(tuple(_STORE_OPEN_SERVICE_REQUEST_STATUSES)),
     ).all():
-        excluded.add(int(sr.service_id))
+        svc_row = Service.query.filter_by(id=int(sr.service_id), organization_id=organization_id).first()
+        if svc_row is None:
+            continue
+        if getattr(svc_row, 'appointment_type_id', None):
+            excluded.add(int(sr.service_id))
 
     return excluded
 
@@ -223,10 +278,17 @@ def _should_show_service_in_store(service, *, user, membership_type: str, open_c
     if user is None or not getattr(user, 'is_authenticated', False):
         return True
 
-    from nodeone.services.commercial_flow import COMMERCIAL_FLOW_SERVICE_INCLUDED, resolve_commercial_flow_type
+    from nodeone.services.commercial_flow import (
+        COMMERCIAL_FLOW_SERVICE_CONSULTATIVE,
+        COMMERCIAL_FLOW_SERVICE_INCLUDED,
+        resolve_commercial_flow_type,
+    )
 
     pricing = service.pricing_for_membership(membership_type)
     flow = resolve_commercial_flow_type(service, pricing)
+    # Productos CONSULTIVO (p. ej. catálogo Galenus bajo cotización) sí van a la vitrina
+    if flow == COMMERCIAL_FLOW_SERVICE_CONSULTATIVE:
+        return True
     if flow == COMMERCIAL_FLOW_SERVICE_INCLUDED:
         return False
     if (getattr(service, 'membership_type', None) or '').strip().lower() == 'basic':
@@ -303,7 +365,6 @@ def get_services_page_data(user=None, organization_id=None):
             if isinstance(mt, str):
                 mt = mt.strip()
             available_plans.add(mt if mt else 'basic')
-        user_pricing = service.pricing_for_membership(membership_type)
         at_id = service.appointment_type_id or getattr(service, 'diagnostic_appointment_type_id', None)
         advisors_list = []
         if at_id:
@@ -313,36 +374,9 @@ def get_services_page_data(user=None, organization_id=None):
                         'id': aa.advisor.id,
                         'name': f"{aa.advisor.user.first_name} {aa.advisor.user.last_name}"
                     })
-        from nodeone.services.commercial_flow import (
-            flow_cta_labels,
-            flow_type_badge_label,
-            resolve_commercial_flow_type,
+        service_data = serialize_store_service(
+            service, membership_type, advisors_list=advisors_list
         )
-
-        _flow = resolve_commercial_flow_type(service, user_pricing)
-        _cta_label, _cta_hint = flow_cta_labels(_flow)
-        service_data = {
-            'id': service.id,
-            'name': service.name,
-            'description': service.description,
-            'icon': service.icon or 'fas fa-cog',
-            'image_url': resolve_service_card_image_url(service.name, service.image_url),
-            'external_link': _absolute_public_external_link(service.external_link),
-            'base_price': service.base_price,
-            'pricing': user_pricing,
-            'requires_diagnostic_appointment': service.requires_diagnostic_appointment if service.requires_diagnostic_appointment is not None else False,
-            'appointment_type_id': service.appointment_type_id,
-            'requires_appointment': service.requires_appointment(),
-            'is_free': service.is_free_service(membership_type),
-            'service_type': getattr(service, 'service_type', 'AGENDABLE') or 'AGENDABLE',
-            'advisors': advisors_list,
-            'diagnostic_appointment_type_id': getattr(service, 'diagnostic_appointment_type_id', None),
-            'program_slug': (getattr(service, 'program_slug', None) or '').strip(),
-            'commercial_flow_type': _flow,
-            'commercial_flow_badge': flow_type_badge_label(_flow),
-            'cta_label': _cta_label,
-            'cta_hint': _cta_hint,
-        }
         for plan_type in available_plans:
             if plan_type not in services_by_plan:
                 services_by_plan[plan_type] = []
@@ -388,6 +422,43 @@ def get_services_page_data(user=None, organization_id=None):
         'membership_type': membership_type,
         'plan_slugs_ordered': plan_slugs_ordered,
         'store_filtered_for_user': bool(user is not None and getattr(user, 'is_authenticated', False)),
+    }
+
+
+def get_service_detail_page_data(service_id: int, user=None, organization_id=None):
+    """Ficha pública de un producto/servicio del catálogo (Tienda)."""
+    from flask import abort
+
+    oid = int(organization_id) if organization_id is not None else None
+    if oid is None and user is not None and getattr(user, 'is_authenticated', False):
+        oid = int(getattr(user, 'organization_id', None) or 0) or None
+    if oid is None:
+        from app import default_organization_id
+
+        oid = int(default_organization_id())
+
+    service = repository.get_service_or_404(service_id, organization_id=oid)
+    if not service.is_active:
+        abort(404)
+
+    if user is not None and getattr(user, 'is_authenticated', False):
+        active_membership = user.get_active_membership()
+    else:
+        active_membership = None
+    membership_type = active_membership.membership_type if active_membership else 'basic'
+
+    try:
+        from flask import url_for
+
+        list_url = url_for('services.list')
+    except Exception:
+        list_url = '/services'
+
+    return {
+        'service': serialize_store_service(service, membership_type),
+        'membership': active_membership,
+        'membership_type': membership_type,
+        'list_url': list_url,
     }
 
 

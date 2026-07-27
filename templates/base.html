@@ -19,7 +19,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-9-dropdown" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/en1-color-system.css') }}?v=8" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/en1-color-system.css') }}?v=9-tenant-brand" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=27-launcher-icons" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/platform-app-shell.css') }}?v=6" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
@@ -433,9 +433,31 @@
             <nav class="navbar navbar-expand-sm navbar-default">
                 <div id="main-menu" class="main-menu navbar-collapse">
                     <ul class="nav navbar-nav">
-                        {# 🏠 Dashboard #}
-                        {# Menú lateral miembro Relatic: Inicio → Eventos → Mis servicios → Mi membresía → Tienda → Correo → Documentos #}
+                        {# Miembro / comprador: Relatic (membresía) vs comprador tienda (sales sin memberships). #}
                         {% if not show_tenant_admin_menu and not (show_platform_admin_nav and current_user.is_admin) %}
+                        {% set _store_buyer = saas_module_enabled('sales') and not saas_module_enabled('memberships') %}
+                        {% if _store_buyer %}
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--inicio">
+                            <a class="nav-link sidebar-link {% if request.endpoint == 'dashboard' or request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Catálogo de productos">
+                                <i class="menu-icon fas fa-home"></i>
+                                <span class="menu-title-text">Inicio</span>
+                            </a>
+                        </li>
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--tienda">
+                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos disponibles">
+                                <i class="menu-icon fas fa-store"></i>
+                                <span class="menu-title-text">Tienda</span>
+                            </a>
+                        </li>
+                        {% if has_view_endpoint('payments_checkout.payments_history') %}
+                        <li class="nav-item sidebar-nav-member sidebar-nav-member--orders">
+                            <a class="nav-link sidebar-link {% if request.endpoint == 'payments_checkout.payments_history' %}active{% endif %}" href="{{ url_for('payments_checkout.payments_history') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Pedidos y pagos">
+                                <i class="menu-icon fas fa-receipt"></i>
+                                <span class="menu-title-text">Mis pedidos</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% else %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--inicio">
                             <a class="nav-link sidebar-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Resumen y accesos rápidos">
                                 <i class="menu-icon fas fa-home"></i>
@@ -457,12 +479,14 @@
                         </li>
                         {% endif %}
                         {% if not academic_member_gate_active %}
+                        {% if saas_module_enabled('memberships') or saas_module_enabled('appointments') %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--services">
                             <a class="nav-link sidebar-link {% if request.endpoint == 'member_services' %}active{% endif %}" href="{{ url_for('member_services') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios contratados o incluidos en tu plan">
                                 <i class="menu-icon fas fa-box-open"></i>
                                 <span class="menu-title-text">Mis servicios</span>
                             </a>
                         </li>
+                        {% endif %}
                         {% endif %}
                         {% if saas_module_enabled('memberships') %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--membership">
@@ -480,13 +504,14 @@
                             </a>
                         </li>
                         {% endif %}
-                        {% if not academic_member_gate_active %}
+                        {% if not academic_member_gate_active and (saas_module_enabled('sales') or saas_module_enabled('appointments')) %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--tienda">
-                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Servicios disponibles para comprar">
+                            <a class="nav-link sidebar-link {% if request.blueprint == 'services' %}active{% endif %}" href="{{ url_for('services.list') }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Productos y servicios disponibles">
                                 <i class="menu-icon fas fa-store"></i>
                                 <span class="menu-title-text">Tienda</span>
                             </a>
                         </li>
+                        {% endif %}
                         {% endif %}
                         {% if saas_module_enabled('communications') and office365_module_enabled %}
                         <li class="nav-item sidebar-nav-member sidebar-nav-member--mail">

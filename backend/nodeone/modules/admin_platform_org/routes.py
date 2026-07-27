@@ -158,19 +158,6 @@ def register_admin_platform_org_routes(app):
         except Exception:
             return None
 
-    def _org_fiscal_payload_from_form(form):
-        return {
-            'legal_name': (form.get('legal_name') or '').strip() or None,
-            'tax_id': (form.get('tax_id') or '').strip() or None,
-            'tax_regime': (form.get('tax_regime') or '').strip() or None,
-            'fiscal_address': (form.get('fiscal_address') or '').strip() or None,
-            'fiscal_city': (form.get('fiscal_city') or '').strip() or None,
-            'fiscal_state': (form.get('fiscal_state') or '').strip() or None,
-            'fiscal_country': (form.get('fiscal_country') or '').strip() or None,
-            'fiscal_phone': (form.get('fiscal_phone') or '').strip() or None,
-            'fiscal_email': (form.get('fiscal_email') or '').strip() or None,
-        }
-
     def _wizard_context(*, wizard_mode: str, org=None, form=None, google_oauth=None, step_arg=None):
         from nodeone.services.company_wizard import (
             enrich_company_wizard_context,
@@ -266,7 +253,9 @@ def register_admin_platform_org_routes(app):
             name = (request.form.get('name') or '').strip()
             sub_raw = _normalize_org_subdomain(request.form.get('subdomain'))
             is_active = request.form.get('is_active') == '1'
-            fiscal = _org_fiscal_payload_from_form(request.form)
+            from nodeone.services.company_wizard import fiscal_payload_from_form
+
+            fiscal = fiscal_payload_from_form(request.form)
             from nodeone.services.registration_policy import normalize_registration_policy
 
             registration_policy = normalize_registration_policy(request.form.get('registration_policy'))
@@ -399,7 +388,9 @@ def register_admin_platform_org_routes(app):
             name = (request.form.get('name') or '').strip()
             sub_raw = _normalize_org_subdomain(request.form.get('subdomain'))
             is_active = True if oid == 1 else request.form.get('is_active') == '1'
-            fiscal = _org_fiscal_payload_from_form(request.form)
+            from nodeone.services.company_wizard import fiscal_payload_from_form
+
+            fiscal = fiscal_payload_from_form(request.form)
             if not name:
                 flash('El nombre es obligatorio.', 'error')
                 return _render_org_wizard(

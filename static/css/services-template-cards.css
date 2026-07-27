@@ -220,6 +220,19 @@
   border: 1px solid var(--color-border, #e2e8f0);
 }
 
+/* Admin catálogo Productos: miniatura cuadrada junto a acciones */
+.services-catalog-page .service-template-card .service-card-thumb {
+  width: 4.5rem;
+  height: 4.5rem;
+  max-height: none;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.services-catalog-page .service-template-card.has-product-thumb .service-card-top {
+  align-items: flex-start;
+}
+
 .service-template-card .service-card-icon {
   flex-shrink: 0;
   width: 2.5rem;

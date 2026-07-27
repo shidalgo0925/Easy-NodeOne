@@ -3,32 +3,45 @@
 {% block title %}Bienvenido — {{ brand_name }}{% endblock %}
 
 {% block content %}
-<section class="ets-portal-hero">
-    <p class="ets-portal-eyebrow">{{ brand_name }}</p>
-    <h1>Bienvenido</h1>
-    <p class="ets-portal-lead">Tus productos del ecosistema ETS.</p>
-    <a class="ets-portal-btn ets-portal-btn--primary" href="{{ url_for('ets_portal.products') }}">Mis Productos</a>
-</section>
+<section class="ets-portal-home">
+    <div class="ets-portal-home__copy">
+        <section class="ets-portal-hero">
+            <p class="ets-portal-eyebrow">{{ brand_name }}</p>
+            <h1>Bienvenido</h1>
+            <p class="ets-portal-lead">Tus productos del ecosistema ETS.</p>
+            <a class="ets-portal-btn ets-portal-btn--primary" href="{{ url_for('ets_portal.products') }}">Mis Productos</a>
+        </section>
 
-{% if portal_products %}
-<section class="ets-portal-preview">
-    <h2 class="ets-portal-section-title">Resumen</h2>
-    <ul class="ets-portal-product-list">
-        {% for p in portal_products[:4] %}
-        <li class="ets-portal-product-card">
-            <div class="ets-portal-product-card__body">
-                <div class="ets-portal-product-card__icon" aria-hidden="true">{{ (p.icon or p.name[:1])|e }}</div>
-                <div>
-                    <h3>{{ p.name }}</h3>
-                    <p class="ets-portal-status">Estado: <strong>{{ p.subscription_status }}</strong></p>
-                </div>
-            </div>
-            {% if p.open_url %}
-            <a class="ets-portal-btn" href="{{ url_for('ets_portal.open_product', product_code=p.product_code) }}">Abrir</a>
-            {% endif %}
-        </li>
-        {% endfor %}
-    </ul>
+        {% if portal_products %}
+        <section class="ets-portal-preview">
+            <h2 class="ets-portal-section-title">Resumen</h2>
+            <ul class="ets-portal-product-list">
+                {% for p in portal_products[:4] %}
+                <li class="ets-portal-product-card">
+                    <div class="ets-portal-product-card__body">
+                        <div class="ets-portal-product-card__icon" aria-hidden="true">{{ (p.icon or p.name[:1])|e }}</div>
+                        <div>
+                            <h3>{{ p.name }}</h3>
+                            <p class="ets-portal-status">Estado: <strong>{{ p.subscription_status }}</strong></p>
+                        </div>
+                    </div>
+                    {% if p.open_url %}
+                    <a class="ets-portal-btn" href="{{ url_for('ets_portal.open_product', product_code=p.product_code) }}">Abrir</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+    </div>
+
+    <aside class="ets-portal-home__visual" aria-hidden="true">
+        <img class="ets-portal-home__img"
+             src="{{ url_for('static', filename='images/ets-portal-hero.png') }}"
+             alt=""
+             width="485"
+             height="1024"
+             decoding="async">
+    </aside>
 </section>
-{% endif %}
 {% endblock %}

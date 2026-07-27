@@ -26,6 +26,8 @@ NAV_AREA_TO_PLATFORM_APP: dict[str, str] = {
     'contactos': 'contacts',
     'tienda': 'tienda',
     'finanzas': 'finanzas',
+    'facturacion': 'finanzas',
+    'cobros': 'finanzas',
     'config': 'config',
     'plataforma': 'plataforma',
     'matriz_odoo': 'security_matrix',

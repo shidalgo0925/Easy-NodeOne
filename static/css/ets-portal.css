@@ -34,7 +34,7 @@ body.ets-portal {
 }
 
 .ets-portal-header__inner {
-    max-width: 960px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 0.9rem 1.25rem;
     display: flex;
@@ -85,10 +85,41 @@ body.ets-portal {
 
 .ets-portal-main {
     flex: 1;
-    max-width: 960px;
+    max-width: 1100px;
     width: 100%;
     margin: 0 auto;
     padding: 2rem 1.25rem 3rem;
+}
+
+.ets-portal-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.85fr);
+    gap: 2rem 2.5rem;
+    align-items: start;
+}
+
+.ets-portal-home__copy {
+    min-width: 0;
+}
+
+.ets-portal-home__visual {
+    position: sticky;
+    top: 5.5rem;
+    margin: 0;
+    justify-self: end;
+    width: 100%;
+    max-width: 22rem;
+}
+
+.ets-portal-home__img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: min(78vh, 40rem);
+    object-fit: contain;
+    object-position: top center;
+    border-radius: 1rem;
+    box-shadow: 0 16px 40px rgba(15, 118, 110, 0.12);
 }
 
 .ets-portal-hero h1 {
@@ -234,9 +265,30 @@ body.ets-portal {
     border-color: #fecaca;
 }
 
+@media (max-width: 900px) {
+    .ets-portal-home {
+        grid-template-columns: 1fr;
+    }
+
+    .ets-portal-home__visual {
+        position: static;
+        max-width: 18rem;
+        justify-self: center;
+        order: -1;
+    }
+
+    .ets-portal-home__img {
+        max-height: 22rem;
+    }
+}
+
 @media (max-width: 640px) {
     .ets-portal-product-card {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .ets-portal-home__visual {
+        max-width: 14rem;
     }
 }

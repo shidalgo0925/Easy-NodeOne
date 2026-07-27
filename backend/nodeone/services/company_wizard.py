@@ -132,6 +132,7 @@ def enrich_company_wizard_context(ctx: dict) -> dict:
     oid = int(org.id) if org is not None else None
     ctx['wizard_max_step'] = wizard_max_step(mode=mode)
     ctx['identity_preset_choices'] = identity_preset_choices_for_wizard()
+    ctx['identity_presets'] = IDENTITY_PRESETS
     ctx['wizard_quick_links'] = build_wizard_quick_links(
         wizard_mode=wizard_mode,
         org_id=oid,

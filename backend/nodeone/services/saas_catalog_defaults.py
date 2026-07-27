@@ -15,6 +15,12 @@ from sqlalchemy import inspect, text
 # is_core=False → hace falta fila en saas_org_module; se puede activar/desactivar por tenant (con default ON vía ensure_toggleable_tenant_module_links).
 SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
     ('appointments', 'Citas', 'Agenda y citas', False),
+    (
+        'operaciones',
+        'Operaciones',
+        'Grupo del menú lateral Operaciones (Agenda, Educación, Certificados, Contador).',
+        False,
+    ),
     ('events', 'Eventos', 'Eventos e inscripciones', False),
     ('chatbot', 'IA / Chatbots', 'Asistentes y configuración IA', False),
     ('crm_contacts', 'Contactos CRM', 'Contactos del tenant', False),
@@ -208,6 +214,7 @@ def ensure_sales_org_module_links(printfn=None) -> None:
 TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'analytics',
     'appointments',
+    'operaciones',
     'crm',
     'crm_contacts',
     'certificates',

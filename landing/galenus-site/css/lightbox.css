@@ -1,0 +1,110 @@
+/* Lightbox — galería con continuidad */
+.lb-open { overflow: hidden; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 4rem;
+  background: rgba(0, 16, 48, 0.88);
+  backdrop-filter: blur(6px);
+}
+.lightbox.is-open { display: flex; }
+.lightbox img {
+  max-width: min(92vw, 1100px);
+  max-height: 82vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  background: #fff;
+  user-select: none;
+}
+.lightbox .lb-close,
+.lightbox .lb-nav {
+  position: absolute;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--g-navy, #102830);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-family: inherit;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.lightbox .lb-close:hover,
+.lightbox .lb-nav:hover {
+  background: var(--g-cyan, #00A8E0);
+  color: #fff;
+}
+.lightbox .lb-close {
+  top: 1rem;
+  right: 1rem;
+  width: 44px;
+  height: 44px;
+  font-size: 1.5rem;
+}
+.lightbox .lb-nav {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  font-size: 2rem;
+  font-weight: 300;
+}
+.lightbox .lb-prev { left: 1rem; }
+.lightbox .lb-next { right: 1rem; }
+.lightbox .lb-nav[hidden] { display: none; }
+
+.lightbox .lb-meta {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 90vw;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+}
+.lightbox .lb-counter {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: rgba(0, 16, 48, 0.55);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+}
+.lightbox .lb-caption {
+  font-size: 0.9rem;
+}
+
+img[data-zoom],
+.pic img,
+.gallery .main img,
+.gallery-strip img,
+.sector img,
+.demo-card .demo-media img,
+.brand img {
+  cursor: zoom-in;
+}
+
+@media (max-width: 640px) {
+  .lightbox { padding: 1rem 3.25rem; }
+  .lightbox .lb-nav {
+    width: 40px;
+    height: 40px;
+    font-size: 1.65rem;
+  }
+  .lightbox .lb-prev { left: 0.4rem; }
+  .lightbox .lb-next { right: 0.4rem; }
+  .lightbox img { max-height: 75vh; }
+}

@@ -832,9 +832,8 @@ def resolve_theme_tokens():
     ea = _env_brand_hex('NODEONE_BRAND_ACCENT')
     eg = _env_brand_hex('NODEONE_BRAND_ACCENT_GOLD')
     ec = _env_brand_hex('NODEONE_BRAND_ACCENT_CYAN')
-    # Surface producto: no pisar BrandContext con paleta EN1 del silo
-    if use_en1 and app_ctx.surface not in ('portal', 'product') and not ep and not ed and not ea:
-        out.update(_EN1_THEME)
+    # Overrides opcionales por env (NODEONE_BRAND_*). No pisar organization_settings
+    # con la paleta fija EN1 del silo: eso anulaba el branding por empresa.
     if ep and app_ctx.surface not in ('portal', 'product'):
         out['theme_primary'] = ep
     if ed and app_ctx.surface not in ('portal', 'product'):

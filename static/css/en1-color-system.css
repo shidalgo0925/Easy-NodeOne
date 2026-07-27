@@ -3,27 +3,26 @@
  * Naranja #FF6B35 · Navy sidebar #2D3E50 · Escala de grises en UI.
  */
 
+/* data-brand=en1: tokens derivados de --color-* (inyectados desde organization_settings).
+   No hardcodear primario: pisaba el branding por empresa. */
 html[data-brand='en1'] {
-    --color-primary: #ff6b35;
-    --color-primary-dark: #2d3e50;
-    --color-accent: #9ca3af;
-    --color-background-cream: #f7f9fc;
-    --color-text: #2c3e50;
-    --color-border: #e5e7eb;
-    --en1-accent: #ff6b35;
-    --en1-sorbet: #ff6b35;
-    --en1-sidebar: #2d3e50;
-    --en1-canvas: #f7f9fc;
+    --en1-accent: var(--color-primary, #ff6b35);
+    --en1-sorbet: var(--en1-accent);
+    --en1-sidebar: var(--color-primary-dark, #2d3e50);
+    --en1-canvas: var(--color-background-cream, #f7f9fc);
     --en1-surface: #ffffff;
-    --en1-border: #e5e7eb;
+    --en1-border: var(--color-border, #e5e7eb);
     --en1-border-strong: #d1d5db;
     --en1-hover: #f3f4f6;
-    --en1-icon: #9ca3af;
-    --en1-ink: #2c3e50;
+    --en1-icon: var(--color-accent, #9ca3af);
+    --en1-ink: var(--color-text, #2c3e50);
     --en1-ink-secondary: #6b7280;
     --en1-ink-muted: #9ca3af;
     --en1-badge-bg: #f3f4f6;
     --en1-badge-ink: #4b5563;
+    --en1-action: var(--en1-accent);
+    --en1-action-hover: color-mix(in srgb, var(--en1-action) 85%, #000);
+    --en1-action-pressed: color-mix(in srgb, var(--en1-action) 70%, #000);
 }
 
 /* Surface EPosOne — Product Registry theme (Host eposone.easytech.services) */
@@ -61,8 +60,8 @@ html[data-brand='eposone'] {
     --en1-hover: #f3f4f6;
 
     --en1-action: var(--en1-accent);
-    --en1-action-hover: #e85f2f;
-    --en1-action-pressed: #cf5429;
+    --en1-action-hover: color-mix(in srgb, var(--en1-action) 85%, #000);
+    --en1-action-pressed: color-mix(in srgb, var(--en1-action) 70%, #000);
     --en1-on-action: #ffffff;
 
     --en1-ink: var(--color-text, #2c3e50);

@@ -225,3 +225,4 @@ Orden de implementación sugerido: **Hito 1 (EPosOne primero)** → 2 → 4 (val
 |-------|------|
 | **2026-07-27** | Aprobado (GO) — unifica entrada cliente, landings EN1, Portal de cuenta, lanzador inteligente; WordPress descartado para landings de producto |
 | **2026-07-27** | **Hito 1 implementado (Dev):** `GET /` en Host `surface=product` → landing EN1 (`product_landing/`, EPosOne completo). Infra (`appdev`/`appprd`) sigue yendo a login. |
+| **2026-07-27** | **Hito 2 + Hito 4 (Dev):** auth con piel Portal ETS en Host portal; lanzador inteligente 1→producto / N→Mis Productos; `/portal/*` permitido en Host product. |

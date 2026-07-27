@@ -175,14 +175,16 @@ def visible_launcher_apps(ctx, organization_id: int | None = None) -> list[dict[
 
 
 def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
-    """URL destino tras login / selector de org (respeta launcher v2 + Portal ETS)."""
+    """URL destino tras login / selector de org (ADR-013 + ADR-017 lanzador)."""
     from flask import url_for
 
     if next_page:
         return next_page
 
-    # ADR-013: Host portal → experiencia Portal ETS (no ERP EN1)
-    # Surface product → home_hint del Product Registry (p. ej. eposone.eposone_home)
+    # ADR-013 / ADR-017:
+    # - Host portal → siempre Portal (Caso C)
+    # - Host product + 1 usable matching → dashboard producto (Caso A)
+    # - Host product + 0/N → Mis Productos (Caso B)
     try:
         from nodeone.core.platform.context_resolver import current_app_context
 
@@ -190,20 +192,7 @@ def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
         if app_ctx.surface == 'portal':
             return url_for('ets_portal.home')
         if app_ctx.surface == 'product':
-            hint = (app_ctx.product.home_hint or '').strip()
-            app_ids = app_ctx.product.allowed_apps or ()
-            if app_ids:
-                set_active_app_id(session, app_ids[0])
-            if hint and '.' in hint:
-                try:
-                    return url_for(hint)
-                except Exception:
-                    pass
-            if app_ids:
-                try:
-                    return url_for(f'{app_ids[0]}.{app_ids[0]}_home')
-                except Exception:
-                    pass
+            return _product_host_post_login_target(app_ctx, session)
     except Exception:
         pass
 
@@ -232,3 +221,46 @@ def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
         set_active_app_id(session, apps[0]['id'])
         return apps[0]['url']
     return url_for('platform_launcher.apps_home')
+
+
+def _product_host_post_login_target(app_ctx, session) -> str:
+    """ADR-017 Hito 4 — lanzador inteligente en Host de producto."""
+    from flask import url_for
+
+    host_code = (app_ctx.product_code or '').strip().lower()
+    usable: list[dict] = []
+    try:
+        from nodeone.modules.ets_portal.portal_service import PortalService
+
+        usable = PortalService.list_usable_products_for_current_tenant()
+    except Exception:
+        usable = []
+
+    if len(usable) == 1 and (usable[0].get('product_code') or '').strip().lower() == host_code:
+        return _open_product_home(app_ctx, session)
+
+    # 0 o N productos, o el único no coincide con este host → Mis Productos
+    try:
+        return url_for('ets_portal.products')
+    except Exception:
+        return url_for('ets_portal.home')
+
+
+def _open_product_home(app_ctx, session) -> str:
+    from flask import url_for
+
+    hint = (app_ctx.product.home_hint or '').strip()
+    app_ids = app_ctx.product.allowed_apps or ()
+    if app_ids:
+        set_active_app_id(session, app_ids[0])
+    if hint and '.' in hint:
+        try:
+            return url_for(hint)
+        except Exception:
+            pass
+    if app_ids:
+        try:
+            return url_for(f'{app_ids[0]}.{app_ids[0]}_home')
+        except Exception:
+            pass
+    return url_for('dashboard')

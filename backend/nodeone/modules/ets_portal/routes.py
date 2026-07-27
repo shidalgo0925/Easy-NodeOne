@@ -12,14 +12,14 @@ ets_portal_bp = Blueprint('ets_portal', __name__, url_prefix='/portal')
 
 
 def _require_portal_surface():
-    """En hosts no-portal, redirige al dashboard EN1 (no mezclar superficies)."""
+    """Portal ETS: host portal, o producto (ADR-017 Hito 4 → Mis Productos)."""
     ctx = current_app_context()
-    if ctx.surface != 'portal':
-        try:
-            return redirect(url_for('dashboard'))
-        except Exception:
-            return redirect('/')
-    return None
+    if ctx.surface in ('portal', 'product'):
+        return None
+    try:
+        return redirect(url_for('dashboard'))
+    except Exception:
+        return redirect('/')
 
 
 @ets_portal_bp.route('/')

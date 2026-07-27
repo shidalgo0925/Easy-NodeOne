@@ -7,6 +7,11 @@ import app as M
 
 
 def register_public_auth_legacy_routes(app):
+    from nodeone.modules.ets_portal.auth_skin import resolve_auth_template
+
+    def _tpl(name):
+        return resolve_auth_template(name)
+
     from datetime import datetime, timedelta
 
     from flask import flash, redirect, render_template, request, session, url_for
@@ -100,7 +105,7 @@ def register_public_auth_legacy_routes(app):
             if not email or not password or not first_name or not last_name:
                 flash('Todos los campos obligatorios deben ser completados.', 'error')
                 return render_template(
-                    'register.html',
+                    _tpl('register.html'),
                     valid_countries=VALID_COUNTRIES,
                     invite_token=session.get('pending_invite_token'),
                     register_next=register_next,
@@ -113,7 +118,7 @@ def register_public_auth_legacy_routes(app):
                 if not is_valid:
                     flash(error_message, 'error')
                     return render_template(
-                        'register.html',
+                        _tpl('register.html'),
                         valid_countries=VALID_COUNTRIES,
                         invite_token=session.get('pending_invite_token'),
                         register_next=register_next,
@@ -126,7 +131,7 @@ def register_public_auth_legacy_routes(app):
                 if not is_valid:
                     flash(error_message, 'error')
                     return render_template(
-                        'register.html',
+                        _tpl('register.html'),
                         valid_countries=VALID_COUNTRIES,
                         invite_token=session.get('pending_invite_token'),
                         register_next=register_next,
@@ -138,7 +143,7 @@ def register_public_auth_legacy_routes(app):
             if not is_valid:
                 flash(error_message, 'error')
                 return render_template(
-                    'register.html',
+                    _tpl('register.html'),
                     valid_countries=VALID_COUNTRIES,
                     invite_token=session.get('pending_invite_token'),
                     register_next=register_next,
@@ -159,7 +164,7 @@ def register_public_auth_legacy_routes(app):
             if invite and normalize_invite_email(email) != invite.email:
                 flash('El correo debe coincidir con el de la invitación.', 'error')
                 return render_template(
-                    'register.html',
+                    _tpl('register.html'),
                     valid_countries=VALID_COUNTRIES,
                     invite_token=invite_token,
                     register_next=register_next,
@@ -176,7 +181,7 @@ def register_public_auth_legacy_routes(app):
                         'error',
                     )
                     return render_template(
-                        'register.html',
+                        _tpl('register.html'),
                         valid_countries=VALID_COUNTRIES,
                         invite_token=invite_token,
                         register_next=register_next,
@@ -211,7 +216,7 @@ def register_public_auth_legacy_routes(app):
             if not ok_pol:
                 flash(err_pol or 'Registro no permitido para esta institución.', 'error')
                 return render_template(
-                    'register.html',
+                    _tpl('register.html'),
                     valid_countries=VALID_COUNTRIES,
                     invite_token=invite_token,
                     register_next=register_next,
@@ -307,7 +312,7 @@ def register_public_auth_legacy_routes(app):
             # registrar a otra persona con otro correo: "El correo debe coincidir…").
             session.pop('pending_invite_token', None)
         return render_template(
-            'register.html',
+            _tpl('register.html'),
             valid_countries=VALID_COUNTRIES,
             invite_token=session.get('pending_invite_token'),
             register_next=register_next,
@@ -644,11 +649,11 @@ def register_public_auth_legacy_routes(app):
             email = request.form.get('email', '').strip().lower()
             if not email:
                 flash('Por favor, ingresa tu correo electrónico.', 'error')
-                return render_template('forgot_password.html')
+                return render_template(_tpl('forgot_password.html'))
 
             if is_rate_limited(email=email, ip=request.remote_addr):
                 flash(GENERIC_REQUEST_MESSAGE, 'info')
-                return render_template('forgot_password.html')
+                return render_template(_tpl('forgot_password.html'))
 
             user = User.query.filter_by(email=email).first()
             if user and user.is_active:
@@ -682,9 +687,9 @@ def register_public_auth_legacy_routes(app):
                     print(f'Error enviando email de recuperación: {e}')
 
             flash(GENERIC_REQUEST_MESSAGE, 'info')
-            return render_template('forgot_password.html')
+            return render_template(_tpl('forgot_password.html'))
 
-        return render_template('forgot_password.html', token_ttl_minutes=TOKEN_TTL_MINUTES)
+        return render_template(_tpl('forgot_password.html'), token_ttl_minutes=TOKEN_TTL_MINUTES)
 
     @app.route('/reset-password', methods=['GET', 'POST'])
     def reset_password():
@@ -725,7 +730,7 @@ def register_public_auth_legacy_routes(app):
                 flash(messages.get(code, code.replace('_', ' ')), 'error')
                 if code == 'token_invalid':
                     return redirect(url_for('forgot_password'))
-                return render_template('reset_password.html', token=token, user=user)
+                return render_template(_tpl('reset_password.html'), token=token, user=user)
 
             try:
                 if current_user.is_authenticated:
@@ -750,5 +755,5 @@ def register_public_auth_legacy_routes(app):
             flash('La contraseña fue actualizada correctamente.', 'success')
             return redirect(url_for('auth.login'))
 
-        return render_template('reset_password.html', token=token, user=user)
+        return render_template(_tpl('reset_password.html'), token=token, user=user)
 

@@ -12,6 +12,8 @@ from nodeone.core.platform.subscription_registry import SubscriptionRegistry
 
 # Visible en «Mis Productos» (MVP)
 _PORTAL_VISIBLE_STATUSES = frozenset({'trial', 'active', 'past_due', 'suspended'})
+# ADR-017 Hito 4 — productos que se pueden abrir tras login
+_USABLE_SUB_STATUSES = frozenset({'trial', 'active', 'past_due'})
 
 
 class PortalService:
@@ -34,6 +36,56 @@ class PortalService:
         if oid is None:
             return []
         return cls.list_products_for_tenant(oid, scope_organization_id=oid)
+
+    @classmethod
+    def list_usable_products_for_tenant(
+        cls,
+        organization_id: int,
+        *,
+        scope_organization_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Productos operables para el lanzador inteligente (ADR-017 Hito 4)."""
+        items = cls.list_products_for_tenant(
+            int(organization_id),
+            scope_organization_id=scope_organization_id,
+        )
+        out: list[dict[str, Any]] = []
+        for item in items:
+            status = (item.get('subscription_status') or '').strip().lower()
+            if status not in _USABLE_SUB_STATUSES:
+                continue
+            if not item.get('is_entitled'):
+                continue
+            code = (item.get('product_code') or '').strip().lower()
+            definition = ProductRegistry.get(code)
+            if definition is None:
+                continue
+            if definition.surface != 'product' or not definition.list_in_portal:
+                continue
+            if not cls._entitlement_operable(int(organization_id), code):
+                continue
+            out.append(item)
+        return out
+
+    @classmethod
+    def list_usable_products_for_current_tenant(cls) -> list[dict[str, Any]]:
+        oid = cls._current_organization_id()
+        if oid is None:
+            return []
+        return cls.list_usable_products_for_tenant(oid, scope_organization_id=oid)
+
+    @staticmethod
+    def _entitlement_operable(organization_id: int, product_code: str) -> bool:
+        """Si hay entitlement, debe ser operable; si no hay fila, basta la suscripción."""
+        try:
+            from nodeone.core.platform.entitlement_service import EntitlementService
+
+            ent = EntitlementService.get_for_tenant_product(int(organization_id), product_code)
+            if ent is None:
+                return True
+            return bool(ent.is_operable)
+        except Exception:
+            return True
 
     @classmethod
     def list_products_for_tenant(
@@ -73,6 +125,8 @@ class PortalService:
                     'primary_domain': domain,
                     'open_url': open_url,
                     'surface': definition.surface,
+                    'home_hint': definition.home_hint,
+                    'app_ids': list(definition.app_ids or ()),
                 }
             )
         out.sort(key=lambda p: (p.get('name') or '').lower())

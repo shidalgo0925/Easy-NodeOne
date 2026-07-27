@@ -6,7 +6,7 @@
 | Título | Portal ETS como Punto Único de Entrada |
 | Estado | **Aprobado (GO)** — 24 jul 2026 |
 | Ámbito | Portal ETS · EN1 (servicios comunes) · todos los productos |
-| Relacionados | [ADR-012 Arquitectura ETS](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-011 Brand/ProductContext](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-014 Subscription Registry](ADR-014-SUBSCRIPTION-REGISTRY.md) |
+| Relacionados | [ADR-012 Arquitectura ETS](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-011 Brand/ProductContext](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-014 Subscription Registry](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-017 Customer Entry & Product Portal](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) |
 | Dominio oficial | **`app.easytech.services`** |
 
 ---
@@ -158,3 +158,4 @@ Implementación de pantallas Marketplace / facturación = **fases posteriores**.
 | Fecha | Nota |
 |-------|------|
 | **2026-07-24** | Aprobado (GO) — dominio oficial `app.easytech.services` |
+| **2026-07-27** | Complementado por [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md): landings EN1, lanzador inteligente, infra ≠ URL comercial |

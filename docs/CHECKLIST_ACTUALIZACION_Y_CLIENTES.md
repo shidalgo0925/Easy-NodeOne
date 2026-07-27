@@ -3,6 +3,9 @@
 Documento para **consultar en cada actualización** que llegue a clientes (o a sus entornos).  
 Complementa la política técnica de [`REGLAS-DE-TRABAJO.md`](../REGLAS-DE-TRABAJO.md) (solo desarrollo en dev, Git como fuente, pull por silo).
 
+**Proceso oficial de release (obligatorio):** [`ADR-018-RELEASE-MANAGEMENT.md`](ADR-018-RELEASE-MANAGEMENT.md) — DEV → STAGING → PROD, freeze, QA, backup, rollback, GO LIVE.  
+**Paquete del release en curso:** [`releases/EN1_RELEASE_v1.0.0.md`](releases/EN1_RELEASE_v1.0.0.md).
+
 ---
 
 ## Antes de tocar código
@@ -16,13 +19,14 @@ Complementa la política técnica de [`REGLAS-DE-TRABAJO.md`](../REGLAS-DE-TRABA
 Esta norma aplica a **staging**, **prod** y **relatic** (cualquier silo que no sea `dev/app`).
 
 1. **No** actualizar contra “lo último de `develop`” ni hacer `git pull` a ciegas sin saber **qué revisión** queda en el servidor.
-2. Cada despliegue va contra un **tag** (p. ej. `v3.0.2`) o **commit** explícito que te indiquen. Si no te pasan referencia, **parar** y pedirla antes de tocar el silo.
-3. Flujo típico: `git fetch origin --tags` y luego dejar el checkout en el **tag** o **commit** acordado (p. ej. `git checkout vX.Y.Z`, o avanzar `main` con merge/`--ff-only` hasta ese commit, según procedimiento del equipo).
+2. Cada despliegue va contra un **tag** (p. ej. `v1.0.0-rc1`, `v1.0.0`) o **commit** explícito que te indiquen. Si no te pasan referencia, **parar** y pedirla antes de tocar el silo.
+3. Flujo típico: `git fetch origin --tags` y luego dejar el checkout en el **tag** o **commit** acordado (p. ej. `git checkout vX.Y.Z`). Ver comandos en [ADR-018](ADR-018-RELEASE-MANAGEMENT.md).
 4. **No** machacar `.env` ni secretos con el repo: solo código desde Git; configuración **por entorno** local al silo.
+5. **Producción:** solo con **GO LIVE** explícito tras QA en staging + backup (Fases 3–5 del ADR-018).
 
 **Frase para el equipo:** *Solo se despliega el tag o el commit que te den; nunca “el último de develop” sin etiqueta.*
 
-Detalle de release (ejemplo operativo): [`PLAN_RELEASE_3.0.1_OPERACION.md`](PLAN_RELEASE_3.0.1_OPERACION.md).
+Detalle de release (ejemplo operativo): [`PLAN_RELEASE_3.0.1_OPERACION.md`](PLAN_RELEASE_3.0.1_OPERACION.md) · release EPosOne: [`releases/EN1_RELEASE_v1.0.0.md`](releases/EN1_RELEASE_v1.0.0.md).
 
 ---
 

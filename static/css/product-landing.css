@@ -377,6 +377,18 @@ a {
   background: var(--pl-surface);
 }
 
+.pl-module.is-addon {
+  border-style: dashed;
+}
+
+.pl-module__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
 .pl-module__label {
   display: inline-block;
   font-size: 0.72rem;
@@ -384,7 +396,23 @@ a {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--pl-primary-dark);
-  margin-bottom: 0.55rem;
+  margin-bottom: 0;
+}
+
+.pl-module__badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pl-primary-dark);
+  border: 1px solid var(--pl-primary);
+  padding: 0.15rem 0.45rem;
+}
+
+.pl-module__badge.is-addon {
+  color: var(--pl-muted);
+  border-color: var(--pl-border);
 }
 
 .pl-module h3 {
@@ -647,6 +675,13 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.pl-plans--two {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  max-width: 56rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .pl-plan {
   padding: 1.35rem;
   border: 1px solid var(--pl-border);
@@ -671,6 +706,12 @@ a {
   min-height: 2.8em;
 }
 
+.pl-plan__points-heading {
+  margin: 0;
+  font-weight: 600;
+  color: var(--pl-ink);
+}
+
 .pl-plan ul {
   margin: 0;
   padding-left: 1.1rem;
@@ -681,6 +722,34 @@ a {
 .pl-plan .pl-btn {
   margin-top: 0.5rem;
   width: 100%;
+}
+
+.pl-services {
+  margin-top: 2.5rem;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.pl-services__block {
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--pl-border);
+  background: var(--pl-surface);
+}
+
+.pl-services__block h3 {
+  margin: 0 0 0.35rem;
+}
+
+.pl-services__block p {
+  margin: 0 0 0.75rem;
+  color: var(--pl-muted);
+}
+
+.pl-services__block ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--pl-muted);
 }
 
 .pl-demo__form {

@@ -24,6 +24,37 @@
     </div>
 </section>
 
+{% if landing.about %}
+<section class="pl-section pl-about" id="que-es">
+    <div class="pl-section__inner pl-about__grid">
+        <div class="pl-about__copy">
+            <h2 class="pl-about__title">
+                <span class="pl-about__title-prefix">{{ landing.about.title_prefix }}</span>
+                <span class="pl-about__title-brand">{{ landing.about.title_brand }}</span><span class="pl-about__title-q">?</span>
+            </h2>
+            <p class="pl-about__lead">{{ landing.about.lead }}</p>
+            <div class="pl-about__cta">
+                <a class="pl-btn pl-btn--primary" href="#demo">Solicitar demostración</a>
+                <a class="pl-btn pl-btn--ghost" href="#planes">Ver planes</a>
+            </div>
+            {% if landing.assets and landing.assets.wordmark %}
+            <img class="pl-about__wordmark"
+                 src="{{ url_for('static', filename=landing.assets.wordmark) }}"
+                 alt="{{ brand_name|e }} — Punto de venta inteligente"
+                 width="280" height="70"
+                 decoding="async">
+            {% endif %}
+        </div>
+        <figure class="pl-about__media">
+            <img src="{{ url_for('static', filename=landing.about.image) }}"
+                 alt="{{ landing.about.image_alt|e }}"
+                 width="1024" height="768"
+                 decoding="async">
+        </figure>
+    </div>
+</section>
+{% endif %}
+
 {% if landing.pillars %}
 <section class="pl-section" id="beneficios">
     <div class="pl-section__inner">

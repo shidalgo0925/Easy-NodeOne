@@ -226,3 +226,18 @@ Orden de implementación sugerido: **Hito 1 (EPosOne primero)** → 2 → 4 (val
 | **2026-07-27** | Aprobado (GO) — unifica entrada cliente, landings EN1, Portal de cuenta, lanzador inteligente; WordPress descartado para landings de producto |
 | **2026-07-27** | **Hito 1 implementado (Dev):** `GET /` en Host `surface=product` → landing EN1 (`product_landing/`, EPosOne completo). Infra (`appdev`/`appprd`) sigue yendo a login. |
 | **2026-07-27** | **Hito 2 + Hito 4 (Dev):** auth con piel Portal ETS en Host portal; lanzador inteligente 1→producto / N→Mis Productos; `/portal/*` permitido en Host product. |
+| **2026-07-27** | **Producción comercial EPosOne:** landing en `eposone.easytech.services` (planes Starter/Business/Enterprise). Release Management: [ADR-018](ADR-018-RELEASE-MANAGEMENT.md) · paquete [`releases/EN1_RELEASE_v1.0.0.md`](releases/EN1_RELEASE_v1.0.0.md). |
+
+---
+
+## Estado de implementación (resumen)
+
+| Capacidad | Estado |
+|-----------|--------|
+| Landing EPosOne en EN1 (no WordPress) | **Hecho** — Host producto |
+| Hero, beneficios, módulos, planes, FAQ, demo, Entrar | **Hecho** |
+| Auth EN1 (sin segundo sistema) | **Hecho** |
+| Lanzador 1 producto → dashboard / N → Portal | **Hecho** |
+| `appprd` = infra (no marketing) | **Política** — endurecer DNS/marketing pendiente ops |
+| Hito 3 Portal Comercial completo | **Pendiente** |
+| Release oficial v1.0.0 | **RC** — ver ADR-018; GO LIVE pendiente de QA firmada |

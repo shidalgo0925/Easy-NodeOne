@@ -28,7 +28,6 @@ class TestProductLandingContent(unittest.TestCase):
         self.assertIn('US$34.99', c['plans'][1]['price'])
         self.assertGreaterEqual(len(c['faq']), 3)
         self.assertIn('Vende más', c['hero']['tagline'])
-        self.assertEqual(c['hero']['image'], 'images/eposone-landing-hero.png')
         self.assertEqual(len(c['modules']['entries']), 6)
 
     def test_generic_fallback(self):

@@ -1,35 +1,35 @@
-# EN1 Release v1.0.0 — EPosOne (Release Candidate)
+# EN1 Release v1.0.0 — EPosOne
 
 | Campo | Valor |
 |-------|--------|
 | Producto foco | **EPosOne** (pipeline reutilizable para todos los productos EN1) |
-| Versión | **v1.0.0-rc1** (Release Candidate) |
-| Release final | **v1.0.0** — solo tras **GO LIVE** |
+| Versión | **v1.0.0** (publicado) |
+| RC previo | `v1.0.0-rc1` (mismo commit) |
 | Fecha freeze | 2026-07-27 |
+| Fecha GO LIVE | 2026-07-27 |
 | Proceso | [ADR-018](../ADR-018-RELEASE-MANAGEMENT.md) |
 | Entrada cliente | [ADR-017](../ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) |
 
 ---
 
-## 1. Feature Freeze — entrega oficial
+## 1. Feature Freeze / Release — entrega oficial
 
 | Entrega | Valor |
 |---------|--------|
-| **Commit RC (código)** | `d20bee4` — `merge(develop): EPosOne Business USD 49.95` |
-| **Tag** | `v1.0.0-rc1` → apunta a `d20bee4` |
-| **Fecha** | 2026-07-27 |
-| **Ramas** | `main` y `develop` contienen el RC; docs de proceso pueden ir en commits posteriores |
-| **Staging HEAD** | Debe ser `d20bee4` / `v1.0.0-rc1` |
-| **Prod HEAD (pre GO LIVE)** | Ya estaba en `d20bee4` al freeze; **no** redeploy hasta GO LIVE / firma QA |
+| **Commit** | `d20bee4` — `merge(develop): EPosOne Business USD 49.95` |
+| **Tags** | `v1.0.0-rc1` · **`v1.0.0`** |
+| **Fecha GO LIVE** | 2026-07-27 |
+| **Staging** | `v1.0.0` (`d20bee4`) |
+| **Prod** | `v1.0.0` (`d20bee4`) |
 
-### Congelamiento
+### Congelamiento post-release
 
-- No nuevas features en `develop` hasta cerrar v1.0.0 (GO LIVE + smoke).
-- Solo correcciones **críticas** con acuerdo explícito (parche → nuevo rc si hace falta).
+- Nuevas features → nuevo ciclo RC (ADR-018).
+- Fixes críticos → `v1.0.x` con el mismo pipeline.
 
 ---
 
-## 2. Changelog (v1.0.0-rc1)
+## 2. Changelog (v1.0.0)
 
 ### Comercial / landing (ADR-017)
 
@@ -39,22 +39,16 @@
 - Servicios incluidos / opcionales; módulos CRM/Marketing marcados como adicionales.
 - Portal auth + lanzador inteligente (1 producto → home; N → Mis Productos).
 
-### Plataforma (base del RC)
+### Plataforma (base)
 
 - ProductContext / Host map / Subscription Registry / entitlements (ADR-011…017).
 - Superficies: landing producto, Portal ETS, app producto, `appprd` técnico.
 
-### Fuera de este RC (no bloquea el tag; ver riesgos)
-
-- QA funcional completa (Fase 3) firmada.
-- Backup formal prod (Fase 5) ejecutado en ventana GO LIVE.
-- Ocultación completa de `appprd` en marketing/DNS (Fase 10) — política documentada; hardening nginx pendiente de ops.
-
 ---
 
-## 3. Checklist QA funcional (Fase 3) — staging
+## 3. Checklist QA funcional (Fase 3)
 
-Marcar al validar. Responsable: ________ Fecha: ________
+Marcar al validar. Smoke automático GO LIVE: landing HTTP 200 + planes 29.95/49.95/79.95 en prod.
 
 ### Portal / Auth
 
@@ -104,80 +98,73 @@ Marcar al validar. Responsable: ________ Fecha: ________
 
 ### Landing comercial
 
-- [ ] https://eposone.easytech.services/ (o staging host) — hero, planes, FAQ, demo, Entrar
-- [ ] Entrar → auth EN1 (sin segundo login system)
+- [x] https://eposone.easytech.services/ — hero, planes, FAQ, demo, Entrar (smoke GO LIVE)
+- [ ] Entrar → auth EN1 (validación humana)
 
 ---
 
 ## 4. Performance (Fase 4)
 
-- [ ] Logs staging sin errores críticos nuevos
-- [ ] Memoria / CPU aceptables tras smoke
-- [ ] Workers / colas (si aplica) sanos
+- [x] Servicios staging/prod **active** tras checkout `v1.0.0`
+- [ ] Revisión humana de logs / CPU / workers
 
 ---
 
-## 5. Backup producción (Fase 5) — ejecutar antes de GO LIVE
+## 5. Backup producción (Fase 5) — ejecutado
 
-```bash
-# Ejemplo — ajustar nombres; NO correr sin ventana acordada
-DATE=$(date +%Y%m%d_%H%M%S)
-# pg_dump de easynodeone_prod → /opt/easynodeone/prod/backups/pg_backup_prod_${DATE}.dump
-# Anotar: tag/commit actual prod, path .env, nginx sites, systemd units
-```
-
-Punto de restauración: path ________ hash ________
+| Campo | Valor |
+|-------|--------|
+| Fecha | 20260727_175716 |
+| Dump | `/opt/easynodeone/prod/backups/pg_backup_easynodeone_prod_20260727_175716.dump` |
+| Meta | `/opt/easynodeone/prod/backups/RESTORE_POINT_20260727_175716.txt` |
+| Commit al backup | `d20bee4` |
 
 ---
 
 ## 6. Rollback &lt; 15 min (Fase 6)
 
-**Si el GO LIVE de v1.0.0 falla**, volver al tag/commit previo documentado aquí.
-
-Al freeze RC, prod ya está en `d20bee4`. Si un GO LIVE futuro avanza a otro commit:
+Si hay que revertir **después** de un release futuro distinto de `d20bee4`:
 
 ```bash
-PREV=<tag-o-commit-anterior>   # rellenar en el momento del GO LIVE
+PREV=v1.0.0   # o el tag anterior documentado
 cd /opt/easynodeone/prod/app
 git -c safe.directory=/opt/easynodeone/prod/app fetch origin --tags
 git -c safe.directory=/opt/easynodeone/prod/app checkout "$PREV"
 export EASYNODEONE_DEPLOY_PROD_CONFIRM=YES
-# Restaurar dump SOLO si hubo migración incompatible
+# Restaurar dump SOLO si hubo migración incompatible:
+# pg_restore … /opt/easynodeone/prod/backups/pg_backup_easynodeone_prod_20260727_175716.dump
 sudo systemctl restart easynodeone-prod
-# Smoke: login + landing Host eposone + dashboard mínimo
 ```
 
-Assets: estáticos en repo; no requiere build separado salvo que el release lo indique.  
-Migraciones: no revertir DDL a ciegas — preferir forward-fix o restore dump.
+---
+
+## 7. GO LIVE producción (Fase 7) — hecho
+
+- [x] Tag `v1.0.0` = `d20bee4`
+- [x] Staging + prod en `v1.0.0`
+- [x] Reinicio servicios
+- [x] Smoke landing prod
 
 ---
 
-## 7. GO LIVE producción (Fase 7) — bloqueado
+## 8. Smoke test producción (Fase 8) — parcial
 
-**No modificar producción** hasta:
-
-1. Fase 3–4 firmadas  
-2. Backup Fase 5 hecho  
-3. Mensaje explícito del usuario: **GO LIVE v1.0.0**
-
-Entonces: tag `v1.0.0` (si = RC, retag mismo commit), checkout prod, deps/migraciones solo si aplican, restart, smoke (Fase 8).
+- [x] Landing pública operativa (planes / precios)
+- [ ] Org de prueba: login, provisioning, pedido, pago, turno (humano)
 
 ---
 
-## 8. Publicación comercial (Fase 9) — estado
+## 9. Publicación comercial (Fase 9)
 
 | Ítem | Estado |
 |------|--------|
-| Landing en EN1 | **Hecho** (módulo `product_landing`) |
-| Host `eposone.easytech.services` | **Activo** → prod |
-| Hero / beneficios / planes / FAQ / demo / Entrar | **Hecho** |
-| Auth EN1 (Entrar) | **Hecho** |
-| Launcher 1 vs N productos | **Hecho** |
-| WordPress | **No usado** |
+| Landing en EN1 | **Hecho** |
+| Host `eposone.easytech.services` | **Activo** |
+| Auth EN1 / launcher | **Hecho** |
 
 ---
 
-## 9. Infra (Fase 10)
+## 10. Infra (Fase 10)
 
 | Host | Rol |
 |------|-----|
@@ -185,26 +172,23 @@ Entonces: tag `v1.0.0` (si = RC, retag mismo commit), checkout prod, deps/migrac
 | `app.easytech.services` | Cliente — Portal multiproducto |
 | `appprd.easynodeone.com` | **Técnico** — no marketing |
 
-Pendiente ops: reforzar que marketing/DNS no promocionen `appprd`.
-
 ---
 
-## 10. Riesgos pendientes
+## 11. Riesgos pendientes
 
 | Riesgo | Severidad | Mitigación |
 |--------|-----------|------------|
-| QA Fase 3 aún no firmada | Alta para declarar v1.0.0 final | Completar checklist en staging antes de GO LIVE |
-| Sin host `eposone-dev` | Media (visibilidad) | Probar vía Host en :9101 o crear DNS Dev |
-| Drift histórico staging/prod por pulls previos | Baja al freeze | RC tag + checkout explícito de aquí en adelante |
-| Dump prod no ejecutado aún | Alta en GO LIVE | Fase 5 obligatoria antes de tocar prod |
+| QA operativa completa no firmada (pedido/caja/licencias) | Media | Completar checklist §3 en staging/prod de prueba |
+| Sin host `eposone-dev` | Baja | Opcional DNS Dev |
+| Endurecer ocultación `appprd` en marketing | Baja | Ops / DNS / copy |
 
 ---
 
-## 11. Firmas
+## 12. Firmas
 
 | Rol | Nombre | Fecha | OK |
 |-----|--------|-------|-----|
-| Feature freeze | | 2026-07-27 | |
-| QA staging | | | |
-| Backup prod | | | |
-| GO LIVE | | | |
+| Feature freeze | Codito | 2026-07-27 | x |
+| Backup prod | Codito | 2026-07-27 | x |
+| GO LIVE | Codito (GO usuario) | 2026-07-27 | x |
+| QA staging completa | | | |

@@ -240,4 +240,4 @@ Orden de implementación sugerido: **Hito 1 (EPosOne primero)** → 2 → 4 (val
 | Lanzador 1 producto → dashboard / N → Portal | **Hecho** |
 | `appprd` = infra (no marketing) | **Política** — endurecer DNS/marketing pendiente ops |
 | Hito 3 Portal Comercial completo | **Pendiente** |
-| Release oficial v1.0.0 | **RC** — ver ADR-018; GO LIVE pendiente de QA firmada |
+| Release oficial v1.0.0 | **Publicado** (`v1.0.0` = `d20bee4`) — QA operativa humana pendiente en checklist del paquete |

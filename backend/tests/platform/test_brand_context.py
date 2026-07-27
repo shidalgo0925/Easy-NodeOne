@@ -78,9 +78,9 @@ class TestContextResolverHost(unittest.TestCase):
         self.assertEqual(epo.product.code, 'eposone')
         self.assertEqual(epo.product.surface, 'product')
         self.assertEqual(epo.brand.display_name, 'EPosOne')
-        self.assertEqual(epo.brand.theme_primary, '#FF6B35')
+        self.assertEqual(epo.brand.theme_primary, '#FF5722')
         self.assertEqual(epo.product.allowed_apps, ('eposone',))
-        self.assertEqual(epo.brand.logo_url, 'images/logo-eposone.svg')
+        self.assertEqual(epo.brand.logo_url, 'images/logo-eposone-wordmark.jpg')
         self.assertEqual(epo.product.home_hint, 'eposone.eposone_home')
         self.assertEqual(epo.brand.brand_preset, 'eposone')
 

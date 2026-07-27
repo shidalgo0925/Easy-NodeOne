@@ -19,17 +19,20 @@
 <body class="pl-body pl-body--{{ product_code|e }}">
     <header class="pl-header">
         <div class="pl-header__inner">
-            <a class="pl-brand" href="/">
+            <a class="pl-brand{% if brand_logo_wide %} pl-brand--wide{% endif %}" href="/">
                 {% if brand_logo %}
-                <img class="pl-brand__logo"
+                <img class="pl-brand__logo{% if brand_logo_wide %} pl-brand__logo--wordmark{% endif %}"
                      src="{{ url_for('static', filename=brand_logo) }}"
                      alt="{{ brand_name|e }}"
-                     width="40" height="40"
+                     {% if brand_logo_wide %}width="200" height="50"{% else %}width="40" height="40"{% endif %}
                      decoding="async">
                 {% endif %}
+                {% if not brand_logo_wide %}
                 <span class="pl-brand__name">{{ brand_name }}</span>
+                {% endif %}
             </a>
             <nav class="pl-nav" aria-label="Principal">
+                {% if landing.about %}<a href="#que-es">Qué es</a>{% endif %}
                 {% if landing.pillars %}<a href="#beneficios">Beneficios</a>{% elif landing.benefits %}<a href="#beneficios">Beneficios</a>{% endif %}
                 {% if landing.modules %}<a href="#modulos">Módulos</a>{% endif %}
                 {% if landing.plans %}<a href="#planes">Planes</a>{% endif %}

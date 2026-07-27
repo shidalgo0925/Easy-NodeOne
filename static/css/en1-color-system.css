@@ -27,25 +27,25 @@ html[data-brand='en1'] {
 
 /* Surface EPosOne — Product Registry theme (Host eposone.easytech.services) */
 html[data-brand='eposone'] {
-    --color-primary: #ff6b35;
-    --color-primary-dark: #c2410c;
-    --color-accent: #fdba74;
-    --color-background-cream: #fff7ed;
-    --color-text: #431407;
-    --color-border: #fed7aa;
-    --en1-accent: #ff6b35;
-    --en1-sorbet: #ff6b35;
-    --en1-sidebar: #c2410c;
-    --en1-canvas: #fff7ed;
+    --color-primary: #ff5722;
+    --color-primary-dark: #1a233a;
+    --color-accent: #ff8a65;
+    --color-background-cream: #ffffff;
+    --color-text: #1a233a;
+    --color-border: #e2e8f0;
+    --en1-accent: #ff5722;
+    --en1-sorbet: #ff5722;
+    --en1-sidebar: #1a233a;
+    --en1-canvas: #ffffff;
     --en1-surface: #ffffff;
-    --en1-border: #fed7aa;
-    --en1-border-strong: #fdba74;
-    --en1-hover: #ffedd5;
-    --en1-icon: #ea580c;
-    --en1-ink: #431407;
-    --en1-ink-secondary: #9a3412;
-    --en1-ink-muted: #c2410c;
-    --en1-badge-bg: #ffedd5;
+    --en1-border: #e2e8f0;
+    --en1-border-strong: #cbd5e1;
+    --en1-hover: #f8fafc;
+    --en1-icon: #ff5722;
+    --en1-ink: #1a233a;
+    --en1-ink-secondary: #475569;
+    --en1-ink-muted: #64748b;
+    --en1-badge-bg: #fff7ed;
     --en1-badge-ink: #c2410c;
 }
 

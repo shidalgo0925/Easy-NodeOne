@@ -32,13 +32,13 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             'ventas, inventario, clientes y reportes. Online y offline. 45 días gratis.'
         ),
         'hero': {
-            'eyebrow': 'EasyTech · Plataforma de punto de venta',
+            'eyebrow': 'Easy Technology Services',
             'headline': name,
             'tagline': 'Vende más. Controla todo. Desde cualquier lugar.',
             'subhead': (
-                'Punto de venta todo en uno para retail, restaurantes y servicios: '
-                'gestione ventas, inventario, clientes y reportes con una interfaz intuitiva '
-                'que funciona online y offline.'
+                'El punto de venta inteligente que impulsa tu negocio. '
+                'Todo en uno para retail, restaurantes y servicios: ventas, inventario, '
+                'clientes y reportes — online y offline.'
             ),
             'offer_badge': '45 días gratis · Sin docs. fiscales ni firma electrónica',
             'primary_cta': {'label': 'Solicitar demostración', 'href': '#demo'},
@@ -47,6 +47,17 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             'fine_print': (
                 'Sin compromiso · La prueba no incluye documentos fiscales ni firma electrónica · Contacto EasyTech'
             ),
+        },
+        'about': {
+            'title_prefix': '¿Qué es',
+            'title_brand': name,
+            'lead': 'El punto de venta inteligente que impulsa tu negocio.',
+            'image': 'images/eposone-landing-product.jpg',
+            'image_alt': 'Tablet con la interfaz EPosOne — punto de venta inteligente',
+        },
+        'assets': {
+            'wordmark': 'images/logo-eposone-wordmark.jpg',
+            'product_shot': 'images/eposone-landing-product.jpg',
         },
         'pillars': [
             {'title': 'Más rápido', 'body': 'Cobros ágiles y menos filas en caja.'},
@@ -251,8 +262,9 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             ],
         },
         'source_url': 'https://easytech.services/eposone.html',
-        'tagline': tagline or 'Punto de venta',
+        'tagline': tagline or 'Punto de venta inteligente',
         'description': description,
+        'logo_wide': True,
     }
 
 

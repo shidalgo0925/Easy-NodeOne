@@ -30,6 +30,7 @@ def render_product_public_landing():
         landing=content,
         brand_name=brand.display_name or (defn.name if defn else product.code),
         brand_logo=logo,
+        brand_logo_wide=bool(content.get('logo_wide')),
         product_code=product.code,
         login_url=login_url,
         theme={

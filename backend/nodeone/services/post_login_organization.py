@@ -204,6 +204,28 @@ def finalize_post_login_organization(user, req):
         M.session.pop('organization_id', None)
         return 'pick', None
 
+    # Admin multi-org: en Host de producto preferir org con suscripción de ese producto.
+    try:
+        from nodeone.core.platform.context_resolver import current_app_context
+
+        app_ctx = current_app_context()
+        host_code = (getattr(app_ctx, 'product_code', None) or '').strip().lower()
+        if getattr(app_ctx, 'surface', None) == 'product' and host_code:
+            from nodeone.modules.ets_portal.portal_service import PortalService
+
+            for org in orgs:
+                oid = int(org.id)
+                usable = PortalService.list_usable_products_for_tenant(
+                    oid, scope_organization_id=oid
+                )
+                if any((p.get('product_code') or '').strip().lower() == host_code for p in usable):
+                    M.session['organization_id'] = oid
+                    M.session.pop('require_org_selection', None)
+                    save_last_selected_organization(user, oid)
+                    return 'ok', None
+    except Exception:
+        pass
+
     last_raw = getattr(user, 'last_selected_organization_id', None)
     try:
         last_id = int(last_raw) if last_raw is not None else None

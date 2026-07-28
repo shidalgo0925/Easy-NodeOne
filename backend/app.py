@@ -776,34 +776,50 @@ def resolve_theme_tokens():
 
     try:
         s = OrganizationSettings.get_settings_for_session()
+        from nodeone.services.nav_branding import _authenticated_tenant_nav_preferred
         from nodeone.services.tenant_email_logo_storage import resolve_tenant_logo_static_relpath
+
+        tenant_logo = resolve_tenant_logo_static_relpath(s.logo_url or '')
+        tenant_favicon = s.favicon_url or ''
+        # Host producto + sesión: colores/logo del tenant (como EN1), no paleta fija EPosOne.
+        use_tenant_product_brand = (
+            app_ctx.surface == 'product' and _authenticated_tenant_nav_preferred()
+        )
 
         if use_iius:
             out = {
                 **_IIUS_THEME,
-                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
-                'theme_favicon_url': s.favicon_url or '',
+                'theme_logo_url': tenant_logo,
+                'theme_favicon_url': tenant_favicon,
+            }
+        elif use_tenant_product_brand:
+            out = {
+                'theme_primary': s.primary_color or '#2563EB',
+                'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
+                'theme_accent': s.accent_color or '#06B6D4',
+                'theme_logo_url': tenant_logo,
+                'theme_favicon_url': tenant_favicon,
             }
         elif app_ctx.surface in ('portal', 'product'):
-            # ADR-013 Portal / Surface producto — BrandContext (no EN1 genérico)
+            # ADR-013 Portal / landing anónima de producto — BrandContext del producto
             out = {
                 **app_ctx.theme_overlay(),
-                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
-                'theme_favicon_url': s.favicon_url or '',
+                'theme_logo_url': tenant_logo,
+                'theme_favicon_url': tenant_favicon,
             }
         elif use_en1 and not (s.primary_color or s.primary_color_dark or s.accent_color):
             out = {
                 **_EN1_THEME,
-                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
-                'theme_favicon_url': s.favicon_url or '',
+                'theme_logo_url': tenant_logo,
+                'theme_favicon_url': tenant_favicon,
             }
         else:
             out = {
                 'theme_primary': s.primary_color or '#2563EB',
                 'theme_primary_dark': s.primary_color_dark or '#1E3A8A',
                 'theme_accent': s.accent_color or '#06B6D4',
-                'theme_logo_url': resolve_tenant_logo_static_relpath(s.logo_url or ''),
-                'theme_favicon_url': s.favicon_url or '',
+                'theme_logo_url': tenant_logo,
+                'theme_favicon_url': tenant_favicon,
             }
     except Exception:
         out = {
@@ -851,23 +867,40 @@ def resolve_theme_tokens():
     out.setdefault('theme_accent_cyan', out.get('theme_accent', '#06B6D4'))
     out.setdefault(
         'theme_background_cream',
-        app_ctx.theme_background
-        if app_ctx.surface in ('portal', 'product')
-        else (_EN1_THEME['theme_background_cream'] if use_en1 else '#F1F5F9'),
+        (
+            '#F1F5F9'
+            if (app_ctx.surface == 'product' and out.get('theme_primary') and out.get('theme_primary') != app_ctx.brand.theme_primary)
+            else app_ctx.theme_background
+            if app_ctx.surface in ('portal', 'product')
+            else (_EN1_THEME['theme_background_cream'] if use_en1 else '#F1F5F9')
+        ),
     )
-    # Visual brand_preset: silo/env; portal/producto usan BrandContext
+    # Visual brand_preset: silo/env; portal/producto anónimo usan BrandContext
     out['brand_preset'] = preset if (use_iius or use_en1) else ''
     if use_iius:
         out['brand_preset'] = 'iius'
     # Metadatos ADR-011 (data-product / data-surface / nombre resuelto)
     out.update(app_ctx.to_template_dict())
-    # No pisar brand_preset visual con el del producto (salvo portal / surface product)
+    # No pisar brand_preset visual con el del producto (salvo portal / surface product anónimo)
     if use_iius:
         out['brand_preset'] = 'iius'
     elif app_ctx.surface == 'portal':
         out['brand_preset'] = app_ctx.brand_preset or 'portal'
     elif app_ctx.surface == 'product':
-        out['brand_preset'] = app_ctx.brand_preset or app_ctx.product_code or 'en1'
+        try:
+            from nodeone.services.nav_branding import _authenticated_tenant_nav_preferred
+
+            if _authenticated_tenant_nav_preferred():
+                # Preset visual del tenant si existe; no forzar CSS eposone sobre colores de org.
+                try:
+                    s_preset = (OrganizationSettings.get_settings_for_session().preset or '').strip()
+                except Exception:
+                    s_preset = ''
+                out['brand_preset'] = s_preset or 'custom'
+            else:
+                out['brand_preset'] = app_ctx.brand_preset or app_ctx.product_code or 'en1'
+        except Exception:
+            out['brand_preset'] = app_ctx.brand_preset or app_ctx.product_code or 'en1'
     elif use_en1:
         out['brand_preset'] = preset if preset in _EN1_BRAND_PRESET_KEYS or preset == '' else 'en1'
         if not out['brand_preset']:

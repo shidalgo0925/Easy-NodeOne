@@ -100,13 +100,12 @@ def build_wizard_quick_links(
     guide_q = {'guide': '1'} if wizard_mode in ('create', 'edit') else {}
 
     if wizard_mode == 'tenant':
+        # ADR-019: Tenant Admin no ve ni enlaza SaaS / guía de plataforma (solo SA).
         _add('EPosOne', 'fas fa-cash-register', 'eposone.eposone_home')
-        _add('Módulos SaaS', 'fas fa-puzzle-piece', 'admin_saas_modules_page')
         _add('Usuarios', 'fas fa-users-cog', 'admin_users')
         _add('Email / SMTP', 'fas fa-envelope', 'admin_email')
         _add('Impuestos', 'fas fa-percent', 'admin_configuration_taxes')
         _add('Pagos', 'fas fa-credit-card', 'payments_admin.admin_payments', context='config')
-        _add('Guía de productos', 'fas fa-book-open', 'admin_product_guide')
         return links
 
     if org_id:

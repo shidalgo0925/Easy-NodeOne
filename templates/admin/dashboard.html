@@ -10,7 +10,8 @@
         <p class="subtitle">¿Qué deseas hacer hoy?</p>
     </div>
 
-    {% if show_platform_admin_nav and setup_wizard and setup_wizard.show_banner %}
+    {# ADR-019: SaaS / guía plataforma solo Super Admin (is_admin). show_platform_admin_nav también se usa para selector de org de Tenant Admin. #}
+    {% if current_user.is_admin and setup_wizard and setup_wizard.show_banner %}
     <div class="alert alert-primary d-flex flex-wrap align-items-center justify-content-between gap-3 border-0 shadow-sm mb-4 en1-setup-banner">
         <div class="d-flex align-items-center gap-3">
             <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;"><i class="fas fa-route fs-5"></i></div>
@@ -25,14 +26,12 @@
 
     <!-- Acciones rápidas -->
     <div class="portal-quick-actions">
-        {% if show_platform_admin_nav %}
+        {% if current_user.is_admin %}
         <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-outline-dark"><i class="fas fa-building me-1"></i> Empresas</a>
         <a href="{{ url_for('admin_saas_catalog_list') }}" class="btn btn-outline-dark"><i class="fas fa-list me-1"></i> Catálogo módulos</a>
-        {% endif %}
-        {% if show_tenant_admin_menu %}
         <a href="{{ url_for('admin_saas_modules_page') }}" class="btn btn-primary"><i class="fas fa-puzzle-piece me-1"></i> Módulos SaaS</a>
         {% endif %}
-        {% if show_tenant_admin_menu or show_platform_admin_nav %}
+        {% if show_tenant_admin_menu %}
         <a href="{{ url_for('admin_configuration_taxes') }}" class="btn btn-outline-dark"><i class="fas fa-percent me-1"></i> Impuestos</a>
         {% endif %}
         {% if saas_module_enabled('workshop') %}
@@ -51,9 +50,9 @@
         <a href="/admin/payments?context=config" class="btn btn-outline-primary"><i class="fas fa-credit-card me-1"></i> Pagos (config)</a>
     </div>
 
-    <!-- Grid de módulos (portal visual) — SaaS primero -->
+    <!-- Grid de módulos (portal visual) — SaaS solo SA (ADR-019) -->
     <div class="modules-grid">
-        {% if show_platform_admin_nav %}
+        {% if current_user.is_admin %}
         <a href="{{ url_for('admin_platform_setup') }}" class="module-card module-card--sorbet">
             <div class="module-icon"><i class="fas fa-route"></i></div>
             <h3>Guía de inicio</h3>
@@ -69,15 +68,13 @@
             <h3>Catálogo de módulos</h3>
             <p>Definir módulos del producto (código, nombre, core).</p>
         </a>
-        {% endif %}
-        {% if show_tenant_admin_menu %}
         <a href="{{ url_for('admin_saas_modules_page') }}" class="module-card module-card--oz">
             <div class="module-icon"><i class="fas fa-puzzle-piece"></i></div>
             <h3>Módulos por organización</h3>
             <p>Encender o apagar citas, marketing, certificados, etc. por empresa.</p>
         </a>
         {% endif %}
-        {% if show_tenant_admin_menu or show_platform_admin_nav %}
+        {% if show_tenant_admin_menu %}
         <a href="{{ url_for('admin_configuration_taxes') }}" class="module-card module-card--marigold">
             <div class="module-icon"><i class="fas fa-percent"></i></div>
             <h3>Impuestos</h3>
@@ -140,11 +137,13 @@
             <p>Usuarios, roles y permisos.</p>
         </a>
         {% endif %}
+        {% if current_user.is_admin %}
         <a href="{{ url_for('admin_backup.admin_backup') }}" class="module-card">
             <div class="module-icon"><i class="fas fa-cog"></i></div>
             <h3>Sistema</h3>
             <p>Respaldo, exportación y configuraciones avanzadas.</p>
         </a>
+        {% endif %}
     </div>
 
     <!-- Resumen numérico (opcional, compacto) -->

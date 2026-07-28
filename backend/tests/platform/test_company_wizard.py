@@ -53,6 +53,35 @@ class TestCompanyWizardService(unittest.TestCase):
         self.assertEqual(payload['legal_name'], 'ACME')
         self.assertEqual(payload['tax_id'], '123')
 
+    @patch('flask.url_for', side_effect=lambda ep, **kw: f'/{ep}')
+    def test_tenant_quick_links_exclude_saas(self, _url_for):
+        from nodeone.services.company_wizard import build_wizard_quick_links
+
+        labels = [
+            x['label']
+            for x in build_wizard_quick_links(
+                wizard_mode='tenant', org_id=1, has_view_endpoint=lambda _e: True
+            )
+        ]
+        self.assertNotIn('Módulos SaaS', labels)
+        self.assertNotIn('Guía de productos', labels)
+        self.assertNotIn('Catálogo módulos', labels)
+        self.assertIn('Impuestos', labels)
+        self.assertIn('Usuarios', labels)
+
+    @patch('flask.url_for', side_effect=lambda ep, **kw: f'/{ep}')
+    def test_platform_quick_links_include_saas(self, _url_for):
+        from nodeone.services.company_wizard import build_wizard_quick_links
+
+        labels = [
+            x['label']
+            for x in build_wizard_quick_links(
+                wizard_mode='edit', org_id=1, has_view_endpoint=lambda _e: True
+            )
+        ]
+        self.assertIn('Módulos SaaS', labels)
+        self.assertIn('Catálogo módulos', labels)
+
 
 class TestCompanyWizardRoutes(unittest.TestCase):
     @classmethod

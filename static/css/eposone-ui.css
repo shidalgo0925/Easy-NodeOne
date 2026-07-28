@@ -13,10 +13,10 @@
 
 body[data-platform-app-accent="eposone"],
 .en1-eposone-page {
-    --epos-accent: #c2410c;
-    --epos-accent-hover: #9a3412;
-    --epos-accent-soft: rgba(194, 65, 12, 0.1);
-    --epos-accent-ink: #7c2d12;
+    --epos-accent: var(--color-primary, #c2410c);
+    --epos-accent-hover: color-mix(in srgb, var(--epos-accent) 82%, #000);
+    --epos-accent-soft: color-mix(in srgb, var(--epos-accent) 12%, transparent);
+    --epos-accent-ink: color-mix(in srgb, var(--epos-accent) 72%, #000);
 
     --epos-canvas: var(--en1-canvas, #f7f9fc);
     --epos-surface: var(--en1-surface, #ffffff);

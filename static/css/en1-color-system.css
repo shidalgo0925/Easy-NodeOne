@@ -25,28 +25,27 @@ html[data-brand='en1'] {
     --en1-action-pressed: color-mix(in srgb, var(--en1-action) 70%, #000);
 }
 
-/* Surface EPosOne — Product Registry theme (Host eposone.easytech.services) */
-html[data-brand='eposone'] {
-    --color-primary: #ff5722;
-    --color-primary-dark: #1a233a;
-    --color-accent: #ff8a65;
-    --color-background-cream: #ffffff;
-    --color-text: #1a233a;
-    --color-border: #e2e8f0;
-    --en1-accent: #ff5722;
-    --en1-sorbet: #ff5722;
-    --en1-sidebar: #1a233a;
-    --en1-canvas: #ffffff;
+/* Surface EPosOne — tokens desde :root (organization_settings / BrandContext).
+   No hardcodear --color-*: pisaba el branding del tenant en admin. */
+html[data-brand='eposone'],
+html[data-brand='custom'] {
+    --en1-accent: var(--color-primary, #ff5722);
+    --en1-sorbet: var(--en1-accent);
+    --en1-sidebar: var(--color-primary-dark, #1a233a);
+    --en1-canvas: var(--color-background-cream, #ffffff);
     --en1-surface: #ffffff;
-    --en1-border: #e2e8f0;
+    --en1-border: var(--color-border, #e2e8f0);
     --en1-border-strong: #cbd5e1;
     --en1-hover: #f8fafc;
-    --en1-icon: #ff5722;
-    --en1-ink: #1a233a;
+    --en1-icon: var(--color-accent, var(--color-primary, #ff5722));
+    --en1-ink: var(--color-text, #1a233a);
     --en1-ink-secondary: #475569;
     --en1-ink-muted: #64748b;
-    --en1-badge-bg: #fff7ed;
-    --en1-badge-ink: #c2410c;
+    --en1-badge-bg: color-mix(in srgb, var(--en1-accent) 12%, #fff);
+    --en1-badge-ink: color-mix(in srgb, var(--en1-accent) 70%, #000);
+    --en1-action: var(--en1-accent);
+    --en1-action-hover: color-mix(in srgb, var(--en1-action) 85%, #000);
+    --en1-action-pressed: color-mix(in srgb, var(--en1-action) 70%, #000);
 }
 
 :root {

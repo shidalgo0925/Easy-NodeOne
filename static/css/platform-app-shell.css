@@ -181,15 +181,15 @@ body[data-app-nav-native="1"] .app-nav-domain > .nav-group-toggle {
     white-space: nowrap;
 }
 
-/* EPosOne — acento propio (producto, no ERP genérico) */
+/* EPosOne — acento desde tokens del tenant (--color-primary), no naranja fijo */
 body[data-platform-app-accent="eposone"] {
-    --app-shell-accent: #c2410c;
-    --app-shell-accent-soft: rgba(194, 65, 12, 0.1);
+    --app-shell-accent: var(--color-primary, #c2410c);
+    --app-shell-accent-soft: color-mix(in srgb, var(--app-shell-accent) 12%, transparent);
 }
 
 body[data-platform-app-accent="eposone"][data-platform-app-shell="1"] .left-panel.sidebar-erp,
 body[data-platform-app-accent="eposone"][data-app-nav-native="1"] .left-panel.sidebar-erp {
-    border-right-color: rgba(194, 65, 12, 0.25);
+    border-right-color: color-mix(in srgb, var(--app-shell-accent) 25%, transparent);
 }
 
 body[data-platform-app-accent="eposone"] .platform-shell-banner {
@@ -201,7 +201,7 @@ body[data-platform-app-accent="eposone"] .platform-shell-banner__app {
 }
 
 body[data-platform-app-accent="eposone"] .app-context-bar {
-    border-bottom-color: rgba(194, 65, 12, 0.2);
+    border-bottom-color: color-mix(in srgb, var(--app-shell-accent) 20%, transparent);
 }
 
 body[data-platform-app-accent="eposone"] .app-context-bar__breadcrumb .breadcrumb-item a {
